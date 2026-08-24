@@ -85,6 +85,16 @@ describe("HeaderFrame", () => {
     expect(screen.getByText("contenido de prueba")).toBeInTheDocument();
   });
 
+  it("en el Home sin scrollear pero con forceSolid, queda sólido igual (menú mobile abierto, TR-023)", () => {
+    usePathnameMock.mockReturnValue("/");
+    const { container } = render(
+      <HeaderFrame forceSolid>
+        <p>contenido</p>
+      </HeaderFrame>,
+    );
+    expect(container.querySelector("header")).toHaveClass("bg-porcelain", "text-ink");
+  });
+
   it("mide su altura real al montar y la expone como --header-height (evita el hueco con el contenido de abajo)", () => {
     usePathnameMock.mockReturnValue("/buscar");
     render(

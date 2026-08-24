@@ -39,7 +39,16 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
         </div>
       </div>
 
-      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
+      {/* minmax(140px, 1fr), no minmax(0, 1fr) — corrección 2026-08-24,
+          pedido explícito del cliente ("los modulos se ven contraidos
+          contra la pagina"): en la vista Semana (7 columnas) sin un piso
+          de ancho, cada columna se achicaba a lo que sobrara del
+          viewport (en mobile, casi nada) y los turnos quedaban
+          ilegibles. Con un piso, la grilla entera se vuelve más ancha
+          que la pantalla en mobile a propósito — el contenedor padre
+          (calendar-view.tsx) ya tiene overflow-auto para eso, se navega
+          deslizando en vez de comprimir el contenido. */}
+      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(140px, 1fr))` }}>
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
           return (

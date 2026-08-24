@@ -274,6 +274,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 
 **Job `deploy` repuesto, mismo día (2026-08-24), pedido explícito del cliente ("ya configuré render, con los deploy keys en secrets en actions, reponé el job deploy") — ver TR-022 en `docs/tradeoffs.md`:** blueprint aplicado en el dashboard de Render, `RENDER_DEPLOY_HOOK_API`/`RENDER_DEPLOY_HOOK_WEB` cargados como secrets del repo. `ci.yml` recupera el job `deploy` (texto idéntico al que tenía antes de sacarse, apuntando a `dev`, gateado por los cuatro jobs de test/build). Verificado con `js-yaml`: 5 jobs (`web`/`api`/`test-api`/`test-web`/`deploy`), condición `if` y `needs` del job `deploy` correctos. T5.5 cierra ✅.
 
+**Corrección mobile post-deploy (2026-08-24), pedido explícito del cliente ("el forntend se ve horrible en mobile"... "aplicar la misma solucion que alojamientos madryn... con una barra desplegable"... "los modulos se ven contraidos contra la pagina... deslizar con el dedo") — adelanta parte de T5.2, ver TR-023 en `docs/tradeoffs.md`:**
+- Header: nuevo `site-header-chrome.tsx` (Client Component) — debajo de `md`, la fila superior queda solo con el logo + botón de hamburguesa; el resto de la navegación se mueve a un `<nav>` desplegable, mismo patrón que `site-header.tsx` de Alojamientos Madryn. `HeaderFrame` suma `forceSolid` para que el dropdown se lea bien sobre la foto transparente del Home.
+- Sidebar de `/panel`: riel de íconos angosto (`w-16`) siempre debajo de `md`, sin importar el toggle manual — antes `w-60` fijo se comía la mayor parte de un viewport angosto.
+- Calendario: contenedor con `overflow-auto` (antes solo `-y`); columnas de la vista Semana/Día con piso de `140px` (antes `minmax(0, 1fr)`, se aplastaban a nada); vista Mes con `min-w-[490px]`.
+- Editor de página (`/personalizar-pagina`): previsualización + panel de edición pasan de una fila fija a `flex-col lg:flex-row` — se apilan en mobile en vez de competir por el mismo ancho angosto.
+- Verificación: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, **307 tests → 92.7%** cobertura (test nuevo `site-header-chrome.test.tsx` + un caso nuevo en `header-frame.test.tsx` para `forceSolid`).
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

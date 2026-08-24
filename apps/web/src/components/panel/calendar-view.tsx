@@ -135,8 +135,16 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
         </div>
       </div>
 
-      {/* Altura fija + scroll interno propio — no estira la página. */}
-      <div className="h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+      {/* Altura fija + scroll interno propio — no estira la página.
+          overflow-auto (no solo -y): corrección 2026-08-24, pedido
+          explícito del cliente ("se rompre mucho el apartado de gestion
+          de clinica... esto se soluciona facil si puedo navergarme facil
+          hacia los costados... o bien deslizar con el dedo") — la vista
+          Semana (CalendarGrid) fuerza un ancho mínimo por día (ver ese
+          componente), así que en mobile el contenido real es más ancho
+          que la pantalla; sin overflow-x el usuario no tenía forma de
+          llegar a los días de más a la derecha. */}
+      <div className="h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
         {!cargando && vista === "mes" && (
           <CalendarMonthGrid

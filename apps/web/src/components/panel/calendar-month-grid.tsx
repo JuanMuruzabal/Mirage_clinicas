@@ -18,7 +18,13 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
   const hoy = new Date();
 
   return (
-    <div className="grid grid-cols-7 border-t border-l border-arena">
+    // min-w (2026-08-24, mismo pedido que CalendarGrid): sin un piso de
+    // ancho, en mobile cada una de las 7 columnas podía terminar en
+    // ~40px, demasiado angosto para que los puntos de color/"+N" se
+    // lean. El contenedor padre (calendar-view.tsx) ya tiene
+    // overflow-auto para navegar deslizando cuando esto es más ancho que
+    // la pantalla.
+    <div className="grid min-w-[490px] grid-cols-7 border-t border-l border-arena">
       {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
         <div
           key={d}

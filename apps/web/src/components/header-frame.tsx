@@ -9,7 +9,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 // la foto del hero pueda ir de punta a punta detrás del header, este tiene
 // que salir del flujo normal — cada página sin foto debajo compensa con
 // `pt-[var(--header-height)]` en su <main> (ver globals.css).
-export function HeaderFrame({ children }: { children: ReactNode }) {
+export function HeaderFrame({
+  children,
+  forceSolid = false,
+}: {
+  children: ReactNode;
+  /** El menú mobile desplegable (site-header-chrome.tsx) siempre se lee
+   * mejor sobre fondo sólido — sin esto, un menú abierto sobre la foto
+   * transparente del Home quedaría con texto claro sobre texto claro. */
+  forceSolid?: boolean;
+}) {
   const pathname = usePathname();
   // Solo el Home arranca con una foto a pantalla completa detrás del
   // header — el resto de las páginas no tiene "fondo" que respetar.
@@ -54,7 +63,7 @@ export function HeaderFrame({ children }: { children: ReactNode }) {
     return () => observer.disconnect();
   }, []);
 
-  const solid = !hasHero || scrolled;
+  const solid = !hasHero || scrolled || forceSolid;
 
   const solidClass = pielCalida ? "border-arena bg-marfil text-grafito" : "border-line bg-porcelain text-ink";
 

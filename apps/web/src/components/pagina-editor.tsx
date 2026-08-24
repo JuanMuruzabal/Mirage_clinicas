@@ -124,7 +124,12 @@ export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) 
         </p>
       )}
 
-      <div className="flex gap-5">
+      {/* flex-col en mobile, flex-row desde lg (2026-08-24, mismo pedido
+          que el resto del panel: "los modulos se ven contraidos contra
+          la pagina") — con `flex` fijo, el panel de edición (w-80, 320px)
+          y la previsualización competían por el mismo ancho angosto en
+          mobile; apilados, cada uno usa el 100% del ancho disponible. */}
+      <div className="flex flex-col gap-5 lg:flex-row">
         <div className="min-h-[640px] flex-1 overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
           <p className="border-b-[0.5px] border-arena bg-marfil px-4 py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
             Previsualización en vivo
@@ -149,7 +154,7 @@ export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) 
             contenido de página todavía. */}
         <aside
           className={`flex flex-shrink-0 flex-col rounded-card border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
-            panelAbierto ? "w-80" : "w-12"
+            panelAbierto ? "w-full lg:w-80" : "w-full lg:w-12"
           }`}
         >
           <button
