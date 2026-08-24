@@ -64,3 +64,30 @@ export function IconPacientes({ className }: IconProps) {
     </svg>
   );
 }
+
+// Tu página — ventana de navegador con una barra de encabezado y dos
+// líneas de contenido: la página pública de la clínica (rama fix/mobile,
+// 2026-08-24, pedido explícito del cliente: "agregá 'Tu página' y 'Tu
+// perfil' dentro del sidebar, cada uno con su icono, igual que el
+// resto").
+export function IconPagina({ className }: IconProps) {
+  return (
+    <svg {...commonProps} className={className}>
+      <rect x="2.5" y="3" width="15" height="14" rx="1.5" />
+      <line x1="2.5" y1="7" x2="17.5" y2="7" />
+      <line x1="5.5" y1="10.5" x2="14.5" y2="10.5" />
+      <line x1="5.5" y1="13.5" x2="11.5" y2="13.5" />
+    </svg>
+  );
+}
+
+// Tu perfil — una sola persona (versión simplificada de IconPacientes,
+// acá no hace falta distinguir dos fichas).
+export function IconPerfil({ className }: IconProps) {
+  return (
+    <svg {...commonProps} className={className}>
+      <circle cx="10" cy="6.5" r="3.25" />
+      <path d="M3 17c0-3.6 3.13-6 7-6s7 2.4 7 6" />
+    </svg>
+  );
+}

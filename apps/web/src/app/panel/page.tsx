@@ -18,9 +18,10 @@ export default async function PanelGeneralPage() {
   const resumen = resumenResult?.ok ? resumenResult.data : { turnosPendientes: 0, turnosConfirmados: 0 };
 
   return (
-    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
-    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
-    <div className="flex flex-col gap-8 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
+    // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
+    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // espacio de más entre el header y donde arranca el scroll").
+    <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
         General
       </h1>

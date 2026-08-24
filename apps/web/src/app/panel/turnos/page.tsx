@@ -67,67 +67,75 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   const turnos = turnosResult?.ok ? turnosResult.data : [];
 
   return (
-    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
-    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
-    <div className="flex flex-col gap-6 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
+    // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
+    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // espacio de más entre el header y donde arranca el scroll... quitá
+    // el padding-top sobrante"). El de arriba de todo ya lo da
+    // `pt-[var(--header-height)]` en app/panel/layout.tsx (ese no se
+    // toca) — este era una segunda capa redundante encima de esa.
+    <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
         Turnos
       </h1>
 
-      {/* max-md:flex-nowrap + min-w (rama fix/mobile, quinta corrección
-          2026-08-24 — ver TR-028 en docs/tradeoffs.md, replicando
-          docs/referencia-para-claude-code.html): esta fila pasa a
-          compartir el scroll de `<main>` (app/panel/layout.tsx) en vez
-          de comprimirse con `flex-wrap` — mismo criterio que la fila de
-          título/toolbar de calendar-view.tsx. */}
-      <div className="flex flex-wrap items-center justify-between gap-4 max-md:flex-nowrap max-md:min-w-[40rem]">
-        <nav
-          aria-label="Filtrar por estado"
-          className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:flex-nowrap"
-        >
-          {TABS.map((t) => {
-            const active = t.tab === tab;
-            const href = t.tab === "todas" ? `/panel/turnos${q ? `?q=${encodeURIComponent(q)}` : ""}` : `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
-            return (
-              <Link
-                key={t.tab}
-                href={href}
-                className={`rounded-full px-4 py-2 font-medium max-md:whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                {t.label}
-              </Link>
-            );
-          })}
-        </nav>
+      {/* Wrapper de ancho único (rama fix/mobile, sexta corrección
+          2026-08-24 — ver TR-029 en docs/tradeoffs.md: "la box de la
+          toolbar... y la box del calendario tienen anchos distintos...
+          lo mismo en Turnos" — acá la fila de filtros tenía su propio
+          min-width, 640px, distinto del min-w-[720px] de la tabla,
+          abajo). 45rem = 720px, el mismo mínimo que ya tenía la tabla —
+          filtros y tabla ahora comparten ESE número, con `w-full` en vez
+          de un min-width propio en la fila de filtros. */}
+      <div className="flex flex-col gap-6 max-md:min-w-[45rem]">
+        <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
+          <nav
+            aria-label="Filtrar por estado"
+            className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:flex-nowrap"
+          >
+            {TABS.map((t) => {
+              const active = t.tab === tab;
+              const href = t.tab === "todas" ? `/panel/turnos${q ? `?q=${encodeURIComponent(q)}` : ""}` : `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+              return (
+                <Link
+                  key={t.tab}
+                  href={href}
+                  className={`rounded-full px-4 py-2 font-medium max-md:whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  {t.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-        <form action="/panel/turnos" method="get" className="flex gap-2 max-md:flex-shrink-0">
-          {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Nombre, apellido, DNI o email…"
-            className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
-          />
-          <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 max-md:whitespace-nowrap">
-            Buscar
-          </button>
-        </form>
+          <form action="/panel/turnos" method="get" className="flex gap-2 max-md:flex-shrink-0">
+            {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Nombre, apellido, DNI o email…"
+              className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+            />
+            <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 max-md:whitespace-nowrap">
+              Buscar
+            </button>
+          </form>
+        </div>
+
+        {/* key por pestaña+búsqueda: fuerza a remontar TurnosTable en cada
+            cambio de filtro. Sin esto, su `useState(turnosIniciales)` solo
+            toma el valor inicial una vez — al navegar entre pestañas (misma
+            instancia de componente, React no la desmonta solo porque cambió
+            un prop) la tabla seguía mostrando los datos de la pestaña
+            anterior hasta un refresh manual (bug reportado 2026-08-23). */}
+        <TurnosTable
+          key={`${tab}-${q ?? ""}-${abrirId ?? ""}`}
+          turnosIniciales={turnos}
+          tiposConsulta={tiposConsulta}
+          filtros={filtros}
+          abrirId={abrirId}
+        />
       </div>
-
-      {/* key por pestaña+búsqueda: fuerza a remontar TurnosTable en cada
-          cambio de filtro. Sin esto, su `useState(turnosIniciales)` solo
-          toma el valor inicial una vez — al navegar entre pestañas (misma
-          instancia de componente, React no la desmonta solo porque cambió
-          un prop) la tabla seguía mostrando los datos de la pestaña
-          anterior hasta un refresh manual (bug reportado 2026-08-23). */}
-      <TurnosTable
-        key={`${tab}-${q ?? ""}-${abrirId ?? ""}`}
-        turnosIniciales={turnos}
-        tiposConsulta={tiposConsulta}
-        filtros={filtros}
-        abrirId={abrirId}
-      />
     </div>
   );
 }

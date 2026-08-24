@@ -17,12 +17,14 @@ import { PanelSidebar } from "@/components/panel/panel-sidebar";
 // breakpoint no existe arriba de 768px, ver TR-026 en
 // docs/tradeoffs.md):
 //   - Esta raíz pasa a medir exactamente el viewport visible menos el
-//     header (`100dvh`, no `100vh` — en mobile Safari `dvh` sí descuenta
-//     la barra de direcciones) y a no scrollear ella misma
-//     (`overflow-hidden`) — así el documento (html/body) nunca necesita
-//     scrollear, sin tocar `app/layout.tsx` (compartido con el resto del
-//     sitio): esta raíz simplemente deja de crecer más allá del
-//     viewport, así que el body nunca tiene contenido que exceda su alto.
+//     header y a no scrollear ella misma (`.panel-shell-h`, definida en
+//     globals.css: `height` con fallback `vh`→`dvh` + `min-height: 0`,
+//     ver el comentario ahí — sexta vuelta, TR-029 en docs/tradeoffs.md,
+//     corrige el bug de scroll vertical roto de la ronda anterior) — así
+//     el documento (html/body) nunca necesita scrollear, sin tocar
+//     `app/layout.tsx` (compartido con el resto del sitio): esta raíz
+//     simplemente deja de crecer más allá del viewport, así que el body
+//     nunca tiene contenido que exceda su alto.
 //   - `PanelSidebar` es un hermano de `<main>`, NO vive adentro del
 //     `overflow-auto` de abajo — al no scrollear junto con el contenido,
 //     queda visualmente fijo en su lugar (además de su propio `sticky`
@@ -44,7 +46,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
   await requireProfesional();
 
   return (
-    <div className="panel-texture flex flex-1 pt-[var(--header-height)] max-md:h-[100dvh] max-md:overflow-hidden">
+    <div className="panel-texture panel-shell-h flex flex-1 pt-[var(--header-height)] max-md:overflow-hidden">
       <PanelSidebar />
       <main
         className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain"

@@ -24,84 +24,94 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const pacientes = result?.ok ? result.data : [];
 
   return (
-    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
-    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
-    <div className="flex flex-col gap-6 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
+    // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
+    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // espacio de más entre el header y donde arranca el scroll... quitá
+    // el padding-top sobrante").
+    <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
         Pacientes
       </h1>
 
-      <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Nombre, apellido o DNI…"
-          className="flex-1 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
-        />
-        <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
-          Buscar
-        </button>
-      </form>
+      {/* Wrapper de ancho único (rama fix/mobile, sexta corrección
+          2026-08-24 — ver TR-029 en docs/tradeoffs.md, mismo criterio
+          que turnos/page.tsx): 37.5rem = 600px, el mínimo que ya tenía
+          la tabla — el buscador ahora comparte ese mismo número en vez
+          de su propio `max-w-md` (448px, más angosto). */}
+      <div className="flex flex-col gap-6 max-md:min-w-[37.5rem]">
+        <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2 max-md:w-full max-md:max-w-none">
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Nombre, apellido o DNI…"
+            className="flex-1 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+          />
+          <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
+            Buscar
+          </button>
+        </form>
 
-      {/* Escritorio: max-h + scroll interno en las dos direcciones — sin
-          cambios. min-w-[600px] en la tabla (abajo) es un mínimo de
-          contenido real, sin cambios.
+        {/* Escritorio: max-h + scroll interno en las dos direcciones —
+            sin cambios. min-w-[600px] en la tabla (abajo) es un mínimo
+            de contenido real, sin cambios.
 
-          Mobile (quinta corrección 2026-08-24 — ver TR-028 en
-          docs/tradeoffs.md, reemplaza el criterio de TR-026/027): esta
-          caja DEJA de tener su propio scroll (`max-md:overflow-visible`)
-          — ahora comparte el scroll de `<main>` (app/panel/layout.tsx)
-          con el resto de la página, mismo criterio que turnos-table.tsx
-          y docs/referencia-para-claude-code.html. */}
-      {pacientes.length === 0 ? (
-        <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
-          {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
-        </p>
-      ) : (
-        <div
-          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-visible"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
-                <th className="px-4 py-3">Nombre</th>
-                <th className="px-4 py-3">DNI</th>
-                <th className="px-4 py-3">Teléfono</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {pacientes.map((p) => (
-                <ClickableTableRow
-                  key={p.id}
-                  href={`/panel/pacientes/${p.id}`}
-                  className="border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <AvatarIniciales nombre={p.nombre} apellido={p.apellido} />
-                      <span className="font-medium text-grafito">
-                        {p.nombre} {p.apellido}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
-                  <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
-                  <td className="px-4 py-3 text-grafito/60">{p.email || "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link href={`/panel/pacientes/${p.id}`} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
-                      Ver ficha →
-                    </Link>
-                  </td>
-                </ClickableTableRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            Mobile (ver TR-028/029 en docs/tradeoffs.md): esta caja DEJA
+            de tener su propio scroll (`max-md:overflow-visible`) —
+            ahora comparte el scroll de `<main>` (app/panel/layout.tsx)
+            con el resto de la página, mismo criterio que
+            turnos-table.tsx y docs/referencia-para-claude-code.html.
+            `max-md:w-full`: mide lo mismo que el wrapper, no un
+            min-width propio por separado. */}
+        {pacientes.length === 0 ? (
+          <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+            {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
+          </p>
+        ) : (
+          <div
+            className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            <table className="w-full min-w-[600px] text-left text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
+                  <th className="px-4 py-3">Nombre</th>
+                  <th className="px-4 py-3">DNI</th>
+                  <th className="px-4 py-3">Teléfono</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {pacientes.map((p) => (
+                  <ClickableTableRow
+                    key={p.id}
+                    href={`/panel/pacientes/${p.id}`}
+                    className="border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <AvatarIniciales nombre={p.nombre} apellido={p.apellido} />
+                        <span className="font-medium text-grafito">
+                          {p.nombre} {p.apellido}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
+                    <td className="px-4 py-3 text-grafito/60">{p.email || "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/panel/pacientes/${p.id}`} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+                        Ver ficha →
+                      </Link>
+                    </td>
+                  </ClickableTableRow>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

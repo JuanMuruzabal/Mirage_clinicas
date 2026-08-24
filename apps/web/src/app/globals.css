@@ -105,6 +105,65 @@
   background-repeat: repeat;
 }
 
+/* `.panel-shell-h`/`.panel-sidebar-h` — rama fix/mobile, sexta vuelta
+   (2026-08-24, pedido explícito del cliente: "el scroll vertical no
+   funciona (prioridad): no puedo ver las horas de abajo del calendario"
+   — ver TR-029 en docs/tradeoffs.md). Dos correcciones sobre las rondas
+   anteriores, las dos solo debajo de 768px:
+
+   1. Fallback `vh` → `dvh`, vía `@supports` (NO declarando la misma
+      propiedad dos veces en la misma regla): el primer intento de este
+      fallback declaraba `height: 100vh` y después `height: 100dvh`
+      dentro de UNA sola regla — que es la técnica CSS estándar para
+      esto, pero el minificador de Tailwind v4 (Lightning CSS) la trata
+      como "código muerto" (dos declaraciones de la misma propiedad en
+      el mismo bloque, la segunda gana siempre desde el punto de vista
+      del build) y DESCARTA la primera al compilar — confirmado
+      inspeccionando el CSS de producción, quedaba `100dvh` sin ningún
+      `100vh` de respaldo, el motivo real por el que el alto quedaba sin
+      acotar en un navegador sin soporte de `dvh`. La solución correcta
+      es partir el fallback en DOS reglas distintas: la base (siempre
+      activa) usa `vh`, y un bloque `@supports (height: 100dvh)` aparte
+      la pisa con `dvh` — un minificador no puede evaluar `@supports` en
+      build time (es una feature query que corre en el navegador), así
+      que preserva las dos reglas tal cual, y ahí sí gana la de `dvh`
+      solo en los navegadores que la entienden.
+
+   2. `min-height: 0` en `.panel-shell-h` (la raíz de `/panel`,
+      `app/panel/layout.tsx`) — antes esto solo estaba en `<main>`, pero
+      la raíz TAMBIÉN es un flex item (de `<body>`, que es `flex
+      flex-col`), y por default un flex item no se achica más allá del
+      alto mínimo de su propio contenido (`min-height: auto`, la misma
+      trampa de flexbox de siempre). Sin este `min-height: 0` acá, la
+      raíz podía terminar más alta que el viewport si su contenido lo
+      pedía — y como `body` queda bloqueado (`.panel-locked`, ver más
+      abajo) sin scroll propio, ese exceso de alto quedaba recortado sin
+      forma de llegar a él con ningún scroll: exactamente "no puedo ver
+      las horas de abajo". Con `min-height: 0` acá, la raíz SÍ se achica
+      a la altura del viewport como corresponde, y es `<main>` (adentro,
+      con su propio `overflow-y-auto`) el que absorbe correctamente
+      cualquier contenido más alto que eso. */
+@media (max-width: 767px) {
+  .panel-shell-h {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  .panel-sidebar-h {
+    height: calc(100vh - var(--header-height));
+  }
+
+  @supports (height: 100dvh) {
+    .panel-shell-h {
+      height: 100dvh;
+    }
+
+    .panel-sidebar-h {
+      height: calc(100dvh - var(--header-height));
+    }
+  }
+}
+
 /* Rama fix/mobile (2026-08-24, pedido explícito del cliente): dentro de
    gestión de clínica (/panel/**), el calendario y las tablas NO se
    comprimen/apilan/reorganizan en mobile.

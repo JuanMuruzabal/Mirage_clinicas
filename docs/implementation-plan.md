@@ -313,6 +313,14 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - El ancho mínimo del calendario pasa de "por columna" a "por card entera" (`--panel-cal-min-w`, calculado según la vista), mismo criterio que `.cal { min-width: 900px }` de la referencia.
 - Verificación: pipeline completo limpio, 311 tests → 92.77% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
+**Sexta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente (5 bugs puntuales tras probar TR-028: scroll vertical roto — prioridad, anchos inconsistentes entre filas, gap bajo el header, sidebar colapsado más chico, íconos faltantes en "Tu página"/"Tu perfil") — ver TR-029 en `docs/tradeoffs.md`:**
+- Bug real encontrado: el fallback `height: 100vh; height: 100dvh;` (dos declaraciones en una regla) se perdía en el minificador de Tailwind v4 (Lightning CSS descarta la primera como código muerto) — confirmado inspeccionando el CSS de producción. Corregido partiendo el fallback en `.panel-shell-h`/`.panel-sidebar-h` (base `vh`) + un bloque `@supports (height: 100dvh)` aparte (que un minificador no puede evaluar en build time, así que preserva). Se suma `min-height: 0` a la raíz de `/panel` (antes solo en `<main>`).
+- Anchos inconsistentes: título/toolbar/calendario (y filtros/tabla en Turnos/Pacientes) pasan de tener cada uno su propio `min-width` a compartir UNO SOLO vía un wrapper único.
+- Gap bajo el header: el padding-top de cada página pasa de `clamp()` a un valor chico fijo (`pt-3`), el compensador real del header (`pt-[var(--header-height)]`) no se toca.
+- Sidebar: colapsado pasa a 52px exactos con íconos centrados; "Tu página"/"Tu perfil" suman ícono propio (`IconPagina`/`IconPerfil`, nuevos en `sidebar-icons.tsx`).
+- El archivo `referencia-v6.html` que mencionó el cliente no se encontró en el repo — se avisó y se procedió con la lista de bugs, suficientemente precisa.
+- Verificación: pipeline completo limpio, 313 tests → 92.79% cobertura (2 tests nuevos); CSS de producción inspeccionado dos veces (antes y después del fix de `@supports`).
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

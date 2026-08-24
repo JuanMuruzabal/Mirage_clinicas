@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { IconCalendario, IconGeneral, IconPacientes, IconTurnos } from "./sidebar-icons";
+import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconPerfil, IconTurnos } from "./sidebar-icons";
 
 const NAV_ITEMS = [
   { href: "/panel", label: "General", Icon: IconGeneral },
@@ -17,30 +17,34 @@ const NAV_ITEMS = [
 // con su propia altura de viewport, así el contenido de cada sección
 // scrollea por separado sin arrastrar el sidebar.
 //
-// Revertido a comportamiento único, sin diferenciar mobile/desktop
-// (corrección 2026-08-24, pedido explícito del cliente: "el sidebar de
-// herramientas de gestion de clinica sigue sin poder desplegarse con la
-// flechita") — una ronda anterior había forzado el sidebar a quedar
-// SIEMPRE angosto debajo de `md` y había ocultado el botón de toggle ahí
-// (`hidden ... md:flex`), pensando que eso resolvía el apretujamiento del
-// contenido; el cliente prefiere lo contrario: el mismo control manual de
-// siempre (la flechita, visible y funcional en cualquier tamaño) y que el
-// contenido de al lado (calendario/tablas) se navegue con scroll
-// horizontal en vez de que el sidebar se le imponga un ancho fijo — ver
-// TR-025 en docs/tradeoffs.md. Vuelve a ser exactamente lo que era antes
-// de esa corrección: `collapsed` es la única señal, sin breakpoints.
+// `collapsed` sigue siendo la única señal (sin variante mobile aparte,
+// TR-025 en docs/tradeoffs.md) — el cliente prefiere el control manual
+// de siempre (la flechita) sobre un riel forzado por viewport.
+//
+// Sexta vuelta, rama fix/mobile (2026-08-24 — ver TR-029 en
+// docs/tradeoffs.md), dos ajustes puntuales pedidos por el cliente:
+// (a) colapsado pasa de w-16 (64px) a 52px exactos, con los íconos
+// centrados (antes quedaban pegados a la izquierda dentro del riel,
+// `justify-center` solo aplica cuando no hay label al lado empujándolos);
+// (b) "Tu página"/"Tu perfil" suman ícono propio (`IconPagina`/
+// `IconPerfil`, mismo set que sidebar-icons.tsx) — antes eran texto
+// plano, sin nada que mostrar cuando estaba colapsado más que un "•".
 export function PanelSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    // max-md:h-[calc(100dvh-...)] (rama fix/mobile, 2026-08-24): mismo
-    // motivo que panel/layout.tsx — `dvh` en vez de `vh` en mobile
-    // descuenta la barra de direcciones del navegador, así el sidebar
-    // nunca queda unos px más alto que el viewport visible real.
+    // .panel-sidebar-h (rama fix/mobile, sexta vuelta — ver TR-029 en
+    // docs/tradeoffs.md): reemplaza el `max-md:h-[calc(100dvh-...)]`
+    // anterior — esa única declaración se perdía entera en un navegador
+    // sin soporte de `dvh` (valor inválido, la propiedad completa se
+    // ignora, el alto quedaba sin acotar). La clase (definida en
+    // globals.css) declara la MISMA propiedad dos veces, `vh` primero y
+    // `dvh` después — el navegador se queda con la última declaración
+    // que sepa interpretar, así que sigue funcionando en cualquiera.
     <aside
-      className={`sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] max-md:h-[calc(100dvh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
-        collapsed ? "w-16" : "w-60"
+      className={`panel-sidebar-h sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
+        collapsed ? "w-[52px]" : "w-60"
       }`}
     >
       <button
@@ -64,8 +68,8 @@ export function PanelSidebar() {
               href={href}
               title={collapsed ? label : undefined}
               className={`flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
-                active ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito hover:bg-arena"
-              }`}
+                collapsed ? "justify-center" : ""
+              } ${active ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito hover:bg-arena"}`}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && <span className="truncate">{label}</span>}
@@ -81,16 +85,22 @@ export function PanelSidebar() {
         <Link
           href="/personalizar-pagina"
           title={collapsed ? "Tu página" : undefined}
-          className="rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
+          className={`flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+            collapsed ? "justify-center" : ""
+          }`}
         >
-          {collapsed ? "•" : "Tu página"}
+          <IconPagina className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && <span className="truncate">Tu página</span>}
         </Link>
         <Link
           href="/perfil"
           title={collapsed ? "Tu perfil" : undefined}
-          className="rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
+          className={`flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+            collapsed ? "justify-center" : ""
+          }`}
         >
-          {collapsed ? "•" : "Tu perfil"}
+          <IconPerfil className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && <span className="truncate">Tu perfil</span>}
         </Link>
       </div>
     </aside>
