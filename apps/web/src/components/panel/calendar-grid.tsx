@@ -39,16 +39,23 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
         </div>
       </div>
 
-      {/* minmax(140px, 1fr), no minmax(0, 1fr) — corrección 2026-08-24,
-          pedido explícito del cliente ("los modulos se ven contraidos
-          contra la pagina"): en la vista Semana (7 columnas) sin un piso
-          de ancho, cada columna se achicaba a lo que sobrara del
-          viewport (en mobile, casi nada) y los turnos quedaban
-          ilegibles. Con un piso, la grilla entera se vuelve más ancha
-          que la pantalla en mobile a propósito — el contenedor padre
-          (calendar-view.tsx) ya tiene overflow-auto para eso, se navega
-          deslizando en vez de comprimir el contenido. */}
-      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(140px, 1fr))` }}>
+      {/* .panel-calendar-dias + var(--panel-dia-min-w, 0px) (rama
+          fix/mobile, 2026-08-24, pedido explícito del cliente: "no
+          quiero que las tablas ni el calendario se compriman... quiero
+          que mantengan su layout original de escritorio... scroll
+          horizontal", y "no modifiques la versión de escritorio").
+          --panel-dia-min-w no existe salvo debajo de 768px (definida en
+          globals.css) — arriba de eso esto es matemáticamente idéntico a
+          `minmax(0, 1fr)`, cero cambio de escritorio a cualquier ancho.
+          Debajo de 768px pasa a `minmax(150px, 1fr)`: la vista Semana (7
+          columnas) se vuelve más ancha que la pantalla a propósito, y el
+          overflow-auto de calendar-view.tsx (el contenedor padre) la
+          hace navegable deslizando en vez de comprimir el contenido. Ver
+          TR-024 en docs/tradeoffs.md. */}
+      <div
+        className="panel-calendar-dias grid flex-1"
+        style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(var(--panel-dia-min-w, 0px), 1fr))` }}
+      >
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
           return (

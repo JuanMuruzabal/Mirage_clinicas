@@ -143,8 +143,15 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
           Semana (CalendarGrid) fuerza un ancho mínimo por día (ver ese
           componente), así que en mobile el contenido real es más ancho
           que la pantalla; sin overflow-x el usuario no tenía forma de
-          llegar a los días de más a la derecha. */}
-      <div className="h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          llegar a los días de más a la derecha. WebkitOverflowScrolling
+          (rama fix/mobile): Tailwind no tiene una utilidad para esta
+          propiedad, así que va inline — sin esto, el scroll horizontal
+          por gesto táctil en iOS puede sentirse trabado/con "steps" en
+          vez de inercia nativa. */}
+      <div
+        className="h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
         {!cargando && vista === "mes" && (
           <CalendarMonthGrid

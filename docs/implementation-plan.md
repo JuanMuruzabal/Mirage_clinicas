@@ -281,6 +281,12 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Editor de página (`/personalizar-pagina`): previsualización + panel de edición pasan de una fila fija a `flex-col lg:flex-row` — se apilan en mobile en vez de competir por el mismo ancho angosto.
 - Verificación: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, **307 tests → 92.7%** cobertura (test nuevo `site-header-chrome.test.tsx` + un caso nuevo en `header-frame.test.tsx` para `forceSolid`).
 
+**Corrección de criterio, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("no quiero que las tablas ni el calendario se compriman... quiero que mantengan su layout original de escritorio... scroll horizontal", acotado a "el apartado de gestión de clínica... no toques el resto de la app por ahora") — ver TR-024 en `docs/tradeoffs.md`:** primera vez que el proyecto usa una rama dedicada por área para trabajo mobile en vez de commitear directo a `dev` — el cliente pidió que todo ajuste mobile futuro pase por `fix/mobile` y se mergee a `dev` desde ahí.
+- Alcance estrictamente `/panel/**` — sidebar (riel de íconos) y header (menú desplegable) de TR-023 quedan intactos, confirmados explícitamente por el cliente. `/personalizar-pagina` tampoco se toca (es un área separada desde TR-017).
+- `calendar-grid.tsx`: el `minmax(140px, 1fr)` incondicional de TR-023 (que técnicamente podía alterar desktop en un viewport angosto, ~1366px) se corrige con una variable CSS (`--panel-dia-min-w`, `globals.css`, solo activa debajo de 768px) — arriba de eso es matemáticamente idéntico al original `minmax(0, 1fr)`, cero cambio de escritorio a ningún ancho.
+- Tablas (`TurnosTable`, Pacientes, `PacienteTurnosTable`): sin cambios de layout — ya tenían `overflow-auto` + `min-w` fijo desde que se construyeron, exactamente el patrón pedido. Se les suma `WebkitOverflowScrolling: "touch"` (igual que al calendario) para el gesto táctil en iOS.
+- Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos, cambios puros de CSS/estilo inline).
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

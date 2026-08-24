@@ -105,6 +105,22 @@
   background-repeat: repeat;
 }
 
+/* Rama fix/mobile (2026-08-24, pedido explícito del cliente): dentro de
+   gestión de clínica (/panel/**), el calendario y las tablas NO se
+   comprimen/apilan/reorganizan en mobile — conservan su layout de
+   escritorio y se navegan con scroll horizontal. `--panel-dia-min-w`
+   arranca en 0px (◊ `minmax(0px, 1fr)` es idéntico a `minmax(0, 1fr)`,
+   cero cambio de escritorio a NINGÚN ancho de viewport) y solo se
+   redefine debajo de 768px (el mismo breakpoint `md` que ya usa el resto
+   del sitio) — así calendar-grid.tsx puede usar una única expresión
+   (`minmax(var(--panel-dia-min-w, 0px), 1fr)`) sin si-no de JS ni
+   depender de matchMedia. Ver TR-024 en docs/tradeoffs.md. */
+@media (max-width: 767px) {
+  .panel-calendar-dias {
+    --panel-dia-min-w: 150px;
+  }
+}
+
 /* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
    del todo dejaba ver el fondo nativo del navegador detrás de la página,
    sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024

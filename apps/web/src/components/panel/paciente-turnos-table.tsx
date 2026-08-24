@@ -113,7 +113,14 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
           Ningún turno coincide con el filtro.
         </p>
       ) : (
-        <div className="max-h-[400px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+        // min-w-[560px] ya hacía que esto scrolleara horizontal sin
+        // comprimirse en cualquier viewport angosto — WebkitOverflowScrolling
+        // (rama fix/mobile, 2026-08-24) es solo el touch-scroll nativo
+        // de iOS, Tailwind no tiene una utilidad para esa propiedad.
+        <div
+          className="max-h-[400px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">

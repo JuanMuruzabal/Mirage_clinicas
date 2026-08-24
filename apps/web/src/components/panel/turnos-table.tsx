@@ -103,11 +103,20 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
         </p>
       )}
 
-      {/* max-h + overflow-y-auto — mismo criterio que el calendario (T2.3):
+      {/* max-h + overflow-auto — mismo criterio que el calendario (T2.3):
           la tabla no estira la página a medida que crecen los turnos, el
           scroll queda contenido acá adentro. thead sticky para no perder
-          las columnas al scrollear. */}
-      <div className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          las columnas al scrollear. min-w-[720px] en la tabla (abajo) ya
+          hacía que esto scrolleara horizontal en cualquier viewport
+          angosto, desktop incluido — eso ya cumplía el pedido de la rama
+          fix/mobile (2026-08-24: "no comprimir, layout de escritorio +
+          scroll horizontal") sin tocar nada. Lo único que faltaba era el
+          touch-scroll nativo en iOS (WebkitOverflowScrolling — Tailwind
+          no tiene utilidad para esta propiedad, va inline). */}
+      <div
+        className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">

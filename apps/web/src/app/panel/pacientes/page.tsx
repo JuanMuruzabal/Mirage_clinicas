@@ -40,16 +40,23 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         </button>
       </form>
 
-      {/* pacientes.length === 0 ? ... : tabla con max-h + overflow-y-auto —
+      {/* pacientes.length === 0 ? ... : tabla con max-h + overflow-auto —
           mismo criterio que el calendario (T2.3) y la tabla de Turnos: no
           estira la página a medida que crecen los pacientes. thead sticky
-          para no perder las columnas al scrollear. */}
+          para no perder las columnas al scrollear. min-w-[600px] en la
+          tabla (abajo) ya hacía que esto scrolleara horizontal en
+          cualquier viewport angosto sin comprimirse — WebkitOverflowScrolling
+          (rama fix/mobile, 2026-08-24) es solo el touch-scroll nativo de
+          iOS, Tailwind no tiene una utilidad para esa propiedad. */}
       {pacientes.length === 0 ? (
         <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
           {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
         </p>
       ) : (
-        <div className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+        <div
+          className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <table className="w-full min-w-[600px] text-left text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
