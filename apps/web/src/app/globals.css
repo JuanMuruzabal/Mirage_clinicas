@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/*
+ * Sistema de diseño — Dental Mirage ("Sistema Cascarón")
+ * Ver docs/tradeoffs.md TR-010. Paleta y tipografía ya resueltas por
+ * adelantado (T5.1 del plan) — cada sprint de UI usa estos tokens, no
+ * valores nuevos.
+ */
+:root {
+  /* --- Color: base de marca (todo el producto, panel y página pública) --- */
+  --color-ink: #12191b;
+  --color-porcelain: #f4f6f5;
+  --color-panel: #ffffff;
+  --color-steel: #2c4a5e;
+  --color-line: #d9dfdc;
+  --color-line-strong: #b7c1bd;
+  --color-muted: #5b6866;
+
+  /* --- Color: semántico de tipo_consulta (spec §4.3) — NUNCA color de
+     marca, ver TR-010. Bloque de calendario, de hora a hora. --- */
+  --color-cascaron: #e7d9be;
+  --color-urgencia: #d6563a;
+
+  /* --- Color: piel cálida del panel de gestión (TR-013 en
+     docs/tradeoffs.md) — NUNCA en la home pública/marketing, que conserva
+     ink/porcelain/steel de arriba. `-claro`/`-oscuro` son tintes propios
+     para pares fondo-claro + texto-oscuro con contraste AA real: el tono
+     medio (salvia, terracota) no alcanza 4.5:1 como texto de cuerpo
+     normal contra blanco, así que nunca se usa como texto, solo como
+     relleno de puntos/avatares/acentos decorativos grandes. */
+  --color-hueso: #f6f2ea;
+  --color-marfil: #fffdf9;
+  --color-salvia: #6e8f72;
+  --color-salvia-claro: #e4ebe2;
+  --color-salvia-oscuro: #3f5943;
+  --color-terracota: #c97f5a;
+  --color-terracota-claro: #f5e3d6;
+  --color-terracota-oscuro: #8a4b2e;
+  --color-grafito: #35312b;
+  --color-arena: #e7dfd1;
+
+  /* --- Formas (TR-013): el panel sube el radius respecto al resto del
+     producto (Sistema Cascarón, borde duro) — cards/contenedores en
+     rounded-card, inputs/selects en rounded-field, todo lo demás usa el
+     rounded-full nativo de Tailwind para el pill de botones/chips. --- */
+  --radius-card: 18px;
+  --radius-field: 12px;
+
+  /* Sombra difusa muy suave para separar del fondo con textura sin volver
+     a bordes duros (TR-013) — nunca la sombra dura tipo bungie.net que
+     describe la spec §9.7 para el resto del producto. */
+  --shadow-soft: 0 1px 2px 0 rgb(53 49 43 / 0.05), 0 4px 12px -4px rgb(53 49 43 / 0.08);
+
+  /* --- Tipografía (TR-010): display condensada de alto contraste, cuerpo
+     de legibilidad institucional, utilitaria para datos tabulares. --- */
+  --font-display: var(--font-big-shoulders), "Arial Narrow", sans-serif;
+  --font-body: var(--font-public-sans), -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+
+  /* Header fixed (site-header.tsx, header-frame.tsx) — transparente sobre
+     la primera foto del Home, sólido en el resto, mismo criterio que
+     Turismo Marcuzzi. Al sacarlo del flujo normal, cada página que NO
+     tiene foto debajo del header reserva este alto como padding-top;
+     header-frame.tsx mide el alto real con ResizeObserver y sobreescribe
+     este valor apenas monta — queda acá como fallback para el primer
+     paint / sin JS. */
+  --header-height: 4.5rem;
+}
+
+@theme inline {
+  --color-ink: var(--color-ink);
+  --color-porcelain: var(--color-porcelain);
+  --color-panel: var(--color-panel);
+  --color-steel: var(--color-steel);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-muted: var(--color-muted);
+  --color-cascaron: var(--color-cascaron);
+  --color-urgencia: var(--color-urgencia);
+  --color-hueso: var(--color-hueso);
+  --color-marfil: var(--color-marfil);
+  --color-salvia: var(--color-salvia);
+  --color-salvia-claro: var(--color-salvia-claro);
+  --color-salvia-oscuro: var(--color-salvia-oscuro);
+  --color-terracota: var(--color-terracota);
+  --color-terracota-claro: var(--color-terracota-claro);
+  --color-terracota-oscuro: var(--color-terracota-oscuro);
+  --color-grafito: var(--color-grafito);
+  --color-arena: var(--color-arena);
+  --radius-card: var(--radius-card);
+  --radius-field: var(--radius-field);
+  --shadow-soft: var(--shadow-soft);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+/* Textura de fondo del panel de gestión (TR-013) — un tile de cruces
+   suaves muy tenue, solo en el layout raíz de /panel (General, Calendario,
+   Turnos, Pacientes); nunca dentro de una card, nunca en marketing/
+   onboarding. Ver app/panel/layout.tsx. */
+.panel-texture {
+  background-color: var(--color-hueso);
+  background-image: url("/textures/soft-cross.svg");
+  background-repeat: repeat;
+}
+
+/* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
+   del todo dejaba ver el fondo nativo del navegador detrás de la página,
+   sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024
+   de ese proyecto). La página queda sólida sin tocar ninguna animación. */
+/* Fondo base hueso/grafito (TR-013/TR-015) — identidad cálida extendida a
+   todo el sitio salvo la home pública, cuyas dos secciones con foto ponen
+   su propio fondo encima (Image `fill`) y no dejan ver este valor. */
+html {
+  background: var(--color-hueso);
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--color-hueso);
+  color: var(--color-grafito);
+  font-family: var(--font-body);
+}

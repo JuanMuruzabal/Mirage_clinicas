@@ -1,0 +1,63 @@
+# Dental Mirage — .gitignore de la raíz del monorepo.
+# apps/web tiene su propio .gitignore (generado por Next.js: .next/,
+# tsbuildinfo, next-env.d.ts, etc.) — acá va lo que aplica al resto del
+# repo (apps/api, tooling, entorno local).
+
+# --- Node / pnpm ---
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# --- Next.js (red de seguridad a nivel raíz) ---
+**/.next/
+**/out/
+*.tsbuildinfo
+
+# --- Go (apps/api) ---
+apps/api/tmp/
+apps/api/*.exe
+apps/api/*.test
+apps/api/api
+apps/api/migrate
+apps/api/coverage.out
+apps/api/uploads/
+
+# --- Env: nunca credenciales reales, solo los .env.example quedan
+# trackeados (no terminan en ".env" literal, así que no matchean acá) ---
+.env
+.env.local
+.env.*.local
+*.env
+apps/api/.env.test
+
+# --- Notas operativas con secrets reales — nunca al repo. ---
+docs/*connection*
+docs/*credential*
+docs/*secret*
+docs/*.local.md
+
+# --- Capturas de pantalla sueltas para debugging (p. ej. las que se pasan
+# para diagnosticar un bug visual) — no son documentación del proyecto,
+# no deberían terminar en el historial del repo. ---
+docs/*.webp
+docs/*.png
+docs/*.jpg
+docs/*.jpeg
+
+# --- Claude Code: settings.local.json y el lock de tareas programadas
+# son estado local de esta máquina/sesión, no configuración de equipo
+# (a diferencia de un futuro .claude/settings.json compartido, que si
+# se agrega debe trackearse aparte). ---
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# --- Editor / OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

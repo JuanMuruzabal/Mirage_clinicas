@@ -1,0 +1,14 @@
+{
+  "name": "@dental-mirage/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos TypeScript de referencia para apps/web. Reflejan a mano los structs del backend Go (apps/api) — no se generan automáticamente, ver R8 en docs/implementation-plan.md.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

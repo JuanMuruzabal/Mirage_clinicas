@@ -1,0 +1,30 @@
+# Postgres local para desarrollo (spec §9.1: "Requiere Docker corriendo
+# para Postgres local"). Sprint 0 (T0.2) solo necesita la base — los
+# servicios api/web/migrate en contenedor son parte del deploy (Sprint 5,
+# T5.5) y se suman a este archivo cuando exista un Dockerfile por app,
+# igual que en Marcuzzi_Madryn.
+#
+# Variables opcionales en un `.env` junto a este archivo — ver
+# apps/api/.env.example.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: dental-mirage-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dental_mirage
+      POSTGRES_PASSWORD: dental_mirage
+      POSTGRES_DB: dental_mirage
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dental_mirage -d dental_mirage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

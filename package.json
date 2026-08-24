@@ -1,0 +1,25 @@
+{
+  "name": "dental-mirage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo de Dental Mirage. apps/web (Next.js) y packages/* son workspaces pnpm (ver pnpm-workspace.yaml); apps/api es un módulo Go independiente (ver docs/implementation-plan.md).",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @dental-mirage/web dev",
+    "build:web": "pnpm --filter @dental-mirage/web build",
+    "lint:web": "pnpm --filter @dental-mirage/web lint",
+    "typecheck:web": "pnpm --filter @dental-mirage/web typecheck",
+    "typecheck:shared-types": "pnpm --filter @dental-mirage/shared-types typecheck",
+    "test:web": "pnpm --filter @dental-mirage/web test",
+    "test:coverage:web": "pnpm --filter @dental-mirage/web test:coverage",
+    "dev:api": "cd apps/api && go run ./cmd/api",
+    "migrate:api": "cd apps/api && go run ./cmd/migrate",
+    "build:api": "cd apps/api && go build ./...",
+    "vet:api": "cd apps/api && go vet ./...",
+    "test:api": "cd apps/api && go test ./internal/...",
+    "test:coverage:api": "cd apps/api && go test ./internal/... -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out | tail -1"
+  }
+}
