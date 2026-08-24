@@ -46,24 +46,21 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
 
       {/* Escritorio: max-h + scroll interno en las dos direcciones — sin
           cambios. min-w-[600px] en la tabla (abajo) es un mínimo de
-          contenido real, no un ancho "de escritorio" artificial.
+          contenido real, sin cambios.
 
-          Mobile (corrección 2026-08-24 — ver TR-026 en
-          docs/tradeoffs.md): `max-md:max-h-none max-md:overflow-y-visible`
-          cancela el recorte/scroll vertical propio — ese scroll ahora lo
-          maneja `<main>` en app/panel/layout.tsx. El scroll horizontal
-          se mantiene siempre. WebkitOverflowScrolling: Tailwind no
-          tiene utilidad para esta propiedad, va inline.
-          `max-md:overscroll-contain` (ver TR-027 en docs/tradeoffs.md):
-          evita que arrastrar hasta el borde del scroll horizontal
-          dispare el rebote elástico del documento. */}
+          Mobile (quinta corrección 2026-08-24 — ver TR-028 en
+          docs/tradeoffs.md, reemplaza el criterio de TR-026/027): esta
+          caja DEJA de tener su propio scroll (`max-md:overflow-visible`)
+          — ahora comparte el scroll de `<main>` (app/panel/layout.tsx)
+          con el resto de la página, mismo criterio que turnos-table.tsx
+          y docs/referencia-para-claude-code.html. */}
       {pacientes.length === 0 ? (
         <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
           {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
         </p>
       ) : (
         <div
-          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible max-md:overscroll-contain"
+          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-visible"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[600px] text-left text-sm">

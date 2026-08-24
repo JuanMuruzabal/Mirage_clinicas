@@ -39,24 +39,17 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
         </div>
       </div>
 
-      {/* .panel-calendar-dias + var(--panel-dia-min-w, 0px) (rama
-          fix/mobile, corrección 2026-08-24 — ver TR-026 en
-          docs/tradeoffs.md): el piso de ancho es POR COLUMNA otra vez
-          (no un ancho total forzado sobre todo el contenedor, que era la
-          versión anterior) — el pedido explícito del cliente es que el
-          contenido "se estire y llene la pantalla" y que "solo desborde
-          lo que realmente no entra": en vista Día (1 columna), `1fr`
-          llena el 100% del ancho disponible sin que el piso tenga que
-          intervenir (es exactamente "llenar la pantalla", no un ancho
-          fijo enorme); en vista Semana (7 columnas), el piso SÍ se
-          activa y fuerza el scroll horizontal solo ahí, que es lo que
-          "no entra". `--panel-dia-min-w` no existe arriba de 768px
-          (definida en globals.css con clamp()+vw, no un px fijo) — cero
-          cambio de escritorio a cualquier ancho. */}
-      <div
-        className="panel-calendar-dias grid flex-1"
-        style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(var(--panel-dia-min-w, 0px), 1fr))` }}
-      >
+      {/* minmax(0, 1fr) — la misma expresión de siempre, sin piso propio
+          (rama fix/mobile, quinta corrección 2026-08-24 — ver TR-028 en
+          docs/tradeoffs.md): el mínimo de ancho ya no se calcula por
+          columna acá adentro — se aplica UNA vez a la card entera en
+          calendar-view.tsx (`panel-cal-min-w`), mismo criterio que
+          `.cal { min-width: 900px }` de la referencia del cliente
+          (docs/referencia-para-claude-code.html). Con la card ya forzada
+          a ser ancha en mobile, estas columnas se reparten ese ancho con
+          total normalidad vía `1fr` — cero diferencia con cómo se
+          comporta en escritorio. */}
+      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
           return (

@@ -306,6 +306,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - `overscroll-contain` (Tailwind) sumado a los 4 contenedores con scroll de `/panel` (main, calendario, 2 tablas).
 - Verificación: pipeline completo limpio, 311 tests → 92.76% cobertura (4 tests nuevos para `PanelScrollLock`); CSS de producción inspeccionado.
 
+**Quinta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el calendario se sigue adaptando... queda compactado, lo mismo el cuadro de arriba"), con `docs/referencia-para-claude-code.html` (un HTML de referencia ejecutable) e instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-028 en `docs/tradeoffs.md`:**
+- Diagnóstico: header/sidebar seguían correctos (tercera confirmación). El bug real: el scroll horizontal estaba un nivel más adentro de lo debido — solo el calendario/tablas scrolleaban horizontal, aislados del título/toolbar de arriba (sin `min-width`, comprimidos con `flex-wrap`).
+- `<main>` pasa a scrollear en las dos direcciones (antes solo vertical) — se vuelve el único `overflow:auto` real, igual que `.contenido-scroll` de la referencia.
+- Calendario/tablas dejan su scroll propio; título/toolbar/tabs pasan a `flex-nowrap` + `min-w-[40rem]` (640px, mismo número que la referencia) — todo comparte el scroll de `<main>`.
+- El ancho mínimo del calendario pasa de "por columna" a "por card entera" (`--panel-cal-min-w`, calculado según la vista), mismo criterio que `.cal { min-width: 900px }` de la referencia.
+- Verificación: pipeline completo limpio, 311 tests → 92.77% cobertura (sin tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

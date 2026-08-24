@@ -28,14 +28,18 @@ import { PanelSidebar } from "@/components/panel/panel-sidebar";
 //     queda visualmente fijo en su lugar (además de su propio `sticky`
 //     existente, que sigue sin romper nada acá, solo se vuelve
 //     redundante).
-//   - `<main>` es el ÚNICO elemento que scrollea verticalmente en mobile
-//     (`overflow-y-auto`) — cada página adentro fluye con su alto
-//     natural (sin su propio recorte de alto en mobile, ver
-//     calendar-view.tsx/turnos-table.tsx/etc.), así que scrollear acá
-//     mueve el título+filtros+tabla juntos, como una página normal.
-//     `overflow-x-hidden`: el scroll horizontal queda acotado a cada
-//     componente ancho (calendario/tablas) por separado, no a toda la
-//     pantalla — ver esos mismos componentes.
+//   - `<main>` es el ÚNICO elemento que scrollea en mobile, en las DOS
+//     direcciones (`overflow-x-auto overflow-y-auto`) — corrección
+//     2026-08-24 sobre la versión anterior (ver TR-028 en
+//     docs/tradeoffs.md): antes `<main>` solo scrolleaba vertical y cada
+//     widget ancho (calendario, tablas) tenía su PROPIO scroll horizontal
+//     aislado — el título/toolbar de cada página, sin ese scroll propio,
+//     quedaban afuera y se comprimían con `flex-wrap`. Ahora título +
+//     toolbar + widget son una sola unidad de scroll (mismo criterio que
+//     `.contenido-scroll` en docs/referencia-para-claude-code.html, la
+//     referencia que pasó el cliente): cada uno aporta su propio
+//     `min-width` (ver calendar-view.tsx/turnos/page.tsx/etc.) y
+//     `<main>` es el único que de verdad tiene `overflow`.
 export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
   await requireProfesional();
 
@@ -43,7 +47,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
     <div className="panel-texture flex flex-1 pt-[var(--header-height)] max-md:h-[100dvh] max-md:overflow-hidden">
       <PanelSidebar />
       <main
-        className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-hidden max-md:overflow-y-auto max-md:overscroll-contain"
+        className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {children}

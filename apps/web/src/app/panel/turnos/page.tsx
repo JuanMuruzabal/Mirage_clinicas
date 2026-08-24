@@ -74,8 +74,17 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
         Turnos
       </h1>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm">
+      {/* max-md:flex-nowrap + min-w (rama fix/mobile, quinta corrección
+          2026-08-24 — ver TR-028 en docs/tradeoffs.md, replicando
+          docs/referencia-para-claude-code.html): esta fila pasa a
+          compartir el scroll de `<main>` (app/panel/layout.tsx) en vez
+          de comprimirse con `flex-wrap` — mismo criterio que la fila de
+          título/toolbar de calendar-view.tsx. */}
+      <div className="flex flex-wrap items-center justify-between gap-4 max-md:flex-nowrap max-md:min-w-[40rem]">
+        <nav
+          aria-label="Filtrar por estado"
+          className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:flex-nowrap"
+        >
           {TABS.map((t) => {
             const active = t.tab === tab;
             const href = t.tab === "todas" ? `/panel/turnos${q ? `?q=${encodeURIComponent(q)}` : ""}` : `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
@@ -83,7 +92,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
               <Link
                 key={t.tab}
                 href={href}
-                className={`rounded-full px-4 py-2 font-medium ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                className={`rounded-full px-4 py-2 font-medium max-md:whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
                 {t.label}
               </Link>
@@ -91,7 +100,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           })}
         </nav>
 
-        <form action="/panel/turnos" method="get" className="flex gap-2">
+        <form action="/panel/turnos" method="get" className="flex gap-2 max-md:flex-shrink-0">
           {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
           <input
             type="search"
@@ -100,7 +109,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             placeholder="Nombre, apellido, DNI o email…"
             className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
           />
-          <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
+          <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 max-md:whitespace-nowrap">
             Buscar
           </button>
         </form>

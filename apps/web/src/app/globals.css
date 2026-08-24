@@ -109,30 +109,26 @@
    gestión de clínica (/panel/**), el calendario y las tablas NO se
    comprimen/apilan/reorganizan en mobile.
 
-   Tercera vuelta (mismo día — ver TR-026 en docs/tradeoffs.md). Las dos
-   versiones anteriores probaron los dos extremos: TR-024 forzaba un piso
-   por columna que en la vista Día (una sola columna) no hacía nada,
-   porque con una sola pista `1fr` siempre gana igual — esa vista seguía
-   apretada. TR-025 sobrecorrigió al revés: forzaba un ancho ENORME fijo
-   sobre todo el contenedor, incluso en vistas donde el contenido real ya
-   entraba cómodo en la pantalla — el cliente pidió explícitamente lo
-   contrario ("en vez de un ancho fijo enorme, usá min-width... para que
-   se estire y llene la pantalla, y que solo desborde lo que realmente no
-   entra"). Esta versión vuelve al piso por columna de TR-024 (que sí es
-   "solo lo que no entra" para Semana) pero con `clamp()` + `vw` en vez
-   de un px fijo, como pidió el cliente — la vista Día sigue sin verse
-   afectada por este piso (1 columna = 1fr = 100% del ancho = "llena la
-   pantalla" tal cual, sin desbordar nada porque no hay nada que no
-   entre). Sin esta regla, `.panel-calendar-dias` no tiene piso de ancho
-   propio en sus columnas (`minmax(0, 1fr)`, igual que antes de
-   cualquier cambio mobile) — cero efecto en escritorio a cualquier
-   ancho. Debajo de 768px (el mismo breakpoint `md` que ya usa el resto
-   del sitio), cada columna de la vista Semana no baja de ese piso, y el
-   overflow-x-auto de calendar-view.tsx/calendar-grid.tsx hace navegable
-   deslizando solo lo que de verdad excede la pantalla. */
+   Quinta vuelta (mismo día — ver TR-028 en docs/tradeoffs.md), esta vez
+   replicando docs/referencia-para-claude-code.html (un HTML de
+   referencia que pasó el cliente): el mínimo de ancho del calendario
+   pasa de "por columna" (TR-026, `--panel-dia-min-w` en cada columna de
+   la grilla) a "por card entera" (`--panel-cal-min-w`, calculado en JS
+   por calendar-view.tsx según la vista) — mismo criterio que
+   `.cal { min-width: 900px }` de la referencia. El motivo del cambio no
+   es el número en sí, es la UBICACIÓN del contenedor que scrollea: antes
+   el calendario tenía su PROPIO scroll horizontal, aislado del
+   título/toolbar de arriba (que no tenían min-width y se comprimían con
+   `flex-wrap` — el bug que reportó el cliente: "el cuadro de arriba...
+   queda compactado"). Ahora el calendario ya NO tiene scroll propio —
+   título + toolbar + calendario comparten un solo scroll, el de `<main>`
+   en app/panel/layout.tsx (mismo criterio que `.contenido-scroll` en la
+   referencia). Sin esta regla, `.panel-cal-min-w` no tiene min-width
+   propio (default `auto`, igual que antes de cualquier cambio mobile) —
+   cero efecto en escritorio a cualquier ancho. */
 @media (max-width: 767px) {
-  .panel-calendar-dias {
-    --panel-dia-min-w: clamp(6.5rem, 30vw, 10.5rem); /* ~104px – ~168px */
+  .panel-cal-min-w {
+    min-width: var(--panel-cal-min-w, auto);
   }
 }
 

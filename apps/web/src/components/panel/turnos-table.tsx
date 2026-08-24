@@ -107,24 +107,21 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           mismo criterio que el calendario (T2.3), no estira la página.
           thead sticky para no perder las columnas al scrollear.
           min-w-[720px] en la tabla (abajo) es un mínimo de contenido
-          real (7 columnas legibles), no un ancho "de escritorio"
-          artificial — ya cumple el pedido de la rama fix/mobile
-          (2026-08-24: "min-width... para que se estire y llene la
-          pantalla, y que solo desborde lo que realmente no entra").
+          real (7 columnas legibles), sin cambios.
 
-          Mobile (corrección 2026-08-24 — ver TR-026 en
-          docs/tradeoffs.md): `max-md:max-h-none max-md:overflow-y-visible`
-          cancela el recorte/scroll vertical propio — ese scroll ahora lo
-          maneja `<main>` en app/panel/layout.tsx (un solo scroll de
-          página, no dos anidados). El scroll horizontal se mantiene
-          siempre (`overflow-x-auto`). WebkitOverflowScrolling: Tailwind
-          no tiene utilidad para esta propiedad, va inline.
-          `max-md:overscroll-contain` (corrección 2026-08-24 — ver TR-027
-          en docs/tradeoffs.md): evita que arrastrar hasta el borde del
-          scroll horizontal dispare el rebote elástico del documento —
-          ver PanelScrollLock para la otra mitad del mismo arreglo. */}
+          Mobile (quinta corrección 2026-08-24 — ver TR-028 en
+          docs/tradeoffs.md, reemplaza el criterio de TR-026/027): esta
+          caja DEJA de tener su propio scroll (`max-md:overflow-visible`,
+          las dos direcciones) — antes tenía scroll horizontal propio,
+          aislado del filtro/búsqueda de arriba (turnos/page.tsx), que
+          por no compartir ese scroll se comprimía con `flex-wrap`. Ahora
+          filtro + tabla son una sola unidad que scrollea junta en
+          `<main>` (app/panel/layout.tsx) — el `min-w-[720px]` de la
+          tabla (abajo) es lo único que hace falta para que se desborde y
+          se navegue deslizando, igual criterio que
+          docs/referencia-para-claude-code.html. */}
       <div
-        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible max-md:overscroll-contain"
+        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-visible"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <table className="w-full min-w-[720px] text-left text-sm">
