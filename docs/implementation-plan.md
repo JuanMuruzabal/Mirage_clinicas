@@ -259,7 +259,14 @@ Todas las tareas de la sección 5 referencian estos IDs.
 | T5.2 | Pase mobile-first + accesibilidad (contraste, alt text, navegación por teclado) + header fijo con altura dinámica si hay banners | FR-11 | T5.1 | 2d | Auditoría axe/Lighthouse sin errores críticos en mobile |
 | T5.3 | Verificación final de coverage ≥ 80% ambos lados (ya gateado desde T0.4, esto es cierre, no descubrimiento) | FR-11 | Sprints 0–4 | 0.5d | `go tool cover` y el reporte de Vitest reportan ≥ 80% |
 | T5.4 | QA end-to-end: onboarding → agenda → turno público → WhatsApp → confirmación → deploy → búsqueda | FR-1–FR-10 | Sprints 1–4 | 2d | Checklist de flujos críticos pasa sin bugs bloqueantes, incluida la prueba manual de dos turnos agendados solapados (debe fallar controladamente) |
-| T5.5 | Deploy a producción | FR-11 | T5.4 | 1.5d | Sitio accesible en dominio final; healthchecks de `apps/api`/`apps/web` verdes |
+| T5.5 | 🔶 Infraestructura de CI/deploy lista (Dockerfiles, `render.yaml`, deploy automático por rama) — **adelantada fuera de orden** (pedido explícito del cliente, 2026-08-24, antes de T5.2-T5.4); falta aplicar el blueprint en Render y cargar secrets | FR-11 | T5.4 | 1.5d | Sitio accesible en dominio final; healthchecks de `apps/api`/`apps/web` verdes |
+
+**Ronda de CI/deploy (2026-08-24), rama `feature/ci-deployment`, pedido explícito del cliente, ✅ implementada y verificada — ver TR-020 en `docs/tradeoffs.md`:**
+- Seis recursos en `render.yaml` (antes tres en Marcuzzi_Madryn): `dental-mirage-db`/`-api`/`-web` (prod, rama `main`) y sus tres equivalentes `-dev` (rama `dev`), cada trío con su propia base de datos, nunca compartida.
+- `apps/api/Dockerfile` y `apps/web/Dockerfile` nuevos (build en dos etapas, mismo patrón que Marcuzzi_Madryn pero sin el manejo de `NEXT_PUBLIC_*`/uploads que Dental Mirage no tiene) — `.dockerignore` en la raíz y en `apps/api/`. `docker-compose.yml` extendido con `migrate`/`api`/`web` (antes solo Postgres).
+- `.github/workflows/ci.yml`: corre también en push directo a `dev` (antes solo `main`); el job `deploy` se separa en `deploy-prod`/`deploy-dev`, cada uno disparando su propio par de Deploy Hooks (`RENDER_DEPLOY_HOOK_API`/`_WEB` vs. `_API_DEV`/`_WEB_DEV`) según la rama.
+- Storage de fotos (perfil de profesional, fotos de página pública — todavía sin construir): env vars de R2 reservados en `render.yaml` (`sync: false`) con la convención de key multi-tenant ya decidida (`paginas/{profesionalId}/...`, `perfiles/{profesionalId}/...`) para cuando la feature exista.
+- Verificación: los dos Dockerfiles se buildearon de verdad (`docker build`) y se corrió el stack completo (`docker compose up --build`) contra el código real — health check de la API, página `/buscar` sirviendo vía SSR contra el `api` interno por la red de Docker, y un registro real (`POST /auth/register`) contra el Postgres containerizado, los tres verdes. YAML de los tres archivos (`render.yaml`, `docker-compose.yml`, `ci.yml`) validado con un parser real (`js-yaml`), no solo a ojo.
 
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 

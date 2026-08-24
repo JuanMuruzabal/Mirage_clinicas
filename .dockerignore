@@ -1,0 +1,15 @@
+# Aplica a builds con contexto raíz (apps/web/Dockerfile). apps/api tiene
+# su propio contexto acotado (./apps/api) con su propio .dockerignore.
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+apps/api/
+docs/
+.git/
+.claude/
+.gitattributes
+*.md
+.env
+.env.local
+.env.*.local

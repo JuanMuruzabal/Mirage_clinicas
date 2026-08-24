@@ -1,11 +1,11 @@
-# Postgres local para desarrollo (spec §9.1: "Requiere Docker corriendo
-# para Postgres local"). Sprint 0 (T0.2) solo necesita la base — los
-# servicios api/web/migrate en contenedor son parte del deploy (Sprint 5,
-# T5.5) y se suman a este archivo cuando exista un Dockerfile por app,
-# igual que en Marcuzzi_Madryn.
+# Levanta la aplicación completa: Postgres + API (Go) + web (Next.js).
+# `docker compose up --build` alcanza para tener todo corriendo, sin
+# instalar Go/Node/pnpm en la máquina — pensado para reproducibilidad
+# entre desarrolladores, no como definición de infra de producción (esa
+# vive en render.yaml). Mismo patrón que Marcuzzi_Madryn.
 #
-# Variables opcionales en un `.env` junto a este archivo — ver
-# apps/api/.env.example.
+# Variables opcionales en un `.env` junto a este archivo (ver
+# .env.example): JWT_SECRET, CONTACTO_EMAIL.
 
 services:
   postgres:
@@ -25,6 +25,64 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Servicio de un solo disparo: aplica el esquema (AutoMigrate) y
+  # termina. Es idempotente — se puede correr de nuevo en cada
+  # `docker compose up` sin romper nada. El propio CMD de
+  # apps/api/Dockerfile también corre `/app/migrate` en su arranque
+  # (necesario para Render, cuyo plan free no soporta `preDeployCommand`)
+  # — este servicio aparte sigue existiendo porque documenta el paso de
+  # forma explícita en el grafo de dependencias de Compose; correr la
+  # migración dos veces es redundante pero inofensivo (idempotente).
+  migrate:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: dental-mirage-migrate
+    command: ["/app/migrate"]
+    environment:
+      DATABASE_URL: postgres://dental_mirage:dental_mirage@postgres:5432/dental_mirage?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: dental-mirage-api
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      APP_ENV: development
+      DATABASE_URL: postgres://dental_mirage:dental_mirage@postgres:5432/dental_mirage?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-cambiar-en-produccion}
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: dental-mirage-web
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      # http://api:8080 (nombre del servicio, resuelto por la red interna
+      # de Docker) porque esta URL la usa el SERVIDOR de Next (Server
+      # Components/Actions, apps/web/src/lib/api.ts) para hablarle a la
+      # API — nunca la resuelve el navegador (spec §9.3, BFF sin
+      # excepciones).
+      API_URL: http://api:8080
+      CONTACTO_EMAIL: ${CONTACTO_EMAIL:-hola@dentalmirage.com.ar}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

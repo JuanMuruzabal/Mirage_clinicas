@@ -1,0 +1,8 @@
+tmp/
+*.exe
+*.test
+api
+migrate
+coverage.out
+.env
+.env.local

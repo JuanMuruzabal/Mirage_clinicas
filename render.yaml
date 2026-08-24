@@ -1,0 +1,175 @@
+# Blueprint de Render (Infrastructure as Code) — define los 6 recursos de
+# los dos entornos como código versionado: base de datos + API (Go,
+# Docker) + web (Next.js, Docker), duplicado para `prod` (rama `main`) y
+# `dev` (rama `dev`), completamente separados entre sí (cada uno con su
+# propia base — nunca comparten datos). Los VALORES de los secrets nunca
+# viven acá — cada envVar con `sync: false` se carga a mano, una sola vez,
+# desde el dashboard de Render al aplicar este blueprint (New + →
+# Blueprint → conectar este repo). Ver README.md "Deploy" para la guía
+# paso a paso completa.
+#
+# El deploy de cada entorno es automático: un push a `main` dispara el
+# redeploy de `dental-mirage-api`/`dental-mirage-web` vía sus Deploy
+# Hooks; un push a `dev` dispara el redeploy de las versiones `-dev`. Ver
+# el job `deploy` de .github/workflows/ci.yml — mismo patrón que
+# Marcuzzi_Madryn, con dos pares de hooks en vez de uno.
+#
+# Nota sobre storage de fotos (pendiente, Fase 2 — perfil de profesional y
+# fotos de la página pública, hoy sin construir): cuando se implemente,
+# va a ser Cloudflare R2, mismo patrón dev/prod que Marcuzzi_Madryn (ver
+# docs/tradeoffs.md), pero con una diferencia de fondo por escalabilidad —
+# Marcuzzi es una sola aplicación con un dueño; acá hay N profesionales,
+# cada uno con sus propias fotos de página y de perfil. Los env vars de
+# R2 ya están reservados abajo (`sync: false`, sin cargar todavía) para no
+# tener que tocar este blueprint de nuevo cuando se construya la feature
+# — la convención de key pensada para eso (namespaced por profesional,
+# no un bucket plano): `paginas/{profesionalId}/{filename}` y
+# `perfiles/{profesionalId}/{filename}`.
+
+databases:
+  - name: dental-mirage-db
+    databaseName: dental_mirage
+    user: dental_mirage
+    # ⚠️ TEMPORAL: plan free mientras no haya clientes reales cargados —
+    # mismo criterio y mismo riesgo que Marcuzzi_Madryn (TR-042 de ese
+    # proyecto): el plan free de Postgres en Render SE BORRA SOLO a los 30
+    # días de creado. Subir a "starter" (o superior) ANTES del primer
+    # profesional real registrado — no antes, no hay nada que perder
+    # todavía; no después.
+    plan: free
+    # Postgres 16 — misma versión que docker-compose.yml/CI, así
+    # btree_gist y el resto del esquema se comportan igual en los tres
+    # entornos (local, dev, prod).
+    postgresMajorVersion: "16"
+
+  # Base separada para `dev` — nunca la misma que prod, ni siquiera con un
+  # esquema/prefijo distinto en la misma instancia: un `docker compose
+  # down -v` o una migración con bug en dev no debe poder tocar datos de
+  # prod ni por accidente.
+  - name: dental-mirage-db-dev
+    databaseName: dental_mirage_dev
+    user: dental_mirage
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  # ============================= PROD (main) =============================
+  - type: web
+    name: dental-mirage-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    plan: free
+    healthCheckPath: /health
+    # La migración corre en el arranque del propio contenedor (CMD de
+    # apps/api/Dockerfile: `/app/migrate && /app/api`), no acá vía
+    # `preDeployCommand` — esa es una feature exclusiva de planes pagos de
+    # Render, no disponible en el plan `free` de este servicio.
+    envVars:
+      - key: PORT
+        value: "8080" # tiene que matchear EXPOSE 8080 de apps/api/Dockerfile
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dental-mirage-db
+          property: connectionString
+      # generateValue: Render genera un secreto aleatorio la primera vez
+      # y lo guarda — nadie (ni nosotros acá) llega a verlo en texto plano.
+      - key: JWT_SECRET
+        generateValue: true
+      # URL pública del servicio web de abajo. Si renombrás el servicio o
+      # le conectás un dominio propio, hay que actualizar esto a mano
+      # (Render no permite interpolar la URL de un servicio dentro de otro
+      # en el blueprint).
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://dental-mirage-web.onrender.com
+      # R2 — storage de fotos, ver la nota grande al principio del
+      # archivo. Reservado, sin cargar hasta que la feature exista.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+
+  - type: web
+    name: dental-mirage-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    # Contexto en la raíz del repo (no apps/web) — el build depende de
+    # packages/shared-types vía "workspace:*", ver el comentario al
+    # principio de apps/web/Dockerfile.
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3000" # ya viene seteado en el Dockerfile (ENV PORT=3000), explícito acá igual
+      # URL pública del servicio de arriba — Next.js (Server Actions/
+      # Components) le habla a la API server-to-server con esto, nunca
+      # desde el navegador. Mismo comentario que CORS_ALLOWED_ORIGINS
+      # sobre actualizarlo a mano si cambia el nombre del servicio.
+      - key: API_URL
+        value: https://dental-mirage-api.onrender.com
+      # No es un secret de seguridad — sync: false simplemente porque acá
+      # no sabemos el email de contacto real del cliente, hay que cargar
+      # el dato de verdad una vez (reemplaza el placeholder de desarrollo).
+      - key: CONTACTO_EMAIL
+        sync: false
+
+  # ============================== DEV (dev) ==============================
+  # Segunda copia completa del blueprint de arriba — mismo Dockerfile,
+  # misma imagen, apuntando a la base `-dev` y con sus propios Deploy
+  # Hooks (RENDER_DEPLOY_HOOK_API_DEV/RENDER_DEPLOY_HOOK_WEB_DEV en CI),
+  # para probar cada push a `dev` en un entorno real, aislado de prod.
+  - type: web
+    name: dental-mirage-api-dev
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: APP_ENV
+        value: development
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dental-mirage-db-dev
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://dental-mirage-web-dev.onrender.com
+      # Bucket separado del de prod (mismas claves de cuenta de
+      # Cloudflare pueden reusarse; el bucket/prefijo no) — nunca mezclar
+      # fotos de prueba de dev con fotos reales de profesionales.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+
+  - type: web
+    name: dental-mirage-web-dev
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: API_URL
+        value: https://dental-mirage-api-dev.onrender.com
+      - key: CONTACTO_EMAIL
+        sync: false
