@@ -17,18 +17,18 @@ const NAV_ITEMS = [
 // con su propia altura de viewport, así el contenido de cada sección
 // scrollea por separado sin arrastrar el sidebar.
 //
-// Angosto por defecto en mobile (corrección 2026-08-24, pedido explícito
-// del cliente: "se rompre mucho el apartado de gestion de clinica, los
-// modulos se ven contraidos contra la pagina") — con w-60 (240px) fijos,
-// en una pantalla de 375px el sidebar solo le dejaba ~135px al contenido
-// real, y ahí es donde todo se veía amontonado. Debajo de `md`, el
-// sidebar SIEMPRE queda como riel de íconos (w-16, mismo ancho que
-// "retraído"), sin importar el toggle manual — el texto de cada link se
-// oculta con `hidden md:inline` en vez de dejar de montarse, así que el
-// mismo <span> sirve para las dos señales (colapsado a mano en cualquier
-// tamaño, u ocultado solo por viewport en mobile) sin duplicar JSX. El
-// toggle (`collapsed`, el estado de siempre) solo tiene efecto real desde
-// `md` para arriba.
+// Revertido a comportamiento único, sin diferenciar mobile/desktop
+// (corrección 2026-08-24, pedido explícito del cliente: "el sidebar de
+// herramientas de gestion de clinica sigue sin poder desplegarse con la
+// flechita") — una ronda anterior había forzado el sidebar a quedar
+// SIEMPRE angosto debajo de `md` y había ocultado el botón de toggle ahí
+// (`hidden ... md:flex`), pensando que eso resolvía el apretujamiento del
+// contenido; el cliente prefiere lo contrario: el mismo control manual de
+// siempre (la flechita, visible y funcional en cualquier tamaño) y que el
+// contenido de al lado (calendario/tablas) se navegue con scroll
+// horizontal en vez de que el sidebar se le imponga un ancho fijo — ver
+// TR-025 en docs/tradeoffs.md. Vuelve a ser exactamente lo que era antes
+// de esa corrección: `collapsed` es la única señal, sin breakpoints.
 export function PanelSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -36,7 +36,7 @@ export function PanelSidebar() {
   return (
     <aside
       className={`sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
-        collapsed ? "w-16" : "w-16 md:w-60"
+        collapsed ? "w-16" : "w-60"
       }`}
     >
       <button
@@ -44,7 +44,7 @@ export function PanelSidebar() {
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? "Expandir menú" : "Retraer menú"}
         aria-expanded={!collapsed}
-        className="hidden items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/50 hover:text-grafito md:flex"
+        className="flex items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/50 hover:text-grafito"
       >
         <span aria-hidden="true" className={`inline-block transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}>
           ←
@@ -58,13 +58,13 @@ export function PanelSidebar() {
             <Link
               key={href}
               href={href}
-              title={label}
+              title={collapsed ? label : undefined}
               className={`flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
                 active ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito hover:bg-arena"
               }`}
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span className="hidden truncate md:inline">{label}</span>}
+              {!collapsed && <span className="truncate">{label}</span>}
             </Link>
           );
         })}
@@ -76,23 +76,17 @@ export function PanelSidebar() {
             bajo /panel/**, por eso no está en NAV_ITEMS de acá arriba. */}
         <Link
           href="/personalizar-pagina"
-          title="Tu página"
-          className="rounded-full px-3 py-2 text-center text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
+          title={collapsed ? "Tu página" : undefined}
+          className="rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
         >
-          <span className={collapsed ? "" : "md:hidden"} aria-hidden={!collapsed}>
-            •
-          </span>
-          <span className={`hidden ${collapsed ? "" : "md:inline"}`}>Tu página</span>
+          {collapsed ? "•" : "Tu página"}
         </Link>
         <Link
           href="/perfil"
-          title="Tu perfil"
-          className="rounded-full px-3 py-2 text-center text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
+          title={collapsed ? "Tu perfil" : undefined}
+          className="rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito"
         >
-          <span className={collapsed ? "" : "md:hidden"} aria-hidden={!collapsed}>
-            •
-          </span>
-          <span className={`hidden ${collapsed ? "" : "md:inline"}`}>Tu perfil</span>
+          {collapsed ? "•" : "Tu perfil"}
         </Link>
       </div>
     </aside>

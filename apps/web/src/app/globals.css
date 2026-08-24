@@ -108,16 +108,27 @@
 /* Rama fix/mobile (2026-08-24, pedido explícito del cliente): dentro de
    gestión de clínica (/panel/**), el calendario y las tablas NO se
    comprimen/apilan/reorganizan en mobile — conservan su layout de
-   escritorio y se navegan con scroll horizontal. `--panel-dia-min-w`
-   arranca en 0px (◊ `minmax(0px, 1fr)` es idéntico a `minmax(0, 1fr)`,
-   cero cambio de escritorio a NINGÚN ancho de viewport) y solo se
-   redefine debajo de 768px (el mismo breakpoint `md` que ya usa el resto
-   del sitio) — así calendar-grid.tsx puede usar una única expresión
-   (`minmax(var(--panel-dia-min-w, 0px), 1fr)`) sin si-no de JS ni
-   depender de matchMedia. Ver TR-024 en docs/tradeoffs.md. */
+   escritorio y se navegan con scroll horizontal.
+
+   Corrección (mismo día, segunda vuelta — ver TR-025 en
+   docs/tradeoffs.md): la primera versión de esto forzaba un piso de
+   ancho COLUMNA POR COLUMNA dentro de la grilla (`minmax(150px, 1fr)`),
+   que en la vista Día (una sola columna) no hacía nada — con una sola
+   pista, `1fr` siempre gana sin importar el piso, así que esa vista
+   seguía viéndose apretada en mobile. Ahora el mínimo se aplica UNA vez
+   al contenedor entero (`.panel-calendar-dias`, el `<div className="flex">`
+   raíz de calendar-grid.tsx: gutter de horas + columnas), calculado en
+   JS según la vista (`--panel-calendar-min-w`, seteado inline por
+   calendar-grid.tsx) — funciona igual para 1 columna (Día) o 7
+   (Semana). Sin esta regla, `.panel-calendar-dias` no tiene min-width
+   propio (default `auto`, igual que antes de cualquier cambio mobile) —
+   cero efecto en escritorio a cualquier ancho. Debajo de 768px (el mismo
+   breakpoint `md` que ya usa el resto del sitio), el contenedor se
+   vuelve más ancho que la pantalla a propósito, y el overflow-auto de
+   calendar-view.tsx (el padre) lo hace navegable deslizando. */
 @media (max-width: 767px) {
   .panel-calendar-dias {
-    --panel-dia-min-w: 150px;
+    min-width: var(--panel-calendar-min-w, auto);
   }
 }
 

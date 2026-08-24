@@ -287,6 +287,11 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Tablas (`TurnosTable`, Pacientes, `PacienteTurnosTable`): sin cambios de layout — ya tenían `overflow-auto` + `min-w` fijo desde que se construyeron, exactamente el patrón pedido. Se les suma `WebkitOverflowScrolling: "touch"` (igual que al calendario) para el gesto táctil en iOS.
 - Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos, cambios puros de CSS/estilo inline).
 
+**Segunda vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente tras probar el deploy real ("el sidebar... sigue sin poder desplegarse con la flechita", "el calendario sigue estando apelmazado... quiero el mismo layout de escritorio") — ver TR-025 en `docs/tradeoffs.md`:**
+- Sidebar: revertido íntegro a su comportamiento pre-TR-023 (toggle único vía `collapsed`, sin variante `md:`, botón siempre visible) — el cliente prefiere el control manual de siempre sobre el riel forzado angosto en mobile.
+- `calendar-grid.tsx`: el piso de ancho pasa de columna-por-columna (no hacía nada en vista Día, la que se ve por defecto) a una vez por contenedor completo (`--panel-calendar-min-w`, 720px para Día / 200px×N para Semana), consumido solo debajo de 768px.
+- Verificación: pipeline completo limpio, 307 tests → 92.73% cobertura (sin tests nuevos).
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---
