@@ -233,26 +233,34 @@ anterior.
 
 ## Deploy
 
-Producción (y un entorno `dev` completo y separado, ver abajo) corren en
-[Render](https://render.com) — Postgres administrado + los dos
-`Dockerfile` ya existentes (mismas imágenes que `docker-compose.yml`, sin
-una segunda definición de build paralela). Toda la topología vive
-versionada en [`render.yaml`](render.yaml) (Blueprint, Infrastructure as
-Code) en la raíz del repo.
+Un solo entorno por ahora corre en [Render](https://render.com) —
+Postgres administrado + los dos `Dockerfile` ya existentes (mismas
+imágenes que `docker-compose.yml`, sin una segunda definición de build
+paralela). Toda la topología vive versionada en
+[`render.yaml`](render.yaml) (Blueprint, Infrastructure as Code) en la
+raíz del repo.
 
-**Dos entornos, seis recursos, completamente separados:**
+**Un solo entorno, tres recursos** (corrección 2026-08-24, ver TR-021 en
+`docs/tradeoffs.md`): la idea original era prod + dev separados, cada uno
+con su propia base — el plan free de Render solo permite **una** base
+Postgres por cuenta, así que por ahora queda un solo trío:
 
-| Recurso | Prod (`main`) | Dev (`dev`) |
-|---|---|---|
-| Base de datos | `dental-mirage-db` | `dental-mirage-db-dev` |
-| API | `dental-mirage-api` | `dental-mirage-api-dev` |
-| Web | `dental-mirage-web` | `dental-mirage-web-dev` |
+| Recurso | Nombre en Render |
+|---|---|
+| Base de datos | `dental-mirage-db` |
+| API | `dental-mirage-api` |
+| Web | `dental-mirage-web` |
 
-Cada entorno tiene su propia base de datos — nunca comparten datos entre
-sí, ni siquiera un esquema separado en la misma instancia. El deploy de
-cada uno es automático y va atado a su propia rama: un push a `main`
-redeploya solo `dental-mirage-api`/`dental-mirage-web`; un push a `dev`
-redeploya solo las versiones `-dev` (ver "Integración continua" arriba).
+**El deploy es automático y dispara con push a `dev`, no a `main`**
+(ver "Integración continua" arriba, job `deploy`) — mientras solo haya un
+entorno, tiene más sentido que el que se redeploya solo sea el de
+integración/prueba; `main` sigue corriendo el pipeline completo de
+tests/build en cada push, pero no dispara ningún redeploy todavía.
+Volver a separar un entorno de prod real (con su propia base, atado a
+`main`) es agregar de nuevo el segundo trío de recursos a `render.yaml`
+en cuanto se pague un plan que permita una segunda base — la nota grande
+al principio de ese archivo deja el patrón anterior documentado para
+retomarlo tal cual.
 
 **Los valores de los secrets nunca están en el repo.** `render.yaml` solo
 declara qué variables existen; cada una marcada `sync: false` se carga
@@ -260,11 +268,11 @@ una única vez desde el dashboard de Render al aplicar el blueprint (o
 `generateValue: true` para `JWT_SECRET`, que Render genera y guarda solo,
 sin que nadie lo vea en texto plano).
 
-> ⚠️ **Las dos bases están en el plan `free` de Postgres a propósito**,
-> mientras no haya profesionales reales cargados — **se borran solas a
-> los 30 días de creadas**, no es una degradación de performance. Subir a
-> `starter` (o superior) la base de **prod** en el dashboard de Render
-> **antes del primer profesional real registrado**, no antes.
+> ⚠️ **La base está en el plan `free` de Postgres a propósito**, mientras
+> no haya profesionales reales cargados — **se borra sola a los 30 días
+> de creada**, no es una degradación de performance. Subir a `starter`
+> (o superior) en el dashboard de Render **antes del primer profesional
+> real registrado**, no antes.
 
 ### Storage de fotos (pendiente — perfil de profesional y página pública)
 
@@ -272,40 +280,34 @@ Todavía no existe la feature de subir fotos (ni de perfil ni de la página
 pública) — `render.yaml` ya reserva los env vars de Cloudflare R2
 (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
 `R2_PUBLIC_URL`, `sync: false`) para no tener que volver a tocar el
-blueprint cuando se construya, con **buckets separados para prod y dev**.
-A diferencia de `Marcuzzi_Madryn` (una sola aplicación, un dueño), acá va
-a haber **N profesionales**, cada uno con sus propias fotos — la
-convención de key pensada para eso, namespaced por profesional en vez de
-un bucket plano: `paginas/{profesionalId}/{filename}` y
-`perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
+blueprint cuando se construya. A diferencia de `Marcuzzi_Madryn` (una
+sola aplicación, un dueño), acá va a haber **N profesionales**, cada uno
+con sus propias fotos — la convención de key pensada para eso, namespaced
+por profesional en vez de un bucket plano: `paginas/{profesionalId}/{filename}`
+y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
 
 ### Antes de desplegar por primera vez
 
 1. **Cuenta de Render** conectada al repo de GitHub (`New +` → `Blueprint`
    → elegir este repo → Render detecta `render.yaml` solo y muestra un
-   preview de los 6 recursos antes de crear nada).
+   preview de los 3 recursos antes de crear nada).
 2. **Cargar los secrets** que el blueprint dejó pendientes (`sync: false`)
-   en cada uno de los dos servicios `web`, pestaña *Environment*:
-   `CONTACTO_EMAIL` (el dato real del cliente, reemplaza el placeholder
-   de desarrollo) — uno en `dental-mirage-web`, otro (puede ser el mismo
-   valor o uno de prueba) en `dental-mirage-web-dev`.
-3. **Deploy automático gateado por CI** (jobs `deploy-prod`/`deploy-dev`
-   en `ci.yml`): en cada uno de los cuatro servicios `web`/`api` por
-   separado — **Settings** → **Deploy Hook**, copiar esa URL. Cargar cada
-   una como secret del repo en GitHub: **Settings → Secrets and
-   variables → Actions → pestaña "Secrets"** → nombres exactos
-   `RENDER_DEPLOY_HOOK_API`, `RENDER_DEPLOY_HOOK_WEB` (prod),
-   `RENDER_DEPLOY_HOOK_API_DEV`, `RENDER_DEPLOY_HOOK_WEB_DEV` (dev). Sin
-   estos secrets, CI sigue pasando igual pero el job `deploy-*`
-   correspondiente falla — hay que seguir deployando a mano desde Render
-   mientras tanto.
-4. Deploy inicial. El primer request a `/health` de cada API puede tardar
-   (plan free duerme los servicios sin tráfico — cold start) — no es un
-   error.
+   en `dental-mirage-web`, pestaña *Environment*: `CONTACTO_EMAIL` (el
+   dato real del cliente, reemplaza el placeholder de desarrollo).
+3. **Deploy automático gateado por CI** (job `deploy` en `ci.yml`): en
+   `dental-mirage-api` y `dental-mirage-web` por separado — **Settings**
+   → **Deploy Hook**, copiar esa URL. Cargar cada una como secret del
+   repo en GitHub: **Settings → Secrets and variables → Actions →
+   pestaña "Secrets"** → nombres exactos `RENDER_DEPLOY_HOOK_API`,
+   `RENDER_DEPLOY_HOOK_WEB`. Sin estos secrets, CI sigue pasando igual
+   pero el job `deploy` falla — hay que seguir deployando a mano desde
+   Render mientras tanto.
+4. Deploy inicial. El primer request a `/health` puede tardar (plan free
+   duerme los servicios sin tráfico — cold start) — no es un error.
 
 Si algún día cambia el nombre de un servicio o se conecta un dominio
-propio, `CORS_ALLOWED_ORIGINS` (en los servicios `api`) y `API_URL` (en
-los servicios `web`) están hardcodeados en `render.yaml` a las URLs
+propio, `CORS_ALLOWED_ORIGINS` (en `dental-mirage-api`) y `API_URL` (en
+`dental-mirage-web`) están hardcodeados en `render.yaml` a las URLs
 `*.onrender.com` por defecto — actualizarlos a mano (Render no permite
 interpolar la URL de un servicio dentro de otro en el blueprint).
 

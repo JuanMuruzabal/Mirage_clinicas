@@ -1,8 +1,12 @@
 name: CI
 
-# `dev` corre CI en cada push directo (no solo main) porque también
-# dispara deploy (ver el job `deploy` al final) — el entorno de dev en
-# Render tiene que quedar tan verde como prod antes de redeployar.
+# `dev` corre CI en cada push directo (no solo main) porque es la rama de
+# integración — cualquiera que haga `push` directo a `dev` (o mergee un
+# feature branch ahí) quiere saber si rompió algo, sin esperar un PR. El
+# job `deploy` que disparaba los Deploy Hooks de Render en cada push a
+# `dev` está sacado por ahora (ver el comentario grande al final del
+# archivo) hasta terminar de configurar Render — nada de esto cambia
+# mientras tanto.
 on:
   push:
     branches: [main, dev]
@@ -136,85 +140,15 @@ jobs:
       - name: Test with coverage
         run: pnpm --filter @dental-mirage/web test:coverage
 
-  # Deploy (Sprint 5, T5.5) — dos jobs, uno por entorno (ver render.yaml:
-  # cada uno con su propia base de datos, completamente separados). Mismo
-  # patrón que Marcuzzi_Madryn: CI gatea el deploy (necesita los cuatro
-  # jobs de arriba en verde), nunca un push directo sin pasar por acá.
-  deploy-prod:
-    name: Deploy (Render) — prod
-    needs: [web, api, test-api, test-web]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Disparar los Deploy Hooks de Render (api + web, prod)
-        # Un secret pegado desde el navegador trae fácil un '\n' de más al
-        # final (curl lo rechaza entero: "URL rejected: malformed input")
-        # — xargs sin argumentos recorta espacio en blanco de ambos lados
-        # de forma portable.
-        #
-        # Sin -f en el curl: si Render devuelve un error HTTP, queremos
-        # VER el código y el cuerpo de la respuesta (no es información
-        # sensible, es la respuesta pública de la API de Render) para
-        # poder diagnosticarlo, en vez de que curl lo descarte en silencio.
-        run: |
-          disparar() {
-            local nombre="$1" url_raw="$2"
-            if [ -z "$url_raw" ]; then
-              echo "::error::El secret RENDER_DEPLOY_HOOK_${nombre^^} no está seteado en el repo (Settings → Secrets and variables → Actions)."
-              return 1
-            fi
-            local url
-            url=$(printf '%s' "$url_raw" | xargs)
-            echo "--- $nombre (longitud original: ${#url_raw}, recortado: ${#url}) ---"
-            local status
-            status=$(curl -sS -o response.txt -w "%{http_code}" -X POST "$url")
-            echo "HTTP status: $status"
-            echo "Respuesta:"
-            cat response.txt
-            if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
-              echo "::error::El Deploy Hook de $nombre devolvió status $status"
-              return 1
-            fi
-          }
-          fallo=0
-          disparar api "$RENDER_DEPLOY_HOOK_API" || fallo=1
-          disparar web "$RENDER_DEPLOY_HOOK_WEB" || fallo=1
-          exit $fallo
-        env:
-          RENDER_DEPLOY_HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
-          RENDER_DEPLOY_HOOK_WEB: ${{ secrets.RENDER_DEPLOY_HOOK_WEB }}
-
-  deploy-dev:
-    name: Deploy (Render) — dev
-    needs: [web, api, test-api, test-web]
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Disparar los Deploy Hooks de Render (api + web, dev)
-        run: |
-          disparar() {
-            local nombre="$1" url_raw="$2"
-            if [ -z "$url_raw" ]; then
-              echo "::error::El secret RENDER_DEPLOY_HOOK_${nombre^^} no está seteado en el repo (Settings → Secrets and variables → Actions)."
-              return 1
-            fi
-            local url
-            url=$(printf '%s' "$url_raw" | xargs)
-            echo "--- $nombre (longitud original: ${#url_raw}, recortado: ${#url}) ---"
-            local status
-            status=$(curl -sS -o response.txt -w "%{http_code}" -X POST "$url")
-            echo "HTTP status: $status"
-            echo "Respuesta:"
-            cat response.txt
-            if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
-              echo "::error::El Deploy Hook de $nombre devolvió status $status"
-              return 1
-            fi
-          }
-          fallo=0
-          disparar api_dev "$RENDER_DEPLOY_HOOK_API_DEV" || fallo=1
-          disparar web_dev "$RENDER_DEPLOY_HOOK_WEB_DEV" || fallo=1
-          exit $fallo
-        env:
-          RENDER_DEPLOY_HOOK_API_DEV: ${{ secrets.RENDER_DEPLOY_HOOK_API_DEV }}
-          RENDER_DEPLOY_HOOK_WEB_DEV: ${{ secrets.RENDER_DEPLOY_HOOK_WEB_DEV }}
+  # Deploy (Sprint 5, T5.5) — sacado temporalmente (2026-08-24, pedido
+  # explícito del cliente: "quitar la parte del push automatico, porque
+  # no pasa el commit a dev sino, y tengo que settear render primero").
+  # Con el blueprint todavía sin aplicar en Render, los secrets
+  # RENDER_DEPLOY_HOOK_API/WEB no existen — el job fallaba en cada push a
+  # `dev` (el script corta con `::error::` si el secret viene vacío),
+  # tiñendo de rojo un pipeline que en realidad está bien. Se vuelve a
+  # agregar en cuanto el blueprint (render.yaml) esté aplicado en Render y
+  # los Deploy Hooks cargados como secrets del repo — ver "Deploy" en
+  # README.md y TR-021/TR-022 en docs/tradeoffs.md. El job en sí (curl a
+  # los Deploy Hooks, disparado por push a `dev`) queda en el historial de
+  # git de este archivo, no hay que reescribirlo de cero.

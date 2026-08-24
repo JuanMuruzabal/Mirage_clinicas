@@ -1,30 +1,32 @@
-# Blueprint de Render (Infrastructure as Code) — define los 6 recursos de
-# los dos entornos como código versionado: base de datos + API (Go,
-# Docker) + web (Next.js, Docker), duplicado para `prod` (rama `main`) y
-# `dev` (rama `dev`), completamente separados entre sí (cada uno con su
-# propia base — nunca comparten datos). Los VALORES de los secrets nunca
-# viven acá — cada envVar con `sync: false` se carga a mano, una sola vez,
-# desde el dashboard de Render al aplicar este blueprint (New + →
-# Blueprint → conectar este repo). Ver README.md "Deploy" para la guía
-# paso a paso completa.
+# Blueprint de Render (Infrastructure as Code) — define un único entorno
+# como código versionado: base de datos + API (Go, Docker) + web (Next.js,
+# Docker). Los VALORES de los secrets nunca viven acá — cada envVar con
+# `sync: false` se carga a mano, una sola vez, desde el dashboard de
+# Render al aplicar este blueprint (New + → Blueprint → conectar este
+# repo). Ver README.md "Deploy" para la guía paso a paso completa.
 #
-# El deploy de cada entorno es automático: un push a `main` dispara el
-# redeploy de `dental-mirage-api`/`dental-mirage-web` vía sus Deploy
-# Hooks; un push a `dev` dispara el redeploy de las versiones `-dev`. Ver
-# el job `deploy` de .github/workflows/ci.yml — mismo patrón que
-# Marcuzzi_Madryn, con dos pares de hooks en vez de uno.
+# UN SOLO ENTORNO POR AHORA (corrección 2026-08-24, ver TR-021 en
+# docs/tradeoffs.md) — la idea original era prod (rama `main`) + dev (rama
+# `dev`) separados con su propia base cada uno, mismo criterio que
+# Marcuzzi_Madryn duplicado; el plan free de Render solo permite **una**
+# base Postgres por cuenta, así que por ahora queda un solo trío
+# db/api/web, con el deploy disparado por push a `dev` (no `main` — ver
+# el job `deploy` de .github/workflows/ci.yml). `main` sigue corriendo el
+# pipeline de tests/build en cada push, simplemente no dispara ningún
+# redeploy todavía. Volver a separar prod/dev es agregar de nuevo el
+# segundo trío de abajo (con el sufijo `-dev` que tenía antes) en cuanto
+# se pague un plan que permita una segunda base.
 #
 # Nota sobre storage de fotos (pendiente, Fase 2 — perfil de profesional y
 # fotos de la página pública, hoy sin construir): cuando se implemente,
 # va a ser Cloudflare R2, mismo patrón dev/prod que Marcuzzi_Madryn (ver
-# docs/tradeoffs.md), pero con una diferencia de fondo por escalabilidad —
-# Marcuzzi es una sola aplicación con un dueño; acá hay N profesionales,
-# cada uno con sus propias fotos de página y de perfil. Los env vars de
-# R2 ya están reservados abajo (`sync: false`, sin cargar todavía) para no
-# tener que tocar este blueprint de nuevo cuando se construya la feature
-# — la convención de key pensada para eso (namespaced por profesional,
-# no un bucket plano): `paginas/{profesionalId}/{filename}` y
-# `perfiles/{profesionalId}/{filename}`.
+# docs/tradeoffs.md). Los env vars ya están reservados abajo (`sync:
+# false`, sin cargar todavía) para no tener que tocar este blueprint de
+# nuevo cuando se construya la feature — la convención de key pensada
+# para eso (namespaced por profesional, no un bucket plano, porque acá
+# hay N profesionales subiendo sus propias fotos, a diferencia de
+# Marcuzzi que es una sola aplicación con un dueño):
+# `paginas/{profesionalId}/{filename}` y `perfiles/{profesionalId}/{filename}`.
 
 databases:
   - name: dental-mirage-db
@@ -39,21 +41,10 @@ databases:
     plan: free
     # Postgres 16 — misma versión que docker-compose.yml/CI, así
     # btree_gist y el resto del esquema se comportan igual en los tres
-    # entornos (local, dev, prod).
-    postgresMajorVersion: "16"
-
-  # Base separada para `dev` — nunca la misma que prod, ni siquiera con un
-  # esquema/prefijo distinto en la misma instancia: un `docker compose
-  # down -v` o una migración con bug en dev no debe poder tocar datos de
-  # prod ni por accidente.
-  - name: dental-mirage-db-dev
-    databaseName: dental_mirage_dev
-    user: dental_mirage
-    plan: free
+    # entornos (local, este, y el de CI).
     postgresMajorVersion: "16"
 
 services:
-  # ============================= PROD (main) =============================
   - type: web
     name: dental-mirage-api
     runtime: docker
@@ -68,8 +59,11 @@ services:
     envVars:
       - key: PORT
         value: "8080" # tiene que matchear EXPOSE 8080 de apps/api/Dockerfile
+      # "development", no "production" — hasta que exista un entorno de
+      # prod real y separado (ver la nota grande al principio del
+      # archivo), este servicio se redeploya con cada push a `dev`.
       - key: APP_ENV
-        value: production
+        value: development
       - key: DATABASE_URL
         fromDatabase:
           name: dental-mirage-db
@@ -118,58 +112,5 @@ services:
       # No es un secret de seguridad — sync: false simplemente porque acá
       # no sabemos el email de contacto real del cliente, hay que cargar
       # el dato de verdad una vez (reemplaza el placeholder de desarrollo).
-      - key: CONTACTO_EMAIL
-        sync: false
-
-  # ============================== DEV (dev) ==============================
-  # Segunda copia completa del blueprint de arriba — mismo Dockerfile,
-  # misma imagen, apuntando a la base `-dev` y con sus propios Deploy
-  # Hooks (RENDER_DEPLOY_HOOK_API_DEV/RENDER_DEPLOY_HOOK_WEB_DEV en CI),
-  # para probar cada push a `dev` en un entorno real, aislado de prod.
-  - type: web
-    name: dental-mirage-api-dev
-    runtime: docker
-    dockerfilePath: apps/api/Dockerfile
-    dockerContext: apps/api
-    plan: free
-    healthCheckPath: /health
-    envVars:
-      - key: PORT
-        value: "8080"
-      - key: APP_ENV
-        value: development
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dental-mirage-db-dev
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
-      - key: CORS_ALLOWED_ORIGINS
-        value: https://dental-mirage-web-dev.onrender.com
-      # Bucket separado del de prod (mismas claves de cuenta de
-      # Cloudflare pueden reusarse; el bucket/prefijo no) — nunca mezclar
-      # fotos de prueba de dev con fotos reales de profesionales.
-      - key: R2_ACCOUNT_ID
-        sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET
-        sync: false
-      - key: R2_PUBLIC_URL
-        sync: false
-
-  - type: web
-    name: dental-mirage-web-dev
-    runtime: docker
-    dockerfilePath: apps/web/Dockerfile
-    dockerContext: .
-    plan: free
-    envVars:
-      - key: PORT
-        value: "3000"
-      - key: API_URL
-        value: https://dental-mirage-api-dev.onrender.com
       - key: CONTACTO_EMAIL
         sync: false
