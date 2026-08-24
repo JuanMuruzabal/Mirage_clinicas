@@ -118,9 +118,13 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           maneja `<main>` en app/panel/layout.tsx (un solo scroll de
           página, no dos anidados). El scroll horizontal se mantiene
           siempre (`overflow-x-auto`). WebkitOverflowScrolling: Tailwind
-          no tiene utilidad para esta propiedad, va inline. */}
+          no tiene utilidad para esta propiedad, va inline.
+          `max-md:overscroll-contain` (corrección 2026-08-24 — ver TR-027
+          en docs/tradeoffs.md): evita que arrastrar hasta el borde del
+          scroll horizontal dispare el rebote elástico del documento —
+          ver PanelScrollLock para la otra mitad del mismo arreglo. */}
       <div
-        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
+        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible max-md:overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <table className="w-full min-w-[720px] text-left text-sm">

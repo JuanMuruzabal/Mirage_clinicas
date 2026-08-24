@@ -43,7 +43,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
     <div className="panel-texture flex flex-1 pt-[var(--header-height)] max-md:h-[100dvh] max-md:overflow-hidden">
       <PanelSidebar />
       <main
-        className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-hidden max-md:overflow-y-auto"
+        className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-hidden max-md:overflow-y-auto max-md:overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {children}

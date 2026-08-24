@@ -299,6 +299,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Los cinco `h1` y el padding raíz de cada página de `/panel` pasan a `clamp()`+`vw` en mobile.
 - Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos); CSS de producción inspeccionado para confirmar que Tailwind generó el bloque `max-md:` esperado.
 
+**Cuarta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el scroll... mueve todo junto... el header y el sidebar están DENTRO del contenedor que scrollea"), con instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-027 en `docs/tradeoffs.md`:**
+- Diagnóstico previo (antes de tocar código): se reconstruyó la jerarquía real del DOM leyendo el código — header/sidebar **ya eran hermanos** del área que scrollea, no descendientes. Causa real: el "rebote elástico" de mobile Safari, que puede filtrarse desde un scroll anidado hacia el documento y arrastrar visualmente a los elementos `position: fixed`.
+- Nuevo `components/panel-scroll-lock.tsx`: agrega/saca `.panel-locked` en `<html>` según la ruta (`usePathname`), montado en `app/layout.tsx`.
+- `globals.css`: `html.panel-locked, html.panel-locked body { overflow: hidden; overscroll-behavior: contain; }`, solo debajo de 768px.
+- `overscroll-contain` (Tailwind) sumado a los 4 contenedores con scroll de `/panel` (main, calendario, 2 tablas).
+- Verificación: pipeline completo limpio, 311 tests → 92.76% cobertura (4 tests nuevos para `PanelScrollLock`); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

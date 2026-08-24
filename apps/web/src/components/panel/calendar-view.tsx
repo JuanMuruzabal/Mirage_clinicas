@@ -161,9 +161,14 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
           para llegar a los días que no entran. WebkitOverflowScrolling:
           Tailwind no tiene una utilidad para esta propiedad, así que va
           inline — sin esto, el scroll horizontal por gesto táctil en
-          iOS puede sentirse trabado en vez de con inercia nativa. */}
+          iOS puede sentirse trabado en vez de con inercia nativa.
+          `max-md:overscroll-contain` (corrección 2026-08-24 — ver TR-027
+          en docs/tradeoffs.md): sin esto, arrastrar hasta el borde de
+          este scroll horizontal podía disparar el rebote elástico del
+          documento, que arrastraba visualmente al header/sidebar fijos
+          — ver PanelScrollLock para la otra mitad del mismo arreglo. */}
       <div
-        className="h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:h-auto max-md:overflow-y-visible"
+        className="h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:h-auto max-md:overflow-y-visible max-md:overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}

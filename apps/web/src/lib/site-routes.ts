@@ -42,3 +42,12 @@ export function isClinicaPublicaRoute(pathname: string): boolean {
   if (segmentos.length !== 1) return false;
   return !RUTAS_PROPIAS_DE_UN_SEGMENTO.includes(segmentos[0]);
 }
+
+/**
+ * Gestión de clínica (`/panel/**`) — usado por `PanelScrollLock` (rama
+ * fix/mobile, TR-027 en docs/tradeoffs.md) para saber cuándo bloquear el
+ * scroll del documento en mobile.
+ */
+export function isPanelRoute(pathname: string): boolean {
+  return pathname === "/panel" || pathname.startsWith("/panel/");
+}

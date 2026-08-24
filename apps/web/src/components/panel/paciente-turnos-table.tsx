@@ -120,8 +120,11 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // lo maneja <main> en app/panel/layout.tsx. El scroll horizontal
         // se mantiene siempre. WebkitOverflowScrolling: Tailwind no
         // tiene utilidad para esta propiedad, va inline.
+        // max-md:overscroll-contain (ver TR-027 en docs/tradeoffs.md):
+        // evita que arrastrar hasta el borde dispare el rebote elástico
+        // del documento.
         <div
-          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
+          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible max-md:overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[560px] text-left text-sm">

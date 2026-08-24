@@ -136,6 +136,32 @@
   }
 }
 
+/* `.panel-locked` (rama fix/mobile, corrección 2026-08-24 sobre TR-026 —
+   ver TR-027 en docs/tradeoffs.md) — la clase la pone/saca
+   `PanelScrollLock` (componente cliente, `usePathname`) mientras se está
+   en `/panel/**`. El header y el sidebar de gestión de clínica YA eran
+   hermanos del área que scrollea (no estaban anidados adentro) — el bug
+   real era el "rebote elástico" de mobile Safari: un gesto que llega al
+   borde de un scroll anidado (el calendario, las tablas) puede filtrarse
+   al documento, y como `position: fixed` ancla al viewport visual, ese
+   rebote del documento arrastra visualmente al header aunque nunca
+   estuvo dentro del contenedor que scrollea. Bloquear `html`/`body` acá
+   (además del `overflow-hidden` que ya tenía el contenedor raíz de
+   `/panel`, ver `app/panel/layout.tsx`) cierra esa vía de filtración del
+   todo. Solo debajo de 768px — arriba de eso `.panel-locked` no hace
+   nada, cero efecto en escritorio. `overscroll-behavior: contain` es la
+   otra mitad del mismo arreglo: sin esto, aunque el documento esté
+   `overflow: hidden`, un gesto en el borde de un scroll anidado igual
+   puede iniciar el efecto de rebote antes de que el navegador termine de
+   descartarlo. */
+@media (max-width: 767px) {
+  html.panel-locked,
+  html.panel-locked body {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+}
+
 /* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
    del todo dejaba ver el fondo nativo del navegador detrás de la página,
    sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024

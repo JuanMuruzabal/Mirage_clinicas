@@ -53,14 +53,17 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           cancela el recorte/scroll vertical propio — ese scroll ahora lo
           maneja `<main>` en app/panel/layout.tsx. El scroll horizontal
           se mantiene siempre. WebkitOverflowScrolling: Tailwind no
-          tiene utilidad para esta propiedad, va inline. */}
+          tiene utilidad para esta propiedad, va inline.
+          `max-md:overscroll-contain` (ver TR-027 en docs/tradeoffs.md):
+          evita que arrastrar hasta el borde del scroll horizontal
+          dispare el rebote elástico del documento. */}
       {pacientes.length === 0 ? (
         <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
           {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
         </p>
       ) : (
         <div
-          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
+          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible max-md:overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[600px] text-left text-sm">

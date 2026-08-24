@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteHeaderVisibility } from "@/components/site-header-visibility";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteFooterVisibility } from "@/components/site-footer-visibility";
+import { PanelScrollLock } from "@/components/panel-scroll-lock";
 
 // Sistema Cascarón (docs/tradeoffs.md TR-010) — display condensada de alto
 // contraste, uso restringido a títulos/cifras/rótulos (spec §9.7).
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${bigShoulders.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <PanelScrollLock />
         <SiteHeaderVisibility>
           <SiteHeader />
         </SiteHeaderVisibility>
