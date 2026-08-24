@@ -292,6 +292,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - `calendar-grid.tsx`: el piso de ancho pasa de columna-por-columna (no hacía nada en vista Día, la que se ve por defecto) a una vez por contenedor completo (`--panel-calendar-min-w`, 720px para Día / 200px×N para Semana), consumido solo debajo de 768px.
 - Verificación: pipeline completo limpio, 307 tests → 92.73% cobertura (sin tests nuevos).
 
+**Tercera vuelta, rama `fix/mobile` (2026-08-24), pedido explícito y detallado del cliente (estructura fija header/sidebar/página, un área de contenido con su propio scroll, `min-width` + `clamp()`/`vw` en vez de un ancho fijo enorme, sin tocar el meta viewport) — ver TR-026 en `docs/tradeoffs.md`:**
+- `app/panel/layout.tsx`: raíz a `100dvh` + `overflow-hidden` (mobile-only); `<main>` pasa a ser el único elemento que scrollea verticalmente. El sidebar, al quedar fuera de esa área, queda visualmente fijo.
+- `calendar-view.tsx`/`turnos-table.tsx`/`pacientes/page.tsx`/`paciente-turnos-table.tsx`: pierden su recorte/scroll vertical propio en mobile (ese scroll ahora lo da `<main>`), conservan su scroll horizontal sin cambios.
+- `calendar-grid.tsx`: vuelve al piso de ancho por columna (no por todo el contenedor, como en la segunda vuelta) — con `clamp()`+`vw` en vez de un px fijo. La vista Día ahora llena el 100% del ancho sin piso, que es lo pedido ("que se estire y llene la pantalla").
+- Los cinco `h1` y el padding raíz de cada página de `/panel` pasan a `clamp()`+`vw` en mobile.
+- Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos); CSS de producción inspeccionado para confirmar que Tailwind generó el bloque `max-md:` esperado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

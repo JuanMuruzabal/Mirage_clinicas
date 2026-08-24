@@ -103,18 +103,24 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
         </p>
       )}
 
-      {/* max-h + overflow-auto — mismo criterio que el calendario (T2.3):
-          la tabla no estira la página a medida que crecen los turnos, el
-          scroll queda contenido acá adentro. thead sticky para no perder
-          las columnas al scrollear. min-w-[720px] en la tabla (abajo) ya
-          hacía que esto scrolleara horizontal en cualquier viewport
-          angosto, desktop incluido — eso ya cumplía el pedido de la rama
-          fix/mobile (2026-08-24: "no comprimir, layout de escritorio +
-          scroll horizontal") sin tocar nada. Lo único que faltaba era el
-          touch-scroll nativo en iOS (WebkitOverflowScrolling — Tailwind
-          no tiene utilidad para esta propiedad, va inline). */}
+      {/* Escritorio: max-h + scroll interno en las dos direcciones —
+          mismo criterio que el calendario (T2.3), no estira la página.
+          thead sticky para no perder las columnas al scrollear.
+          min-w-[720px] en la tabla (abajo) es un mínimo de contenido
+          real (7 columnas legibles), no un ancho "de escritorio"
+          artificial — ya cumple el pedido de la rama fix/mobile
+          (2026-08-24: "min-width... para que se estire y llene la
+          pantalla, y que solo desborde lo que realmente no entra").
+
+          Mobile (corrección 2026-08-24 — ver TR-026 en
+          docs/tradeoffs.md): `max-md:max-h-none max-md:overflow-y-visible`
+          cancela el recorte/scroll vertical propio — ese scroll ahora lo
+          maneja `<main>` en app/panel/layout.tsx (un solo scroll de
+          página, no dos anidados). El scroll horizontal se mantiene
+          siempre (`overflow-x-auto`). WebkitOverflowScrolling: Tailwind
+          no tiene utilidad para esta propiedad, va inline. */}
       <div
-        className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <table className="w-full min-w-[720px] text-left text-sm">

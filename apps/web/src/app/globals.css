@@ -107,28 +107,32 @@
 
 /* Rama fix/mobile (2026-08-24, pedido explícito del cliente): dentro de
    gestión de clínica (/panel/**), el calendario y las tablas NO se
-   comprimen/apilan/reorganizan en mobile — conservan su layout de
-   escritorio y se navegan con scroll horizontal.
+   comprimen/apilan/reorganizan en mobile.
 
-   Corrección (mismo día, segunda vuelta — ver TR-025 en
-   docs/tradeoffs.md): la primera versión de esto forzaba un piso de
-   ancho COLUMNA POR COLUMNA dentro de la grilla (`minmax(150px, 1fr)`),
-   que en la vista Día (una sola columna) no hacía nada — con una sola
-   pista, `1fr` siempre gana sin importar el piso, así que esa vista
-   seguía viéndose apretada en mobile. Ahora el mínimo se aplica UNA vez
-   al contenedor entero (`.panel-calendar-dias`, el `<div className="flex">`
-   raíz de calendar-grid.tsx: gutter de horas + columnas), calculado en
-   JS según la vista (`--panel-calendar-min-w`, seteado inline por
-   calendar-grid.tsx) — funciona igual para 1 columna (Día) o 7
-   (Semana). Sin esta regla, `.panel-calendar-dias` no tiene min-width
-   propio (default `auto`, igual que antes de cualquier cambio mobile) —
-   cero efecto en escritorio a cualquier ancho. Debajo de 768px (el mismo
-   breakpoint `md` que ya usa el resto del sitio), el contenedor se
-   vuelve más ancho que la pantalla a propósito, y el overflow-auto de
-   calendar-view.tsx (el padre) lo hace navegable deslizando. */
+   Tercera vuelta (mismo día — ver TR-026 en docs/tradeoffs.md). Las dos
+   versiones anteriores probaron los dos extremos: TR-024 forzaba un piso
+   por columna que en la vista Día (una sola columna) no hacía nada,
+   porque con una sola pista `1fr` siempre gana igual — esa vista seguía
+   apretada. TR-025 sobrecorrigió al revés: forzaba un ancho ENORME fijo
+   sobre todo el contenedor, incluso en vistas donde el contenido real ya
+   entraba cómodo en la pantalla — el cliente pidió explícitamente lo
+   contrario ("en vez de un ancho fijo enorme, usá min-width... para que
+   se estire y llene la pantalla, y que solo desborde lo que realmente no
+   entra"). Esta versión vuelve al piso por columna de TR-024 (que sí es
+   "solo lo que no entra" para Semana) pero con `clamp()` + `vw` en vez
+   de un px fijo, como pidió el cliente — la vista Día sigue sin verse
+   afectada por este piso (1 columna = 1fr = 100% del ancho = "llena la
+   pantalla" tal cual, sin desbordar nada porque no hay nada que no
+   entre). Sin esta regla, `.panel-calendar-dias` no tiene piso de ancho
+   propio en sus columnas (`minmax(0, 1fr)`, igual que antes de
+   cualquier cambio mobile) — cero efecto en escritorio a cualquier
+   ancho. Debajo de 768px (el mismo breakpoint `md` que ya usa el resto
+   del sitio), cada columna de la vista Semana no baja de ese piso, y el
+   overflow-x-auto de calendar-view.tsx/calendar-grid.tsx hace navegable
+   deslizando solo lo que de verdad excede la pantalla. */
 @media (max-width: 767px) {
   .panel-calendar-dias {
-    min-width: var(--panel-calendar-min-w, auto);
+    --panel-dia-min-w: clamp(6.5rem, 30vw, 10.5rem); /* ~104px – ~168px */
   }
 }
 

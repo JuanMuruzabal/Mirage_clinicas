@@ -67,8 +67,12 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   const turnos = turnosResult?.ok ? turnosResult.data : [];
 
   return (
-    <div className="flex flex-col gap-6 p-8">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Turnos</h1>
+    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
+    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
+    <div className="flex flex-col gap-6 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+        Turnos
+      </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm">

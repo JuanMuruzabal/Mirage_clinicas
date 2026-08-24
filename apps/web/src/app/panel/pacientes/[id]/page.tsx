@@ -43,7 +43,9 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
   const historial = paciente.turnos.filter((t) => !esActivo(t));
 
   return (
-    <div className="flex flex-col gap-8 p-8">
+    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
+    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
+    <div className="flex flex-col gap-8 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/panel/pacientes" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
@@ -51,7 +53,7 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
           </Link>
           <div className="mt-2 flex items-center gap-3">
             <AvatarIniciales nombre={paciente.nombre} apellido={paciente.apellido} className="h-11 w-11 text-base" />
-            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">
+            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
               {paciente.nombre} {paciente.apellido}
             </h1>
           </div>

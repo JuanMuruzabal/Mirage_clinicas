@@ -113,12 +113,15 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
           Ningún turno coincide con el filtro.
         </p>
       ) : (
-        // min-w-[560px] ya hacía que esto scrolleara horizontal sin
-        // comprimirse en cualquier viewport angosto — WebkitOverflowScrolling
-        // (rama fix/mobile, 2026-08-24) es solo el touch-scroll nativo
-        // de iOS, Tailwind no tiene una utilidad para esa propiedad.
+        // min-w-[560px] es un mínimo de contenido real, no un ancho
+        // artificial. Mobile (corrección 2026-08-24 — ver TR-026 en
+        // docs/tradeoffs.md): max-md:max-h-none max-md:overflow-y-visible
+        // cancela el recorte/scroll vertical propio — ese scroll ahora
+        // lo maneja <main> en app/panel/layout.tsx. El scroll horizontal
+        // se mantiene siempre. WebkitOverflowScrolling: Tailwind no
+        // tiene utilidad para esta propiedad, va inline.
         <div
-          className="max-h-[400px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[560px] text-left text-sm">

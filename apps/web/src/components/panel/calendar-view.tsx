@@ -79,9 +79,19 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
   const titulo = vista === "mes" ? formatMesAnio(fecha) : vista === "semana" ? formatRangoSemana(fecha) : formatDiaLargo(fecha);
 
   return (
-    <div className="flex flex-col gap-4 p-8">
+    // p-8 → clamp() en mobile (rama fix/mobile, 2026-08-24, pedido
+    // explícito del cliente: "escalá... paddings y espaciados con
+    // clamp() usando vw, en vez de tamaños fijos en px") — 32px fijos de
+    // margen a cada lado le comen ~17% del ancho útil a un teléfono
+    // angosto (~375px); clamp(1rem,4vw,2rem) baja a ~15px en pantallas
+    // chicas y nunca pasa de los 32px de escritorio (el máximo del
+    // clamp() coincide con p-8, así que arriba de ~640px de viewport de
+    // hecho da lo mismo). Ver TR-026 en docs/tradeoffs.md.
+    <div className="flex flex-col gap-4 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Calendario</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+          Calendario
+        </h1>
         <button
           type="button"
           onClick={() => setModalAbierto(true)}
@@ -135,21 +145,25 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
         </div>
       </div>
 
-      {/* Altura fija + scroll interno propio — no estira la página.
-          overflow-auto (no solo -y): corrección 2026-08-24, pedido
-          explícito del cliente ("se rompre mucho el apartado de gestion
-          de clinica... esto se soluciona facil si puedo navergarme facil
-          hacia los costados... o bien deslizar con el dedo") — la vista
-          Semana (CalendarGrid) fuerza un ancho mínimo por día (ver ese
-          componente), así que en mobile el contenido real es más ancho
-          que la pantalla; sin overflow-x el usuario no tenía forma de
-          llegar a los días de más a la derecha. WebkitOverflowScrolling
-          (rama fix/mobile): Tailwind no tiene una utilidad para esta
-          propiedad, así que va inline — sin esto, el scroll horizontal
-          por gesto táctil en iOS puede sentirse trabado/con "steps" en
-          vez de inercia nativa. */}
+      {/* Escritorio: altura fija (h-[600px]) + scroll interno propio en
+          las dos direcciones — no estira la página, sin cambios acá.
+
+          Mobile (rama fix/mobile, corrección 2026-08-24 — ver TR-026 en
+          docs/tradeoffs.md): `max-md:h-auto max-md:overflow-y-visible`
+          cancela el recorte vertical de escritorio — el scroll vertical
+          de toda la sección ahora lo maneja `<main>` en
+          app/panel/layout.tsx (un solo scroll de la página, no uno
+          anidado adentro de otro), así que este cuadro simplemente
+          fluye con su alto natural. El scroll horizontal SÍ se mantiene
+          siempre (`overflow-x-auto`, escritorio y mobile por igual): la
+          vista Semana (CalendarGrid) fuerza un piso de ancho por columna
+          en mobile (ver ese componente), así que sigue haciendo falta
+          para llegar a los días que no entran. WebkitOverflowScrolling:
+          Tailwind no tiene una utilidad para esta propiedad, así que va
+          inline — sin esto, el scroll horizontal por gesto táctil en
+          iOS puede sentirse trabado en vez de con inercia nativa. */}
       <div
-        className="h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+        className="h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:h-auto max-md:overflow-y-visible"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}

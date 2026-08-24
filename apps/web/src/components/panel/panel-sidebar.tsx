@@ -34,8 +34,12 @@ export function PanelSidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
+    // max-md:h-[calc(100dvh-...)] (rama fix/mobile, 2026-08-24): mismo
+    // motivo que panel/layout.tsx — `dvh` en vez de `vh` en mobile
+    // descuenta la barra de direcciones del navegador, así el sidebar
+    // nunca queda unos px más alto que el viewport visible real.
     <aside
-      className={`sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
+      className={`sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] max-md:h-[calc(100dvh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
         collapsed ? "w-16" : "w-60"
       }`}
     >

@@ -18,13 +18,18 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
   const hoy = new Date();
 
   return (
-    // min-w (2026-08-24, mismo pedido que CalendarGrid): sin un piso de
-    // ancho, en mobile cada una de las 7 columnas podía terminar en
-    // ~40px, demasiado angosto para que los puntos de color/"+N" se
-    // lean. El contenedor padre (calendar-view.tsx) ya tiene
-    // overflow-auto para navegar deslizando cuando esto es más ancho que
-    // la pantalla.
-    <div className="grid min-w-[490px] grid-cols-7 border-t border-l border-arena">
+    // min-w — corrección 2026-08-24, rama fix/mobile (ver TR-026 en
+    // docs/tradeoffs.md): antes era un piso incondicional (490px, en
+    // cualquier viewport) — sin ser enorme, tampoco es "que se estire y
+    // llene la pantalla", que es el pedido explícito del cliente. Pasa a
+    // `max-md:` únicamente: en escritorio ya no tiene ningún min-width
+    // propio (el grid-cols-7 se reparte solo, como toda la vida); en
+    // mobile, clamp() lo deja llenar hasta ~90% del viewport (para que
+    // en un teléfono angosto no desborde de entrada) sin bajar de 280px
+    // (7 columnas de ~40px, el piso de legibilidad para el número de
+    // día + los puntos de color). El overflow-x-auto de calendar-view.tsx
+    // sigue ahí para lo poco que de verdad no entre.
+    <div className="grid grid-cols-7 border-t border-l border-arena max-md:min-w-[clamp(280px,90vw,420px)]">
       {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
         <div
           key={d}

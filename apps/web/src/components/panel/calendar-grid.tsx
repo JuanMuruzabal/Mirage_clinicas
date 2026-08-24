@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { formatDiaCorto, formatHora, isSameDay } from "@/lib/calendar-utils";
 import { temaTipoConsulta } from "@/lib/turno-format";
@@ -6,18 +5,6 @@ import { temaTipoConsulta } from "@/lib/turno-format";
 const HORA_INICIO = 8;
 const HORA_FIN = 20;
 const PX_POR_HORA = 64;
-const GUTTER_HORAS_PX = 64; // ancho de w-16, la columna de horas a la izquierda
-
-// Anchos aproximados de escritorio (rama fix/mobile, corrección
-// 2026-08-24 — ver TR-025 en docs/tradeoffs.md): en vista Día hay una
-// sola columna que en escritorio ocupa casi todo el ancho disponible del
-// panel (fácil ~700-900px); en vista Semana, cada una de las 7 columnas
-// suele rondar los 200px. Estos dos números son la aproximación de "cómo
-// se ve en escritorio" que se fuerza como ancho mínimo en mobile — no
-// hace falta que coincidan pixel a pixel con ningún monitor real, alcanza
-// con que el contenido deje de sentirse apretado.
-const ANCHO_MIN_VISTA_DIA_PX = 720;
-const ANCHO_MIN_POR_COLUMNA_PX = 200;
 
 interface CalendarGridProps {
   dias: Date[];
@@ -35,21 +22,8 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
   const alturaTotal = (HORA_FIN - HORA_INICIO) * PX_POR_HORA;
   const tipoPorId = new Map(tiposConsulta.map((t) => [t.id, t]));
 
-  // Ancho mínimo total del contenido (gutter de horas + columnas de día),
-  // forzado SOLO debajo de 768px vía la variable CSS que lee
-  // .panel-calendar-dias en globals.css — arriba de ese breakpoint la
-  // variable no existe y este número no tiene ningún efecto, cero cambio
-  // de escritorio. Debajo, obliga a que el contenido sea más ancho que
-  // la pantalla a propósito, para que se navegue deslizando en vez de
-  // comprimirse (pedido explícito del cliente, rama fix/mobile).
-  const anchoMinDias = dias.length === 1 ? ANCHO_MIN_VISTA_DIA_PX : dias.length * ANCHO_MIN_POR_COLUMNA_PX;
-  const anchoMinTotalPx = GUTTER_HORAS_PX + anchoMinDias;
-
   return (
-    <div
-      className="panel-calendar-dias flex"
-      style={{ "--panel-calendar-min-w": `${anchoMinTotalPx}px` } as CSSProperties}
-    >
+    <div className="flex">
       <div className="w-16 flex-shrink-0">
         <div className="h-10 border-b border-arena" />
         <div className="relative" style={{ height: alturaTotal }}>
@@ -65,18 +39,24 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
         </div>
       </div>
 
-      {/* minmax(0, 1fr) — sin variable CSS ni piso propio acá (corrección
-          2026-08-24, rama fix/mobile, ver TR-025 en docs/tradeoffs.md):
-          el ancho mínimo ya no se aplica columna por columna, se aplica
-          UNA vez al contenedor entero de arriba (`anchoMinTotalPx`) — así
-          también funciona para la vista Día (una sola columna, donde un
-          piso por-columna no alcanzaba a forzar nada porque 1fr con una
-          sola pista siempre gana igual). Con el contenedor ya forzado a
-          ser ancho en mobile, estas columnas se reparten ese ancho con
-          total normalidad vía 1fr — es la misma expresión que tenía el
-          código antes de cualquier cambio mobile, sin ningún condicional
-          propio. */}
-      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
+      {/* .panel-calendar-dias + var(--panel-dia-min-w, 0px) (rama
+          fix/mobile, corrección 2026-08-24 — ver TR-026 en
+          docs/tradeoffs.md): el piso de ancho es POR COLUMNA otra vez
+          (no un ancho total forzado sobre todo el contenedor, que era la
+          versión anterior) — el pedido explícito del cliente es que el
+          contenido "se estire y llene la pantalla" y que "solo desborde
+          lo que realmente no entra": en vista Día (1 columna), `1fr`
+          llena el 100% del ancho disponible sin que el piso tenga que
+          intervenir (es exactamente "llenar la pantalla", no un ancho
+          fijo enorme); en vista Semana (7 columnas), el piso SÍ se
+          activa y fuerza el scroll horizontal solo ahí, que es lo que
+          "no entra". `--panel-dia-min-w` no existe arriba de 768px
+          (definida en globals.css con clamp()+vw, no un px fijo) — cero
+          cambio de escritorio a cualquier ancho. */}
+      <div
+        className="panel-calendar-dias grid flex-1"
+        style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(var(--panel-dia-min-w, 0px), 1fr))` }}
+      >
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
           return (

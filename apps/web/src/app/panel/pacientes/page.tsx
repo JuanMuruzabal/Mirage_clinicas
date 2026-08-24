@@ -24,8 +24,12 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const pacientes = result?.ok ? result.data : [];
 
   return (
-    <div className="flex flex-col gap-6 p-8">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Pacientes</h1>
+    // p-8/text-3xl → clamp() en mobile (rama fix/mobile, 2026-08-24,
+    // pedido explícito del cliente — ver TR-026 en docs/tradeoffs.md).
+    <div className="flex flex-col gap-6 p-8 max-md:p-[clamp(1rem,4vw,2rem)]">
+      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+        Pacientes
+      </h1>
 
       <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2">
         <input
@@ -40,21 +44,23 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         </button>
       </form>
 
-      {/* pacientes.length === 0 ? ... : tabla con max-h + overflow-auto —
-          mismo criterio que el calendario (T2.3) y la tabla de Turnos: no
-          estira la página a medida que crecen los pacientes. thead sticky
-          para no perder las columnas al scrollear. min-w-[600px] en la
-          tabla (abajo) ya hacía que esto scrolleara horizontal en
-          cualquier viewport angosto sin comprimirse — WebkitOverflowScrolling
-          (rama fix/mobile, 2026-08-24) es solo el touch-scroll nativo de
-          iOS, Tailwind no tiene una utilidad para esa propiedad. */}
+      {/* Escritorio: max-h + scroll interno en las dos direcciones — sin
+          cambios. min-w-[600px] en la tabla (abajo) es un mínimo de
+          contenido real, no un ancho "de escritorio" artificial.
+
+          Mobile (corrección 2026-08-24 — ver TR-026 en
+          docs/tradeoffs.md): `max-md:max-h-none max-md:overflow-y-visible`
+          cancela el recorte/scroll vertical propio — ese scroll ahora lo
+          maneja `<main>` en app/panel/layout.tsx. El scroll horizontal
+          se mantiene siempre. WebkitOverflowScrolling: Tailwind no
+          tiene utilidad para esta propiedad, va inline. */}
       {pacientes.length === 0 ? (
         <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
           {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
         </p>
       ) : (
         <div
-          className="max-h-[600px] overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+          className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-y-visible"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[600px] text-left text-sm">
