@@ -328,6 +328,11 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - General y ficha del paciente: revisados, ya cumplían (comparten `<main>` y el `pt-3` de TR-029) — sin cambios estructurales necesarios.
 - Verificación: pipeline completo limpio, 313 tests → 92.8% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
+**Octava vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("sigue sin responder el movimiento vertical en el apartado de calendario... se arregla momentaneamente cuando cambio de dia a semana... mismo problema cuando toco la ficha de un paciente") — ver TR-031 en `docs/tradeoffs.md`:**
+- Diagnóstico: bug conocido de iOS Safari — un contenedor `overflow:auto` (`<main>`) a veces no reconoce contenido nuevo/recién montado hasta que algo dispara un reflow externo. El clic en Día/Semana/Mes "arregla" el scroll por accidente (cambia el DOM, dispara el reflow que debería haber pasado solo). `app/panel/layout.tsx` es compartido por todo `/panel/**` (no se remonta al navegar), así que el único disparador real necesario es el cambio de ruta.
+- Nuevo `components/panel/panel-shell.tsx` (`PanelShell`): fuerza un reflow real (`useLayoutEffect` + toggle de `display` + lectura de `offsetHeight`) en cada cambio de `usePathname()`. Se saca `WebkitOverflowScrolling: "touch"` de `<main>` (vestigial en iOS moderno, posible causa adicional).
+- Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (3 tests nuevos); build de producción verificado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

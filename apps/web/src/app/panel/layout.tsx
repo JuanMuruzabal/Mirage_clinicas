@@ -1,5 +1,6 @@
 import { requireProfesional } from "@/lib/session";
 import { PanelSidebar } from "@/components/panel/panel-sidebar";
+import { PanelShell } from "@/components/panel/panel-shell";
 
 // Shell de gestión de clínica (T2.1, spec §4.1) — protegido, sidebar +
 // contenido. pt-[var(--header-height)] compensa el header fixed (mismo
@@ -42,18 +43,21 @@ import { PanelSidebar } from "@/components/panel/panel-sidebar";
 //     referencia que pasó el cliente): cada uno aporta su propio
 //     `min-width` (ver calendar-view.tsx/turnos/page.tsx/etc.) y
 //     `<main>` es el único que de verdad tiene `overflow`.
+//   - `PanelShell` (octava corrección, TR-031 en docs/tradeoffs.md)
+//     reemplaza el `<div>` raíz por un Client Component que fuerza un
+//     reflow cada vez que cambia la ruta — bug real de iOS Safari: sin
+//     esto, `<main>` a veces no reconocía que tenía contenido nuevo hasta
+//     que algo más tocaba el DOM (justo el síntoma reportado: "se
+//     arregla momentáneamente cuando cambio de dia a semana").
 export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
   await requireProfesional();
 
   return (
-    <div className="panel-texture panel-shell-h flex flex-1 pt-[var(--header-height)] max-md:overflow-hidden">
+    <PanelShell>
       <PanelSidebar />
-      <main
-        className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
+      <main className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain">
         {children}
       </main>
-    </div>
+    </PanelShell>
   );
 }
