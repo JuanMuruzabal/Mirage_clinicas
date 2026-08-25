@@ -29,6 +29,20 @@ const NAV_ITEMS = [
 // (b) "Tu página"/"Tu perfil" suman ícono propio (`IconPagina`/
 // `IconPerfil`, mismo set que sidebar-icons.tsx) — antes eran texto
 // plano, sin nada que mostrar cuando estaba colapsado más que un "•".
+//
+// Décima vuelta (2026-08-24 — ver TR-033 en docs/tradeoffs.md): `top-0`
+// en mobile en vez de heredar siempre `top-[var(--header-height)]`. Ese
+// offset tenía sentido en escritorio, donde es el DOCUMENTO el que
+// scrollea y el sidebar necesita saber cuánto "header" hay que dejar
+// libre antes de pegarse. En mobile, desde TR-026, el documento no
+// scrollea más — la raíz de /panel (`PanelShell`) ya reserva ese mismo
+// espacio con `padding-top: var(--header-height)` — así que el offset de
+// `sticky` quedaba sumándose una SEGUNDA vez sobre ese padding (el
+// sidebar aparecía un tramo de header-height más abajo de lo debido,
+// dejando una franja vacía entre el header y los íconos — justo el "gap"
+// reportado por el cliente). `top-0` en mobile deja que el sidebar se
+// pegue apenas se lo tapa desde el borde de su propio contenedor (que ya
+// arranca después del padding) — sin volver a compensar nada.
 export function PanelSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -43,7 +57,7 @@ export function PanelSidebar() {
     // `dvh` después — el navegador se queda con la última declaración
     // que sepa interpretar, así que sigue funcionando en cualquiera.
     <aside
-      className={`panel-sidebar-h sticky top-[var(--header-height)] flex h-[calc(100vh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
+      className={`panel-sidebar-h sticky top-[var(--header-height)] max-md:top-0 flex h-[calc(100vh-var(--header-height))] flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-[width] duration-300 ${
         collapsed ? "w-[52px]" : "w-60"
       }`}
     >

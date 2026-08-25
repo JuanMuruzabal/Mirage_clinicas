@@ -340,6 +340,11 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - El video que envió el cliente no se pudo reproducir en este entorno (sin `ffmpeg`/visor); diagnóstico hecho con preguntas dirigidas en su lugar.
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
+**Décima vuelta, rama `fix/mobile` (2026-08-24), capturas de pantalla del cliente mostrando el gap del sidebar — ver TR-033 en `docs/tradeoffs.md`:**
+- Causa real: `PanelSidebar` (`sticky top-[var(--header-height)]`) — ese offset, pensado para cuando el documento scrolleaba (escritorio), quedaba sumándose una segunda vez sobre el `padding-top` que ya reserva ese espacio en la raíz de `/panel` (mobile, desde TR-026) — el sidebar aparecía un tramo de header-height más abajo de lo debido.
+- Fix: `max-md:top-0` en el sidebar — solo mobile, escritorio sin cambios.
+- Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---
