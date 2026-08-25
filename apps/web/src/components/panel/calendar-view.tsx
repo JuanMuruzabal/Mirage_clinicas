@@ -115,7 +115,17 @@ export function CalendarView({ tiposConsulta, turnosIniciales }: CalendarViewPro
         className="panel-cal-min-w flex flex-col gap-4 max-md:min-w-[var(--panel-cal-min-w)]"
         style={{ "--panel-cal-min-w": `${anchoMinPx}px` } as CSSProperties}
       >
-        <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
+        {/* max-md:justify-start (rama fix/mobile, undécima corrección
+            2026-08-24 — ver TR-034 en docs/tradeoffs.md, pedido explícito
+            del cliente: "el boton de generar turno debe estar al lado del
+            texto calendario"). Con `justify-between` sobre una fila que
+            mide 640px+ en mobile (el `min-width` del wrapper), el botón
+            quedaba pegado al borde derecho de esa fila — fuera de la
+            pantalla visible sin deslizar. `justify-start` (solo mobile)
+            lo deja pegado al título, como en escritorio; escritorio sigue
+            con `justify-between` (esa fila ahí sí entra completa en
+            pantalla, separarlos se ve mejor). */}
+        <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap max-md:justify-start">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
             Calendario
           </h1>

@@ -68,4 +68,37 @@ describe("PanelSidebar", () => {
     const iconos = container.querySelectorAll("svg");
     expect(iconos).toHaveLength(6);
   });
+
+  // Rama fix/mobile, undécima corrección (2026-08-24, pedido explícito del
+  // cliente: "en mobile que la primera vista de la pagina el sidebar este
+  // contraido no desplegado" — ver TR-034 en docs/tradeoffs.md).
+  // vitest.setup.ts ya mockea `matchMedia` con `matches: false` por
+  // defecto (así lo usan los tests de arriba, sin tocarlo) — acá se
+  // sobreescribe puntualmente para simular un viewport mobile.
+  it("arranca colapsado si el viewport es mobile (matchMedia coincide con el breakpoint)", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) =>
+      ({
+        matches: query === "(max-width: 767px)",
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList) as typeof window.matchMedia;
+
+    const { container } = render(<PanelSidebar />);
+    expect(container.querySelector("aside")).toHaveClass("w-[52px]");
+
+    window.matchMedia = original;
+  });
+
+  it("arranca expandido si el viewport NO es mobile (matchMedia no coincide)", () => {
+    // El mock global (vitest.setup.ts) ya devuelve matches:false siempre
+    // — este test lo deja explícito en vez de depender del default.
+    const { container } = render(<PanelSidebar />);
+    expect(container.querySelector("aside")).toHaveClass("w-60");
+  });
 });

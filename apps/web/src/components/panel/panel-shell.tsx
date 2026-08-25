@@ -1,13 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
-
-// useLayoutEffect no server-side (React tira un warning: "does nothing on
-// the server") — patrón isomorphic estándar (mismo que usan Redux/Framer
-// Motion): useEffect en el server (donde no hace nada, no importa), el
-// layout effect síncrono de verdad en el cliente.
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+import { useRef, type ReactNode } from "react";
+import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
 
 /**
  * Envuelve la raíz de gestión de clínica (sidebar + `<main>`) — rama

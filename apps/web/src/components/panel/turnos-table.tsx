@@ -119,9 +119,15 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           `<main>` (app/panel/layout.tsx) — el `min-w-[720px]` de la
           tabla (abajo) es lo único que hace falta para que se desborde y
           se navegue deslizando, igual criterio que
-          docs/referencia-para-claude-code.html. */}
+          docs/referencia-para-claude-code.html. `max-md:w-full`
+          (undécima corrección, TR-034 en docs/tradeoffs.md, pedido
+          explícito del cliente: "la tabla de turnos no queda bien del
+          todo con los cuadros de arriba, no queda alineada") — faltaba
+          acá (turnos/page.tsx ya se lo daba a la fila de filtros, pero
+          esta caja no lo tenía) para medir siempre lo mismo que el
+          wrapper que la envuelve, no un ancho propio independiente. */}
       <div
-        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-visible"
+        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <table className="w-full min-w-[720px] text-left text-sm">

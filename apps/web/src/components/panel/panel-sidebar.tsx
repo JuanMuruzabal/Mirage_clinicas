@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconPerfil, IconTurnos } from "./sidebar-icons";
+import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
 
 const NAV_ITEMS = [
   { href: "/panel", label: "General", Icon: IconGeneral },
@@ -46,6 +47,24 @@ const NAV_ITEMS = [
 export function PanelSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Arranca colapsado en mobile (undécima corrección, 2026-08-24 — ver
+  // TR-034 en docs/tradeoffs.md, pedido explícito del cliente: "en mobile
+  // que la primera vista de la pagina el sidebar este contraido no
+  // desplegado"). No se puede decidir esto en el `useState` inicial de
+  // forma directa — el mismo inicializador corre en el servidor (SSR, sin
+  // `window`) y en el cliente durante la hidratación, y si diera
+  // resultados distintos ahí sería un mismatch de hidratación. En cambio,
+  // `useIsomorphicLayoutEffect` (client-only) corre una vez al montar,
+  // ANTES de que el navegador pinte — así el ajuste nunca se llega a ver
+  // como un parpadeo (arranca expandido solo en el HTML del servidor, que
+  // nadie ve renderizado tal cual en mobile). Sin deps: solo la primera
+  // vista, no hace falta reaccionar a cada resize de la ventana.
+  useIsomorphicLayoutEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setCollapsed(true);
+    }
+  }, []);
 
   return (
     // .panel-sidebar-h (rama fix/mobile, sexta vuelta — ver TR-029 en

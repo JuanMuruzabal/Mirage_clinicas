@@ -26,7 +26,19 @@ export default async function PanelGeneralPage() {
         General
       </h1>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      {/* max-md:min-w + grid-cols-2 sin el breakpoint sm (rama fix/mobile,
+          undécima corrección 2026-08-24 — ver TR-034 en docs/tradeoffs.md,
+          pedido explícito del cliente: "en el apartado general aplicar lo
+          mismo de movimiento horizontal y vertical, ya que cuando se abre
+          el sidebar quedan los cuadrados apelmazados"). Antes, sin ningún
+          `min-width` propio, con el sidebar expandido (w-60) el ancho
+          disponible para esta grilla se reducía a ~135px en un teléfono
+          común y las tarjetas quedaban aplastadas. Mismo criterio que el
+          resto de `/panel/**`: un piso de ancho (40rem = 640px, ~lo que
+          miden dos tarjetas cómodas) + scroll horizontal en vez de
+          comprimir — `sm:grid-cols-2` pasa a `grid-cols-2` sin condición,
+          las dos tarjetas van siempre lado a lado dentro de ese piso. */}
+      <div className="grid grid-cols-2 gap-6 max-md:min-w-[40rem]">
         <ResumenCard
           href="/panel/turnos"
           eyebrow="Pedidos entrantes"

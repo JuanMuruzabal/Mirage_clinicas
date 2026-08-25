@@ -345,6 +345,14 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Fix: `max-md:top-0` en el sidebar — solo mobile, escritorio sin cambios.
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
+**Undécima vuelta, rama `fix/mobile` (2026-08-24), cinco ajustes tras confirmar el fix de scroll/gap — ver TR-034 en `docs/tradeoffs.md`:**
+- General (`panel/page.tsx`): grilla de 2 tarjetas pasa a `grid-cols-2 max-md:min-w-[40rem]` (antes se aplastaba con el sidebar expandido).
+- Calendario (`calendar-view.tsx`): `max-md:justify-start` en la fila de título — el botón "+ Agregar turno" queda al lado de "Calendario" en vez de al borde derecho de una fila de 640px+.
+- Turnos (`turnos-table.tsx`): sumaba `max-md:w-full` que faltaba en la caja de la tabla — quedaba desalineada de la fila de filtros de arriba.
+- `panel-sidebar.tsx`: arranca colapsado en mobile (nuevo hook compartido `lib/use-isomorphic-layout-effect.ts`, layout effect que corre antes del primer paint).
+- `globals.css`: `scrollbar-gutter: stable` en `html` — corrige que el header se corriera unos px entre páginas de escritorio con distinta altura de contenido (scrollbar apareciendo/desapareciendo).
+- Verificación: pipeline completo limpio, 318 tests → 92.82% cobertura (2 tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

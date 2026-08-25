@@ -254,6 +254,21 @@
 html {
   background: var(--color-hueso);
   overscroll-behavior: none;
+  /* Undécima corrección, rama fix/mobile (2026-08-24 — ver TR-034 en
+     docs/tradeoffs.md, pedido explícito del cliente: "un fix en la
+     version de escritorio, ya que ahora cuando navego en los diferentes
+     apartados el header se modifica un poco de lugar para cada caso").
+     El header es `position: fixed` a lo ancho del viewport — pero en
+     escritorio, un scrollbar VERTICAL de verdad (no overlay, como en la
+     mayoría de Windows/Linux) le resta ~15-17px al ancho disponible
+     mientras está presente. Página por página, según si el contenido es
+     más alto que la pantalla o no (ej. Turnos con muchas filas vs.
+     General con dos tarjetas), ese scrollbar aparece o desaparece — y el
+     contenido del header (los links de la derecha) se corre esos mismos
+     px de un lado a otro entre pantallas. `scrollbar-gutter: stable`
+     reserva ese espacio SIEMPRE, haya o no haya contenido para
+     scrollear, así el ancho disponible es idéntico en cualquier página. */
+  scrollbar-gutter: stable;
 }
 
 body {
