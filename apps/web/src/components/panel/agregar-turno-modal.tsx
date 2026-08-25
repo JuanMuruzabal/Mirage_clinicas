@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Paciente, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { agendarTurnoAction, crearTurnoManualAction, listTurnosAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
+import { ModalPortal } from "./modal-portal";
 
 interface AgregarTurnoModalProps {
   tiposConsulta: TipoConsulta[];
@@ -197,6 +198,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     : `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
 
   return (
+    <ModalPortal>
     <div
       role="dialog"
       aria-modal="true"
@@ -206,7 +208,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+      <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
           <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Agregar turno</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
@@ -432,6 +434,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

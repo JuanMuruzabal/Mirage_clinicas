@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Paciente } from "@dental-mirage/shared-types";
 import { editarPacienteAction } from "@/app/actions/pacientes";
+import { ModalPortal } from "./modal-portal";
 
 interface EditarPacienteModalProps {
   paciente: Paciente;
@@ -59,59 +60,61 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Editar datos del paciente"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-md rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-        <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Editar datos del paciente</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
-          <Campo label="DNI">
-            <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClass} />
-          </Campo>
-          <Campo label="Teléfono">
-            <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
-          </Campo>
-          <Campo label="Email (opcional)">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
-          </Campo>
-
-          {error && (
-            <p role="alert" className="text-sm text-terracota-oscuro">
-              {error}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : "Guardar cambios"}
+    <ModalPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Editar datos del paciente"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="w-full max-w-md max-md:max-w-[90vw] max-md:max-h-[90vh] max-md:overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Editar datos del paciente</h2>
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
+              ×
             </button>
           </div>
-        </form>
+
+          <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
+            <Campo label="DNI">
+              <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClass} />
+            </Campo>
+            <Campo label="Teléfono">
+              <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
+            </Campo>
+            <Campo label="Email (opcional)">
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+            </Campo>
+
+            {error && (
+              <p role="alert" className="text-sm text-terracota-oscuro">
+                {error}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+              >
+                {pending ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
 

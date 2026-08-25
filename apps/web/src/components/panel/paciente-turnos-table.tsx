@@ -58,8 +58,14 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    // max-md:min-w (rama fix/mobile, séptima corrección 2026-08-24 — ver
+    // TR-030 en docs/tradeoffs.md, mismo criterio que calendar-view.tsx/
+    // turnos/page.tsx: filtros y tabla comparten UN SOLO min-width en vez
+    // de tener cada uno el suyo — 35rem = 560px, el mínimo que ya tenía
+    // la tabla). Con `w-full` en la fila de filtros (abajo) y en el
+    // contenedor de la tabla, ambos miden siempre lo mismo.
+    <div className="flex flex-col gap-3 max-md:min-w-[35rem]">
+      <div className="flex flex-wrap items-center gap-2 text-sm max-md:w-full max-md:flex-nowrap">
         {tiposUsados.length > 0 && (
           <select
             value={tipoId}
@@ -119,7 +125,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // (max-md:overflow-visible) — comparte el de <main> en
         // app/panel/layout.tsx con el resto de la página del paciente.
         <div
-          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:overflow-visible"
+          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[560px] text-left text-sm">

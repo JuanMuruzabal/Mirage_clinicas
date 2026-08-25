@@ -321,6 +321,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - El archivo `referencia-v6.html` que mencionó el cliente no se encontró en el repo — se avisó y se procedió con la lista de bugs, suficientemente precisa.
 - Verificación: pipeline completo limpio, 313 tests → 92.79% cobertura (2 tests nuevos); CSS de producción inspeccionado dos veces (antes y después del fix de `@supports`).
 
+**Séptima vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el sidebar está superpuesto sobre el contenido" — video mostrando texto cortado en modales/buscador/calendario, scroll roto, modales fuera de límites, gap header/contenido, tablas desalineadas, y el mismo tratamiento para General) — ver TR-030 en `docs/tradeoffs.md`:**
+- Diagnóstico: el sidebar sigue siendo `sticky`, no `fixed` (tercera confirmación). Causa real: los 5 modales de `/panel` son `position:fixed` pero seguían siendo descendientes de `<main>` (`overflow-auto` desde TR-026) — un ancestro con overflow recorta a sus descendientes `fixed` al pintar, aunque su posición se calcule relativa al viewport. El borde izquierdo del modal caía en la franja que `<main>` no incluye (la del sidebar).
+- Nuevo `components/panel/modal-portal.tsx` (`ModalPortal`, `createPortal` a `document.body`) — aplicado a los 5 modales (`AgregarTurnoModal`, `EditarTurnoModal`, `CancelarTurnoModal`, `EditarPacienteModal`, `TurnoDetalle`), más `max-md:max-w-[90vw]` sumado a cada caja.
+- `paciente-turnos-table.tsx`: mismo fix de ancho consistente que TR-029 (filtros+tabla comparten un solo `min-width`, 560px).
+- General y ficha del paciente: revisados, ya cumplían (comparten `<main>` y el `pt-3` de TR-029) — sin cambios estructurales necesarios.
+- Verificación: pipeline completo limpio, 313 tests → 92.8% cobertura (sin tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

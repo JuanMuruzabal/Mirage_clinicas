@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Turno } from "@dental-mirage/shared-types";
 import { editarTurnoAction, reprogramarTurnoAction } from "@/app/actions/turnos";
+import { ModalPortal } from "./modal-portal";
 
 interface EditarTurnoModalProps {
   turno: Turno;
@@ -37,25 +38,27 @@ function ModalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={titulo}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-        <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">{titulo}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-            ×
-          </button>
+    <ModalPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">{titulo}</h2>
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
+              ×
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
-    </div>
+    </ModalPortal>
   );
 }
 
