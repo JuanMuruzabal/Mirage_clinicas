@@ -17,6 +17,12 @@ import (
 func RunMigrations(gdb *gorm.DB) error {
 	if err := gdb.AutoMigrate(
 		&Profesional{}, &Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
+		// Esquema nuevo de auth/onboarding (docs/feature-sumarte-login.md) —
+		// convive con Profesional hasta que internal/http/auth.go se
+		// reescriba sobre estos modelos y Profesional se elimine del todo.
+		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
+		&Clinic{}, &ClinicMember{}, &ClinicInvitation{},
+		&Session{}, &AuthRateCounter{}, &AuditEvent{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
