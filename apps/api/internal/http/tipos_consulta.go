@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/db"
@@ -30,14 +29,8 @@ func registerTipoConsultaRoutes(r chi.Router, gdb *gorm.DB) {
 
 func listTiposConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, ok := claimsFromContext(r)
+		profesionalID, ok := profesionalIDFromRequest(w, r)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "falta el token de autenticación")
-			return
-		}
-		profesionalID, err := uuid.Parse(claims.Subject)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "token inválido")
 			return
 		}
 

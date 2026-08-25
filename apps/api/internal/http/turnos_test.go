@@ -1,18 +1,15 @@
 package http
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"dental-mirage/api/internal/auth"
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/testdb"
 )
@@ -20,10 +17,10 @@ import (
 // tipoConsultaIDDePrueba registra un profesional y devuelve su token junto
 // con el id de su tipo de consulta "Consulta general" (sembrado en el
 // registro, TR-001).
-func profesionalConTipoConsulta(t *testing.T, gdb *gorm.DB, router http.Handler, email string) (authResponse, string) {
+func profesionalConTipoConsulta(t *testing.T, gdb *gorm.DB, router http.Handler, email string) (clinicaDePruebaResult, string) {
 	t.Helper()
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: email, Password: "password123", NombreClinica: "Clínica " + email,
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: email, Password: "password123456", NombreClinica: "Clínica " + email,
 	})
 	var tipo db.TipoConsulta
 	if err := gdb.Where("profesional_id = ? AND nombre = ?", reg.Profesional.ID, "Consulta general").First(&tipo).Error; err != nil {
@@ -95,26 +92,6 @@ func crearTurnoPendienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID strin
 		t.Fatalf("no se pudo crear el turno pendiente de prueba: %v", err)
 	}
 	return turno
-}
-
-func doJSONAuth(t *testing.T, router http.Handler, method, path, token string, body any) *httptest.ResponseRecorder {
-	t.Helper()
-	var reader *bytes.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			t.Fatalf("no se pudo serializar el body: %v", err)
-		}
-		reader = bytes.NewReader(b)
-	} else {
-		reader = bytes.NewReader(nil)
-	}
-	req := httptest.NewRequest(method, path, reader)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-	return rec
 }
 
 func TestTurnos_RequierenAutenticacion(t *testing.T) {
@@ -233,9 +210,9 @@ func TestListTurnos_FiltraPorResuelto(t *testing.T) {
 }
 
 func TestListTurnos_ResueltoInvalidoFalla(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "resuelto2@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "resuelto2@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?resuelto=quizas", reg.Token, nil)
@@ -583,23 +560,10 @@ func TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados(t *testing.T) {
 	}
 }
 
-func TestAgendarTurno_SubjectNoEsUUID(t *testing.T) {
-	router := newTestRouter(t)
+func TestListTurnos_TokenBasuraEsRechazado(t *testing.T) {
+	router, _ := newTestRouter(t)
 
-	claims := auth.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "no-es-un-uuid",
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
-	}
-	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := tok.SignedString([]byte("un-secret-de-test"))
-	if err != nil {
-		t.Fatalf("no se pudo firmar el token de prueba: %v", err)
-	}
-
-	rec := doJSONAuth(t, router, http.MethodGet, "/turnos", signed, nil)
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos", "esto-no-es-un-token-de-sesion-valido", nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
 	}
@@ -708,9 +672,9 @@ func TestEditarTurno_CamposObligatoriosFaltantes(t *testing.T) {
 }
 
 func TestEditarTurno_NoExisteFalla(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "editar3@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "editar3@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000", reg.Token, editarTurnoRequest{
@@ -879,9 +843,9 @@ func TestReprogramarTurno_SolapamientoFallaControlado(t *testing.T) {
 }
 
 func TestReprogramarTurno_NoExisteFalla(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "reprog4@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "reprog4@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)

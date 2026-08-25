@@ -10,9 +10,9 @@ import (
 )
 
 func TestListTiposConsulta_DevuelveLosDelProfesionalAutenticado(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "tipos1@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "tipos1@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/tipos-consulta", nil)
@@ -43,12 +43,12 @@ func TestListTiposConsulta_DevuelveLosDelProfesionalAutenticado(t *testing.T) {
 }
 
 func TestListTiposConsulta_NoDevuelveLosDeOtroProfesional(t *testing.T) {
-	router := newTestRouter(t)
-	registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Uno", Email: "tipos-otro1@example.com", Password: "password123", NombreClinica: "Clínica Uno",
+	router, gdb := newTestRouter(t)
+	registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Uno", Email: "tipos-otro1@example.com", Password: "password123456", NombreClinica: "Clínica Uno",
 	})
-	reg2 := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Dos", Email: "tipos-otro2@example.com", Password: "password123", NombreClinica: "Clínica Dos",
+	reg2 := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Dos", Email: "tipos-otro2@example.com", Password: "password123456", NombreClinica: "Clínica Dos",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/tipos-consulta", nil)

@@ -10,38 +10,14 @@ import (
 	"dental-mirage/api/internal/testdb"
 )
 
-func registrarProfesionalDePrueba(t *testing.T, router http.Handler, req registerRequest) authResponse {
-	t.Helper()
-	rec := doJSON(t, router, http.MethodPost, "/auth/register", req)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("no se pudo registrar el profesional de prueba: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	var resp authResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("respuesta de registro no es JSON válido: %v", err)
-	}
-	return resp
-}
-
-// deployarPaginaDePrueba — el buscador (T4.5) solo lista clínicas
-// deployadas (spec §5.2); la mayoría de los tests de este archivo
-// necesitan pasar por acá antes de esperar resultados.
-func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
-	t.Helper()
-	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", token, nil)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("no se pudo deployar la página de prueba: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestBuscarClinicas_PorNombreDeClinica(t *testing.T) {
-	router := newTestRouter(t)
-	uno := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "buscar1@example.com", Password: "password123", NombreClinica: "Sonrisas del Sur",
+	router, gdb := newTestRouter(t)
+	uno := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "buscar1@example.com", Password: "password123456", NombreClinica: "Sonrisas del Sur",
 	})
 	deployarPaginaDePrueba(t, router, uno.Token)
-	dos := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Julián Ortiz", Email: "buscar2@example.com", Password: "password123", NombreClinica: "Clínica Norte",
+	dos := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Julián Ortiz", Email: "buscar2@example.com", Password: "password123456", NombreClinica: "Clínica Norte",
 	})
 	deployarPaginaDePrueba(t, router, dos.Token)
 
@@ -60,9 +36,9 @@ func TestBuscarClinicas_PorNombreDeClinica(t *testing.T) {
 }
 
 func TestBuscarClinicas_PorNombreDeProfesional(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Bruno Iglesias", Email: "buscar3@example.com", Password: "password123", NombreClinica: "Clínica X",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Bruno Iglesias", Email: "buscar3@example.com", Password: "password123456", NombreClinica: "Clínica X",
 	})
 	deployarPaginaDePrueba(t, router, reg.Token)
 
@@ -85,15 +61,22 @@ func TestBuscarClinicas_PorEspecialidad(t *testing.T) {
 	if err := gdb.Where("nombre = ?", "Odontología general").First(&especialidad).Error; err != nil {
 		t.Fatalf("no se encontró 'Odontología general' en el catálogo sembrado: %v", err)
 	}
+	// "sin" necesita una especialidad DISTINTA (no ninguna — el paso 2 del
+	// wizard exige al menos una) para que el filtro por "Odontología
+	// general" siga excluyéndola.
+	var otraEspecialidad db.Especialidad
+	if err := gdb.Where("nombre = ?", "Ortodoncia").First(&otraEspecialidad).Error; err != nil {
+		t.Fatalf("no se encontró 'Ortodoncia' en el catálogo sembrado: %v", err)
+	}
 
-	con := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Con Especialidad", Email: "buscar4@example.com", Password: "password123",
+	con := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Con Especialidad", Email: "buscar4@example.com", Password: "password123456",
 		NombreClinica: "Clínica Con Especialidad", EspecialidadIDs: []string{especialidad.ID.String()},
 	})
 	deployarPaginaDePrueba(t, router, con.Token)
-	sin := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Sin Especialidad", Email: "buscar5@example.com", Password: "password123",
-		NombreClinica: "Clínica Sin Especialidad",
+	sin := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Sin Especialidad", Email: "buscar5@example.com", Password: "password123456",
+		NombreClinica: "Clínica Sin Especialidad", EspecialidadIDs: []string{otraEspecialidad.ID.String()},
 	})
 	deployarPaginaDePrueba(t, router, sin.Token)
 
@@ -109,13 +92,13 @@ func TestBuscarClinicas_PorEspecialidad(t *testing.T) {
 }
 
 func TestBuscarClinicas_SinFiltrosDevuelveTodas(t *testing.T) {
-	router := newTestRouter(t)
-	uno := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Uno", Email: "buscar6@example.com", Password: "password123", NombreClinica: "Clínica Uno",
+	router, gdb := newTestRouter(t)
+	uno := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Uno", Email: "buscar6@example.com", Password: "password123456", NombreClinica: "Clínica Uno",
 	})
 	deployarPaginaDePrueba(t, router, uno.Token)
-	dos := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Dos", Email: "buscar7@example.com", Password: "password123", NombreClinica: "Clínica Dos",
+	dos := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Dos", Email: "buscar7@example.com", Password: "password123456", NombreClinica: "Clínica Dos",
 	})
 	deployarPaginaDePrueba(t, router, dos.Token)
 
@@ -131,7 +114,7 @@ func TestBuscarClinicas_SinFiltrosDevuelveTodas(t *testing.T) {
 }
 
 func TestBuscarClinicas_SinResultados(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas?q=NoExiste", nil)
 	rec := httptest.NewRecorder()
@@ -148,9 +131,9 @@ func TestBuscarClinicas_SinResultados(t *testing.T) {
 // muestra páginas vacías/incompletas (spec §5.2) hasta el primer
 // PATCH /panel/pagina/deployar.
 func TestBuscarClinicas_NoListaClinicasSinDeployar(t *testing.T) {
-	router := newTestRouter(t)
-	registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Sin Deploy", Email: "buscar8@example.com", Password: "password123", NombreClinica: "Clínica Sin Deploy",
+	router, gdb := newTestRouter(t)
+	registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Sin Deploy", Email: "buscar8@example.com", Password: "password123456", NombreClinica: "Clínica Sin Deploy",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas?q=Sin+Deploy", nil)
@@ -177,14 +160,15 @@ func TestBuscarClinicas_NoRequiereAutenticacion(t *testing.T) {
 }
 
 func TestGetClinicaPublica_DevuelveDatosIncluyendoTelefono(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publicaslug1@example.com", Password: "password123", NombreClinica: "Clínica Slug",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publicaslug1@example.com", Password: "password123456", NombreClinica: "Clínica Slug",
 	})
 
-	telefono := "+5493511234567"
+	telefono := "+5493511234568"
 	recMe := doJSONAuth(t, router, http.MethodPatch, "/me", reg.Token, updateMeRequest{
-		Nombre: "María Games", Telefono: &telefono,
+		Nombre: "María", Apellido: "Games", TelefonoPrefijo: "+54", Telefono: telefono,
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-12345",
 	})
 	if recMe.Code != http.StatusOK {
 		t.Fatalf("no se pudo setear teléfono: status=%d body=%s", recMe.Code, recMe.Body.String())
@@ -215,9 +199,9 @@ func TestGetClinicaPublica_DevuelveDatosIncluyendoTelefono(t *testing.T) {
 // pagina_publica.go) — su página pública sigue visible, no en
 // mantenimiento por default.
 func TestGetClinicaPublica_SinPaginaPublicaTodaviaNoEstaOculta(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Nunca Abrió El Editor", Email: "publicaslug2@example.com", Password: "password123", NombreClinica: "Clínica Default",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Nunca Abrió El Editor", Email: "publicaslug2@example.com", Password: "password123456", NombreClinica: "Clínica Default",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas/"+reg.Profesional.Slug, nil)
@@ -236,9 +220,9 @@ func TestGetClinicaPublica_SinPaginaPublicaTodaviaNoEstaOculta(t *testing.T) {
 // pública lo refleja — el frontend decide ahí si mostrar el modo
 // mantenimiento.
 func TestGetClinicaPublica_OcultaSeReflejaEnLaRespuesta(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Oculta Su Página", Email: "publicaslug3@example.com", Password: "password123", NombreClinica: "Clínica Oculta",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Oculta Su Página", Email: "publicaslug3@example.com", Password: "password123456", NombreClinica: "Clínica Oculta",
 	})
 	recOcultar := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/ocultar", reg.Token, ocultarPaginaPublicaRequest{Oculta: true})
 	if recOcultar.Code != http.StatusOK {
@@ -257,7 +241,7 @@ func TestGetClinicaPublica_OcultaSeReflejaEnLaRespuesta(t *testing.T) {
 }
 
 func TestGetClinicaPublica_SlugInexistenteDevuelve404(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas/no-existe", nil)
 	rec := httptest.NewRecorder()
@@ -285,9 +269,9 @@ func TestGetClinicaPublica_NoRequiereAutenticacion(t *testing.T) {
 // primer deploy — a diferencia del buscador, esta ruta nunca se bloquea
 // por falta de deploy.
 func TestGetClinicaPublica_VisibleAntesDeDeployar(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Todavía No Deployó", Email: "publicaslug4@example.com", Password: "password123", NombreClinica: "Clínica Sin Deploy Aún",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Todavía No Deployó", Email: "publicaslug4@example.com", Password: "password123456", NombreClinica: "Clínica Sin Deploy Aún",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas/"+reg.Profesional.Slug, nil)

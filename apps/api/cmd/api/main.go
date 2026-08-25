@@ -6,10 +6,16 @@ import (
 	"net/http"
 
 	"github.com/joho/godotenv"
+	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/config"
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/googleauth"
 	apihttp "dental-mirage/api/internal/http"
+	dmmail "dental-mirage/api/internal/mail"
+	"dental-mirage/api/internal/ratelimit"
+	"dental-mirage/api/internal/security"
+	"dental-mirage/api/internal/turnstile"
 )
 
 func main() {
@@ -26,10 +32,50 @@ func main() {
 		log.Fatalf("error conectando a la base de datos: %v", err)
 	}
 
-	router := apihttp.NewRouter(gormDB, cfg.JWTSecret, cfg.CORSAllowedOrigins)
+	deps := buildAuthDeps(cfg, gormDB)
+	router := apihttp.NewRouterWithDeps(gormDB, deps, cfg.CORSAllowedOrigins)
 
 	log.Printf("dental-mirage api escuchando en :%s (env=%s)", cfg.Port, cfg.Env)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
 		log.Fatalf("error arrancando el servidor: %v", err)
+	}
+}
+
+// buildAuthDeps inyecta las implementaciones dev/prod de cada dependencia
+// externa del módulo de auth (CLAUDE.md — patrón dev/prod: interfaz +
+// no-op en dev + real activada por env var). Sin la env var
+// correspondiente, cada dependencia queda nil-disabled — nunca un 500;
+// mail siempre tiene una implementación (LogSender en dev).
+func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
+	var mailSender dmmail.Sender = dmmail.LogSender{}
+	if cfg.ResendAPIKey != "" {
+		mailSender = dmmail.NewResendSender(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	}
+
+	var googleExchanger googleauth.Exchanger
+	if cfg.GoogleClientID != "" && cfg.GoogleClientSecret != "" {
+		googleExchanger = googleauth.NewHTTPExchanger(cfg.GoogleClientID, cfg.GoogleClientSecret)
+	}
+
+	var turnstileVerifier turnstile.Verifier
+	if cfg.TurnstileSecretKey != "" {
+		turnstileVerifier = turnstile.NewHTTPVerifier(cfg.TurnstileSecretKey)
+	}
+
+	var pwnedChecker security.PwnedChecker
+	if cfg.HaveIBeenPwnedEnabled {
+		pwnedChecker = security.NewHTTPPwnedChecker()
+	}
+
+	return apihttp.AuthDeps{
+		Mail:              mailSender,
+		Google:            googleExchanger,
+		Turnstile:         turnstileVerifier,
+		Pwned:             pwnedChecker,
+		AccountLimiter:    &ratelimit.AccountLimiter{DB: gormDB},
+		IPLimiter:         ratelimit.NewIPLimiter(),
+		AppBaseURL:        cfg.AppBaseURL,
+		StateSecret:       cfg.JWTSecret,
+		GoogleRedirectURI: cfg.GoogleRedirectURI,
 	}
 }

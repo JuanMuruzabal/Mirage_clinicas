@@ -10,9 +10,9 @@ import (
 )
 
 func TestSolicitarTurnoPublico_Exitoso(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico1@example.com", Password: "password123", NombreClinica: "Clínica Pública",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico1@example.com", Password: "password123456", NombreClinica: "Clínica Pública",
 	})
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
@@ -37,7 +37,7 @@ func TestSolicitarTurnoPublico_Exitoso(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_ClinicaInexistente(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/no-existe/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
@@ -49,9 +49,9 @@ func TestSolicitarTurnoPublico_ClinicaInexistente(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_DNIInvalido(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico2@example.com", Password: "password123", NombreClinica: "Clínica DNI",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico2@example.com", Password: "password123456", NombreClinica: "Clínica DNI",
 	})
 
 	for _, dni := range []string{"123", "abcdefgh", "123456789012"} {
@@ -66,9 +66,9 @@ func TestSolicitarTurnoPublico_DNIInvalido(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_TelefonoInvalido(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico3@example.com", Password: "password123", NombreClinica: "Clínica Tel",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico3@example.com", Password: "password123456", NombreClinica: "Clínica Tel",
 	})
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
@@ -81,9 +81,9 @@ func TestSolicitarTurnoPublico_TelefonoInvalido(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_EmailInvalido(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico4@example.com", Password: "password123", NombreClinica: "Clínica Mail",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico4@example.com", Password: "password123456", NombreClinica: "Clínica Mail",
 	})
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
@@ -96,9 +96,9 @@ func TestSolicitarTurnoPublico_EmailInvalido(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_NombreApellidoObligatorios(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico5@example.com", Password: "password123", NombreClinica: "Clínica Nombre",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico5@example.com", Password: "password123456", NombreClinica: "Clínica Nombre",
 	})
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
@@ -111,9 +111,9 @@ func TestSolicitarTurnoPublico_NombreApellidoObligatorios(t *testing.T) {
 }
 
 func TestSolicitarTurnoPublico_QuedaPendienteYVisibleParaElProfesional(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "publico6@example.com", Password: "password123", NombreClinica: "Clínica Visible",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "publico6@example.com", Password: "password123456", NombreClinica: "Clínica Visible",
 	})
 
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{

@@ -629,19 +629,21 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-// profesionalIDFromRequest resuelve el profesional_id del token en
-// contexto — helper compartido por todos los handlers de este archivo,
-// todos requieren auth y siempre operan sobre el profesional del caller.
+// profesionalIDFromRequest resuelve el ID de clínica del caller — helper
+// compartido por todos los handlers de este archivo (y por
+// pagina_publica.go), todos requieren auth y siempre operan sobre la
+// clínica del caller. El nombre quedó igual que antes de
+// docs/feature-sumarte-login.md (cuando "profesional" y "clínica" eran la
+// misma fila) a propósito: así estos handlers, y los de pacientes.go/
+// tipos_consulta.go/pagina_publica.go, no cambiaron una sola línea de
+// lógica de negocio con la reescritura — solo cambió de dónde sale el ID
+// (antes: claims de un JWT; ahora: el middleware requireClinic ya lo
+// resolvió y lo dejó en el contexto).
 func profesionalIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	claims, ok := claimsFromContext(r)
+	clinicID, ok := r.Context().Value(clinicIDContextKey).(uuid.UUID)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "falta el token de autenticación")
 		return uuid.Nil, false
 	}
-	id, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "token inválido")
-		return uuid.Nil, false
-	}
-	return id, true
+	return clinicID, true
 }

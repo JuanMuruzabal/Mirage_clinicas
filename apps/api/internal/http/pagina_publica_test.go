@@ -8,9 +8,9 @@ import (
 )
 
 func TestGetPaginaPublica_SeCreaSolaLaPrimeraVezConValoresPorDefecto(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Ana", Email: "pagina1@example.com", Password: "password123", NombreClinica: "Clínica Ana",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ana", Email: "pagina1@example.com", Password: "password123456", NombreClinica: "Clínica Ana",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/panel/pagina", reg.Token, nil)
@@ -30,7 +30,7 @@ func TestGetPaginaPublica_SeCreaSolaLaPrimeraVezConValoresPorDefecto(t *testing.
 }
 
 func TestGetPaginaPublica_RequiereAutenticacion(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/panel/pagina", nil)
 	rec := httptest.NewRecorder()
@@ -41,9 +41,9 @@ func TestGetPaginaPublica_RequiereAutenticacion(t *testing.T) {
 }
 
 func TestOcultarPaginaPublica_CambiaElValorYLoDevuelve(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Bruno", Email: "pagina2@example.com", Password: "password123", NombreClinica: "Clínica Bruno",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Bruno", Email: "pagina2@example.com", Password: "password123456", NombreClinica: "Clínica Bruno",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/ocultar", reg.Token, ocultarPaginaPublicaRequest{Oculta: true})
@@ -67,9 +67,9 @@ func TestOcultarPaginaPublica_CambiaElValorYLoDevuelve(t *testing.T) {
 }
 
 func TestDeployarPaginaPublica_SeteaDeployadaEnLaPrimeraVez(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Carla", Email: "pagina3@example.com", Password: "password123", NombreClinica: "Clínica Carla",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Carla", Email: "pagina3@example.com", Password: "password123456", NombreClinica: "Clínica Carla",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", reg.Token, nil)
@@ -87,9 +87,9 @@ func TestDeployarPaginaPublica_SeteaDeployadaEnLaPrimeraVez(t *testing.T) {
 // visible la primera vez)" — no hay forma de "des-deployar" en el MVP,
 // llamarlo de nuevo no debe pisar la fecha original ni fallar.
 func TestDeployarPaginaPublica_EsIdempotente(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "Diego", Email: "pagina4@example.com", Password: "password123", NombreClinica: "Clínica Diego",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Diego", Email: "pagina4@example.com", Password: "password123456", NombreClinica: "Clínica Diego",
 	})
 
 	primera := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", reg.Token, nil)
@@ -112,7 +112,7 @@ func TestDeployarPaginaPublica_EsIdempotente(t *testing.T) {
 }
 
 func TestOcultarYDeployarPaginaPublica_RequierenAutenticacion(t *testing.T) {
-	router := newTestRouter(t)
+	router, _ := newTestRouter(t)
 
 	reqOcultar := httptest.NewRequest(http.MethodPatch, "/panel/pagina/ocultar", nil)
 	recOcultar := httptest.NewRecorder()

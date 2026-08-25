@@ -130,9 +130,9 @@ func TestGetPaciente_DevuelveDatosYHistorialDeTurnos(t *testing.T) {
 }
 
 func TestGetPaciente_NoExisteFalla(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "pac5@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "pac5@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/00000000-0000-0000-0000-000000000000", reg.Token, nil)
@@ -194,9 +194,9 @@ func TestEditarPaciente_DNIInvalidoFalla(t *testing.T) {
 }
 
 func TestEditarPaciente_NoExisteFalla(t *testing.T) {
-	router := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, router, registerRequest{
-		Nombre: "María Games", Email: "editapac3@example.com", Password: "password123", NombreClinica: "Clínica",
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "editapac3@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/pacientes/00000000-0000-0000-0000-000000000000", reg.Token, editarPacienteRequest{

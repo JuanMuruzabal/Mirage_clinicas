@@ -10,18 +10,36 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"gorm.io/gorm"
+
+	"dental-mirage/api/internal/mail"
+	"dental-mirage/api/internal/ratelimit"
 )
 
-// NewRouter arma el router raíz de la API. db puede ser nil solo en tests
-// que no lo ejercitan a propósito; jwtSecret firma los tokens emitidos en
-// /auth; corsOrigins son los orígenes permitidos para llamadas directas del
-// navegador (config.Config.CORSAllowedOrigins) — no afecta el tráfico
-// server-to-server de Next.js (spec §9.3, BFF sin excepciones).
+// NewRouter arma el router raíz de la API con dependencias por default
+// aptas para desarrollo/tests: mail.LogSender (no manda mails de verdad),
+// sin Google OAuth ni Turnstile configurados (nil-disabled), sin chequeo
+// de HaveIBeenPwned. authSecret firma el `state` de OAuth (ver
+// oauthstate.go) — el nombre se mantuvo desde antes de
+// docs/feature-sumarte-login.md (cuando firmaba JWT de sesión) a propósito,
+// para no tocar los ~50 call sites de test que ya lo usan así.
 //
-// Sprint 0 solo monta /health y /auth — las rutas de profesionales, turnos,
-// pacientes, páginas y búsqueda se suman en los sprints que las
-// implementan (docs/implementation-plan.md §5), no antes.
-func NewRouter(db *gorm.DB, jwtSecret string, corsOrigins []string) http.Handler {
+// Producción (cmd/api/main.go) usa NewRouterWithDeps con AuthDeps
+// completo (Resend, Google, Turnstile, HaveIBeenPwned reales).
+func NewRouter(db *gorm.DB, authSecret string, corsOrigins []string) http.Handler {
+	deps := AuthDeps{
+		Mail:           mail.LogSender{},
+		AccountLimiter: &ratelimit.AccountLimiter{DB: db},
+		IPLimiter:      ratelimit.NewIPLimiter(),
+		AppBaseURL:     "http://localhost:3000",
+		StateSecret:    authSecret,
+	}
+	return NewRouterWithDeps(db, deps, corsOrigins)
+}
+
+// NewRouterWithDeps es la variante completa, usada por cmd/api/main.go con
+// las dependencias externas reales inyectadas (patrón dev/prod de
+// CLAUDE.md).
+func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -38,21 +56,33 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigins []string) http.Handler
 	r.Get("/health", healthHandler(db))
 
 	r.Route("/auth", func(r chi.Router) {
-		registerAuthRoutes(r, db, jwtSecret)
+		registerAuthRoutes(r, db, deps)
 	})
 
 	registerEspecialidadRoutes(r, db)
 	registerClinicaRoutes(r, db)
 	registerTurnoPublicoRoutes(r, db)
 
+	// Grupo con sesión requerida pero SIN clínica todavía — /me y
+	// /onboarding/* (paso 2/3 del wizard) tienen que poder operar antes de
+	// que exista una Clinic (spec §4).
 	r.Group(func(r chi.Router) {
-		r.Use(requireAuth(jwtSecret))
+		r.Use(requireSession(db))
 		r.Get("/me", meHandler(db))
 		r.Patch("/me", updateMeHandler(db))
-		registerTipoConsultaRoutes(r, db)
-		registerTurnoRoutes(r, db)
-		registerPacienteRoutes(r, db)
-		registerPaginaPublicaRoutes(r, db)
+		registerOnboardingRoutes(r, db, deps.Mail)
+		registerProtectedAuthRoutes(r, db)
+
+		// Subgrupo: además de sesión, exige una Clinic ya creada (spec §4,
+		// onboarding completo) — turnos/pacientes/tipos de consulta/página
+		// pública operan sobre la clínica del caller.
+		r.Group(func(r chi.Router) {
+			r.Use(requireClinic(db))
+			registerTipoConsultaRoutes(r, db)
+			registerTurnoRoutes(r, db)
+			registerPacienteRoutes(r, db)
+			registerPaginaPublicaRoutes(r, db)
+		})
 	})
 
 	return r

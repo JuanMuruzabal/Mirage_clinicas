@@ -49,8 +49,8 @@ type solicitarTurnoPublicoResponse struct {
 func solicitarTurnoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "slug")
-		var profesional db.Profesional
-		if err := gdb.Where("slug = ?", slug).First(&profesional).Error; err != nil {
+		var clinic db.Clinic
+		if err := gdb.Where("slug = ?", slug).First(&clinic).Error; err != nil {
 			writeError(w, http.StatusNotFound, "clínica no encontrada")
 			return
 		}
@@ -84,7 +84,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		turno := db.Turno{
-			ProfesionalID:    profesional.ID,
+			ProfesionalID:    clinic.ID,
 			Estado:           "pendiente",
 			NombreContacto:   req.NombreContacto,
 			ApellidoContacto: req.ApellidoContacto,
