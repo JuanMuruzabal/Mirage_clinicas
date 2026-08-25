@@ -153,12 +153,39 @@
     height: calc(100vh - var(--header-height));
   }
 
+  /* `.panel-main-h` (novena vuelta, 2026-08-24 — ver TR-032 en
+     docs/tradeoffs.md): antes `<main>` NO tenía un alto propio explícito
+     — dependía por completo de `align-items: stretch` heredado de
+     `.panel-shell-h` (su padre, un `flex` row) para quedar acotado a la
+     altura del viewport. Eso funcionaba para Turnos/Pacientes/General,
+     pero fallaba puntualmente en Calendario y en la ficha de un paciente
+     (reportado por el cliente: el contenido se corta de golpe, sin
+     scrollbar, "termina ahí" — la firma de un `overflow: hidden`
+     recortando, no de un scroll que no responde) — son las dos páginas
+     con MÁS contenido simultáneamente ancho (fuerza scroll horizontal,
+     TR-028/029) y alto (calendario/tablas), y todo indica que ese
+     stretch heredado no se resuelve de forma confiable cuando el
+     contenido de `<main>` es así de grande en las dos direcciones a la
+     vez. Con un alto EXPLÍCITO acá (mismo cálculo que `.panel-sidebar-h`,
+     no depende de ningún stretch heredado), `<main>` queda acotado
+     siempre, sin importar cuánto mida su contenido — y es su propio
+     `overflow-auto` (no el `overflow-hidden` de `.panel-shell-h`, que
+     pasa a ser un resguardo de última instancia, no el mecanismo
+     principal) el que absorbe el resto. */
+  .panel-main-h {
+    height: calc(100vh - var(--header-height));
+  }
+
   @supports (height: 100dvh) {
     .panel-shell-h {
       height: 100dvh;
     }
 
     .panel-sidebar-h {
+      height: calc(100dvh - var(--header-height));
+    }
+
+    .panel-main-h {
       height: calc(100dvh - var(--header-height));
     }
   }

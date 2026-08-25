@@ -333,6 +333,13 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Nuevo `components/panel/panel-shell.tsx` (`PanelShell`): fuerza un reflow real (`useLayoutEffect` + toggle de `display` + lectura de `offsetHeight`) en cada cambio de `usePathname()`. Se saca `WebkitOverflowScrolling: "touch"` de `<main>` (vestigial en iOS moderno, posible causa adicional).
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (3 tests nuevos); build de producción verificado.
 
+**Novena vuelta, rama `fix/mobile` (2026-08-24), TR-031 no resolvió el problema; diagnóstico dirigido con el cliente vía preguntas puntuales — ver TR-032 en `docs/tradeoffs.md`:**
+- Datos clave del diagnóstico: scroll no responde NADA, solo en Calendario y ficha de paciente (no en Turnos/Pacientes/General), scroll horizontal sí funciona en esas mismas pantallas, independiente del navegador (descarta el diagnóstico de WebKit de TR-031), y el contenido "se corta de golpe, sin blanco" — firma de `overflow:hidden` recortando, no de scroll inerte.
+- Causa real: `<main>` nunca tuvo alto propio explícito, dependía de `align-items:stretch` heredado del `flex` row padre — ese stretch no se resolvía de forma confiable con contenido simultáneamente muy ancho y muy alto (exactamente Calendario/ficha de paciente).
+- Nueva clase `.panel-main-h` (mismo patrón `vh`+`@supports` que `.panel-sidebar-h`) le da a `<main>` un alto explícito, sin depender de ningún stretch heredado.
+- El video que envió el cliente no se pudo reproducir en este entorno (sin `ffmpeg`/visor); diagnóstico hecho con preguntas dirigidas en su lugar.
+- Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---

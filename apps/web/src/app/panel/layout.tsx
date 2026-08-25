@@ -45,17 +45,26 @@ import { PanelShell } from "@/components/panel/panel-shell";
 //     `<main>` es el único que de verdad tiene `overflow`.
 //   - `PanelShell` (octava corrección, TR-031 en docs/tradeoffs.md)
 //     reemplaza el `<div>` raíz por un Client Component que fuerza un
-//     reflow cada vez que cambia la ruta — bug real de iOS Safari: sin
-//     esto, `<main>` a veces no reconocía que tenía contenido nuevo hasta
-//     que algo más tocaba el DOM (justo el síntoma reportado: "se
-//     arregla momentáneamente cuando cambio de dia a semana").
+//     reflow cada vez que cambia la ruta — mitigación adicional, no
+//     terminó siendo la causa real (ver TR-032).
+//   - `.panel-main-h` (novena corrección, TR-032 en docs/tradeoffs.md):
+//     antes `<main>` NO tenía un alto propio — dependía por completo de
+//     que el `flex` row de `PanelShell` lo estirara (`align-items:
+//     stretch`) a la altura del viewport. Eso fallaba puntualmente en
+//     Calendario y en la ficha de un paciente (las dos páginas con más
+//     contenido ancho+alto a la vez) — el cliente reportó el contenido
+//     "cortado de golpe, sin blanco", la firma de `overflow: hidden`
+//     recortando porque el stretch heredado no se resolvía. Con un alto
+//     EXPLÍCITO acá (mismo cálculo que el del sidebar, no depende de
+//     ningún stretch), `<main>` queda acotado siempre y es su propio
+//     `overflow-auto` el que absorbe el resto.
 export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
   await requireProfesional();
 
   return (
     <PanelShell>
       <PanelSidebar />
-      <main className="min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain">
+      <main className="panel-main-h min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain">
         {children}
       </main>
     </PanelShell>
