@@ -450,6 +450,16 @@
 - **Qué se sacrifica:** Nada de fondo — todo aditivo, sin tocar modelo de datos. `scrollbar-gutter: stable` es la única regla de esta ronda que aplica a TODO el sitio (no solo `/panel/**`) — deliberado, ya que el problema de fondo (scrollbar apareciendo/desapareciendo corriendo el header) no es exclusivo de gestión de clínica, aunque ahí fue donde se notó.
 - **Reversibilidad:** Alta — cada cambio es independiente y reversible por separado (clases `max-md:`, un hook chico, una propiedad CSS). Verificado: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, 318 tests → 92.82% cobertura (2 tests nuevos para el sidebar colapsado en mobile); CSS de producción inspeccionado, confirmando `scrollbar-gutter:stable`, `.max-md\:justify-start{justify-content:flex-start}` y el resto de las clases nuevas compiladas donde correspondía. Pendiente de confirmación real del cliente.
 
+## TR-035: General en mobile — las tarjetas vuelven a apilarse (una debajo de la otra), sin perder el piso de ancho que evita que se aplasten
+
+- **Fecha:** 2026-08-24
+- **Fase:** ejecución (duodécima vuelta, mismo día, rama `fix/mobile` — pedido explícito del cliente, cierre de la ronda del día: "que los cuadros de general esten uno abajo del otro, y nada mas por hoy")
+- **Decisión:** revierte puntualmente la parte de TR-034 que ponía las dos tarjetas de General siempre lado a lado en mobile (`grid-cols-2` incondicional) — pasan a `max-md:grid-cols-1` (apiladas, una por fila) pero conservan `max-md:min-w-[18rem]` (288px, un piso pensado para UNA tarjeta, no para dos) — así no reaparece el bug original de TR-034 (con el sidebar expandido, sin ningún mínimo, cada tarjeta se aplastaba en la franja angosta que quedaba libre). Escritorio sigue con `grid-cols-2` sin condición, sin cambios.
+- **Alternativas consideradas:** Sacar el `min-width` por completo ya que apiladas ocupan menos ancho — descartada: sin piso, con el sidebar expandido cada tarjeta individual (ahora sola en su fila) volvería a aplastarse en ~135px, el mismo síntoma que motivó TR-034, solo que una tarjeta a la vez en vez de dos.
+- **Por qué:** Preferencia visual explícita del cliente (apiladas se ve mejor en mobile que lado a lado) — el fix de fondo de TR-034 (que no se aplasten) sigue vigente, solo cambia CÓMO se acomodan cuando entran cómodas.
+- **Qué se sacrifica:** Nada — cambio de una clase, aditivo/reversible.
+- **Reversibilidad:** Alta. Verificado: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, 318 tests → 92.82% cobertura (sin tests nuevos, cambio puro de CSS); CSS de producción inspeccionado, `.max-md\:grid-cols-1` y `min-width:18rem` compilados donde correspondía.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

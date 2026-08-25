@@ -353,6 +353,10 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - `globals.css`: `scrollbar-gutter: stable` en `html` — corrige que el header se corriera unos px entre páginas de escritorio con distinta altura de contenido (scrollbar apareciendo/desapareciendo).
 - Verificación: pipeline completo limpio, 318 tests → 92.82% cobertura (2 tests nuevos); CSS de producción inspeccionado.
 
+**Duodécima vuelta, rama `fix/mobile` (2026-08-24), cierre del día — ver TR-035 en `docs/tradeoffs.md`:**
+- General (`panel/page.tsx`): pedido explícito del cliente ("que los cuadros de general esten uno abajo del otro") — `grid-cols-2` incondicional pasa a `max-md:grid-cols-1` (apiladas en mobile), manteniendo `max-md:min-w-[18rem]` (piso pensado para una sola tarjeta) para no reintroducir el aplastamiento que TR-034 ya había resuelto.
+- Verificación: pipeline completo limpio, 318 tests → 92.82% cobertura (sin tests nuevos); CSS de producción inspeccionado.
+
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
 ---
