@@ -7,7 +7,16 @@
  * (isAuthChromeHidden) — usado tanto por un Server Component (no puede
  * leer la ruta actual solo) como por su wrapper cliente.
  */
-const PROFESSIONAL_ROUTE_PREFIXES = ["/sumarse", "/ingresar", "/seleccionar-servicio", "/perfil", "/panel", "/personalizar-pagina"];
+const PROFESSIONAL_ROUTE_PREFIXES = [
+  "/sumarse",
+  "/ingresar",
+  "/recuperar-password",
+  "/verificar-mail",
+  "/seleccionar-servicio",
+  "/perfil",
+  "/panel",
+  "/personalizar-pagina",
+];
 
 /**
  * Nombres de rutas propias de Mirage con un solo segmento — el resto de
@@ -17,7 +26,17 @@ const PROFESSIONAL_ROUTE_PREFIXES = ["/sumarse", "/ingresar", "/seleccionar-serv
  * los route params acá (esto lo usan Client Components que solo tienen
  * el pathname).
  */
-const RUTAS_PROPIAS_DE_UN_SEGMENTO = ["buscar", "ingresar", "sumarse", "perfil", "panel", "seleccionar-servicio", "personalizar-pagina"];
+const RUTAS_PROPIAS_DE_UN_SEGMENTO = [
+  "buscar",
+  "ingresar",
+  "sumarse",
+  "perfil",
+  "panel",
+  "seleccionar-servicio",
+  "personalizar-pagina",
+  "recuperar-password",
+  "verificar-mail",
+];
 
 export function isFooterHidden(pathname: string): boolean {
   return (

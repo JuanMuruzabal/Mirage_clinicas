@@ -460,6 +460,109 @@
 - **Qué se sacrifica:** Nada — cambio de una clase, aditivo/reversible.
 - **Reversibilidad:** Alta. Verificado: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, 318 tests → 92.82% cobertura (sin tests nuevos, cambio puro de CSS); CSS de producción inspeccionado, `.max-md\:grid-cols-1` y `min-width:18rem` compilados donde correspondía.
 
+## TR-036: Auth/onboarding nuevo — se extiende el JWT-en-Go custom, no se agrega NextAuth/Better Auth/Supabase/Lucia
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan → ejecución (`docs/feature-sumarte-login.md`, feature completa: Google OAuth + verificación de mail + wizard de 3 pasos + clínicas tipo organización)
+- **Decisión:** la nueva capa de auth se construye extendiendo el patrón custom ya usado (Go firma/valida, Next.js solo relee la cookie) — ninguna librería de auth de Next.js entra al proyecto.
+- **Alternativas consideradas:** NextAuth/Auth.js, Better Auth, Supabase Auth, Lucia — todas asumen que Next.js mismo posee la sesión/DB/adapters, lo que rompe la invariante BFF no negociable de CLAUDE.md ("el navegador nunca llama a la API Go directo... nunca un fetch nuevo desde Client Component"). Marcuzzi_Madryn (mismo stack, spec §9) tiene Google OAuth funcionando en producción sin ninguna de estas librerías — precedente directo de que no hacen falta ni para OAuth.
+- **Por qué:** una librería de auth de Next.js necesitaría su propio acceso a Postgres (o un adapter a medida) para persistir User/Session/Account — duplicando exactamente lo que Go ya hace, y creando dos fuentes de verdad de la identidad del usuario.
+- **Qué se sacrifica:** más código propio que mantener (session.go, onboarding.go, etc.) en vez de configuración de una librería — aceptado, es el mismo tradeoff que ya se hizo para el auth original (TR-005).
+- **Reversibilidad:** Baja una vez que el modelo de datos (User/Account/Session) está en producción — migrar a una librería después significaría reescribir el modelo otra vez.
+
+## TR-037: Sesión server-side (tabla `Session`) reemplaza al JWT stateless
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan → ejecución
+- **Decisión:** se abandona el JWT stateless de TR-005 (7 días, HS256, sin revocación posible) por sesiones opaquen-token en Postgres (`db.Session`, `internal/auth/session.go`) — mismo patrón de hash que `VerificationToken` (32 bytes CSPRNG en la cookie, solo el SHA-256 persiste).
+- **Alternativas consideradas:** mantener JWT + una tabla de blocklist de tokens revocados — descartada, técnicamente equivalente en complejidad a una tabla de sesiones de verdad, pero peor: todavía habría que consultar la blocklist en cada request, sin ganar nada del "stateless" que se supone es la ventaja del JWT.
+- **Por qué:** la spec exige literalmente "logout invalida la sesión en el servidor" y "cambiar la contraseña cierra las sesiones abiertas en otros dispositivos" — ninguna de las dos es posible con un JWT puro. La rotación de sesión en login/verificación de mail (mitiga session fixation) también sale gratis: cada `NewSession`/`RotateSession` emite un token nuevo, nunca reutiliza uno existente.
+- **Qué se sacrifica:** un lookup a Postgres en cada request protegido (antes: solo verificar una firma HMAC, sin ir a la base) — el `LastSeenAt` se actualiza con throttle de 5 minutos para no convertir cada request en un `UPDATE` de todos modos.
+- **Reversibilidad:** Media — volver a JWT stateless implicaría resignar la invalidación server-side, un requisito explícito de seguridad, no sería un simple revert.
+
+## TR-038: Google OAuth — flujo popup + Authorization Code, sin PKCE (documentado, no simulado)
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan (decisión #1, confirmada explícitamente con el cliente vía pregunta directa) → ejecución
+- **Decisión:** mismo patrón ya validado en producción por Marcuzzi_Madryn — botón popup (Google Identity Services, `initCodeClient`), el `code` viaja a una Server Action que lo manda a Go, que lo intercambia server-to-server (`internal/googleauth`) usando el client secret (nunca sale del backend). Se agrega un `state` propio firmado con HMAC (`internal/http/oauthstate.go`) y verificado con ventana de 10 minutos.
+- **Alternativas consideradas:** flujo de redirect completo con una Route Handler `/auth/google/callback` y `redirect_uri` en allowlist + PKCE real — es lo que la letra de la spec §7 describe (`state + nonce + PKCE`), pero PKCE existe específicamente para proteger clients PÚBLICOS que no pueden guardar un secret (SPAs, apps móviles) — acá el secret vive solo en Go, nunca en el navegador, así que PKCE no cierra ningún vector de ataque real que el `state` firmado no cierre ya. Implementarlo de todos modos hubiera sido superficie nueva sin beneficio de seguridad medible.
+- **Por qué:** reutilizar un patrón ya en producción reduce la superficie de bugs nuevos a cero para la parte más sensible (intercambio de tokens con un proveedor externo).
+- **Qué se sacrifica:** no hay `redirect_uri` en allowlist porque no hay redirect — el whitelisting equivalente es que `GOOGLE_REDIRECT_URI` es una env var fija del backend (`"postmessage"`, el valor mágico de Google para el flujo popup), no algo que el cliente pueda influir.
+- **Reversibilidad:** Media — migrar a redirect completo más adelante (si Google deprecara el flujo popup) es un cambio de superficie, no de modelo de datos.
+
+## TR-039: `Profesional` se mantiene (no se elimina) hasta confirmar que producción migró — `Clinic` nace con el mismo UUID
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan (decisión #2, confirmada con el cliente) → ejecución
+- **Decisión:** cada `Clinic` tipo `individual` migrada nace con el mismo UUID que tenía su `Profesional` de origen (`internal/db/migrate_data.go`) — así `turnos`/`pacientes`/`tipos_consulta`/`paginas_publicas` (que solo tienen un `profesional_id` suelto, sin asociación GORM real, sin FK que repuntar) siguen resolviendo exactamente igual sin tocar una fila. El modelo Go `Profesional` NO se borró en este trabajo — sigue en `internal/db/models.go`, usado únicamente por `MigrateProfesionalesToUsers`.
+- **Alternativas consideradas:** eliminar `Profesional` en el mismo commit que reescribe `auth.go` — descartada al notar la consecuencia real: `cmd/migrate-usuarios` (que corre la migración de datos contra producción) necesita que `Profesional` siga existiendo en el código para leer las filas viejas. Borrarlo ahora dejaría sin forma de correr esa migración salvo desde un commit anterior — operacionalmente incómodo y propenso a error humano.
+- **Por qué:** separar "el esquema/código nuevo ya funciona" de "la data de producción ya migró" en dos momentos distintos es más seguro para un deploy real — se puede desplegar hasta el commit que agrega el esquema nuevo, correr `cmd/migrate-usuarios` contra producción, confirmar que salió bien, y RECIÉN AHÍ desplegar el código que ya no sabe nada de `Profesional`.
+- **Qué se sacrifica:** el modelo `Profesional` (y la tabla `profesionales`) quedan como código/esquema muerto hasta una limpieza posterior — deliberado, no un olvido.
+- **Reversibilidad:** Alta — eliminar `Profesional` es un commit de limpieza aislado, sin relación con el resto de esta feature, una vez confirmada la migración de producción (ver Fase 7 pendiente).
+
+## TR-040: argon2id nuevo, pero `security.Verify` sigue aceptando bcrypt legacy sin forzar rehash
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución
+- **Decisión:** `internal/security/password.go` usa `golang.org/x/crypto/argon2` (formato PHC estándar) para contraseñas nuevas, pero detecta el prefijo `$2a$/$2b$/$2y$` de bcrypt y sigue validando esos hashes tal cual — los usuarios migrados (TR-039) no necesitan resetear su contraseña. `NeedsRehash` marca un bcrypt para rehashear a argon2id en el próximo login exitoso (perezoso, nunca bloquea el login).
+- **Parámetros:** default conservador (`m=19456` KiB / 19MiB, `t=2`, `p=1` — la "segunda opción" que recomienda OWASP), configurable vía `Argon2Params` — no se subieron a un valor más agresivo porque el tier real de hosting de producción todavía no está confirmado (ver punto abierto del plan aprobado).
+- **Qué se sacrifica:** dos algoritmos de hash conviviendo indefinidamente hasta que todos los bcrypt legacy se rehasheen por uso natural (un usuario que nunca vuelve a loguearse se queda en bcrypt para siempre) — aceptado, bcrypt con cost por default sigue siendo criptográficamente aceptable, no es una vulnerabilidad, solo no es lo más nuevo.
+- **Reversibilidad:** Alta.
+
+## TR-041: Rate limit por-cuenta en Postgres, por-IP en memoria — no sobrevive a escalar horizontal
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución (`internal/ratelimit`)
+- **Decisión:** límites por-cuenta (login, registro, reenvío, reset) persisten en una tabla-contador por ventana fija (`db.AuthRateCounter`, upsert, no fila-por-intento). Límites por-IP viven en memoria (`sync.Map`-like con mutex), reseteados si el proceso reinicia.
+- **Qué se sacrifica:** con más de una instancia del backend corriendo (horizontal scaling), cada instancia tendría su propio contador por-IP — el límite real efectivo sería N veces el configurado, con N instancias. El límite por-cuenta (en Postgres, compartido) sigue siendo correcto siempre.
+- **Por qué no resolverlo ahora:** el MVP corre en una sola instancia (mismo criterio que TR-021, un solo entorno en Render); agregar Redis o un contador centralizado sería infraestructura nueva sin necesidad actual.
+- **Reversibilidad:** Alta — migrar el contador por-IP a Redis (o a la misma tabla Postgres) es un cambio aislado a `internal/ratelimit`, sin tocar los call sites de `auth.go`.
+
+## TR-042: `Account` no persiste tokens OAuth de Google
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución
+- **Decisión:** `internal/db.Account` guarda solo `Provider`/`ProviderAccountID` — nunca el `access_token`/`refresh_token` que devuelve Google, aunque el enunciado original de la spec mencionaba "tokens" como parte del modelo.
+- **Por qué:** no hay ningún caso de uso hoy que necesite volver a llamar una API de Google después del login inicial (solo se usa para leer `sub`/`email`/`email_verified` una vez, en el intercambio) — guardar tokens sin necesidad viola minimización de datos (Ley 25.326, spec §7) y agranda la superficie de "nunca loguear... access tokens de OAuth" para no tener nada que loguear por accidente. Mismo criterio que ya usa Marcuzzi_Madryn.
+- **Qué se sacrifica:** si en el futuro hiciera falta llamar a una API de Google en nombre del usuario (por ejemplo, Google Calendar), habría que agregar el almacenamiento de tokens recién en ese momento, con su propio cifrado at-rest.
+- **Reversibilidad:** Alta — es agregar columnas a una tabla existente.
+
+## TR-043: Verificación de mail vía botón (POST tras clic), no auto-verificación en el GET
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan (decisión #3, confirmada con el cliente) → ejecución
+- **Decisión:** `/verificar-mail?token=...` en el frontend muestra un botón "Confirmar" — el clic dispara una Server Action que llama a `POST /auth/verificar-email`. El link del mail nunca muta estado por sí solo al abrirse.
+- **Alternativas consideradas:** verificar automáticamente al cargar la página (lo que describe literalmente la spec: "el link verifica, inicia sesión y avanza al paso 2") — descartada: es un patrón conocido de vulnerabilidad real, no teórica — escáneres de seguridad corporativos de Outlook/Gmail abren automáticamente los links de un email antes de que el destinatario lo vea, lo que quemaría el token de un solo uso y dejaría al usuario real con un error de "token ya usado" sin haber hecho nada raro.
+- **Qué se sacrifica:** un clic extra sobre el flujo "ideal" que describe la spec — aceptado explícitamente por el cliente al elegir esta opción sobre la alternativa.
+- **Reversibilidad:** Alta.
+
+## TR-044: Clínicas tipo "organización" — revierte TR-009 (ya no está fuera de alcance)
+
+- **Fecha:** 2026-08-25
+- **Fase:** plan → ejecución
+- **Decisión:** el Paso 3 del wizard (`onboarding.go`, `onboarding-clinica`) acepta `tipo: "individual" | "organizacion"` sin restricción — a diferencia del wizard viejo (`SumarseWizard`), que omitía la rama "organización" por completo (TR-009). `ClinicMember`/roles (`owner`/`admin`/`profesional`/`recepcion`) y `ClinicInvitation` (solo esquema, sin envío/aceptación — fuera de alcance explícito de esta feature, spec §9) quedan listos para cuando se implemente la gestión de miembros real.
+- **Por qué:** pedido explícito de `docs/feature-sumarte-login.md` §3/§4 — el cliente decidió que el modelo de datos soporte organizaciones desde ahora, aunque la funcionalidad de invitar colaboradores todavía no esté implementada (el Paso 3 solo muestra un aviso informativo en ese caso).
+- **Qué se sacrifica:** nada del MVP original se pierde — es aditivo. `docs/dental-mirage-spec.md` (líneas que decían "sin organizaciones multi-profesional") y `CLAUDE.md` (que listaba "cuentas de organización multi-profesional" como fuera de alcance) quedan desactualizados hasta que se les pase una revisión (ver Fase de documentación pendiente).
+- **Reversibilidad:** Alta — no se está implementando la funcionalidad de invitaciones, solo dejando el modelo listo.
+
+## TR-045: Borrado de cuenta como soft-delete — política de retención de auditoría queda pendiente de definir
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución
+- **Decisión:** `User.DeletedAt` (GORM soft delete) es el mecanismo "previsto" para el borrado de cuenta que exige la Ley 25.326 (spec §7: "prever borrado de cuenta") — no existe todavía un flujo self-service completo (endpoint + UI) que lo dispare.
+- **Conflicto sin resolver, marcado a propósito:** un borrado real de cuenta y un log de auditoría que retiene `userId` (spec §7: "log de auditoría de eventos sensibles... con userId") están en tensión — ¿cuánto tiempo se retiene un `AuditEvent` después de que su usuario borró la cuenta? No hay una respuesta obviamente correcta sin una política legal/de producto explícita, así que no se resolvió en silencio.
+- **Por qué no bloquear la entrega por esto:** la spec pide "prever", no necesariamente implementar el flujo de borrado completo en esta feature — el mecanismo estructural (soft delete) es suficiente para "prever" sin comprometerse a una política de retención todavía no definida.
+- **Reversibilidad:** Alta — la política de retención, una vez definida, es un job de limpieza aislado.
+
+## TR-046: Storage de foto de perfil — interfaz + disco local (dev) implementados, R2/S3 (prod) diferido
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución
+- **Decisión:** `internal/storage` define la interfaz `Storage.Save` y una implementación de disco local (`LocalStorage`) — suficiente para desarrollo. La implementación real de R2/S3 (prod) y el endpoint HTTP de subida (`multipart/form-data`, validación por magic bytes, límite de tamaño, re-encode + strip EXIF, spec §7) todavía no se construyeron — `ProfessionalProfile.FotoURL` existe en el esquema pero no hay forma de completarlo todavía salvo a mano.
+- **Por qué:** la foto de perfil es un campo OPCIONAL del Paso 2 (spec §4: "el resto opcional pero visible") — no bloquea el happy path del wizard (crear cuenta → verificar → perfil → clínica), a diferencia de la sesión/OAuth/mail, que sí son bloqueantes. Se priorizó terminar el flujo de auth completo, correcto y probado antes que un campo opcional.
+- **Qué se sacrifica:** el criterio de aceptación de seguridad "foto de perfil validada por magic bytes... servida con URLs firmadas" (spec §7) queda sin implementar en este commit — documentado explícitamente acá, no silenciado, y debe marcarse como pendiente en el resumen final de la feature.
+- **Reversibilidad:** Alta — agregar el endpoint de subida + R2Storage es aditivo, no requiere tocar el resto del modelo de auth.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

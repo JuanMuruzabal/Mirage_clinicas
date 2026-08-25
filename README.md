@@ -118,6 +118,14 @@ si hace falta con `GOTOOLCHAIN=auto`, el default), Node ≥ 20, pnpm ≥ 9.
    tienen defaults seguros en el código (`localhost:5432`/`8080` — ver
    `internal/config` y `lib/api.ts`) — pero documentan qué variables
    existen y hacen falta si algo corre en un puerto/host distinto.
+
+   `apps/api/.env.example` incluye además las variables del módulo de
+   auth/onboarding (`docs/feature-sumarte-login.md`): Resend (mails),
+   Google OAuth, Cloudflare Turnstile (CAPTCHA), HaveIBeenPwned y storage
+   de foto de perfil. Ninguna es obligatoria en dev — sin configurar,
+   cada dependencia queda deshabilitada (mails van al log, sin Google, sin
+   CAPTCHA) en vez de romper el arranque; ver los comentarios del archivo
+   para el detalle de cada una.
 4. Aplicar el esquema (idempotente, se puede correr de nuevo sin romper
    nada):
    ```bash
