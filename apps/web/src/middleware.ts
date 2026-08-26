@@ -10,8 +10,17 @@ import type { NextRequest } from "next/server";
 // La única excepción documentada a "sin unsafe-inline" es `style-src`:
 // Next.js/Tailwind v4 inyectan estilos inline en el árbol de React (no
 // hay forma de evitarlo sin un pipeline de nonces por request, que no
-// vale la pena para este alcance) — script-src sí queda sin
-// unsafe-inline.
+// vale la pena para este alcance).
+//
+// script-src usa un nonce por request en vez de unsafe-inline (bug real
+// detectado en producción, 2026-08-26: sin nonce, la CSP bloqueaba los
+// <script> inline que el propio Next.js App Router inyecta para
+// hidratar/streamear RSC — rompía la hidratación de toda la app, texto y
+// botones desaparecían, React error #412). Patrón oficial documentado en
+// https://nextjs.org/docs/app/guides/content-security-policy: el nonce se
+// manda tanto en el header de request (`x-nonce`, para que el renderer de
+// Next lo use al emitir sus propios scripts) como en el de response (para
+// que el navegador lo acepte).
 //
 // connect-src/frame-src/script-src incluyen accounts.google.com (Google
 // Identity Services, popup + Authorization Code — decisión #1 del plan
@@ -19,24 +28,32 @@ import type { NextRequest } from "next/server";
 // dos únicos orígenes externos que esta app carga a propósito. El resto
 // del tráfico (API de Dental Mirage) pasa siempre por Server Actions
 // same-origin (BFF, CLAUDE.md) — nunca necesita un origen externo acá.
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
-  "frame-src https://accounts.google.com https://challenges.cloudflare.com",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://challenges.cloudflare.com`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
+    "frame-src https://accounts.google.com https://challenges.cloudflare.com",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
 
 export function middleware(request: NextRequest) {
-  void request; // sin lógica por-request todavía — solo headers globales.
-  const response = NextResponse.next();
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = buildCsp(nonce);
 
-  response.headers.set("Content-Security-Policy", CSP);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  response.headers.set("Content-Security-Policy", csp);
   // HSTS: inofensivo servirlo siempre (un navegador solo lo respeta sobre
   // HTTPS de todos modos) — evita tener que condicionar por entorno acá.
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");

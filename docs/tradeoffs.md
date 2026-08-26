@@ -572,6 +572,17 @@
 - **Qué se sacrifica:** `AuditEventEmailChanged`/`AuditEventRoleChanged` quedan definidos pero sin cablear — no hay feature de "cambiar mi mail" ni de "cambiar el rol de un miembro" en este MVP (spec §9, fuera de alcance), así que no hay nada real que auditar todavía. Se cablean cuando esas features se construyan.
 - **Reversibilidad:** Alta — agregar más `recordAuditEvent(...)` en un handler nuevo es aditivo, no toca el esquema.
 
+## TR-048: Bug real en producción — CSP sin nonce bloqueaba la hidratación de toda la app
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (bug reportado por el cliente tras el merge a `dev` de TR-036 a TR-047)
+- **Síntoma:** tras deployar, el Home perdía casi todo su texto/botones, `/ingresar` y `/sumarse` cargaban en blanco. Consola: la CSP bloqueaba "inline script" en varias páginas, más `React error #412` (hydration mismatch).
+- **Causa real:** `apps/web/src/middleware.ts` (TR-036/spec §7) seteaba `script-src` sin `'unsafe-inline'` **ni nonce** — Next.js App Router inyecta sus propios `<script>` inline para hidratar/streamear RSC (`self.__next_f.push(...)`), y la CSP los bloqueaba a todos. El bug no se detectó antes de mergear porque la verificación de esa fase fue solo `curl`/tests contra la API — nunca se abrió una página real en un navegador contra un build de producción.
+- **Decisión:** nonce por request (patrón oficial de Next.js, ver https://nextjs.org/docs/app/guides/content-security-policy) — la CSP de la respuesta lleva `'nonce-<valor>'` en `script-src`, y el mismo valor se reenvía como header de REQUEST (`x-nonce`) para que el renderer de Next lo use al estampar sus propios `<script>`. Mantiene `script-src` sin `unsafe-inline` (el objetivo original de TR-036), a diferencia de la alternativa más simple de agregar `unsafe-inline`.
+- **Alternativas consideradas:** (1) agregar `'unsafe-inline'` a `script-src` — más simple pero abandona el objetivo explícito de la spec ("CSP sin unsafe-inline donde sea viable"); (2) `'strict-dynamic'` en vez de mantener el allowlist de hosts — descartado por innecesariamente más complejo para este caso (el allowlist de `accounts.google.com`/`challenges.cloudflare.com` ya resuelve los dos únicos scripts de terceros que carga la app).
+- **Qué se sacrifica:** nada funcional — es aditivo sobre TR-036. Sí queda como lección: **cualquier cambio a `middleware.ts` de acá en más debe verificarse contra un build de producción real (`pnpm build && pnpm start`) en un navegador, no solo con tests/curl**, antes de mergear a `dev`.
+- **Reversibilidad:** Alta. Test de regresión agregado en `apps/web/src/middleware.test.ts` (verifica que el nonce se reenvía en el header de request, no solo en el de la respuesta — el paso que faltaba).
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
