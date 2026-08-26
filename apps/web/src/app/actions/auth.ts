@@ -72,6 +72,12 @@ export async function registerAction(payload: RegisterPayload): Promise<ActionRe
   }
   if (result.data.token) {
     await setSessionCookie(result.data.token);
+    // Invalida el layout raíz (header global incluido) — bug real
+    // reportado por el cliente (2026-08-26, ver TR-059 en
+    // docs/tradeoffs.md): sin esto, el Router Cache de Next.js puede
+    // seguir sirviendo el header con la sesión vieja (o sin sesión)
+    // después de este redirect, hasta un refresh manual.
+    revalidatePath("/", "layout");
   }
   if (result.data.emailVerificado && result.data.token) {
     redirect("/sumarse");
@@ -101,6 +107,7 @@ export async function loginAction(payload: LoginPayload): Promise<ActionResult |
     return { mensaje: result.data.mensaje ?? "confirmá tu mail antes de iniciar sesión" };
   }
   await setSessionCookie(result.data.token);
+  revalidatePath("/", "layout");
   redirect("/sumarse");
 }
 
@@ -111,6 +118,7 @@ export async function googleLoginAction(payload: GooglePayload): Promise<ActionR
     return { error: result.error };
   }
   await setSessionCookie(result.data.token);
+  revalidatePath("/", "layout");
   redirect("/sumarse");
 }
 
@@ -141,6 +149,13 @@ export async function verificarEmailAction(payload: VerificarEmailPayload): Prom
     return { error: result.error };
   }
   await setSessionCookie(result.data.token);
+  // Bug real reportado por el cliente (2026-08-26, TR-059 en
+  // docs/tradeoffs.md): sin revalidar, /seleccionar-servicio (destino
+  // final de este redirect, vía /sumarse) podía mostrar el header
+  // cacheado de ANTES de verificar (look de visitante anónimo) hasta un
+  // refresh manual — el Router Cache de Next.js no sabía que el layout
+  // raíz (con el header global) tenía datos nuevos que mostrar.
+  revalidatePath("/", "layout");
   redirect("/sumarse");
 }
 
@@ -180,6 +195,7 @@ export async function resetPasswordAction(payload: ResetPasswordActionInput): Pr
     return { error: result.error };
   }
   await setSessionCookie(result.data.token);
+  revalidatePath("/", "layout");
   redirect("/sumarse");
 }
 
@@ -189,6 +205,7 @@ export async function logoutAction(): Promise<void> {
     await apiLogout(token);
   }
   await clearSessionCookie();
+  revalidatePath("/", "layout");
   redirect("/");
 }
 
@@ -215,6 +232,10 @@ export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): 
   redirect("/seleccionar-servicio");
 }
 
+// nota: no hace falta revalidatePath("/", "layout") acá — este paso solo
+// mueve onboardingStep de "perfil" a "clinica", onboardingCompletado
+// sigue en false, así que el estado del header (TR-058) no cambia.
+
 // onboardingClinicaAction — Paso 3 del wizard (spec §4), completa el
 // onboarding.
 export async function onboardingClinicaAction(payload: OnboardingClinicaPayload): Promise<ActionResult | undefined> {
@@ -231,6 +252,11 @@ export async function onboardingClinicaAction(payload: OnboardingClinicaPayload)
   if (!result.ok) {
     return { error: result.error };
   }
+  // Este paso SÍ termina el onboarding (onboardingCompletado pasa a
+  // true) — el header cambia de "Tu clínica" (TR-058) a los tres links
+  // de herramientas, así que hace falta invalidar el layout raíz igual
+  // que en TR-059, o quedaría mostrando "Tu clínica" hasta un refresh.
+  revalidatePath("/", "layout");
   redirect("/seleccionar-servicio");
 }
 

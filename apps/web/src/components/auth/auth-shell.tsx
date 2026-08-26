@@ -92,6 +92,22 @@ interface AuthShellProps {
    * sobre /seleccionar-servicio) donde "volver al inicio" no tiene
    * sentido. */
   sinVolver?: boolean;
+  /** Ancho máximo de la tarjeta — "md" (28rem, default, el mismo ancho
+   * angosto de siempre para el flujo de auth de una columna) o "xl"
+   * (36rem) para formularios más largos con grillas de 2 columnas (el
+   * modal de bienvenida, perfil/clínica) — "md" los aplasta
+   * innecesariamente en un solo renglón por campo. */
+  ancho?: "md" | "xl";
+  /** Limita la altura de la tarjeta al viewport y scrollea su contenido
+   * puertas adentro, en vez de dejar que crezca sin límite — bug real
+   * reportado por el cliente (2026-08-26, TR-059 en docs/tradeoffs.md):
+   * los formularios de perfil/clínica son largos y "se salían de la
+   * página" dentro del modal de bienvenida. Centrar (`items-center`) un
+   * contenedor más alto que el viewport recorta el principio del
+   * contenido sin forma de scrollear hasta ahí (bug conocido de
+   * flexbox/grid) — limitar la altura de la TARJETA en vez de la del
+   * overlay entero evita ese problema de raíz, no solo lo tapa. */
+  scrollInterno?: boolean;
 }
 
 // AuthShell — card centrada compartida por todas las pantallas de auth.
@@ -104,12 +120,18 @@ export function AuthShell({
   volverLabel = "Volver al inicio",
   onVolver,
   sinVolver = false,
+  ancho = "md",
+  scrollInterno = false,
 }: AuthShellProps) {
   const volverClassName =
     "inline-flex w-fit items-center gap-1.5 self-start rounded-full bg-salvia-claro px-3.5 py-1.5 text-xs font-medium text-salvia-oscuro transition-colors hover:brightness-95";
+  const anchoClassName = ancho === "xl" ? "max-w-xl" : "max-w-md";
+  const scrollClassName = scrollInterno ? "max-h-[85vh] overflow-y-auto" : "";
 
   return (
-    <div className="flex w-full max-w-md flex-col gap-7 rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft">
+    <div
+      className={`flex w-full ${anchoClassName} flex-col gap-7 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft sm:p-8 ${scrollClassName}`}
+    >
       {!sinVolver &&
         (onVolver ? (
           <button type="button" onClick={onVolver} className={volverClassName}>

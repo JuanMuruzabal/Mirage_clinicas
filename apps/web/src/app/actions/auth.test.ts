@@ -108,6 +108,10 @@ describe("registerAction", () => {
     expect(result).toEqual({ mensaje: "ok" });
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
     expect(redirectMock).not.toHaveBeenCalled();
+    // TR-059 en docs/tradeoffs.md: sin esto, el header global (layout
+    // raíz) podía quedar mostrando la sesión vieja hasta un refresh
+    // manual — bug real reportado por el cliente, 2026-08-26.
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 
   it("sin token en la respuesta (email ya existía), no guarda cookie — anti-enumeración", async () => {
@@ -117,6 +121,7 @@ describe("registerAction", () => {
 
     expect(result).toEqual({ mensaje: "ok genérico" });
     expect(setSessionCookieMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("en error de la API, devuelve el mensaje", async () => {
@@ -140,6 +145,7 @@ describe("registerAction", () => {
     ).rejects.toThrow("NEXT_REDIRECT:/sumarse");
 
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 
   it("con emailVerificado=true pero sin token (no debería pasar, cinturón y tirantes), no redirige", async () => {
@@ -162,6 +168,7 @@ describe("loginAction", () => {
       "NEXT_REDIRECT:/sumarse",
     );
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 
   it("con mail sin verificar, devuelve el mensaje sin guardar cookie ni redirigir", async () => {
@@ -192,6 +199,7 @@ describe("googleLoginAction / googleStateAction", () => {
 
     await expect(googleLoginAction({ code: "c", state: "s" })).rejects.toThrow("NEXT_REDIRECT:/sumarse");
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 });
 
@@ -210,6 +218,7 @@ describe("verificarEmailAction", () => {
       "NEXT_REDIRECT:/sumarse",
     );
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-2");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 
   it("en error, devuelve el mensaje", async () => {
@@ -249,6 +258,7 @@ describe("resetPasswordAction", () => {
       resetPasswordAction({ token: "t", newPassword: "password123456", confirmarPassword: "password123456" }),
     ).rejects.toThrow("NEXT_REDIRECT:/sumarse");
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-3");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 });
 
@@ -258,6 +268,7 @@ describe("logoutAction", () => {
     await expect(logoutAction()).rejects.toThrow("NEXT_REDIRECT:/");
     expect(apiLogoutMock).not.toHaveBeenCalled();
     expect(clearSessionCookieMock).toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 
   it("con sesión, revoca en el backend antes de limpiar la cookie", async () => {
@@ -265,6 +276,7 @@ describe("logoutAction", () => {
     await expect(logoutAction()).rejects.toThrow("NEXT_REDIRECT:/");
     expect(apiLogoutMock).toHaveBeenCalledWith("un-token");
     expect(clearSessionCookieMock).toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 });
 
@@ -279,6 +291,10 @@ describe("onboardingPerfilAction", () => {
     apiOnboardingPerfilMock.mockResolvedValue({ ok: true, data: {} });
 
     await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/seleccionar-servicio");
+    // TR-059: este paso no completa el onboarding (sigue en
+    // onboardingStep "clinica"), así que el header no cambia — no hace
+    // falta revalidar el layout raíz acá.
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("en error, devuelve el mensaje sin redirigir", async () => {
@@ -298,6 +314,10 @@ describe("onboardingClinicaAction", () => {
     await expect(onboardingClinicaAction({ tipo: "individual", nombre: "Clínica" })).rejects.toThrow(
       "NEXT_REDIRECT:/seleccionar-servicio",
     );
+    // TR-059: este paso SÍ completa el onboarding — el header pasa de
+    // "Tu clínica" a los tres links de herramientas (TR-058), hace falta
+    // revalidar el layout raíz para que se vea sin un refresh manual.
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
 });
 

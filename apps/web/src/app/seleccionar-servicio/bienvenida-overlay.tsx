@@ -27,12 +27,14 @@ export function BienvenidaOverlay({ me, especialidades }: BienvenidaOverlayProps
   const paso = vistaManual ?? pasoServidor;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-grafito/50 p-4 py-10">
-      <div className="w-full max-w-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-grafito/50 p-3 py-6 sm:p-4 sm:py-10">
+      <div className="w-full max-w-xl">
         <AuthShell
           title={paso === "perfil" ? "Creá tu perfil profesional" : "Ahora, tu clínica"}
           subtitle="Un último paso antes de empezar a usar Dental Mirage."
           sinVolver
+          ancho="xl"
+          scrollInterno
         >
           <div className="flex flex-col gap-6">
             <Stepper pasos={PASOS_BIENVENIDA} actual={paso} />
