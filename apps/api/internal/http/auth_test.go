@@ -40,13 +40,15 @@ func TestRegister_Exitoso(t *testing.T) {
 	}
 }
 
-// TestRegister_CuentaVerificadaExistente_RespuestaGenericaSinTokenNiSobreescritura
-// — spec §7 anti-enumeración, y la garantía de seguridad real detrás de
-// TR-056: una cuenta YA VERIFICADA nunca se sobreescribe ni revela nada al
-// volver a "registrarse" con ese mail — a diferencia de una cuenta sin
-// verificar (ver los tests de abajo), acá sí importa evitar un secuestro
-// de cuenta.
-func TestRegister_CuentaVerificadaExistente_RespuestaGenericaSinTokenNiSobreescritura(t *testing.T) {
+// TestRegister_CuentaVerificadaExistente_DiceQueYaExisteSinTokenNiSobreescritura
+// — la garantía de seguridad real detrás de TR-056 sigue intacta (una
+// cuenta YA VERIFICADA nunca se sobreescribe ni emite un token al volver
+// a "registrarse" con ese mail — a diferencia de una cuenta sin verificar,
+// ver los tests de abajo), pero TR-062 en docs/tradeoffs.md revierte
+// parcialmente el anti-enumeración de la spec §7: pedido explícito del
+// cliente, acá SÍ se dice que la cuenta ya existe en vez de la respuesta
+// genérica de siempre (generaba confusión real).
+func TestRegister_CuentaVerificadaExistente_DiceQueYaExisteSinTokenNiSobreescritura(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
 		Email: "verificadaduplicado@example.com", Password: "password-original-123", AceptaTerminos: true,
@@ -57,12 +59,18 @@ func TestRegister_CuentaVerificadaExistente_RespuestaGenericaSinTokenNiSobreescr
 		Email: "verificadaduplicado@example.com", Password: "password-atacante-456", AceptaTerminos: true,
 	})
 	if rec.Code != http.StatusCreated {
-		t.Errorf("status = %d, esperaba %d (misma respuesta que un registro nuevo)", rec.Code, http.StatusCreated)
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusCreated)
 	}
 	var resp registerResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
 	if resp.Token != nil {
 		t.Error("una cuenta ya verificada nunca debería devolver un token de sesión al 're-registrarse' (evita secuestro de cuenta)")
+	}
+	if !resp.CuentaExistente {
+		t.Error("CuentaExistente = false, esperaba true — este es el único caso donde SÍ se revela que el mail ya existe")
+	}
+	if resp.Mensaje != mensajeCuentaYaExiste {
+		t.Errorf("Mensaje = %q, esperaba %q", resp.Mensaje, mensajeCuentaYaExiste)
 	}
 
 	// La contraseña ORIGINAL sigue siendo la vigente — confirma que no se
@@ -251,10 +259,11 @@ func TestRegister_AutoVerifyEmail_CuentaQuedaVerificadaYPasaAPerfil(t *testing.T
 	}
 }
 
-// TestRegister_AutoVerifyEmail_EmailDuplicadoSigueSinRevelarNada — el
-// camino anti-enumeración (spec §7) no debe ganar un distinguidor nuevo:
-// la respuesta ante un mail ya existente sigue siendo la genérica, nunca
-// el estado real de esa cuenta.
+// TestRegister_AutoVerifyEmail_EmailDuplicadoSigueSinRevelarNada — desde
+// TR-062 el mensaje SÍ dice que la cuenta existe (pedido explícito del
+// cliente), pero sigue sin revelar el ESTADO REAL de esa cuenta (ni
+// token, ni EmailVerificado/OnboardingStep reales) — eso es lo que este
+// test verifica.
 func TestRegister_AutoVerifyEmail_EmailDuplicadoSigueSinRevelarNada(t *testing.T) {
 	router, _ := newTestRouterWithAutoVerify(t)
 

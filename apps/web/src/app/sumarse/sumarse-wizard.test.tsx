@@ -105,4 +105,25 @@ describe("SumarseWizard", () => {
 
     expect(await screen.findByText(/otro@example.com/)).toBeInTheDocument();
   });
+
+  // TR-062 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-26): si el mail ya tiene cuenta verificada, se lo dice
+  // derecho en vez de mandar al paso de código — "no es el estándar".
+  it("con un mail que ya tiene cuenta verificada, muestra el aviso con links a ingresar/recuperar contraseña, sin avanzar al paso de código", async () => {
+    registerActionMock.mockResolvedValue({ cuentaExistente: true });
+    const user = userEvent.setup();
+    render(<SumarseWizard me={null} />);
+
+    await user.type(screen.getByLabelText("Email"), "maria@example.com");
+    await user.type(screen.getByLabelText(/^Contraseña/), "password123456");
+    await user.type(screen.getByLabelText("Confirmar contraseña"), "password123456");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+
+    expect(await screen.findByText(/Ese mail ya tiene una cuenta/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Iniciá sesión" })).toHaveAttribute("href", "/ingresar");
+    expect(screen.getByRole("link", { name: /recuperá tu contraseña/ })).toHaveAttribute("href", "/recuperar-password");
+    // Sigue en el Paso 1 — nunca avanza al paso de código para este caso.
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+  });
 });

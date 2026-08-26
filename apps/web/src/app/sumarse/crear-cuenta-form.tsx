@@ -32,9 +32,15 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
     defaultValues: { aceptaTerminos: false, captchaToken: "" },
   });
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
+  // TR-062 en docs/tradeoffs.md: pedido explícito del cliente — si el
+  // mail ya tiene una cuenta verificada, se lo decimos derecho en vez de
+  // mandarlo al paso de código (que generaba confusión real, "no es el
+  // estándar").
+  const [cuentaExistente, setCuentaExistente] = useState(false);
 
   async function onSubmit(values: CrearCuentaFormValues) {
     setErrorGlobal(null);
+    setCuentaExistente(false);
     const result = await registerAction({
       email: values.email,
       password: values.password,
@@ -43,6 +49,10 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
     });
     // Si la cuenta ya quedó verificada (TR-051), registerAction ya
     // redirigió a /sumarse y esta línea no se alcanza.
+    if (result && "cuentaExistente" in result) {
+      setCuentaExistente(true);
+      return;
+    }
     if (result && "mensaje" in result) {
       onRegistrado(values.email);
       return;
@@ -56,6 +66,20 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
     <div className="flex flex-col gap-5">
       <GoogleSignInButton onError={setErrorGlobal} />
       <AuthDivider />
+
+      {cuentaExistente && (
+        <p className="rounded-field border-[0.5px] border-salvia bg-salvia-claro px-4 py-3 text-sm text-salvia-oscuro">
+          Ese mail ya tiene una cuenta.{" "}
+          <Link href="/ingresar" className="font-medium underline hover:no-underline">
+            Iniciá sesión
+          </Link>{" "}
+          o{" "}
+          <Link href="/recuperar-password" className="font-medium underline hover:no-underline">
+            recuperá tu contraseña
+          </Link>{" "}
+          si la olvidaste.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
         <AuthField label="Email" error={errors.email?.message}>

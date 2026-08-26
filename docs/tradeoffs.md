@@ -720,6 +720,15 @@
 - **Decisión — "Volver al inicio" fuera del header:** pedido explícito del cliente en el mismo mensaje. Con el logo ya yendo siempre a `/` (TR-060), el link quedaba redundante — se borra `components/volver-al-inicio-link.tsx` (y su test) por completo, ya no tiene otro uso.
 - **Reversibilidad:** Alta en ambos casos — el hardening es un guard adicional sin cambiar ningún contrato; sacar el link es puramente de presentación.
 
+## TR-062: `register()` revela explícitamente "ese mail ya existe" para una cuenta verificada — revierte parcialmente el anti-enumeración de la spec §7
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (pedido explícito del cliente, tras la investigación de TR-061: "me parece incoherente que no me diga que ya existe una cuenta y me envíe a validar la cuenta con código, eso no es el estándar" — a la pregunta de qué recomendaba, la recomendación fue revelarlo, y el cliente la aceptó)
+- **Contexto de la decisión:** hasta acá, `register()` con un mail que ya tiene cuenta VERIFICADA respondía la misma `mensajeGenericoVerificacionPendiente` de un alta nueva (spec §7, anti-enumeración) — impedía que alguien use el formulario de registro para descubrir qué mails tienen cuenta en la plataforma, a costa de una UX confusa (el wizard avanza al paso de código sin que llegue nada).
+- **Decisión:** para este caso puntual (mail con cuenta YA VERIFICADA) se revierte el anti-enumeración — `register()` devuelve un mensaje explícito (`mensajeCuentaYaExiste`) y un flag nuevo `cuentaExistente: true` en `registerResponse`. El frontend (`CrearCuentaForm`) usa ese flag para mostrar un aviso con links a "Iniciá sesión" y "Recuperá tu contraseña" en vez de avanzar al paso de código. Sigue sin devolver token ni tocar la cuenta — la única diferencia es el mensaje. El resto de los caminos anti-enumeración (mail sin verificar en `register()`, `login`, `recuperar-password`) NO cambian.
+- **Por qué se acepta el trade-off para este caso puntual:** (1) los profesionales de Dental Mirage ya tienen presencia pública a propósito (página propia + buscador) — que se sepa "este mail tiene cuenta acá" no es información sensible como en un producto con usuarios anónimos; (2) CAPTCHA (Turnstile) todavía no está configurado en producción, así que la protección real que ofrecía el anti-enumeración en este endpoint ya era mínima; (3) el costo de UX era real y medible — generó confusión repetida en esta misma sesión, incluida una falsa alarma de "bug de seguridad crítico" (TR-061).
+- **Reversibilidad:** Alta — un mensaje y un flag booleano nuevos, sin cambios de esquema. Volver al mensaje genérico es revertir `registerResponse`/`CrearCuentaForm` a como estaban antes de este commit.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

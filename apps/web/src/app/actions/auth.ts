@@ -44,23 +44,38 @@ export interface MensajeResult {
   mensaje: string;
 }
 
+// TR-062 en docs/tradeoffs.md: único caso donde register() revela que el
+// mail ya tiene cuenta (verificada) — el wizard usa esto para mostrar
+// "iniciá sesión"/"recuperar contraseña" en vez de avanzar al paso de
+// código, que generaba confusión real (pedido explícito del cliente).
+export interface CuentaExistenteResult {
+  cuentaExistente: true;
+}
+
 // Cada Server Action revalida con el mismo schema zod que ya corrió en el
 // cliente (defensa en profundidad, spec §8) — apps/api sigue siendo la
 // fuente de verdad final y revalida todo de nuevo, esto solo evita
 // mandarle a la API algo que ya se sabía inválido acá.
 
 // registerAction — spec §4 Paso 1. Normalmente NO redirige por sí sola: la
-// cuenta queda sin verificar (o, si el mail ya existía, la respuesta es la
-// misma genérica sin token — anti-enumeración, spec §7) y la pantalla de
-// "revisá tu correo" la muestra el propio wizard con este resultado, no
-// una navegación aparte.
+// cuenta queda sin verificar y la pantalla de "revisá tu correo" la
+// muestra el propio wizard con este resultado, no una navegación aparte.
 //
-// Excepción (TR-051 en docs/tradeoffs.md): si el backend ya marcó la
+// Excepción #1 (TR-051 en docs/tradeoffs.md): si el backend ya marcó la
 // cuenta como verificada (AutoVerifyEmail, mientras Resend no esté
 // configurado), no tiene sentido mostrar "revisá tu correo" para un mail
 // que nunca se mandó — se comporta como loginAction, seteando la cookie y
 // mandando directo a /sumarse, que ya va a reflejar el Paso 2.
-export async function registerAction(payload: RegisterPayload): Promise<ActionResult | MensajeResult | undefined> {
+//
+// Excepción #2 (TR-062 en docs/tradeoffs.md): si el mail ya tiene una
+// cuenta VERIFICADA, el backend lo dice explícitamente (revierte
+// parcialmente el anti-enumeración de spec §7, pedido explícito del
+// cliente) — acá se devuelve CuentaExistenteResult en vez de
+// MensajeResult para que el wizard muestre "iniciá sesión"/"recuperar
+// contraseña" en vez de avanzar al paso de código.
+export async function registerAction(
+  payload: RegisterPayload,
+): Promise<ActionResult | MensajeResult | CuentaExistenteResult | undefined> {
   const parsed = registerSchema.safeParse(payload);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -81,6 +96,9 @@ export async function registerAction(payload: RegisterPayload): Promise<ActionRe
   }
   if (result.data.emailVerificado && result.data.token) {
     redirect("/sumarse");
+  }
+  if (result.data.cuentaExistente) {
+    return { cuentaExistente: true };
   }
   return { mensaje: result.data.mensaje };
 }

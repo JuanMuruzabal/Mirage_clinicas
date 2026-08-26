@@ -53,6 +53,13 @@ const cuentaAbandonadaTTL = 24 * time.Hour
 const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un código de confirmación — revisá tu correo"
 const mensajeGenericoRecuperarPassword = "si el mail está registrado, te enviamos las instrucciones"
 
+// mensajeCuentaYaExiste — TR-062 en docs/tradeoffs.md: a diferencia del
+// resto de los mensajes de esta sección, este SÍ revela que la cuenta
+// existe (pedido explícito del cliente, revierte parcialmente el
+// anti-enumeración de la spec §7 solo para register() con una cuenta ya
+// VERIFICADA — login/reset-password no cambian).
+const mensajeCuentaYaExiste = "ese mail ya tiene una cuenta — iniciá sesión o recuperá tu contraseña si la olvidaste"
+
 // mensajeCuentaCreadaAutoVerificada — respuesta cuando AuthDeps.AutoVerifyEmail
 // está activo (TR-051 en docs/tradeoffs.md): no hay verificación pendiente
 // que "revisar", así que no tiene sentido decir que se mandó un mail.
@@ -170,11 +177,17 @@ type registerResponse struct {
 	Mensaje string  `json:"mensaje"`
 	// EmailVerificado/OnboardingStep: reflejan la cuenta recién creada
 	// (AutoVerifyEmail, ver AuthDeps) — en los caminos de anti-enumeración
-	// (mail ya existente) quedan en su valor por defecto (false/""), nunca
-	// el estado real de la cuenta existente, para no abrir un distinguidor
-	// nuevo (spec §7).
+	// (mail ya existente sin verificar) quedan en su valor por defecto
+	// (false/""), nunca el estado real de la cuenta existente, para no
+	// abrir un distinguidor nuevo (spec §7).
 	EmailVerificado bool   `json:"emailVerificado"`
 	OnboardingStep  string `json:"onboardingStep,omitempty"`
+	// CuentaExistente — TR-062 en docs/tradeoffs.md: true únicamente
+	// cuando el mail ya tiene una cuenta VERIFICADA (el único caso donde
+	// se decide revelarlo, a propósito). El frontend lo usa para mostrar
+	// "iniciá sesión"/"recuperar contraseña" en vez de avanzar al paso de
+	// código.
+	CuentaExistente bool `json:"cuentaExistente,omitempty"`
 }
 
 // register crea una cuenta nativa no verificada y manda el mail de
@@ -234,9 +247,17 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !nueva && existing.EmailVerifiedAt != nil {
-		// Cuenta ya existente Y verificada — nunca se lo decimos al
-		// caller (spec §7, anti-enumeración).
-		writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
+		// TR-062 en docs/tradeoffs.md: revierte parcialmente el
+		// anti-enumeración de la spec §7 — pedido explícito del cliente
+		// (2026-08-26): acá SÍ se dice que la cuenta ya existe, en vez de
+		// mandar siempre al paso de código (generaba confusión real, "no
+		// es el estándar"). El "secreto" que protegía esto es débil para
+		// este producto puntual (los profesionales ya tienen presencia
+		// pública a propósito, página propia + buscador) y CAPTCHA
+		// todavía no está configurado en producción, así que la
+		// protección real que quedaba era mínima. Nunca se sobreescribe
+		// nada ni se emite token — solo cambia el mensaje.
+		writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeCuentaYaExiste, CuentaExistente: true})
 		return
 	}
 

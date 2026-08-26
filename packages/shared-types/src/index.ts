@@ -77,6 +77,13 @@ export interface RegisterResponse {
   // correo" e ir directo al Paso 2, igual que con Google.
   emailVerificado: boolean;
   onboardingStep?: OnboardingStep;
+  // TR-062 en docs/tradeoffs.md: true únicamente cuando el mail ya tiene
+  // una cuenta VERIFICADA — el único caso donde se decide revelarlo a
+  // propósito (pedido explícito del cliente, revierte parcialmente el
+  // anti-enumeración de arriba solo para este caso puntual). El wizard
+  // lo usa para mostrar "iniciá sesión"/"recuperar contraseña" en vez de
+  // avanzar al paso de código.
+  cuentaExistente?: boolean;
 }
 
 export interface LoginPayload {
