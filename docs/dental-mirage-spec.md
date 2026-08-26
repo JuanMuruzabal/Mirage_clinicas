@@ -20,30 +20,36 @@ El profesional se suma, configura su cuenta, y obtiene tanto una herramienta de 
 ## 2. Alcance del MVP
 
 **Incluido en esta fase:**
-- Alta de profesional individual (sin organizaciones multi-profesional).
+- Alta de profesional individual, con **login social (Google) o cuenta nativa con verificación de mail**, wizard de onboarding de 3 pasos (Cuenta → Perfil profesional → Clínica) — ver sección 3.
 - Selector de servicios: Gestioná tu clínica / Personalizá tu página.
 - Módulo de gestión de clínica completo: general, calendario, turnos entrantes, pacientes.
 - Página pública con plantilla base (no editor visual todavía) + flujo de deploy.
 - Buscador público de clínicas por nombre, profesional o especialidad.
 
+**Incluido a nivel de modelo de datos, sin funcionalidad todavía (aditivo, no bloquea el resto):**
+- Cuentas de tipo "organización": el Paso 3 del wizard ya permite elegir "organización" en vez de "clínica particular" y el modelo de datos (`Clinic`/`ClinicMember` con roles `owner`/`admin`/`profesional`/`recepcion`, `ClinicInvitation`) ya lo soporta — pero el envío/aceptación de invitaciones y el panel de gestión de miembros todavía no están construidos (el Paso 3 solo muestra un aviso de "próximamente" en ese caso).
+
 **Explícitamente fuera de alcance / pendiente para después:**
-- Cuentas de tipo "organización" (varios profesionales bajo una cuenta).
+- Envío/aceptación de invitaciones a una organización y panel de gestión de miembros (el modelo de datos ya está listo, ver arriba).
 - Subdominios propios por clínica (`clinica.miragedominio.com`) — por ahora es `/clinica-x`.
 - Herramienta de edición visual de la página (drag & drop) — por ahora es plantilla fija.
 - Apartado "Sobre nosotros" con perfil completo del profesional/organización.
 - Historia clínica adjunta y presupuesto de tratamiento — solo placeholders visuales, sin funcionalidad real.
+- 2FA, subida de foto de perfil (validación por magic bytes + storage prod), CSRF por tokens dedicados — ver el repaso de seguridad en `docs/feature-sumarte-login-resumen.md`.
 
 ---
 
 ## 3. Flujo de onboarding (alta de usuario)
 
+Reescrito por completo respecto al brief original — la versión vigente es un wizard de 3 pasos con verificación de identidad real, definido en detalle en `docs/feature-sumarte-login-resumen.md` (resumen de entrega) y `docs/tradeoffs.md` (TR-036 a TR-047). Resumen aplicado:
+
 1. Usuario llega al **Home** (`01-home.png`), lee sobre los servicios y elige sumarse.
-2. Se le pregunta: ¿Clínica particular u organización con varios profesionales?
-   - **Solo "particular" está habilitado en el MVP.** La opción organización puede mostrarse deshabilitada o directamente omitirse.
-3. El profesional completa datos personales.
-4. Agrega sus especialidades como tags (ej: odontología general, periodoncista, etc.) — estas se muestran luego en su perfil público.
-5. Ingresa el nombre de la clínica.
-6. Llega a la pantalla de selección de servicios (`02-seleccion-servicios.png`): **Gestioná tu clínica** / **Personalizá tu página**.
+2. **Paso 1 — Cuenta:** con **Google** (OAuth, popup, mail ya verificado por el provider — pasa directo al Paso 2) o **nativa** (mail + contraseña, con verificación de mail vía Resend antes de poder avanzar).
+3. **Paso 2 — Perfil profesional:** datos personales (nombre, apellido, teléfono, documento opcional, matrícula), especialidades desde un catálogo cerrado (no tags libres, ver TR-004), años de experiencia y bio opcionales.
+4. **Paso 3 — Clínica:** nombre de la clínica y **elección de tipo — "clínica particular" u "organización"** (ambas habilitadas en la UI; organización solo deja el modelo de datos listo, sin invitaciones funcionales todavía — ver sección 2).
+5. Llega a la pantalla de selección de servicios (`02-seleccion-servicios.png`): **Gestioná tu clínica** / **Personalizá tu página**.
+
+El wizard persiste el progreso en cada paso — cerrar sesión y volver retoma exactamente en el paso pendiente, sin perder los datos ya cargados.
 
 **Nota de diseño:** una vez completado este flujo, la cuenta ya está "sumada". En la pantalla de selección de servicios, el header ya no debería mostrar solo "Cerrar sesión" — debe incluir un acceso a **Tu perfil** (a futuro, "Tu organización" cuando se habilite ese modo).
 
@@ -141,7 +147,7 @@ Estos puntos aparecían implícitos o sin resolver en el brief original y convie
 2. **Validación de datos del formulario público** (DNI, teléfono, mail): ¿hay reglas de formato/obligatoriedad ya definidas?
 3. **Integración con WhatsApp**: ¿es un link `wa.me` con mensaje prellenado, o una integración con API de WhatsApp Business? Esto cambia bastante el alcance técnico.
 4. **Especialidades**: ¿es una lista cerrada predefinida por Mirage, o el profesional puede crear tags libres?
-5. **Autenticación**: no se especifica el mecanismo de login/registro (email+password, Google, etc.).
+~~5. **Autenticación**~~ — **Resuelto.** Google OAuth + cuenta nativa con verificación de mail, sesiones server-side (no JWT stateless), rate limiting, CAPTCHA y el resto del checklist de seguridad no negociable. Ver sección 3 (flujo), `docs/tradeoffs.md` TR-036 a TR-047, y el repaso punto por punto de seguridad en `docs/feature-sumarte-login-resumen.md`.
 ~~6. Stack técnico~~ — **Resuelto.** Ver sección 9: se reutiliza tal cual el playbook de Turismo Marcuzzi (`playbook-clinica-dental.md`).
 
 ---
@@ -161,7 +167,7 @@ Se reutiliza sin cambios el modo de trabajo ya validado en Turismo Marcuzzi (doc
 El mismo mecanismo que evitaba dobles reservas de alojamiento en Turismo Marcuzzi aplica directo a la agenda de turnos: constraint `EXCLUDE USING gist` en Postgres sobre el rango horario por profesional. **No es una validación de app, es un constraint de base de datos** — ver sección 4.3.
 
 ### 9.3 Arquitectura: BFF, sin excepciones
-El navegador nunca llama directo a la API Go. Todo pasa por Server Actions / Route Handlers de Next.js. El cliente HTTP (`lib/api.ts`) es `server-only`, sin prefijo `NEXT_PUBLIC_`. El JWT de sesión va en cookie `httpOnly`, nunca en `localStorage`. Cualquier pantalla nueva extiende `lib/api.ts` y se llama desde Server Component/Action — nunca un `fetch` nuevo desde Client Component.
+El navegador nunca llama directo a la API Go. Todo pasa por Server Actions / Route Handlers de Next.js. El cliente HTTP (`lib/api.ts`) es `server-only`, sin prefijo `NEXT_PUBLIC_`. El token de sesión (opaco, validado server-side contra Postgres — ya no JWT stateless, ver TR-037 en `docs/tradeoffs.md`) va en cookie `httpOnly`, nunca en `localStorage`. Cualquier pantalla nueva extiende `lib/api.ts` y se llama desde Server Component/Action — nunca un `fetch` nuevo desde Client Component.
 
 ### 9.4 Integraciones externas: interfaz dev/prod
 Mismo patrón para cada dependencia externa — storage de archivos, emails, CAPTCHA, OAuth y, en este dominio, **notificaciones/recordatorios de turno por WhatsApp o SMS** (relevante directo para la sección 4.4): interfaz en Go, implementación dev (no-op/log) e implementación prod activada por env var, inyectada desde `main.go`. Esto no resuelve todavía la pregunta abierta #3 (wa.me vs API de WhatsApp Business) — solo define cómo se va a integrar la respuesta, sea cual sea.

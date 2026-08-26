@@ -359,21 +359,29 @@ Todas las tareas de la sección 5 referencian estos IDs.
 
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
+**Reescritura de sumarse/login, rama `feature/sumarte-login` (2026-08-25), pedido explícito del cliente — reemplaza T0.5/T1.2 de la tabla de Sprint 0/1 de arriba, ver TR-036 a TR-047 en `docs/tradeoffs.md` y el detalle completo en `docs/feature-sumarte-login-resumen.md`:**
+- T0.5 (auth backend: JWT + bcrypt) y T1.2 (registro/login frontend) quedan **superadas**, no vigentes tal como están descritas arriba: la autenticación se reescribió por completo sobre Google OAuth (popup + Authorization Code) + cuenta nativa con verificación de mail (Resend), sesiones server-side en Postgres (`internal/auth/session.go`, ya no JWT stateless — TR-037) y argon2id (TR-005 superseded, ver sección 9).
+- Wizard de onboarding de 3 pasos (Cuenta → Perfil profesional → Clínica) con persistencia por paso, reemplaza el alta de un solo paso original — ver spec §3 actualizada.
+- Modelo de datos nuevo: `User`/`Account`/`ProfessionalProfile`/`Clinic`/`ClinicMember`/`ClinicInvitation`/`Session`/`AuthRateCounter`/`AuditEvent` (`internal/db/models_auth.go`), reemplaza a `Profesional` como fuente de verdad (`Profesional` se mantiene sin borrar hasta confirmar la migración de datos en producción, TR-039).
+- Checklist completo de seguridad no negociable (spec §7 de la feature): rate limiting por IP y cuenta, CAPTCHA (Turnstile), HaveIBeenPwned, anti-enumeración, rotación de sesión, log de auditoría (TR-047) — repaso punto por punto en `docs/feature-sumarte-login-resumen.md`.
+- Cuentas de tipo "organización" dejan de estar fuera de alcance a nivel de modelo de datos (TR-009 superseded, TR-044) — ver sección 2 de la spec.
+- Verificación: `go build/vet/test ./...` (incluido `-race`) y `golangci-lint run ./...` limpios contra Postgres real; cobertura backend 74.9% → 81.5% (gate 80%); `pnpm audit` sin vulnerabilidades conocidas. Gaps documentados sin silenciar: subida de foto de perfil (TR-046), CSRF por tokens dedicados (mitigado por SameSite+BFF en su lugar).
+
 ---
 
 ## 6. Backlog (Fase 2 — spec §2 "explícitamente fuera de alcance")
 
 Resumen de alto nivel, a re-planificar cuando arranque:
 
-- Cuentas de tipo "organización" (varios profesionales bajo una cuenta) — impacta el modelo de datos de `profesional`/`pagina_publica` (hoy 1:1), no es solo UI.
+- Envío/aceptación de invitaciones a una organización + panel de gestión de miembros — el modelo de datos (`Clinic`/`ClinicMember`/`ClinicInvitation`) ya está listo desde la feature de sumarse/login (TR-044), esto es solo la funcionalidad de invitar/aceptar.
 - Subdominios propios por clínica (`clinica.miragedominio.com`) en vez de `/clinica-x`.
 - Editor visual drag & drop de la página pública (hoy solo layout + plantilla fija).
 - Sección "Sobre nosotros" con perfil completo (hoy placeholder).
 - Historia clínica adjunta y presupuesto de tratamiento con funcionalidad real (hoy placeholders visuales).
 - Recordatorios de turno automatizados por WhatsApp/SMS (interfaz ya dejada lista en `internal/notificaciones`, spec §9.4) — distinto del envío inicial por `wa.me` (TR-003), que ya está en el MVP.
 - Posible integración con WhatsApp Business API si el `wa.me` del MVP resulta insuficiente (spec §7, pregunta 3).
-- CAPTCHA/anti-spam en el formulario público (TR-008).
-- Login social (Google) si se confirma que hace falta (TR-005).
+- CAPTCHA/anti-spam en el formulario público (TR-008) — nota: sí se agregó Turnstile en registro/reset de la feature de sumarse/login (TR-036 en adelante), pero el formulario público de pedido de turno (T3.1) sigue sin CAPTCHA.
+- ~~Login social (Google) si se confirma que hace falta (TR-005).~~ — **Hecho** (2026-08-25): ver feature de sumarse/login, TR-036.
 
 ---
 
@@ -413,11 +421,11 @@ Este plan no espera confirmación del cliente para tener una fecha de referencia
 - TR-002: Validaciones concretas de DNI/teléfono/mail en el formulario público — responde spec §7.2.
 - TR-003: Envío del formulario público vía link `wa.me` (no WhatsApp Business API) — responde spec §7.3.
 - TR-004: Especialidades como catálogo cerrado predefinido por Mirage, no tags libres — responde spec §7.4.
-- TR-005: Autenticación email+password propia (JWT), sin login social en el MVP — responde spec §7.5.
+- TR-005: Autenticación email+password propia (JWT), sin login social en el MVP — responde spec §7.5. **Superseded 2026-08-25** por la feature de sumarse/login (`docs/feature-sumarte-login-resumen.md`): sesiones server-side en vez de JWT stateless (TR-037) y login con Google sumado (TR-036).
 - TR-006: El exclusion constraint de turnos aplica solo a `estado='agendado'`; los `pendiente` no tienen `rango_horario` fijo todavía.
 - TR-007: Gate de coverage 80% activo desde Sprint 0 (CI), no agregado como iniciativa tardía — lección aplicada de la experiencia de Marcuzzi_Madryn.
 - TR-008: Sin CAPTCHA/Turnstile en el formulario público del MVP — riesgo aceptado y registrado (R3).
-- TR-009: La opción "organización" se **omite** del flujo de onboarding en el MVP (no se muestra deshabilitada).
+- TR-009: La opción "organización" se **omite** del flujo de onboarding en el MVP (no se muestra deshabilitada). **Superseded 2026-08-25** (TR-044): el Paso 3 del wizard ya la ofrece; el modelo de datos ya la soporta. Solo el envío/aceptación de invitaciones sigue sin construir.
 - TR-010: Identidad visual — Sistema Cascarón (paleta de 6 tokens, tipografía Big Shoulders/Public Sans/IBM Plex Mono, marca de cuadrante como elemento firma). Resuelve T5.1 por adelantado.
 - TR-011: Catálogo de especialidades visible acotado a "Odontología general" — el resto de TR-004 sigue sembrado pero oculto (`Especialidad.Activa`), hasta que el cliente confirme el resto de la lista.
 - TR-012: Buscador público de clínicas (T4.5) adelantado a Sprint 1, sin el filtro `deployada_en` todavía — toda clínica registrada aparece hasta que exista el toggle de deploy (T4.2).

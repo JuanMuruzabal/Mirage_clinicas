@@ -1,6 +1,6 @@
 # Sumarse + Login con onboarding profesional — resumen de entrega
 
-Cierre de `docs/feature-sumarte-login.md` (spec §11: "al final, un resumen de qué cambió, qué variables de entorno hay que configurar, qué quedó preparado para invitaciones, y un repaso explícito de la sección 7"). Rama `feature/sumarte-login`, no mergeada a `dev`/`main` todavía.
+Cierre de la feature pedida originalmente en `docs/feature-sumarte-login.md` (el prompt inicial, no un documento vivo — sección 11 de ese prompt pedía explícitamente "al final, un resumen de qué cambió, qué variables de entorno hay que configurar, qué quedó preparado para invitaciones, y un repaso explícito de la sección 7"). Este documento, junto con `docs/tradeoffs.md` (TR-036 a TR-047) y las secciones actualizadas de `docs/dental-mirage-spec.md` (§2, §3, §7, §9.3), es la referencia viva de la feature de ahora en más. Rama `feature/sumarte-login`, no mergeada a `dev`/`main` todavía.
 
 ## 1. Qué cambió
 

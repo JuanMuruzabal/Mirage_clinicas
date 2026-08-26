@@ -542,7 +542,7 @@
 - **Fase:** plan → ejecución
 - **Decisión:** el Paso 3 del wizard (`onboarding.go`, `onboarding-clinica`) acepta `tipo: "individual" | "organizacion"` sin restricción — a diferencia del wizard viejo (`SumarseWizard`), que omitía la rama "organización" por completo (TR-009). `ClinicMember`/roles (`owner`/`admin`/`profesional`/`recepcion`) y `ClinicInvitation` (solo esquema, sin envío/aceptación — fuera de alcance explícito de esta feature, spec §9) quedan listos para cuando se implemente la gestión de miembros real.
 - **Por qué:** pedido explícito de `docs/feature-sumarte-login.md` §3/§4 — el cliente decidió que el modelo de datos soporte organizaciones desde ahora, aunque la funcionalidad de invitar colaboradores todavía no esté implementada (el Paso 3 solo muestra un aviso informativo en ese caso).
-- **Qué se sacrifica:** nada del MVP original se pierde — es aditivo. `docs/dental-mirage-spec.md` (líneas que decían "sin organizaciones multi-profesional") y `CLAUDE.md` (que listaba "cuentas de organización multi-profesional" como fuera de alcance) quedan desactualizados hasta que se les pase una revisión (ver Fase de documentación pendiente).
+- **Qué se sacrifica:** nada del MVP original se pierde — es aditivo. `docs/dental-mirage-spec.md` y `CLAUDE.md` quedaron desactualizados hasta la revisión del 2026-08-25 (ver sección 2/3/7/9.3 de la spec, ya corregidas).
 - **Reversibilidad:** Alta — no se está implementando la funcionalidad de invitaciones, solo dejando el modelo listo.
 
 ## TR-045: Borrado de cuenta como soft-delete — política de retención de auditoría queda pendiente de definir
@@ -562,6 +562,15 @@
 - **Por qué:** la foto de perfil es un campo OPCIONAL del Paso 2 (spec §4: "el resto opcional pero visible") — no bloquea el happy path del wizard (crear cuenta → verificar → perfil → clínica), a diferencia de la sesión/OAuth/mail, que sí son bloqueantes. Se priorizó terminar el flujo de auth completo, correcto y probado antes que un campo opcional.
 - **Qué se sacrifica:** el criterio de aceptación de seguridad "foto de perfil validada por magic bytes... servida con URLs firmadas" (spec §7) queda sin implementar en este commit — documentado explícitamente acá, no silenciado, y debe marcarse como pendiente en el resumen final de la feature.
 - **Reversibilidad:** Alta — agregar el endpoint de subida + R2Storage es aditivo, no requiere tocar el resto del modelo de auth.
+
+## TR-047: Log de auditoría — esquema existía desde TR-036, se detectó sin cablear y se cerró en la misma feature
+
+- **Fecha:** 2026-08-25
+- **Fase:** ejecución (verificación final, spec §11 "repaso explícito de la sección 7")
+- **Decisión:** `db.AuditEvent` (tabla + constantes de `EventType`) se creó en la Fase 1 (`models_auth.go`) pero ningún handler lo escribía todavía al llegar al repaso de cierre — puro esquema, sin la funcionalidad "no negociable" que pide la spec §7 ("log de auditoría de eventos sensibles... con userId, IP, user-agent y timestamp"). Se agregó `internal/http/audit.go` (`recordAuditEvent`, best-effort — mismo criterio que el envío de mails: un fallo al escribir el registro nunca tumba el request) y se cableó en los 7 eventos que tienen una feature real detrás: `register`, `login` (nativo y Google), `login_failed` (con `userID` cuando la cuenta existe, `nil` cuando no — mismo criterio anti-enumeración de no filtrar de más, ver el comentario en el modelo), `email_verified`, `password_changed` (reset), `logout`, `clinic_created`.
+- **Alternativas consideradas:** (1) un logger estructurado a archivo/stdout en vez de una tabla — descartado, la spec pide explícitamente poder consultar `userId`/IP/user-agent, que un log de texto plano no ofrece sin parsing adicional; (2) escribir el evento dentro de la misma transacción de la acción que audita (ej. el `Transaction` de `register`) — descartado, un evento de auditoría que aborta el login/registro por un problema transitorio de la tabla `audit_events` sería peor que perder ese evento puntual.
+- **Qué se sacrifica:** `AuditEventEmailChanged`/`AuditEventRoleChanged` quedan definidos pero sin cablear — no hay feature de "cambiar mi mail" ni de "cambiar el rol de un miembro" en este MVP (spec §9, fuera de alcance), así que no hay nada real que auditar todavía. Se cablean cuando esas features se construyan.
+- **Reversibilidad:** Alta — agregar más `recordAuditEvent(...)` en un handler nuevo es aditivo, no toca el esquema.
 
 ---
 
