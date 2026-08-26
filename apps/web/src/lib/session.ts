@@ -35,18 +35,27 @@ export async function clearSessionCookie(): Promise<void> {
 }
 
 // getMe — helper base: sin cookie o con un token que la API ya no acepta
-// (expirado/revocado), devuelve null (y limpia la cookie vieja en el
-// segundo caso) en vez de redirigir — lo usa tanto site-header.tsx (solo
-// necesita saber si hay sesión) como los guards de abajo.
+// (expirado/revocado), devuelve null en vez de redirigir — lo usa tanto
+// site-header.tsx (solo necesita saber si hay sesión) como los guards de
+// abajo, TODOS invocados durante el render de un Server Component, no
+// dentro de una Server Action/Route Handler.
+//
+// Importante: NO limpia la cookie acá aunque el token ya no sirva — bug
+// real en producción (2026-08-26, digest E1180, ver TR-049 en
+// docs/tradeoffs.md): Next.js prohíbe mutar cookies durante el render de
+// una página ("Cookies can only be modified in a Server Action or Route
+// Handler"), tira 500 en cualquier página que llame a getMe() con una
+// cookie de sesión inválida (ej. una cookie vieja de antes de esta
+// feature, todavía en el navegador de un visitante real). Una cookie
+// inválida que queda sin limpiar hasta el próximo login/logout explícito
+// es inofensiva (apiMe la vuelve a rechazar en cada request, sin loop);
+// un 500 en cada visita no lo es.
 export async function getMe(): Promise<Me | null> {
   const token = await getSessionToken();
   if (!token) return null;
 
   const result = await apiMe(token);
-  if (!result.ok) {
-    await clearSessionCookie();
-    return null;
-  }
+  if (!result.ok) return null;
   return result.data;
 }
 

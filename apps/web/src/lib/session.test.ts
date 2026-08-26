@@ -100,12 +100,16 @@ describe("lib/session", () => {
     await expect(getMe()).resolves.toBeNull();
   });
 
-  it("getMe devuelve null y limpia la cookie si el token ya no es válido", async () => {
+  it("getMe devuelve null si el token ya no es válido, sin tocar la cookie", async () => {
+    // No debe llamar a store.delete: mutar cookies durante el render de
+    // una página (getMe corre en Server Components, no en Server
+    // Actions/Route Handlers) tira un 500 real en Next.js — ver TR-049 en
+    // docs/tradeoffs.md.
     const store = fakeCookieStore("un-token-vencido");
     apiMeMock.mockResolvedValue({ ok: false, status: 401, error: "token inválido o expirado" });
 
     await expect(getMe()).resolves.toBeNull();
-    expect(store.delete).toHaveBeenCalledWith("dm_session");
+    expect(store.delete).not.toHaveBeenCalled();
   });
 
   it("getMe devuelve los datos si el token es válido", async () => {

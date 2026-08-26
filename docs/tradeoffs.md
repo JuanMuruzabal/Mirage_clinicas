@@ -583,6 +583,17 @@
 - **Qué se sacrifica:** nada funcional — es aditivo sobre TR-036. Sí queda como lección: **cualquier cambio a `middleware.ts` de acá en más debe verificarse contra un build de producción real (`pnpm build && pnpm start`) en un navegador, no solo con tests/curl**, antes de mergear a `dev`.
 - **Reversibilidad:** Alta. Test de regresión agregado en `apps/web/src/middleware.test.ts` (verifica que el nonce se reenvía en el header de request, no solo en el de la respuesta — el paso que faltaba).
 
+## TR-049: `getMe()` no puede limpiar la cookie de sesión inválida — Next.js lo prohíbe fuera de una Server Action/Route Handler
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (segundo bug real en producción del mismo día, después de TR-048 — reportado por el cliente con el log real de Render)
+- **Síntoma:** `GET /sumarse` y `GET /ingresar` devolvían 500 en Render (no en local con `pnpm start`/`next start` — solo se reprodujo con el mismo Dockerfile/`output: standalone` que usa Render, mandando un `dm_session` inválido). Log real del servicio: `Error: Cookies can only be modified in a Server Action or Route Handler` (digest `362305294@E1180`).
+- **Causa real:** `getMe()` (`lib/session.ts`) intentaba `clearSessionCookie()` (un `cookies().delete()`) cada vez que `apiMe()` devolvía `!ok` — pero `getMe()` se llama desde Server Components durante el RENDER de una página (`/sumarse`, `/ingresar`, guards de `/panel`, `site-header.tsx`), no desde una Server Action ni un Route Handler. Next.js App Router prohíbe mutar cookies fuera de esos dos contextos — tira, no advierte. Cualquier visitante con una cookie `dm_session` inválida (la causa más probable: quedó de antes de esta feature, cuando la sesión era JWT y no un token opaco — ese valor viejo ahora falla la validación en `apiMe`) crasheaba la página entera con un 500.
+- **Por qué no se detectó en la verificación de TR-036/TR-037:** los tests automatizados mockean `apiMe`/`cookies()` (nunca ejercitan la restricción real del framework), y la verificación manual de esa fase nunca probó el caso "visitante con una cookie de sesión vieja/inválida real" contra un build de producción.
+- **Decisión:** `getMe()` deja de intentar limpiar la cookie — si `apiMe()` dice que el token no sirve, devuelve `null` y no toca la cookie. La única `clearSessionCookie()` que queda activa es la de `logoutAction` (`app/actions/auth.ts`), que sí corre dentro de una Server Action.
+- **Qué se sacrifica:** una cookie de sesión inválida queda en el navegador del visitante hasta que haga login u logout explícito (en vez de auto-limpiarse en la primera visita) — inofensivo: `apiMe` la vuelve a rechazar en cada request sin loop ni efecto visible, es shipear una cookie de más, no un bug.
+- **Reversibilidad:** Alta. Si más adelante hace falta auto-limpiar cookies inválidas de verdad, el lugar correcto es `middleware.ts` (corre en un contexto que sí puede mutar cookies) o un Route Handler dedicado — no un helper de lectura llamado desde Server Components.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
