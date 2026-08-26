@@ -40,48 +40,55 @@ func TestRegister_Exitoso(t *testing.T) {
 	}
 }
 
-func TestRegister_EmailDuplicado_RespuestaGenericaSinToken(t *testing.T) {
-	router, _, _ := newTestRouterWithMail(t)
+// TestRegister_CuentaVerificadaExistente_RespuestaGenericaSinTokenNiSobreescritura
+// — spec §7 anti-enumeración, y la garantía de seguridad real detrás de
+// TR-056: una cuenta YA VERIFICADA nunca se sobreescribe ni revela nada al
+// volver a "registrarse" con ese mail — a diferencia de una cuenta sin
+// verificar (ver los tests de abajo), acá sí importa evitar un secuestro
+// de cuenta.
+func TestRegister_CuentaVerificadaExistente_RespuestaGenericaSinTokenNiSobreescritura(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "verificadaduplicado@example.com", Password: "password-original-123", AceptaTerminos: true,
+	})
+	marcarMailVerificadoDePrueba(t, gdb, "verificadaduplicado@example.com")
 
-	req := registerRequest{Email: "duplicado@example.com", Password: "password123456", AceptaTerminos: true}
-	if rec := doJSON(t, router, http.MethodPost, "/auth/register", req); rec.Code != http.StatusCreated {
-		t.Fatalf("primer registro falló: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-
-	rec := doJSON(t, router, http.MethodPost, "/auth/register", req)
-	// spec §7 anti-enumeración: mismo status, mismo mensaje, y sobre todo
-	// SIN token (registrarse con el mail de otra cuenta no puede loguear
-	// como esa cuenta).
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "verificadaduplicado@example.com", Password: "password-atacante-456", AceptaTerminos: true,
+	})
 	if rec.Code != http.StatusCreated {
 		t.Errorf("status = %d, esperaba %d (misma respuesta que un registro nuevo)", rec.Code, http.StatusCreated)
 	}
 	var resp registerResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
 	if resp.Token != nil {
-		t.Error("un email duplicado nunca debería devolver un token de sesión (evita secuestro de cuenta)")
+		t.Error("una cuenta ya verificada nunca debería devolver un token de sesión al 're-registrarse' (evita secuestro de cuenta)")
+	}
+
+	// La contraseña ORIGINAL sigue siendo la vigente — confirma que no se
+	// sobreescribió nada.
+	loginOriginal := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{
+		Email: "verificadaduplicado@example.com", Password: "password-original-123",
+	})
+	if loginOriginal.Code != http.StatusOK {
+		t.Errorf("login con la password original: status = %d, esperaba %d — la cuenta verificada no debería haberse tocado", loginOriginal.Code, http.StatusOK)
 	}
 }
 
-// TestRegister_CuentaAbandonadaSinVerificarSeBorraYPermiteRehacerElProceso
-// — TR-052 en docs/tradeoffs.md: un visitante que perdió la conexión (o
-// nunca llegó a abrir el mail) mientras esperaba verificar, y cuyo link
-// ya venció, no debería quedar "dueño" del mail para siempre sin forma de
-// reintentar.
-func TestRegister_CuentaAbandonadaSinVerificarSeBorraYPermiteRehacerElProceso(t *testing.T) {
-	router, gdb, _ := newTestRouterWithMail(t)
+// TestRegister_CuentaSinVerificarExistente_SeSobreescribeConNuevaContraseña
+// — TR-056 en docs/tradeoffs.md, pedido explícito del cliente: "si me
+// confundí de mail" o "quiero reintentar con otra contraseña" no puede
+// terminar en un softlock — a diferencia de una cuenta ya verificada
+// (arriba), una sin verificar es segura de sobreescribir: ningún dato de
+// perfil/clínica puede existir todavía para ella.
+func TestRegister_CuentaSinVerificarExistente_SeSobreescribeConNuevaContraseña(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
 	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
-		Email: "abandonada@example.com", Password: "password-vieja-123", AceptaTerminos: true,
+		Email: "reintento@example.com", Password: "password-vieja-123", AceptaTerminos: true,
 	})
 
-	// Simula que pasó más del TTL del link de verificación (24h) sin que
-	// nadie lo confirmara.
-	if err := gdb.Model(&db.User{}).Where("email = ?", "abandonada@example.com").
-		Update("created_at", time.Now().Add(-25*time.Hour)).Error; err != nil {
-		t.Fatalf("no se pudo forzar la antigüedad de la cuenta: %v", err)
-	}
-
 	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
-		Email: "abandonada@example.com", Password: "password-nueva-456", AceptaTerminos: true,
+		Email: "reintento@example.com", Password: "password-nueva-456", AceptaTerminos: true,
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -89,52 +96,35 @@ func TestRegister_CuentaAbandonadaSinVerificarSeBorraYPermiteRehacerElProceso(t 
 	var resp registerResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
 	if resp.Token == nil {
-		t.Fatal("esperaba un token — la cuenta vieja debería haberse borrado y este ser un alta nueva")
+		t.Fatal("esperaba un token — reintentar con una cuenta sin verificar debería comportarse como un alta nueva")
 	}
 
-	// La contraseña vigente es la NUEVA — confirma que la fila vieja se
-	// borró de verdad, no que el segundo intento se ignoró en silencio.
+	// La contraseña vigente es la NUEVA — confirma que se sobreescribió de
+	// verdad, no que el segundo intento se ignoró en silencio. (401, no
+	// 403: la password vieja ni siquiera llega a matchear, así que el
+	// gate de "mail no verificado" nunca se alcanza.)
 	loginViejo := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{
-		Email: "abandonada@example.com", Password: "password-vieja-123",
+		Email: "reintento@example.com", Password: "password-vieja-123",
 	})
 	if loginViejo.Code != http.StatusUnauthorized {
-		t.Errorf("login con la password vieja: status = %d, esperaba %d (la cuenta vieja ya no debería existir)", loginViejo.Code, http.StatusUnauthorized)
+		t.Errorf("login con la password vieja: status = %d, esperaba %d (ya no debería ser válida)", loginViejo.Code, http.StatusUnauthorized)
 	}
 }
 
-// TestRegister_CuentaSinVerificarRecienCreadaNoSeBorraTodavia — la ventana
-// de 24h todavía no pasó, así que sigue siendo el camino normal de
-// anti-enumeración (reenvío silencioso), no un borrado.
-func TestRegister_CuentaSinVerificarRecienCreadaNoSeBorraTodavia(t *testing.T) {
-	router, _, _ := newTestRouterWithMail(t)
-	req := registerRequest{Email: "reciente@example.com", Password: "password123456", AceptaTerminos: true}
-	doJSON(t, router, http.MethodPost, "/auth/register", req)
-
-	rec := doJSON(t, router, http.MethodPost, "/auth/register", req)
-	var resp registerResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.Token != nil {
-		t.Error("una cuenta recién creada (dentro del TTL) no debería borrarse ni dar un token nuevo")
-	}
-}
-
-// TestRegister_AutoVerifyEmail_CuentaExistenteSinVerificarSeBorraSinEsperarElTTL
-// — con AutoVerifyEmail activo no hay verificación real que esperar, así
-// que una cuenta existente sin verificar se resuelve de inmediato, sin
-// importar su antigüedad (a diferencia del caso sin AutoVerifyEmail,
-// arriba, que sí espera el TTL).
-func TestRegister_AutoVerifyEmail_CuentaExistenteSinVerificarSeBorraSinEsperarElTTL(t *testing.T) {
+// TestRegister_AutoVerifyEmail_CuentaSinVerificarExistente_QuedaAutoVerificadaAlSobreescribir
+// — con AutoVerifyEmail activo, sobreescribir una cuenta sin verificar
+// también la auto-verifica de inmediato (mismo criterio que un alta
+// nueva bajo ese modo, TR-051).
+func TestRegister_AutoVerifyEmail_CuentaSinVerificarExistente_QuedaAutoVerificadaAlSobreescribir(t *testing.T) {
 	gdb := testdb.New(t)
 	sinAutoVerify := routerOverDB(gdb, false)
 	doJSON(t, sinAutoVerify, http.MethodPost, "/auth/register", registerRequest{
-		Email: "recienabandonada@example.com", Password: "password-vieja-123", AceptaTerminos: true,
+		Email: "reintentoautoverify@example.com", Password: "password-vieja-123", AceptaTerminos: true,
 	})
-	// Sin manipular created_at — la cuenta tiene segundos de antigüedad,
-	// muy por debajo del TTL.
 
 	conAutoVerify := routerOverDB(gdb, true)
 	rec := doJSON(t, conAutoVerify, http.MethodPost, "/auth/register", registerRequest{
-		Email: "recienabandonada@example.com", Password: "password-nueva-456", AceptaTerminos: true,
+		Email: "reintentoautoverify@example.com", Password: "password-nueva-456", AceptaTerminos: true,
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -142,7 +132,7 @@ func TestRegister_AutoVerifyEmail_CuentaExistenteSinVerificarSeBorraSinEsperarEl
 	var resp registerResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
 	if resp.Token == nil || !resp.EmailVerificado {
-		t.Errorf("esperaba un alta nueva y auto-verificada de inmediato, resp=%+v", resp)
+		t.Errorf("esperaba quedar auto-verificada de inmediato al sobreescribir, resp=%+v", resp)
 	}
 }
 

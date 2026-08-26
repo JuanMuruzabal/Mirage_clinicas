@@ -22,7 +22,8 @@ const {
   getMe,
   requireSession,
   requireOnboardingComplete,
-  redirectSiOnboardingCompleto,
+  redirectSiEmailVerificado,
+  requireEmailVerificado,
 } = await import("./session");
 
 function fakeCookieStore(value?: string) {
@@ -40,6 +41,14 @@ const meIncompleto: Me = {
   email: "maria@example.com",
   emailVerificado: true,
   onboardingStep: "perfil",
+  onboardingCompletado: false,
+};
+
+const meSinVerificar: Me = {
+  id: "1",
+  email: "maria@example.com",
+  emailVerificado: false,
+  onboardingStep: "cuenta",
   onboardingCompletado: false,
 };
 
@@ -160,14 +169,34 @@ describe("lib/session", () => {
     await expect(requireOnboardingComplete()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("redirectSiOnboardingCompleto redirige a /seleccionar-servicio si ya terminó", async () => {
-    await expect(redirectSiOnboardingCompleto(meCompleto)).rejects.toThrow(
+  it("redirectSiEmailVerificado redirige a /seleccionar-servicio con el mail ya verificado (aunque el onboarding no haya terminado)", async () => {
+    await expect(redirectSiEmailVerificado(meIncompleto)).rejects.toThrow(
+      "NEXT_REDIRECT:/seleccionar-servicio",
+    );
+    await expect(redirectSiEmailVerificado(meCompleto)).rejects.toThrow(
       "NEXT_REDIRECT:/seleccionar-servicio",
     );
   });
 
-  it("redirectSiOnboardingCompleto no hace nada sin sesión o con onboarding incompleto", async () => {
-    await expect(redirectSiOnboardingCompleto(null)).resolves.toBeUndefined();
-    await expect(redirectSiOnboardingCompleto(meIncompleto)).resolves.toBeUndefined();
+  it("redirectSiEmailVerificado no hace nada sin sesión o con el mail sin verificar", async () => {
+    await expect(redirectSiEmailVerificado(null)).resolves.toBeUndefined();
+    await expect(redirectSiEmailVerificado(meSinVerificar)).resolves.toBeUndefined();
+  });
+
+  it("requireEmailVerificado redirige a /ingresar sin sesión", async () => {
+    fakeCookieStore(undefined);
+    await expect(requireEmailVerificado()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("requireEmailVerificado redirige a /sumarse con sesión pero mail sin verificar", async () => {
+    fakeCookieStore("un-token");
+    apiMeMock.mockResolvedValue({ ok: true, data: meSinVerificar });
+    await expect(requireEmailVerificado()).rejects.toThrow("NEXT_REDIRECT:/sumarse");
+  });
+
+  it("requireEmailVerificado devuelve la sesión con el mail verificado, sin exigir onboarding completo", async () => {
+    fakeCookieStore("un-token");
+    apiMeMock.mockResolvedValue({ ok: true, data: meIncompleto });
+    await expect(requireEmailVerificado()).resolves.toEqual(meIncompleto);
   });
 });

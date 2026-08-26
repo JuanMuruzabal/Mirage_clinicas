@@ -141,14 +141,32 @@ export async function requireOnboardingComplete(): Promise<SesionCompleta> {
   return sesion;
 }
 
-// redirectSiOnboardingCompleto — usado por /sumarse (no puede reentrar al
-// wizard con onboarding ya terminado, spec §4) y por /ingresar (si ya hay
-// sesión, no tiene sentido mostrar el form de login). A diferencia de
-// requireSession/requireOnboardingComplete, NO redirige por falta de
-// sesión — /sumarse Paso 1 y /ingresar son justamente las pantallas para
-// quien todavía no tiene una.
-export async function redirectSiOnboardingCompleto(me: Me | null): Promise<void> {
-  if (me?.onboardingCompletado) {
+// redirectSiEmailVerificado — usado por /sumarse y /ingresar. Desde la
+// reestructuración del 2026-08-26 (docs/tradeoffs.md TR-057), /sumarse
+// solo cubre crear cuenta + verificar el código — apenas el mail está
+// verificado (ya no hace falta esperar a que perfil/clínica también estén
+// completos, eso ahora se resuelve en /seleccionar-servicio) se redirige
+// ahí. A diferencia de requireSession/requireOnboardingComplete, NO
+// redirige por falta de sesión — /sumarse Paso 1 e /ingresar son
+// justamente las pantallas para quien todavía no tiene una.
+export async function redirectSiEmailVerificado(me: Me | null): Promise<void> {
+  if (me?.emailVerificado) {
     redirect("/seleccionar-servicio");
   }
+}
+
+// requireEmailVerificado — guard de /seleccionar-servicio: exige sesión Y
+// mail verificado, pero NO onboarding completo (a diferencia de
+// requireOnboardingComplete, que sigue exigiéndolo para /panel/perfil/
+// personalizar-pagina) — TR-057 en docs/tradeoffs.md: esta pantalla ahora
+// muestra el modal de "bienvenida" (perfil + clínica) por encima de sí
+// misma cuando el onboarding todavía no terminó, en vez de redirigir a
+// otro lado. Sin sesión → /ingresar. Con sesión pero mail sin verificar →
+// /sumarse (retoma el paso de código).
+export async function requireEmailVerificado(): Promise<Me> {
+  const me = await requireSession();
+  if (!me.emailVerificado) {
+    redirect("/sumarse");
+  }
+  return me;
 }

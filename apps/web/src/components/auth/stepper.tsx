@@ -1,22 +1,29 @@
-// Indicador de progreso del wizard de 3 pasos (spec §4): "stepper visible
-// y persistente en los tres pasos, con estados completado/actual/
-// pendiente". Reemplaza al que vivía inline en sumarse-wizard.tsx —
-// ahora se alimenta de `onboardingStep` real (backend), no de un estado
-// local del wizard.
-const PASOS = [
+// Indicador de progreso genérico, reusado por dos flujos separados desde
+// la reestructuración del 2026-08-26 (pedido explícito del cliente: crear
+// cuenta + verificar código quedan en /sumarse; perfil + clínica pasan a
+// vivir en el modal de bienvenida sobre /seleccionar-servicio, ver
+// docs/tradeoffs.md TR-057) — antes era un solo wizard de 3 pasos fijos.
+export interface PasoStepper {
+  id: string;
+  titulo: string;
+}
+
+export const PASOS_SUMARSE: readonly PasoStepper[] = [
   { id: "cuenta", titulo: "Crear cuenta" },
-  { id: "perfil", titulo: "Perfil profesional" },
+  { id: "verificar", titulo: "Confirmar cuenta" },
+] as const;
+
+export const PASOS_BIENVENIDA: readonly PasoStepper[] = [
+  { id: "perfil", titulo: "Tu perfil" },
   { id: "clinica", titulo: "Tu clínica" },
 ] as const;
 
-export type PasoWizard = (typeof PASOS)[number]["id"];
-
-export function Stepper({ actual }: { actual: PasoWizard }) {
-  const indexActual = PASOS.findIndex((p) => p.id === actual);
+export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actual: string }) {
+  const indexActual = pasos.findIndex((p) => p.id === actual);
 
   return (
     <ol className="flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-      {PASOS.map((p, i) => {
+      {pasos.map((p, i) => {
         const completado = i < indexActual;
         const esActual = i === indexActual;
         return (
@@ -34,7 +41,7 @@ export function Stepper({ actual }: { actual: PasoWizard }) {
               {completado ? "✓" : i + 1}
             </span>
             {p.titulo}
-            {i < PASOS.length - 1 && <span className="mx-1 text-arena">—</span>}
+            {i < pasos.length - 1 && <span className="mx-1 text-arena">—</span>}
           </li>
         );
       })}

@@ -274,11 +274,11 @@ describe("onboardingPerfilAction", () => {
     await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("en éxito, redirige a /sumarse", async () => {
+  it("en éxito, redirige a /seleccionar-servicio (TR-057: el modal de bienvenida decide ahí qué paso mostrar)", async () => {
     getSessionTokenMock.mockResolvedValue("un-token");
     apiOnboardingPerfilMock.mockResolvedValue({ ok: true, data: {} });
 
-    await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/sumarse");
+    await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/seleccionar-servicio");
   });
 
   it("en error, devuelve el mensaje sin redirigir", async () => {

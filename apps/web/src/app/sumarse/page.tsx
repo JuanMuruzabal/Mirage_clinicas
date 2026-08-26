@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import { apiListEspecialidades } from "@/lib/api";
-import { getMe, redirectSiOnboardingCompleto } from "@/lib/session";
+import { getMe, redirectSiEmailVerificado } from "@/lib/session";
 import { SumarseWizard } from "./sumarse-wizard";
 
 export const metadata: Metadata = { title: "Sumate — Dental Mirage" };
 
-// Flujo de alta en 3 pasos (spec §4, docs/feature-sumarte-login.md):
-// Crear cuenta → Perfil profesional → Tu clínica. El catálogo de
-// especialidades (TR-004 en docs/tradeoffs.md) se resuelve acá, en el
-// Server Component, y se pasa ya cargado al wizard interactivo — mismo
-// patrón que antes de esta feature. Con onboarding ya completo, no se
-// puede reentrar al wizard (spec §4) — se manda a /seleccionar-servicio.
-// Identidad cálida (TR-015 en docs/tradeoffs.md).
+// Crear cuenta + confirmar el código (spec §4 Paso 1) — reestructuración
+// del 2026-08-26 (docs/tradeoffs.md TR-057): perfil profesional y clínica
+// ya NO viven acá, pasaron al modal de "bienvenida" sobre
+// /seleccionar-servicio. Apenas el mail queda verificado, se redirige ahí
+// directo — este componente ya no necesita el catálogo de especialidades
+// (eso lo carga /seleccionar-servicio para su propio modal). Identidad
+// cálida (TR-015 en docs/tradeoffs.md).
 export default async function SumarsePage() {
-  const [especialidadesResult, me] = await Promise.all([apiListEspecialidades(), getMe()]);
-  const especialidades = especialidadesResult.ok ? especialidadesResult.data : [];
+  const me = await getMe();
 
-  await redirectSiOnboardingCompleto(me);
+  await redirectSiEmailVerificado(me);
 
   return (
     <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16">
-      <SumarseWizard me={me} especialidades={especialidades} />
+      <SumarseWizard me={me} />
     </main>
   );
 }

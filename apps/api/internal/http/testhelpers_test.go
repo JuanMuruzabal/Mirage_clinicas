@@ -189,9 +189,9 @@ func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
 // valor real y ejercitar el flujo de verificación/reset de punta a punta
 // sin mockear internal/security.
 type capturingMailSender struct {
-	mu           sync.Mutex
-	verifyCodes  map[string]string
-	resetURLs    map[string]string
+	mu          sync.Mutex
+	verifyCodes map[string]string
+	resetURLs   map[string]string
 }
 
 func newCapturingMailSender() *capturingMailSender {

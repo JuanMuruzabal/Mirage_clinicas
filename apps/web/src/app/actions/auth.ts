@@ -192,7 +192,12 @@ export async function logoutAction(): Promise<void> {
   redirect("/");
 }
 
-// onboardingPerfilAction — Paso 2 del wizard (spec §4).
+// onboardingPerfilAction — Paso 1 del modal de bienvenida (spec §4) —
+// TR-057 en docs/tradeoffs.md: antes redirigía de vuelta a /sumarse (que
+// mostraba el paso siguiente); ahora este paso vive en el modal sobre
+// /seleccionar-servicio, así que redirige ahí — la próxima carga de esa
+// página ya refleja `onboardingStep: "clinica"` y muestra el paso 2 del
+// modal.
 export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): Promise<ActionResult | undefined> {
   const parsed = onboardingPerfilSchema.safeParse(payload);
   if (!parsed.success) {
@@ -207,7 +212,7 @@ export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): 
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect("/sumarse");
+  redirect("/seleccionar-servicio");
 }
 
 // onboardingClinicaAction — Paso 3 del wizard (spec §4), completa el

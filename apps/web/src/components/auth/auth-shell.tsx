@@ -80,6 +80,18 @@ interface AuthShellProps {
    */
   volverHref?: string;
   volverLabel?: string;
+  /** Alternativa a volverHref para un paso de un wizard client-side (ej.
+   * "volver al paso anterior" desde la verificación de código, sin
+   * navegar — pedido explícito del cliente, 2026-08-26: "el botón de
+   * volver al inicio solo debe estar en el primer paso de sumarse, si
+   * llego al paso de verificación poder volver al paso anterior"). Cuando
+   * se pasa, reemplaza el <Link> por un <button>, mismo estilo visual. */
+  onVolver?: () => void;
+  /** Suprime el link/botón "volver" por completo — para pantallas que
+   * viven DENTRO de otro flujo ya protegido (ej. el modal de bienvenida
+   * sobre /seleccionar-servicio) donde "volver al inicio" no tiene
+   * sentido. */
+  sinVolver?: boolean;
 }
 
 // AuthShell — card centrada compartida por todas las pantallas de auth.
@@ -90,16 +102,26 @@ export function AuthShell({
   footer,
   volverHref = "/",
   volverLabel = "Volver al inicio",
+  onVolver,
+  sinVolver = false,
 }: AuthShellProps) {
+  const volverClassName =
+    "inline-flex w-fit items-center gap-1.5 self-start rounded-full bg-salvia-claro px-3.5 py-1.5 text-xs font-medium text-salvia-oscuro transition-colors hover:brightness-95";
+
   return (
     <div className="flex w-full max-w-md flex-col gap-7 rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft">
-      <Link
-        href={volverHref}
-        className="inline-flex w-fit items-center gap-1.5 self-start rounded-full bg-salvia-claro px-3.5 py-1.5 text-xs font-medium text-salvia-oscuro transition-colors hover:brightness-95"
-      >
-        <span aria-hidden>←</span>
-        {volverLabel}
-      </Link>
+      {!sinVolver &&
+        (onVolver ? (
+          <button type="button" onClick={onVolver} className={volverClassName}>
+            <span aria-hidden>←</span>
+            {volverLabel}
+          </button>
+        ) : (
+          <Link href={volverHref} className={volverClassName}>
+            <span aria-hidden>←</span>
+            {volverLabel}
+          </Link>
+        ))}
       <div className="flex flex-col gap-1.5 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">{title}</h1>
         {subtitle && <p className="text-sm text-grafito/60">{subtitle}</p>}

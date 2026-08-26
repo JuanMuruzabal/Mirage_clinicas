@@ -11,7 +11,7 @@ import { navLinkClass } from "@/lib/styles";
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
  * site-header.tsx de Alojamientos Madryn: el Server Component solo
- * resuelve la sesión y le pasa `loggedIn`/`brandHref` — dos primitivos
+ * resuelve la sesión y le pasa `estado`/`brandHref` — dos primitivos
  * serializables — a este Client Component, que es quien de verdad arma
  * el layout y el menú mobile).
  *
@@ -26,10 +26,28 @@ import { navLinkClass } from "@/lib/styles";
  * logo + un botón de hamburguesa; todo lo demás se mueve a un dropdown
  * que se abre debajo del header (mismo criterio visual que Alojamientos
  * Madryn: dos líneas que rotan a una X, dropdown con `border-t`).
+ *
+ * `estado` — TR-058 en docs/tradeoffs.md (pedido explícito del cliente,
+ * 2026-08-26): antes esto era un booleano `loggedIn` (onboarding completo
+ * sí/no). Ahora hay un tercer estado intermedio, cuenta creada y mail
+ * verificado pero perfil/clínica todavía sin terminar — ese estado
+ * muestra un único link "Tu clínica" (→ /seleccionar-servicio) en vez de
+ * los tres links de herramientas o de "Ingresar"/"Sumate", EXCEPTO en la
+ * propia /seleccionar-servicio, donde el header debe quedar EXACTAMENTE
+ * como estaba ("el header de seleccionar servicio debe quedar como
+ * esta") — de ahí el chequeo de `pathname` acá, no en el Server
+ * Component (que no tiene acceso a la ruta actual).
  */
-export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; brandHref: string }) {
+export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
+
+export function SiteHeaderChrome({ estado, brandHref }: { estado: EstadoHeaderSesion; brandHref: string }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const enSeleccionarServicio = pathname === "/seleccionar-servicio";
+  const mostrarNavCompleta = estado === "completo";
+  const mostrarTuClinica = estado === "cuentaSinTerminar" && !enSeleccionarServicio;
+  const mostrarAccesosAnonimos = !mostrarNavCompleta && !mostrarTuClinica;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
   // menú al navegar: "adjusting state when a prop changes"
@@ -58,7 +76,7 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
     <HeaderFrame forceSolid={menuOpen}>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
-          {loggedIn && (
+          {mostrarNavCompleta && (
             <div className="hidden md:block">
               <VolverAlInicioLink />
             </div>
@@ -74,7 +92,7 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
         {/* Accesos directos a información dentro del Home (anclas, no
             rutas propias) — son para un VISITANTE sin cuenta todavía. Solo
             desktop: en mobile viven en el dropdown de abajo. */}
-        {!loggedIn && (
+        {mostrarAccesosAnonimos && (
           <nav aria-label="Accesos directos" className="hidden items-center gap-7 md:flex">
             <Link href="/#buscar" className={navLinkClass}>
               Buscar clínicas
@@ -86,7 +104,7 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
         )}
 
         <nav className="hidden items-center gap-6 md:flex">
-          {loggedIn ? (
+          {mostrarNavCompleta ? (
             <>
               <Link href="/panel" className={navLinkClass}>
                 Gestionar tu clínica
@@ -98,6 +116,13 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
                 Tu perfil
               </Link>
             </>
+          ) : mostrarTuClinica ? (
+            <Link
+              href="/seleccionar-servicio"
+              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
+            >
+              Tu clínica
+            </Link>
           ) : (
             <>
               <Link href="/ingresar" className={navLinkClass}>
@@ -137,10 +162,10 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
       {menuOpen && (
         <nav
           id="menu-mobile-header"
-          aria-label={loggedIn ? "Menú" : "Menú y accesos directos"}
+          aria-label={mostrarAccesosAnonimos ? "Menú y accesos directos" : "Menú"}
           className="flex flex-col gap-1 border-t border-current/15 px-6 py-4 text-current md:hidden"
         >
-          {loggedIn ? (
+          {mostrarNavCompleta ? (
             <>
               <div onClick={closeMenu}>
                 <VolverAlInicioLink />
@@ -155,6 +180,14 @@ export function SiteHeaderChrome({ loggedIn, brandHref }: { loggedIn: boolean; b
                 Tu perfil
               </Link>
             </>
+          ) : mostrarTuClinica ? (
+            <Link
+              href="/seleccionar-servicio"
+              onClick={closeMenu}
+              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
+            >
+              Tu clínica
+            </Link>
           ) : (
             <>
               <Link href="/#buscar" onClick={closeMenu} className={mobileLinkClass}>

@@ -220,64 +220,56 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var existing db.User
-	err := h.db.Where("email = ?", email).First(&existing).Error
-	if err == nil {
-		// Cuenta abandonada sin verificar (TR-052 en docs/tradeoffs.md):
-		// con AutoVerifyEmail activo no hay verificación real que esperar,
-		// así que se resuelve ya mismo; sin ese modo, se espera a que el
-		// último link de verificación haya vencido de todos modos antes
-		// de liberar el mail — evita que alguien que perdió la conexión
-		// en este paso (o nunca llegó a abrir el mail) deje su cuenta
-		// ocupando el mail para siempre sin forma de reintentar. Se borra
-		// de verdad (Unscoped) y se cae al alta normal de más abajo — no
-		// un update in-place, para no arrastrar datos parciales de un
-		// intento previo.
-		abandonada := existing.EmailVerifiedAt == nil &&
-			(h.deps.AutoVerifyEmail || time.Since(existing.CreatedAt) > cuentaAbandonadaTTL)
-		if abandonada {
-			if delErr := h.db.Unscoped().Delete(&existing).Error; delErr != nil {
-				writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
-				return
-			}
-			err = gorm.ErrRecordNotFound // cae al alta normal de abajo, como si nunca hubiera existido
-		} else {
-			// Cuenta ya existente y todavía dentro de su ventana de
-			// verificación — nunca se lo decimos al caller (spec §7).
-			if existing.EmailVerifiedAt == nil {
-				h.sendVerificationEmailBestEffort(r.Context(), existing)
-			}
-			writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
-			return
-		}
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
-		return
-	}
-
 	hash, err := security.Hash(req.Password)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo procesar la contraseña")
 		return
 	}
 
+	var existing db.User
+	lookupErr := h.db.Where("email = ?", email).First(&existing).Error
+	nueva := errors.Is(lookupErr, gorm.ErrRecordNotFound)
+	if !nueva && lookupErr != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
+		return
+	}
+	if !nueva && existing.EmailVerifiedAt != nil {
+		// Cuenta ya existente Y verificada — nunca se lo decimos al
+		// caller (spec §7, anti-enumeración).
+		writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
+		return
+	}
+
 	now := time.Now()
 	termsVersion := "1.0"
-	user := db.User{
-		Email:           email,
-		PasswordHash:    &hash,
-		OnboardingStep:  db.OnboardingStepCuenta,
-		TermsAcceptedAt: &now,
-		TermsVersion:    &termsVersion,
+	user := existing
+	if nueva {
+		user = db.User{Email: email, OnboardingStep: db.OnboardingStepCuenta}
 	}
+	// TR-056 en docs/tradeoffs.md: una cuenta existente pero SIN VERIFICAR
+	// se sobreescribe en vez de tratarse como "ya existe" — pedido
+	// explícito del cliente: "si me confundí de mail" o "quiero volver a
+	// intentar con otra contraseña" no puede terminar en un softlock. Es
+	// seguro porque ningún dato de perfil/clínica puede existir todavía
+	// para una cuenta sin verificar (esos pasos exigen mail verificado,
+	// ver requireOnboardingComplete/updateOnboardingPerfilHandler) — no
+	// hay nada que "perder" al pisar la fila. La respuesta es indistinguible
+	// de un alta nueva en cualquier caso (mismo Mensaje/forma), así que
+	// tampoco revela si el mail ya existía.
+	user.PasswordHash = &hash
+	user.TermsAcceptedAt = &now
+	user.TermsVersion = &termsVersion
 	if h.deps.AutoVerifyEmail {
 		user.EmailVerifiedAt = &now
 		user.OnboardingStep = db.OnboardingStepPerfil
 	}
 
 	err = h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&user).Error; err != nil {
+		if nueva {
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+		} else if err := tx.Save(&user).Error; err != nil {
 			return err
 		}
 		if h.deps.AutoVerifyEmail {
@@ -288,7 +280,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if isUniqueViolation(err) {
 			// Carrera con otro request concurrente — mismo tratamiento
-			// anti-enumeración que el caso "ya existe" de arriba.
+			// anti-enumeración que el resto de esta función.
 			writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
 			return
 		}
