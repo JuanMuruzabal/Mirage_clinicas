@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
 import { apiListEspecialidades } from "@/lib/api";
+import { getMe, redirectSiOnboardingCompleto } from "@/lib/session";
 import { SumarseWizard } from "./sumarse-wizard";
 
 export const metadata: Metadata = { title: "Sumate — Dental Mirage" };
 
-// Flujo de alta (spec §3): datos personales → especialidades → nombre de
-// clínica → selección de servicios. La opción "organización" se omite del
-// todo (TR-009 en docs/tradeoffs.md) — el wizard arranca directo en
-// "particular". El catálogo de especialidades (TR-004) se resuelve acá,
-// en el Server Component, y se pasa ya cargado al wizard interactivo.
+// Flujo de alta en 3 pasos (spec §4, docs/feature-sumarte-login.md):
+// Crear cuenta → Perfil profesional → Tu clínica. El catálogo de
+// especialidades (TR-004 en docs/tradeoffs.md) se resuelve acá, en el
+// Server Component, y se pasa ya cargado al wizard interactivo — mismo
+// patrón que antes de esta feature. Con onboarding ya completo, no se
+// puede reentrar al wizard (spec §4) — se manda a /seleccionar-servicio.
 // Identidad cálida (TR-015 en docs/tradeoffs.md).
 export default async function SumarsePage() {
-  const especialidadesResult = await apiListEspecialidades();
+  const [especialidadesResult, me] = await Promise.all([apiListEspecialidades(), getMe()]);
   const especialidades = especialidadesResult.ok ? especialidadesResult.data : [];
+
+  await redirectSiOnboardingCompleto(me);
 
   return (
     <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Sumate a Dental Mirage</h1>
-      <SumarseWizard especialidades={especialidades} />
+      <SumarseWizard me={me} especialidades={especialidades} />
     </main>
   );
 }

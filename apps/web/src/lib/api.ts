@@ -1,16 +1,33 @@
 import "server-only";
 import type {
-  AuthResponse,
   ClinicaPublica,
   ClinicaResultado,
   Especialidad,
+  GooglePayload,
+  GoogleResponse,
+  GoogleStateResponse,
+  LoginPayload,
+  LoginResponse,
+  Me,
+  MensajeResponse,
+  OnboardingClinicaPayload,
+  OnboardingClinicaResponse,
+  OnboardingPerfilPayload,
   Paciente,
   PacienteDetalle,
   PaginaPublica,
-  Profesional,
+  PerfilProfesional,
+  ReenviarVerificacionPayload,
+  RecuperarPasswordPayload,
+  RegisterPayload,
+  RegisterResponse,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
   ResumenPanel,
   TipoConsulta,
   Turno,
+  VerificarEmailPayload,
+  VerificarEmailResponse,
 } from "@dental-mirage/shared-types";
 
 // Cliente HTTP hacia apps/api — server-only, sin prefijo NEXT_PUBLIC_ (spec
@@ -21,26 +38,6 @@ import type {
 const API_URL = process.env.API_URL ?? "http://localhost:8080";
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
-
-export interface RegisterPayload {
-  nombre: string;
-  email: string;
-  password: string;
-  telefono?: string;
-  nombreClinica: string;
-  especialidadIds?: string[];
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface UpdateMePayload {
-  nombre: string;
-  telefono?: string;
-  especialidadIds?: string[];
-}
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
   let res: Response;
@@ -121,20 +118,73 @@ export function apiSolicitarTurnoPublico(
   });
 }
 
-export function apiRegister(payload: RegisterPayload): Promise<ApiResult<AuthResponse>> {
-  return request<AuthResponse>("/auth/register", { method: "POST", body: JSON.stringify(payload) });
+// --- Auth/onboarding (docs/feature-sumarte-login.md) ---
+// Ninguna de estas manda la cookie de sesión — reciben el token como
+// argumento explícito (server-only, la cookie la lee/escribe lib/session.ts)
+// y lo reenvían como Authorization: Bearer, igual que el resto de la API.
+
+export function apiRegister(payload: RegisterPayload): Promise<ApiResult<RegisterResponse>> {
+  return request<RegisterResponse>("/auth/register", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function apiLogin(payload: LoginPayload): Promise<ApiResult<AuthResponse>> {
-  return request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) });
+export function apiLogin(payload: LoginPayload): Promise<ApiResult<LoginResponse>> {
+  return request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function apiMe(token: string): Promise<ApiResult<Profesional>> {
-  return request<Profesional>("/me", { headers: { Authorization: `Bearer ${token}` } });
+export function apiGoogleState(): Promise<ApiResult<GoogleStateResponse>> {
+  return request<GoogleStateResponse>("/auth/google/state");
 }
 
-export function apiUpdateMe(token: string, payload: UpdateMePayload): Promise<ApiResult<Profesional>> {
-  return request<Profesional>("/me", {
+export function apiGoogleLogin(payload: GooglePayload): Promise<ApiResult<GoogleResponse>> {
+  return request<GoogleResponse>("/auth/google", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function apiVerificarEmail(payload: VerificarEmailPayload, token?: string): Promise<ApiResult<VerificarEmailResponse>> {
+  return request<VerificarEmailResponse>("/auth/verificar-email", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiReenviarVerificacion(payload: ReenviarVerificacionPayload): Promise<ApiResult<MensajeResponse>> {
+  return request<MensajeResponse>("/auth/reenviar-verificacion", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function apiRecuperarPassword(payload: RecuperarPasswordPayload): Promise<ApiResult<MensajeResponse>> {
+  return request<MensajeResponse>("/auth/recuperar-password", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function apiResetPassword(payload: ResetPasswordPayload): Promise<ApiResult<ResetPasswordResponse>> {
+  return request<ResetPasswordResponse>("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function apiLogout(token: string): Promise<ApiResult<{ ok: boolean }>> {
+  return request<{ ok: boolean }>("/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiMe(token: string): Promise<ApiResult<Me>> {
+  return request<Me>("/me", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiUpdateMe(token: string, payload: OnboardingPerfilPayload): Promise<ApiResult<PerfilProfesional>> {
+  return request<PerfilProfesional>("/me", {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiOnboardingPerfil(token: string, payload: OnboardingPerfilPayload): Promise<ApiResult<PerfilProfesional>> {
+  return request<PerfilProfesional>("/onboarding/perfil", {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiOnboardingClinica(token: string, payload: OnboardingClinicaPayload): Promise<ApiResult<OnboardingClinicaResponse>> {
+  return request<OnboardingClinicaResponse>("/onboarding/clinica", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),

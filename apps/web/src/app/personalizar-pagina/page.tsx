@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { apiGetPaginaPublica } from "@/lib/api";
-import { getSessionToken, requireProfesional } from "@/lib/session";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PaginaEditor } from "@/components/pagina-editor";
 
 export const metadata: Metadata = { title: "Tu página — Dental Mirage" };
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Tu página — Dental Mirage" };
 // sesión igual que /panel — acá el guard es directo (`requireProfesional`)
 // en vez de heredarlo de un layout compartido.
 export default async function PersonalizarPaginaPage() {
-  const profesional = await requireProfesional();
+  const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
   const paginaResult = token ? await apiGetPaginaPublica(token) : null;
   const pagina = paginaResult?.ok ? paginaResult.data : { oculta: false, deployadaEn: null };
@@ -24,7 +24,7 @@ export default async function PersonalizarPaginaPage() {
   return (
     <main className="flex flex-1 flex-col gap-6 bg-hueso px-8 py-10 pt-[calc(var(--header-height)+2.5rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Tu página</h1>
-      <PaginaEditor profesional={profesional} paginaInicial={pagina} />
+      <PaginaEditor sesion={sesion} paginaInicial={pagina} />
     </main>
   );
 }

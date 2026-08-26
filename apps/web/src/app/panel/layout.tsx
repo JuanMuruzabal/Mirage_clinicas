@@ -1,4 +1,4 @@
-import { requireProfesional } from "@/lib/session";
+import { requireOnboardingComplete } from "@/lib/session";
 import { PanelSidebar } from "@/components/panel/panel-sidebar";
 import { PanelShell } from "@/components/panel/panel-shell";
 
@@ -59,7 +59,7 @@ import { PanelShell } from "@/components/panel/panel-shell";
 //     ningún stretch), `<main>` queda acotado siempre y es su propio
 //     `overflow-auto` el que absorbe el resto.
 export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
-  await requireProfesional();
+  await requireOnboardingComplete();
 
   return (
     <PanelShell>

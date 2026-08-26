@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireProfesional } from "@/lib/session";
+import { requireOnboardingComplete } from "@/lib/session";
 import { NavCard } from "@/components/nav-card";
 import { ScrollReveal } from "@/components/scroll-reveal";
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "¿Qué necesitás hoy? — Dental Mi
 // marketing, pero sin la textura de fondo (esa queda reservada a las
 // cuatro pantallas de gestión, ver panel/layout.tsx).
 export default async function SeleccionarServicioPage() {
-  const profesional = await requireProfesional();
+  const sesion = await requireOnboardingComplete();
 
   return (
     <main className="flex flex-1 flex-col gap-12 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
@@ -27,7 +27,7 @@ export default async function SeleccionarServicioPage() {
             wordmark (pedido explícito del cliente, 2026-08-23) — no hace
             falta repetirlo acá. */}
         <p className="mb-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-          Hola, {profesional.nombre.split(" ")[0]}
+          Hola, {sesion.nombre}
         </p>
         <h1 className="font-[family-name:var(--font-display)] text-4xl font-medium text-grafito sm:text-5xl">
           ¿Qué necesitás hoy?

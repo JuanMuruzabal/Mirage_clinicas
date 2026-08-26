@@ -3,13 +3,20 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import type { Especialidad } from "@dental-mirage/shared-types";
-import type { SesionCompleta } from "@/lib/session";
-import { updateMeAction } from "@/app/actions/auth";
+import type { Especialidad, PerfilProfesional } from "@dental-mirage/shared-types";
+import { onboardingPerfilAction } from "@/app/actions/auth";
 import { onboardingPerfilSchema, type OnboardingPerfilFormValues } from "@/lib/validation/auth";
-import { AuthField, authErrorClass, authInputClass, authSubmitClass, authSuccessClass } from "@/components/auth/auth-shell";
+import { AuthField, authErrorClass, authInputClass, authSubmitClass } from "@/components/auth/auth-shell";
 
-export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catalogo: Especialidad[] }) {
+interface OnboardingPerfilFormProps {
+  especialidades: Especialidad[];
+  perfilInicial?: PerfilProfesional;
+}
+
+// Paso 2 — Perfil profesional (spec §4): obligatorios nombre, apellido,
+// teléfono, matrícula, al menos una especialidad; el resto opcional pero
+// visible. Selector de especialidades con búsqueda y multiselección.
+export function OnboardingPerfilForm({ especialidades, perfilInicial }: OnboardingPerfilFormProps) {
   const {
     register,
     handleSubmit,
@@ -19,25 +26,26 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
   } = useForm<OnboardingPerfilFormValues>({
     resolver: zodResolver(onboardingPerfilSchema),
     defaultValues: {
-      nombre: sesion.nombre,
-      apellido: sesion.apellido,
-      telefonoPrefijo: sesion.telefonoPrefijo || "+54",
-      telefono: sesion.telefono,
-      documento: sesion.documento ?? "",
-      matriculaTipo: (sesion.matriculaTipo || undefined) as "nacional" | "provincial" | undefined,
-      matriculaNumero: sesion.matriculaNumero,
-      especialidadIds: sesion.especialidades.map((e) => e.id),
-      aniosExperiencia: sesion.aniosExperiencia ?? undefined,
-      bio: sesion.bio ?? "",
+      nombre: perfilInicial?.nombre ?? "",
+      apellido: perfilInicial?.apellido ?? "",
+      telefonoPrefijo: perfilInicial?.telefonoPrefijo || "+54",
+      telefono: perfilInicial?.telefono ?? "",
+      documento: perfilInicial?.documento ?? "",
+      matriculaTipo: (perfilInicial?.matriculaTipo || undefined) as "nacional" | "provincial" | undefined,
+      matriculaNumero: perfilInicial?.matriculaNumero ?? "",
+      especialidadIds: perfilInicial?.especialidades.map((e) => e.id) ?? [],
+      aniosExperiencia: perfilInicial?.aniosExperiencia ?? undefined,
+      bio: perfilInicial?.bio ?? "",
     },
   });
 
-  const [error, setError] = useState<string | null>(null);
-  const [guardado, setGuardado] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   const seleccionadas = watch("especialidadIds");
 
+  const filtradas = especialidades.filter((e) => e.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+
   function toggleEspecialidad(id: string) {
-    setGuardado(false);
     const actuales = seleccionadas ?? [];
     setValue("especialidadIds", actuales.includes(id) ? actuales.filter((x) => x !== id) : [...actuales, id], {
       shouldValidate: true,
@@ -45,29 +53,21 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
   }
 
   async function onSubmit(values: OnboardingPerfilFormValues) {
-    setError(null);
-    setGuardado(false);
-    const result = await updateMeAction({
+    setErrorGlobal(null);
+    const result = await onboardingPerfilAction({
       ...values,
       documento: values.documento || undefined,
       bio: values.bio || undefined,
     });
+    // Si tuvo éxito, la acción ya redirigió (recarga /sumarse, que ahora
+    // muestra el paso siguiente) y esta línea no se alcanza.
     if (result?.error) {
-      setError(result.error);
-    } else {
-      setGuardado(true);
+      setErrorGlobal(result.error);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex w-full max-w-lg flex-col gap-6">
-      <div className="rounded-card border-[0.5px] border-arena bg-marfil p-5 shadow-soft">
-        <p className="text-xs uppercase tracking-widest text-grafito/50">Email</p>
-        <p className="mt-1 text-sm text-grafito">{sesion.email}</p>
-        <p className="mt-3 text-xs uppercase tracking-widest text-grafito/50">Clínica</p>
-        <p className="mt-1 text-sm text-grafito">{sesion.nombreClinica}</p>
-      </div>
-
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
       <div className="grid gap-5 sm:grid-cols-2">
         <AuthField label="Nombre" error={errors.nombre?.message}>
           <input className={authInputClass} {...register("nombre")} />
@@ -82,13 +82,13 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
           <input className={authInputClass} {...register("telefonoPrefijo")} />
         </AuthField>
         <AuthField label="Teléfono" error={errors.telefono?.message}>
-          <input type="tel" className={authInputClass} {...register("telefono")} />
+          <input type="tel" autoComplete="tel" className={authInputClass} {...register("telefono")} />
         </AuthField>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
         <AuthField label="Matrícula — tipo" error={errors.matriculaTipo?.message}>
-          <select className={authInputClass} {...register("matriculaTipo")}>
+          <select className={authInputClass} defaultValue="" {...register("matriculaTipo")}>
             <option value="" disabled>
               Elegí una opción
             </option>
@@ -101,14 +101,20 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
         </AuthField>
       </div>
 
-      <AuthField label="Documento" error={errors.documento?.message}>
+      <AuthField label="Documento (opcional)" error={errors.documento?.message}>
         <input className={authInputClass} {...register("documento")} />
       </AuthField>
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-grafito">Especialidades</span>
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar…"
+          className={authInputClass}
+        />
         <div className="flex flex-wrap gap-2">
-          {catalogo.map((esp) => {
+          {filtradas.map((esp) => {
             const activa = (seleccionadas ?? []).includes(esp.id);
             return (
               <button
@@ -126,27 +132,29 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
               </button>
             );
           })}
+          {filtradas.length === 0 && <p className="text-sm text-grafito/60">Sin resultados para “{busqueda}”.</p>}
         </div>
         {errors.especialidadIds && <p className={authErrorClass}>{errors.especialidadIds.message}</p>}
       </div>
 
-      <AuthField label="Años de experiencia" error={errors.aniosExperiencia?.message}>
-        <input type="number" min={0} max={80} className={authInputClass} {...register("aniosExperiencia")} />
-      </AuthField>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <AuthField label="Años de experiencia (opcional)" error={errors.aniosExperiencia?.message}>
+          <input type="number" min={0} max={80} className={authInputClass} {...register("aniosExperiencia")} />
+        </AuthField>
+      </div>
 
-      <AuthField label="Bio corta" error={errors.bio?.message}>
+      <AuthField label="Bio corta (opcional)" error={errors.bio?.message}>
         <textarea rows={3} className={authInputClass} {...register("bio")} />
       </AuthField>
 
-      {error && (
+      {errorGlobal && (
         <p role="alert" className={authErrorClass}>
-          {error}
+          {errorGlobal}
         </p>
       )}
-      {guardado && <p className={authSuccessClass}>Cambios guardados.</p>}
 
-      <button type="submit" disabled={isSubmitting} className={`self-start ${authSubmitClass}`}>
-        {isSubmitting ? "Guardando…" : "Guardar cambios"}
+      <button type="submit" disabled={isSubmitting} className={authSubmitClass}>
+        {isSubmitting ? "Guardando…" : "Continuar"}
       </button>
     </form>
   );

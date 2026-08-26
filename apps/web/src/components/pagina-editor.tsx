@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { PaginaPublica, Profesional } from "@dental-mirage/shared-types";
+import type { PaginaPublica } from "@dental-mirage/shared-types";
+import type { SesionCompleta } from "@/lib/session";
 import { deployarPaginaPublicaAction, ocultarPaginaPublicaAction } from "@/app/actions/pagina-publica";
 import { formatFechaHora } from "@/lib/turno-format";
 import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
 
 interface PaginaEditorProps {
-  profesional: Profesional;
+  sesion: SesionCompleta;
   paginaInicial: PaginaPublica;
 }
 
@@ -26,7 +27,8 @@ interface PaginaEditorProps {
 // cambios" y los campos del panel quedan deshabilitados a propósito — la
 // personalización real de contenido "queda para desarrollo posterior"
 // (spec §5.1), acá solo se define layout y estructura.
-export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) {
+export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
+  const nombreCompleto = `${sesion.nombre} ${sesion.apellido}`.trim();
   const [pagina, setPagina] = useState(paginaInicial);
   const [pendingOcultar, setPendingOcultar] = useState(false);
   const [pendingDeployar, setPendingDeployar] = useState(false);
@@ -68,7 +70,7 @@ export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft">
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/${profesional.slug}`}
+            href={`/${sesion.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
@@ -139,11 +141,11 @@ export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) 
               del cliente, 2026-08-23), la previsualización es fiel a la
               página real tal cual. */}
           <ClinicaPublicaTemplate
-            slug={profesional.slug}
-            nombreClinica={profesional.nombreClinica}
-            profesionalNombre={profesional.nombre}
-            telefono={profesional.telefono}
-            especialidades={profesional.especialidades.map((e) => e.nombre)}
+            slug={sesion.slug}
+            nombreClinica={sesion.nombreClinica}
+            profesionalNombre={nombreCompleto}
+            telefono={sesion.telefono}
+            especialidades={sesion.especialidades.map((e) => e.nombre)}
           />
         </div>
 
@@ -176,16 +178,16 @@ export function PaginaEditor({ profesional, paginaInicial }: PaginaEditorProps) 
                 perfil.
               </p>
 
-              <CampoSoloLectura label="Nombre de la clínica" valor={profesional.nombreClinica} />
-              <CampoSoloLectura label="Teléfono" valor={profesional.telefono ?? "—"} />
+              <CampoSoloLectura label="Nombre de la clínica" valor={sesion.nombreClinica} />
+              <CampoSoloLectura label="Teléfono" valor={sesion.telefono || "—"} />
 
               <div>
                 <p className="text-xs uppercase tracking-widest text-grafito/50">Especialidades</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {profesional.especialidades.length === 0 ? (
+                  {sesion.especialidades.length === 0 ? (
                     <span className="text-sm text-grafito/60">—</span>
                   ) : (
-                    profesional.especialidades.map((esp) => (
+                    sesion.especialidades.map((esp) => (
                       <span key={esp.id} className="rounded-full border-[0.5px] border-arena bg-hueso px-2.5 py-1 text-xs text-grafito/60">
                         {esp.nombre}
                       </span>

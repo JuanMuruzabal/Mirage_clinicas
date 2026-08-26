@@ -5,15 +5,22 @@ import {
   apiCrearTurnoManual,
   apiDeployarPaginaPublica,
   apiGetPaginaPublica,
+  apiGoogleState,
   apiListEspecialidades,
   apiListTiposConsulta,
   apiListTurnos,
   apiLogin,
+  apiLogout,
   apiMe,
   apiOcultarPaginaPublica,
+  apiOnboardingClinica,
+  apiOnboardingPerfil,
+  apiRecuperarPassword,
   apiRegister,
+  apiResetPassword,
   apiResumenPanel,
   apiUpdateMe,
+  apiVerificarEmail,
 } from "./api";
 
 function mockFetchOnce(status: number, body: unknown) {
@@ -39,19 +46,17 @@ describe("lib/api", () => {
   });
 
   it("apiRegister manda POST con el body serializado", async () => {
-    mockFetchOnce(201, { profesional: { id: "1" }, token: "jwt" });
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       status: 201,
-      json: async () => ({ profesional: { id: "1" }, token: "jwt" }),
+      json: async () => ({ email: "maria@example.com", mensaje: "revisá tu correo" }),
     } as Response);
     vi.stubGlobal("fetch", fetchSpy);
 
     const result = await apiRegister({
-      nombre: "María",
       email: "maria@example.com",
-      password: "password123",
-      nombreClinica: "Clínica",
+      password: "password123456",
+      aceptaTerminos: true,
     });
 
     expect(result.ok).toBe(true);
@@ -89,7 +94,14 @@ describe("lib/api", () => {
     } as Response);
     vi.stubGlobal("fetch", fetchSpy);
 
-    await apiUpdateMe("un-token", { nombre: "Nuevo nombre" });
+    await apiUpdateMe("un-token", {
+      nombre: "Nuevo nombre",
+      apellido: "Games",
+      telefono: "+5493511234567",
+      matriculaTipo: "nacional",
+      matriculaNumero: "MP-1",
+      especialidadIds: [],
+    });
 
     const [, init] = fetchSpy.mock.calls[0];
     expect(init?.method).toBe("PATCH");
@@ -289,5 +301,66 @@ describe("lib/api", () => {
     );
     const result = await apiListEspecialidades();
     expect(result).toEqual({ ok: true, data: null });
+  });
+
+  // --- Auth/onboarding (docs/feature-sumarte-login.md) ---
+
+  it("apiGoogleState manda GET a /auth/google/state", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ state: "abc" }) } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await apiGoogleState();
+
+    expect(result).toEqual({ ok: true, data: { state: "abc" } });
+    expect(fetchSpy.mock.calls[0][0]).toContain("/auth/google/state");
+  });
+
+  it("apiVerificarEmail manda el token en el body y el Authorization si se pasa uno", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: "nuevo", onboardingStep: "perfil" }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await apiVerificarEmail({ token: "abc" }, "sesion-vieja");
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toContain("/auth/verificar-email");
+    expect(JSON.parse(init?.body as string)).toEqual({ token: "abc" });
+    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer sesion-vieja");
+  });
+
+  it("apiReenviarVerificacion/apiRecuperarPassword/apiResetPassword/apiLogout mandan POST", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ mensaje: "ok" }) } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await apiRecuperarPassword({ email: "x@example.com" });
+    await apiResetPassword({ token: "abc", newPassword: "password123456" });
+    await apiLogout("un-token");
+
+    for (const [, init] of fetchSpy.mock.calls) {
+      expect(init?.method).toBe("POST");
+    }
+  });
+
+  it("apiOnboardingPerfil y apiOnboardingClinica mandan PATCH con Authorization", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await apiOnboardingPerfil("un-token", {
+      nombre: "Ana",
+      apellido: "Pérez",
+      telefono: "+5493511234567",
+      matriculaTipo: "nacional",
+      matriculaNumero: "MP-1",
+      especialidadIds: ["e1"],
+    });
+    await apiOnboardingClinica("un-token", { tipo: "individual", nombre: "Clínica" });
+
+    for (const [, init] of fetchSpy.mock.calls) {
+      expect(init?.method).toBe("PATCH");
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer un-token");
+    }
   });
 });

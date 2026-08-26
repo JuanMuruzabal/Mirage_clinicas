@@ -32,7 +32,8 @@ const CSP = [
   "form-action 'self'",
 ].join("; ");
 
-export function middleware(_request: NextRequest) {
+export function middleware(request: NextRequest) {
+  void request; // sin lógica por-request todavía — solo headers globales.
   const response = NextResponse.next();
 
   response.headers.set("Content-Security-Policy", CSP);

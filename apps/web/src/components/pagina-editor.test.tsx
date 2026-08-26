@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { SesionCompleta } from "@/lib/session";
 
 const { ocultarPaginaPublicaActionMock, deployarPaginaPublicaActionMock } = vi.hoisted(() => ({
   ocultarPaginaPublicaActionMock: vi.fn(),
@@ -14,14 +15,21 @@ vi.mock("@/app/actions/pagina-publica", () => ({
 
 const { PaginaEditor } = await import("./pagina-editor");
 
-const profesional = {
+const sesion: SesionCompleta = {
   id: "prof-1",
-  nombre: "María Games",
   email: "maria@example.com",
+  nombre: "María",
+  apellido: "Games",
+  telefonoPrefijo: "+54",
   telefono: "+5493511234567",
+  matriculaTipo: "nacional",
+  matriculaNumero: "MP-1",
+  especialidades: [{ id: "esp-1", nombre: "Odontología general" }],
   nombreClinica: "Clínica Sonrisas",
   slug: "clinica-sonrisas",
-  especialidades: [{ id: "esp-1", nombre: "Odontología general" }],
+  clinicaId: "c1",
+  clinicaTipo: "individual",
+  rol: "owner",
 };
 
 describe("PaginaEditor", () => {
@@ -29,22 +37,22 @@ describe("PaginaEditor", () => {
     vi.clearAllMocks();
   });
 
-  it("el link 'Ver página' apunta al slug del profesional, en una pestaña nueva", () => {
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+  it("el link 'Ver página' apunta al slug de la clínica, en una pestaña nueva", () => {
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
     const link = screen.getByRole("link", { name: "Ver página →" });
     expect(link).toHaveAttribute("href", "/clinica-sonrisas");
     expect(link).toHaveAttribute("target", "_blank");
   });
 
   it("'Guardar cambios' está deshabilitado — la edición real de contenido es trabajo futuro", () => {
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
   });
 
   it("sin deployar todavía, muestra el botón 'Deployar'; al confirmar, pasa a la insignia 'Publicada'", async () => {
     deployarPaginaPublicaActionMock.mockResolvedValue({ pagina: { oculta: false, deployadaEn: "2026-08-23T00:00:00Z" } });
     const user = userEvent.setup();
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
 
     expect(screen.queryByText("Publicada")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Deployar" }));
@@ -55,7 +63,7 @@ describe("PaginaEditor", () => {
   });
 
   it("ya deployada, no muestra el botón 'Deployar' — solo la insignia (spec §5.2: 'solo visible la primera vez')", () => {
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: "2026-08-23T00:00:00Z" }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: "2026-08-23T00:00:00Z" }} />);
     expect(screen.queryByRole("button", { name: "Deployar" })).not.toBeInTheDocument();
     expect(screen.getByText("Publicada")).toBeInTheDocument();
   });
@@ -63,7 +71,7 @@ describe("PaginaEditor", () => {
   it("'Ocultar' pone la página en mantenimiento y el botón pasa a decir 'Mostrar'", async () => {
     ocultarPaginaPublicaActionMock.mockResolvedValue({ pagina: { oculta: true, deployadaEn: null } });
     const user = userEvent.setup();
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
 
     await user.click(screen.getByRole("button", { name: "Ocultar" }));
 
@@ -75,7 +83,7 @@ describe("PaginaEditor", () => {
   it("muestra el error de la acción sin romper el resto del panel", async () => {
     ocultarPaginaPublicaActionMock.mockResolvedValue({ error: "no se pudo actualizar la página" });
     const user = userEvent.setup();
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
 
     await user.click(screen.getByRole("button", { name: "Ocultar" }));
 
@@ -84,7 +92,7 @@ describe("PaginaEditor", () => {
 
   it("el panel de edición se puede retraer y expandir de nuevo", async () => {
     const user = userEvent.setup();
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
 
     expect(screen.getByText("Nombre de la clínica")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retraer panel de edición" }));
@@ -94,8 +102,8 @@ describe("PaginaEditor", () => {
     expect(await screen.findByText("Nombre de la clínica")).toBeInTheDocument();
   });
 
-  it("el panel de solo lectura refleja los datos del profesional", () => {
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+  it("el panel de solo lectura refleja los datos de la sesión", () => {
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
     expect(screen.getByDisplayValue("Clínica Sonrisas")).toBeDisabled();
     expect(screen.getByDisplayValue("+5493511234567")).toBeDisabled();
     // "Odontología general" aparece dos veces (previsualización + panel de
@@ -105,7 +113,7 @@ describe("PaginaEditor", () => {
   });
 
   it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", () => {
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
     expect(screen.getByText("Previsualización en vivo")).toBeInTheDocument();
     expect(screen.getAllByText("Clínica Sonrisas").length).toBeGreaterThan(0);
   });
@@ -118,7 +126,7 @@ describe("PaginaEditor", () => {
       }),
     );
     const user = userEvent.setup();
-    render(<PaginaEditor profesional={profesional} paginaInicial={{ oculta: false, deployadaEn: null }} />);
+    render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
 
     await user.click(screen.getByRole("button", { name: "Deployar" }));
     expect(screen.getByRole("button", { name: "Publicando…" })).toBeDisabled();

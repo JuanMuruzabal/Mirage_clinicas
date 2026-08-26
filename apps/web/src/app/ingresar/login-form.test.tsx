@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { loginActionMock } = vi.hoisted(() => ({ loginActionMock: vi.fn() }));
-vi.mock("@/app/actions/auth", () => ({ loginAction: loginActionMock }));
+const { loginActionMock, reenviarVerificacionActionMock } = vi.hoisted(() => ({
+  loginActionMock: vi.fn(),
+  reenviarVerificacionActionMock: vi.fn(),
+}));
+vi.mock("@/app/actions/auth", () => ({
+  loginAction: loginActionMock,
+  reenviarVerificacionAction: reenviarVerificacionActionMock,
+}));
 
 const { LoginForm } = await import("./login-form");
 
@@ -34,5 +40,32 @@ describe("LoginForm", () => {
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("email o contraseña incorrectos");
+  });
+
+  it("con mail sin verificar, muestra la acción de reenvío en vez de un error genérico", async () => {
+    loginActionMock.mockResolvedValue({ mensaje: "confirmá tu mail antes de iniciar sesión" });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText("Email"), "sinverificar@example.com");
+    await user.type(screen.getByLabelText("Contraseña"), "password123");
+    await user.click(screen.getByRole("button", { name: "Ingresar" }));
+
+    expect(await screen.findByRole("button", { name: /Reenviar mail/ })).toBeInTheDocument();
+  });
+
+  it("el botón de reenvío llama a reenviarVerificacionAction con el email tipeado", async () => {
+    loginActionMock.mockResolvedValue({ mensaje: "confirmá tu mail antes de iniciar sesión" });
+    reenviarVerificacionActionMock.mockResolvedValue({ mensaje: "te reenviamos el link" });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText("Email"), "sinverificar@example.com");
+    await user.type(screen.getByLabelText("Contraseña"), "password123");
+    await user.click(screen.getByRole("button", { name: "Ingresar" }));
+    await user.click(await screen.findByRole("button", { name: /Reenviar mail/ }));
+
+    expect(reenviarVerificacionActionMock).toHaveBeenCalledWith("sinverificar@example.com");
+    expect(await screen.findByText("te reenviamos el link")).toBeInTheDocument();
   });
 });
