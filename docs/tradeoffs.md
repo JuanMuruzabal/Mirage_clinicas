@@ -635,6 +635,17 @@
 - **Qué se sacrifica:** nada — es una corrección de un estado que nunca debió mostrarse tal cual.
 - **Reversibilidad:** Alta.
 
+## TR-054: `render.yaml` nunca se actualizó con los env vars de la feature de auth — gap real encontrado al ir a activar Resend
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (el cliente pidió empezar a activar Resend en producción)
+- **Hallazgo:** `render.yaml` se escribió en Sprint 5 (T5.5, CI/deploy), **antes** de que existiera la feature de sumarse/login — nunca se volvió a tocar cuando esa feature se construyó. Faltaban por completo `APP_BASE_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `TURNSTILE_SECRET_KEY`, `HIBP_ENABLED` (en `dental-mirage-api`) y `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (en `dental-mirage-web`) — ninguno de los dos `.env.example` (que sí están al día) se reflejaba en el blueprint real.
+- **El más grave de los ausentes: `APP_BASE_URL`.** Sin esto, `internal/config` cae a su default `http://localhost:3000` — el link de cualquier mail de verificación/reset armado en producción apuntaría al localhost de quien sea que lo reciba, completamente roto. Esto habría sido un blocker real apenas se activara Resend, no solo una feature apagada de más.
+- **Decisión:** se agregaron las 10 variables faltantes al blueprint — `APP_BASE_URL`/`GOOGLE_REDIRECT_URI`/`HIBP_ENABLED` con valor explícito (no son secrets), el resto `sync: false` (se cargan una vez desde el dashboard). Documentado el paso a paso completo para activar Resend en `README.md` ("Activar el envío real de mail").
+- **Por qué no se detectó antes:** nada en el pipeline de CI/tests verifica que `render.yaml` esté sincronizado con lo que el código realmente lee de `os.Getenv` — es una categoría de bug que ningún test automatizado de este proyecto cubre (config de infraestructura, no lógica de aplicación).
+- **Qué se sacrifica:** nada — es aditivo, ninguna variable existente se tocó. Las nuevas `sync: false` quedan sin valor hasta que alguien las cargue a mano en el dashboard (comportamiento esperado de Render, no un error).
+- **Reversibilidad:** Alta.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

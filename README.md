@@ -299,9 +299,21 @@ y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
 1. **Cuenta de Render** conectada al repo de GitHub (`New +` → `Blueprint`
    → elegir este repo → Render detecta `render.yaml` solo y muestra un
    preview de los 3 recursos antes de crear nada).
-2. **Cargar los secrets** que el blueprint dejó pendientes (`sync: false`)
-   en `dental-mirage-web`, pestaña *Environment*: `CONTACTO_EMAIL` (el
-   dato real del cliente, reemplaza el placeholder de desarrollo).
+2. **Cargar los secrets** que el blueprint dejó pendientes (`sync: false`,
+   pestaña *Environment* de cada servicio en el dashboard de Render):
+   - `dental-mirage-web`: `CONTACTO_EMAIL` (el dato real del cliente,
+     reemplaza el placeholder de desarrollo).
+   - `dental-mirage-api`: `RESEND_API_KEY`/`RESEND_FROM_EMAIL` (envío real
+     de mails — ver "Activar el envío real de mail" más abajo),
+     `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (login con Google) y
+     `TURNSTILE_SECRET_KEY` (CAPTCHA). Todas nil-safe: sin cargarlas, esa
+     dependencia puntual queda deshabilitada (mails solo se loguean, sin
+     botón de Google, sin CAPTCHA) — nunca un 500, ver
+     `docs/feature-sumarte-login-resumen.md`.
+   - `dental-mirage-web`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/
+     `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (mismo Google Client ID de arriba,
+     y la site key pública de Turnstile) — sin esto, el botón de Google y
+     el widget de CAPTCHA directamente no se renderizan.
 3. **Deploy automático gateado por CI** (job `deploy` en `ci.yml`): en
    `dental-mirage-api` y `dental-mirage-web` por separado — **Settings**
    → **Deploy Hook**, copiar esa URL. Cargar cada una como secret del
@@ -314,10 +326,38 @@ y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
    duerme los servicios sin tráfico — cold start) — no es un error.
 
 Si algún día cambia el nombre de un servicio o se conecta un dominio
-propio, `CORS_ALLOWED_ORIGINS` (en `dental-mirage-api`) y `API_URL` (en
-`dental-mirage-web`) están hardcodeados en `render.yaml` a las URLs
-`*.onrender.com` por defecto — actualizarlos a mano (Render no permite
-interpolar la URL de un servicio dentro de otro en el blueprint).
+propio, `CORS_ALLOWED_ORIGINS`/`APP_BASE_URL` (en `dental-mirage-api`) y
+`API_URL` (en `dental-mirage-web`) están hardcodeados en `render.yaml` a
+las URLs `*.onrender.com` por defecto — actualizarlos a mano (Render no
+permite interpolar la URL de un servicio dentro de otro en el blueprint).
+
+### Activar el envío real de mail (Resend)
+
+El código ya está completo (`internal/mail.ResendSender`, plantillas HTML
+en `internal/mail/templates/`) — mientras `RESEND_API_KEY` no esté
+cargada, las cuentas nativas nuevas quedan verificadas de entrada en vez
+de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
+`docs/tradeoffs.md`). Para activarlo de verdad:
+
+1. Crear una cuenta en [resend.com](https://resend.com) (si todavía no
+   existe).
+2. **Verificar un dominio de envío** (pestaña *Domains*): agregar los
+   registros DNS que pide Resend (SPF/DKIM) en el proveedor del dominio
+   real del cliente. Sin un dominio propio verificado, Resend permite
+   mandar desde `onboarding@resend.dev` para pruebas, pero con límites
+   bajos — no pensado para uso real con pacientes/profesionales.
+3. Generar una **API key** (pestaña *API Keys*).
+4. En el dashboard de Render, `dental-mirage-api` → *Environment*, cargar:
+   - `RESEND_API_KEY`: la key del paso 3.
+   - `RESEND_FROM_EMAIL`: una dirección del dominio verificado en el
+     paso 2 (ej. `no-reply@tudominio.com`) — **no** un mail cualquiera,
+     Resend rechaza el envío si el dominio del remitente no está
+     verificado en la cuenta.
+5. Guardar → Render redeploya `dental-mirage-api` solo. Apenas el
+   servicio arranca con `RESEND_API_KEY` no vacía, `AutoVerifyEmail` se
+   apaga automáticamente — ningún otro cambio de código ni de config.
+6. Verificar: registrar una cuenta de prueba real y confirmar que el mail
+   de verificación llega (revisar spam la primera vez).
 
 ## Flujo de ramas
 

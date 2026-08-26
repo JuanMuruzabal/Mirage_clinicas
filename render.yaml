@@ -78,6 +78,49 @@ services:
       # en el blueprint).
       - key: CORS_ALLOWED_ORIGINS
         value: https://dental-mirage-web.onrender.com
+      # URL pública del servicio web de abajo — arma los links absolutos
+      # de los mails de verificación/reset (docs/feature-sumarte-login-resumen.md).
+      # Faltaba en este blueprint desde que se construyó esa feature (el
+      # bug real: sin esto, apps/api arma los links con el default de
+      # internal/config, http://localhost:3000 — completamente rotos para
+      # un usuario real). Mismo criterio que CORS_ALLOWED_ORIGINS de
+      # arriba: actualizar a mano si cambia el nombre del servicio o se
+      # conecta un dominio propio.
+      - key: APP_BASE_URL
+        value: https://dental-mirage-web.onrender.com
+      # Resend (envío real de mails de verificación/reset/bienvenida,
+      # spec §6) — sin RESEND_API_KEY, internal/http.AuthDeps.AutoVerifyEmail
+      # queda activo (TR-051 en docs/tradeoffs.md): las cuentas nativas
+      # nuevas quedan verificadas de entrada, sin mail real. Cargar estos
+      # dos valores en el dashboard de Render revierte ese modo solo, sin
+      # otro cambio — RESEND_FROM_EMAIL tiene que ser una dirección de un
+      # dominio verificado en la cuenta de Resend, no cualquier mail.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      # Google OAuth (login social, spec §2) — sin estos dos, POST
+      # /auth/google responde 501 (nil-safe, ver internal/googleauth) y el
+      # botón de Google no se renderiza en el frontend (falta también
+      # NEXT_PUBLIC_GOOGLE_CLIENT_ID en dental-mirage-web, más abajo).
+      # GOOGLE_REDIRECT_URI casi nunca hace falta tocarlo: "postmessage" es
+      # el valor que pide Google para el flujo popup (decisión #1 del plan
+      # aprobado) — se deja explícito para no depender del default.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: postmessage
+      # Cloudflare Turnstile (CAPTCHA en registro y reset de password,
+      # spec §7) — sin esto, deshabilitado (nil-safe). Falta también
+      # NEXT_PUBLIC_TURNSTILE_SITE_KEY en dental-mirage-web, más abajo.
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      # HaveIBeenPwned (spec §7) — apagado por default para no depender de
+      # red saliente en cada registro; "true" lo activa.
+      - key: HIBP_ENABLED
+        value: "false"
       # R2 — storage de fotos, ver la nota grande al principio del
       # archivo. Reservado, sin cargar hasta que la feature exista.
       - key: R2_ACCOUNT_ID
@@ -113,4 +156,14 @@ services:
       # no sabemos el email de contacto real del cliente, hay que cargar
       # el dato de verdad una vez (reemplaza el placeholder de desarrollo).
       - key: CONTACTO_EMAIL
+        sync: false
+      # Client ID de Google OAuth — NO es un secreto, viaja al navegador
+      # para armar el botón de Google (el client secret vive solo en
+      # dental-mirage-api, arriba). Sin esto, el botón de Google
+      # directamente no se renderiza (nil-safe).
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      # Site key pública de Cloudflare Turnstile — sin esto, el widget de
+      # CAPTCHA no se renderiza (mismo criterio nil-disabled).
+      - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
         sync: false
