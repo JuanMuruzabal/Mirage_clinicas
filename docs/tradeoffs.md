@@ -605,6 +605,15 @@
 - **Qué se sacrifica:** el contenido de ambas páginas debe pasar por una revisión real (legal y/o del cliente) antes de un lanzamiento a producción con usuarios reales — dejado explícito acá para que no se asuma "terminado" solo porque ya no tira 404.
 - **Reversibilidad:** Alta — el contenido de ambas páginas es texto plano en Server Components, sin lógica.
 
+## TR-051: Verificación de mail auto-saltada mientras Resend no esté configurado en Render
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (pedido explícito del cliente: "desactiva lo de mail de confirmación, ya que todavía no está configurado Render... solo haga como que las cuentas creadas por ahora sean confirmadas")
+- **Decisión:** `AuthDeps.AutoVerifyEmail` (`internal/http/auth.go`), atado a `cfg.ResendAPIKey == ""` en `buildAuthDeps` (`cmd/api/main.go`) — mientras no haya una API key de Resend real cargada, una cuenta nativa nueva se crea con `EmailVerifiedAt` ya seteado y `OnboardingStep` en `"perfil"` directo (mismo tratamiento que Google, que también llega pre-verificado), sin crear ni mandar un token de verificación. El frontend (`registerAction`) detecta `emailVerificado: true` en la respuesta y redirige directo a `/sumarse` en vez de mostrar la pantalla "revisá tu correo" — esa pantalla no tiene sentido para un mail que nunca se mandó.
+- **Por qué esta forma y no otra:** el pedido fue explícito en "no lo elimine ni nada" — nada del código de verificación (tokens, `/verificar-mail`, reenvío) se tocó ni se borró, solo se lo salta condicionalmente. Atarlo a la MISMA variable que ya decide si Resend está configurado (en vez de un flag nuevo tipo `SKIP_EMAIL_VERIFICATION`) significa que no hay nada que acordarse de revertir manualmente: el día que se cargue `RESEND_API_KEY` en Render, el comportamiento vuelve solo al flujo normal de verificación, sin un segundo deploy ni un segundo cambio de configuración.
+- **Qué se sacrifica:** mientras este modo esté activo, cualquiera puede crear una cuenta con un mail que no controla y usarla de entrada — el mismo costo de seguridad que ya se acepta con Google (que tampoco reconfirma el mail del lado de Dental Mirage). Aceptable en esta etapa (sin usuarios reales todavía) exactamente porque es indistinguible en el código de lo que ya pasa con Google.
+- **Reversibilidad:** Total y automática — no es un cambio de código lo que lo revierte, es cargar `RESEND_API_KEY` en el dashboard de Render.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

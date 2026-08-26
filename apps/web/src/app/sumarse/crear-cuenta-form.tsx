@@ -41,11 +41,15 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
       aceptaTerminos: values.aceptaTerminos,
       captchaToken: values.captchaToken,
     });
-    if ("mensaje" in result) {
+    // Si la cuenta ya quedó verificada (TR-051), registerAction ya
+    // redirigió a /sumarse y esta línea no se alcanza.
+    if (result && "mensaje" in result) {
       onRegistrado(values.email);
       return;
     }
-    setErrorGlobal(result.error);
+    if (result?.error) {
+      setErrorGlobal(result.error);
+    }
   }
 
   return (

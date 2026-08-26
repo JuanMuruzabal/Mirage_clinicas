@@ -47,12 +47,18 @@ export interface MensajeResult {
 // fuente de verdad final y revalida todo de nuevo, esto solo evita
 // mandarle a la API algo que ya se sabía inválido acá.
 
-// registerAction — spec §4 Paso 1. Nunca redirige por sí sola: la cuenta
-// queda sin verificar (o, si el mail ya existía, la respuesta es la misma
-// genérica sin token — anti-enumeración, spec §7) y la pantalla de
+// registerAction — spec §4 Paso 1. Normalmente NO redirige por sí sola: la
+// cuenta queda sin verificar (o, si el mail ya existía, la respuesta es la
+// misma genérica sin token — anti-enumeración, spec §7) y la pantalla de
 // "revisá tu correo" la muestra el propio wizard con este resultado, no
 // una navegación aparte.
-export async function registerAction(payload: RegisterPayload): Promise<ActionResult | MensajeResult> {
+//
+// Excepción (TR-051 en docs/tradeoffs.md): si el backend ya marcó la
+// cuenta como verificada (AutoVerifyEmail, mientras Resend no esté
+// configurado), no tiene sentido mostrar "revisá tu correo" para un mail
+// que nunca se mandó — se comporta como loginAction, seteando la cookie y
+// mandando directo a /sumarse, que ya va a reflejar el Paso 2.
+export async function registerAction(payload: RegisterPayload): Promise<ActionResult | MensajeResult | undefined> {
   const parsed = registerSchema.safeParse(payload);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -64,6 +70,9 @@ export async function registerAction(payload: RegisterPayload): Promise<ActionRe
   }
   if (result.data.token) {
     await setSessionCookie(result.data.token);
+  }
+  if (result.data.emailVerificado && result.data.token) {
+    redirect("/sumarse");
   }
   return { mensaje: result.data.mensaje };
 }

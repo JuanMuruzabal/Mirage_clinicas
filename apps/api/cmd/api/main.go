@@ -77,5 +77,11 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		AppBaseURL:        cfg.AppBaseURL,
 		StateSecret:       cfg.JWTSecret,
 		GoogleRedirectURI: cfg.GoogleRedirectURI,
+		// Sin RESEND_API_KEY no hay forma de que un usuario reciba el link
+		// de verificación — auto-verificar en vez de dejarlo bloqueado
+		// (pedido explícito del cliente, 2026-08-26, mientras no esté
+		// configurado Resend en Render; ver TR-051 en docs/tradeoffs.md).
+		// Se apaga solo apenas se cargue la env var.
+		AutoVerifyEmail: cfg.ResendAPIKey == "",
 	}
 }

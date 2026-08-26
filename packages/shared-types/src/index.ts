@@ -71,6 +71,12 @@ export interface RegisterResponse {
   token?: string;
   email: string;
   mensaje: string;
+  // TR-051 en docs/tradeoffs.md: cuentas nativas nuevas pueden llegar ya
+  // verificadas (AutoVerifyEmail en el backend, mientras Resend no esté
+  // configurado) — el wizard usa esto para saltar la pantalla "revisá tu
+  // correo" e ir directo al Paso 2, igual que con Google.
+  emailVerificado: boolean;
+  onboardingStep?: OnboardingStep;
 }
 
 export interface LoginPayload {

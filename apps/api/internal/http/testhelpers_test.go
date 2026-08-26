@@ -250,6 +250,23 @@ func newTestRouterWithMail(t *testing.T) (http.Handler, *gorm.DB, *capturingMail
 	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb, sender
 }
 
+// newTestRouterWithAutoVerify arma un router con AutoVerifyEmail activo —
+// TR-051 en docs/tradeoffs.md: sin RESEND_API_KEY configurada, las
+// cuentas nativas nuevas quedan verificadas de entrada.
+func newTestRouterWithAutoVerify(t *testing.T) (http.Handler, *gorm.DB) {
+	t.Helper()
+	gdb := testdb.New(t)
+	deps := AuthDeps{
+		Mail:            mail.LogSender{},
+		AccountLimiter:  &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:       ratelimit.NewIPLimiter(),
+		AppBaseURL:      "http://localhost:3000",
+		StateSecret:     "un-secret-de-test",
+		AutoVerifyEmail: true,
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb
+}
+
 // fakeGoogleExchanger es un googleauth.Exchanger de prueba — nunca pega a
 // la red real (mismo criterio que internal/googleauth/googleauth_test.go).
 type fakeGoogleExchanger struct {

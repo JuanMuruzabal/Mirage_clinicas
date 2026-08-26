@@ -134,6 +134,69 @@ func TestResetPassword_PasswordFiltradaRechaza(t *testing.T) {
 	}
 }
 
+// TestRegister_AutoVerifyEmail_CuentaQuedaVerificadaYPasaAPerfil — TR-051
+// en docs/tradeoffs.md: sin RESEND_API_KEY configurada (Render, hoy), no
+// hay forma de que un usuario reciba el link de verificación — la cuenta
+// nativa nueva queda verificada de entrada, igual que Google.
+func TestRegister_AutoVerifyEmail_CuentaQuedaVerificadaYPasaAPerfil(t *testing.T) {
+	router, gdb := newTestRouterWithAutoVerify(t)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "autoverify@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var resp registerResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Token == nil || *resp.Token == "" {
+		t.Error("esperaba un token no vacío")
+	}
+	if !resp.EmailVerificado {
+		t.Error("EmailVerificado debería ser true con AutoVerifyEmail activo")
+	}
+	if resp.OnboardingStep != db.OnboardingStepPerfil {
+		t.Errorf("OnboardingStep = %q, esperaba %q", resp.OnboardingStep, db.OnboardingStepPerfil)
+	}
+
+	var user db.User
+	if err := gdb.Where("email = ?", "autoverify@example.com").First(&user).Error; err != nil {
+		t.Fatalf("no se encontró el usuario: %v", err)
+	}
+	if user.EmailVerifiedAt == nil {
+		t.Error("EmailVerifiedAt debería quedar seteado en la base")
+	}
+
+	// El login funciona directo, sin el 403 de "mail no verificado".
+	loginRec := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{
+		Email: "autoverify@example.com", Password: "password123456",
+	})
+	if loginRec.Code != http.StatusOK {
+		t.Errorf("login: status = %d, esperaba %d. body=%s", loginRec.Code, http.StatusOK, loginRec.Body.String())
+	}
+}
+
+// TestRegister_AutoVerifyEmail_EmailDuplicadoSigueSinRevelarNada — el
+// camino anti-enumeración (spec §7) no debe ganar un distinguidor nuevo:
+// la respuesta ante un mail ya existente sigue siendo la genérica, nunca
+// el estado real de esa cuenta.
+func TestRegister_AutoVerifyEmail_EmailDuplicadoSigueSinRevelarNada(t *testing.T) {
+	router, _ := newTestRouterWithAutoVerify(t)
+
+	req := registerRequest{Email: "autoverify-dup@example.com", Password: "password123456", AceptaTerminos: true}
+	doJSON(t, router, http.MethodPost, "/auth/register", req)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", req)
+	var resp registerResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Token != nil {
+		t.Error("un email duplicado nunca debería devolver un token de sesión")
+	}
+	if resp.EmailVerificado || resp.OnboardingStep != "" {
+		t.Errorf("la rama de anti-enumeración no debería revelar el estado real de la cuenta existente: %+v", resp)
+	}
+}
+
 func TestRegister_BodyInvalido(t *testing.T) {
 	router, _, _ := newTestRouterWithMail(t)
 

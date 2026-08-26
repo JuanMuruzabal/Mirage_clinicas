@@ -125,6 +125,33 @@ describe("registerAction", () => {
     const result = await registerAction({ email: "m@example.com", password: "password123456", aceptaTerminos: true });
     expect(result).toEqual({ error: "no se pudo crear la cuenta" });
   });
+
+  // TR-051 en docs/tradeoffs.md: sin Resend configurado, el backend marca
+  // la cuenta como ya verificada — no tiene sentido mostrar "revisá tu
+  // correo" para un mail que nunca se mandó.
+  it("con emailVerificado=true, guarda la cookie y redirige a /sumarse en vez de mostrar 'revisá tu correo'", async () => {
+    apiRegisterMock.mockResolvedValue({
+      ok: true,
+      data: { token: "sesion-1", email: "m@example.com", mensaje: "cuenta creada", emailVerificado: true, onboardingStep: "perfil" },
+    });
+
+    await expect(
+      registerAction({ email: "m@example.com", password: "password123456", aceptaTerminos: true }),
+    ).rejects.toThrow("NEXT_REDIRECT:/sumarse");
+
+    expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
+  });
+
+  it("con emailVerificado=true pero sin token (no debería pasar, cinturón y tirantes), no redirige", async () => {
+    apiRegisterMock.mockResolvedValue({
+      ok: true,
+      data: { email: "m@example.com", mensaje: "ok genérico", emailVerificado: true },
+    });
+
+    const result = await registerAction({ email: "m@example.com", password: "password123456", aceptaTerminos: true });
+    expect(result).toEqual({ mensaje: "ok genérico" });
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("loginAction", () => {

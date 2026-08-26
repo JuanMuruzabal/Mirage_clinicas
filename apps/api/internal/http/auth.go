@@ -36,6 +36,11 @@ const (
 const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un link de confirmación — revisá tu correo"
 const mensajeGenericoRecuperarPassword = "si el mail está registrado, te enviamos las instrucciones"
 
+// mensajeCuentaCreadaAutoVerificada — respuesta cuando AuthDeps.AutoVerifyEmail
+// está activo (TR-051 en docs/tradeoffs.md): no hay verificación pendiente
+// que "revisar", así que no tiene sentido decir que se mandó un mail.
+const mensajeCuentaCreadaAutoVerificada = "cuenta creada"
+
 // AuthDeps agrupa las dependencias externas del módulo de auth — cada una
 // nil-safe donde tiene sentido (Turnstile/Pwned deshabilitados en dev sin
 // credenciales, mismo criterio que internal/turnstile ya trae).
@@ -49,6 +54,17 @@ type AuthDeps struct {
 	AppBaseURL        string // ej. https://dentalmirage.com.ar — arma los links de los mails
 	StateSecret       string // firma el `state` de OAuth (ver oauthstate.go)
 	GoogleRedirectURI string // debe matchear lo configurado en Google Cloud Console
+	// AutoVerifyEmail: true cuando no hay un proveedor de mail real
+	// configurado (RESEND_API_KEY vacía, cmd/api/main.go) — sin forma de
+	// que el usuario reciba el link de verificación, una cuenta nativa
+	// nueva queda marcada como verificada de entrada, en vez de dejarla
+	// bloqueada esperando un mail que nunca va a llegar (pedido explícito
+	// del cliente, 2026-08-26, mientras no esté configurado Resend en
+	// Render — ver TR-051 en docs/tradeoffs.md). Se apaga solo apenas se
+	// cargue RESEND_API_KEY: no hace falta acordarse de revertir un flag
+	// aparte. No afecta Google (ya llega verificado por el provider) ni
+	// borra el flujo de verificación — solo lo salta para cuentas nuevas.
+	AutoVerifyEmail bool
 }
 
 func registerAuthRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
@@ -135,6 +151,13 @@ type registerResponse struct {
 	Token   *string `json:"token,omitempty"`
 	Email   string  `json:"email"`
 	Mensaje string  `json:"mensaje"`
+	// EmailVerificado/OnboardingStep: reflejan la cuenta recién creada
+	// (AutoVerifyEmail, ver AuthDeps) — en los caminos de anti-enumeración
+	// (mail ya existente) quedan en su valor por defecto (false/""), nunca
+	// el estado real de la cuenta existente, para no abrir un distinguidor
+	// nuevo (spec §7).
+	EmailVerificado bool   `json:"emailVerificado"`
+	OnboardingStep  string `json:"onboardingStep,omitempty"`
 }
 
 // register crea una cuenta nativa no verificada y manda el mail de
@@ -210,10 +233,17 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		TermsAcceptedAt: &now,
 		TermsVersion:    &termsVersion,
 	}
+	if h.deps.AutoVerifyEmail {
+		user.EmailVerifiedAt = &now
+		user.OnboardingStep = db.OnboardingStepPerfil
+	}
 
 	err = h.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&user).Error; err != nil {
 			return err
+		}
+		if h.deps.AutoVerifyEmail {
+			return nil
 		}
 		return createAndSendVerificationToken(r.Context(), tx, h.deps.Mail, h.deps.AppBaseURL, user)
 	})
@@ -235,7 +265,14 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 	recordAuditEvent(h.db, &user.ID, db.AuditEventRegister, ip, r.UserAgent())
 
-	writeJSON(w, http.StatusCreated, registerResponse{Token: &rawToken, Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
+	mensaje := mensajeGenericoVerificacionPendiente
+	if h.deps.AutoVerifyEmail {
+		mensaje = mensajeCuentaCreadaAutoVerificada
+	}
+	writeJSON(w, http.StatusCreated, registerResponse{
+		Token: &rawToken, Email: email, Mensaje: mensaje,
+		EmailVerificado: user.EmailVerifiedAt != nil, OnboardingStep: user.OnboardingStep,
+	})
 }
 
 func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmmail.Sender, baseURL string, user db.User) error {
