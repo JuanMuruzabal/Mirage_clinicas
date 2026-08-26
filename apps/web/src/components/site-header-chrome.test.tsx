@@ -10,68 +10,48 @@ const { SiteHeaderChrome } = await import("./site-header-chrome");
 // Corrección post-entrega (2026-08-24, pedido explícito del cliente: "el
 // header cuando se acumulan componentes se ve espantoso [en mobile]...
 // aplicar la misma solucion que alojamientos madryn... una barra
-// desplegable"). Este archivo cubre el toggle mobile — abrir/cerrar, y
-// que se cierra solo al navegar — y (TR-058 en docs/tradeoffs.md) qué
-// aparece en cada uno de los tres `estado`, incluida la excepción de
-// /seleccionar-servicio.
-describe("SiteHeaderChrome — menú mobile", () => {
+// desplegable"). Este archivo cubre el toggle mobile del estado anónimo
+// (único que lo necesita) y — TR-058/TR-060 en docs/tradeoffs.md — qué
+// aparece en el header en cada combinación de `estado` × ruta.
+describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("arranca cerrado: el botón de menú existe pero el dropdown no está en el DOM", () => {
-    render(<SiteHeaderChrome estado="completo" brandHref="/seleccionar-servicio" />);
+    usePathnameMock.mockReturnValue("/");
+    render(<SiteHeaderChrome estado="anonimo" />);
 
     const boton = screen.getByRole("button", { name: "Abrir menú" });
     expect(boton).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("navigation", { name: "Menú" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Menú y accesos directos" })).not.toBeInTheDocument();
   });
 
-  it("clickear el botón abre el dropdown con Gestionar tu clínica/Editar tu página/Tu perfil (con sesión)", async () => {
+  it("clickear el botón abre el dropdown con Buscar clínicas/Servicios/Ingresar/Sumate", async () => {
+    usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="completo" brandHref="/seleccionar-servicio" />);
+    render(<SiteHeaderChrome estado="anonimo" />);
 
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
 
     expect(screen.getByRole("button", { name: "Cerrar menú" })).toHaveAttribute("aria-expanded", "true");
-    const dropdown = screen.getByRole("navigation", { name: "Menú" });
-    expect(dropdown).toBeInTheDocument();
-    // Los tres links de sesión aparecen dos veces en el DOM (la copia
-    // hidden md:flex de escritorio + la del dropdown mobile) — jsdom no
-    // aplica CSS, así que ambas instancias son "visibles" para la query;
-    // alcanza con confirmar que la del dropdown está presente.
-    const dentroDelDropdown = dropdown.querySelectorAll("a");
-    const textos = Array.from(dentroDelDropdown).map((a) => a.textContent);
-    expect(textos).toContain("Gestionar tu clínica");
-    expect(textos).toContain("Editar tu página");
-    expect(textos).toContain("Tu perfil");
-  });
-
-  it("sin sesión, el dropdown lista Buscar clínicas/Servicios/Ingresar/Sumate", async () => {
-    const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" brandHref="/" />);
-
-    await user.click(screen.getByRole("button", { name: "Abrir menú" }));
-
     const dropdown = screen.getByRole("navigation", { name: "Menú y accesos directos" });
     const textos = Array.from(dropdown.querySelectorAll("a")).map((a) => a.textContent);
     expect(textos).toEqual(["Buscar clínicas", "Servicios para profesionales", "Ingresar", "Sumate"]);
   });
 
   it("clickear un link del dropdown lo cierra", async () => {
+    usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" brandHref="/" />);
+    render(<SiteHeaderChrome estado="anonimo" />);
 
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
     const dropdown = screen.getByRole("navigation", { name: "Menú y accesos directos" });
-    // El link "Ingresar" existe dos veces en el DOM (la copia hidden
-    // md:flex de escritorio, siempre montada, + la del dropdown) — jsdom
-    // no aplica CSS, así que ambas son "visibles" para una query global;
-    // hay que acotar la búsqueda al dropdown para clickear la correcta.
     await user.click(within(dropdown).getByRole("link", { name: "Ingresar" }));
 
     expect(screen.getByRole("button", { name: "Abrir menú" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("clickear el botón de nuevo lo cierra (toggle)", async () => {
+    usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" brandHref="/" />);
+    render(<SiteHeaderChrome estado="anonimo" />);
 
     const boton = screen.getByRole("button", { name: "Abrir menú" });
     await user.click(boton);
@@ -80,76 +60,106 @@ describe("SiteHeaderChrome — menú mobile", () => {
     expect(screen.getByRole("button", { name: "Abrir menú" })).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("cambiar de ruta cierra el menú aunque no se haya clickeado nada adentro", () => {
+  it("cambiar de ruta cierra el menú aunque no se haya clickeado nada adentro", async () => {
     usePathnameMock.mockReturnValue("/buscar");
-    const { rerender } = render(<SiteHeaderChrome estado="completo" brandHref="/seleccionar-servicio" />);
+    const { rerender } = render(<SiteHeaderChrome estado="anonimo" />);
 
-    // No hay forma directa de "abrir y después cambiar de pathname" sin
-    // pasar por un click real (el estado vive adentro del componente) —
-    // se simula clickeando para abrir y luego re-renderizando con una
-    // ruta distinta, que es lo que un cambio de página real dispara.
-    return userEvent.setup().click(screen.getByRole("button", { name: "Abrir menú" })).then(() => {
-      expect(screen.getByRole("button", { name: "Cerrar menú" })).toBeInTheDocument();
-      usePathnameMock.mockReturnValue("/panel");
-      rerender(<SiteHeaderChrome estado="completo" brandHref="/seleccionar-servicio" />);
-      expect(screen.getByRole("button", { name: "Abrir menú" })).toHaveAttribute("aria-expanded", "false");
-    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Abrir menú" }));
+    expect(screen.getByRole("button", { name: "Cerrar menú" })).toBeInTheDocument();
+
+    usePathnameMock.mockReturnValue("/panel");
+    rerender(<SiteHeaderChrome estado="anonimo" />);
+    expect(screen.getByRole("button", { name: "Abrir menú" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("con el menú abierto, el header queda sólido incluso en el Home sin scrollear", async () => {
     usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    const { container } = render(<SiteHeaderChrome estado="anonimo" brandHref="/" />);
+    const { container } = render(<SiteHeaderChrome estado="anonimo" />);
 
     expect(container.querySelector("header")).toHaveClass("bg-transparent");
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
     expect(container.querySelector("header")).toHaveClass("bg-porcelain");
   });
+
+  it("no muestra el botón de menú mobile en los otros dos estados (un solo botón compacto, nunca desborda)", () => {
+    usePathnameMock.mockReturnValue("/");
+    const { rerender } = render(<SiteHeaderChrome estado="completo" />);
+    expect(screen.queryByRole("button", { name: /menú/i })).not.toBeInTheDocument();
+
+    rerender(<SiteHeaderChrome estado="cuentaSinTerminar" />);
+    expect(screen.queryByRole("button", { name: /menú/i })).not.toBeInTheDocument();
+  });
 });
 
-// TR-057/TR-058 en docs/tradeoffs.md (pedido explícito del cliente,
-// 2026-08-26): cuenta creada y mail verificado, pero perfil/clínica
-// todavía sin terminar. En el Home (o cualquier otra página que no sea
-// /seleccionar-servicio) esto muestra un único link "Tu clínica" — nunca
-// "Ingresar"/"Sumate" (ya tiene cuenta) ni los tres links de herramientas
-// (no llevan a nada usable todavía). En la propia /seleccionar-servicio
-// el header debe quedar exactamente como estaba: "Ingresar"/"Sumate".
-describe("SiteHeaderChrome — estado 'cuentaSinTerminar'", () => {
-  it("en el Home, muestra un único link 'Tu clínica' hacia /seleccionar-servicio", () => {
-    usePathnameMock.mockReturnValue("/");
-    render(<SiteHeaderChrome estado="cuentaSinTerminar" brandHref="/" />);
+// El logo siempre vuelve a la home pública (pedido explícito del
+// cliente, 2026-08-26) — antes, con onboarding completo, llevaba a
+// /seleccionar-servicio.
+describe("SiteHeaderChrome — logo", () => {
+  it.each(["anonimo", "cuentaSinTerminar", "completo"] as const)(
+    "con estado=%s, el logo linkea a / siempre",
+    (estado) => {
+      usePathnameMock.mockReturnValue("/panel");
+      render(<SiteHeaderChrome estado={estado} />);
+      expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+    },
+  );
+});
 
-    expect(screen.getByRole("link", { name: "Tu clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
-    expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Sumate" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Gestionar tu clínica" })).not.toBeInTheDocument();
-  });
+// TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// en una pantalla de herramienta con onboarding completo, el botón de
+// configuración reemplaza a los tres links sueltos de antes.
+describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
+  it.each(["/seleccionar-servicio", "/panel", "/panel/turnos", "/perfil", "/personalizar-pagina"])(
+    "en %s con estado completo, muestra el botón de configuración y no 'Mi clínica'",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      render(<SiteHeaderChrome estado="completo" />);
+      expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+    },
+  );
 
-  it("en el Home, no muestra los accesos directos de un visitante anónimo", () => {
-    usePathnameMock.mockReturnValue("/");
-    render(<SiteHeaderChrome estado="cuentaSinTerminar" brandHref="/" />);
-
-    expect(screen.queryByRole("link", { name: "Buscar clínicas" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Servicios para profesionales" })).not.toBeInTheDocument();
-  });
-
-  it("en /seleccionar-servicio, el header queda igual que antes: Ingresar/Sumate, no 'Tu clínica'", () => {
+  it("en /seleccionar-servicio con estado completo, también muestra 'Volver al inicio'", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
-    render(<SiteHeaderChrome estado="cuentaSinTerminar" brandHref="/" />);
-
-    expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tu clínica" })).not.toBeInTheDocument();
+    render(<SiteHeaderChrome estado="completo" />);
+    expect(screen.getByRole("link", { name: /Volver al inicio/ })).toBeInTheDocument();
   });
 
-  it("el dropdown mobile en el Home lista solo 'Tu clínica'", async () => {
+  it("fuera de una pantalla de herramienta (Home), con estado completo NO muestra el botón de configuración", () => {
     usePathnameMock.mockReturnValue("/");
-    const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="cuentaSinTerminar" brandHref="/" />);
+    render(<SiteHeaderChrome estado="completo" />);
+    expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
+  });
+});
 
-    await user.click(screen.getByRole("button", { name: "Abrir menú" }));
-    const dropdown = screen.getByRole("navigation", { name: "Menú" });
-    const textos = Array.from(dropdown.querySelectorAll("a")).map((a) => a.textContent);
-    expect(textos).toEqual(["Tu clínica"]);
+// TR-058/TR-060: "Mi clínica" es el botón único para cualquier sesión
+// autenticada que no esté viendo el menú de configuración — Home,
+// buscador, o una pantalla de herramienta con el onboarding todavía sin
+// terminar (bloqueada por el modal de bienvenida). Pedido explícito del
+// cliente, 2026-08-26: "sigue persistiendo que se ve el header del home
+// por detrás del formulario... y no el header correspondiente a esa
+// sección" — ya no hay excepción de ruta para /seleccionar-servicio acá.
+describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
+  it.each(["/", "/buscar"])("con estado completo en %s (fuera de una herramienta), muestra 'Mi clínica'", (pathname) => {
+    usePathnameMock.mockReturnValue(pathname);
+    render(<SiteHeaderChrome estado="completo" />);
+    expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+  });
+
+  it.each(["/", "/buscar", "/seleccionar-servicio"])(
+    "con estado cuentaSinTerminar en %s, muestra 'Mi clínica' (sin excepción de ruta)",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      render(<SiteHeaderChrome estado="cuentaSinTerminar" />);
+      expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+      expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();
+    },
+  );
+
+  it("con estado anónimo, nunca muestra 'Mi clínica'", () => {
+    usePathnameMock.mockReturnValue("/");
+    render(<SiteHeaderChrome estado="anonimo" />);
+    expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
   });
 });

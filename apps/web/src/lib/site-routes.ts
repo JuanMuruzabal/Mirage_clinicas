@@ -90,3 +90,17 @@ export function isClinicaPublicaRoute(pathname: string): boolean {
 export function isPanelRoute(pathname: string): boolean {
   return pathname === "/panel" || pathname.startsWith("/panel/");
 }
+
+/**
+ * Las 4 pantallas "de herramienta" con sesión ya completa (seleccionar
+ * servicio + las 3 que ese menú lista) — TR-060 en docs/tradeoffs.md,
+ * pedido explícito del cliente, 2026-08-26: acá el header muestra el
+ * botón de configuración (acceso rápido a Perfil/Gestionar tu clínica/
+ * Personalizar tu página) en vez del botón único "Mi clínica" que se ve
+ * en el resto del sitio (Home, buscador, etc.) para una cuenta logueada.
+ */
+const HERRAMIENTA_ROUTE_PREFIXES = ["/seleccionar-servicio", "/perfil", "/panel", "/personalizar-pagina"];
+
+export function isHerramientaRoute(pathname: string): boolean {
+  return HERRAMIENTA_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}

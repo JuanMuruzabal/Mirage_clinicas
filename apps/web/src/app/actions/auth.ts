@@ -253,9 +253,10 @@ export async function onboardingClinicaAction(payload: OnboardingClinicaPayload)
     return { error: result.error };
   }
   // Este paso SÍ termina el onboarding (onboardingCompletado pasa a
-  // true) — el header cambia de "Tu clínica" (TR-058) a los tres links
-  // de herramientas, así que hace falta invalidar el layout raíz igual
-  // que en TR-059, o quedaría mostrando "Tu clínica" hasta un refresh.
+  // true) — en /seleccionar-servicio el header cambia del botón "Mi
+  // clínica" (TR-058) al botón de configuración (TR-060), así que hace
+  // falta invalidar el layout raíz igual que en TR-059, o quedaría
+  // mostrando "Mi clínica" hasta un refresh.
   revalidatePath("/", "layout");
   redirect("/seleccionar-servicio");
 }

@@ -6,48 +6,54 @@ import { useState } from "react";
 import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { VolverAlInicioLink } from "./volver-al-inicio-link";
+import { HeaderConfigMenu } from "./header-config-menu";
+import { isHerramientaRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
  * site-header.tsx de Alojamientos Madryn: el Server Component solo
- * resuelve la sesión y le pasa `estado`/`brandHref` — dos primitivos
- * serializables — a este Client Component, que es quien de verdad arma
- * el layout y el menú mobile).
+ * resuelve la sesión y le pasa `estado` — un primitivo serializable — a
+ * este Client Component, que es quien de verdad arma el layout y el menú
+ * mobile).
  *
  * Corrección post-entrega (2026-08-24, pedido explícito del cliente: "el
  * header cuando se acumulan componentes se ve espantoso [en mobile]...
  * aplicar la misma solucion que alojamientos madryn, aqui con una barra
- * desplegable se ven las opciones del header"). Antes de esto, la fila
- * superior mostraba SIEMPRE los tres links de sesión ("Gestionar tu
- * clínica"/"Editar tu página"/"Tu perfil") o "Ingresar"/"Sumate" en la
- * misma línea que el logo — en una pantalla angosta eso desborda o se
- * amontona. Ahora, debajo de `md`, la fila superior queda solo con el
- * logo + un botón de hamburguesa; todo lo demás se mueve a un dropdown
- * que se abre debajo del header (mismo criterio visual que Alojamientos
- * Madryn: dos líneas que rotan a una X, dropdown con `border-t`).
+ * desplegable se ven las opciones del header"). El dropdown de
+ * hamburguesa solo hace falta para el estado anónimo (4 accesos:
+ * Buscar clínicas/Servicios/Ingresar/Sumate, desbordan una pantalla
+ * angosta en una sola fila) — los otros dos estados son un único botón
+ * compacto que nunca desborda, así que se muestran igual en mobile y
+ * desktop sin necesitar el dropdown (TR-060 en docs/tradeoffs.md).
  *
- * `estado` — TR-058 en docs/tradeoffs.md (pedido explícito del cliente,
- * 2026-08-26): antes esto era un booleano `loggedIn` (onboarding completo
- * sí/no). Ahora hay un tercer estado intermedio, cuenta creada y mail
- * verificado pero perfil/clínica todavía sin terminar — ese estado
- * muestra un único link "Tu clínica" (→ /seleccionar-servicio) en vez de
- * los tres links de herramientas o de "Ingresar"/"Sumate", EXCEPTO en la
- * propia /seleccionar-servicio, donde el header debe quedar EXACTAMENTE
- * como estaba ("el header de seleccionar servicio debe quedar como
- * esta") — de ahí el chequeo de `pathname` acá, no en el Server
- * Component (que no tiene acceso a la ruta actual).
+ * `estado` — TR-058/TR-060 en docs/tradeoffs.md (pedido explícito del
+ * cliente, 2026-08-26): con sesión y mail verificado pero onboarding
+ * incompleto ("cuentaSinTerminar") o completo ("completo"), el header
+ * muestra:
+ *   - en una pantalla de herramienta (`isHerramientaRoute` — seleccionar
+ *     servicio, panel, perfil, personalizar página) con onboarding YA
+ *     completo: el botón de configuración (`HeaderConfigMenu`), acceso
+ *     rápido a Perfil/Gestionar tu clínica/Personalizar tu página.
+ *   - en cualquier otro caso con sesión (Home, buscador, o una pantalla
+ *     de herramienta con el onboarding todavía sin terminar — bloqueada
+ *     por el modal de bienvenida): un único botón "Mi clínica" →
+ *     /seleccionar-servicio. Antes esto solo pasaba fuera de
+ *     /seleccionar-servicio (esa ruta mantenía el header viejo a
+ *     propósito) — pedido explícito del cliente, 2026-08-26: "sigue
+ *     persistiendo que se ve el header del home por detrás del
+ *     formulario... y no el header correspondiente a esa sección" — ya
+ *     no hay excepción de ruta para el estado sin terminar.
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-export function SiteHeaderChrome({ estado, brandHref }: { estado: EstadoHeaderSesion; brandHref: string }) {
+export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const enSeleccionarServicio = pathname === "/seleccionar-servicio";
-  const mostrarNavCompleta = estado === "completo";
-  const mostrarTuClinica = estado === "cuentaSinTerminar" && !enSeleccionarServicio;
-  const mostrarAccesosAnonimos = !mostrarNavCompleta && !mostrarTuClinica;
+  const mostrarGear = estado === "completo" && isHerramientaRoute(pathname);
+  const mostrarMiClinica = estado !== "anonimo" && !mostrarGear;
+  const mostrarAccesosAnonimos = estado === "anonimo";
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
   // menú al navegar: "adjusting state when a prop changes"
@@ -71,17 +77,18 @@ export function SiteHeaderChrome({ estado, brandHref }: { estado: EstadoHeaderSe
 
   const mobileLinkClass =
     "rounded-field px-3 py-2.5 text-sm font-medium text-current transition-colors hover:bg-current/10";
+  const pillLinkClass =
+    "rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95";
 
   return (
     <HeaderFrame forceSolid={menuOpen}>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
-          {mostrarNavCompleta && (
-            <div className="hidden md:block">
-              <VolverAlInicioLink />
-            </div>
-          )}
-          <Link href={brandHref} className="flex items-center gap-2 text-current" onClick={closeMenu}>
+          {mostrarGear && <VolverAlInicioLink />}
+          {/* El logo siempre vuelve a la home pública, tenga sesión o no
+              (pedido explícito del cliente, 2026-08-26) — antes llevaba a
+              /seleccionar-servicio con onboarding completo. */}
+          <Link href="/" className="flex items-center gap-2 text-current" onClick={closeMenu}>
             <QuadrantMark className="text-steel" />
             <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
               Dental Mirage
@@ -103,111 +110,66 @@ export function SiteHeaderChrome({ estado, brandHref }: { estado: EstadoHeaderSe
           </nav>
         )}
 
-        <nav className="hidden items-center gap-6 md:flex">
-          {mostrarNavCompleta ? (
-            <>
-              <Link href="/panel" className={navLinkClass}>
-                Gestionar tu clínica
-              </Link>
-              <Link href="/personalizar-pagina" className={navLinkClass}>
-                Editar tu página
-              </Link>
-              <Link href="/perfil" className={navLinkClass}>
-                Tu perfil
-              </Link>
-            </>
-          ) : mostrarTuClinica ? (
-            <Link
-              href="/seleccionar-servicio"
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
-            >
-              Tu clínica
-            </Link>
-          ) : (
-            <>
+        {mostrarGear && <HeaderConfigMenu />}
+
+        {mostrarMiClinica && (
+          <Link href="/seleccionar-servicio" className={pillLinkClass}>
+            Mi clínica
+          </Link>
+        )}
+
+        {mostrarAccesosAnonimos && (
+          <>
+            <nav className="hidden items-center gap-6 md:flex">
               <Link href="/ingresar" className={navLinkClass}>
                 Ingresar
               </Link>
-              <Link
-                href="/sumarse"
-                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
-              >
+              <Link href="/sumarse" className={pillLinkClass}>
                 Sumate
               </Link>
-            </>
-          )}
-        </nav>
+            </nav>
 
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls="menu-mobile-header"
-          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
-          onClick={toggleMenu}
-          className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center gap-1.5 md:hidden"
-        >
-          <span
-            className={`h-px w-5 bg-current transition-transform duration-200 ${
-              menuOpen ? "translate-y-[3.5px] rotate-45" : ""
-            }`}
-          />
-          <span
-            className={`h-px w-5 bg-current transition-transform duration-200 ${
-              menuOpen ? "-translate-y-[3.5px] -rotate-45" : ""
-            }`}
-          />
-        </button>
+            <button
+              type="button"
+              aria-expanded={menuOpen}
+              aria-controls="menu-mobile-header"
+              aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+              onClick={toggleMenu}
+              className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center gap-1.5 md:hidden"
+            >
+              <span
+                className={`h-px w-5 bg-current transition-transform duration-200 ${
+                  menuOpen ? "translate-y-[3.5px] rotate-45" : ""
+                }`}
+              />
+              <span
+                className={`h-px w-5 bg-current transition-transform duration-200 ${
+                  menuOpen ? "-translate-y-[3.5px] -rotate-45" : ""
+                }`}
+              />
+            </button>
+          </>
+        )}
       </div>
 
-      {menuOpen && (
+      {menuOpen && mostrarAccesosAnonimos && (
         <nav
           id="menu-mobile-header"
-          aria-label={mostrarAccesosAnonimos ? "Menú y accesos directos" : "Menú"}
+          aria-label="Menú y accesos directos"
           className="flex flex-col gap-1 border-t border-current/15 px-6 py-4 text-current md:hidden"
         >
-          {mostrarNavCompleta ? (
-            <>
-              <div onClick={closeMenu}>
-                <VolverAlInicioLink />
-              </div>
-              <Link href="/panel" onClick={closeMenu} className={mobileLinkClass}>
-                Gestionar tu clínica
-              </Link>
-              <Link href="/personalizar-pagina" onClick={closeMenu} className={mobileLinkClass}>
-                Editar tu página
-              </Link>
-              <Link href="/perfil" onClick={closeMenu} className={mobileLinkClass}>
-                Tu perfil
-              </Link>
-            </>
-          ) : mostrarTuClinica ? (
-            <Link
-              href="/seleccionar-servicio"
-              onClick={closeMenu}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
-            >
-              Tu clínica
-            </Link>
-          ) : (
-            <>
-              <Link href="/#buscar" onClick={closeMenu} className={mobileLinkClass}>
-                Buscar clínicas
-              </Link>
-              <Link href="/#como-funciona" onClick={closeMenu} className={mobileLinkClass}>
-                Servicios para profesionales
-              </Link>
-              <Link href="/ingresar" onClick={closeMenu} className={mobileLinkClass}>
-                Ingresar
-              </Link>
-              <Link
-                href="/sumarse"
-                onClick={closeMenu}
-                className="mt-1 rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95"
-              >
-                Sumate
-              </Link>
-            </>
-          )}
+          <Link href="/#buscar" onClick={closeMenu} className={mobileLinkClass}>
+            Buscar clínicas
+          </Link>
+          <Link href="/#como-funciona" onClick={closeMenu} className={mobileLinkClass}>
+            Servicios para profesionales
+          </Link>
+          <Link href="/ingresar" onClick={closeMenu} className={mobileLinkClass}>
+            Ingresar
+          </Link>
+          <Link href="/sumarse" onClick={closeMenu} className={`mt-1 text-center ${pillLinkClass}`}>
+            Sumate
+          </Link>
         </nav>
       )}
     </HeaderFrame>

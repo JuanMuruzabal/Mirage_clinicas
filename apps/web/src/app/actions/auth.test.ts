@@ -315,7 +315,7 @@ describe("onboardingClinicaAction", () => {
       "NEXT_REDIRECT:/seleccionar-servicio",
     );
     // TR-059: este paso SÍ completa el onboarding — el header pasa de
-    // "Tu clínica" a los tres links de herramientas (TR-058), hace falta
+    // "Mi clínica" al botón de configuración (TR-060), hace falta
     // revalidar el layout raíz para que se vea sin un refresh manual.
     expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });

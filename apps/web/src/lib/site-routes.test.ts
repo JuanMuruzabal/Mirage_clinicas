@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAuthFlowRoute, isClinicaPublicaRoute, isFooterHidden } from "./site-routes";
+import { isAuthFlowRoute, isClinicaPublicaRoute, isFooterHidden, isHerramientaRoute } from "./site-routes";
 
 describe("isFooterHidden", () => {
   it.each(["/sumarse", "/ingresar", "/seleccionar-servicio", "/perfil", "/panel", "/personalizar-pagina"])(
@@ -64,6 +64,25 @@ describe("isAuthFlowRoute", () => {
     "%s NO es una ruta del flujo de auth",
     (pathname) => {
       expect(isAuthFlowRoute(pathname)).toBe(false);
+    },
+  );
+});
+
+// TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// estas 4 pantallas muestran el botón de configuración en el header en
+// vez del botón único "Mi clínica".
+describe("isHerramientaRoute", () => {
+  it.each(["/seleccionar-servicio", "/perfil", "/perfil/algo", "/panel", "/panel/turnos", "/personalizar-pagina"])(
+    "%s es una pantalla de herramienta",
+    (pathname) => {
+      expect(isHerramientaRoute(pathname)).toBe(true);
+    },
+  );
+
+  it.each(["/", "/buscar", "/sumarse", "/ingresar", "/terminos", "/privacidad", "/alguna-clinica"])(
+    "%s NO es una pantalla de herramienta",
+    (pathname) => {
+      expect(isHerramientaRoute(pathname)).toBe(false);
     },
   );
 });
