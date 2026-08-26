@@ -19,6 +19,14 @@ describe("isFooterHidden", () => {
   it.each(["/", "/buscar"])("muestra el footer en %s", (pathname) => {
     expect(isFooterHidden(pathname)).toBe(false);
   });
+
+  // Bug real, 2026-08-26 (ver TR-050 en docs/tradeoffs.md): sin estar acá,
+  // /terminos y /privacidad caían en la ruta dinámica de página pública de
+  // clínica (isClinicaPublicaRoute las trataba como un slug de clínica) —
+  // 404 real, no solo un footer/header equivocado.
+  it.each(["/terminos", "/privacidad"])("muestra el footer en %s (páginas legales del sitio, no de una clínica)", (pathname) => {
+    expect(isFooterHidden(pathname)).toBe(false);
+  });
 });
 
 describe("isClinicaPublicaRoute", () => {
@@ -37,6 +45,8 @@ describe("isClinicaPublicaRoute", () => {
     "/personalizar-pagina",
     "/panel/turnos",
     "/perfil/algo",
+    "/terminos",
+    "/privacidad",
   ])("%s NO es la página pública de una clínica (es una ruta propia de Mirage)", (pathname) => {
     expect(isClinicaPublicaRoute(pathname)).toBe(false);
   });

@@ -594,6 +594,17 @@
 - **Qué se sacrifica:** una cookie de sesión inválida queda en el navegador del visitante hasta que haga login u logout explícito (en vez de auto-limpiarse en la primera visita) — inofensivo: `apiMe` la vuelve a rechazar en cada request sin loop ni efecto visible, es shipear una cookie de más, no un bug.
 - **Reversibilidad:** Alta. Si más adelante hace falta auto-limpiar cookies inválidas de verdad, el lugar correcto es `middleware.ts` (corre en un contexto que sí puede mutar cookies) o un Route Handler dedicado — no un helper de lectura llamado desde Server Components.
 
+## TR-050: `/terminos` y `/privacidad` no existían — el checkbox de registro linkeaba a un 404 real
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (tercer bug real reportado por el cliente probando el flujo de registro, el mismo día de TR-048/TR-049)
+- **Síntoma:** al tocar "términos y condiciones" desde el checkbox de "Crear cuenta" (`crear-cuenta-form.tsx`, TR-036), la app llevaba a una página de error 404.
+- **Causa real, doble:** (1) `app/terminos/page.tsx` y `app/privacidad/page.tsx` nunca se construyeron — el checkbox linkeaba a rutas que no existían desde el día uno de la feature; (2) sin esas rutas estáticas, Next.js resolvía `/terminos` contra la ruta dinámica `app/[slug]/page.tsx` (la página pública de una clínica, spec §5) — buscaba una clínica con slug `"terminos"`, no la encontraba, y llamaba a `notFound()`. Un 404 "real" de Next.js, no un link roto obvio a simple vista en el código.
+- **Decisión:** se construyeron ambas páginas con contenido real alineado a lo que la plataforma efectivamente recolecta y hace hoy (spec §7, Ley 25.326) — no una plantilla genérica de internet, pero **tampoco un texto validado por un abogado**: es una base razonable para que el cliente la revise/ajuste antes de un lanzamiento real, marcada como tal en el código. Se agregaron ambas rutas a `RUTAS_PROPIAS_DE_UN_SEGMENTO` (`lib/site-routes.ts`) para que conserven el header/footer del sitio en vez de caer en el modo "página pública de clínica".
+- **Por qué no se detectó antes:** ninguno de los tests automatizados navega de verdad un link — mockean la Server Action de registro, no el click en el `<Link>` del checkbox. Igual que TR-048/TR-049, este es un bug de "camino no recorrido en un browser real", no de lógica de negocio.
+- **Qué se sacrifica:** el contenido de ambas páginas debe pasar por una revisión real (legal y/o del cliente) antes de un lanzamiento a producción con usuarios reales — dejado explícito acá para que no se asuma "terminado" solo porque ya no tira 404.
+- **Reversibilidad:** Alta — el contenido de ambas páginas es texto plano en Server Components, sin lógica.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

@@ -36,6 +36,8 @@ const RUTAS_PROPIAS_DE_UN_SEGMENTO = [
   "personalizar-pagina",
   "recuperar-password",
   "verificar-mail",
+  "terminos",
+  "privacidad",
 ];
 
 export function isFooterHidden(pathname: string): boolean {
