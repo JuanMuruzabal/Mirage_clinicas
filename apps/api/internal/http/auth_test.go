@@ -450,6 +450,28 @@ func TestVerificarEmail_Exitoso(t *testing.T) {
 	}
 }
 
+// TestVerificarEmail_CuentaYaVerificadaRechazaAunqueElCodigoSeaValido —
+// TR-061 en docs/tradeoffs.md: cinturón y tirantes, independiente de que
+// register() ya no genere un código nuevo para una cuenta verificada
+// (TR-056) — este endpoint nunca debería re-procesar ni rotar la sesión
+// de una cuenta ya verificada, ni siquiera con un código real y sin usar.
+func TestVerificarEmail_CuentaYaVerificadaRechazaAunqueElCodigoSeaValido(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "yaverificada@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	codigo := sender.codigoDeLaUltimaVerificacion("yaverificada@example.com")
+	if codigo == "" {
+		t.Fatal("no se capturó el código de verificación")
+	}
+	marcarMailVerificadoDePrueba(t, gdb, "yaverificada@example.com")
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "yaverificada@example.com", Codigo: codigo})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d — una cuenta ya verificada nunca debería aceptar un código", rec.Code, http.StatusBadRequest)
+	}
+}
+
 // TestVerificarEmail_UsadoDosVecesFallaLaSegunda — criterio de aceptación
 // explícito de la spec (§10, seguridad).
 func TestVerificarEmail_UsadoDosVecesFallaLaSegunda(t *testing.T) {

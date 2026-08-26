@@ -35,9 +35,8 @@ export default async function SeleccionarServicioPage() {
         aria-hidden={onboardingIncompleto}
       >
         <div className="mx-auto w-full max-w-4xl">
-          {/* "Volver al inicio" vive en el header global, justo detrás del
-              wordmark (pedido explícito del cliente, 2026-08-23) — no hace
-              falta repetirlo acá. */}
+          {/* El logo del header global ya vuelve siempre a "/" (TR-060 en
+              docs/tradeoffs.md) — no hace falta un link aparte acá. */}
           <p className="mb-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
             Hola, {me.perfil?.nombre ?? me.email}
           </p>

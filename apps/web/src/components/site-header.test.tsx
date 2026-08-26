@@ -140,7 +140,10 @@ describe("SiteHeader", () => {
       },
     );
 
-    it("en /seleccionar-servicio, el orden es 'Volver al inicio' → 'Dental Mirage' → botón de configuración", async () => {
+    // TR-061 en docs/tradeoffs.md (pedido explícito del cliente,
+    // 2026-08-26): "Volver al inicio" se sacó del header — con el logo
+    // ya yendo siempre a "/", era redundante.
+    it("en /seleccionar-servicio, el único link es el logo — sin 'Volver al inicio'", async () => {
       usePathnameMock.mockReturnValue("/seleccionar-servicio");
       mockMe({ emailVerificado: true, onboardingCompletado: true });
 
@@ -150,17 +153,8 @@ describe("SiteHeader", () => {
         .getAllByRole("link")
         .map((el) => el.textContent);
 
-      expect(nombresDeLinks).toEqual(["← Volver al inicio", "Dental Mirage"]);
+      expect(nombresDeLinks).toEqual(["Dental Mirage"]);
       expect(within(header).getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
-    });
-
-    it("fuera de /seleccionar-servicio, no muestra 'Volver al inicio'", async () => {
-      usePathnameMock.mockReturnValue("/panel");
-      mockMe({ emailVerificado: true, onboardingCompletado: true });
-
-      render(await SiteHeader());
-
-      expect(screen.queryByRole("link", { name: "← Volver al inicio" })).not.toBeInTheDocument();
     });
   });
 

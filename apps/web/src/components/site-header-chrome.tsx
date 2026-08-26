@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
-import { VolverAlInicioLink } from "./volver-al-inicio-link";
 import { HeaderConfigMenu } from "./header-config-menu";
 import { isHerramientaRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
@@ -44,6 +43,12 @@ import { navLinkClass } from "@/lib/styles";
  *     persistiendo que se ve el header del home por detrás del
  *     formulario... y no el header correspondiente a esa sección" — ya
  *     no hay excepción de ruta para el estado sin terminar.
+ *
+ * "Volver al inicio" (el link que vivía acá, solo en /seleccionar-
+ * servicio) se sacó del todo — TR-061 en docs/tradeoffs.md, pedido
+ * explícito del cliente, 2026-08-26: con el logo ya yendo siempre a "/"
+ * (ver más abajo), era redundante. `volver-al-inicio-link.tsx` queda sin
+ * usar y se borró junto con esto.
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
@@ -84,7 +89,6 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
     <HeaderFrame forceSolid={menuOpen}>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
-          {mostrarGear && <VolverAlInicioLink />}
           {/* El logo siempre vuelve a la home pública, tenga sesión o no
               (pedido explícito del cliente, 2026-08-26) — antes llevaba a
               /seleccionar-servicio con onboarding completo. */}

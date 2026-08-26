@@ -120,10 +120,13 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
     },
   );
 
-  it("en /seleccionar-servicio con estado completo, también muestra 'Volver al inicio'", () => {
+  // TR-061 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-26): "Volver al inicio" se sacó del header — con el logo ya
+  // yendo siempre a "/", era redundante.
+  it("en /seleccionar-servicio con estado completo, ya NO muestra 'Volver al inicio'", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
     render(<SiteHeaderChrome estado="completo" />);
-    expect(screen.getByRole("link", { name: /Volver al inicio/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Volver al inicio/ })).not.toBeInTheDocument();
   });
 
   it("fuera de una pantalla de herramienta (Home), con estado completo NO muestra el botón de configuración", () => {

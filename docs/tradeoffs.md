@@ -711,6 +711,15 @@
 - **Por qué no fue necesario el mismo cuidado con `/seleccionar-servicio` que en TR-058:** ahí la instrucción explícita era "el header de seleccionar servicio debe quedar como está" — este mensaje la reemplaza directamente ("modificar el header de seleccionar servicio"), así que ya no aplica ninguna excepción de ruta para esa pantalla.
 - **Reversibilidad:** Alta — todo el cambio vive en componentes de presentación (`SiteHeaderChrome`, `HeaderConfigMenu`, `icons.tsx`) y un helper de rutas puro, sin tocar esquema ni contrato de API.
 
+## TR-061: Investigación de un reporte de "cuenta hijackeable" (sin bug real) + hardening defensivo en `verificarEmail` + se saca "Volver al inicio" del header
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (reporte del cliente, urgente: "hay un error critico! me deja crear una cuenta con un mail de una cuenta ya creada!" — luego, tras revisar de nuevo: "cuando pongo un mail de una cuenta ya creada me deja pasar al paso de verificar mail, pero no me llega nada")
+- **Investigación:** se auditó `register()` en TODAS las versiones desplegadas hoy (según el historial real de CI/deploy en GitHub Actions, no solo el HEAD de `dev`) — ninguna permite sobreescribir ni emitir sesión para una cuenta con `EmailVerifiedAt` seteado. El síntoma reportado (pasar al paso de código sin que llegue nada) es exactamente el comportamiento esperado del anti-enumeración de la spec §7: la respuesta a "registrarse con un mail ya verificado" es IDÉNTICA a un alta nueva (mismo `mensaje`, mismo status, sin token) para no revelar si esa cuenta existe — pero al ser una cuenta verificada, `register()` nunca genera ni manda un código real para ese intento. El cliente confirmó que no llegó ningún mail — consistente con que la cuenta SÍ estaba protegida, no con un hijack. **Conclusión: no hay bug de seguridad.**
+- **Hardening igual aplicado (cinturón y tirantes):** `verificarEmail()` no tenía un chequeo explícito de `user.EmailVerifiedAt != nil` antes de procesar un código — no se encontró forma de explotarlo (el código se valida contra `user_id` específico, no alcanza con conocer un código válido de otra cuenta), pero un guard explícito ahí es más barato que confiar en que ningún otro punto del código deje de generarle un token válido a una cuenta verificada. Ahora rechaza con el mismo mensaje genérico (`mensajeCodigoInvalido`) sin importar si el código en sí era válido.
+- **Decisión — "Volver al inicio" fuera del header:** pedido explícito del cliente en el mismo mensaje. Con el logo ya yendo siempre a `/` (TR-060), el link quedaba redundante — se borra `components/volver-al-inicio-link.tsx` (y su test) por completo, ya no tiene otro uso.
+- **Reversibilidad:** Alta en ambos casos — el hardening es un guard adicional sin cambiar ningún contrato; sacar el link es puramente de presentación.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

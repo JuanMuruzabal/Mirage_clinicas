@@ -630,6 +630,18 @@ func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TR-061 en docs/tradeoffs.md: cinturón y tirantes — una cuenta ya
+	// verificada nunca debería tener un VerificationToken de tipo
+	// EmailVerify sin usar (register() no genera uno nuevo para una
+	// cuenta verificada, TR-056), pero un guard explícito acá evita
+	// depender solo de esa invariante en otro punto del código — nunca se
+	// re-procesa ni se rota la sesión de una cuenta ya verificada desde
+	// este endpoint, pase lo que pase con los tokens que existan.
+	if user.EmailVerifiedAt != nil {
+		writeError(w, http.StatusBadRequest, mensajeCodigoInvalido)
+		return
+	}
+
 	// TR-055 en docs/tradeoffs.md: un código de 6 dígitos tiene mucha
 	// menos entropía que el token de 32 bytes anterior — el límite por IP
 	// de arriba no alcanza solo (un atacante puede rotar de IP), así que
