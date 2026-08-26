@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -63,6 +64,23 @@ func TestOcultarPaginaPublica_CambiaElValorYLoDevuelve(t *testing.T) {
 	_ = json.Unmarshal(rec2.Body.Bytes(), &got2)
 	if got2.Oculta {
 		t.Error("después de des-ocultar, Oculta = true, esperaba false")
+	}
+}
+
+func TestOcultarPaginaPublica_BodyInvalido(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Elena", Email: "pagina5@example.com", Password: "password123456", NombreClinica: "Clínica Elena",
+	})
+
+	req := httptest.NewRequest(http.MethodPatch, "/panel/pagina/ocultar", strings.NewReader("esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+reg.Token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
 	}
 }
 

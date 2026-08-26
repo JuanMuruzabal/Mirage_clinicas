@@ -62,6 +62,49 @@ func TestResendSender_ErrorDeRedNoTumbaElRequest(t *testing.T) {
 	}
 }
 
+func TestResendSender_SendWelcomeEmail_MandaElNombre(t *testing.T) {
+	var capturedBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	sender := &mail.ResendSender{APIKey: "re_test_key", From: "no-reply@dentalmirage.com.ar", Client: server.Client(), BaseURL: server.URL}
+
+	if err := sender.SendWelcomeEmail(context.Background(), "ana@example.com", "Ana"); err != nil {
+		t.Fatalf("SendWelcomeEmail error inesperado: %v", err)
+	}
+
+	html, _ := capturedBody["html"].(string)
+	if !strings.Contains(html, "Ana") {
+		t.Error("el HTML de bienvenida debería incluir el nombre")
+	}
+}
+
+func TestResendSender_SendWelcomeEmail_SinNombreNoRompe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	sender := &mail.ResendSender{APIKey: "x", From: "x@example.com", Client: server.Client(), BaseURL: server.URL}
+
+	if err := sender.SendWelcomeEmail(context.Background(), "ana@example.com", ""); err != nil {
+		t.Fatalf("SendWelcomeEmail sin nombre no debería fallar: %v", err)
+	}
+}
+
+func TestNewResendSender_ConfiguraClienteConTimeout(t *testing.T) {
+	sender := mail.NewResendSender("re_key", "no-reply@dentalmirage.com.ar")
+	if sender.APIKey != "re_key" || sender.From != "no-reply@dentalmirage.com.ar" {
+		t.Errorf("NewResendSender no seteó APIKey/From correctamente: %+v", sender)
+	}
+	if sender.Client == nil {
+		t.Error("NewResendSender debería configurar un *http.Client")
+	}
+}
+
 func TestResendSender_StatusDeErrorDevuelveError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

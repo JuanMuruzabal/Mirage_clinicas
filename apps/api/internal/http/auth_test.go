@@ -2,13 +2,20 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/security"
 )
+
+var errExchangeFake = errors.New("fallo simulado del intercambio de código con Google")
 
 func TestRegister_Exitoso(t *testing.T) {
 	router, _, sender := newTestRouterWithMail(t)
@@ -87,6 +94,46 @@ func TestRegister_SinAceptarTerminos(t *testing.T) {
 	}
 }
 
+func TestRegister_CaptchaInvalidoRechaza(t *testing.T) {
+	router, _ := newTestRouterWithSecurity(t, false, false)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "captcha@example.com", Password: "password123456", AceptaTerminos: true, CaptchaToken: "token-malo",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (CAPTCHA inválido)", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestRegister_PasswordFiltradaRechaza(t *testing.T) {
+	router, _ := newTestRouterWithSecurity(t, true, true)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "pwned@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (contraseña filtrada)", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestRecuperarPassword_CaptchaInvalidoRechaza(t *testing.T) {
+	router, _ := newTestRouterWithSecurity(t, false, false)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/recuperar-password", recuperarPasswordRequest{Email: "x@example.com"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (CAPTCHA inválido)", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestResetPassword_PasswordFiltradaRechaza(t *testing.T) {
+	router, _ := newTestRouterWithSecurity(t, true, true)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/reset-password", resetPasswordRequest{Token: "cualquiera", NewPassword: "password123456"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (contraseña filtrada, ni siquiera llega a validar el token)", rec.Code, http.StatusBadRequest)
+	}
+}
+
 func TestRegister_BodyInvalido(t *testing.T) {
 	router, _, _ := newTestRouterWithMail(t)
 
@@ -143,6 +190,50 @@ func TestLogin_ExitosoTrasVerificar(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
 	if resp.Token == nil || *resp.Token == "" {
 		t.Error("esperaba un token no vacío")
+	}
+}
+
+// TestLogin_RehasheaUnHashBcryptLegacyAlLoguearseConExito — usuarios
+// migrados de internal/db.MigrateProfesionalesToUsers conservan su hash
+// bcrypt tal cual (spec §7: rehash perezoso, nunca bloquea el login). Un
+// login exitoso con ese hash debería dejarlo reemplazado por uno argon2id.
+func TestLogin_RehasheaUnHashBcryptLegacyAlLoguearseConExito(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "legacy@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	marcarMailVerificadoDePrueba(t, gdb, "legacy@example.com")
+
+	legacyHash, err := bcrypt.GenerateFromPassword([]byte("password123456"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("no se pudo generar el hash bcrypt de prueba: %v", err)
+	}
+	if err := gdb.Model(&db.User{}).Where("email = ?", "legacy@example.com").
+		Update("password_hash", string(legacyHash)).Error; err != nil {
+		t.Fatalf("no se pudo forzar el hash legacy: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{
+		Email: "legacy@example.com", Password: "password123456",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var user db.User
+	if err := gdb.Where("email = ?", "legacy@example.com").First(&user).Error; err != nil {
+		t.Fatalf("no se pudo releer el usuario: %v", err)
+	}
+	if user.PasswordHash == nil || security.NeedsRehash(*user.PasswordHash) {
+		t.Error("el hash debería haber quedado rehasheado a argon2id tras el login exitoso")
+	}
+
+	// El nuevo hash debería seguir sirviendo para loguearse.
+	rec2 := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{
+		Email: "legacy@example.com", Password: "password123456",
+	})
+	if rec2.Code != http.StatusOK {
+		t.Errorf("login tras el rehash: status = %d, esperaba %d", rec2.Code, http.StatusOK)
 	}
 }
 
@@ -282,6 +373,19 @@ func TestVerificarEmail_RotaLaSesion(t *testing.T) {
 // Reenvío de verificación
 // ---------------------------------------------------------------------
 
+func TestReenviarVerificacion_BodyInvalido(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/reenviar-verificacion", strings.NewReader("esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
 func TestReenviarVerificacion_MismaRespuestaExistaONoLaCuenta(t *testing.T) {
 	router, _, _ := newTestRouterWithMail(t)
 	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
@@ -300,6 +404,19 @@ func TestReenviarVerificacion_MismaRespuestaExistaONoLaCuenta(t *testing.T) {
 // ---------------------------------------------------------------------
 // Recuperar / resetear contraseña
 // ---------------------------------------------------------------------
+
+func TestRecuperarPassword_BodyInvalido(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/recuperar-password", strings.NewReader("esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
 
 func TestRecuperarPassword_MismoMensajeExistaONoElMail(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
@@ -358,6 +475,55 @@ func TestResetPassword_ExitosoYCierraOtrasSesiones(t *testing.T) {
 	loginRec := doJSON(t, router, http.MethodPost, "/auth/login", loginRequest{Email: "reset@example.com", Password: "nueva-password-larga"})
 	if loginRec.Code != http.StatusOK {
 		t.Errorf("login con la contraseña nueva: status = %d, esperaba %d", loginRec.Code, http.StatusOK)
+	}
+}
+
+func TestResetPassword_BodyInvalido(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/reset-password", strings.NewReader("esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestResetPassword_TokenInexistenteFalla(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/reset-password", resetPasswordRequest{
+		Token: "un-token-que-nunca-existió", NewPassword: "password123456",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (token inexistente)", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestResetPassword_TokenVencidoFalla(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "resetvencido@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	marcarMailVerificadoDePrueba(t, gdb, "resetvencido@example.com")
+	doJSON(t, router, http.MethodPost, "/auth/recuperar-password", recuperarPasswordRequest{Email: "resetvencido@example.com"})
+	token := sender.tokenFromLastResetURL("resetvencido@example.com")
+	if token == "" {
+		t.Fatal("no se capturó el token de reset")
+	}
+
+	tokenHash := security.HashToken(token)
+	if err := gdb.Model(&db.VerificationToken{}).
+		Where("token_hash = ?", tokenHash).
+		Update("expires_at", time.Now().Add(-time.Hour)).Error; err != nil {
+		t.Fatalf("no se pudo forzar el vencimiento del token: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/reset-password", resetPasswordRequest{Token: token, NewPassword: "password123456"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (token vencido)", rec.Code, http.StatusBadRequest)
 	}
 }
 
@@ -492,6 +658,68 @@ func TestGoogle_VinculaConCuentaNativaYaVerificada(t *testing.T) {
 	gdb.Model(&db.Account{}).Where("provider_account_id = ?", "google-sub-4").Count(&accountCount)
 	if accountCount != 1 {
 		t.Errorf("count de Accounts vinculadas = %d, esperaba 1", accountCount)
+	}
+}
+
+func TestGoogle_NoConfiguradoDevuelve501(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t) // deps.Google queda nil
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/google", googleRequest{Code: "x", State: "y"})
+	if rec.Code != http.StatusNotImplemented {
+		t.Errorf("status = %d, esperaba %d (Google no configurado)", rec.Code, http.StatusNotImplemented)
+	}
+}
+
+func TestGoogle_BodyInvalido(t *testing.T) {
+	router, _ := newTestRouterWithGoogle(t, fakeGoogleExchanger{sub: "s", email: "e@example.com", emailVerified: true})
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/google", strings.NewReader("esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGoogle_ExchangeFallaDevuelve400(t *testing.T) {
+	router, _ := newTestRouterWithGoogle(t, fakeGoogleExchanger{err: errExchangeFake})
+
+	stateRec := doJSON(t, router, http.MethodGet, "/auth/google/state", nil)
+	var stateResp googleStateResponse
+	_ = json.Unmarshal(stateRec.Body.Bytes(), &stateResp)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/google", googleRequest{Code: "un-code", State: stateResp.State})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d (falla el intercambio de código con Google)", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestGoogle_SegundoLoginConCuentaYaVinculadaReutilizaLaCuenta(t *testing.T) {
+	router, gdb := newTestRouterWithGoogle(t, fakeGoogleExchanger{sub: "google-sub-repeat", email: "repeat@example.com", emailVerified: true})
+
+	pedirState := func() string {
+		stateRec := doJSON(t, router, http.MethodGet, "/auth/google/state", nil)
+		var stateResp googleStateResponse
+		_ = json.Unmarshal(stateRec.Body.Bytes(), &stateResp)
+		return stateResp.State
+	}
+
+	primera := doJSON(t, router, http.MethodPost, "/auth/google", googleRequest{Code: "code-1", State: pedirState()})
+	if primera.Code != http.StatusOK {
+		t.Fatalf("primer login: status = %d, esperaba %d. body=%s", primera.Code, http.StatusOK, primera.Body.String())
+	}
+
+	segunda := doJSON(t, router, http.MethodPost, "/auth/google", googleRequest{Code: "code-2", State: pedirState()})
+	if segunda.Code != http.StatusOK {
+		t.Fatalf("segundo login: status = %d, esperaba %d. body=%s", segunda.Code, http.StatusOK, segunda.Body.String())
+	}
+
+	var count int64
+	gdb.Model(&db.User{}).Where("email = ?", "repeat@example.com").Count(&count)
+	if count != 1 {
+		t.Errorf("count de Users = %d, esperaba 1 (el segundo login no debería crear una cuenta nueva)", count)
 	}
 }
 

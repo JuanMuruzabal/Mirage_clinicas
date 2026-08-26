@@ -84,6 +84,51 @@ func TestOnboardingPerfil_ExitosoAvanzaAClinica(t *testing.T) {
 	}
 }
 
+// TestOnboardingPerfil_ReenviarEnPasoClinicaNoRegresaElPaso — el frontend
+// (SumarseWizard, "Atrás" desde el Paso 3) reenvía /onboarding/perfil
+// mientras onboardingStep ya está en "clinica" para permitir editar sin
+// perder datos — esto NO debe hacer retroceder el paso, solo actualizar
+// el perfil (spec §4: "se puede volver atrás y editar sin perder datos").
+func TestOnboardingPerfil_ReenviarEnPasoClinicaNoRegresaElPaso(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := completarPerfilDePrueba(t, router, gdb, "reenviarperfil@example.com")
+
+	var user db.User
+	if err := gdb.Where("email = ?", "reenviarperfil@example.com").First(&user).Error; err != nil {
+		t.Fatalf("no se encontró el usuario: %v", err)
+	}
+	if user.OnboardingStep != db.OnboardingStepClinica {
+		t.Fatalf("precondición: OnboardingStep = %q, esperaba %q", user.OnboardingStep, db.OnboardingStepClinica)
+	}
+
+	var especialidad db.Especialidad
+	if err := gdb.Where("nombre = ?", "Odontología general").First(&especialidad).Error; err != nil {
+		t.Fatalf("no se encontró la especialidad de prueba: %v", err)
+	}
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		Nombre: "Test", Apellido: "Editado", Telefono: "+5493511234567",
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-2",
+		EspecialidadIDs: []string{especialidad.ID.String()},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got perfilResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.Apellido != "Editado" {
+		t.Errorf("Apellido = %q, esperaba %q (el reenvío debería haber actualizado el perfil)", got.Apellido, "Editado")
+	}
+
+	if err := gdb.Where("email = ?", "reenviarperfil@example.com").First(&user).Error; err != nil {
+		t.Fatalf("no se encontró el usuario: %v", err)
+	}
+	if user.OnboardingStep != db.OnboardingStepClinica {
+		t.Errorf("OnboardingStep = %q, esperaba que se mantuviera en %q (no debe retroceder)", user.OnboardingStep, db.OnboardingStepClinica)
+	}
+}
+
 func TestOnboardingClinica_RechazaSiPerfilIncompleto(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	regRec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{

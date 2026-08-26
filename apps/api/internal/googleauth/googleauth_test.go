@@ -27,6 +27,16 @@ func fakeGoogleServers(t *testing.T, tokenBody, userinfoBody string, tokenStatus
 	}
 }
 
+func TestNewHTTPExchanger_ConfiguraCredencialesYCliente(t *testing.T) {
+	ex := googleauth.NewHTTPExchanger("client-id", "client-secret")
+	if ex.ClientID != "client-id" || ex.ClientSecret != "client-secret" {
+		t.Errorf("NewHTTPExchanger no seteó ClientID/ClientSecret correctamente: %+v", ex)
+	}
+	if ex.Client == nil {
+		t.Error("NewHTTPExchanger debería configurar un *http.Client")
+	}
+}
+
 func TestExchange_Exitoso(t *testing.T) {
 	tokenBody, _ := json.Marshal(map[string]string{"access_token": "un-access-token"})
 	userinfoBody, _ := json.Marshal(map[string]any{

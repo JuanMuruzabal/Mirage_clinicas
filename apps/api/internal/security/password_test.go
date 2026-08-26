@@ -83,6 +83,34 @@ func TestVerify_HashConFormatoDesconocidoFalla(t *testing.T) {
 	}
 }
 
+// TestVerify_Argon2ConFormatoMalformado ejercita cada rama de error de
+// verifyArgon2 — un hash con el prefijo correcto pero corrompido en algún
+// campo (menos común que bcrypt legacy, pero puede pasar por corrupción de
+// datos o un bug de encode futuro; nunca debería paniquear, siempre error).
+func TestVerify_Argon2ConFormatoMalformado(t *testing.T) {
+	casos := map[string]string{
+		"muy pocas partes":         "$argon2id$v=19$m=19456,t=2,p=1$",
+		"versión no numérica":      "$argon2id$vNaN$m=19456,t=2,p=1$c2FsdA$aGFzaA",
+		"versión no soportada":     "$argon2id$v=1$m=19456,t=2,p=1$c2FsdA$aGFzaA",
+		"parámetro sin valor":      "$argon2id$v=19$m$c2FsdA$aGFzaA",
+		"parámetro no numérico":    "$argon2id$v=19$m=abc,t=2,p=1$c2FsdA$aGFzaA",
+		"falta un parámetro (p)":   "$argon2id$v=19$m=19456,t=2$c2FsdA$aGFzaA",
+		"salt con base64 inválido": "$argon2id$v=19$m=19456,t=2,p=1$!!!no-es-base64!!!$aGFzaA",
+		"hash con base64 inválido": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$!!!no-es-base64!!!",
+	}
+	for nombre, hash := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			ok, err := security.Verify("cualquier-contraseña", hash)
+			if err == nil {
+				t.Errorf("caso %q: esperaba un error, hash=%q", nombre, hash)
+			}
+			if ok {
+				t.Errorf("caso %q: esperaba false ante un error", nombre)
+			}
+		})
+	}
+}
+
 func TestNewTokenAndHashToken(t *testing.T) {
 	raw1, hash1, err := security.NewToken()
 	if err != nil {

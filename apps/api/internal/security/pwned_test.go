@@ -41,6 +41,16 @@ func TestIsPwnedFailOpen_FailaAbiertoAnteUnErrorDelChecker(t *testing.T) {
 	}
 }
 
+func TestNewHTTPPwnedChecker_ConfiguraUnClienteConTimeout(t *testing.T) {
+	checker := security.NewHTTPPwnedChecker()
+	if checker.Client == nil {
+		t.Fatal("NewHTTPPwnedChecker debería configurar un *http.Client")
+	}
+	if checker.Client.Timeout == 0 {
+		t.Error("el cliente debería tener un timeout configurado, no el default (0 = sin límite)")
+	}
+}
+
 // sha1PrefixSuffix replica el cálculo del protocolo k-anonymity para armar
 // respuestas fake coherentes con lo que HTTPPwnedChecker.IsPwned va a pedir.
 func sha1PrefixSuffix(password string) (prefix, suffix string) {

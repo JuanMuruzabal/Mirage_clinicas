@@ -9,6 +9,16 @@ import (
 	"dental-mirage/api/internal/turnstile"
 )
 
+func TestNewHTTPVerifier_ConfiguraSecretYCliente(t *testing.T) {
+	v := turnstile.NewHTTPVerifier("un-secret")
+	if v.SecretKey != "un-secret" {
+		t.Errorf("NewHTTPVerifier no seteó SecretKey correctamente: %+v", v)
+	}
+	if v.Client == nil {
+		t.Error("NewHTTPVerifier debería configurar un *http.Client")
+	}
+}
+
 func TestVerify_Exitoso(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {

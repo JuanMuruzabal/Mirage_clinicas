@@ -17,6 +17,7 @@ import (
 	"dental-mirage/api/internal/googleauth"
 	"dental-mirage/api/internal/mail"
 	"dental-mirage/api/internal/ratelimit"
+	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/testdb"
 )
 
@@ -294,6 +295,48 @@ func marcarMailVerificadoDePrueba(t *testing.T, gdb *gorm.DB, email string) {
 		t.Fatalf("no se pudo marcar el mail como verificado en el fixture de prueba: %v", err)
 	}
 }
+
+// fakeTurnstileVerifier / fakePwnedChecker — implementaciones de prueba
+// para ejercitar las ramas "CAPTCHA configurado"/"HaveIBeenPwned
+// configurado" de auth.go (con Turnstile/Pwned nil, esas ramas quedan
+// deshabilitadas y no se pueden probar).
+type fakeTurnstileVerifier struct {
+	ok  bool
+	err error
+}
+
+func (f fakeTurnstileVerifier) Verify(context.Context, string, string) (bool, error) {
+	return f.ok, f.err
+}
+
+type fakePwnedChecker struct {
+	pwned bool
+	err   error
+}
+
+func (f fakePwnedChecker) IsPwned(context.Context, string) (bool, error) {
+	return f.pwned, f.err
+}
+
+// newTestRouterWithSecurity arma un router con Turnstile/HaveIBeenPwned
+// "configurados" (fakes) — para ejercitar el rechazo de CAPTCHA inválido y
+// de contraseñas filtradas en register/reset-password (spec §7).
+func newTestRouterWithSecurity(t *testing.T, turnstileOK bool, pwned bool) (http.Handler, *gorm.DB) {
+	t.Helper()
+	gdb := testdb.New(t)
+	deps := AuthDeps{
+		Mail:           mail.LogSender{},
+		Turnstile:      fakeTurnstileVerifier{ok: turnstileOK},
+		Pwned:          fakePwnedChecker{pwned: pwned},
+		AccountLimiter: &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:      ratelimit.NewIPLimiter(),
+		AppBaseURL:     "http://localhost:3000",
+		StateSecret:    "un-secret-de-test",
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb
+}
+
+var _ security.PwnedChecker = fakePwnedChecker{}
 
 // splitNombreApellidoDePrueba replica la heurística de
 // internal/db.MigrateProfesionalesToUsers (primer token = nombre, resto =

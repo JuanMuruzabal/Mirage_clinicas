@@ -11,6 +11,47 @@ import (
 	"dental-mirage/api/internal/testdb"
 )
 
+func TestAccountLimiter_RecordLoginFailure_CuentaFallosConsecutivos(t *testing.T) {
+	gdb := testdb.New(t)
+	limiter := &ratelimit.AccountLimiter{DB: gdb}
+	key := uuid.NewString()
+
+	if count, err := limiter.LoginFailureCount(key); err != nil || count != 0 {
+		t.Fatalf("sin fallos previos: count=%d err=%v, esperaba 0/nil", count, err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		count, err := limiter.RecordLoginFailure(key)
+		if err != nil {
+			t.Fatalf("RecordLoginFailure error inesperado: %v", err)
+		}
+		if count != i {
+			t.Errorf("intento %d: count = %d, esperaba %d", i, count, i)
+		}
+	}
+
+	if count, err := limiter.LoginFailureCount(key); err != nil || count != 3 {
+		t.Errorf("LoginFailureCount = %d, err=%v, esperaba 3", count, err)
+	}
+}
+
+func TestAccountLimiter_ResetLoginFailures_LimpiaElContador(t *testing.T) {
+	gdb := testdb.New(t)
+	limiter := &ratelimit.AccountLimiter{DB: gdb}
+	key := uuid.NewString()
+
+	if _, err := limiter.RecordLoginFailure(key); err != nil {
+		t.Fatalf("RecordLoginFailure error inesperado: %v", err)
+	}
+	if err := limiter.ResetLoginFailures(key); err != nil {
+		t.Fatalf("ResetLoginFailures error inesperado: %v", err)
+	}
+
+	if count, err := limiter.LoginFailureCount(key); err != nil || count != 0 {
+		t.Errorf("tras el reset, count = %d, err=%v, esperaba 0", count, err)
+	}
+}
+
 func TestAccountLimiter_PermiteHastaElMaximoYLuegoBloquea(t *testing.T) {
 	gdb := testdb.New(t)
 	limiter := &ratelimit.AccountLimiter{DB: gdb}
