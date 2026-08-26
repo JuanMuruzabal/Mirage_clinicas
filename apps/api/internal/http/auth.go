@@ -39,14 +39,16 @@ const (
 // donde se registró, no algo pensado para abrir "más tarde".
 const verificationCodeTTL = 15 * time.Minute
 
-// cuentaAbandonadaTTL — umbral de "cuenta nativa sin verificar, dada por
-// abandonada" en register() y meHandler (TR-052 en docs/tradeoffs.md).
-// Deliberadamente más largo que verificationCodeTTL: un código vencido a
-// los 15 minutos no significa que la persona abandonó el registro (puede
-// pedir uno nuevo con "reenviar" y seguir en la misma sesión) — recién a
-// las 24 horas sin verificar se considera abandonada de verdad y se
-// libera el mail para un alta nueva.
-const cuentaAbandonadaTTL = 24 * time.Hour
+// CuentaAbandonadaTTL — umbral de "cuenta nativa sin verificar, dada por
+// abandonada" en meHandler (TR-052 en docs/tradeoffs.md) y en el barrido
+// activo de internal/db.PurgeAuthGarbage (TR-063, wireado desde
+// cmd/api/main.go — de ahí que esté exportada). Deliberadamente más largo
+// que verificationCodeTTL: un código vencido a los 15 minutos no
+// significa que la persona abandonó el registro (puede pedir uno nuevo
+// con "reenviar" y seguir en la misma sesión) — recién a las 24 horas sin
+// verificar se considera abandonada de verdad y se libera el mail para
+// un alta nueva.
+const CuentaAbandonadaTTL = 24 * time.Hour
 
 // mensaje genérico de anti-enumeración (spec §7): registro y reset de
 // password responden lo mismo exista o no la cuenta.

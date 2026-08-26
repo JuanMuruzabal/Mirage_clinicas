@@ -57,7 +57,7 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 		// y se responde exactamente como "no encontrado" — la próxima
 		// pantalla que consulte /me (la siguiente carga de /sumarse) lo
 		// trata como si nunca se hubiera registrado, Paso 1 de cero.
-		if !autoVerifyEmail && user.EmailVerifiedAt == nil && time.Since(user.CreatedAt) > cuentaAbandonadaTTL {
+		if !autoVerifyEmail && user.EmailVerifiedAt == nil && time.Since(user.CreatedAt) > CuentaAbandonadaTTL {
 			_ = gdb.Unscoped().Delete(&user).Error
 			writeError(w, http.StatusNotFound, "usuario no encontrado")
 			return
