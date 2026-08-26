@@ -31,17 +31,26 @@ const (
 	maxPasswordLen = 128
 )
 
-// emailVerificationTTL — vencimiento del token de verificación de mail
-// (spec §7: "24 h verificación"). También se usa como umbral de "cuenta
-// abandonada" en register() (TR-052 en docs/tradeoffs.md): pasado este
-// tiempo, el link que se mandó ya venció de todos modos, así que no tiene
-// sentido seguir "reservando" ese mail para una cuenta que nadie va a
-// terminar de verificar.
-const emailVerificationTTL = 24 * time.Hour
+// verificationCodeTTL — vencimiento del código de 6 dígitos que se manda
+// por mail al registrarse (TR-055 en docs/tradeoffs.md: reemplaza al link
+// de un solo clic, spec §7 original de "24 h verificación"). Bastante más
+// corto que el link que reemplaza — es el criterio estándar para un
+// código que la persona escribe a mano mientras sigue mirando la pantalla
+// donde se registró, no algo pensado para abrir "más tarde".
+const verificationCodeTTL = 15 * time.Minute
+
+// cuentaAbandonadaTTL — umbral de "cuenta nativa sin verificar, dada por
+// abandonada" en register() y meHandler (TR-052 en docs/tradeoffs.md).
+// Deliberadamente más largo que verificationCodeTTL: un código vencido a
+// los 15 minutos no significa que la persona abandonó el registro (puede
+// pedir uno nuevo con "reenviar" y seguir en la misma sesión) — recién a
+// las 24 horas sin verificar se considera abandonada de verdad y se
+// libera el mail para un alta nueva.
+const cuentaAbandonadaTTL = 24 * time.Hour
 
 // mensaje genérico de anti-enumeración (spec §7): registro y reset de
 // password responden lo mismo exista o no la cuenta.
-const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un link de confirmación — revisá tu correo"
+const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un código de confirmación — revisá tu correo"
 const mensajeGenericoRecuperarPassword = "si el mail está registrado, te enviamos las instrucciones"
 
 // mensajeCuentaCreadaAutoVerificada — respuesta cuando AuthDeps.AutoVerifyEmail
@@ -225,7 +234,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		// un update in-place, para no arrastrar datos parciales de un
 		// intento previo.
 		abandonada := existing.EmailVerifiedAt == nil &&
-			(h.deps.AutoVerifyEmail || time.Since(existing.CreatedAt) > emailVerificationTTL)
+			(h.deps.AutoVerifyEmail || time.Since(existing.CreatedAt) > cuentaAbandonadaTTL)
 		if abandonada {
 			if delErr := h.db.Unscoped().Delete(&existing).Error; delErr != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
@@ -274,7 +283,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		if h.deps.AutoVerifyEmail {
 			return nil
 		}
-		return createAndSendVerificationToken(r.Context(), tx, h.deps.Mail, h.deps.AppBaseURL, user)
+		return createAndSendVerificationToken(r.Context(), tx, h.deps.Mail, user)
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -304,7 +313,11 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmmail.Sender, baseURL string, user db.User) error {
+// createAndSendVerificationToken genera el código de 6 dígitos (TR-055 en
+// docs/tradeoffs.md) y lo manda por mail — ya no arma un link, así que no
+// necesita la AppBaseURL que sí siguen usando los mails de reset de
+// password.
+func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmmail.Sender, user db.User) error {
 	// Invalida tokens de verificación previos sin usar antes de emitir uno
 	// nuevo (spec §7).
 	if err := tx.Model(&db.VerificationToken{}).
@@ -313,25 +326,24 @@ func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmm
 		return err
 	}
 
-	rawToken, tokenHash, err := security.NewToken()
+	code, codeHash, err := security.NewNumericCode(6)
 	if err != nil {
 		return err
 	}
 	vt := db.VerificationToken{
 		UserID:    user.ID,
-		TokenHash: tokenHash,
+		TokenHash: codeHash,
 		Type:      db.VerificationTokenEmailVerify,
-		ExpiresAt: time.Now().Add(emailVerificationTTL),
+		ExpiresAt: time.Now().Add(verificationCodeTTL),
 	}
 	if err := tx.Create(&vt).Error; err != nil {
 		return err
 	}
 
-	verifyURL := baseURL + "/verificar-mail?token=" + rawToken
 	if sender != nil {
 		// Un mail que falla nunca tumba el request (spec §6) — se loguea y
 		// se sigue: el usuario siempre puede pedir un reenvío.
-		if err := sender.SendVerificationEmail(ctx, user.Email, verifyURL); err != nil {
+		if err := sender.SendVerificationEmail(ctx, user.Email, code); err != nil {
 			// No hay logger inyectado acá — el error queda silenciado a
 			// propósito por diseño de "nunca tumbar el request"; en un
 			// entorno real esto pasaría por un logger estructurado.
@@ -346,7 +358,7 @@ func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmm
 // register() cuando el mail ya está en uso.
 func (h *authHandler) sendVerificationEmailBestEffort(ctx context.Context, user db.User) {
 	_ = h.db.Transaction(func(tx *gorm.DB) error {
-		return createAndSendVerificationToken(ctx, tx, h.deps.Mail, h.deps.AppBaseURL, user)
+		return createAndSendVerificationToken(ctx, tx, h.deps.Mail, user)
 	})
 }
 
@@ -590,7 +602,8 @@ func (h *authHandler) findOrCreateUserForGoogle(ctx context.Context, info google
 // ---------------------------------------------------------------------
 
 type verificarEmailRequest struct {
-	Token string `json:"token"`
+	Email  string `json:"email"`
+	Codigo string `json:"codigo"`
 }
 
 type verificarEmailResponse struct {
@@ -598,38 +611,58 @@ type verificarEmailResponse struct {
 	OnboardingStep string `json:"onboardingStep"`
 }
 
+// mensajeCodigoInvalido — misma respuesta para "el mail no existe", "el
+// código no corresponde a ese mail" y "el código ya se usó/no existe más"
+// (spec §7, anti-enumeración): nunca hay que poder distinguir cuál de los
+// tres pasó a partir de la respuesta.
+const mensajeCodigoInvalido = "código incorrecto o vencido"
+
 func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 	var req verificarEmailRequest
-	if err := decodeJSON(r, &req); err != nil || req.Token == "" {
+	if err := decodeJSON(r, &req); err != nil || req.Codigo == "" {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
+	email := normalizeEmail(req.Email)
+	codigo := strings.TrimSpace(req.Codigo)
 
 	ip := clientIP(r)
-	if h.deps.IPLimiter != nil && !h.deps.IPLimiter.Allow(db.RateLimitScopeLogin, ip, ratelimit.LimitTokenConfirmPerIP) {
+	if h.deps.IPLimiter != nil && !h.deps.IPLimiter.Allow(db.RateLimitScopeConfirmCode, ip, ratelimit.LimitTokenConfirmPerIP) {
 		writeError(w, http.StatusTooManyRequests, "demasiados intentos, esperá antes de volver a intentar")
 		return
 	}
 
-	tokenHash := security.HashToken(req.Token)
-	var vt db.VerificationToken
-	err := h.db.Where("token_hash = ? AND type = ?", tokenHash, db.VerificationTokenEmailVerify).First(&vt).Error
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "el link de verificación no es válido")
-		return
-	}
-	if vt.UsedAt != nil {
-		writeError(w, http.StatusBadRequest, "este link ya fue usado — pedí uno nuevo si todavía necesitás verificar tu mail")
-		return
-	}
-	if time.Now().After(vt.ExpiresAt) {
-		writeError(w, http.StatusBadRequest, "este link venció — pedí uno nuevo")
+	var user db.User
+	if err := h.db.Where("email = ?", email).First(&user).Error; err != nil {
+		writeError(w, http.StatusBadRequest, mensajeCodigoInvalido)
 		return
 	}
 
-	var user db.User
-	if err := h.db.First(&user, "id = ?", vt.UserID).Error; err != nil {
-		writeError(w, http.StatusBadRequest, "el link de verificación no es válido")
+	// TR-055 en docs/tradeoffs.md: un código de 6 dígitos tiene mucha
+	// menos entropía que el token de 32 bytes anterior — el límite por IP
+	// de arriba no alcanza solo (un atacante puede rotar de IP), así que
+	// se suma un límite por CUENTA a los intentos, sin importar qué código
+	// se pruebe.
+	if h.deps.AccountLimiter != nil {
+		if ok, err := h.deps.AccountLimiter.Allow(db.RateLimitScopeConfirmCode, email, ratelimit.LimitConfirmCodePerAccount); err == nil && !ok {
+			writeError(w, http.StatusTooManyRequests, "demasiados intentos para esta cuenta — pedí un código nuevo")
+			return
+		}
+	}
+
+	codeHash := security.HashToken(codigo)
+	var vt db.VerificationToken
+	err := h.db.Where("user_id = ? AND token_hash = ? AND type = ?", user.ID, codeHash, db.VerificationTokenEmailVerify).First(&vt).Error
+	if err != nil {
+		writeError(w, http.StatusBadRequest, mensajeCodigoInvalido)
+		return
+	}
+	if vt.UsedAt != nil {
+		writeError(w, http.StatusBadRequest, "este código ya fue usado — pedí uno nuevo si todavía necesitás verificar tu mail")
+		return
+	}
+	if time.Now().After(vt.ExpiresAt) {
+		writeError(w, http.StatusBadRequest, "este código venció — pedí uno nuevo")
 		return
 	}
 

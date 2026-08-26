@@ -44,6 +44,15 @@ var (
 	LimitPasswordResetPerIP      = Limit{Max: 10, Window: time.Hour}
 	LimitPasswordResetPerAccount = Limit{Max: 5, Window: time.Hour}
 	LimitTokenConfirmPerIP       = Limit{Max: 30, Window: time.Hour}
+	// LimitConfirmCodePerAccount — TR-055 en docs/tradeoffs.md: un código
+	// de 6 dígitos tiene 10^6 combinaciones, muchísima menos entropía que
+	// el token de 32 bytes que reemplaza — LimitTokenConfirmPerIP (por IP)
+	// no alcanza solo, porque un atacante puede rotar de IP; este límite
+	// por CUENTA acota los intentos de adivinar sin importar desde dónde
+	// vengan. 8 intentos/15min against 1.000.000 de combinaciones es
+	// generoso para un typo humano, imposible de explotar por fuerza
+	// bruta.
+	LimitConfirmCodePerAccount = Limit{Max: 8, Window: 15 * time.Minute}
 )
 
 // scopeLoginFailed cuenta intentos de login fallidos consecutivos por

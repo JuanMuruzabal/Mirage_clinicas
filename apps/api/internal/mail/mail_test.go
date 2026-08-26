@@ -13,7 +13,7 @@ import (
 
 func TestLogSender_NuncaFalla(t *testing.T) {
 	s := mail.LogSender{}
-	if err := s.SendVerificationEmail(context.Background(), "x@example.com", "https://x/verify"); err != nil {
+	if err := s.SendVerificationEmail(context.Background(), "x@example.com", "482913"); err != nil {
 		t.Errorf("LogSender.SendVerificationEmail no debería fallar nunca: %v", err)
 	}
 	if err := s.SendPasswordResetEmail(context.Background(), "x@example.com", "https://x/reset"); err != nil {
@@ -24,7 +24,10 @@ func TestLogSender_NuncaFalla(t *testing.T) {
 	}
 }
 
-func TestResendSender_SendVerificationEmail_MandaElLinkYElFrom(t *testing.T) {
+// TestResendSender_SendVerificationEmail_MandaElCodigoYElFrom — TR-055 en
+// docs/tradeoffs.md: el mail de verificación manda un código de 6 dígitos
+// para escribir a mano, no un link para clickear.
+func TestResendSender_SendVerificationEmail_MandaElCodigoYElFrom(t *testing.T) {
 	var capturedAuth string
 	var capturedBody map[string]any
 
@@ -37,7 +40,7 @@ func TestResendSender_SendVerificationEmail_MandaElLinkYElFrom(t *testing.T) {
 
 	sender := &mail.ResendSender{APIKey: "re_test_key", From: "no-reply@dentalmirage.com.ar", Client: server.Client(), BaseURL: server.URL}
 
-	if err := sender.SendVerificationEmail(context.Background(), "paciente@example.com", "https://dentalmirage.com.ar/verificar-mail?token=abc"); err != nil {
+	if err := sender.SendVerificationEmail(context.Background(), "paciente@example.com", "482913"); err != nil {
 		t.Fatalf("SendVerificationEmail error inesperado: %v", err)
 	}
 
@@ -48,15 +51,15 @@ func TestResendSender_SendVerificationEmail_MandaElLinkYElFrom(t *testing.T) {
 		t.Errorf("from = %v, esperaba el remitente configurado", capturedBody["from"])
 	}
 	html, _ := capturedBody["html"].(string)
-	if !strings.Contains(html, "https://dentalmirage.com.ar/verificar-mail?token=abc") {
-		t.Error("el HTML del mail debería contener el link de verificación")
+	if !strings.Contains(html, "482913") {
+		t.Error("el HTML del mail debería contener el código de verificación")
 	}
 }
 
 func TestResendSender_ErrorDeRedNoTumbaElRequest(t *testing.T) {
 	sender := &mail.ResendSender{APIKey: "x", From: "x@example.com", Client: http.DefaultClient, BaseURL: "http://este-host-no-existe.invalid"}
 
-	err := sender.SendVerificationEmail(context.Background(), "x@example.com", "https://x/verify")
+	err := sender.SendVerificationEmail(context.Background(), "x@example.com", "482913")
 	if err == nil {
 		t.Fatal("esperaba un error cuando la red falla — el caller es quien decide no tumbar el request, no este método")
 	}

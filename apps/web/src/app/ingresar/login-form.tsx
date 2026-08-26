@@ -4,16 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { loginAction, reenviarVerificacionAction } from "@/app/actions/auth";
+import { loginAction } from "@/app/actions/auth";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/auth";
-import {
-  AuthDivider,
-  AuthField,
-  authErrorClass,
-  authInputClass,
-  authSubmitClass,
-  authSuccessClass,
-} from "@/components/auth/auth-shell";
+import { AuthDivider, AuthField, authErrorClass, authInputClass, authSubmitClass } from "@/components/auth/auth-shell";
+import { ConfirmarCodigoForm } from "@/components/auth/confirmar-codigo-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 
 export function LoginForm() {
@@ -26,34 +20,21 @@ export function LoginForm() {
 
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   const [mailNoVerificado, setMailNoVerificado] = useState(false);
-  const [reenviando, setReenviando] = useState(false);
-  const [reenviado, setReenviado] = useState<string | null>(null);
 
   async function onSubmit(values: LoginFormValues) {
     setErrorGlobal(null);
     setMailNoVerificado(false);
-    setReenviado(null);
     const result = await loginAction(values);
     // Si loginAction tuvo éxito, ya redirigió y esta línea no se alcanza.
     if (result && "mensaje" in result) {
       // Estado especial admitido por la spec (§7): credenciales correctas,
-      // mail sin verificar todavía — acción de reenvío en vez de error.
+      // mail sin verificar todavía — TR-055 en docs/tradeoffs.md: se
+      // muestra el mismo formulario de código que en /sumarse, en vez de
+      // solo un botón de reenvío sin forma de terminar de confirmar acá.
       setMailNoVerificado(true);
       return;
     }
     if (result?.error) {
-      setErrorGlobal(result.error);
-    }
-  }
-
-  async function reenviar() {
-    setReenviando(true);
-    const email = getValues("email");
-    const result = await reenviarVerificacionAction(email);
-    setReenviando(false);
-    if ("mensaje" in result) {
-      setReenviado(result.mensaje);
-    } else {
       setErrorGlobal(result.error);
     }
   }
@@ -91,20 +72,9 @@ export function LoginForm() {
         </div>
 
         {mailNoVerificado && (
-          <div className="flex flex-col gap-2 rounded-field border-[0.5px] border-terracota bg-terracota-claro px-4 py-3 text-sm text-terracota-oscuro">
+          <div className="flex flex-col gap-3 rounded-field border-[0.5px] border-terracota bg-terracota-claro px-4 py-4 text-sm text-terracota-oscuro">
             <p>Confirmá tu mail antes de iniciar sesión.</p>
-            {reenviado ? (
-              <p className={authSuccessClass}>{reenviado}</p>
-            ) : (
-              <button
-                type="button"
-                onClick={reenviar}
-                disabled={reenviando}
-                className="self-start font-medium underline hover:no-underline disabled:opacity-60"
-              >
-                {reenviando ? "Reenviando…" : "Reenviar mail de confirmación"}
-              </button>
-            )}
+            <ConfirmarCodigoForm email={getValues("email")} />
           </div>
         )}
         {errorGlobal && (

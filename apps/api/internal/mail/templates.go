@@ -16,16 +16,16 @@ var (
 	welcomeTpl       = template.Must(template.ParseFS(templatesFS, "templates/welcome.html"))
 )
 
-type verificationData struct{ VerifyURL string }
+type verificationData struct{ Code string }
 type passwordResetData struct{ ResetURL string }
 type welcomeData struct{ Nombre string }
 
-func renderVerificationEmail(verifyURL string) (subject, html string, err error) {
+func renderVerificationEmail(code string) (subject, html string, err error) {
 	var buf bytes.Buffer
-	if err := verificationTpl.Execute(&buf, verificationData{VerifyURL: verifyURL}); err != nil {
+	if err := verificationTpl.Execute(&buf, verificationData{Code: code}); err != nil {
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de verificación: %w", err)
 	}
-	return "Confirmá tu cuenta de Dental Mirage", buf.String(), nil
+	return "Tu código de confirmación de Dental Mirage", buf.String(), nil
 }
 
 func renderPasswordResetEmail(resetURL string) (subject, html string, err error) {

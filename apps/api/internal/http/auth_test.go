@@ -35,8 +35,8 @@ func TestRegister_Exitoso(t *testing.T) {
 	if resp.Token == nil || *resp.Token == "" {
 		t.Error("esperaba un token no vacío")
 	}
-	if sender.tokenFromLastVerifyURL("maria@example.com") == "" {
-		t.Error("esperaba que se mandara un mail de verificación con un token")
+	if sender.codigoDeLaUltimaVerificacion("maria@example.com") == "" {
+		t.Error("esperaba que se mandara un mail de verificación con un código")
 	}
 }
 
@@ -441,12 +441,12 @@ func TestVerificarEmail_Exitoso(t *testing.T) {
 	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
 		Email: "verificar@example.com", Password: "password123456", AceptaTerminos: true,
 	})
-	token := sender.tokenFromLastVerifyURL("verificar@example.com")
-	if token == "" {
-		t.Fatal("no se capturó el token de verificación")
+	codigo := sender.codigoDeLaUltimaVerificacion("verificar@example.com")
+	if codigo == "" {
+		t.Fatal("no se capturó el código de verificación")
 	}
 
-	rec := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Token: token})
+	rec := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "verificar@example.com", Codigo: codigo})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -467,24 +467,45 @@ func TestVerificarEmail_UsadoDosVecesFallaLaSegunda(t *testing.T) {
 	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
 		Email: "usadodosveces@example.com", Password: "password123456", AceptaTerminos: true,
 	})
-	token := sender.tokenFromLastVerifyURL("usadodosveces@example.com")
+	codigo := sender.codigoDeLaUltimaVerificacion("usadodosveces@example.com")
 
-	primera := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Token: token})
+	primera := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "usadodosveces@example.com", Codigo: codigo})
 	if primera.Code != http.StatusOK {
 		t.Fatalf("primera verificación falló: status=%d body=%s", primera.Code, primera.Body.String())
 	}
-	segunda := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Token: token})
+	segunda := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "usadodosveces@example.com", Codigo: codigo})
 	if segunda.Code != http.StatusBadRequest {
 		t.Errorf("segunda verificación: status = %d, esperaba %d", segunda.Code, http.StatusBadRequest)
 	}
 }
 
-func TestVerificarEmail_TokenInvalido(t *testing.T) {
+func TestVerificarEmail_CodigoInvalido(t *testing.T) {
 	router, _, _ := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "codigoinvalido@example.com", Password: "password123456", AceptaTerminos: true,
+	})
 
-	rec := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Token: "no-existe"})
+	rec := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "codigoinvalido@example.com", Codigo: "000000"})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestVerificarEmail_MailInexistenteMismaRespuesta — anti-enumeración
+// (spec §7): no debe poder distinguirse "el mail no existe" de "el código
+// está mal" a partir de la respuesta.
+func TestVerificarEmail_MailInexistenteMismaRespuesta(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "mailexiste@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+
+	recCodigoMalo := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "mailexiste@example.com", Codigo: "000000"})
+	recMailInexistente := doJSON(t, router, http.MethodPost, "/auth/verificar-email", verificarEmailRequest{Email: "no-existe@example.com", Codigo: "000000"})
+
+	if recCodigoMalo.Code != recMailInexistente.Code || recCodigoMalo.Body.String() != recMailInexistente.Body.String() {
+		t.Errorf("respuestas distintas: %d/%q vs %d/%q — filtra si el mail existe",
+			recCodigoMalo.Code, recCodigoMalo.Body.String(), recMailInexistente.Code, recMailInexistente.Body.String())
 	}
 }
 
@@ -500,8 +521,8 @@ func TestVerificarEmail_RotaLaSesion(t *testing.T) {
 	_ = json.Unmarshal(regRec.Body.Bytes(), &reg)
 	sessionVieja := *reg.Token
 
-	token := sender.tokenFromLastVerifyURL("rotasesion@example.com")
-	verifyReq := httptest.NewRequest(http.MethodPost, "/auth/verificar-email", strings.NewReader(`{"token":"`+token+`"}`))
+	codigo := sender.codigoDeLaUltimaVerificacion("rotasesion@example.com")
+	verifyReq := httptest.NewRequest(http.MethodPost, "/auth/verificar-email", strings.NewReader(`{"email":"rotasesion@example.com","codigo":"`+codigo+`"}`))
 	verifyReq.Header.Set("Content-Type", "application/json")
 	verifyReq.Header.Set("Authorization", "Bearer "+sessionVieja)
 	verifyRec := httptest.NewRecorder()

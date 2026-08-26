@@ -107,8 +107,12 @@ export interface GoogleResponse {
   onboardingStep: OnboardingStep;
 }
 
+// TR-055 en docs/tradeoffs.md: código de 6 dígitos que se escribe a mano,
+// no un token de link — hace falta el mail para saber contra qué cuenta
+// validarlo (el código en sí no es único globalmente).
 export interface VerificarEmailPayload {
-  token: string;
+  email: string;
+  codigo: string;
 }
 
 export interface VerificarEmailResponse {

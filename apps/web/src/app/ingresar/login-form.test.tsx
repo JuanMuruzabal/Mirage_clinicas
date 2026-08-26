@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { loginActionMock, reenviarVerificacionActionMock } = vi.hoisted(() => ({
+const { loginActionMock, reenviarVerificacionActionMock, verificarEmailActionMock } = vi.hoisted(() => ({
   loginActionMock: vi.fn(),
   reenviarVerificacionActionMock: vi.fn(),
+  verificarEmailActionMock: vi.fn(),
 }));
 vi.mock("@/app/actions/auth", () => ({
   loginAction: loginActionMock,
   reenviarVerificacionAction: reenviarVerificacionActionMock,
+  verificarEmailAction: verificarEmailActionMock,
 }));
 
 const { LoginForm } = await import("./login-form");
@@ -51,7 +53,7 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Contraseña"), "password123");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
 
-    expect(await screen.findByRole("button", { name: /Reenviar mail/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Reenviar código/ })).toBeInTheDocument();
   });
 
   it("el botón de reenvío llama a reenviarVerificacionAction con el email tipeado", async () => {
@@ -63,7 +65,7 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Email"), "sinverificar@example.com");
     await user.type(screen.getByLabelText("Contraseña"), "password123");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
-    await user.click(await screen.findByRole("button", { name: /Reenviar mail/ }));
+    await user.click(await screen.findByRole("button", { name: /Reenviar código/ }));
 
     expect(reenviarVerificacionActionMock).toHaveBeenCalledWith("sinverificar@example.com");
     expect(await screen.findByText("te reenviamos el link")).toBeInTheDocument();

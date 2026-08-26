@@ -21,19 +21,24 @@ import (
 
 // Sender es la interfaz que consume internal/http/auth.go y onboarding.go
 // — nunca llaman directo a Resend ni a ningún proveedor.
+//
+// SendVerificationEmail manda un CÓDIGO de 6 dígitos, no un link (pedido
+// explícito del cliente, 2026-08-26, TR-055 en docs/tradeoffs.md — antes
+// era un link a /verificar-mail?token=...). El resto de los mails no
+// cambió.
 type Sender interface {
-	SendVerificationEmail(ctx context.Context, to, verifyURL string) error
+	SendVerificationEmail(ctx context.Context, to, code string) error
 	SendPasswordResetEmail(ctx context.Context, to, resetURL string) error
 	SendWelcomeEmail(ctx context.Context, to, nombre string) error
 }
 
 // LogSender es la implementación de desarrollo: no manda nada de verdad,
-// solo loguea el link — así se puede probar el flujo completo de
+// solo loguea el código/link — así se puede probar el flujo completo de
 // verificación/reset localmente sin depender de una cuenta de Resend real.
 type LogSender struct{}
 
-func (LogSender) SendVerificationEmail(_ context.Context, to, verifyURL string) error {
-	log.Printf("[mail:dev] verificación de cuenta para %s: %s", to, verifyURL)
+func (LogSender) SendVerificationEmail(_ context.Context, to, code string) error {
+	log.Printf("[mail:dev] código de verificación para %s: %s", to, code)
 	return nil
 }
 
@@ -101,8 +106,8 @@ func (s *ResendSender) send(ctx context.Context, to, subject, html string) error
 	return nil
 }
 
-func (s *ResendSender) SendVerificationEmail(ctx context.Context, to, verifyURL string) error {
-	subject, html, err := renderVerificationEmail(verifyURL)
+func (s *ResendSender) SendVerificationEmail(ctx context.Context, to, code string) error {
+	subject, html, err := renderVerificationEmail(code)
 	if err != nil {
 		return err
 	}

@@ -3,19 +3,26 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Me } from "@dental-mirage/shared-types";
 
-const { registerActionMock, onboardingPerfilActionMock, onboardingClinicaActionMock, reenviarVerificacionActionMock } =
-  vi.hoisted(() => ({
-    registerActionMock: vi.fn(),
-    onboardingPerfilActionMock: vi.fn(),
-    onboardingClinicaActionMock: vi.fn(),
-    reenviarVerificacionActionMock: vi.fn(),
-  }));
+const {
+  registerActionMock,
+  onboardingPerfilActionMock,
+  onboardingClinicaActionMock,
+  reenviarVerificacionActionMock,
+  verificarEmailActionMock,
+} = vi.hoisted(() => ({
+  registerActionMock: vi.fn(),
+  onboardingPerfilActionMock: vi.fn(),
+  onboardingClinicaActionMock: vi.fn(),
+  reenviarVerificacionActionMock: vi.fn(),
+  verificarEmailActionMock: vi.fn(),
+}));
 
 vi.mock("@/app/actions/auth", () => ({
   registerAction: registerActionMock,
   onboardingPerfilAction: onboardingPerfilActionMock,
   onboardingClinicaAction: onboardingClinicaActionMock,
   reenviarVerificacionAction: reenviarVerificacionActionMock,
+  verificarEmailAction: verificarEmailActionMock,
 }));
 
 const { SumarseWizard } = await import("./sumarse-wizard");
@@ -93,7 +100,7 @@ describe("SumarseWizard", () => {
   it("con me.onboardingStep='cuenta' y mail sin verificar, muestra 'Revisá tu correo' con el mail de la sesión", () => {
     render(<SumarseWizard me={meCuentaSinVerificar} especialidades={especialidades} />);
     expect(screen.getByText(/maria@example.com/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Reenviar mail/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reenviar código/ })).toBeInTheDocument();
   });
 
   it("con me.onboardingStep='perfil', muestra el Paso 2 y llama a onboardingPerfilAction", async () => {

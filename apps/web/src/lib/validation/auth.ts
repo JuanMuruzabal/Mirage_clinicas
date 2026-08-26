@@ -53,6 +53,21 @@ export const recuperarPasswordSchema = z.object({
 });
 export type RecuperarPasswordFormValues = z.infer<typeof recuperarPasswordSchema>;
 
+// verificarEmailSchema — TR-055 en docs/tradeoffs.md: código de 6 dígitos
+// que se escribe a mano (antes era un token de link, sin validación de
+// forma acá porque cualquier string era válido). El backend sigue siendo
+// la fuente de verdad final (compara contra el hash guardado), esto es
+// solo feedback inmediato ante un typo obvio (letras, longitud distinta).
+export const verificarEmailSchema = z.object({
+  email: emailSchema,
+  codigo: z
+    .string()
+    .trim()
+    .length(6, "El código tiene 6 dígitos.")
+    .regex(/^\d+$/, "El código es solo números."),
+});
+export type VerificarEmailFormValues = z.infer<typeof verificarEmailSchema>;
+
 export const resetPasswordSchema = z
   .object({
     token: z.string().min(1),

@@ -137,3 +137,51 @@ func TestNewTokenAndHashToken(t *testing.T) {
 		t.Error("ConstantTimeEquals no debería confirmar la igualdad de dos hashes distintos")
 	}
 }
+
+func TestNewNumericCode_SeisCifrasConCerosALaIzquierda(t *testing.T) {
+	// Generar muchos códigos y confirmar el formato en cada uno — la forma
+	// más directa de ejercitar el caso "el número random salió chico"
+	// (ej. 42) sin depender de mockear crypto/rand: con suficientes
+	// muestras, tarde o temprano sale un código con cero a la izquierda.
+	vistoConCeroALaIzquierda := false
+	for range 500 {
+		code, hash, err := security.NewNumericCode(6)
+		if err != nil {
+			t.Fatalf("NewNumericCode error inesperado: %v", err)
+		}
+		if len(code) != 6 {
+			t.Fatalf("code = %q, esperaba 6 caracteres", code)
+		}
+		for _, r := range code {
+			if r < '0' || r > '9' {
+				t.Fatalf("code = %q, esperaba solo dígitos", code)
+			}
+		}
+		if hash != security.HashToken(code) {
+			t.Error("el hash devuelto debería coincidir con HashToken(code)")
+		}
+		if code[0] == '0' {
+			vistoConCeroALaIzquierda = true
+		}
+	}
+	if !vistoConCeroALaIzquierda {
+		t.Error("en 500 códigos, esperaba ver al menos uno con cero a la izquierda (¿se está truncando el padding?)")
+	}
+}
+
+func TestNewNumericCode_DosCodigosNoDeberianCoincidir(t *testing.T) {
+	code1, _, err := security.NewNumericCode(6)
+	if err != nil {
+		t.Fatalf("NewNumericCode error inesperado: %v", err)
+	}
+	code2, _, err := security.NewNumericCode(6)
+	if err != nil {
+		t.Fatalf("NewNumericCode error inesperado: %v", err)
+	}
+	// No es matemáticamente imposible que coincidan (1 en 1.000.000), pero
+	// sí astronómicamente improbable en un test — una colisión acá
+	// indicaría un bug real (ej. rand.Reader mal sembrado), no mala suerte.
+	if code1 == code2 {
+		t.Error("dos códigos generados coincidieron — revisar la fuente de aleatoriedad")
+	}
+}

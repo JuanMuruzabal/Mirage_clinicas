@@ -23,6 +23,7 @@ import type {
   OnboardingPerfilPayload,
   RecuperarPasswordPayload,
   RegisterPayload,
+  VerificarEmailPayload,
 } from "@dental-mirage/shared-types";
 import { clearSessionCookie, getSessionToken, setSessionCookie } from "@/lib/session";
 import {
@@ -32,6 +33,7 @@ import {
   recuperarPasswordSchema,
   registerSchema,
   resetPasswordSchema,
+  verificarEmailSchema,
 } from "@/lib/validation/auth";
 
 export interface ActionResult {
@@ -122,13 +124,19 @@ export async function googleStateAction(): Promise<{ state: string } | ActionRes
   return { state: result.data.state };
 }
 
-// verificarEmailAction — decisión ya confirmada: el link abre una página
-// con un botón, el clic dispara esta acción (POST), nunca se verifica
-// automáticamente al cargar el GET (evita que un escáner de seguridad de
-// email queme el token de un solo uso).
-export async function verificarEmailAction(token: string): Promise<ActionResult | undefined> {
+// verificarEmailAction — TR-055 en docs/tradeoffs.md: valida el código de
+// 6 dígitos que llegó por mail (antes era un link con un botón — el
+// código se escribe a mano en la misma pantalla, no hace falta la
+// protección contra escáneres de seguridad de email que sí justificaba el
+// botón: un escáner no puede "clickear" un input de texto).
+export async function verificarEmailAction(payload: VerificarEmailPayload): Promise<ActionResult | undefined> {
+  const parsed = verificarEmailSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Código inválido." };
+  }
+
   const sesionActual = await getSessionToken();
-  const result = await apiVerificarEmail({ token }, sesionActual);
+  const result = await apiVerificarEmail(parsed.data, sesionActual);
   if (!result.ok) {
     return { error: result.error };
   }

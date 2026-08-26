@@ -185,23 +185,23 @@ func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
 // ---------------------------------------------------------------------
 
 // capturingMailSender es un mail.Sender de prueba que retiene el último
-// link enviado por destinatario — así los tests pueden extraer el token
-// real y ejercitar el flujo de verificación/reset de punta a punta sin
-// mockear internal/security.
+// código/link enviado por destinatario — así los tests pueden extraer el
+// valor real y ejercitar el flujo de verificación/reset de punta a punta
+// sin mockear internal/security.
 type capturingMailSender struct {
-	mu         sync.Mutex
-	verifyURLs map[string]string
-	resetURLs  map[string]string
+	mu           sync.Mutex
+	verifyCodes  map[string]string
+	resetURLs    map[string]string
 }
 
 func newCapturingMailSender() *capturingMailSender {
-	return &capturingMailSender{verifyURLs: map[string]string{}, resetURLs: map[string]string{}}
+	return &capturingMailSender{verifyCodes: map[string]string{}, resetURLs: map[string]string{}}
 }
 
-func (c *capturingMailSender) SendVerificationEmail(_ context.Context, to, verifyURL string) error {
+func (c *capturingMailSender) SendVerificationEmail(_ context.Context, to, code string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.verifyURLs[to] = verifyURL
+	c.verifyCodes[to] = code
 	return nil
 }
 
@@ -214,10 +214,13 @@ func (c *capturingMailSender) SendPasswordResetEmail(_ context.Context, to, rese
 
 func (c *capturingMailSender) SendWelcomeEmail(_ context.Context, _, _ string) error { return nil }
 
-func (c *capturingMailSender) tokenFromLastVerifyURL(email string) string {
+// codigoDeLaUltimaVerificacion — TR-055 en docs/tradeoffs.md: el mail de
+// verificación manda un código de 6 dígitos directo, ya no un link del
+// que haya que extraer un ?token=.
+func (c *capturingMailSender) codigoDeLaUltimaVerificacion(email string) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return tokenFromURL(c.verifyURLs[email])
+	return c.verifyCodes[email]
 }
 
 func (c *capturingMailSender) tokenFromLastResetURL(email string) string {

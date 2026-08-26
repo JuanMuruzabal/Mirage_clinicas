@@ -247,6 +247,13 @@ const (
 	RateLimitScopeRegister      = "register"
 	RateLimitScopeResendVerify  = "resend_verify"
 	RateLimitScopePasswordReset = "password_reset"
+	// RateLimitScopeConfirmCode — intentos de POST /auth/verificar-email
+	// (TR-055 en docs/tradeoffs.md). Antes ese endpoint compartía el scope
+	// "login" para su límite por IP, algo que quedó de una copia sin
+	// ajustar — con un código de 6 dígitos (mucha menos entropía que el
+	// token de 32 bytes anterior) hace falta su propio scope, con límite
+	// por CUENTA además del de IP.
+	RateLimitScopeConfirmCode = "confirm_code"
 )
 
 // AuditEvent registra eventos sensibles (spec §7: login, login fallido,

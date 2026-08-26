@@ -196,19 +196,29 @@ describe("googleLoginAction / googleStateAction", () => {
 });
 
 describe("verificarEmailAction", () => {
+  it("valida con zod antes de llamar a la API — código de menos de 6 dígitos nunca llega al backend", async () => {
+    const result = await verificarEmailAction({ email: "maria@example.com", codigo: "123" });
+    expect(result).toEqual({ error: expect.stringContaining("6 dígitos") });
+    expect(apiVerificarEmailMock).not.toHaveBeenCalled();
+  });
+
   it("guarda la cookie nueva y redirige a /sumarse", async () => {
     getSessionTokenMock.mockResolvedValue(undefined);
     apiVerificarEmailMock.mockResolvedValue({ ok: true, data: { token: "sesion-2", onboardingStep: "perfil" } });
 
-    await expect(verificarEmailAction("token-de-mail")).rejects.toThrow("NEXT_REDIRECT:/sumarse");
+    await expect(verificarEmailAction({ email: "maria@example.com", codigo: "482913" })).rejects.toThrow(
+      "NEXT_REDIRECT:/sumarse",
+    );
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-2");
   });
 
   it("en error, devuelve el mensaje", async () => {
     getSessionTokenMock.mockResolvedValue(undefined);
-    apiVerificarEmailMock.mockResolvedValue({ ok: false, status: 400, error: "el link venció" });
+    apiVerificarEmailMock.mockResolvedValue({ ok: false, status: 400, error: "código incorrecto o vencido" });
 
-    await expect(verificarEmailAction("token-vencido")).resolves.toEqual({ error: "el link venció" });
+    await expect(verificarEmailAction({ email: "maria@example.com", codigo: "000000" })).resolves.toEqual({
+      error: "código incorrecto o vencido",
+    });
   });
 });
 

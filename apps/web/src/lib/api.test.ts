@@ -315,7 +315,7 @@ describe("lib/api", () => {
     expect(fetchSpy.mock.calls[0][0]).toContain("/auth/google/state");
   });
 
-  it("apiVerificarEmail manda el token en el body y el Authorization si se pasa uno", async () => {
+  it("apiVerificarEmail manda el email y el código en el body y el Authorization si se pasa uno", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -323,11 +323,11 @@ describe("lib/api", () => {
     } as Response);
     vi.stubGlobal("fetch", fetchSpy);
 
-    await apiVerificarEmail({ token: "abc" }, "sesion-vieja");
+    await apiVerificarEmail({ email: "maria@example.com", codigo: "482913" }, "sesion-vieja");
 
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toContain("/auth/verificar-email");
-    expect(JSON.parse(init?.body as string)).toEqual({ token: "abc" });
+    expect(JSON.parse(init?.body as string)).toEqual({ email: "maria@example.com", codigo: "482913" });
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer sesion-vieja");
   });
 
