@@ -31,6 +31,14 @@ const (
 	maxPasswordLen = 128
 )
 
+// emailVerificationTTL — vencimiento del token de verificación de mail
+// (spec §7: "24 h verificación"). También se usa como umbral de "cuenta
+// abandonada" en register() (TR-052 en docs/tradeoffs.md): pasado este
+// tiempo, el link que se mandó ya venció de todos modos, así que no tiene
+// sentido seguir "reservando" ese mail para una cuenta que nadie va a
+// terminar de verificar.
+const emailVerificationTTL = 24 * time.Hour
+
 // mensaje genérico de anti-enumeración (spec §7): registro y reset de
 // password responden lo mismo exista o no la cuenta.
 const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un link de confirmación — revisá tu correo"
@@ -206,12 +214,33 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	var existing db.User
 	err := h.db.Where("email = ?", email).First(&existing).Error
 	if err == nil {
-		// Cuenta ya existente — nunca se lo decimos al caller (spec §7).
-		if existing.EmailVerifiedAt == nil {
-			h.sendVerificationEmailBestEffort(r.Context(), existing)
+		// Cuenta abandonada sin verificar (TR-052 en docs/tradeoffs.md):
+		// con AutoVerifyEmail activo no hay verificación real que esperar,
+		// así que se resuelve ya mismo; sin ese modo, se espera a que el
+		// último link de verificación haya vencido de todos modos antes
+		// de liberar el mail — evita que alguien que perdió la conexión
+		// en este paso (o nunca llegó a abrir el mail) deje su cuenta
+		// ocupando el mail para siempre sin forma de reintentar. Se borra
+		// de verdad (Unscoped) y se cae al alta normal de más abajo — no
+		// un update in-place, para no arrastrar datos parciales de un
+		// intento previo.
+		abandonada := existing.EmailVerifiedAt == nil &&
+			(h.deps.AutoVerifyEmail || time.Since(existing.CreatedAt) > emailVerificationTTL)
+		if abandonada {
+			if delErr := h.db.Unscoped().Delete(&existing).Error; delErr != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
+				return
+			}
+			err = gorm.ErrRecordNotFound // cae al alta normal de abajo, como si nunca hubiera existido
+		} else {
+			// Cuenta ya existente y todavía dentro de su ventana de
+			// verificación — nunca se lo decimos al caller (spec §7).
+			if existing.EmailVerifiedAt == nil {
+				h.sendVerificationEmailBestEffort(r.Context(), existing)
+			}
+			writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
+			return
 		}
-		writeJSON(w, http.StatusCreated, registerResponse{Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
-		return
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(w, http.StatusInternalServerError, "no se pudo crear la cuenta")
@@ -292,7 +321,7 @@ func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmm
 		UserID:    user.ID,
 		TokenHash: tokenHash,
 		Type:      db.VerificationTokenEmailVerify,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
+		ExpiresAt: time.Now().Add(emailVerificationTTL),
 	}
 	if err := tx.Create(&vt).Error; err != nil {
 		return err

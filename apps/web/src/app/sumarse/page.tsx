@@ -19,7 +19,7 @@ export default async function SumarsePage() {
   await redirectSiOnboardingCompleto(me);
 
   return (
-    <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
+    <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16">
       <SumarseWizard me={me} especialidades={especialidades} />
     </main>
   );

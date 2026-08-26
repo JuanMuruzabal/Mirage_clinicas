@@ -41,7 +41,7 @@ describe("SiteHeader", () => {
 
   it("con sesión válida, muestra Tu perfil y el logo lleva a /seleccionar-servicio", async () => {
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -55,7 +55,7 @@ describe("SiteHeader", () => {
 
   it("con sesión, 'Cerrar sesión' NO está en el header — vive solo en /perfil (pedido explícito)", async () => {
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -65,7 +65,7 @@ describe("SiteHeader", () => {
   it("con sesión y en /seleccionar-servicio, muestra 'Volver al inicio' detrás del wordmark, hacia la home pública (pedido explícito: 'solo volver al inicio se vera de /seleccionar-servicio')", async () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -75,7 +75,7 @@ describe("SiteHeader", () => {
   it("en /seleccionar-servicio, el orden es 'Volver al inicio' → 'Dental Mirage' → Gestionar/Editar/Tu perfil agrupados a la derecha (layout confirmado por el cliente)", async () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     const { container } = render(await SiteHeader());
     const header = container.querySelector("header")!;
@@ -95,7 +95,7 @@ describe("SiteHeader", () => {
   it("con sesión pero fuera de /seleccionar-servicio, no muestra 'Volver al inicio'", async () => {
     usePathnameMock.mockReturnValue("/panel");
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -124,7 +124,7 @@ describe("SiteHeader", () => {
 
   it("con sesión, oculta los accesos directos (son para un visitante sin cuenta, pedido explícito)", async () => {
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -134,7 +134,7 @@ describe("SiteHeader", () => {
 
   it("con sesión, muestra 'Gestionar tu clínica' y 'Editar tu página' hacia sus respectivas áreas (pedido explícito)", async () => {
     fakeCookieStore("un-jwt");
-    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María" } });
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", nombre: "María", onboardingCompletado: true } });
 
     render(await SiteHeader());
 
@@ -163,6 +163,25 @@ describe("SiteHeader", () => {
     fakeCookieStore(undefined);
     const { container } = render(await SiteHeader());
     expect(container.querySelector("header")).toHaveClass("fixed", "top-0");
+  });
+
+  // Bug real reportado por el cliente (2026-08-26): con una cuenta a
+  // medio sumar (mail sin confirmar, o perfil/clínica sin terminar), el
+  // header mostraba "Gestionar tu clínica"/"Editar tu página"/"Tu perfil"
+  // como si la cuenta ya estuviera lista — esos links redirigen de vuelta
+  // a /sumarse (requireOnboardingComplete), no llevan a nada usable.
+  it("con sesión pero onboarding incompleto, se comporta como sin sesión (Ingresar/Sumate, no Gestionar/Editar/Tu perfil)", async () => {
+    fakeCookieStore("un-token");
+    apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", email: "a@example.com", onboardingCompletado: false } });
+
+    render(await SiteHeader());
+
+    expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Gestionar tu clínica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Editar tu página" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Tu perfil" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dental Mirage" })).toHaveAttribute("href", "/");
   });
 
   it("con token vencido (apiMe falla), se comporta como sin sesión", async () => {

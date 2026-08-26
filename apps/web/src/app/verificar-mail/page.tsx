@@ -12,7 +12,7 @@ export default async function VerificarMailPage({ searchParams }: VerificarMailP
   const { token } = await searchParams;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16">
       <AuthShell
         title="Confirmá tu cuenta"
         subtitle={token ? "Un último paso antes de seguir con tu alta." : undefined}

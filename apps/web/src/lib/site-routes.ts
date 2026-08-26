@@ -48,6 +48,24 @@ export function isFooterHidden(pathname: string): boolean {
 }
 
 /**
+ * Rutas del flujo de autenticación (sumarse/ingresar/recuperar-password/
+ * verificar-mail) — bug real reportado por el cliente, 2026-08-26: el
+ * header global (con "Ingresar"/"Sumate", o peor, "Gestionar tu clínica"/
+ * "Editar tu página"/"Tu perfil" si ya había una sesión a medio onboarding)
+ * no tiene sentido en estas pantallas — son la puerta de entrada, no
+ * páginas del sitio a navegar. `AuthShell` (components/auth/auth-shell.tsx)
+ * ya trae su propio link "Volver al inicio", mismo criterio que
+ * AuthShell de Marcuzzi_Madryn. NO incluye `/panel`, `/perfil`,
+ * `/personalizar-pagina`, `/seleccionar-servicio` — esas SÍ siguen
+ * mostrando el header global (con sesión ya completa).
+ */
+const AUTH_FLOW_ROUTE_PREFIXES = ["/sumarse", "/ingresar", "/recuperar-password", "/verificar-mail"];
+
+export function isAuthFlowRoute(pathname: string): boolean {
+  return AUTH_FLOW_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+/**
  * La página pública de una clínica (`/{slug}`, spec §5) — pedido explícito
  * del cliente, 2026-08-23: "debería dejar de verse el header de la página
  * principal de mirage y ver el de la página del profesional... se abrirá

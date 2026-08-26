@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -33,7 +34,7 @@ type clinicaMeResponse struct {
 	Rol    string `json:"rol"`
 }
 
-func meHandler(gdb *gorm.DB) http.HandlerFunc {
+func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := userIDFromRequest(w, r)
 		if !ok {
@@ -44,6 +45,42 @@ func meHandler(gdb *gorm.DB) http.HandlerFunc {
 		if err := gdb.First(&user, "id = ?", userID).Error; err != nil {
 			writeError(w, http.StatusNotFound, "usuario no encontrado")
 			return
+		}
+
+		// TR-052 en docs/tradeoffs.md: cuenta abandonada sin verificar más
+		// allá del TTL del link (24h) — sin esto, alguien que vuelve
+		// después de un tiempo se queda mirando "revisá tu correo" para
+		// siempre, aunque ese link ya haya vencido y nunca vaya a llegar
+		// otro (register() solo revisa esto cuando alguien intenta
+		// registrarse de nuevo con el mismo mail, no cuando simplemente
+		// vuelve a abrir la app con la sesión que ya tenía). Se borra acá
+		// y se responde exactamente como "no encontrado" — la próxima
+		// pantalla que consulte /me (la siguiente carga de /sumarse) lo
+		// trata como si nunca se hubiera registrado, Paso 1 de cero.
+		if !autoVerifyEmail && user.EmailVerifiedAt == nil && time.Since(user.CreatedAt) > emailVerificationTTL {
+			_ = gdb.Unscoped().Delete(&user).Error
+			writeError(w, http.StatusNotFound, "usuario no encontrado")
+			return
+		}
+
+		// TR-052 en docs/tradeoffs.md: si AutoVerifyEmail está activo
+		// (Resend sin configurar) y esta cuenta quedó creada ANTES de que
+		// existiera ese modo — o de un registro que no llegó a pasar por
+		// register() con el flag ya activo —, no se queda soft-lockeada
+		// esperando un mail que nunca va a llegar: se verifica acá mismo,
+		// de forma perezosa, en el primer GET /me autenticado.
+		if autoVerifyEmail && user.EmailVerifiedAt == nil {
+			now := time.Now()
+			updates := map[string]any{"email_verified_at": now}
+			if user.OnboardingStep == db.OnboardingStepCuenta {
+				updates["onboarding_step"] = db.OnboardingStepPerfil
+			}
+			if err := gdb.Model(&user).Updates(updates).Error; err == nil {
+				user.EmailVerifiedAt = &now
+				if step, ok := updates["onboarding_step"]; ok {
+					user.OnboardingStep = step.(string)
+				}
+			}
 		}
 
 		resp := meResponse{

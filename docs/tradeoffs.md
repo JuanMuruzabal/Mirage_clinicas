@@ -614,6 +614,27 @@
 - **Qué se sacrifica:** mientras este modo esté activo, cualquiera puede crear una cuenta con un mail que no controla y usarla de entrada — el mismo costo de seguridad que ya se acepta con Google (que tampoco reconfirma el mail del lado de Dental Mirage). Aceptable en esta etapa (sin usuarios reales todavía) exactamente porque es indistinguible en el código de lo que ya pasa con Google.
 - **Reversibilidad:** Total y automática — no es un cambio de código lo que lo revierte, es cargar `RESEND_API_KEY` en el dashboard de Render.
 
+## TR-052: Cuentas abandonadas sin verificar — se borran, no quedan "reservando" el mail para siempre
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (pedido explícito del cliente, con seguimiento propio: "el manejo de cuentas sin verificar... se debería eliminar de la base de datos y rehacer el proceso" + "¿si vuelvo después de un tiempo y no hay cuenta que confirmar, me tira automáticamente al paso anterior?")
+- **Decisión, dos puntos de entrada complementarios** (ambos con el mismo umbral: `emailVerificationTTL`, 24h, el mismo TTL del link de verificación):
+  1. **`register()`** (`internal/http/auth.go`): si alguien intenta registrarse con un mail que ya existe pero sigue sin verificar y su cuenta pasó el TTL (o `AutoVerifyEmail` está activo, sin esperar TTL — TR-051, no hay verificación real que esperar en ese modo), la cuenta vieja se borra (`Unscoped().Delete`, no soft-delete — el índice único de `email` no excluye soft-deleted, así que un soft-delete dejaría el mail inutilizable igual) y el request cae al alta normal, como si nunca hubiera existido.
+  2. **`meHandler()`** (`internal/http/me.go`): cubre el caso que (1) NO alcanza — alguien que simplemente vuelve a abrir la app con la sesión que ya tenía, sin volver a pasar por el formulario de registro. Sin `AutoVerifyEmail`, si la cuenta del propio caller está sin verificar y pasó el TTL, se borra ahí mismo y el endpoint responde 404 "usuario no encontrado" — exactamente la misma respuesta que si esa cuenta nunca hubiera existido. El wizard (`sumarse-wizard.tsx`), al recibir `me: null` de `GET /me`, muestra el Paso 1 de cero — nunca queda mostrando "revisá tu correo" indefinidamente para un link que ya venció.
+- **Por qué dos lugares y no uno solo (ej. un cron job):** un job en background es infraestructura nueva (scheduler, ventana de ejecución, qué pasa si el proceso está caído) para un problema que se resuelve completo con lógica perezosa en los dos puntos donde de verdad importa — el momento de registrarse de nuevo, y el momento de preguntar "¿quién soy?". Ninguna cuenta abandonada se vuelve visible para nadie más mientras tanto (nunca se lista ni se expone), así que no hay urgencia de limpieza proactiva fuera de esos dos momentos.
+- **Qué se sacrifica:** una cuenta abandonada ocupa una fila en la base entre el momento en que se abandona y el momento en que alguien (el mismo dueño u otro registro con el mismo mail) la toca — aceptable, es exactamente el mismo tipo de fila temporal que ya tolera cualquier sistema con verificación por mail.
+- **Reversibilidad:** Alta — es lógica pura de aplicación, sin infraestructura nueva; ambos puntos comparten la misma constante de TTL, así que cambiarla es un solo lugar.
+
+## TR-053: Header global oculto en el flujo de auth + nav gateada por onboarding completo, no por sesión
+
+- **Fecha:** 2026-08-26
+- **Fase:** ejecución (pedido explícito del cliente, dos bugs relacionados reportados juntos)
+- **Bug 1 — nav de sesión con onboarding incompleto:** `SiteHeader` mostraba "Gestionar tu clínica"/"Editar tu página"/"Tu perfil" apenas había una sesión válida (`me?.ok === true`), sin importar si el onboarding estaba completo. Con una cuenta a medio sumar, esos tres links no llevan a nada usable (`requireOnboardingComplete` los redirige de vuelta a `/sumarse`). Fix: el criterio pasa a ser `me.onboardingCompletado`, no solo la existencia de una sesión.
+- **Bug 2 — header global en pantallas de auth:** `/sumarse`, `/ingresar`, `/recuperar-password*` y `/verificar-mail` mostraban el header completo del sitio (marketing/nav), que no aporta nada ahí — es la puerta de entrada, no una página del sitio a navegar. Fix: nueva `isAuthFlowRoute` (`lib/site-routes.ts`), consumida por `SiteHeaderVisibility` para ocultar el header ahí, igual que ya se hacía con la página pública de una clínica. `AuthShell` (`components/auth/auth-shell.tsx`) gana un link "← Volver al inicio" (`volverHref`/`volverLabel`, override por pantalla — "Recuperar contraseña"/"Nueva contraseña" apuntan a `/ingresar` en vez del default `/`), mismo patrón que `AuthShell` de Marcuzzi_Madryn.
+- **Por qué no tocar `/panel`/`/perfil`/`/personalizar-pagina`/`/seleccionar-servicio`:** esas SÍ requieren onboarding completo para ser alcanzables (`requireOnboardingComplete`), así que el header con la nav de sesión siempre es correcto ahí — el problema era específico a las pantallas alcanzables ANTES de terminar el onboarding.
+- **Qué se sacrifica:** nada — es una corrección de un estado que nunca debió mostrarse tal cual.
+- **Reversibilidad:** Alta.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

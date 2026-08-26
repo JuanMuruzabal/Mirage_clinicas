@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isClinicaPublicaRoute, isFooterHidden } from "./site-routes";
+import { isAuthFlowRoute, isClinicaPublicaRoute, isFooterHidden } from "./site-routes";
 
 describe("isFooterHidden", () => {
   it.each(["/sumarse", "/ingresar", "/seleccionar-servicio", "/perfil", "/panel", "/personalizar-pagina"])(
@@ -50,4 +50,20 @@ describe("isClinicaPublicaRoute", () => {
   ])("%s NO es la página pública de una clínica (es una ruta propia de Mirage)", (pathname) => {
     expect(isClinicaPublicaRoute(pathname)).toBe(false);
   });
+});
+
+describe("isAuthFlowRoute", () => {
+  it.each(["/sumarse", "/sumarse/algo", "/ingresar", "/recuperar-password", "/recuperar-password/nueva", "/verificar-mail"])(
+    "%s es una ruta del flujo de auth",
+    (pathname) => {
+      expect(isAuthFlowRoute(pathname)).toBe(true);
+    },
+  );
+
+  it.each(["/", "/buscar", "/panel", "/perfil", "/seleccionar-servicio", "/personalizar-pagina", "/terminos", "/privacidad"])(
+    "%s NO es una ruta del flujo de auth",
+    (pathname) => {
+      expect(isAuthFlowRoute(pathname)).toBe(false);
+    },
+  );
 });

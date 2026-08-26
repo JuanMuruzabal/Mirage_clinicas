@@ -250,6 +250,23 @@ func newTestRouterWithMail(t *testing.T) (http.Handler, *gorm.DB, *capturingMail
 	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb, sender
 }
 
+// routerOverDB arma un router "manual" (sin crear una base nueva) sobre
+// un *gorm.DB ya existente — para tests que necesitan dos routers con
+// AuthDeps distintos apuntando a la MISMA base (ej. TestMe_AutoVerifyEmail_*
+// en me_test.go: simula que Resend se dejó de configurar DESPUÉS de que
+// una cuenta ya se hubiera creado sin AutoVerifyEmail).
+func routerOverDB(gdb *gorm.DB, autoVerifyEmail bool) http.Handler {
+	deps := AuthDeps{
+		Mail:            mail.LogSender{},
+		AccountLimiter:  &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:       ratelimit.NewIPLimiter(),
+		AppBaseURL:      "http://localhost:3000",
+		StateSecret:     "un-secret-de-test",
+		AutoVerifyEmail: autoVerifyEmail,
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"})
+}
+
 // newTestRouterWithAutoVerify arma un router con AutoVerifyEmail activo —
 // TR-051 en docs/tradeoffs.md: sin RESEND_API_KEY configurada, las
 // cuentas nativas nuevas quedan verificadas de entrada.

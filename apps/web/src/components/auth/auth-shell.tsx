@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 // Estilos compartidos de las pantallas de auth (sumarse/ingresar/
 // recuperar-password/verificar-mail) — layout estructural adaptado de
@@ -68,12 +69,37 @@ interface AuthShellProps {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  /** Destino y texto del link "volver" de arriba de la tarjeta — default
+   * "Volver al inicio" → "/". Bug real reportado por el cliente
+   * (2026-08-26): el header global no se muestra en estas pantallas (ver
+   * isAuthFlowRoute en lib/site-routes.ts), así que esta es la única forma
+   * de salir del flujo de auth sin usar el botón "atrás" del navegador —
+   * mismo criterio que AuthShell de Marcuzzi_Madryn. Pantallas alcanzadas
+   * DESDE otra pantalla de auth (ej. "Recuperar contraseña", que se llega
+   * desde /ingresar) pasan un destino más específico que "/".
+   */
+  volverHref?: string;
+  volverLabel?: string;
 }
 
 // AuthShell — card centrada compartida por todas las pantallas de auth.
-export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+export function AuthShell({
+  title,
+  subtitle,
+  children,
+  footer,
+  volverHref = "/",
+  volverLabel = "Volver al inicio",
+}: AuthShellProps) {
   return (
     <div className="flex w-full max-w-md flex-col gap-7 rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft">
+      <Link
+        href={volverHref}
+        className="inline-flex w-fit items-center gap-1.5 self-start rounded-full bg-salvia-claro px-3.5 py-1.5 text-xs font-medium text-salvia-oscuro transition-colors hover:brightness-95"
+      >
+        <span aria-hidden>←</span>
+        {volverLabel}
+      </Link>
       <div className="flex flex-col gap-1.5 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">{title}</h1>
         {subtitle && <p className="text-sm text-grafito/60">{subtitle}</p>}

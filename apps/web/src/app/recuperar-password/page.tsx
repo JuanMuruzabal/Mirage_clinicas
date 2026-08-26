@@ -8,8 +8,13 @@ export const metadata: Metadata = { title: "Recuperar contraseña — Dental Mir
 // una pantalla pública, para alguien que probablemente no puede loguearse.
 export default function RecuperarPasswordPage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
-      <AuthShell title="Recuperar contraseña" subtitle="Te mandamos instrucciones a tu mail para elegir una nueva.">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16">
+      <AuthShell
+        title="Recuperar contraseña"
+        subtitle="Te mandamos instrucciones a tu mail para elegir una nueva."
+        volverHref="/ingresar"
+        volverLabel="Volver a ingresar"
+      >
         <RecuperarPasswordForm />
       </AuthShell>
     </main>

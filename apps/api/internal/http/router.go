@@ -68,7 +68,7 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 	// que exista una Clinic (spec §4).
 	r.Group(func(r chi.Router) {
 		r.Use(requireSession(db))
-		r.Get("/me", meHandler(db))
+		r.Get("/me", meHandler(db, deps.AutoVerifyEmail))
 		r.Patch("/me", updateMeHandler(db))
 		registerOnboardingRoutes(r, db, deps.Mail)
 		registerProtectedAuthRoutes(r, db)
