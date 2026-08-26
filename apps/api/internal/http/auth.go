@@ -233,6 +233,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "cuenta creada pero no se pudo iniciar sesión")
 		return
 	}
+	recordAuditEvent(h.db, &user.ID, db.AuditEventRegister, ip, r.UserAgent())
 
 	writeJSON(w, http.StatusCreated, registerResponse{Token: &rawToken, Email: email, Mensaje: mensajeGenericoVerificacionPendiente})
 }
@@ -330,6 +331,14 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	err := h.db.Where("email = ?", email).First(&user).Error
 	if err != nil || user.PasswordHash == nil {
 		h.recordLoginFailure(email)
+		// Sin fila encontrada, no hay userID que asociar (ver comentario en
+		// db.AuditEvent) — la falta de cuenta ya queda implícita en no tener
+		// un evento con userID asociado a este email vía otra tabla.
+		var userID *uuid.UUID
+		if user.ID != uuid.Nil {
+			userID = &user.ID
+		}
+		recordAuditEvent(h.db, userID, db.AuditEventLoginFailed, ip, r.UserAgent())
 		writeError(w, http.StatusUnauthorized, mensajeCredencialesInvalidas)
 		return
 	}
@@ -337,6 +346,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	ok, err := security.Verify(req.Password, *user.PasswordHash)
 	if err != nil || !ok {
 		h.recordLoginFailure(email)
+		recordAuditEvent(h.db, &user.ID, db.AuditEventLoginFailed, ip, r.UserAgent())
 		writeError(w, http.StatusUnauthorized, mensajeCredencialesInvalidas)
 		return
 	}
@@ -367,6 +377,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "no se pudo iniciar sesión")
 		return
 	}
+	recordAuditEvent(h.db, &user.ID, db.AuditEventLogin, ip, r.UserAgent())
 
 	writeJSON(w, http.StatusOK, loginResponse{Token: &rawToken, EmailVerificado: true})
 }
@@ -461,6 +472,7 @@ func (h *authHandler) google(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "no se pudo iniciar sesión")
 		return
 	}
+	recordAuditEvent(h.db, &user.ID, db.AuditEventLogin, ip, r.UserAgent())
 
 	writeJSON(w, http.StatusOK, googleResponse{Token: rawToken, OnboardingStep: user.OnboardingStep})
 }
@@ -592,6 +604,7 @@ func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "mail confirmado pero no se pudo iniciar sesión")
 		return
 	}
+	recordAuditEvent(h.db, &user.ID, db.AuditEventEmailVerified, ip, r.UserAgent())
 
 	writeJSON(w, http.StatusOK, verificarEmailResponse{Token: rawToken, OnboardingStep: user.OnboardingStep})
 }
@@ -778,6 +791,7 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "no se pudo restablecer la contraseña")
 		return
 	}
+	recordAuditEvent(h.db, &vt.UserID, db.AuditEventPasswordChanged, ip, r.UserAgent())
 
 	writeJSON(w, http.StatusOK, resetPasswordResponse{Token: rawToken})
 }
@@ -797,6 +811,7 @@ func logoutHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo cerrar la sesión")
 			return
 		}
+		recordAuditEvent(gdb, &session.UserID, db.AuditEventLogout, clientIP(r), r.UserAgent())
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
 }

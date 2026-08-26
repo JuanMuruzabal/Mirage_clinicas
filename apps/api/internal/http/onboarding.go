@@ -267,6 +267,7 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la clínica")
 			return
 		}
+		recordAuditEvent(gdb, &userID, db.AuditEventClinicCreated, clientIP(r), r.UserAgent())
 
 		if sender != nil {
 			var profile db.ProfessionalProfile
