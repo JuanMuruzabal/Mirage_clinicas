@@ -77,8 +77,26 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           </p>
         ) : (
           <div
+            // `WebkitOverflowScrolling: "touch"` (sacado acá, TR-066 en
+            // docs/tradeoffs.md, pedido explícito del cliente: "el error
+            // visual sigue estando" incluso con el thead ya no-sticky y
+            // el layout midiendo perfecto — no era un bug de posición ni
+            // de ancho, medido con getBoundingClientRect en vivo, sino de
+            // REPINTADO). Esa propiedad iOS es vestigial (mismo criterio
+            // ya aplicado a `<main>` en panel-shell.tsx: el scroll con
+            // inercia es nativo desde iOS 13) y, combinada acá con
+            // `rounded-card`/`shadow-soft` + el cambio de `overflow-auto`
+            // a `overflow-visible` en mobile, promueve esta caja a su
+            // propia capa compuesta — WebKit puede quedarse con una
+            // versión vieja del pintado de esa capa (bordes redondeados/
+            // fondo) sin invalidarla del todo al cruzar el breakpoint,
+            // aunque el layout matemático (posición/alto) ya esté
+            // correcto — de ahí que el celu mostrara el encabezado
+            // separado de la fila mientras las mediciones en vivo daban
+            // bien. Sacarla es inocua: no es mobile (donde no scrollea,
+            // scrollea `<main>`) ni la usa currently ningún navegador
+            // moderno para el scroll propio de esta caja en desktop.
             className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
-            style={{ WebkitOverflowScrolling: "touch" }}
           >
             <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="md:sticky md:top-0 md:z-10">

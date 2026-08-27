@@ -131,8 +131,14 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // de contra esta caja — se veía como una cajita flotando aparte
         // de la fila de abajo. Solo tiene sentido desde md.
         <div
+          // Sin `WebkitOverflowScrolling: "touch"` (TR-066 en
+          // docs/tradeoffs.md): esa propiedad iOS vestigial, combinada acá
+          // con `rounded-card` + el cambio a `overflow-visible` en mobile,
+          // promovía esta caja a su propia capa compuesta — WebKit podía
+          // quedarse con un pintado viejo (encabezado separado de la fila)
+          // aunque el layout ya midiera perfecto. Detalle completo del
+          // diagnóstico en el mismo comentario de app/panel/pacientes/page.tsx.
           className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
-          style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="md:sticky md:top-0 md:z-10">
