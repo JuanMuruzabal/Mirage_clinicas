@@ -154,7 +154,14 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           mano en el inspector del navegador (agrandando el div a 760px en
           vivo) antes de tocar el código. Sigue siendo el mismo número que
           `turnos/page.tsx` (TR-029: filtros y tabla comparten un solo
-          min-width) — cambia el valor compartido, no el criterio. */}
+          min-width) — cambia el valor compartido, no el criterio.
+
+          Subido de nuevo a 880px (TR-070 en docs/tradeoffs.md,
+          2026-08-27): esta vez no era la tabla la que necesitaba más
+          ancho (760px le sobraba) sino la FILA DE FILTROS de
+          turnos/page.tsx (tabs + buscador), que quedaba más angosta que
+          el buscador y se veía desalineada. Mismo número en los dos
+          lugares igual, por el invariante de TR-029/034. */}
       <div
         // Sin `WebkitOverflowScrolling: "touch"` (TR-066 en
         // docs/tradeoffs.md): esa propiedad iOS vestigial es una causa
@@ -167,7 +174,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
         // general, sin relación con el fix real.
         className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
       >
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead className="md:sticky md:top-0 md:z-10">
             <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
               <th className="px-4 py-3">Paciente</th>

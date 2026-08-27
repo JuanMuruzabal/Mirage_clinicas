@@ -99,8 +99,18 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           este valor a mano en el inspector del navegador antes de
           tocar el código. Sigue siendo el mismo número en los dos
           lugares (acá y turnos-table.tsx) — el invariante de TR-029 no
-          cambia, solo el valor compartido. */}
-      <div className="flex flex-col gap-6 max-md:min-w-[47.5rem]">
+          cambia, solo el valor compartido.
+
+          55rem = 880px (TR-070 en docs/tradeoffs.md, 2026-08-27): la
+          tabla ya quedaba bien con 760px, pero la FILA DE FILTROS (tabs
+          Pendientes/Confirmadas/Resueltos/Canceladas/Todas + buscador)
+          necesitaba más ancho del que le daba ese número — quedaba más
+          corta que el buscador, desalineada. El cliente lo confirmó en
+          vivo (agrandando este contenedor a mano antes de tocar el
+          código, mismo método que TR-067/069) y midió el ancho real que
+          pedía la fila de tabs con `scrollWidth`. Mismo número en los
+          dos lugares (acá y turnos-table.tsx). */}
+      <div className="flex flex-col gap-6 max-md:min-w-[55rem]">
         <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
           <nav
             aria-label="Filtrar por estado"

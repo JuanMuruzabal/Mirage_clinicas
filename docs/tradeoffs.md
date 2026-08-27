@@ -803,6 +803,15 @@
 - **Lección:** cuando el ancho mínimo depende de contenido de texto libre (emails, nombres), conviene sobrestimar el margen bastante más que lo que parece necesario en la primera medición — un email de prueba corto no representa el peor caso real.
 - **Reversibilidad:** Alta — dos números en un archivo.
 
+## TR-070: Subido otra vez a 880px en Turnos y Pacientes — esta vez no era la tabla, era la fila de filtros/buscador que quedaba más angosta
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (el cliente mandó una captura mostrando la fila de tabs+buscador más ancha que la tarjeta de la tabla debajo, en Turnos)
+- **Qué pasó:** a diferencia de TR-067/069 (la TABLA necesitaba más ancho), acá el desalineado era al revés — la fila de filtros de `turnos/page.tsx` (5 tabs + buscador) necesitaba más ancho del que le daba el mínimo compartido (760px), y quedaba más angosta que el buscador, con la tabla y el buscador sin alinear entre sí.
+- **Cómo se confirmó:** mismo método que TR-067/069 — el cliente agrandó a mano el contenedor compartido en la consola del navegador (`document.querySelector('table').parentElement.parentElement.style.minWidth = '880px'`) antes de tocar código, en las dos pantallas (Turnos y Pacientes), y confirmó que 880px alineaba todo.
+- **Fix:** subir el mínimo compartido a **880px** (55rem) en Turnos (`turnos/page.tsx` + `turnos-table.tsx`) y en Pacientes (`app/panel/pacientes/page.tsx`, tabla y buscador) — mismo valor en las dos pantallas, confirmado en vivo en ambas. Ficha del paciente (`paciente-turnos-table.tsx`, TR-067: 600px) no fue parte de este reporte — queda sin cambios.
+- **Reversibilidad:** Alta — cuatro números (dos pares) en dos archivos.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
