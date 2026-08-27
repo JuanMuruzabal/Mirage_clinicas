@@ -37,8 +37,15 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           2026-08-24 — ver TR-029 en docs/tradeoffs.md, mismo criterio
           que turnos/page.tsx): 37.5rem = 600px, el mínimo que ya tenía
           la tabla — el buscador ahora comparte ese mismo número en vez
-          de su propio `max-w-md` (448px, más angosto). */}
-      <div className="flex flex-col gap-6 max-md:min-w-[37.5rem]">
+          de su propio `max-w-md` (448px, más angosto).
+
+          40rem = 640px (TR-067 en docs/tradeoffs.md, 2026-08-27): mismo
+          motivo que en Turnos — 600px quedaba justo para el contenido
+          real de la tabla, que se desbordaba por fuera de la tarjeta
+          redondeada en mobile (`overflow-visible` no la recorta).
+          Detalle completo del diagnóstico en el comentario de más abajo,
+          sobre `min-w-[640px]` en la tabla. */}
+      <div className="flex flex-col gap-6 max-md:min-w-[40rem]">
         <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2 max-md:w-full max-md:max-w-none">
           <input
             type="search"
@@ -53,8 +60,8 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         </form>
 
         {/* Escritorio: max-h + scroll interno en las dos direcciones —
-            sin cambios. min-w-[600px] en la tabla (abajo) es un mínimo
-            de contenido real, sin cambios.
+            sin cambios. min-w-[640px] en la tabla (abajo, TR-067 en
+            docs/tradeoffs.md) es un mínimo de contenido real.
 
             Mobile (ver TR-028/029 en docs/tradeoffs.md): esta caja DEJA
             de tener su propio scroll (`max-md:overflow-visible`) —
@@ -78,27 +85,17 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         ) : (
           <div
             // `WebkitOverflowScrolling: "touch"` (sacado acá, TR-066 en
-            // docs/tradeoffs.md, pedido explícito del cliente: "el error
-            // visual sigue estando" incluso con el thead ya no-sticky y
-            // el layout midiendo perfecto — no era un bug de posición ni
-            // de ancho, medido con getBoundingClientRect en vivo, sino de
-            // REPINTADO). Esa propiedad iOS es vestigial (mismo criterio
-            // ya aplicado a `<main>` en panel-shell.tsx: el scroll con
-            // inercia es nativo desde iOS 13) y, combinada acá con
-            // `rounded-card`/`shadow-soft` + el cambio de `overflow-auto`
-            // a `overflow-visible` en mobile, promueve esta caja a su
-            // propia capa compuesta — WebKit puede quedarse con una
-            // versión vieja del pintado de esa capa (bordes redondeados/
-            // fondo) sin invalidarla del todo al cruzar el breakpoint,
-            // aunque el layout matemático (posición/alto) ya esté
-            // correcto — de ahí que el celu mostrara el encabezado
-            // separado de la fila mientras las mediciones en vivo daban
-            // bien. Sacarla es inocua: no es mobile (donde no scrollea,
-            // scrollea `<main>`) ni la usa currently ningún navegador
-            // moderno para el scroll propio de esta caja en desktop.
+            // docs/tradeoffs.md): esa propiedad iOS es vestigial (mismo
+            // criterio ya aplicado a `<main>` en panel-shell.tsx) y causa
+            // real de bugs de repintado en WebKit — pero no era LA causa
+            // de este bug puntual. El cliente confirmó que el encabezado
+            // seguía viéndose separado incluso sin ella (ver TR-067: el
+            // ancho mínimo compartido, arriba en este archivo, era la
+            // causa real). Queda sacada igual por ser la corrección más
+            // segura en general.
             className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
           >
-            <table className="w-full min-w-[600px] text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="md:sticky md:top-0 md:z-10">
                 <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                   <th className="px-4 py-3">Nombre</th>

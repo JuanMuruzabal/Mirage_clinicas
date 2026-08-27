@@ -64,7 +64,13 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
     // de tener cada uno el suyo — 35rem = 560px, el mínimo que ya tenía
     // la tabla). Con `w-full` en la fila de filtros (abajo) y en el
     // contenedor de la tabla, ambos miden siempre lo mismo.
-    <div className="flex flex-col gap-3 max-md:min-w-[35rem]">
+    //
+    // 37.5rem = 600px (TR-067 en docs/tradeoffs.md, 2026-08-27): mismo
+    // motivo que en Turnos/Pacientes — 560px quedaba justo para el
+    // contenido real, desbordándose por fuera de la tarjeta redondeada en
+    // mobile. Detalle del diagnóstico en el comentario de más abajo,
+    // sobre `min-w-[600px]` en la tabla.
+    <div className="flex flex-col gap-3 max-md:min-w-[37.5rem]">
       <div className="flex flex-wrap items-center gap-2 text-sm max-md:w-full max-md:flex-nowrap">
         {tiposUsados.length > 0 && (
           <select
@@ -119,10 +125,10 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
           Ningún turno coincide con el filtro.
         </p>
       ) : (
-        // min-w-[560px] es un mínimo de contenido real, sin cambios.
-        // Mobile (quinta corrección 2026-08-24 — ver TR-028 en
-        // docs/tradeoffs.md): esta caja deja de tener su propio scroll
-        // (max-md:overflow-visible) — comparte el de <main> en
+        // min-w-[600px] (TR-067 en docs/tradeoffs.md) es un mínimo de
+        // contenido real. Mobile (quinta corrección 2026-08-24 — ver
+        // TR-028 en docs/tradeoffs.md): esta caja deja de tener su propio
+        // scroll (max-md:overflow-visible) — comparte el de <main> en
         // app/panel/layout.tsx con el resto de la página del paciente.
         //
         // md:sticky md:top-0 md:z-10 en el thead (TR-065 en
@@ -132,15 +138,15 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // de la fila de abajo. Solo tiene sentido desde md.
         <div
           // Sin `WebkitOverflowScrolling: "touch"` (TR-066 en
-          // docs/tradeoffs.md): esa propiedad iOS vestigial, combinada acá
-          // con `rounded-card` + el cambio a `overflow-visible` en mobile,
-          // promovía esta caja a su propia capa compuesta — WebKit podía
-          // quedarse con un pintado viejo (encabezado separado de la fila)
-          // aunque el layout ya midiera perfecto. Detalle completo del
-          // diagnóstico en el mismo comentario de app/panel/pacientes/page.tsx.
+          // docs/tradeoffs.md): causa real de bugs de repintado en
+          // WebKit en general, pero no de ESTE bug puntual — el cliente
+          // confirmó que seguía viéndose separado igual sin ella. La
+          // causa real era el ancho mínimo compartido (arriba en este
+          // archivo), ver TR-067. Queda sacada igual por ser la
+          // corrección más segura en general.
           className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
         >
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[600px] text-left text-sm">
             <thead className="md:sticky md:top-0 md:z-10">
               <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                 <th className="w-8 px-4 py-3" aria-hidden="true" />

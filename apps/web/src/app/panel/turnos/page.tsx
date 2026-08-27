@@ -85,8 +85,22 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           min-width, 640px, distinto del min-w-[720px] de la tabla,
           abajo). 45rem = 720px, el mismo mínimo que ya tenía la tabla —
           filtros y tabla ahora comparten ESE número, con `w-full` en vez
-          de un min-width propio en la fila de filtros. */}
-      <div className="flex flex-col gap-6 max-md:min-w-[45rem]">
+          de un min-width propio en la fila de filtros.
+
+          47.5rem = 760px (TR-067 en docs/tradeoffs.md, 2026-08-27):
+          720px quedaba justo para el contenido real de las 7 columnas —
+          la tabla (min-w-[720px] en turnos-table.tsx, mismo número)
+          terminaba necesitando un pelín más de ancho que el que esta
+          caja le daba, y ese sobrante se desbordaba por fuera de la
+          tarjeta redondeada (`overflow-visible` en mobile no la recorta,
+          la deja flotar sobre el fondo del panel) — de ahí el
+          encabezado con su propio fondo/borde pareciendo separado de la
+          fila de abajo. Confirmado en vivo por el cliente, agrandando
+          este valor a mano en el inspector del navegador antes de
+          tocar el código. Sigue siendo el mismo número en los dos
+          lugares (acá y turnos-table.tsx) — el invariante de TR-029 no
+          cambia, solo el valor compartido. */}
+      <div className="flex flex-col gap-6 max-md:min-w-[47.5rem]">
         <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
           <nav
             aria-label="Filtrar por estado"

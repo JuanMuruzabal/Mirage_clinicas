@@ -106,8 +106,8 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
       {/* Escritorio: max-h + scroll interno en las dos direcciones —
           mismo criterio que el calendario (T2.3), no estira la página.
           thead sticky para no perder las columnas al scrollear.
-          min-w-[720px] en la tabla (abajo) es un mínimo de contenido
-          real (7 columnas legibles), sin cambios.
+          min-w-[760px] en la tabla (abajo, TR-067 en docs/tradeoffs.md)
+          es un mínimo de contenido real (7 columnas legibles).
 
           Mobile (quinta corrección 2026-08-24 — ver TR-028 en
           docs/tradeoffs.md, reemplaza el criterio de TR-026/027): esta
@@ -116,7 +116,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           aislado del filtro/búsqueda de arriba (turnos/page.tsx), que
           por no compartir ese scroll se comprimía con `flex-wrap`. Ahora
           filtro + tabla son una sola unidad que scrollea junta en
-          `<main>` (app/panel/layout.tsx) — el `min-w-[720px]` de la
+          `<main>` (app/panel/layout.tsx) — el `min-w-[760px]` de la
           tabla (abajo) es lo único que hace falta para que se desborde y
           se navegue deslizando, igual criterio que
           docs/referencia-para-claude-code.html. `max-md:w-full`
@@ -138,20 +138,36 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           flotando sobre la nada"). Sticky solo tiene sentido donde esta
           caja SÍ es su propio contenedor de scroll — desde `md`, sin
           cambios; debajo, el thead vuelve a fluir como una fila más de la
-          tabla (mismo fondo/borde que las demás, sin volar aparte). */}
+          tabla (mismo fondo/borde que las demás, sin volar aparte).
+
+          `min-w-[760px]` (TR-067 en docs/tradeoffs.md, 2026-08-27,
+          reemplaza el número de TR-029/034): el thead ya no-sticky (TR-065)
+          y sin `WebkitOverflowScrolling` (TR-066) no alcanzaban — el
+          cliente seguía viendo el mismo encabezado separado, y confirmado
+          en vivo con getBoundingClientRect que layout/ancho/alto medían
+          perfecto. La causa real: 720px quedaba justo para las 7 columnas
+          con contenido real (no el de prueba) — la tabla necesitaba un
+          poco más de ancho que el que le daba esta caja, y ese sobrante se
+          desbordaba por fuera de la tarjeta redondeada (`overflow-visible`
+          no la recorta, la deja flotar sobre el fondo del panel en vez de
+          sobre el fondo `bg-marfil` de la caja). El cliente lo confirmó a
+          mano en el inspector del navegador (agrandando el div a 760px en
+          vivo) antes de tocar el código. Sigue siendo el mismo número que
+          `turnos/page.tsx` (TR-029: filtros y tabla comparten un solo
+          min-width) — cambia el valor compartido, no el criterio. */}
       <div
         // Sin `WebkitOverflowScrolling: "touch"` (TR-066 en
-        // docs/tradeoffs.md): esa propiedad iOS vestigial, combinada acá
-        // con `rounded-card` + el cambio a `overflow-visible` en mobile,
-        // promovía esta caja a su propia capa compuesta — WebKit podía
-        // quedarse con un pintado viejo (encabezado separado de la fila)
-        // aunque el layout ya midiera perfecto (confirmado en vivo con
-        // getBoundingClientRect: sin hueco, sin desborde, y el bug seguía
-        // viéndose). Detalle completo del diagnóstico en el mismo
-        // comentario de app/panel/pacientes/page.tsx.
+        // docs/tradeoffs.md): esa propiedad iOS vestigial es una causa
+        // real y ya documentada de bugs de repintado en WebKit (mismo
+        // motivo por el que se sacó de `<main>` en panel-shell.tsx) — pero
+        // NO era la causa de este bug puntual (ver TR-067, el comentario
+        // de arriba, sobre `min-w-[760px]`): sacarla solo no alcanzó, el
+        // cliente confirmó que el encabezado seguía viéndose separado.
+        // Queda sacada de todos modos por ser la corrección más segura en
+        // general, sin relación con el fix real.
         className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
       >
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="md:sticky md:top-0 md:z-10">
             <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
               <th className="px-4 py-3">Paciente</th>
