@@ -48,6 +48,17 @@ function filtrosDeTab(tab: Tab, q: string | undefined): ListarTurnosParams {
 // cambio de filtro navega y re-renderiza en el servidor, sin estado
 // cliente para eso. Las acciones por fila (Confirmar/Editar/Cancelar) sí
 // necesitan cliente — viven en TurnosTable.
+//
+// Mobile (TR-064 en docs/tradeoffs.md, pedido explícito del cliente —
+// "Fix de bugs visuales responsive"): esta página YA NO fuerza un
+// `min-w-[45rem]` que arrastraba TODA la página en un scroll horizontal.
+// Los tabs scrollean solos, en su propio contenedor
+// (`overflow-x-auto scrollbar-hide snap-x`) — antes se recortaban
+// (Pendientes/Confirmadas/Resueltos se veían, el resto quedaba afuera de
+// la pantalla sin forma de llegar). El buscador pasa a ocupar el 100%
+// del ancho real. Desde `md` (768px) el layout es EXACTAMENTE el de
+// siempre — todas las clases nuevas son mobile-first sin prefijo o
+// tienen su contraparte `md:` que revierte al comportamiento original.
 export default async function TurnosPage({ searchParams }: PageProps<"/panel/turnos">) {
   const resolved = await searchParams;
   const tab = parseTab(firstParam(resolved.estado));
@@ -78,19 +89,15 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
         Turnos
       </h1>
 
-      {/* Wrapper de ancho único (rama fix/mobile, sexta corrección
-          2026-08-24 — ver TR-029 en docs/tradeoffs.md: "la box de la
-          toolbar... y la box del calendario tienen anchos distintos...
-          lo mismo en Turnos" — acá la fila de filtros tenía su propio
-          min-width, 640px, distinto del min-w-[720px] de la tabla,
-          abajo). 45rem = 720px, el mismo mínimo que ya tenía la tabla —
-          filtros y tabla ahora comparten ESE número, con `w-full` en vez
-          de un min-width propio en la fila de filtros. */}
-      <div className="flex flex-col gap-6 max-md:min-w-[45rem]">
-        <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
+          {/* Mobile: scroll horizontal PROPIO de este contenedor nada más
+              (scroll-snap para que cada pastilla quede prolija al
+              soltar) — nunca arrastra la página. Desde `md`: `flex-wrap`
+              de siempre, sin scroll, sin snap. */}
           <nav
             aria-label="Filtrar por estado"
-            className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:flex-nowrap"
+            className="scrollbar-hide flex snap-x snap-mandatory gap-1 overflow-x-auto rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm md:flex-wrap md:overflow-visible"
           >
             {TABS.map((t) => {
               const active = t.tab === tab;
@@ -99,7 +106,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
                 <Link
                   key={t.tab}
                   href={href}
-                  className={`rounded-full px-4 py-2 font-medium max-md:whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                  className={`snap-start rounded-full px-4 py-2 font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
                 >
                   {t.label}
                 </Link>
@@ -107,16 +114,16 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             })}
           </nav>
 
-          <form action="/panel/turnos" method="get" className="flex gap-2 max-md:flex-shrink-0">
+          <form action="/panel/turnos" method="get" className="flex w-full gap-2 md:w-auto">
             {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
             <input
               type="search"
               name="q"
               defaultValue={q}
               placeholder="Nombre, apellido, DNI o email…"
-              className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+              className="min-w-0 flex-1 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia md:w-64 md:flex-none"
             />
-            <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 max-md:whitespace-nowrap">
+            <button type="submit" className="flex-shrink-0 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
               Buscar
             </button>
           </form>

@@ -52,7 +52,19 @@ export function PanelShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <div ref={ref} className="panel-texture panel-shell-h flex flex-1 pt-[var(--header-height)] max-md:overflow-hidden">
+    // overflow-x-hidden sin prefijo (TR-064 en docs/tradeoffs.md, pedido
+    // explícito del cliente: "agregá overflow-x-hidden en el contenedor
+    // raíz del layout del panel... ningún elemento debe generar scroll
+    // horizontal a nivel documento") — resguardo de última instancia en
+    // CUALQUIER ancho, no solo mobile. `max-md:overflow-hidden` (de
+    // antes, TR-026/027) ya cubre las dos direcciones debajo de 768px;
+    // esto suma el eje horizontal también arriba de ese breakpoint, sin
+    // tocar el vertical (que en escritorio sí necesita poder crecer:
+    // documento normal, sin el bloqueo de `.panel-locked`).
+    <div
+      ref={ref}
+      className="panel-texture panel-shell-h flex flex-1 overflow-x-hidden pt-[var(--header-height)] max-md:overflow-hidden"
+    >
       {children}
     </div>
   );

@@ -76,18 +76,23 @@ services:
       # le conectás un dominio propio, hay que actualizar esto a mano
       # (Render no permite interpolar la URL de un servicio dentro de otro
       # en el blueprint).
+      # Dominio propio conectado al servicio web de abajo (pedido
+      # explícito del cliente, 2026-08-26 — TR-064 en docs/tradeoffs.md):
+      # el link de "recuperar contraseña" armaba la URL con
+      # miragesoftware.online sin estar seteado, así que aplicaba el
+      # default de internal/config, http://localhost:3000 — roto para un
+      # usuario real. Se deja TAMBIÉN la URL de onrender.com en CORS por
+      # las dudas de que siga siendo alcanzable en paralelo al dominio
+      # propio. Si el dominio cambia o se desconecta, actualizar acá a
+      # mano (Render no permite interpolar la URL de un servicio dentro
+      # de otro en el blueprint).
       - key: CORS_ALLOWED_ORIGINS
-        value: https://dental-mirage-web.onrender.com
-      # URL pública del servicio web de abajo — arma los links absolutos
-      # de los mails de verificación/reset (docs/feature-sumarte-login-resumen.md).
-      # Faltaba en este blueprint desde que se construyó esa feature (el
-      # bug real: sin esto, apps/api arma los links con el default de
-      # internal/config, http://localhost:3000 — completamente rotos para
-      # un usuario real). Mismo criterio que CORS_ALLOWED_ORIGINS de
-      # arriba: actualizar a mano si cambia el nombre del servicio o se
-      # conecta un dominio propio.
+        value: https://miragesoftware.online,https://dental-mirage-web.onrender.com
+      # Arma los links absolutos de los mails de verificación/reset
+      # (docs/feature-sumarte-login-resumen.md) — tiene que ser la URL
+      # pública real que visitan los usuarios, no la interna de Render.
       - key: APP_BASE_URL
-        value: https://dental-mirage-web.onrender.com
+        value: https://miragesoftware.online
       # Resend (envío real de mails de verificación/reset/bienvenida,
       # spec §6) — sin RESEND_API_KEY, internal/http.AuthDeps.AutoVerifyEmail
       # queda activo (TR-051 en docs/tradeoffs.md): las cuentas nativas

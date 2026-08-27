@@ -6,7 +6,7 @@ import { useState } from "react";
 import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
-import { isHerramientaRoute } from "@/lib/site-routes";
+import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 
 /**
@@ -85,9 +85,27 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pillLinkClass =
     "rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95";
 
+  // TR-064 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-26): "en desktop hay un gap en la esquina superior derecha,
+  // el header... no llega hasta el borde derecho del área de
+  // contenido". Causa real: la fila del header centra su contenido en
+  // `max-w-5xl` respecto al VIEWPORT completo, pero /panel tiene un
+  // sidebar propio a la izquierda — el contenido de cada página de panel
+  // no está centrado en el viewport, ocupa todo el ancho a la derecha
+  // del sidebar con `p-8` (2rem). En pantallas anchas esos dos "centros"
+  // no coinciden y el header queda corto del borde real del contenido.
+  // Para /panel (el único layout con sidebar) el header pasa a ancho
+  // completo con el MISMO padding horizontal (`px-8`) que ya usa el
+  // contenido de esas páginas, en vez de centrarse — así sus bordes
+  // quedan alineados de verdad. El resto del sitio (sin sidebar, spec
+  // §9.7) no cambia.
+  const contenedorClass = isPanelRoute(pathname)
+    ? "flex w-full items-center justify-between px-8 py-4"
+    : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
+
   return (
     <HeaderFrame forceSolid={menuOpen}>
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <div className={contenedorClass}>
         <div className="flex items-center gap-4">
           {/* El logo siempre vuelve a la home pública, tenga sesión o no
               (pedido explícito del cliente, 2026-08-26) — antes llevaba a

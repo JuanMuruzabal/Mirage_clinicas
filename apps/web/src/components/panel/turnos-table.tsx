@@ -10,6 +10,8 @@ import { AgregarTurnoModal } from "./agregar-turno-modal";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { CancelarTurnoModal } from "./cancelar-turno-modal";
 import { EditarTurnoModal } from "./editar-turno-modal";
+import { DataField } from "./data-field";
+import { ResponsiveTable } from "./responsive-table";
 
 interface TurnosTableProps {
   turnosIniciales: Turno[];
@@ -27,6 +29,14 @@ interface TurnosTableProps {
 // cliente, 2026-08-23): tocarla despliega un panel debajo con las
 // acciones (Confirmar/Editar/Cancelar) — antes vivían siempre visibles en
 // una columna aparte, que competía por espacio con los datos del turno.
+//
+// Debajo de `md` (768px) la tabla se reemplaza por una card por turno
+// (TR-064 en docs/tradeoffs.md, pedido explícito del cliente — "Fix de
+// bugs visuales responsive"): antes la tabla mantenía su `min-w-[720px]`
+// y arrastraba TODA la página en un scroll horizontal (header/sidebar
+// fijos, tabs y buscador afuera de la pantalla). `ResponsiveTable` decide
+// cuál de las dos se muestra según el breakpoint — la tabla de escritorio
+// de acá abajo no cambió un solo carácter.
 export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }: TurnosTableProps) {
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
   const [expandidoId, setExpandidoId] = useState<string | null>(abrirId ?? null);
@@ -87,13 +97,125 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
     recargar();
   }
 
-  if (turnos.length === 0) {
+  function accionesDe(t: Turno) {
     return (
-      <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
-        No hay turnos para este filtro.
-      </p>
+      <>
+        {t.estado === "pendiente" && (
+          <button
+            type="button"
+            onClick={() => setConfirmarTurno(t)}
+            className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
+          >
+            Confirmar
+          </button>
+        )}
+        {t.estado !== "cancelada" && (
+          <button
+            type="button"
+            onClick={() => setEditarTurno(t)}
+            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          >
+            Editar
+          </button>
+        )}
+        {t.estado !== "cancelada" && (
+          <button
+            type="button"
+            onClick={() => pedirCancelar(t)}
+            disabled={cancelandoId === t.id}
+            className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro disabled:opacity-60"
+          >
+            {cancelandoId === t.id ? "Cancelando…" : "Cancelar"}
+          </button>
+        )}
+      </>
     );
   }
+
+  const tabla = (
+    // Escritorio: max-h + scroll interno en las dos direcciones — mismo
+    // criterio que el calendario (T2.3), no estira la página. thead
+    // sticky para no perder las columnas al scrollear. min-w-[720px] en
+    // la tabla (abajo) es un mínimo de contenido real (7 columnas
+    // legibles), sin cambios — TR-064 saca este bloque de circulación
+    // debajo de `md` (ResponsiveTable), así que las clases `max-md:` que
+    // tenía este wrapper para compartir el scroll horizontal de <main>
+    // ya no hacen falta: debajo de `md` no se llega a renderizar.
+    <div className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead className="sticky top-0 z-10">
+          <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
+            <th className="px-4 py-3">Paciente</th>
+            <th className="px-4 py-3">Contacto</th>
+            <th className="px-4 py-3">Motivo</th>
+            <th className="px-4 py-3">Fecha y hora</th>
+            <th className="px-4 py-3">Estado</th>
+            <th className="px-4 py-3">Origen</th>
+            <th className="w-10 px-4 py-3" aria-hidden="true" />
+          </tr>
+        </thead>
+        <tbody>
+          {turnos.map((t) => {
+            const expandido = expandidoId === t.id;
+            return (
+              <Fragment key={t.id}>
+                <tr
+                  onClick={() => alternarExpandido(t.id)}
+                  className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena ${expandido ? "bg-hueso" : ""}`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <AvatarIniciales nombre={t.nombreContacto} apellido={t.apellidoContacto} />
+                      <div>
+                        <p className="font-medium text-grafito">
+                          {t.nombreContacto} {t.apellidoContacto}
+                        </p>
+                        <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito">
+                    <div>{t.telefonoContacto}</div>
+                    {t.emailContacto && <div className="text-grafito/50">{t.emailContacto}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-grafito">{t.motivo || "—"}</td>
+                  <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
+                      <QuadrantMark estado={t.estado} />
+                      {ESTADO_LABEL[t.estado]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      aria-expanded={expandido}
+                      aria-label={expandido ? "Ocultar acciones" : "Mostrar acciones"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        alternarExpandido(t.id);
+                      }}
+                      className={`text-grafito/50 transition-transform duration-200 hover:text-grafito ${expandido ? "rotate-180" : ""}`}
+                    >
+                      ▾
+                    </button>
+                  </td>
+                </tr>
+                {expandido && (
+                  <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0">
+                    <td colSpan={7} className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">{accionesDe(t)}</div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <>
@@ -103,135 +225,74 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
         </p>
       )}
 
-      {/* Escritorio: max-h + scroll interno en las dos direcciones —
-          mismo criterio que el calendario (T2.3), no estira la página.
-          thead sticky para no perder las columnas al scrollear.
-          min-w-[720px] en la tabla (abajo) es un mínimo de contenido
-          real (7 columnas legibles), sin cambios.
+      <ResponsiveTable
+        items={turnos}
+        getKey={(t) => t.id}
+        table={tabla}
+        empty={
+          <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+            No hay turnos para este filtro.
+          </p>
+        }
+        renderCard={(t) => {
+          const expandido = expandidoId === t.id;
+          return (
+            <div
+              onClick={() => alternarExpandido(t.id)}
+              className={`flex cursor-pointer flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft ${expandido ? "bg-hueso" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <AvatarIniciales nombre={t.nombreContacto} apellido={t.apellidoContacto} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-grafito">
+                    {t.nombreContacto} {t.apellidoContacto}
+                  </p>
+                  <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
+                </div>
+              </div>
 
-          Mobile (quinta corrección 2026-08-24 — ver TR-028 en
-          docs/tradeoffs.md, reemplaza el criterio de TR-026/027): esta
-          caja DEJA de tener su propio scroll (`max-md:overflow-visible`,
-          las dos direcciones) — antes tenía scroll horizontal propio,
-          aislado del filtro/búsqueda de arriba (turnos/page.tsx), que
-          por no compartir ese scroll se comprimía con `flex-wrap`. Ahora
-          filtro + tabla son una sola unidad que scrollea junta en
-          `<main>` (app/panel/layout.tsx) — el `min-w-[720px]` de la
-          tabla (abajo) es lo único que hace falta para que se desborde y
-          se navegue deslizando, igual criterio que
-          docs/referencia-para-claude-code.html. `max-md:w-full`
-          (undécima corrección, TR-034 en docs/tradeoffs.md, pedido
-          explícito del cliente: "la tabla de turnos no queda bien del
-          todo con los cuadros de arriba, no queda alineada") — faltaba
-          acá (turnos/page.tsx ya se lo daba a la fila de filtros, pero
-          esta caja no lo tenía) para medir siempre lo mismo que el
-          wrapper que la envuelve, no un ancho propio independiente. */}
-      <div
-        className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
-              <th className="px-4 py-3">Paciente</th>
-              <th className="px-4 py-3">Contacto</th>
-              <th className="px-4 py-3">Motivo</th>
-              <th className="px-4 py-3">Fecha y hora</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Origen</th>
-              <th className="w-10 px-4 py-3" aria-hidden="true" />
-            </tr>
-          </thead>
-          <tbody>
-            {turnos.map((t) => {
-              const expandido = expandidoId === t.id;
-              return (
-                <Fragment key={t.id}>
-                  <tr
-                    onClick={() => alternarExpandido(t.id)}
-                    className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena ${expandido ? "bg-hueso" : ""}`}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <AvatarIniciales nombre={t.nombreContacto} apellido={t.apellidoContacto} />
-                        <div>
-                          <p className="font-medium text-grafito">
-                            {t.nombreContacto} {t.apellidoContacto}
-                          </p>
-                          <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito">
-                      <div>{t.telefonoContacto}</div>
-                      {t.emailContacto && <div className="text-grafito/50">{t.emailContacto}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-grafito">{t.motivo || "—"}</td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
-                        <QuadrantMark estado={t.estado} />
-                        {ESTADO_LABEL[t.estado]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        aria-expanded={expandido}
-                        aria-label={expandido ? "Ocultar acciones" : "Mostrar acciones"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alternarExpandido(t.id);
-                        }}
-                        className={`text-grafito/50 transition-transform duration-200 hover:text-grafito ${expandido ? "rotate-180" : ""}`}
-                      >
-                        ▾
-                      </button>
-                    </td>
-                  </tr>
-                  {expandido && (
-                    <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0">
-                      <td colSpan={7} className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {t.estado === "pendiente" && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmarTurno(t)}
-                              className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
-                            >
-                              Confirmar
-                            </button>
-                          )}
-                          {t.estado !== "cancelada" && (
-                            <button
-                              type="button"
-                              onClick={() => setEditarTurno(t)}
-                              className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                            >
-                              Editar
-                            </button>
-                          )}
-                          {t.estado !== "cancelada" && (
-                            <button
-                              type="button"
-                              onClick={() => pedirCancelar(t)}
-                              disabled={cancelandoId === t.id}
-                              className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro disabled:opacity-60"
-                            >
-                              {cancelandoId === t.id ? "Cancelando…" : "Cancelar"}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              <div className="flex flex-col gap-0.5">
+                <p className="truncate font-[family-name:var(--font-mono)] text-xs text-grafito">{t.telefonoContacto}</p>
+                {t.emailContacto && (
+                  <p className="break-all font-[family-name:var(--font-mono)] text-xs text-grafito/50">{t.emailContacto}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <DataField label="Motivo" value={t.motivo} />
+                <DataField label="Fecha y hora" value={formatFechaHora(t.horaInicio)} />
+              </div>
+
+              <span className={`inline-flex w-fit items-center gap-1.5 rounded-full bg-hueso px-2.5 py-1 text-xs ${ESTADO_CLASS[t.estado]}`}>
+                <QuadrantMark estado={t.estado} />
+                {ESTADO_LABEL[t.estado]}
+              </span>
+
+              <div className="flex items-center justify-between gap-2 border-t border-arena pt-3">
+                <span className="text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</span>
+                <button
+                  type="button"
+                  aria-expanded={expandido}
+                  aria-label={expandido ? "Ocultar acciones" : "Mostrar acciones"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    alternarExpandido(t.id);
+                  }}
+                  className={`text-grafito/50 transition-transform duration-200 hover:text-grafito ${expandido ? "rotate-180" : ""}`}
+                >
+                  ▾
+                </button>
+              </div>
+
+              {expandido && (
+                <div className="flex flex-wrap gap-2 border-t border-arena pt-3" onClick={(e) => e.stopPropagation()}>
+                  {accionesDe(t)}
+                </div>
+              )}
+            </div>
+          );
+        }}
+      />
 
       {confirmarTurno && (
         <AgregarTurnoModal
