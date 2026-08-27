@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Paciente, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { agendarTurnoAction, crearTurnoManualAction, listTurnosAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
+import { fechaISOLocal, horaISOLocal } from "@/lib/calendar-utils";
 import { ModalPortal } from "./modal-portal";
 
 interface AgregarTurnoModalProps {
@@ -61,9 +62,21 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   const [tipoConsultaId, setTipoConsultaId] = useState(tipoGeneral?.id ?? "");
   // No se puede agendar un turno en el pasado (2026-08-23) — `min` es solo
   // una ayuda nativa del date picker, la validación real pasa en confirmar().
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  // `fechaISOLocal` (TR-074 en docs/tradeoffs.md, 2026-08-27, reemplaza
+  // `new Date().toISOString().slice(0, 10)`): esa versión daba la fecha
+  // en UTC, que en Argentina (UTC-3) se adelanta al día siguiente entre
+  // las ~21:00 y medianoche local — el campo de fecha arrancaba en
+  // "mañana" sin que se notara, y una hora ya pasada HOY quedaba "en el
+  // futuro" respecto a esa fecha adelantada por error (el bug real
+  // detrás de "me deja ingresar horas pasadas").
+  const hoyISO = fechaISOLocal();
   const [fecha, setFecha] = useState(() => hoyISO);
   const [hora, setHora] = useState("09:00");
+  // Tope mínimo de hora (TR-074): solo tiene sentido cuando la fecha
+  // elegida es HOY — un turno para mañana puede ser a cualquier hora. El
+  // navegador lo usa como ayuda nativa (igual criterio que `min` en el
+  // date picker); la validación real sigue siendo la de confirmar().
+  const minHora = fecha === hoyISO ? horaISOLocal() : undefined;
   const [duracion, setDuracion] = useState(30);
   // Motivo de consulta (2026-08-23): un solo campo en el paso "detalle",
   // compartido por los tres caminos — se precarga con lo que ya se sabía
@@ -394,7 +407,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
                 />
               </Campo>
               <Campo label="Hora">
-                <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={inputClass} />
+                <input type="time" value={hora} min={minHora} onChange={(e) => setHora(e.target.value)} className={inputClass} />
               </Campo>
             </div>
 

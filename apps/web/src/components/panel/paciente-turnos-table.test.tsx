@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PacienteTurnosTable } from "./paciente-turnos-table";
+
+// Cada fila ahora es un ClickableTableRow (TR-074 en docs/tradeoffs.md —
+// "tocando el turno... me debería redirigir al turno en el apartado de
+// turnos"), que usa useRouter() internamente — mismo mock que
+// clickable-table-row.test.tsx.
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
 const tiposConsulta = [
   { id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" },
@@ -51,6 +58,28 @@ describe("PacienteTurnosTable", () => {
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
     expect(screen.getByText("Confirmado")).toBeInTheDocument();
     expect(screen.getByText("Dolor de muela")).toBeInTheDocument();
+  });
+
+  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): un turno
+  // agendado con horaFin ya pasado debe mostrar "Resuelto", no
+  // "Confirmado" — mismo criterio derivado que TurnosTable/TurnoDetalle.
+  it("un turno agendado con horaFin pasado muestra Resuelto, no Confirmado", () => {
+    const resuelto = { ...turno, horaFin: "2020-01-01T13:30:00.000Z" };
+    render(<PacienteTurnosTable turnos={[resuelto]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.getByText("Resuelto")).toBeInTheDocument();
+    expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
+  });
+
+  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): tocar la
+  // fila manda a la vista Turnos con esa fila ya desplegada, mismo
+  // patrón que "Ver turno →" en TurnoDetalle.
+  it("tocar una fila navega a /panel/turnos con el turno ya desplegado", async () => {
+    const user = userEvent.setup();
+    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
+
+    await user.click(screen.getByText("Dolor de muela"));
+
+    expect(pushMock).toHaveBeenCalledWith("/panel/turnos?estado=agendado&q=1&turno=t-1");
   });
 
   it("sin tipoConsultaId resuelto, muestra — y el color neutro por defecto", () => {

@@ -189,6 +189,15 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           <tbody>
             {turnos.map((t) => {
               const expandido = expandidoId === t.id;
+              // resuelto (TR-074 en docs/tradeoffs.md, 2026-08-27, pedido
+              // explícito del cliente: "un turno resuelto sigue
+              // apareciendo... como confirmado, debería aparecer
+              // resuelto, no se tendría que poder editar") — no es un
+              // estado real en la base (sigue siendo "agendado", igual
+              // criterio que la pestaña "Resueltos" de turnos/page.tsx y
+              // que TurnoDetalle), se deriva acá: agendado + horaFin ya
+              // pasado.
+              const resuelto = t.estado === "agendado" && Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < new Date().getTime();
               return (
                 <Fragment key={t.id}>
                   <tr
@@ -213,9 +222,9 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                     <td className="px-4 py-3 text-grafito">{t.motivo || "—"}</td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
+                      <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
                         <QuadrantMark estado={t.estado} />
-                        {ESTADO_LABEL[t.estado]}
+                        {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
@@ -238,7 +247,12 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                     <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0">
                       <td colSpan={7} className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
-                          {t.estado === "pendiente" && (
+                          {/* Turno resuelto: solo lectura, sin acciones
+                              (TR-074 en docs/tradeoffs.md) — ya pasó, no
+                              tiene sentido confirmar/editar/cancelar algo
+                              que ya ocurrió. */}
+                          {resuelto && <p className="text-xs text-grafito/50">Turno ya resuelto — sin acciones disponibles.</p>}
+                          {!resuelto && t.estado === "pendiente" && (
                             <button
                               type="button"
                               onClick={() => setConfirmarTurno(t)}
@@ -247,7 +261,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                               Confirmar
                             </button>
                           )}
-                          {t.estado !== "cancelada" && (
+                          {!resuelto && t.estado !== "cancelada" && (
                             <button
                               type="button"
                               onClick={() => setEditarTurno(t)}
@@ -256,7 +270,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                               Editar
                             </button>
                           )}
-                          {t.estado !== "cancelada" && (
+                          {!resuelto && t.estado !== "cancelada" && (
                             <button
                               type="button"
                               onClick={() => pedirCancelar(t)}

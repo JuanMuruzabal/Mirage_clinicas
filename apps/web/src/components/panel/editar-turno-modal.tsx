@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Turno } from "@dental-mirage/shared-types";
 import { editarTurnoAction, reprogramarTurnoAction } from "@/app/actions/turnos";
+import { fechaISOLocal } from "@/lib/calendar-utils";
 import { ModalPortal } from "./modal-portal";
 
 interface EditarTurnoModalProps {
@@ -177,7 +178,15 @@ function EditarHoraForm({ turno, onClose, onSuccess }: EditarTurnoModalProps) {
   const finActual = turno.horaFin ? new Date(turno.horaFin) : new Date(inicioActual.getTime() + 30 * 60_000);
   const duracionActual = Math.max(Math.round((finActual.getTime() - inicioActual.getTime()) / 60_000), 15);
 
-  const [fecha, setFecha] = useState(() => inicioActual.toISOString().slice(0, 10));
+  // fechaISOLocal (TR-074 en docs/tradeoffs.md, 2026-08-27, reemplaza
+  // `inicioActual.toISOString().slice(0, 10)`): esa versión daba la
+  // fecha en UTC — un turno a las 22:00 hora local (Argentina, UTC-3)
+  // mostraba por error el día SIGUIENTE al abrir este modal. Como `hora`
+  // (abajo) sí usa `toTimeString` (local, correcto), el par quedaba
+  // desincronizado: si el profesional abría este modal de noche y
+  // guardaba sin tocar nada, el turno se corría un día entero sin
+  // querer — no era solo un problema visual.
+  const [fecha, setFecha] = useState(() => fechaISOLocal(inicioActual));
   const [hora, setHora] = useState(() => inicioActual.toTimeString().slice(0, 5));
   const [duracion, setDuracion] = useState(() => (DURACIONES.includes(duracionActual) ? duracionActual : 30));
   const [motivo, setMotivo] = useState(turno.motivo);

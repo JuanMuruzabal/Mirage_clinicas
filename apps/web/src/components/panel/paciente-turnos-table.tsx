@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { ESTADO_CLASS, ESTADO_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { QuadrantMark } from "../quadrant-mark";
+import { ClickableTableRow } from "./clickable-table-row";
 
 interface PacienteTurnosTableProps {
   turnos: Turno[];
@@ -159,8 +160,20 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
             <tbody>
               {filtrados.map((t) => {
                 const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+                // resuelto: mismo criterio derivado que TurnosTable/
+                // TurnoDetalle (TR-074 en docs/tradeoffs.md) — no es un
+                // estado real, agendado + horaFin ya pasado.
+                const resuelto = t.estado === "agendado" && Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < new Date().getTime();
+                // Ir al turno en la vista Turnos (TR-074, pedido explícito
+                // del cliente: "tocando el turno activo me debería
+                // redirigir al turno en el apartado de turnos, de la
+                // misma forma que se hace cuando toco el cuadrito en el
+                // calendario") — mismo patrón que TurnoDetalle/
+                // hrefVerTurno: esa fila arranca ya desplegada (`?turno=`,
+                // ver TurnosTable/abrirId).
+                const hrefVerTurno = `/panel/turnos?estado=${t.estado}&q=${encodeURIComponent(t.dniContacto)}&turno=${t.id}`;
                 return (
-                  <tr key={t.id} className="border-b-[0.5px] border-arena last:border-b-0">
+                  <ClickableTableRow key={t.id} href={hrefVerTurno} className="border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena">
                     <td className="px-4 py-3">
                       <span
                         aria-hidden="true"
@@ -171,13 +184,13 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                     <td className="px-4 py-3 text-grafito">{tipo?.nombre ?? "—"}</td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
+                      <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
                         <QuadrantMark estado={t.estado} />
-                        {ESTADO_LABEL[t.estado]}
+                        {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
-                  </tr>
+                  </ClickableTableRow>
                 );
               })}
             </tbody>

@@ -40,7 +40,13 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
   const paciente = result.data;
   const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
   const activos = paciente.turnos.filter(esActivo);
-  const historial = paciente.turnos.filter((t) => !esActivo(t));
+  // Historial (TR-074 en docs/tradeoffs.md, 2026-08-27, pedido explícito
+  // del cliente: "en el historial de turnos... no deben aparecer turnos
+  // cancelados") — antes era simplemente "todo lo que no está activo",
+  // lo que incluía cancelados. Un turno cancelado no aporta nada al
+  // historial clínico real; se saca del todo de la ficha del paciente
+  // (no vive en ningún otro lado acá), sigue viéndose en la vista Turnos.
+  const historial = paciente.turnos.filter((t) => !esActivo(t) && t.estado !== "cancelada");
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta

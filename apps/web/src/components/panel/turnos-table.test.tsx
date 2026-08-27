@@ -222,6 +222,25 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
   });
 
+  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): un turno
+  // agendado con horaFin ya pasado ("resuelto") debe mostrar "Resuelto",
+  // no "Confirmado", y no debe poder confirmarse/editarse/cancelarse —
+  // solo lectura.
+  it("un turno resuelto (agendado + horaFin pasado) muestra Resuelto y no ofrece acciones", async () => {
+    const user = userEvent.setup();
+    const resuelto = { ...turnoAgendado, horaFin: "2020-01-01T09:30:00Z" };
+    render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+    expect(screen.getByText("Resuelto")).toBeInTheDocument();
+    expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
+
+    await desplegarFila(user, "Julián Ortiz");
+    expect(screen.getByText("Turno ya resuelto — sin acciones disponibles.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
+  });
+
   it("Editar abre el modal con los datos del turno", async () => {
     const user = userEvent.setup();
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);

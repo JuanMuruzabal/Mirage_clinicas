@@ -831,6 +831,24 @@
 - **Verificado:** build de producción, typecheck y lint limpios; 444 tests sin cambios (ninguno afirmaba `bg-hueso` en estas dos páginas).
 - **Reversibilidad:** Alta — un nombre de clase por archivo.
 
+## TR-074: 4 bugs reales de la agenda (no visuales) — turno resuelto, horas pasadas al agendar, cancelados en el historial, y click-para-ir-al-turno
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (pedido explícito del cliente, un solo mensaje con 4 reportes distintos de lógica de negocio)
+
+**1. Turno resuelto aparecía como "Confirmado" y se podía editar/cancelar.** No es un estado real en la base (sigue siendo `agendado`, mismo criterio ya usado por la pestaña "Resueltos" de `turnos/page.tsx` y por `TurnoDetalle`) — se deriva: `agendado` + `horaFin` ya pasado. `TurnosTable` y `PacienteTurnosTable` (historial de la ficha del paciente) ahora calculan ese derivado por fila y muestran "Resuelto" en vez de "Confirmado"; el panel de acciones de `TurnosTable`, al desplegar una fila resuelta, no ofrece Confirmar/Editar/Cancelar — muestra "Turno ya resuelto — sin acciones disponibles." en su lugar.
+
+**2. Se podían ingresar horas ya pasadas al agregar un turno manual — causa real: bug de zona horaria.** `agregar-turno-modal.tsx` y `editar-turno-modal.tsx` calculaban "hoy" con `new Date().toISOString().slice(0, 10)` — esa fecha es en **UTC**, y en Argentina (UTC-3) se adelanta al día siguiente entre las ~21:00 y medianoche hora local. El campo de fecha arrancaba en "mañana" sin que se notara, así que una hora ya pasada HOY quedaba "en el futuro" respecto a esa fecha adelantada por error — la validación de fondo (`horaInicio < new Date()`) nunca estaba realmente rota, el dato que le llegaba sí. En `editar-turno-modal.tsx` era más serio todavía: la fecha (UTC, mal) y la hora (`toTimeString`, local, bien) quedaban desincronizadas — abrir el modal de un turno nocturno y guardar sin tocar nada podía correrlo un día entero.
+  - Fix: `fechaISOLocal`/`horaISOLocal`, dos funciones nuevas en `lib/calendar-utils.ts` (getters locales con cero-relleno, sin pasar por UTC), reemplazan el cálculo en los dos modales.
+  - De paso, el campo Hora de "Agregar turno" ahora tiene `min` dinámico (la hora actual, solo cuando la fecha elegida es hoy) — antes solo la Fecha tenía esa ayuda nativa del navegador, la Hora no ofrecía ninguna resistencia a elegir una ya pasada.
+
+**3. El historial de turnos de la ficha del paciente mostraba turnos cancelados.** `historial = paciente.turnos.filter((t) => !esActivo(t))` incluía cancelados (cualquier cosa "no activa"). Ahora excluye `estado === "cancelada"` explícitamente — un turno cancelado no aporta al historial clínico, y no vive en ningún otro lado de la ficha del paciente (sigue viéndose en la vista Turnos, donde sí corresponde gestionarlo).
+
+**4. Tocar un turno en la ficha del paciente no llevaba a ningún lado.** Las filas de `PacienteTurnosTable` (Turnos activos e Historial) eran `<tr>` sin acción — el cliente pidió el mismo atajo que ya existe al tocar una casilla del calendario ("Ver turno →" en `TurnoDetalle`): ir a la vista Turnos con esa fila ya desplegada. Cada fila es ahora un `ClickableTableRow` (mismo componente que la lista de Pacientes) con `href="/panel/turnos?estado=${estado}&q=${dni}&turno=${id}"` — idéntico patrón a `hrefVerTurno` en `turno-detalle.tsx`, no una implementación nueva.
+
+- **Verificado:** typecheck y lint limpios (el linter de React Compiler marcó `Date.now()` como función impura llamada durante el render — se usa `new Date().getTime()` en su lugar, mismo patrón que ya usaba `turno-detalle.tsx` sin que el linter se quejara). 5 tests nuevos (resuelto en las dos tablas, click-para-navegar, `fechaISOLocal`/`horaISOLocal`) — 449 tests en total, cobertura 89%/86%/87%/90% (gate 80%).
+- **Reversibilidad:** Alta en los 4 — ningún cambio de esquema ni de endpoints, todo derivado/cliente.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

@@ -46,6 +46,27 @@ export function formatHora(d: Date): string {
   return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+// fechaISOLocal/horaISOLocal (TR-074 en docs/tradeoffs.md, 2026-08-27) —
+// "YYYY-MM-DD"/"HH:MM" en la fecha y hora LOCAL del dispositivo, para
+// <input type="date"/"time"> (value/min) y como valor por defecto de
+// "ahora". A diferencia de `d.toISOString().slice(...)` (que da la
+// fecha/hora en UTC), esto no se adelanta un día en Argentina (UTC-3)
+// durante las últimas horas del día local — bug real reportado por el
+// cliente: "cuando quiero agregar un turno manual me deja ingresar horas
+// pasadas" — la fecha calculada en UTC saltaba al día siguiente antes de
+// medianoche local, así que una hora ya pasada HOY quedaba "en el
+// futuro" respecto a esa fecha adelantada por error.
+export function fechaISOLocal(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dia}`;
+}
+
+export function horaISOLocal(d: Date = new Date()): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export function formatDiaCorto(d: Date): string {
   return d.toLocaleDateString("es-AR", { weekday: "short", day: "numeric" });
 }

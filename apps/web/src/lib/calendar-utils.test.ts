@@ -4,11 +4,13 @@ import {
   addMonths,
   diasDeVista,
   endOfMonth,
+  fechaISOLocal,
   formatDiaCorto,
   formatDiaLargo,
   formatHora,
   formatMesAnio,
   formatRangoSemana,
+  horaISOLocal,
   isSameDay,
   navegar,
   rangoVisible,
@@ -146,5 +148,24 @@ describe("navegar", () => {
   it("mes: mueve 1 mes", () => {
     const d = navegar(new Date(2026, 8, 15), "mes", 1);
     expect(d.getMonth()).toBe(9);
+  });
+});
+
+// TR-074 en docs/tradeoffs.md — reemplazan `d.toISOString().slice(...)`
+// (fecha/hora en UTC) en agregar-turno-modal.tsx/editar-turno-modal.tsx:
+// esa versión se adelantaba un día en Argentina (UTC-3) durante las
+// últimas horas del día local, dejando que se ingresaran horas ya
+// pasadas HOY sin que la validación las detectara.
+describe("fechaISOLocal", () => {
+  it("da YYYY-MM-DD con cero-relleno, en la fecha LOCAL (no UTC)", () => {
+    expect(fechaISOLocal(new Date(2026, 0, 5))).toBe("2026-01-05");
+    expect(fechaISOLocal(new Date(2026, 11, 31))).toBe("2026-12-31");
+  });
+});
+
+describe("horaISOLocal", () => {
+  it("da HH:MM con cero-relleno, en la hora LOCAL (no UTC)", () => {
+    expect(horaISOLocal(new Date(2026, 0, 1, 9, 5))).toBe("09:05");
+    expect(horaISOLocal(new Date(2026, 0, 1, 23, 0))).toBe("23:00");
   });
 });
