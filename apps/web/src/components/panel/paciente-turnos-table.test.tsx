@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PacienteTurnosTable } from "./paciente-turnos-table";
-
-// TR-064 en docs/tradeoffs.md: desde esta corrección, ResponsiveTable
-// renderiza la tabla de escritorio Y la lista de cards mobile al mismo
-// tiempo en el DOM (jsdom no evalúa media queries) — algunas queries de
-// texto plano necesitan acotarse a la tabla para no ambigüar contra la
-// card equivalente (las que ya usaban `role="cell"`, exclusivo de
-// `<table>`, siguen sin ambigüedad y no se tocaron).
-function tabla() {
-  return within(screen.getByRole("table"));
-}
 
 const tiposConsulta = [
   { id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" },
@@ -50,8 +40,8 @@ describe("PacienteTurnosTable", () => {
 
   it("muestra estado, fecha y motivo", () => {
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
-    expect(tabla().getByText("Confirmado")).toBeInTheDocument();
-    expect(tabla().getByText("Dolor de muela")).toBeInTheDocument();
+    expect(screen.getByText("Confirmado")).toBeInTheDocument();
+    expect(screen.getByText("Dolor de muela")).toBeInTheDocument();
   });
 
   it("sin tipoConsultaId resuelto, muestra — y el color neutro por defecto", () => {
@@ -103,28 +93,5 @@ describe("PacienteTurnosTable", () => {
 
     await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
-  });
-});
-
-// TR-064 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
-// debajo de `md` la tabla se reemplaza por una card por turno.
-describe("PacienteTurnosTable — cards mobile", () => {
-  function cards() {
-    const t = screen.getByRole("table");
-    const desktopWrapper = t.parentElement!.parentElement!;
-    return desktopWrapper.nextElementSibling as HTMLElement;
-  }
-
-  it("muestra el tipo de consulta, el estado y el motivo", () => {
-    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
-    expect(within(cards()).getByText("Urgencia")).toBeInTheDocument();
-    expect(within(cards()).getByText("Confirmado")).toBeInTheDocument();
-    expect(within(cards()).getByText("Motivo")).toBeInTheDocument();
-    expect(within(cards()).getByText("Dolor de muela")).toBeInTheDocument();
-  });
-
-  it("sin motivo, no muestra esa fila (a diferencia de la tabla, que sí muestra —)", () => {
-    render(<PacienteTurnosTable turnos={[{ ...turno, motivo: "" }]} tiposConsulta={tiposConsulta} vacio="" />);
-    expect(within(cards()).queryByText("Motivo")).not.toBeInTheDocument();
   });
 });

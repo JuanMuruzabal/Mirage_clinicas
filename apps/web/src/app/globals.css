@@ -105,22 +105,6 @@
   background-repeat: repeat;
 }
 
-/* `.scrollbar-hide` — TR-064 en docs/tradeoffs.md, pedido explícito del
-   cliente: los tabs de Turnos (Pendientes/Confirmadas/Resueltos/
-   Canceladas/Todas) scrollean horizontalmente DENTRO de su propio
-   contenedor en mobile, sin la barra de scroll nativa a la vista (el
-   gesto de deslizar sigue funcionando igual, solo se oculta el indicador
-   visual — mismo patrón que cualquier carrusel de tabs de app nativa).
-   Tailwind v4 no trae esta utilidad por default (era un plugin aparte en
-   v3); son 3 líneas, no amerita una dependencia nueva. */
-.scrollbar-hide {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* versiones viejas de Edge */
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome/Safari/Edge modernos */
-}
-
 /* `.panel-shell-h`/`.panel-sidebar-h` — rama fix/mobile, sexta vuelta
    (2026-08-24, pedido explícito del cliente: "el scroll vertical no
    funciona (prioridad): no puedo ver las horas de abajo del calendario"

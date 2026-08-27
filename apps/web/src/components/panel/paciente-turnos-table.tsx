@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { ESTADO_CLASS, ESTADO_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { QuadrantMark } from "../quadrant-mark";
-import { DataField } from "./data-field";
-import { ResponsiveTable } from "./responsive-table";
 
 interface PacienteTurnosTableProps {
   turnos: Turno[];
@@ -29,12 +27,6 @@ interface PacienteTurnosTableProps {
 // cliente, sobre los turnos ya traídos con la ficha del paciente (no hay
 // necesidad de otro viaje al backend, esta lista ya es acotada a un solo
 // paciente).
-//
-// Debajo de `md` la tabla se reemplaza por una card por turno (TR-064 en
-// docs/tradeoffs.md, mismo patrón que TurnosTable/ResponsiveTable) — la
-// fila de filtros pasa a ancho completo en vez de compartir un
-// `min-width` fijo con la tabla (eso arrastraba TODA la página en un
-// scroll horizontal en mobile).
 export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTurnosTableProps) {
   const [tipoId, setTipoId] = useState("todos");
   const [desde, setDesde] = useState("");
@@ -65,53 +57,15 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
     );
   }
 
-  const tabla = (
-    // min-w-[560px] es un mínimo de contenido real, sin cambios — TR-064
-    // saca este bloque de circulación debajo de `md` (ResponsiveTable),
-    // así que ya no hace falta compartir scroll horizontal con nada.
-    <div className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-      <table className="w-full min-w-[560px] text-left text-sm">
-        <thead className="sticky top-0 z-10">
-          <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
-            <th className="w-8 px-4 py-3" aria-hidden="true" />
-            <th className="px-4 py-3">Tipo de consulta</th>
-            <th className="px-4 py-3">Fecha y hora</th>
-            <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Motivo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtrados.map((t) => {
-            const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
-            return (
-              <tr key={t.id} className="border-b-[0.5px] border-arena last:border-b-0">
-                <td className="px-4 py-3">
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: temaTipoConsulta(tipo).acento }}
-                  />
-                </td>
-                <td className="px-4 py-3 text-grafito">{tipo?.nombre ?? "—"}</td>
-                <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
-                    <QuadrantMark estado={t.estado} />
-                    {ESTADO_LABEL[t.estado]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    // max-md:min-w (rama fix/mobile, séptima corrección 2026-08-24 — ver
+    // TR-030 en docs/tradeoffs.md, mismo criterio que calendar-view.tsx/
+    // turnos/page.tsx: filtros y tabla comparten UN SOLO min-width en vez
+    // de tener cada uno el suyo — 35rem = 560px, el mínimo que ya tenía
+    // la tabla). Con `w-full` en la fila de filtros (abajo) y en el
+    // contenedor de la tabla, ambos miden siempre lo mismo.
+    <div className="flex flex-col gap-3 max-md:min-w-[35rem]">
+      <div className="flex flex-wrap items-center gap-2 text-sm max-md:w-full max-md:flex-nowrap">
         {tiposUsados.length > 0 && (
           <select
             value={tipoId}
@@ -160,40 +114,58 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         )}
       </div>
 
-      <ResponsiveTable
-        items={filtrados}
-        getKey={(t) => t.id}
-        table={tabla}
-        empty={
-          <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
-            Ningún turno coincide con el filtro.
-          </p>
-        }
-        renderCard={(t) => {
-          const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
-          return (
-            <div className="flex flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft">
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                  style={{ background: temaTipoConsulta(tipo).acento }}
-                />
-                <span className="font-medium text-grafito">{tipo?.nombre ?? "—"}</span>
-              </div>
-
-              <DataField label="Fecha y hora" value={formatFechaHora(t.horaInicio)} />
-
-              <span className={`inline-flex w-fit items-center gap-1.5 rounded-full bg-hueso px-2.5 py-1 text-xs ${ESTADO_CLASS[t.estado]}`}>
-                <QuadrantMark estado={t.estado} />
-                {ESTADO_LABEL[t.estado]}
-              </span>
-
-              <DataField label="Motivo" value={t.motivo} />
-            </div>
-          );
-        }}
-      />
+      {filtrados.length === 0 ? (
+        <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+          Ningún turno coincide con el filtro.
+        </p>
+      ) : (
+        // min-w-[560px] es un mínimo de contenido real, sin cambios.
+        // Mobile (quinta corrección 2026-08-24 — ver TR-028 en
+        // docs/tradeoffs.md): esta caja deja de tener su propio scroll
+        // (max-md:overflow-visible) — comparte el de <main> en
+        // app/panel/layout.tsx con el resto de la página del paciente.
+        <div
+          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
+                <th className="w-8 px-4 py-3" aria-hidden="true" />
+                <th className="px-4 py-3">Tipo de consulta</th>
+                <th className="px-4 py-3">Fecha y hora</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((t) => {
+                const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+                return (
+                  <tr key={t.id} className="border-b-[0.5px] border-arena last:border-b-0">
+                    <td className="px-4 py-3">
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ background: temaTipoConsulta(tipo).acento }}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-grafito">{tipo?.nombre ?? "—"}</td>
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_CLASS[t.estado]}`}>
+                        <QuadrantMark estado={t.estado} />
+                        {ESTADO_LABEL[t.estado]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
