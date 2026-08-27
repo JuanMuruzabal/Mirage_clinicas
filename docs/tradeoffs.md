@@ -822,6 +822,15 @@
 - **Verificado:** typecheck y lint limpios (0 errores). Sin test propio — `page.tsx` queda fuera del gate de cobertura (Server Component async, convención ya establecida en CLAUDE.md).
 - **Reversibilidad:** Alta — tres clases `order-*`, sin tocar componentes ni lógica.
 
+## TR-073: `panel-texture` extendida a /ingresar y /sumarse — antes reservada solo a gestión de clínica
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (pedido explícito del cliente: "en el fondo de ingresar y sumarte poné el mismo fondo texturizado que se utiliza en gestión de clínica")
+- **Qué cambió:** `bg-hueso` (color plano) → `panel-texture` (mismo color base `--color-hueso` + el tile de cruces suaves de `/textures/soft-cross.svg`, TR-013) en el `<main>` de `app/ingresar/page.tsx` y `app/sumarse/page.tsx`. La clase ya existía — es un drop-in, no hubo que crear nada nuevo.
+- **Decisión revertida:** el comentario original de TR-013 en `globals.css` decía explícitamente "nunca en marketing/onboarding" — actualizado para reflejar la excepción puntual (ingresar/sumarse sí, el resto de marketing/onboarding sigue sin ella).
+- **Verificado:** build de producción, typecheck y lint limpios; 444 tests sin cambios (ninguno afirmaba `bg-hueso` en estas dos páginas).
+- **Reversibilidad:** Alta — un nombre de clase por archivo.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

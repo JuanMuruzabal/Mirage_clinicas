@@ -14,7 +14,11 @@ export default async function IngresarPage() {
   await redirectSiEmailVerificado(me);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16">
+    // panel-texture (TR-073 en docs/tradeoffs.md, 2026-08-27, pedido
+    // explícito del cliente): mismo fondo texturizado que /panel — antes
+    // reservado solo a gestión de clínica (TR-013), ahora también en
+    // ingresar/sumarse.
+    <main className="panel-texture flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16">
       <AuthShell title="Ingresar">
         <LoginForm />
       </AuthShell>

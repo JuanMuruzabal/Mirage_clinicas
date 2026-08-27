@@ -95,10 +95,12 @@
   --font-mono: var(--font-mono);
 }
 
-/* Textura de fondo del panel de gestión (TR-013) — un tile de cruces
-   suaves muy tenue, solo en el layout raíz de /panel (General, Calendario,
-   Turnos, Pacientes); nunca dentro de una card, nunca en marketing/
-   onboarding. Ver app/panel/layout.tsx. */
+/* Textura de fondo (TR-013) — un tile de cruces suaves muy tenue.
+   Originalmente solo en el layout raíz de /panel (General, Calendario,
+   Turnos, Pacientes; ver app/panel/layout.tsx), nunca dentro de una
+   card. Extendida a /ingresar y /sumarse (TR-073, 2026-08-27, pedido
+   explícito del cliente) — el resto de marketing/onboarding sigue sin
+   ella. */
 .panel-texture {
   background-color: var(--color-hueso);
   background-image: url("/textures/soft-cross.svg");
