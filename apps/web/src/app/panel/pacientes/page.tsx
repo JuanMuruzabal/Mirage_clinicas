@@ -44,8 +44,16 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           real de la tabla, que se desbordaba por fuera de la tarjeta
           redondeada en mobile (`overflow-visible` no la recorta).
           Detalle completo del diagnóstico en el comentario de más abajo,
-          sobre `min-w-[640px]` en la tabla. */}
-      <div className="flex flex-col gap-6 max-md:min-w-[40rem]">
+          sobre `min-w-[640px]` en la tabla.
+
+          42rem = 672px (TR-069 en docs/tradeoffs.md, 2026-08-27): 640px
+          TODAVÍA quedaba corto — el cliente volvió a medir en vivo
+          después del deploy de TR-067 y el ancho real que pedía la
+          tabla era 650.63px (emails más largos que los de Turnos). Se
+          sube con más margen que la vez anterior (~21px de sobra en vez
+          de ajustar al límite) para no repetir el mismo error dos veces
+          con datos reales todavía más largos. */}
+      <div className="flex flex-col gap-6 max-md:min-w-[42rem]">
         <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2 max-md:w-full max-md:max-w-none">
           <input
             type="search"
@@ -60,7 +68,7 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         </form>
 
         {/* Escritorio: max-h + scroll interno en las dos direcciones —
-            sin cambios. min-w-[640px] en la tabla (abajo, TR-067 en
+            sin cambios. min-w-[672px] en la tabla (abajo, TR-069 en
             docs/tradeoffs.md) es un mínimo de contenido real.
 
             Mobile (ver TR-028/029 en docs/tradeoffs.md): esta caja DEJA
@@ -95,7 +103,7 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
             // segura en general.
             className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
           >
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[672px] text-left text-sm">
               <thead className="md:sticky md:top-0 md:z-10">
                 <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                   <th className="px-4 py-3">Nombre</th>

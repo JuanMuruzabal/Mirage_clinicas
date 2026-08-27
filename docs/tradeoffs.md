@@ -794,6 +794,15 @@
 - **Verificado:** build de producción limpio, `overflow-y:scroll` presente en el CSS compilado y `scrollbar-gutter` ya no aparece; 444 tests sin cambios (es CSS puro, no toca ningún componente).
 - **Reversibilidad:** Alta — una propiedad CSS por otra, en el mismo selector.
 
+## TR-069: El ancho mínimo de Pacientes (TR-067) todavía quedaba corto — 640px → 672px
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (el cliente volvió a medir en vivo, después de que TR-067 estuviera deployado, y reportó 650.63px como ancho real necesario — más que los 640px a los que se había subido)
+- **Qué pasó:** el mismo mecanismo de TR-067 (ancho mínimo compartido entre buscador y tabla, insuficiente para el contenido real) seguía dando corto en Pacientes específicamente — los emails de pacientes reales son más largos que el margen que se le había dado (+40px sobre el original 600px no alcanzó; hacía falta +50.63px como mínimo).
+- **Fix:** subir de 640px a **672px** (40rem → 42rem) — esta vez con más margen de sobra (~21px por encima de los 650.63px medidos) en vez de ajustar al límite, para no repetir el mismo ciclo una tercera vez si aparece un email todavía más largo. Turnos (760px) no necesitó ajuste — el cliente confirmó que ese quedó bien.
+- **Lección:** cuando el ancho mínimo depende de contenido de texto libre (emails, nombres), conviene sobrestimar el margen bastante más que lo que parece necesario en la primera medición — un email de prueba corto no representa el peor caso real.
+- **Reversibilidad:** Alta — dos números en un archivo.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
