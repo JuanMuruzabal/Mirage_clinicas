@@ -70,6 +70,20 @@ describe("PacienteTurnosTable", () => {
     expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
   });
 
+  // TR-076 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-27): tocar un turno resuelto tiene que abrir la pestaña
+  // "Resueltos", no "Confirmadas" (?estado=resuelto, no el estado real
+  // "agendado").
+  it("tocar un turno resuelto navega con estado=resuelto, no agendado", async () => {
+    const user = userEvent.setup();
+    const resuelto = { ...turno, horaFin: "2020-01-01T13:30:00.000Z" };
+    render(<PacienteTurnosTable turnos={[resuelto]} tiposConsulta={tiposConsulta} vacio="" />);
+
+    await user.click(screen.getByText("Dolor de muela"));
+
+    expect(pushMock).toHaveBeenCalledWith("/panel/turnos?estado=resuelto&q=1&turno=t-1");
+  });
+
   // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): tocar la
   // fila manda a la vista Turnos con esa fila ya desplegada, mismo
   // patrón que "Ver turno →" en TurnoDetalle.

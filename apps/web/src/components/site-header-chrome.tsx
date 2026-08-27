@@ -6,8 +6,10 @@ import { useState } from "react";
 import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
+import { IconMenu } from "./icons";
 import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
+import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -55,10 +57,25 @@ export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const panelSidebar = usePanelSidebar();
 
   const mostrarGear = estado === "completo" && isHerramientaRoute(pathname);
   const mostrarMiClinica = estado !== "anonimo" && !mostrarGear;
   const mostrarAccesosAnonimos = estado === "anonimo";
+
+  // TR-075 en docs/tradeoffs.md (2026-08-27, pedido explícito del
+  // cliente: "quitar de aquí el logo de Dental Mirage que te lleva a la
+  // home... solo en la página de /seleccionar-servicio debe ser visible
+  // el ícono para volver al home"). De las 4 pantallas de herramienta
+  // (mismo `mostrarGear` de arriba), solo /seleccionar-servicio conserva
+  // el logo — en las otras 3 (/panel/**, /perfil, /personalizar-pagina)
+  // el logo desaparece: en /panel/** en mobile lo reemplaza el ícono de
+  // hamburguesa (abre el sidebar), y en el resto de los casos (desktop
+  // de /panel/**, y las dos pantallas sin sidebar en cualquier ancho) lo
+  // reemplaza un botón "Panel" que vuelve a /seleccionar-servicio.
+  const esSeleccionarServicio = pathname === "/seleccionar-servicio";
+  const ocultarLogo = mostrarGear && !esSeleccionarServicio;
+  const enRutaConSidebar = isPanelRoute(pathname);
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
   // menú al navegar: "adjusting state when a prop changes"
@@ -107,15 +124,51 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
     <HeaderFrame forceSolid={menuOpen}>
       <div className={contenedorClass}>
         <div className="flex items-center gap-4">
-          {/* El logo siempre vuelve a la home pública, tenga sesión o no
-              (pedido explícito del cliente, 2026-08-26) — antes llevaba a
-              /seleccionar-servicio con onboarding completo. */}
-          <Link href="/" className="flex items-center gap-2 text-current" onClick={closeMenu}>
-            <QuadrantMark className="text-steel" />
-            <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
-              Dental Mirage
-            </span>
-          </Link>
+          {ocultarLogo ? (
+            <>
+              {/* Mobile en una ruta con sidebar (/panel/**): hamburguesa
+                  que abre el drawer (TR-075), en vez del botón "Panel" —
+                  ahí ya existe otra forma de llegar a /seleccionar-
+                  servicio (el ítem "Panel" agregado adentro del propio
+                  sidebar), así que este espacio se dedica a lo que
+                  realmente hace falta en esa pantalla puntual. */}
+              {enRutaConSidebar && (
+                <button
+                  type="button"
+                  onClick={panelSidebar.toggle}
+                  aria-expanded={panelSidebar.open}
+                  aria-controls="panel-sidebar-drawer"
+                  aria-label={panelSidebar.open ? "Cerrar menú" : "Abrir menú"}
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-current md:hidden"
+                >
+                  <IconMenu className="h-6 w-6" />
+                </button>
+              )}
+              {/* Botón "Panel" → /seleccionar-servicio: siempre en
+                  desktop; en mobile, solo en las 2 pantallas de
+                  herramienta SIN sidebar (/perfil, /personalizar-pagina)
+                  — en /panel/** ese lugar lo ocupa la hamburguesa de
+                  arriba. */}
+              <Link
+                href="/seleccionar-servicio"
+                onClick={closeMenu}
+                className={`flex items-center gap-2 text-current ${enRutaConSidebar ? "hidden md:flex" : ""}`}
+              >
+                <QuadrantMark className="text-steel" />
+                <span className="text-sm font-semibold">Panel</span>
+              </Link>
+            </>
+          ) : (
+            /* El logo siempre vuelve a la home pública, tenga sesión o no
+               (pedido explícito del cliente, 2026-08-26) — antes llevaba a
+               /seleccionar-servicio con onboarding completo. */
+            <Link href="/" className="flex items-center gap-2 text-current" onClick={closeMenu}>
+              <QuadrantMark className="text-steel" />
+              <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
+                Dental Mirage
+              </span>
+            </Link>
+          )}
         </div>
 
         {/* Accesos directos a información dentro del Home (anclas, no

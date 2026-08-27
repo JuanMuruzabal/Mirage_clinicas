@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
 const { cookiesMock, apiMeMock, usePathnameMock } = vi.hoisted(() => ({
   cookiesMock: vi.fn(),
@@ -29,6 +31,12 @@ function mockMe(data: { emailVerificado?: boolean; onboardingCompletado?: boolea
   apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", email: "a@example.com", ...data } });
 }
 
+// usePanelSidebar() (TR-075 en docs/tradeoffs.md) tira si no hay
+// PanelSidebarProvider en el árbol — mismo wrapper que app/layout.tsx.
+function renderConProvider(ui: ReactNode) {
+  return render(<PanelSidebarProvider>{ui}</PanelSidebarProvider>);
+}
+
 // TR-058/TR-060 en docs/tradeoffs.md: el header tiene 3 estados de
 // sesión, y su apariencia además depende de si la pantalla actual es una
 // "de herramienta" (`isHerramientaRoute`) o no.
@@ -42,7 +50,7 @@ describe("SiteHeader", () => {
     fakeCookieStore(undefined);
     // Los Server Components async se pueden invocar directo y renderizar
     // el JSX ya resuelto (patrón React 19 / Next 15+).
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
@@ -54,30 +62,34 @@ describe("SiteHeader", () => {
     fakeCookieStore("un-jwt-vencido");
     apiMeMock.mockResolvedValue({ ok: false, status: 401, error: "token inválido" });
 
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
   });
 
-  it("el logo siempre lleva a / — con o sin sesión, con onboarding completo o no", async () => {
+  it("el logo siempre lleva a / — con o sin sesión, con onboarding completo o no (fuera de una pantalla de herramienta)", async () => {
     mockMe({ emailVerificado: true, onboardingCompletado: true });
-    usePathnameMock.mockReturnValue("/panel");
+    // Distinto de /panel a propósito: desde TR-075 en docs/tradeoffs.md,
+    // el logo YA NO se muestra en /panel/**, /perfil ni
+    // /personalizar-pagina (ver site-header-chrome.test.tsx para esos
+    // casos) — acá se prueba el caso general, sin esa excepción.
+    usePathnameMock.mockReturnValue("/buscar");
 
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.getByRole("link", { name: "Dental Mirage" })).toHaveAttribute("href", "/");
   });
 
   it("con sesión, 'Cerrar sesión' NO está en el header — vive solo en /perfil (pedido explícito)", async () => {
     mockMe({ emailVerificado: true, onboardingCompletado: true });
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.queryByRole("button", { name: "Cerrar sesión" })).not.toBeInTheDocument();
   });
 
   it("sin sesión, muestra los accesos directos a Buscar clínicas y Servicios para profesionales", async () => {
     fakeCookieStore(undefined);
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.getByRole("link", { name: "Buscar clínicas" })).toHaveAttribute("href", "/#buscar");
     expect(screen.getByRole("link", { name: "Servicios para profesionales" })).toHaveAttribute(
@@ -88,7 +100,7 @@ describe("SiteHeader", () => {
 
   it("con sesión, oculta los accesos directos (son para un visitante sin cuenta, pedido explícito)", async () => {
     mockMe({ emailVerificado: true, onboardingCompletado: true });
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.queryByRole("link", { name: "Buscar clínicas" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Servicios para profesionales" })).not.toBeInTheDocument();
@@ -96,7 +108,7 @@ describe("SiteHeader", () => {
 
   it("el texto de navegación es mayúscula/negrita (pedido explícito, más llamativo)", async () => {
     fakeCookieStore(undefined);
-    render(await SiteHeader());
+    renderConProvider(await SiteHeader());
 
     expect(screen.getByRole("link", { name: "Ingresar" })).toHaveClass("uppercase", "font-bold");
     expect(screen.getByRole("link", { name: "Buscar clínicas" })).toHaveClass("uppercase", "font-bold");
@@ -104,7 +116,7 @@ describe("SiteHeader", () => {
 
   it("el header es fixed (se mantiene visible al scrollear)", async () => {
     fakeCookieStore(undefined);
-    const { container } = render(await SiteHeader());
+    const { container } = renderConProvider(await SiteHeader());
     expect(container.querySelector("header")).toHaveClass("fixed", "top-0");
   });
 
@@ -116,7 +128,7 @@ describe("SiteHeader", () => {
   describe("con onboarding completo, fuera de una pantalla de herramienta", () => {
     it("muestra 'Mi clínica' hacia /seleccionar-servicio, no los links sueltos", async () => {
       mockMe({ emailVerificado: true, onboardingCompletado: true });
-      render(await SiteHeader());
+      renderConProvider(await SiteHeader());
 
       expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
       expect(screen.queryByRole("link", { name: "Gestionar tu clínica" })).not.toBeInTheDocument();
@@ -128,12 +140,12 @@ describe("SiteHeader", () => {
   // botón de configuración reemplaza a los tres links sueltos de antes.
   describe("con onboarding completo, en una pantalla de herramienta", () => {
     it.each(["/seleccionar-servicio", "/panel", "/perfil", "/personalizar-pagina"])(
-      "en %s, muestra el botón de configuración con acceso a Tu perfil/Gestionar tu clínica/Personalizar tu página",
+      "en %s, muestra el botón de configuración (no 'Mi clínica')",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);
         mockMe({ emailVerificado: true, onboardingCompletado: true });
 
-        render(await SiteHeader());
+        renderConProvider(await SiteHeader());
 
         expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
         expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
@@ -147,7 +159,7 @@ describe("SiteHeader", () => {
       usePathnameMock.mockReturnValue("/seleccionar-servicio");
       mockMe({ emailVerificado: true, onboardingCompletado: true });
 
-      const { container } = render(await SiteHeader());
+      const { container } = renderConProvider(await SiteHeader());
       const header = container.querySelector("header")!;
       const nombresDeLinks = within(header)
         .getAllByRole("link")
@@ -166,7 +178,7 @@ describe("SiteHeader", () => {
   describe("con mail sin verificar (estado anónimo)", () => {
     it("se comporta como sin sesión (Ingresar/Sumate, no Mi clínica ni el botón de configuración)", async () => {
       mockMe({ emailVerificado: false, onboardingCompletado: false });
-      render(await SiteHeader());
+      renderConProvider(await SiteHeader());
 
       expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
@@ -187,7 +199,7 @@ describe("SiteHeader", () => {
         usePathnameMock.mockReturnValue(pathname);
         mockMe({ emailVerificado: true, onboardingCompletado: false });
 
-        render(await SiteHeader());
+        renderConProvider(await SiteHeader());
 
         expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
         expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();

@@ -1,11 +1,31 @@
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
 const { usePathnameMock } = vi.hoisted(() => ({ usePathnameMock: vi.fn(() => "/buscar") }));
 vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 
 const { SiteHeaderChrome } = await import("./site-header-chrome");
+type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
+
+// usePanelSidebar() (TR-075 en docs/tradeoffs.md) tira si no hay
+// PanelSidebarProvider en el árbol — mismo wrapper que app/layout.tsx.
+function renderHeader(estado: EstadoHeaderSesion) {
+  return render(
+    <PanelSidebarProvider>
+      <SiteHeaderChrome estado={estado} />
+    </PanelSidebarProvider>,
+  );
+}
+function rerenderHeader(rerender: (ui: ReactElement) => void, estado: EstadoHeaderSesion) {
+  rerender(
+    <PanelSidebarProvider>
+      <SiteHeaderChrome estado={estado} />
+    </PanelSidebarProvider>,
+  );
+}
 
 // Corrección post-entrega (2026-08-24, pedido explícito del cliente: "el
 // header cuando se acumulan componentes se ve espantoso [en mobile]...
@@ -16,7 +36,7 @@ const { SiteHeaderChrome } = await import("./site-header-chrome");
 describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("arranca cerrado: el botón de menú existe pero el dropdown no está en el DOM", () => {
     usePathnameMock.mockReturnValue("/");
-    render(<SiteHeaderChrome estado="anonimo" />);
+    renderHeader("anonimo");
 
     const boton = screen.getByRole("button", { name: "Abrir menú" });
     expect(boton).toHaveAttribute("aria-expanded", "false");
@@ -26,7 +46,7 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("clickear el botón abre el dropdown con Buscar clínicas/Servicios/Ingresar/Sumate", async () => {
     usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" />);
+    renderHeader("anonimo");
 
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
 
@@ -39,7 +59,7 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("clickear un link del dropdown lo cierra", async () => {
     usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" />);
+    renderHeader("anonimo");
 
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
     const dropdown = screen.getByRole("navigation", { name: "Menú y accesos directos" });
@@ -51,7 +71,7 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("clickear el botón de nuevo lo cierra (toggle)", async () => {
     usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    render(<SiteHeaderChrome estado="anonimo" />);
+    renderHeader("anonimo");
 
     const boton = screen.getByRole("button", { name: "Abrir menú" });
     await user.click(boton);
@@ -62,20 +82,20 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
 
   it("cambiar de ruta cierra el menú aunque no se haya clickeado nada adentro", async () => {
     usePathnameMock.mockReturnValue("/buscar");
-    const { rerender } = render(<SiteHeaderChrome estado="anonimo" />);
+    const { rerender } = renderHeader("anonimo");
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Abrir menú" }));
     expect(screen.getByRole("button", { name: "Cerrar menú" })).toBeInTheDocument();
 
     usePathnameMock.mockReturnValue("/panel");
-    rerender(<SiteHeaderChrome estado="anonimo" />);
+    rerenderHeader(rerender, "anonimo");
     expect(screen.getByRole("button", { name: "Abrir menú" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("con el menú abierto, el header queda sólido incluso en el Home sin scrollear", async () => {
     usePathnameMock.mockReturnValue("/");
     const user = userEvent.setup();
-    const { container } = render(<SiteHeaderChrome estado="anonimo" />);
+    const { container } = renderHeader("anonimo");
 
     expect(container.querySelector("header")).toHaveClass("bg-transparent");
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
@@ -84,26 +104,31 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
 
   it("no muestra el botón de menú mobile en los otros dos estados (un solo botón compacto, nunca desborda)", () => {
     usePathnameMock.mockReturnValue("/");
-    const { rerender } = render(<SiteHeaderChrome estado="completo" />);
+    const { rerender } = renderHeader("completo");
     expect(screen.queryByRole("button", { name: /menú/i })).not.toBeInTheDocument();
 
-    rerender(<SiteHeaderChrome estado="cuentaSinTerminar" />);
+    rerenderHeader(rerender, "cuentaSinTerminar");
     expect(screen.queryByRole("button", { name: /menú/i })).not.toBeInTheDocument();
   });
 });
 
 // El logo siempre vuelve a la home pública (pedido explícito del
 // cliente, 2026-08-26) — antes, con onboarding completo, llevaba a
-// /seleccionar-servicio.
+// /seleccionar-servicio. Sigue siendo así para anonimo/cuentaSinTerminar
+// en CUALQUIER ruta (nunca disparan `ocultarLogo`, ver TR-075 más abajo)
+// — para estado completo, el logo depende de la ruta (ver ese describe).
 describe("SiteHeaderChrome — logo", () => {
-  it.each(["anonimo", "cuentaSinTerminar", "completo"] as const)(
-    "con estado=%s, el logo linkea a / siempre",
-    (estado) => {
-      usePathnameMock.mockReturnValue("/panel");
-      render(<SiteHeaderChrome estado={estado} />);
-      expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
-    },
-  );
+  it.each(["anonimo", "cuentaSinTerminar"] as const)("con estado=%s en /panel, el logo linkea a / siempre", (estado) => {
+    usePathnameMock.mockReturnValue("/panel");
+    renderHeader(estado);
+    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+  });
+
+  it("con estado completo fuera de una pantalla de herramienta (Home), el logo linkea a /", () => {
+    usePathnameMock.mockReturnValue("/");
+    renderHeader("completo");
+    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+  });
 });
 
 // TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
@@ -114,7 +139,7 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
     "en %s con estado completo, muestra el botón de configuración y no 'Mi clínica'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
-      render(<SiteHeaderChrome estado="completo" />);
+      renderHeader("completo");
       expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
     },
@@ -125,14 +150,68 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
   // yendo siempre a "/", era redundante.
   it("en /seleccionar-servicio con estado completo, ya NO muestra 'Volver al inicio'", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
-    render(<SiteHeaderChrome estado="completo" />);
+    renderHeader("completo");
     expect(screen.queryByRole("link", { name: /Volver al inicio/ })).not.toBeInTheDocument();
   });
 
   it("fuera de una pantalla de herramienta (Home), con estado completo NO muestra el botón de configuración", () => {
     usePathnameMock.mockReturnValue("/");
-    render(<SiteHeaderChrome estado="completo" />);
+    renderHeader("completo");
     expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
+  });
+});
+
+// TR-075 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
+// "quitar de aquí el logo de Dental Mirage... solo en la página de
+// /seleccionar-servicio debe ser visible el ícono para volver al home".
+// De las 4 pantallas de herramienta, solo /seleccionar-servicio conserva
+// el logo — en /panel/** (mobile) lo reemplaza la hamburguesa que abre
+// el sidebar; en el resto (desktop de /panel/**, y /perfil/
+// /personalizar-pagina en cualquier ancho) lo reemplaza un botón "Panel".
+describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-075)", () => {
+  it("en /seleccionar-servicio con estado completo, el logo sigue visible (única excepción)", () => {
+    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    renderHeader("completo");
+    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+  });
+
+  it.each(["/panel", "/panel/turnos", "/perfil", "/personalizar-pagina"])(
+    "en %s con estado completo, el logo YA NO está",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      renderHeader("completo");
+      expect(screen.queryByRole("link", { name: /Dental Mirage/ })).not.toBeInTheDocument();
+    },
+  );
+
+  it("en una ruta de /panel, muestra la hamburguesa que abre el sidebar (mobile)", () => {
+    usePathnameMock.mockReturnValue("/panel/turnos");
+    renderHeader("completo");
+    const boton = screen.getByRole("button", { name: "Abrir menú" });
+    expect(boton).toHaveAttribute("aria-controls", "panel-sidebar-drawer");
+    expect(boton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("clickear la hamburguesa cambia aria-expanded a true", async () => {
+    usePathnameMock.mockReturnValue("/panel");
+    const user = userEvent.setup();
+    renderHeader("completo");
+
+    await user.click(screen.getByRole("button", { name: "Abrir menú" }));
+    expect(screen.getByRole("button", { name: "Cerrar menú" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("en /perfil y /personalizar-pagina (sin sidebar), NO muestra la hamburguesa, muestra 'Panel' en su lugar", () => {
+    usePathnameMock.mockReturnValue("/perfil");
+    renderHeader("completo");
+    expect(screen.queryByRole("button", { name: "Abrir menú" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/seleccionar-servicio");
+  });
+
+  it("en una ruta de /panel, el botón 'Panel' también existe (para desktop, oculto en mobile vía CSS)", () => {
+    usePathnameMock.mockReturnValue("/panel");
+    renderHeader("completo");
+    expect(screen.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/seleccionar-servicio");
   });
 });
 
@@ -146,7 +225,7 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
 describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
   it.each(["/", "/buscar"])("con estado completo en %s (fuera de una herramienta), muestra 'Mi clínica'", (pathname) => {
     usePathnameMock.mockReturnValue(pathname);
-    render(<SiteHeaderChrome estado="completo" />);
+    renderHeader("completo");
     expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
   });
 
@@ -154,7 +233,7 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
     "con estado cuentaSinTerminar en %s, muestra 'Mi clínica' (sin excepción de ruta)",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
-      render(<SiteHeaderChrome estado="cuentaSinTerminar" />);
+      renderHeader("cuentaSinTerminar");
       expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
       expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();
     },
@@ -162,7 +241,7 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
 
   it("con estado anónimo, nunca muestra 'Mi clínica'", () => {
     usePathnameMock.mockReturnValue("/");
-    render(<SiteHeaderChrome estado="anonimo" />);
+    renderHeader("anonimo");
     expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
   });
 });
@@ -176,7 +255,7 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
 describe("SiteHeaderChrome — alineación del header en /panel", () => {
   it("en una ruta de /panel, el contenedor del header es ancho completo con px-8 (mismo padding que el contenido)", () => {
     usePathnameMock.mockReturnValue("/panel/turnos");
-    const { container } = render(<SiteHeaderChrome estado="completo" />);
+    const { container } = renderHeader("completo");
     const fila = container.querySelector("header > div")!;
     expect(fila).toHaveClass("w-full", "px-8");
     expect(fila).not.toHaveClass("max-w-5xl", "px-6");
@@ -184,7 +263,7 @@ describe("SiteHeaderChrome — alineación del header en /panel", () => {
 
   it("fuera de /panel, el header sigue centrado en max-w-5xl con px-6 (sin cambios)", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
-    const { container } = render(<SiteHeaderChrome estado="completo" />);
+    const { container } = renderHeader("completo");
     const fila = container.querySelector("header > div")!;
     expect(fila).toHaveClass("max-w-5xl", "px-6");
     expect(fila).not.toHaveClass("w-full", "px-8");

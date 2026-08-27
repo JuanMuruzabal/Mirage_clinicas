@@ -99,7 +99,9 @@
    Originalmente solo en el layout raíz de /panel (General, Calendario,
    Turnos, Pacientes; ver app/panel/layout.tsx), nunca dentro de una
    card. Extendida a /ingresar y /sumarse (TR-073, 2026-08-27, pedido
-   explícito del cliente) — el resto de marketing/onboarding sigue sin
+   explícito del cliente), y a /recuperar-password y su paso "nueva
+   contraseña" (TR-076, mismo día — se habían quedado afuera de TR-073).
+   El resto de marketing/onboarding sigue sin
    ella. */
 .panel-texture {
   background-color: var(--color-hueso);

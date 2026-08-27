@@ -25,7 +25,14 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose }: TurnoDetalleProp
   const inicio = turno.horaInicio ? new Date(turno.horaInicio) : null;
   const fin = turno.horaFin ? new Date(turno.horaFin) : null;
   const resuelto = fin !== null && fin.getTime() < new Date().getTime();
-  const hrefVerTurno = `/panel/turnos?estado=${turno.estado}&q=${encodeURIComponent(turno.dniContacto)}&turno=${turno.id}`;
+  // TR-076 en docs/tradeoffs.md (2026-08-27, pedido explícito del
+  // cliente: "tocar un turno resuelto... lleva a la pestaña de
+  // Confirmadas, no Resueltas"). turnos/page.tsx trata "resuelto" como
+  // un pseudo-valor propio de `estado` en la URL (`?estado=resuelto`,
+  // ver parseTab/filtrosDeTab ahí) — hay que mandar ESE valor, no el
+  // `turno.estado` real ("agendado"), para que la pestaña que se abre
+  // sea la correcta.
+  const hrefVerTurno = `/panel/turnos?estado=${resuelto ? "resuelto" : turno.estado}&q=${encodeURIComponent(turno.dniContacto)}&turno=${turno.id}`;
 
   return (
     <ModalPortal>

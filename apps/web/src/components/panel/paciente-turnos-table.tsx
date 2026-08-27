@@ -170,8 +170,13 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                 // misma forma que se hace cuando toco el cuadrito en el
                 // calendario") — mismo patrón que TurnoDetalle/
                 // hrefVerTurno: esa fila arranca ya desplegada (`?turno=`,
-                // ver TurnosTable/abrirId).
-                const hrefVerTurno = `/panel/turnos?estado=${t.estado}&q=${encodeURIComponent(t.dniContacto)}&turno=${t.id}`;
+                // ver TurnosTable/abrirId). `resuelto ? "resuelto" :
+                // t.estado` (TR-076 en docs/tradeoffs.md): un turno
+                // resuelto tiene que abrir la pestaña "Resueltos", no
+                // "Confirmadas" — turnos/page.tsx trata "resuelto" como
+                // su propio pseudo-valor de `estado` en la URL, no el
+                // `estado` real del turno ("agendado").
+                const hrefVerTurno = `/panel/turnos?estado=${resuelto ? "resuelto" : t.estado}&q=${encodeURIComponent(t.dniContacto)}&turno=${t.id}`;
                 return (
                   <ClickableTableRow key={t.id} href={hrefVerTurno} className="border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena">
                     <td className="px-4 py-3">

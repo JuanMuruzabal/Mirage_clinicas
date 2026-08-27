@@ -77,4 +77,17 @@ describe("TurnoDetalle", () => {
     render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
     expect(screen.queryByText("Resuelto")).not.toBeInTheDocument();
   });
+
+  // TR-076 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-27): "tocar un turno resuelto... lleva a la pestaña de
+  // Confirmadas, no Resueltas" — 'Ver turno' tiene que abrir la pestaña
+  // correcta (?estado=resuelto, no el estado real "agendado").
+  it("un turno resuelto: 'Ver turno' enlaza con estado=resuelto, no agendado", () => {
+    const turnoResuelto = { ...turno, horaInicio: "2020-01-01T09:00:00Z", horaFin: "2020-01-01T09:30:00Z" };
+    render(<TurnoDetalle turno={turnoResuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+    expect(screen.getByRole("link", { name: "Ver turno →" })).toHaveAttribute(
+      "href",
+      "/panel/turnos?estado=resuelto&q=1&turno=t-1",
+    );
+  });
 });

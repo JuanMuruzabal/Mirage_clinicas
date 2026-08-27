@@ -72,3 +72,31 @@ export function IconPersonalize({ className }: IconProps) {
     </svg>
   );
 }
+
+// IconLogout — puerta con flecha de salida (TR-075 en docs/tradeoffs.md,
+// 2026-08-27, pedido explícito del cliente: "Cerrar sesión" pasa a vivir
+// en el menú de la tuerquita, antes solo estaba en /perfil).
+export function IconLogout({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8" />
+      <path d="M13 14l4-4-4-4" />
+      <path d="M17 10H7.5" />
+    </svg>
+  );
+}
+
+// IconMenu — 3 rayitas horizontales, para abrir el sidebar de gestión de
+// clínica en mobile (TR-075 en docs/tradeoffs.md, 2026-08-27, pedido
+// explícito del cliente: "poner el icono de las 3 rayitas para
+// desplegar el sidebar"). Deliberadamente NO animado a una X (a
+// diferencia del ícono de 2 líneas del menú anónimo en
+// site-header-chrome.tsx) — abre un panel lateral, no un menú
+// desplegable hacia abajo, la metáfora visual es distinta.
+export function IconMenu({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+    </svg>
+  );
+}

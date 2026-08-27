@@ -13,7 +13,9 @@ export default async function NuevaPasswordPage({ searchParams }: NuevaPasswordP
   const { token } = await searchParams;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16">
+    // panel-texture (TR-076 en docs/tradeoffs.md, 2026-08-27) — mismo
+    // criterio que TR-073 en /ingresar y /sumarse.
+    <main className="panel-texture flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16">
       <AuthShell title="Elegí tu nueva contraseña" volverHref="/ingresar" volverLabel="Volver a ingresar">
         {token ? (
           <NuevaPasswordForm token={token} />

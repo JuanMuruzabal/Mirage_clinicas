@@ -3,9 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HeaderConfigMenu } from "./header-config-menu";
 
-// TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
-// botón de configuración con acceso rápido a Perfil/Gestionar tu
-// clínica/Personalizar tu página, cada uno con su ícono.
+// TR-075 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
+// reducido a Tu perfil + Cerrar sesión — "Gestionar tu clínica" y
+// "Personalizar tu página" quedaron redundantes con el sidebar/botón
+// "Panel" (ver TR-060 para la versión original de 3 accesos).
 describe("HeaderConfigMenu", () => {
   it("arranca cerrado: el botón existe pero el menú no está en el DOM", () => {
     render(<HeaderConfigMenu />);
@@ -14,7 +15,7 @@ describe("HeaderConfigMenu", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
-  it("clickear el botón despliega los 3 accesos con sus links correctos", async () => {
+  it("clickear el botón despliega Tu perfil y Cerrar sesión", async () => {
     const user = userEvent.setup();
     render(<HeaderConfigMenu />);
 
@@ -22,8 +23,10 @@ describe("HeaderConfigMenu", () => {
 
     expect(screen.getByRole("button", { name: "Cerrar accesos rápidos" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Tu perfil" })).toHaveAttribute("href", "/perfil");
-    expect(screen.getByRole("link", { name: "Gestionar tu clínica" })).toHaveAttribute("href", "/panel");
-    expect(screen.getByRole("link", { name: "Personalizar tu página" })).toHaveAttribute("href", "/personalizar-pagina");
+    const logout = screen.getByRole("button", { name: "Cerrar sesión" });
+    expect(logout.closest("form")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Gestionar tu clínica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Personalizar tu página" })).not.toBeInTheDocument();
   });
 
   it("clickear el botón de nuevo lo cierra (toggle)", async () => {

@@ -6,6 +6,7 @@ import { SiteHeaderVisibility } from "@/components/site-header-visibility";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteFooterVisibility } from "@/components/site-footer-visibility";
 import { PanelScrollLock } from "@/components/panel-scroll-lock";
+import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
 // Sistema Cascarón (docs/tradeoffs.md TR-010) — display condensada de alto
 // contraste, uso restringido a títulos/cifras/rótulos (spec §9.7).
@@ -43,14 +44,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${bigShoulders.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <PanelScrollLock />
-        <SiteHeaderVisibility>
-          <SiteHeader />
-        </SiteHeaderVisibility>
-        {children}
-        <SiteFooterVisibility>
-          <SiteFooter />
-        </SiteFooterVisibility>
+        {/* PanelSidebarProvider (TR-075 en docs/tradeoffs.md) — sin nodo
+            propio en el DOM, envuelve todo el sitio para que el ícono de
+            abrir/cerrar el sidebar (en el header, fuera de /panel/**) y el
+            sidebar en sí (adentro de app/panel/layout.tsx) compartan
+            estado sin un ancestro común más cercano que este layout. */}
+        <PanelSidebarProvider>
+          <PanelScrollLock />
+          <SiteHeaderVisibility>
+            <SiteHeader />
+          </SiteHeaderVisibility>
+          {children}
+          <SiteFooterVisibility>
+            <SiteFooter />
+          </SiteFooterVisibility>
+        </PanelSidebarProvider>
       </body>
     </html>
   );
