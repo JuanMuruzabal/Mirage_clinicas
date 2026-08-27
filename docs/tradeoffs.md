@@ -812,6 +812,16 @@
 - **Fix:** subir el mínimo compartido a **880px** (55rem) en Turnos (`turnos/page.tsx` + `turnos-table.tsx`) y en Pacientes (`app/panel/pacientes/page.tsx`, tabla y buscador) — mismo valor en las dos pantallas, confirmado en vivo en ambas. Ficha del paciente (`paciente-turnos-table.tsx`, TR-067: 600px) no fue parte de este reporte — queda sin cambios.
 - **Reversibilidad:** Alta — cuatro números (dos pares) en dos archivos.
 
+## TR-072: Historia clínica/Presupuesto reordenados junto a Datos de contacto en mobile (order de flexbox, sin tocar el DOM)
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (pedido explícito del cliente, alternativa "menos costosa" al scroll interno de TR-071 — descartado antes de commitear)
+- **Contexto:** el pedido original de scroll interno en las tablas (para que la ficha del paciente no se alargue sin límite con el historial de turnos) se descartó por el trade-off de reintroducir scroll horizontal aislado (ver TR-071, revertido sin commitear). El cliente propuso en cambio: subir los dos bloques placeholder (Historia clínica/Presupuesto, sin funcionalidad real, spec §4.5) para que queden visibles cerca del principio de la pantalla en mobile, en vez de al final después de dos tablas que pueden ser largas.
+- **Fix:** `max-md:order-*` en las 5 secciones hermanas de `app/panel/pacientes/[id]/page.tsx` (todas ya eran hijos directos de un mismo `flex flex-col`) — Historia clínica/Presupuesto pasa a `order-2` (justo después de Datos de contacto, que junto con el encabezado se queda en el `order-0` por default), Turnos activos a `order-3`, Historial de turnos a `order-4`. Puramente visual: nada se mueve en el DOM, cero cambio en escritorio (sin `max-md:`, ahí sigue el orden original).
+- **Nota de accesibilidad:** `order` cambia el orden VISUAL pero no el de lectura por teclado/lector de pantalla, que sigue el DOM (WCAG 1.3.2). Se acepta acá porque el bloque reordenado es un placeholder sin interacción real (dos títulos + un párrafo, nada focuseable) — el impacto práctico es mínimo. Si en el futuro estos bloques ganan funcionalidad real (carga de archivos, formularios), reconsiderar si conviene mover el JSX de verdad en vez de con `order`.
+- **Verificado:** typecheck y lint limpios (0 errores). Sin test propio — `page.tsx` queda fuera del gate de cobertura (Server Component async, convención ya establecida en CLAUDE.md).
+- **Reversibilidad:** Alta — tres clases `order-*`, sin tocar componentes ni lógica.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

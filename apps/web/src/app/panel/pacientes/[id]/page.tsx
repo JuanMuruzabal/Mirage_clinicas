@@ -63,19 +63,23 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
 
       <PacienteDatos pacienteInicial={paciente} />
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Turnos activos</h2>
-        <PacienteTurnosTable turnos={activos} tiposConsulta={tiposConsulta} vacio="No tiene turnos agendados por venir." />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Historial de turnos</h2>
-        <PacienteTurnosTable turnos={historial} tiposConsulta={tiposConsulta} vacio="Todavía no hay turnos pasados o pendientes." />
-      </section>
-
-      {/* Placeholders puramente visuales (spec §4.5) — sin funcionalidad
-          de carga/adjuntos en este sprint. */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      {/* Historia clínica/Presupuesto reordenados antes de las tablas de
+          turnos SOLO en mobile (pedido explícito del cliente, 2026-08-27:
+          "mové los cuadritos de historia clínica y presupuesto al lado
+          del cuadro de datos de contacto") — con `order` de flexbox, sin
+          mover nada en el DOM ni tocar el orden de escritorio. Motivo: en
+          mobile, Turnos activos + Historial pueden acumular filas y
+          empujar estos dos bloques muy abajo de la pantalla; quedan
+          agrupados junto a Datos de contacto en vez de al final. Los 5
+          hermanos de este `flex flex-col` (encabezado, Datos de contacto,
+          Turnos activos, Historial, este bloque) no tenían `order`
+          explícito — quedan en `order-0` por default, que es lo que
+          mantiene encabezado→Datos de contacto en su lugar sin tocarlos.
+          Nota de accesibilidad: `order` cambia el orden VISUAL, no el de
+          lectura por teclado/lector de pantalla (que sigue el DOM) — acá
+          el impacto es mínimo porque este bloque es un placeholder sin
+          funcionalidad real todavía (spec §4.5, sin carga/adjuntos). */}
+      <section className="grid gap-4 sm:grid-cols-2 max-md:order-2">
         <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-hueso p-6">
           <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">Historia clínica</h2>
           <p className="text-sm text-grafito/50">Próximamente vas a poder cargar y consultar la historia clínica desde acá.</p>
@@ -84,6 +88,16 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
           <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">Presupuesto</h2>
           <p className="text-sm text-grafito/50">Próximamente vas a poder armar y compartir presupuestos desde acá.</p>
         </div>
+      </section>
+
+      <section className="flex flex-col gap-3 max-md:order-3">
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Turnos activos</h2>
+        <PacienteTurnosTable turnos={activos} tiposConsulta={tiposConsulta} vacio="No tiene turnos agendados por venir." />
+      </section>
+
+      <section className="flex flex-col gap-3 max-md:order-4">
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Historial de turnos</h2>
+        <PacienteTurnosTable turnos={historial} tiposConsulta={tiposConsulta} vacio="Todavía no hay turnos pasados o pendientes." />
       </section>
     </div>
   );
