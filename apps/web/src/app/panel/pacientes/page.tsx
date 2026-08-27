@@ -62,7 +62,15 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
             con el resto de la página, mismo criterio que
             turnos-table.tsx y docs/referencia-para-claude-code.html.
             `max-md:w-full`: mide lo mismo que el wrapper, no un
-            min-width propio por separado. */}
+            min-width propio por separado.
+
+            `md:sticky md:top-0 md:z-10` en el thead (TR-065 en
+            docs/tradeoffs.md): con `overflow-visible` en mobile esta caja
+            deja de ser su propio contenedor de scroll (lo es `<main>`),
+            así que un `sticky` sin condición se pegaba contra ESE
+            ancestro — el encabezado se veía como una cajita flotando
+            separada de la fila de abajo. Sticky solo tiene sentido desde
+            `md`, donde esta caja sí vuelve a ser su propio scroll. */}
         {pacientes.length === 0 ? (
           <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
             {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
@@ -73,7 +81,7 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <table className="w-full min-w-[600px] text-left text-sm">
-              <thead className="sticky top-0 z-10">
+              <thead className="md:sticky md:top-0 md:z-10">
                 <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                   <th className="px-4 py-3">Nombre</th>
                   <th className="px-4 py-3">DNI</th>

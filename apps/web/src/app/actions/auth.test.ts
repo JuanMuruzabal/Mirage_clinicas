@@ -251,14 +251,18 @@ describe("resetPasswordAction", () => {
     expect(apiResetPasswordMock).not.toHaveBeenCalled();
   });
 
-  it("en éxito, guarda la cookie y redirige a /sumarse", async () => {
+  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-26): cambiar la contraseña ya NO inicia sesión sola — manda
+  // a /ingresar para que la persona confirme la contraseña nueva a mano,
+  // en vez de auto-loguearla con la sesión que devuelve el backend.
+  it("en éxito, NO guarda ninguna cookie y redirige a /ingresar", async () => {
     apiResetPasswordMock.mockResolvedValue({ ok: true, data: { token: "sesion-3" } });
 
     await expect(
       resetPasswordAction({ token: "t", newPassword: "password123456", confirmarPassword: "password123456" }),
-    ).rejects.toThrow("NEXT_REDIRECT:/sumarse");
-    expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-3");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
+    ).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+    expect(setSessionCookieMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });
 

@@ -30,6 +30,15 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByText("Nada por acá.")).toBeInTheDocument();
   });
 
+  // TR-065 en docs/tradeoffs.md: mismo criterio que TurnosTable — el
+  // thead solo es sticky desde md.
+  it("el thead solo es sticky desde md (no sticky sin condición)", () => {
+    const { container } = render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
+    const thead = container.querySelector("thead")!;
+    expect(thead).toHaveClass("md:sticky", "md:top-0", "md:z-10");
+    expect(thead.className).not.toMatch(/(?<!md:)\bsticky\b/);
+  });
+
   it("muestra el nombre del tipo de consulta y su color como punto indicador", () => {
     const { container } = render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 

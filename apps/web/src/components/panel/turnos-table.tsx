@@ -125,13 +125,26 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           todo con los cuadros de arriba, no queda alineada") — faltaba
           acá (turnos/page.tsx ya se lo daba a la fila de filtros, pero
           esta caja no lo tenía) para medir siempre lo mismo que el
-          wrapper que la envuelve, no un ancho propio independiente. */}
+          wrapper que la envuelve, no un ancho propio independiente.
+
+          `md:sticky md:top-0 md:z-10` en el thead (TR-065 en
+          docs/tradeoffs.md, pedido explícito del cliente, 2026-08-26):
+          antes era `sticky top-0` sin condición — con `overflow-visible`
+          en mobile, esta caja deja de ser el contenedor de scroll (lo es
+          `<main>`), así que el `sticky` del thead pasaba a "pegarse" contra
+          ESE ancestro en vez del suyo propio, resultado: el encabezado se
+          veía como una cajita redondeada flotando separada de la fila de
+          abajo, desalineada del buscador de arriba ("ENCABEZADOS...
+          flotando sobre la nada"). Sticky solo tiene sentido donde esta
+          caja SÍ es su propio contenedor de scroll — desde `md`, sin
+          cambios; debajo, el thead vuelve a fluir como una fila más de la
+          tabla (mismo fondo/borde que las demás, sin volar aparte). */}
       <div
         className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="sticky top-0 z-10">
+          <thead className="md:sticky md:top-0 md:z-10">
             <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
               <th className="px-4 py-3">Paciente</th>
               <th className="px-4 py-3">Contacto</th>

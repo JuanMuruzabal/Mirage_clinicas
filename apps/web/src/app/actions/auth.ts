@@ -212,9 +212,15 @@ export async function resetPasswordAction(payload: ResetPasswordActionInput): Pr
   if (!result.ok) {
     return { error: result.error };
   }
-  await setSessionCookie(result.data.token);
-  revalidatePath("/", "layout");
-  redirect("/sumarse");
+  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-26): "cuando le doy cambiar contraseña y la cambio me inicia
+  // sesión, y eso está mal, me debería llevar al ingreso para ingresar
+  // de ahí" — antes se guardaba la cookie de la sesión nueva que devuelve
+  // el backend y se entraba directo. Ahora esa sesión se descarta sin
+  // usar (el backend igual revocó todas las demás, spec §7 — cambiar la
+  // contraseña sigue cerrando cualquier sesión vieja) y se manda a
+  // /ingresar para que la persona confirme la contraseña nueva a mano.
+  redirect("/ingresar");
 }
 
 export async function logoutAction(): Promise<void> {

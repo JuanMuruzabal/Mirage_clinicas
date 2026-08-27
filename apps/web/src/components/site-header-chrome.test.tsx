@@ -166,3 +166,27 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
     expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
   });
 });
+
+// TR-065 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26:
+// "en desktop hay un gap en la esquina superior derecha... no llega
+// hasta el borde derecho del área de contenido") — /panel es el único
+// layout con sidebar, así que el header ahí deja de centrarse en
+// max-w-5xl (que ignora el sidebar) y pasa a ancho completo con el mismo
+// padding que ya usa el contenido de esas páginas (p-8).
+describe("SiteHeaderChrome — alineación del header en /panel", () => {
+  it("en una ruta de /panel, el contenedor del header es ancho completo con px-8 (mismo padding que el contenido)", () => {
+    usePathnameMock.mockReturnValue("/panel/turnos");
+    const { container } = render(<SiteHeaderChrome estado="completo" />);
+    const fila = container.querySelector("header > div")!;
+    expect(fila).toHaveClass("w-full", "px-8");
+    expect(fila).not.toHaveClass("max-w-5xl", "px-6");
+  });
+
+  it("fuera de /panel, el header sigue centrado en max-w-5xl con px-6 (sin cambios)", () => {
+    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    const { container } = render(<SiteHeaderChrome estado="completo" />);
+    const fila = container.querySelector("header > div")!;
+    expect(fila).toHaveClass("max-w-5xl", "px-6");
+    expect(fila).not.toHaveClass("w-full", "px-8");
+  });
+});

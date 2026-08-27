@@ -124,12 +124,18 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // docs/tradeoffs.md): esta caja deja de tener su propio scroll
         // (max-md:overflow-visible) — comparte el de <main> en
         // app/panel/layout.tsx con el resto de la página del paciente.
+        //
+        // md:sticky md:top-0 md:z-10 en el thead (TR-065 en
+        // docs/tradeoffs.md): sin condición, el sticky se pegaba contra
+        // <main> (el ancestro que de verdad scrollea en mobile) en vez
+        // de contra esta caja — se veía como una cajita flotando aparte
+        // de la fila de abajo. Solo tiene sentido desde md.
         <div
           className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <table className="w-full min-w-[560px] text-left text-sm">
-            <thead className="sticky top-0 z-10">
+            <thead className="md:sticky md:top-0 md:z-10">
               <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                 <th className="w-8 px-4 py-3" aria-hidden="true" />
                 <th className="px-4 py-3">Tipo de consulta</th>
