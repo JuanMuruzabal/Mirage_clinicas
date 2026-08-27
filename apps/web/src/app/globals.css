@@ -265,10 +265,22 @@ html {
      más alto que la pantalla o no (ej. Turnos con muchas filas vs.
      General con dos tarjetas), ese scrollbar aparece o desaparece — y el
      contenido del header (los links de la derecha) se corre esos mismos
-     px de un lado a otro entre pantallas. `scrollbar-gutter: stable`
-     reserva ese espacio SIEMPRE, haya o no haya contenido para
-     scrollear, así el ancho disponible es idéntico en cualquier página. */
-  scrollbar-gutter: stable;
+     px de un lado a otro entre pantallas.
+
+     `overflow-y: scroll` en vez de `scrollbar-gutter: stable` (TR-068 en
+     docs/tradeoffs.md, 2026-08-27, pedido explícito del cliente: "cuando
+     desaparece la scrollbar del costado de la página, ahí es visible ese
+     espacio"). `scrollbar-gutter: stable` reservaba el espacio SIEMPRE
+     pero lo dejaba VACÍO en las páginas sin contenido para scrollear —
+     mismo ancho disponible en todas las páginas (sin el salto de
+     TR-034), pero con un hueco visible al final del header en las
+     páginas cortas. `overflow-y: scroll` reserva ESE MISMO espacio pero
+     además lo llena con un scrollbar real y visible (con el thumb
+     ocupando el 100% del track cuando no hay nada para scrollear, en vez
+     de dejarlo vacío) — resuelve las dos cosas a la vez: ancho estable
+     entre páginas Y sin hueco visible, sin necesidad de posicionar nada
+     a mano ni depender de JS para medir el ancho real del scrollbar. */
+  overflow-y: scroll;
 }
 
 body {

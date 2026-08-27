@@ -783,6 +783,17 @@
 - **Lección para la próxima vez que "las mediciones dan bien pero el bug se ve":** si el layout mide perfecto en un instante pero el cliente insiste en que el bug persiste, sospechar de un mínimo de ancho/alto que depende del CONTENIDO real (nombres, emails, fechas largas) en vez de asumir que es un problema de renderizado — pedir que el experimento en vivo se haga agrandando el contenedor sospechoso a mano (`el.style.width = 'Npx'`) antes de tocar código es más rápido que seguir revisando CSS.
 - **Reversibilidad:** Alta — son 6 números (3 pares), sin tocar el mecanismo de scroll ni la lógica de datos.
 
+## TR-068: `overflow-y: scroll` en vez de `scrollbar-gutter: stable` — mismo ancho estable del header entre páginas, pero sin hueco visible en las páginas cortas
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (pedido explícito del cliente, sobre una captura del header en `/seleccionar-servicio`: "para lo del header igual sería alargarlo un poco más en general... es un espacio del tamaño del scrollbar")
+- **Qué reportó:** en pantallas anchas, el header (`fixed`, `inset-x-0`) no llega del todo al borde derecho — hay un hueco de ~15-17px, justo el ancho de un scrollbar de escritorio (no overlay).
+- **Por qué existía a propósito:** `scrollbar-gutter: stable` en `html` (TR-034) reserva ESE MISMO espacio siempre, para que el header no cambie de ancho disponible entre una página con scrollbar real (contenido más alto que la pantalla) y una sin él — sin esto, el ícono de la derecha del header se corría unos px de lugar al navegar entre pantallas (el bug que TR-034 resolvió). El costo aceptado en su momento: en las páginas SIN scrollbar real, ese espacio reservado queda vacío — exactamente el hueco que el cliente reporta ahora.
+- **Alternativa que el cliente propuso (posicionar los íconos a mano) y por qué no se usó:** `scrollbar-gutter: stable` en el elemento raíz reduce el viewport de layout que ven TODOS los descendientes, incluidos los `position: fixed` — así que un ícono con `right: 0` fijo seguiría midiendo contra ese mismo viewport reducido, sin importar qué posición se le dé; no resuelve el hueco, solo lo mueve de responsable.
+- **Fix real:** `overflow-y: scroll` en `html` en vez de `scrollbar-gutter: stable` — técnica anterior a que existiera `scrollbar-gutter`, usada durante años para este mismo problema. Fuerza que el scrollbar esté SIEMPRE presente y VISIBLE (con el thumb ocupando el 100% del track cuando no hay nada para scrollear), en vez de reservar un espacio invisible. Resuelve las dos cosas al mismo tiempo: ancho disponible idéntico en cualquier página (sin el salto de TR-034) y ese espacio siempre lleno por un scrollbar real, nunca vacío.
+- **Verificado:** build de producción limpio, `overflow-y:scroll` presente en el CSS compilado y `scrollbar-gutter` ya no aparece; 444 tests sin cambios (es CSS puro, no toca ningún componente).
+- **Reversibilidad:** Alta — una propiedad CSS por otra, en el mismo selector.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
