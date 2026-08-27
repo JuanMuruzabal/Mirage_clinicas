@@ -107,8 +107,17 @@ export function PanelSidebar() {
             header en esta pantalla, ahora sirve de acceso para volver al
             centro de servicios en vez de a la home pública. Separado del
             resto de la navegación con su propio borde: no es una sección
-            de ESTA clínica, es "salir" a elegir otro servicio. */}
-        <div className="border-b-[0.5px] border-arena p-3">
+            de ESTA clínica, es "salir" a elegir otro servicio.
+
+            Solo mobile (TR-077 en docs/tradeoffs.md, 2026-08-27, pedido
+            explícito del cliente: "en la versión de escritorio no
+            debería ver la opción de Panel en el sidebar") — en
+            escritorio ese mismo destino ya está en el header (el botón
+            "Panel" que reemplaza al logo, ver site-header-chrome.tsx),
+            tenerlo accá también era redundante. En mobile sigue haciendo
+            falta: el header ahí muestra la hamburguesa, no el botón
+            "Panel". */}
+        <div className="border-b-[0.5px] border-arena p-3 md:hidden">
           <Link
             href="/seleccionar-servicio"
             title={collapsed ? "Panel" : undefined}

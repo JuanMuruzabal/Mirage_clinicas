@@ -52,6 +52,16 @@ describe("PanelSidebar", () => {
     expect(screen.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/seleccionar-servicio");
   });
 
+  // TR-077 en docs/tradeoffs.md (pedido explícito del cliente,
+  // 2026-08-27): "en la versión de escritorio no debería ver la opción
+  // de Panel en el sidebar" — ya está en el header ahí (botón "Panel"
+  // que reemplaza al logo). Solo mobile.
+  it("'Panel' está oculto en escritorio (md:hidden) — solo mobile", () => {
+    renderSidebar();
+    const panelLink = screen.getByRole("link", { name: "Panel" });
+    expect(panelLink.parentElement).toHaveClass("md:hidden");
+  });
+
   it("cada herramienta tiene su propio ícono (pedido explícito)", () => {
     const { container } = renderSidebar();
     // 4 secciones (General/Calendario/Turnos/Pacientes) = 4 <svg> distintos.

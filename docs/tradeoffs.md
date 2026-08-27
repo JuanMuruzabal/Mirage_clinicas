@@ -875,6 +875,15 @@
 - **Verificado:** typecheck y lint limpios. 2 tests nuevos (href con `estado=resuelto` en `turno-detalle.test.tsx` y en `paciente-turnos-table.test.tsx`), incluidos en el total de 463 de TR-075 (verificados en la misma corrida).
 - **Reversibilidad:** Alta en las dos — un operador ternario y un nombre de clase.
 
+## TR-077: "Panel" en el sidebar, solo mobile — en escritorio ya está en el header
+
+- **Fecha:** 2026-08-27
+- **Fase:** ejecución (pedido explícito del cliente: "en la versión de escritorio no debería ver la opción de Panel en el sidebar")
+- **Qué pasó:** TR-075 agregó "Panel" (→ `/seleccionar-servicio`) en dos lugares — el sidebar y el header — pensando en mobile (donde el header pierde ese botón a manos de la hamburguesa). En escritorio, el header SÍ conserva el botón "Panel" (reemplaza al logo ahí también) — tenerlo además en el sidebar era pura redundancia.
+- **Fix:** `md:hidden` en el contenedor de "Panel" dentro de `PanelSidebar` — sigue existiendo en mobile (donde hace falta), desaparece desde `md`.
+- **Verificado:** typecheck y lint limpios. 1 test nuevo (`toHaveClass("md:hidden")` en el contenedor de "Panel", mismo criterio que el resto del proyecto para probar visibilidad responsive sin un motor de CSS real en los tests).
+- **Reversibilidad:** Alta — una clase.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
