@@ -38,13 +38,23 @@ export default async function PanelGeneralPage() {
           `grid-cols-2` sin condición, sin cambios. */}
       <div className="grid grid-cols-2 gap-6 max-md:grid-cols-1 max-md:min-w-[18rem]">
         <ResumenCard
-          href="/panel/turnos"
+          // ?estado=pendiente (pedido explícito del cliente, 2026-08-27:
+          // "cuando doy click al de turnos pendientes me debe llevar al
+          // apartado de turnos pendientes") — antes mandaba a /panel/turnos
+          // sin filtro, aterrizando en lo que estuviera activo por default
+          // en vez de en lo que esta tarjeta dice.
+          href="/panel/turnos?estado=pendiente"
           eyebrow="Pedidos entrantes"
           titulo="Turnos pendientes"
           valor={resumen.turnosPendientes}
         />
         <ResumenCard
-          href="/panel/calendario"
+          // ?vista=semana (pedido explícito del cliente, 2026-08-27:
+          // "turnos próximos al calendario de semana donde sea visible el
+          // primer turno más próximo") — calendario/page.tsx lee este
+          // parámetro y calendar-view.tsx arranca en Semana en vez de Día,
+          // con scroll automático hasta el primer turno próximo.
+          href="/panel/calendario?vista=semana"
           eyebrow="Turnos próximos"
           titulo="Ver calendario"
           valor={resumen.turnosConfirmados}

@@ -195,32 +195,6 @@
   }
 }
 
-/* Rama fix/mobile (2026-08-24, pedido explícito del cliente): dentro de
-   gestión de clínica (/panel/**), el calendario y las tablas NO se
-   comprimen/apilan/reorganizan en mobile.
-
-   Quinta vuelta (mismo día — ver TR-028 en docs/tradeoffs.md), esta vez
-   replicando docs/referencia-para-claude-code.html (un HTML de
-   referencia que pasó el cliente): el mínimo de ancho del calendario
-   pasa de "por columna" (TR-026, `--panel-dia-min-w` en cada columna de
-   la grilla) a "por card entera" (`--panel-cal-min-w`, calculado en JS
-   por calendar-view.tsx según la vista) — mismo criterio que
-   `.cal { min-width: 900px }` de la referencia. El motivo del cambio no
-   es el número en sí, es la UBICACIÓN del contenedor que scrollea: antes
-   el calendario tenía su PROPIO scroll horizontal, aislado del
-   título/toolbar de arriba (que no tenían min-width y se comprimían con
-   `flex-wrap` — el bug que reportó el cliente: "el cuadro de arriba...
-   queda compactado"). Ahora el calendario ya NO tiene scroll propio —
-   título + toolbar + calendario comparten un solo scroll, el de `<main>`
-   en app/panel/layout.tsx (mismo criterio que `.contenido-scroll` en la
-   referencia). Sin esta regla, `.panel-cal-min-w` no tiene min-width
-   propio (default `auto`, igual que antes de cualquier cambio mobile) —
-   cero efecto en escritorio a cualquier ancho. */
-@media (max-width: 767px) {
-  .panel-cal-min-w {
-    min-width: var(--panel-cal-min-w, auto);
-  }
-}
 
 /* `.panel-locked` (rama fix/mobile, corrección 2026-08-24 sobre TR-026 —
    ver TR-027 en docs/tradeoffs.md) — la clase la pone/saca

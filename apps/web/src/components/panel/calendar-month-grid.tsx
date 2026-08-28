@@ -18,12 +18,12 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
   const hoy = new Date();
 
   return (
-    // Sin min-width propio (rama fix/mobile, quinta corrección
-    // 2026-08-24 — ver TR-028 en docs/tradeoffs.md): el mínimo de ancho
-    // para la vista Mes ya lo aporta la card entera en calendar-view.tsx
-    // (`panel-cal-min-w`, 640px en mobile), mismo criterio que
-    // CalendarGrid — acá adentro el grid-cols-7 se reparte solo, sin
-    // ningún condicional propio, cero diferencia con escritorio.
+    // Sin min-width propio, nunca hizo falta (a diferencia de
+    // CalendarGrid en Semana): 7 columnas fluidas (`grid-cols-7`) se
+    // reparten cualquier ancho disponible sin necesitar un piso — Mes
+    // nunca generó scroll horizontal, ni cuando calendar-view.tsx forzaba
+    // un ancho a toda la fila (`panel-cal-min-w`, reemplazado en el
+    // rediseño local de 2026-08-27) ni ahora.
     <div className="grid grid-cols-7 border-t border-l border-arena">
       {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
         <div

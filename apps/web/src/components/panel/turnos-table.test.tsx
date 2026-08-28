@@ -87,16 +87,16 @@ describe("TurnosTable", () => {
     expect(screen.getByText("No hay turnos para este filtro.")).toBeInTheDocument();
   });
 
-  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
-  // 2026-08-26): el thead solo debe ser sticky desde `md` — sin
-  // condición, se "pegaba" contra `<main>` (el ancestro que de verdad
-  // scrollea en mobile, no esta tabla) y se veía como una cajita
-  // flotando separada de la fila de abajo.
-  it("el thead solo es sticky desde md (no sticky sin condición)", () => {
+  // Reemplaza el criterio de TR-065 (sticky solo desde `md`, porque el
+  // ancestro que scrolleaba en mobile era `<main>`, no esta tabla) —
+  // rediseño 2026-08-27, pedido explícito del cliente: la tabla es su
+  // propio contenedor de scroll en cualquier ancho (`overflow-y-auto`
+  // sin condición en el wrapper), así que el thead debe ser sticky
+  // siempre, sin gatear por `md`.
+  it("el thead es sticky en cualquier ancho", () => {
     const { container } = render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
     const thead = container.querySelector("thead")!;
-    expect(thead).toHaveClass("md:sticky", "md:top-0", "md:z-10");
-    expect(thead.className).not.toMatch(/(?<!md:)\bsticky\b/);
+    expect(thead).toHaveClass("sticky", "top-0", "z-10");
   });
 
   it("las acciones no están visibles hasta que se despliega la fila", () => {

@@ -6,6 +6,13 @@ const HORA_INICIO = 8;
 const HORA_FIN = 20;
 const PX_POR_HORA = 64;
 
+// Geometría de columnas — exportada para que calendar-view.tsx (el dueño
+// del scroll, rediseño 2026-08-27) pueda calcular a qué posición de
+// scroll corresponde "hoy" o un día con turnos, sin adivinar/duplicar
+// estos números.
+export const GUTTER_PX = 64;
+export const COL_PX = 130;
+
 interface CalendarGridProps {
   dias: Date[];
   turnos: Turno[];
@@ -22,8 +29,20 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
   const alturaTotal = (HORA_FIN - HORA_INICIO) * PX_POR_HORA;
   const tipoPorId = new Map(tiposConsulta.map((t) => [t.id, t]));
 
+  // Min-width propio del contenido (rediseño 2026-08-27, pedido
+  // explícito del cliente: "moverse dentro del calendario", no de la
+  // página — reemplaza la clase `.panel-cal-min-w`/TR-029, que forzaba
+  // este mismo número sobre TODA la fila título+toolbar+calendario).
+  // Solo hace falta en Semana (varios días a la vez, cada
+  // columna necesita ~130px para ser legible) — Día es una sola columna,
+  // se estira sola sin necesitar ningún piso. El div de más abajo
+  // (`flex`) es el que de verdad recibe este ancho: su contenedor
+  // (la caja de calendar-view.tsx) es quien scrollea horizontal cuando
+  // corresponde, nunca la página.
+  const anchoMinPx = dias.length > 1 ? GUTTER_PX + dias.length * COL_PX : undefined;
+
   return (
-    <div className="flex">
+    <div className="flex" style={anchoMinPx ? { minWidth: anchoMinPx } : undefined}>
       <div className="w-16 flex-shrink-0">
         <div className="h-10 border-b border-arena" />
         <div className="relative" style={{ height: alturaTotal }}>
@@ -39,16 +58,10 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
         </div>
       </div>
 
-      {/* minmax(0, 1fr) — la misma expresión de siempre, sin piso propio
-          (rama fix/mobile, quinta corrección 2026-08-24 — ver TR-028 en
-          docs/tradeoffs.md): el mínimo de ancho ya no se calcula por
-          columna acá adentro — se aplica UNA vez a la card entera en
-          calendar-view.tsx (`panel-cal-min-w`), mismo criterio que
-          `.cal { min-width: 900px }` de la referencia del cliente
-          (docs/referencia-para-claude-code.html). Con la card ya forzada
-          a ser ancha en mobile, estas columnas se reparten ese ancho con
-          total normalidad vía `1fr` — cero diferencia con cómo se
-          comporta en escritorio. */}
+      {/* minmax(0, 1fr): el `minWidth` de arriba (`anchoMinPx`) fuerza el
+          ANCHO TOTAL de este `flex` cuando hay más de un día — estas
+          columnas simplemente se reparten ese ancho ya forzado, `1fr`
+          alcanza, sin piso propio por columna. */}
       <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));

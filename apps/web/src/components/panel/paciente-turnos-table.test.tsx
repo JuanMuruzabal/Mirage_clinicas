@@ -37,13 +37,16 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByText("Nada por acá.")).toBeInTheDocument();
   });
 
-  // TR-065 en docs/tradeoffs.md: mismo criterio que TurnosTable — el
-  // thead solo es sticky desde md.
-  it("el thead solo es sticky desde md (no sticky sin condición)", () => {
+  // Reemplaza el criterio de TR-065 (sticky solo desde `md`, porque el
+  // ancestro que scrolleaba en mobile era `<main>`, no la tabla) —
+  // rediseño 2026-08-27, pedido explícito del cliente: la tabla es su
+  // propio contenedor de scroll en cualquier ancho (`overflow-y-auto`
+  // sin condición en el wrapper), así que el thead debe ser sticky
+  // siempre, sin gatear por `md`.
+  it("el thead es sticky en cualquier ancho", () => {
     const { container } = render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
     const thead = container.querySelector("thead")!;
-    expect(thead).toHaveClass("md:sticky", "md:top-0", "md:z-10");
-    expect(thead.className).not.toMatch(/(?<!md:)\bsticky\b/);
+    expect(thead).toHaveClass("sticky", "top-0", "z-10");
   });
 
   it("muestra el nombre del tipo de consulta y su color como punto indicador", () => {

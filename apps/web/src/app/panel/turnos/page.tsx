@@ -13,12 +13,15 @@ type Tab = "pendiente" | "agendado" | "resuelto" | "cancelada" | "todas";
 // fin ya pasó — mejor organización, no un estado nuevo en la base: sigue
 // siendo `agendado`, filtrado por `resuelto` (GET /turnos, ver
 // internal/http/turnos.go).
+// "Todas" sacada de las pestañas (pedido explícito del cliente,
+// 2026-08-27) — `parseTab`/`filtrosDeTab` siguen resolviendo ese caso
+// (sin filtro) para quien llega sin `?estado=` en la URL, solo que ya no
+// hay un botón propio para elegirlo a mano.
 const TABS: { label: string; tab: Tab }[] = [
   { label: "Pendientes", tab: "pendiente" },
   { label: "Confirmadas", tab: "agendado" },
   { label: "Resueltos", tab: "resuelto" },
   { label: "Canceladas", tab: "cancelada" },
-  { label: "Todas", tab: "todas" },
 ];
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -78,43 +81,34 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
         Turnos
       </h1>
 
-      {/* Wrapper de ancho único (rama fix/mobile, sexta corrección
-          2026-08-24 — ver TR-029 en docs/tradeoffs.md: "la box de la
-          toolbar... y la box del calendario tienen anchos distintos...
-          lo mismo en Turnos" — acá la fila de filtros tenía su propio
-          min-width, 640px, distinto del min-w-[720px] de la tabla,
-          abajo). 45rem = 720px, el mismo mínimo que ya tenía la tabla —
-          filtros y tabla ahora comparten ESE número, con `w-full` en vez
-          de un min-width propio en la fila de filtros.
-
-          47.5rem = 760px (TR-067 en docs/tradeoffs.md, 2026-08-27):
-          720px quedaba justo para el contenido real de las 7 columnas —
-          la tabla (min-w-[720px] en turnos-table.tsx, mismo número)
-          terminaba necesitando un pelín más de ancho que el que esta
-          caja le daba, y ese sobrante se desbordaba por fuera de la
-          tarjeta redondeada (`overflow-visible` en mobile no la recorta,
-          la deja flotar sobre el fondo del panel) — de ahí el
-          encabezado con su propio fondo/borde pareciendo separado de la
-          fila de abajo. Confirmado en vivo por el cliente, agrandando
-          este valor a mano en el inspector del navegador antes de
-          tocar el código. Sigue siendo el mismo número en los dos
-          lugares (acá y turnos-table.tsx) — el invariante de TR-029 no
-          cambia, solo el valor compartido.
-
-          55rem = 880px (TR-070 en docs/tradeoffs.md, 2026-08-27): la
-          tabla ya quedaba bien con 760px, pero la FILA DE FILTROS (tabs
-          Pendientes/Confirmadas/Resueltos/Canceladas/Todas + buscador)
-          necesitaba más ancho del que le daba ese número — quedaba más
-          corta que el buscador, desalineada. El cliente lo confirmó en
-          vivo (agrandando este contenedor a mano antes de tocar el
-          código, mismo método que TR-067/069) y midió el ancho real que
-          pedía la fila de tabs con `scrollWidth`. Mismo número en los
-          dos lugares (acá y turnos-table.tsx). */}
-      <div className="flex flex-col gap-6 max-md:min-w-[55rem]">
-        <div className="flex flex-wrap items-center justify-between gap-4 max-md:w-full max-md:flex-nowrap">
+      {/* Rediseño 2026-08-27 (pedido explícito del cliente: "reformular
+          lo de moverse horizontalmente y verticalmente en gestión de
+          clínica"). Reemplaza el criterio de TR-029/067/070 (esta fila y
+          la tabla compartían un min-width fijo — 880px — para forzar el
+          scroll horizontal unificado de <main>): la tabla es LA MISMA en
+          mobile y escritorio, con scroll propio (ver turnos-table.tsx) —
+          ya no hace falta ningún ancho forzado acá, el buscador pasa a
+          ocupar el 100% del ancho disponible y los tabs scrollean en su
+          PROPIO contenedor (`overflow-x-auto` únicamente en el `<nav>`,
+          no en toda la fila ni en la página) en vez de arrastrar el
+          resto de la pantalla de costado. Cero cambio en escritorio (sin
+          `md:`, sigue igual). */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
           <nav
             aria-label="Filtrar por estado"
-            className="flex flex-wrap gap-1 rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:flex-nowrap"
+            // max-md:min-w-0 (pedido explícito del cliente, 2026-08-27:
+            // "el seleccionador... se ve más largo que el buscador") —
+            // trampa clásica de flexbox: un hijo con `overflow-x-auto`
+            // dentro de un padre `flex-col items-stretch` no se achica
+            // al ancho del padre por sí solo si su CONTENIDO (acá, las
+            // tabs con `whitespace-nowrap`) mide más — el `min-width`
+            // implícito de cualquier flex item es `auto` (= su propio
+            // contenido), no `0`. Con 4 tabs de por sí anchas, sin este
+            // `min-w-0` el `<nav>` crecía
+            // más ancho que el buscador de abajo en vez de recortarse y
+            // scrollear por su cuenta.
+            className="flex gap-1 overflow-x-auto rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:min-w-0 max-md:flex-nowrap"
           >
             {TABS.map((t) => {
               const active = t.tab === tab;
@@ -123,7 +117,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
                 <Link
                   key={t.tab}
                   href={href}
-                  className={`rounded-full px-4 py-2 font-medium max-md:whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                  className={`rounded-full px-4 py-2 font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
                 >
                   {t.label}
                 </Link>
@@ -131,16 +125,16 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             })}
           </nav>
 
-          <form action="/panel/turnos" method="get" className="flex gap-2 max-md:flex-shrink-0">
+          <form action="/panel/turnos" method="get" className="flex gap-2 max-md:w-full">
             {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
             <input
               type="search"
               name="q"
               defaultValue={q}
               placeholder="Nombre, apellido, DNI o email…"
-              className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+              className="w-64 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia max-md:w-full max-md:flex-1"
             />
-            <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 max-md:whitespace-nowrap">
+            <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 whitespace-nowrap">
               Buscar
             </button>
           </form>

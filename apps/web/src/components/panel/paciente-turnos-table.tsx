@@ -59,26 +59,37 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
   }
 
   return (
-    // max-md:min-w (rama fix/mobile, séptima corrección 2026-08-24 — ver
-    // TR-030 en docs/tradeoffs.md, mismo criterio que calendar-view.tsx/
-    // turnos/page.tsx: filtros y tabla comparten UN SOLO min-width en vez
-    // de tener cada uno el suyo — 35rem = 560px, el mínimo que ya tenía
-    // la tabla). Con `w-full` en la fila de filtros (abajo) y en el
-    // contenedor de la tabla, ambos miden siempre lo mismo.
-    //
-    // 37.5rem = 600px (TR-067 en docs/tradeoffs.md, 2026-08-27): mismo
-    // motivo que en Turnos/Pacientes — 560px quedaba justo para el
-    // contenido real, desbordándose por fuera de la tarjeta redondeada en
-    // mobile. Detalle del diagnóstico en el comentario de más abajo,
-    // sobre `min-w-[600px]` en la tabla.
-    <div className="flex flex-col gap-3 max-md:min-w-[37.5rem]">
-      <div className="flex flex-wrap items-center gap-2 text-sm max-md:w-full max-md:flex-nowrap">
+    // Rediseño 2026-08-27 (pedido explícito del cliente, reemplaza el
+    // intento de cards apiladas) — "quiero que
+    // las tablas... funcionen de la misma forma que en escritorio").
+    // Reemplaza el criterio de TR-030/067 (esta fila de filtros y la
+    // tabla compartían un min-width fijo — 600px — para forzar el
+    // scroll horizontal unificado de <main>): sigue siendo LA MISMA
+    // tabla en mobile y escritorio (ver más abajo, columnas reducidas),
+    // ya no hace falta ningún ancho forzado acá — los filtros vuelven a
+    // envolver (`flex-wrap`) normalmente en vez de quedar apretados en
+    // una sola fila. Cero cambio en escritorio.
+    <div className="flex flex-col gap-3">
+      {/* Dos filas en mobile, una sola en escritorio (pedido explícito del
+          cliente, 2026-08-27: "poner el desde y hasta los 2 debajo de
+          seleccionar tipo") — mismo contenedor `flex-wrap` de siempre
+          desde `md`, solo se parte en dos grupos (`max-md:flex-col`)
+          debajo de ese breakpoint: tipo de consulta arriba, Desde/Hasta
+          (+ Limpiar filtros) juntos debajo. */}
+      <div className="flex flex-col gap-2 text-sm md:flex-row md:flex-wrap md:items-center md:gap-2">
         {tiposUsados.length > 0 && (
           <select
             value={tipoId}
             onChange={(e) => setTipoId(e.target.value)}
             aria-label="Filtrar por tipo de consulta"
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+            // max-md:self-start (pedido explícito del cliente, 2026-08-27:
+            // "la box de tipos que sea más corta, no del ancho de
+            // pantalla") — el `flex-col` del contenedor de arriba estira
+            // por default (`align-items: stretch`) cualquier hijo sin
+            // ancho propio a todo el ancho disponible; `self-start` lo
+            // saca de ese estiramiento y vuelve a su ancho natural
+            // (el del texto seleccionado), igual que ya se ve en desktop.
+            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia max-md:self-start"
           >
             <option value="todos">Todos los tipos</option>
             {tiposUsados.map((t) => (
@@ -88,37 +99,39 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
             ))}
           </select>
         )}
-        <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-          Desde
-          <input
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-          Hasta
-          <input
-            type="date"
-            value={hasta}
-            onChange={(e) => setHasta(e.target.value)}
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-          />
-        </label>
-        {hayFiltrosActivos && (
-          <button
-            type="button"
-            onClick={() => {
-              setTipoId("todos");
-              setDesde("");
-              setHasta("");
-            }}
-            className="text-xs font-medium text-salvia-oscuro hover:text-grafito"
-          >
-            Limpiar filtros
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+            Desde
+            <input
+              type="date"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+              className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+            Hasta
+            <input
+              type="date"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+            />
+          </label>
+          {hayFiltrosActivos && (
+            <button
+              type="button"
+              onClick={() => {
+                setTipoId("todos");
+                setDesde("");
+                setHasta("");
+              }}
+              className="text-xs font-medium text-salvia-oscuro hover:text-grafito"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {filtrados.length === 0 ? (
@@ -126,35 +139,22 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
           Ningún turno coincide con el filtro.
         </p>
       ) : (
-        // min-w-[600px] (TR-067 en docs/tradeoffs.md) es un mínimo de
-        // contenido real. Mobile (quinta corrección 2026-08-24 — ver
-        // TR-028 en docs/tradeoffs.md): esta caja deja de tener su propio
-        // scroll (max-md:overflow-visible) — comparte el de <main> en
-        // app/panel/layout.tsx con el resto de la página del paciente.
-        //
-        // md:sticky md:top-0 md:z-10 en el thead (TR-065 en
-        // docs/tradeoffs.md): sin condición, el sticky se pegaba contra
-        // <main> (el ancestro que de verdad scrollea en mobile) en vez
-        // de contra esta caja — se veía como una cajita flotando aparte
-        // de la fila de abajo. Solo tiene sentido desde md.
-        <div
-          // Sin `WebkitOverflowScrolling: "touch"` (TR-066 en
-          // docs/tradeoffs.md): causa real de bugs de repintado en
-          // WebKit en general, pero no de ESTE bug puntual — el cliente
-          // confirmó que seguía viéndose separado igual sin ella. La
-          // causa real era el ancho mínimo compartido (arriba en este
-          // archivo), ver TR-067. Queda sacada igual por ser la
-          // corrección más segura en general.
-          className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
-        >
-          <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="md:sticky md:top-0 md:z-10">
+        // Misma tabla en mobile y escritorio — Motivo pasa a
+        // `max-md:hidden` (columna menos esencial para un vistazo, sigue
+        // disponible al entrar al turno en la vista Turnos). `max-h-[400px]
+        // overflow-y-auto` sin condición de mobile: esta caja saca su
+        // propia scrollbar vertical con un historial largo, en vez de
+        // alargar la página (mismo criterio que turnos-table.tsx/
+        // pacientes/page.tsx).
+        <div className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 z-10">
               <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                 <th className="w-8 px-4 py-3" aria-hidden="true" />
                 <th className="px-4 py-3">Tipo de consulta</th>
                 <th className="px-4 py-3">Fecha y hora</th>
                 <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Motivo</th>
+                <th className="max-md:hidden px-4 py-3">Motivo</th>
               </tr>
             </thead>
             <tbody>
@@ -194,7 +194,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                         {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
+                    <td className="max-md:hidden px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
                   </ClickableTableRow>
                 );
               })}

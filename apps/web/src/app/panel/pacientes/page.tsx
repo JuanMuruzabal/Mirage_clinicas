@@ -33,32 +33,18 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         Pacientes
       </h1>
 
-      {/* Wrapper de ancho único (rama fix/mobile, sexta corrección
-          2026-08-24 — ver TR-029 en docs/tradeoffs.md, mismo criterio
-          que turnos/page.tsx): 37.5rem = 600px, el mínimo que ya tenía
-          la tabla — el buscador ahora comparte ese mismo número en vez
-          de su propio `max-w-md` (448px, más angosto).
-
-          40rem = 640px (TR-067 en docs/tradeoffs.md, 2026-08-27): mismo
-          motivo que en Turnos — 600px quedaba justo para el contenido
-          real de la tabla, que se desbordaba por fuera de la tarjeta
-          redondeada en mobile (`overflow-visible` no la recorta).
-          Detalle completo del diagnóstico en el comentario de más abajo,
-          sobre `min-w-[640px]` en la tabla.
-
-          42rem = 672px (TR-069 en docs/tradeoffs.md, 2026-08-27): 640px
-          TODAVÍA quedaba corto — el cliente volvió a medir en vivo
-          después del deploy de TR-067 y el ancho real que pedía la
-          tabla era 650.63px (emails más largos que los de Turnos). Se
-          sube con más margen que la vez anterior (~21px de sobra en vez
-          de ajustar al límite) para no repetir el mismo error dos veces
-          con datos reales todavía más largos.
-
-          55rem = 880px (TR-070 en docs/tradeoffs.md, 2026-08-27): mismo
-          número final al que se subió Turnos por el mismo motivo (ver
-          turnos/page.tsx) — confirmado en vivo por el cliente en las dos
-          pantallas. */}
-      <div className="flex flex-col gap-6 max-md:min-w-[55rem]">
+      {/* Rediseño 2026-08-27 (pedido explícito del cliente, reemplaza el
+          intento de cards apiladas) — "quiero que las tablas...
+          funcionen de la misma forma que en
+          escritorio... dar la información clave a la vista"). Reemplaza
+          el criterio de TR-029/067/069/070 (esta caja y la tabla
+          compartían un min-width fijo — 880px — para forzar el scroll
+          horizontal unificado de <main>): la tabla sigue siendo la
+          MISMA en mobile y escritorio (ver más abajo), con menos
+          columnas visibles en mobile — ya no hace falta ningún ancho
+          forzado acá, el buscador vuelve a su `max-w-md` original, a
+          ancho completo en mobile. Cero cambio en escritorio. */}
+      <div className="flex flex-col gap-6">
         <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2 max-md:w-full max-md:max-w-none">
           <input
             type="search"
@@ -72,49 +58,28 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           </button>
         </form>
 
-        {/* Escritorio: max-h + scroll interno en las dos direcciones —
-            sin cambios. min-w-[880px] en la tabla (abajo, TR-070 en
-            docs/tradeoffs.md) es un mínimo de contenido real.
-
-            Mobile (ver TR-028/029 en docs/tradeoffs.md): esta caja DEJA
-            de tener su propio scroll (`max-md:overflow-visible`) —
-            ahora comparte el scroll de `<main>` (app/panel/layout.tsx)
-            con el resto de la página, mismo criterio que
-            turnos-table.tsx y docs/referencia-para-claude-code.html.
-            `max-md:w-full`: mide lo mismo que el wrapper, no un
-            min-width propio por separado.
-
-            `md:sticky md:top-0 md:z-10` en el thead (TR-065 en
-            docs/tradeoffs.md): con `overflow-visible` en mobile esta caja
-            deja de ser su propio contenedor de scroll (lo es `<main>`),
-            así que un `sticky` sin condición se pegaba contra ESE
-            ancestro — el encabezado se veía como una cajita flotando
-            separada de la fila de abajo. Sticky solo tiene sentido desde
-            `md`, donde esta caja sí vuelve a ser su propio scroll. */}
+        {/* Misma tabla en mobile y escritorio (rediseño local, ver
+            comentario de arriba) — columnas reducidas debajo de `md`:
+            DNI se suma como subtítulo bajo el nombre (mismo criterio que
+            Turnos) en vez de columna propia, Email se oculta del todo
+            (Nombre/Teléfono ya alcanzan como info clave; el resto está
+            a un toque, en la ficha completa). `max-h-[600px]
+            overflow-y-auto` sin condición de mobile: esta caja saca su
+            propia scrollbar vertical con muchos pacientes, en vez de
+            alargar la página. */}
         {pacientes.length === 0 ? (
           <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
             {q ? "No encontramos pacientes para esa búsqueda." : "Todavía no hay pacientes cargados."}
           </p>
         ) : (
-          <div
-            // `WebkitOverflowScrolling: "touch"` (sacado acá, TR-066 en
-            // docs/tradeoffs.md): esa propiedad iOS es vestigial (mismo
-            // criterio ya aplicado a `<main>` en panel-shell.tsx) y causa
-            // real de bugs de repintado en WebKit — pero no era LA causa
-            // de este bug puntual. El cliente confirmó que el encabezado
-            // seguía viéndose separado incluso sin ella (ver TR-067: el
-            // ancho mínimo compartido, arriba en este archivo, era la
-            // causa real). Queda sacada igual por ser la corrección más
-            // segura en general.
-            className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-none max-md:w-full max-md:overflow-visible"
-          >
-            <table className="w-full min-w-[880px] text-left text-sm">
-              <thead className="md:sticky md:top-0 md:z-10">
+          <div className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10">
                 <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
                   <th className="px-4 py-3">Nombre</th>
-                  <th className="px-4 py-3">DNI</th>
+                  <th className="max-md:hidden px-4 py-3">DNI</th>
                   <th className="px-4 py-3">Teléfono</th>
-                  <th className="px-4 py-3">Email</th>
+                  <th className="max-md:hidden px-4 py-3">Email</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -128,14 +93,17 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <AvatarIniciales nombre={p.nombre} apellido={p.apellido} />
-                        <span className="font-medium text-grafito">
-                          {p.nombre} {p.apellido}
-                        </span>
+                        <div>
+                          <p className="font-medium text-grafito">
+                            {p.nombre} {p.apellido}
+                          </p>
+                          <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50 md:hidden">DNI {p.dni}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
+                    <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
-                    <td className="px-4 py-3 text-grafito/60">{p.email || "—"}</td>
+                    <td className="max-md:hidden px-4 py-3 text-grafito/60">{p.email || "—"}</td>
                     <td className="px-4 py-3 text-right">
                       <Link href={`/panel/pacientes/${p.id}`} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
                         Ver ficha →
