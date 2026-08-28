@@ -87,16 +87,16 @@ describe("TurnosTable", () => {
     expect(screen.getByText("No hay turnos para este filtro.")).toBeInTheDocument();
   });
 
-  // Reemplaza el criterio de TR-065 (sticky solo desde `md`, porque el
-  // ancestro que scrolleaba en mobile era `<main>`, no esta tabla) —
-  // rediseño 2026-08-27, pedido explícito del cliente: la tabla es su
-  // propio contenedor de scroll en cualquier ancho (`overflow-y-auto`
-  // sin condición en el wrapper), así que el thead debe ser sticky
-  // siempre, sin gatear por `md`.
-  it("el thead es sticky en cualquier ancho", () => {
+  // El sticky vive en cada `th` (`.panel-th-sticky`), no en thead/tr —
+  // bug de Safari de iOS con rebote elástico (2026-08-28): WebKit no
+  // recalcula bien el sticky en thead/tr durante el overscroll.
+  it("cada th del encabezado tiene la clase sticky (no el thead)", () => {
     const { container } = render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
     const thead = container.querySelector("thead")!;
-    expect(thead).toHaveClass("sticky", "top-0", "z-10");
+    expect(thead.className).toBe("");
+    const ths = container.querySelectorAll("thead th");
+    expect(ths.length).toBeGreaterThan(0);
+    ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
   });
 
   it("las acciones no están visibles hasta que se despliega la fila", () => {
@@ -254,6 +254,19 @@ describe("TurnosTable", () => {
   it("con abrirId, la fila correspondiente arranca desplegada (deep-link desde 'Ver turno')", () => {
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} abrirId="agen-1" />);
     expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+  });
+
+  // Bug reportado 2026-08-28: "si toco Ver turno... y este turno está muy
+  // debajo de la tabla, tengo que bajar manualmente para ver el turno
+  // desplegado" — la fila ya arrancaba desplegada, pero nada la traía a
+  // la vista.
+  it("con abrirId, la fila correspondiente se trae a la vista con scrollIntoView", () => {
+    const scrollIntoViewMock = vi.fn();
+    vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(scrollIntoViewMock);
+
+    render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} abrirId="agen-1" />);
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 
   it("T3.4: Confirmar abre '+ Agregar turno' con el paciente pendiente ya elegido, y al confirmar recarga la lista", async () => {

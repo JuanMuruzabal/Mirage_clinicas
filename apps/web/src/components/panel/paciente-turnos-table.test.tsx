@@ -37,16 +37,16 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByText("Nada por acá.")).toBeInTheDocument();
   });
 
-  // Reemplaza el criterio de TR-065 (sticky solo desde `md`, porque el
-  // ancestro que scrolleaba en mobile era `<main>`, no la tabla) —
-  // rediseño 2026-08-27, pedido explícito del cliente: la tabla es su
-  // propio contenedor de scroll en cualquier ancho (`overflow-y-auto`
-  // sin condición en el wrapper), así que el thead debe ser sticky
-  // siempre, sin gatear por `md`.
-  it("el thead es sticky en cualquier ancho", () => {
+  // El sticky vive en cada `th` (`.panel-th-sticky`), no en thead/tr —
+  // bug de Safari de iOS con rebote elástico (2026-08-28): WebKit no
+  // recalcula bien el sticky en thead/tr durante el overscroll.
+  it("cada th del encabezado tiene la clase sticky (no el thead)", () => {
     const { container } = render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
     const thead = container.querySelector("thead")!;
-    expect(thead).toHaveClass("sticky", "top-0", "z-10");
+    expect(thead.className).toBe("");
+    const ths = container.querySelectorAll("thead th");
+    expect(ths.length).toBeGreaterThan(0);
+    ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
   });
 
   it("muestra el nombre del tipo de consulta y su color como punto indicador", () => {

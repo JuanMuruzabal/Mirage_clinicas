@@ -30,16 +30,19 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
   return (
     <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="sticky top-0 z-10">
+        <thead>
           {/* border-b (1px) en mobile — pedido explícito del cliente,
               2026-08-27: separadores más claros, el 0.5px de escritorio
-              se pierde en algunos anchos de píxel de mobile. */}
-          <tr className="border-b border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
-            <th className="px-4 py-3">Nombre</th>
-            <th className="max-md:hidden px-4 py-3">DNI</th>
-            <th className="px-4 py-3">Teléfono</th>
-            <th className="max-md:hidden px-4 py-3">Email</th>
-            <th className="px-4 py-3" />
+              se pierde en algunos anchos de píxel de mobile. Sticky por
+              `th` (`.panel-th-sticky`, ver globals.css), no en
+              thead/tr — bug de Safari de iOS con rebote elástico
+              (2026-08-28). */}
+          <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
+            <th className="panel-th-sticky px-4 py-3">Nombre</th>
+            <th className="panel-th-sticky max-md:hidden px-4 py-3">DNI</th>
+            <th className="panel-th-sticky px-4 py-3">Teléfono</th>
+            <th className="panel-th-sticky max-md:hidden px-4 py-3">Email</th>
+            <th className="panel-th-sticky px-4 py-3" />
           </tr>
         </thead>
         <tbody>

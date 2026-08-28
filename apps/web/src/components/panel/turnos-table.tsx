@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { cancelarTurnoAction, listTurnosAction } from "@/app/actions/turnos";
@@ -34,6 +34,21 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   const [editarTurno, setEditarTurno] = useState<Turno | null>(null);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Bug reportado 2026-08-28: "si toco Ver turno... y este turno está muy
+  // debajo de la tabla, tengo que bajar manualmente para ver el turno
+  // desplegado" — la fila arrancaba ya desplegada (`abrirId`, más arriba)
+  // pero nada la traía a la vista. `scrollIntoView` sube por TODOS los
+  // ancestros con scroll que hagan falta (la caja `.panel-table-scroll` de
+  // esta tabla y, si todavía no alcanza, `<main>`), sin necesidad de medir
+  // nada a mano. `key={tab-q-abrirId}` en turnos/page.tsx remonta este
+  // componente entero cada vez que cambia `abrirId` (patrón ya
+  // establecido, ver el comentario ahí) — un efecto de montaje simple
+  // alcanza, no hace falta re-disparar esto en ningún otro momento.
+  const filaAbiertaRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    filaAbiertaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   // Cancelar un turno agendado deshace un compromiso ya asumido con el
   // paciente — pide confirmación extra vía CancelarTurnoModal. Un turno
@@ -184,27 +199,28 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           columnas secundarias ya ocultas en mobile (ver los `<th>`/
           `<td>` de abajo) no hace falta scroll horizontal ahí, y sin
           esto un gesto diagonal disparaba los dos ejes a la vez.
-          `thead` vuelve a `sticky top-0 z-10` sin condición de `md:`
-          por el mismo motivo (TR-065 solo aplicaba la condición cuando
-          esta caja NO era su propio scroll en mobile — ahora siempre lo
-          es). */}
+          El sticky ya no vive en `thead`/`tr` — pasa a cada `th`
+          (`.panel-th-sticky`, ver globals.css) por un bug de Safari de
+          iOS con rebote elástico (2026-08-28): WebKit no soporta bien
+          el sticky en thead/tr durante el overscroll, sí en las celdas
+          directamente. */}
       <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 z-10">
+          <thead>
             {/* border-b (1px) en mobile — pedido explícito del cliente,
                 2026-08-27: "las tablas... no poseen separadores claros
                 como sí tiene la versión de escritorio". El `0.5px` de
                 escritorio se pierde en algunos anchos de píxel de
                 mobile (redondea a 0 según densidad de pantalla); acá se
                 fuerza a 1px completo, visible en cualquier dispositivo. */}
-            <tr className="border-b border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
-              <th className="px-4 py-3">Paciente</th>
-              <th className="max-md:hidden px-4 py-3">Contacto</th>
-              <th className="max-md:hidden px-4 py-3">Motivo</th>
-              <th className="px-4 py-3">Fecha y hora</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="max-md:hidden px-4 py-3">Origen</th>
-              <th className="w-10 px-4 py-3" aria-hidden="true" />
+            <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
+              <th className="panel-th-sticky px-4 py-3">Paciente</th>
+              <th className="panel-th-sticky max-md:hidden px-4 py-3">Contacto</th>
+              <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
+              <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
+              <th className="panel-th-sticky px-4 py-3">Estado</th>
+              <th className="panel-th-sticky max-md:hidden px-4 py-3">Origen</th>
+              <th className="panel-th-sticky w-10 px-4 py-3" aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
@@ -222,6 +238,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
               return (
                 <Fragment key={t.id}>
                   <tr
+                    ref={t.id === abrirId ? filaAbiertaRef : undefined}
                     onClick={() => alternarExpandido(t.id)}
                     className={`cursor-pointer border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px] ${expandido ? "bg-hueso" : ""}`}
                   >

@@ -27,6 +27,18 @@ describe("PacientesTable", () => {
     expect(screen.getByRole("cell", { name: "bruno@example.com" })).toBeInTheDocument();
   });
 
+  // El sticky vive en cada `th` (`.panel-th-sticky`), no en thead/tr —
+  // bug de Safari de iOS con rebote elástico (2026-08-28): WebKit no
+  // recalcula bien el sticky en thead/tr durante el overscroll.
+  it("cada th del encabezado tiene la clase sticky (no el thead)", () => {
+    const { container } = render(<PacientesTable pacientes={[paciente]} />);
+    const thead = container.querySelector("thead")!;
+    expect(thead.className).toBe("");
+    const ths = container.querySelectorAll("thead th");
+    expect(ths.length).toBeGreaterThan(0);
+    ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
+  });
+
   // Pedido explícito del cliente, 2026-08-27: "el DNI se sigue viendo
   // pequeño en los datos, debe estar como dato desplegable no debajo del
   // nombre" — ya no hay ningún subtítulo de DNI pegado al nombre.

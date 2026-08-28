@@ -41,9 +41,6 @@ export function LoginForm() {
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-5">
-      <GoogleSignInButton onError={setErrorGlobal} />
-      <AuthDivider />
-
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
         <AuthField label="Email" error={errors.email?.message}>
           <input
@@ -87,6 +84,14 @@ export function LoginForm() {
           {isSubmitting ? "Ingresando…" : "Ingresar"}
         </button>
       </form>
+
+      {/* Google al pie, no arriba del form nativo — pedido explícito del
+          cliente, 2026-08-28: "mirá cómo hicimos con Alojamientos Madryn,
+          lo pusimos abajo del todo con un 'También ingresá con'" — mismo
+          patrón que ese proyecto de referencia (login-form.tsx ahí), con
+          el texto del divisor adaptado. */}
+      <AuthDivider />
+      <GoogleSignInButton onError={setErrorGlobal} />
 
       <p className="text-center text-sm text-grafito/60">
         ¿Todavía no tenés cuenta?{" "}

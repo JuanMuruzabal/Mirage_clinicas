@@ -64,9 +64,6 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
 
   return (
     <div className="flex flex-col gap-5">
-      <GoogleSignInButton onError={setErrorGlobal} />
-      <AuthDivider />
-
       {cuentaExistente && (
         <p className="rounded-field border-[0.5px] border-salvia bg-salvia-claro px-4 py-3 text-sm text-salvia-oscuro">
           Ese mail ya tiene una cuenta.{" "}
@@ -123,6 +120,14 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
           {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
         </button>
       </form>
+
+      {/* Google al pie, no arriba del form nativo — pedido explícito del
+          cliente, 2026-08-28: "mirá cómo hicimos con Alojamientos Madryn,
+          lo pusimos abajo del todo con un 'También ingresá con'" — mismo
+          patrón que ese proyecto de referencia (login-form.tsx/
+          register-form.tsx ahí), con el texto del divisor adaptado. */}
+      <AuthDivider />
+      <GoogleSignInButton onError={setErrorGlobal} />
 
       <p className="text-center text-sm text-grafito/60">
         ¿Ya tenés cuenta?{" "}

@@ -36,6 +36,17 @@ class ResizeObserverStub {
 }
 vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
+// jsdom tampoco implementa Element.scrollIntoView (a diferencia de
+// window.scrollTo, que sí existe como no-op con un warning "Not
+// implemented") — turnos-table.tsx lo usa para el deep-link de "Ver
+// turno" (pedido explícito del cliente, 2026-08-28: la fila que arranca
+// desplegada tiene que quedar a la vista sola, sin scroll manual). Sin
+// este stub, cualquier componente que lo llame revienta con
+// "scrollIntoView is not a function" apenas monta.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({

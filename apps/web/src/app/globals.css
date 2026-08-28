@@ -310,3 +310,32 @@ body {
   background-color: var(--color-arena);
   border-radius: 9999px;
 }
+
+/* `.panel-th-sticky` — bug reportado 2026-08-28 (Safari de iOS): "cuando
+   hago scroll hacia arriba más allá del tope... y se dispara el rebote
+   elástico, la fila de encabezado se despega y baja varios cientos de
+   píxeles". `overscroll-behavior: contain` (arriba) evita que el rebote
+   se filtre hacia la página, pero no apaga el rebote PROPIO de esta caja
+   — WebKit tiene un bug conocido y viejo con `position: sticky` en
+   `<thead>`/`<tr>` durante ese estado (scroll offset negativo): no
+   recalcula el offset del sticky, y el soporte de Safari para sticky en
+   thead/tr nunca fue del todo estable. El patrón más robusto
+   cross-browser (recomendado incluso fuera de este bug puntual) es
+   aplicar el sticky a CADA `th`, no al thead — por eso esta clase se usa
+   en las 3 tablas de gestión de clínica (turnos-table.tsx,
+   pacientes-table.tsx, paciente-turnos-table.tsx) en cada `<th>`, en vez
+   de en el `<thead>`.
+   `background`/`z-index` explícitos EN LA CELDA (no heredados del `<tr>`
+   contenedor) — sin esto, un `th` sticky se transparenta al scrollear:
+   una vez que el navegador lo "despega" del flujo normal para fijarlo,
+   ya no hereda el fondo pintado por su fila.
+   `transform: translateZ(0)` — fuerza una capa de composición GPU propia
+   para esta celda, ayuda a que WebKit la repinte bien durante el rebote
+   en vez de dejarla en el mismo layer que el contenido que sí se mueve. */
+.panel-th-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-marfil);
+  transform: translateZ(0);
+}

@@ -154,12 +154,15 @@ export function AuthShell({
   );
 }
 
-// AuthDivider — separador "o" entre el botón de Google y el form nativo.
+// AuthDivider — separador entre el form nativo y el botón de Google, al
+// pie de la página (pedido explícito del cliente, 2026-08-28: "abajo del
+// todo con un 'También ingresá con'" — mismo patrón que Alojamientos
+// Madryn, con el texto adaptado a este proyecto).
 export function AuthDivider() {
   return (
     <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-grafito/40">
       <span className="h-px flex-1 bg-arena" />
-      o
+      También ingresá con
       <span className="h-px flex-1 bg-arena" />
     </div>
   );

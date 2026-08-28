@@ -151,17 +151,19 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // página (mismo criterio que turnos-table.tsx/pacientes/page.tsx).
         <div className="panel-table-scroll max-h-[400px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[18rem] max-md:overflow-x-hidden md:overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10">
+            <thead>
               {/* border-b (1px) en mobile — pedido explícito del cliente,
                   2026-08-27: separadores más claros, el 0.5px de
                   escritorio se pierde en algunos anchos de píxel de
-                  mobile. */}
-              <tr className="border-b border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
-                <th className="w-8 px-4 py-3" aria-hidden="true" />
-                <th className="px-4 py-3">Tipo de consulta</th>
-                <th className="px-4 py-3">Fecha y hora</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="max-md:hidden px-4 py-3">Motivo</th>
+                  mobile. Sticky por `th` (`.panel-th-sticky`, ver
+                  globals.css), no en thead/tr — bug de Safari de iOS
+                  con rebote elástico (2026-08-28). */}
+              <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
+                <th className="panel-th-sticky w-8 px-4 py-3" aria-hidden="true" />
+                <th className="panel-th-sticky px-4 py-3">Tipo de consulta</th>
+                <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
+                <th className="panel-th-sticky px-4 py-3">Estado</th>
+                <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
               </tr>
             </thead>
             <tbody>
