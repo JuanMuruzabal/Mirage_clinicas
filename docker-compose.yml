@@ -5,7 +5,8 @@
 # vive en render.yaml). Mismo patrón que Marcuzzi_Madryn.
 #
 # Variables opcionales en un `.env` junto a este archivo (ver
-# .env.example): JWT_SECRET, CONTACTO_EMAIL.
+# .env.example): JWT_SECRET, CONTACTO_EMAIL, NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY.
 
 services:
   postgres:
@@ -68,6 +69,15 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # Build-args, no `environment:` (más abajo) — Next.js inyecta las
+      # variables NEXT_PUBLIC_* en el JS del cliente durante `next build`
+      # (adentro del Dockerfile), no en runtime; ver el comentario grande
+      # de apps/web/Dockerfile. Sin valor en `.env`, quedan vacías y el
+      # botón de Google/el widget de Turnstile simplemente no se
+      # renderizan (nil-safe), sin romper nada.
+      args:
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     container_name: dental-mirage-web
     restart: unless-stopped
     environment:

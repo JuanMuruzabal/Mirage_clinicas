@@ -313,7 +313,13 @@ y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
    - `dental-mirage-web`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/
      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (mismo Google Client ID de arriba,
      y la site key pública de Turnstile) — sin esto, el botón de Google y
-     el widget de CAPTCHA directamente no se renderizan.
+     el widget de CAPTCHA directamente no se renderizan. **Estas dos son
+     build-time, no runtime** (Next.js las inyecta en el JS del cliente
+     durante `next build`, ver `apps/web/Dockerfile`) — cargarlas en el
+     dashboard con el servicio ya desplegado NO alcanza por sí solo,
+     Render necesita un build nuevo para que entren; un "Manual Deploy"
+     (sin "Clear build cache" hace falta) alcanza, porque agregarlas
+     invalida el layer del Dockerfile que las usa.
 3. **Deploy automático gateado por CI** (job `deploy` en `ci.yml`): en
    `dental-mirage-api` y `dental-mirage-web` por separado — **Settings**
    → **Deploy Hook**, copiar esa URL. Cargar cada una como secret del
