@@ -61,6 +61,22 @@ describe("CalendarView", () => {
     expect(await screen.findByRole("dialog", { name: "Agregar turno" })).toBeInTheDocument();
   });
 
+  // Bug reportado 2026-08-27: "tocar 2 veces el botón lo traba" —
+  // tocar una vista YA activa dejaba `cargando` trabado en `true` para
+  // siempre (`setVista` con el mismo valor es un no-op para React, el
+  // efecto que apaga el loading nunca se disparaba de nuevo).
+  it("tocar una vista ya activa no deja el calendario trabado en 'Cargando…'", async () => {
+    const user = userEvent.setup();
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+    await waitFor(() => expect(screen.queryByText("Cargando…")).not.toBeInTheDocument());
+
+    // "dia" ya es la vista activa de entrada (ver el primer test) —
+    // tocarla de nuevo no debería iniciar (ni trabar) ninguna carga.
+    await user.click(screen.getByRole("button", { name: "dia" }));
+
+    expect(screen.queryByText("Cargando…")).not.toBeInTheDocument();
+  });
+
   it("clickear un día en vista mes pasa a vista día", async () => {
     const user = userEvent.setup();
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);

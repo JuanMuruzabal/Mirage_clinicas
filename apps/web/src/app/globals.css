@@ -269,7 +269,7 @@ body {
 
 /* `.panel-table-scroll` — pedido explícito del cliente, 2026-08-27: "no
    se ve el scrollbar" en las cajas de scroll vertical de Turnos/
-   Pacientes/historial del paciente (turnos-table.tsx, pacientes/page.tsx,
+   Pacientes/historial del paciente (turnos-table.tsx, pacientes-table.tsx,
    paciente-turnos-table.tsx). El scrollbar nativo por default es overlay
    (invisible hasta que se está scrolleando activamente, o directamente
    oculto en algunos navegadores/SO) — acá se fuerza un thumb visible
@@ -279,10 +279,22 @@ body {
    ignora por completo el pseudo-elemento `::-webkit-scrollbar` en
    contenedores con overflow (limitación conocida de WebKit, sin
    workaround sin JS) — ahí sigue viéndose el overlay nativo de iOS
-   mientras se scrollea, sin regresión respecto de antes. */
+   mientras se scrollea, sin regresión respecto de antes.
+
+   `overscroll-behavior: contain` — bug visual reportado 2026-08-27: "si
+   voy muy para arriba dentro de estas [tablas] el scrollbar sobresale la
+   primera fila... queda un espacio blanco feo". Al llegar al tope y
+   seguir arrastrando, el navegador hacía "rebote elástico" (overscroll)
+   más allá del propio borde de esta caja — mismo fenómeno que motivó
+   `.panel-locked` para la página completa (TR-027 en docs/tradeoffs.md),
+   acá a escala de un solo contenedor con scroll interno. `contain` frena
+   el rebote en el borde de la caja en vez de dejarlo escapar hacia el
+   fondo de la página (`--color-hueso`, un tono distinto al `bg-marfil`
+   de la caja — de ahí el "espacio blanco" que no combinaba). */
 .panel-table-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--color-arena) transparent;
+  overscroll-behavior: contain;
 }
 
 .panel-table-scroll::-webkit-scrollbar {

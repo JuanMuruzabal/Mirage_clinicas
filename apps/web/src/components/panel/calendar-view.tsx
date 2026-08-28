@@ -109,6 +109,16 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   }
 
   function cambiarVista(v: VistaCalendario) {
+    // Bug reportado 2026-08-27: "tocar 2 veces el botón lo traba" — sin
+    // esta guarda, tocar la vista YA activa (ej. "Semana" estando en
+    // Semana) igual disparaba `setCargando(true)`, pero `setVista(v)`
+    // con el mismo valor que ya tenía es un no-op para React (bail out,
+    // sin re-render) — el efecto que escucha `[fecha, vista]` nunca se
+    // volvía a disparar para apagar el loading, quedando "Cargando…"
+    // para siempre. `irA`/`irAHoy` no sufren esto porque `fecha` es un
+    // objeto `Date` nuevo en cada llamada (siempre "cambia" para React,
+    // aunque sea el mismo día) — acá `vista` es un string plano.
+    if (v === vista) return;
     setCargando(true);
     setVista(v);
     // No se scrollea acá mismo — ver el efecto de abajo, guardado en
