@@ -168,19 +168,36 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           mecanismo principal: si algún dato puntual necesitara más ancho,
           esta caja scrollea SOLA, nunca la página entera.
 
-          `max-h-[600px] overflow-y-auto` sin condición de mobile
-          (reemplaza `max-md:max-h-none max-md:overflow-visible` de
-          TR-028): la caja vuelve a ser su propio contenedor de scroll
-          vertical en cualquier ancho — con muchos turnos, es ESTA caja
-          la que saca su propia scrollbar, la página (`<main>`) no se
-          alarga sin límite. `thead` vuelve a `sticky top-0 z-10` sin
-          condición de `md:` por el mismo motivo (TR-065 solo aplicaba
-          la condición cuando esta caja NO era su propio scroll en
-          mobile — ahora siempre lo es). */}
-      <div className="max-h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          `max-h-[600px] overflow-y-auto` en escritorio (con
+          `max-md:max-h-[21rem]` en mobile — pedido explícito del
+          cliente, 2026-08-27: "solo habrá 4 visibles a primera vista,
+          para ver los demás se deberá ir para abajo" — cabecera + 4
+          filas ya alcanzan el ancho de la pantalla, así que 4 es lo que
+          entra cómodo). Reemplaza `max-md:max-h-none
+          max-md:overflow-visible` de TR-028: la caja vuelve a ser su
+          propio contenedor de scroll vertical en cualquier ancho — con
+          muchos turnos, es ESTA caja la que saca su propia scrollbar
+          (`.panel-table-scroll`, ver globals.css — la nativa quedaba
+          invisible), la página (`<main>`) no se alarga sin límite.
+          `max-md:overflow-x-hidden` (pedido explícito del cliente:
+          "que se pueda desplazar solo verticalmente") — con las
+          columnas secundarias ya ocultas en mobile (ver los `<th>`/
+          `<td>` de abajo) no hace falta scroll horizontal ahí, y sin
+          esto un gesto diagonal disparaba los dos ejes a la vez.
+          `thead` vuelve a `sticky top-0 z-10` sin condición de `md:`
+          por el mismo motivo (TR-065 solo aplicaba la condición cuando
+          esta caja NO era su propio scroll en mobile — ahora siempre lo
+          es). */}
+      <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
+            {/* border-b (1px) en mobile — pedido explícito del cliente,
+                2026-08-27: "las tablas... no poseen separadores claros
+                como sí tiene la versión de escritorio". El `0.5px` de
+                escritorio se pierde en algunos anchos de píxel de
+                mobile (redondea a 0 según densidad de pantalla); acá se
+                fuerza a 1px completo, visible en cualquier dispositivo. */}
+            <tr className="border-b border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
               <th className="px-4 py-3">Paciente</th>
               <th className="max-md:hidden px-4 py-3">Contacto</th>
               <th className="max-md:hidden px-4 py-3">Motivo</th>
@@ -206,7 +223,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                 <Fragment key={t.id}>
                   <tr
                     onClick={() => alternarExpandido(t.id)}
-                    className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena ${expandido ? "bg-hueso" : ""}`}
+                    className={`cursor-pointer border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px] ${expandido ? "bg-hueso" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -248,16 +265,24 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                     </td>
                   </tr>
                   {expandido && (
-                    <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0">
+                    <tr className="border-b border-arena bg-hueso last:border-b-0 md:border-b-[0.5px]">
                       <td colSpan={7} className="px-4 py-3">
                         {/* Contacto/Motivo/Origen — ocultos como columna en
                             mobile (arriba), reaparecen ACÁ al desplegar la
                             fila, junto a los botones. Desde `md` no hace
                             falta (ya se ven como columnas), por eso
-                            `md:hidden`. */}
-                        <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm md:hidden">
+                            `md:hidden`. `text-base` (pedido explícito del
+                            cliente, 2026-08-27: "hacer bien visibles los
+                            datos al presionar... porque se ven muy
+                            pequeños") — antes el teléfono/email quedaban
+                            en `text-xs` (12px) mientras motivo/origen ya
+                            heredaban un `text-sm` sin querer más chico que
+                            el resto; ahora todos los valores comparten el
+                            mismo tamaño, más grande, solo las etiquetas
+                            (dt) se mantienen chicas a propósito. */}
+                        <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-base md:hidden">
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Contacto</dt>
-                          <dd className="font-[family-name:var(--font-mono)] text-xs text-grafito">
+                          <dd className="font-[family-name:var(--font-mono)] text-grafito">
                             <div>{t.telefonoContacto}</div>
                             {t.emailContacto && <div className="break-all text-grafito/50">{t.emailContacto}</div>}
                           </dd>

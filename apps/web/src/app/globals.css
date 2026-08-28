@@ -266,3 +266,35 @@ body {
   color: var(--color-grafito);
   font-family: var(--font-body);
 }
+
+/* `.panel-table-scroll` — pedido explícito del cliente, 2026-08-27: "no
+   se ve el scrollbar" en las cajas de scroll vertical de Turnos/
+   Pacientes/historial del paciente (turnos-table.tsx, pacientes/page.tsx,
+   paciente-turnos-table.tsx). El scrollbar nativo por default es overlay
+   (invisible hasta que se está scrolleando activamente, o directamente
+   oculto en algunos navegadores/SO) — acá se fuerza un thumb visible
+   siempre, angosto y con el color de marca en vez del gris de sistema.
+   Firefox (`scrollbar-width`/`scrollbar-color`, estándar) y Chrome/
+   Edge/Android WebView (`::-webkit-scrollbar*`) lo respetan; iOS Safari
+   ignora por completo el pseudo-elemento `::-webkit-scrollbar` en
+   contenedores con overflow (limitación conocida de WebKit, sin
+   workaround sin JS) — ahí sigue viéndose el overlay nativo de iOS
+   mientras se scrollea, sin regresión respecto de antes. */
+.panel-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-arena) transparent;
+}
+
+.panel-table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.panel-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-table-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-arena);
+  border-radius: 9999px;
+}

@@ -97,18 +97,20 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
         <div className="flex flex-wrap items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
           <nav
             aria-label="Filtrar por estado"
-            // max-md:min-w-0 (pedido explícito del cliente, 2026-08-27:
-            // "el seleccionador... se ve más largo que el buscador") —
-            // trampa clásica de flexbox: un hijo con `overflow-x-auto`
-            // dentro de un padre `flex-col items-stretch` no se achica
-            // al ancho del padre por sí solo si su CONTENIDO (acá, las
-            // tabs con `whitespace-nowrap`) mide más — el `min-width`
-            // implícito de cualquier flex item es `auto` (= su propio
-            // contenido), no `0`. Con 4 tabs de por sí anchas, sin este
-            // `min-w-0` el `<nav>` crecía
-            // más ancho que el buscador de abajo en vez de recortarse y
-            // scrollear por su cuenta.
-            className="flex gap-1 overflow-x-auto rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm max-md:min-w-0 max-md:flex-nowrap"
+            // Grid de 2×2 en mobile en vez de una fila con scroll propio
+            // (pedido explícito del cliente, 2026-08-27: "el
+            // seleccionador... sigue haciendo overflow, lo que habilita
+            // el desplazamiento horizontal de este apartado, cosa que no
+            // es correcto") — con 4 tabs de texto largo ("Confirmadas",
+            // "Canceladas"), ni sacándole el min-width al `<nav>`
+            // alcanzaba para que entren en una sola fila en pantallas
+            // angostas: seguía necesitando su propio `overflow-x-auto`
+            // para no desbordar, que es exactamente el movimiento
+            // horizontal que se pidió sacar. Un grid de 2 columnas
+            // siempre entra sin necesitar scroll, sea cual sea el ancho.
+            // Desde `md` vuelve a ser la fila original (`rounded-full`,
+            // una sola línea) — cero cambio en escritorio.
+            className="grid grid-cols-2 gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:flex md:flex-nowrap md:items-center md:overflow-x-auto md:rounded-full"
           >
             {TABS.map((t) => {
               const active = t.tab === tab;
@@ -117,7 +119,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
                 <Link
                   key={t.tab}
                   href={href}
-                  className={`rounded-full px-4 py-2 font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                  className={`rounded-full px-4 py-2 text-center font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
                 >
                   {t.label}
                 </Link>

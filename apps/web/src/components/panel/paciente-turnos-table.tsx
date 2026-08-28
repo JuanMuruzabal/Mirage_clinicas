@@ -142,14 +142,21 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
         // Misma tabla en mobile y escritorio — Motivo pasa a
         // `max-md:hidden` (columna menos esencial para un vistazo, sigue
         // disponible al entrar al turno en la vista Turnos). `max-h-[400px]
-        // overflow-y-auto` sin condición de mobile: esta caja saca su
-        // propia scrollbar vertical con un historial largo, en vez de
-        // alargar la página (mismo criterio que turnos-table.tsx/
-        // pacientes/page.tsx).
-        <div className="max-h-[400px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+        // overflow-y-auto` en escritorio, `max-md:max-h-[18rem]
+        // max-md:overflow-x-hidden` en mobile (pedido explícito del
+        // cliente, 2026-08-27: "solo habrá 4 visibles a primera vista"/
+        // "que se pueda desplazar solo verticalmente") — esta caja saca
+        // su propia scrollbar vertical (`.panel-table-scroll`, ver
+        // globals.css) con un historial largo, en vez de alargar la
+        // página (mismo criterio que turnos-table.tsx/pacientes/page.tsx).
+        <div className="panel-table-scroll max-h-[400px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[18rem] max-md:overflow-x-hidden md:overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b-[0.5px] border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60">
+              {/* border-b (1px) en mobile — pedido explícito del cliente,
+                  2026-08-27: separadores más claros, el 0.5px de
+                  escritorio se pierde en algunos anchos de píxel de
+                  mobile. */}
+              <tr className="border-b border-arena bg-marfil text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
                 <th className="w-8 px-4 py-3" aria-hidden="true" />
                 <th className="px-4 py-3">Tipo de consulta</th>
                 <th className="px-4 py-3">Fecha y hora</th>
@@ -178,7 +185,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                 // `estado` real del turno ("agendado").
                 const hrefVerTurno = `/panel/turnos?estado=${resuelto ? "resuelto" : t.estado}&q=${encodeURIComponent(t.dniContacto)}&turno=${t.id}`;
                 return (
-                  <ClickableTableRow key={t.id} href={hrefVerTurno} className="border-b-[0.5px] border-arena last:border-b-0 hover:bg-arena">
+                  <ClickableTableRow key={t.id} href={hrefVerTurno} className="border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]">
                     <td className="px-4 py-3">
                       <span
                         aria-hidden="true"

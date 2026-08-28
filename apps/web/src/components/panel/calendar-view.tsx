@@ -59,6 +59,11 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   // reprogramarlo en cada re-render cuando `dias`/`turnos` cambian por
   // otros motivos — ver el efecto de abajo).
   const scrollInicialHecho = useRef(false);
+  // Día objetivo pendiente de scrollear en Semana (botón "Hoy"/toggle
+  // "Semana") — bug reportado 2026-08-27, más visible en mobile: no se
+  // puede scrollear en el mismo tick que se dispara el fetch, ver el
+  // efecto de más abajo que lo resuelve recién cuando los datos llegan.
+  const scrollPendienteRef = useRef<Date | null>(null);
 
   // setCargando(true) se dispara desde quien CAMBIA fecha/vista (los
   // handlers de abajo), no acá adentro — llamar setState de forma
@@ -85,41 +90,20 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
     if (nuevaVista) setVista(nuevaVista);
   }
 
-  // scrollASemanaDeHoy — pedido explícito del cliente, 2026-08-27: "al
-  // tocar en el apartado semana, me ubicara en el día que estoy y de ahí
+  // scrollAlDia — pedido explícito del cliente, 2026-08-27: "al tocar en
+  // el apartado semana, me ubicara en el día que estoy y de ahí
   // desplazarme para delante o atrás... al tocar el hoy que vuelva a
   // estar al día de la fecha". Recibe los días YA calculados para la
   // fecha/vista de destino (no lee `dias`/`fecha` del cierre — evita
-  // depender de un render que todavía no pasó) y deja el día de hoy
+  // depender de un render que todavía no pasó) y deja el día objetivo
   // apenas empezando a la izquierda de lo visible (medio `COL_PX` de
   // aire antes, no pegado al borde), listo para deslizar hacia
-  // adelante. Si la semana de destino no incluye hoy (se llega acá solo
-  // desde el toggle "Semana" o el botón "Hoy", nunca desde ←/→), no
-  // hace nada — no hay a dónde ubicarse.
-  function scrollASemanaDeHoy(diasSemana: Date[]) {
+  // adelante. Si la semana de destino no incluye el día pedido, no hace
+  // nada — no hay a dónde ubicarse.
+  function scrollAlDia(diasSemana: Date[], objetivo: Date) {
     const box = scrollBoxRef.current;
     if (!box) return;
-    const idx = diasSemana.findIndex((d) => isSameDay(d, new Date()));
-    if (idx < 0) return;
-    box.scrollTo({ left: Math.max(GUTTER_PX + idx * COL_PX - COL_PX / 2, 0), behavior: "smooth" });
-  }
-
-  // scrollADiaConTurnoMasProximo — pedido explícito del cliente,
-  // 2026-08-27: "turnos próximos [en General] al calendario de semana
-  // donde sea visible el primer turno más próximo". A diferencia de
-  // `scrollASemanaDeHoy` (siempre hoy), busca el primer día desde hoy en
-  // adelante (dentro de la semana ya cargada) que tenga al menos un
-  // turno agendado — si hoy mismo tiene uno, se queda ahí igual. Sin
-  // ningún turno futuro en la semana, cae en hoy (mismo comportamiento
-  // de siempre).
-  function scrollADiaConTurnoMasProximo(diasSemana: Date[], listaTurnos: Turno[]) {
-    const box = scrollBoxRef.current;
-    if (!box) return;
-    const hoy = startOfDay(new Date());
-    const diaConTurno = diasSemana
-      .filter((d) => d.getTime() >= hoy.getTime())
-      .find((d) => listaTurnos.some((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), d)));
-    const idx = diasSemana.findIndex((d) => isSameDay(d, diaConTurno ?? new Date()));
+    const idx = diasSemana.findIndex((d) => isSameDay(d, objetivo));
     if (idx < 0) return;
     box.scrollTo({ left: Math.max(GUTTER_PX + idx * COL_PX - COL_PX / 2, 0), behavior: "smooth" });
   }
@@ -127,14 +111,16 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   function cambiarVista(v: VistaCalendario) {
     setCargando(true);
     setVista(v);
-    if (v === "semana") scrollASemanaDeHoy(diasDeVista(fecha, "semana"));
+    // No se scrollea acá mismo — ver el efecto de abajo, guardado en
+    // `scrollPendienteRef` hasta que `cargando` vuelva a `false`.
+    if (v === "semana") scrollPendienteRef.current = new Date();
   }
 
   function irAHoy() {
     const hoy = new Date();
     setCargando(true);
     setFecha(hoy);
-    if (vista === "semana") scrollASemanaDeHoy(diasDeVista(hoy, "semana"));
+    if (vista === "semana") scrollPendienteRef.current = hoy;
   }
 
   function recargar() {
@@ -145,16 +131,45 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   const dias = diasDeVista(fecha, vista);
   const titulo = vista === "mes" ? formatMesAnio(fecha) : vista === "semana" ? formatRangoSemana(fecha) : formatDiaLargo(fecha);
 
+  // Resuelve el scroll pendiente de "Hoy"/toggle "Semana" (ver
+  // `cambiarVista`/`irAHoy` de arriba). No puede dispararse en el mismo
+  // tick que esos handlers: ahí `cargando` recién pasa a `true` y
+  // CalendarGrid todavía no se montó (se ve el texto "Cargando…") — un
+  // `scrollTo` sobre una caja sin contenido real no tiene adónde
+  // moverse, así que quedaba "pegado" al inicio de la semana en vez de
+  // avanzar hasta el día de hoy (bug reportado 2026-08-27, mucho más
+  // visible en mobile: en desktop la semana completa suele entrar sin
+  // necesitar scroll y el bug pasaba desapercibido). Recién acá,
+  // cuando `cargando` vuelve a `false` (los datos ya llegaron y
+  // CalendarGrid ya tiene contenido real), se ejecuta el scroll
+  // guardado.
+  useEffect(() => {
+    if (cargando) return;
+    const objetivo = scrollPendienteRef.current;
+    if (!objetivo) return;
+    scrollPendienteRef.current = null;
+    scrollAlDia(dias, objetivo);
+  }, [cargando, dias]);
+
   // Dispara una sola vez (guardado por `scrollInicialHecho`, no en un
   // array de deps vacío) — `turnosIniciales`/`vistaInicial` ya vienen
   // resueltos por el Server Component con el rango correcto, no hace
   // falta esperar ningún fetch de cliente para tener adónde scrollear;
   // la guarda evita que se repita cuando `dias`/`turnos` cambien después
-  // por otro motivo (navegar semanas, refetch).
+  // por otro motivo (navegar semanas, refetch). Busca el primer día
+  // desde hoy en adelante (dentro de la semana ya cargada) que tenga al
+  // menos un turno agendado — pedido explícito del cliente, 2026-08-27:
+  // "turnos próximos [en General] al calendario de semana donde sea
+  // visible el primer turno más próximo" — si hoy mismo tiene uno, se
+  // queda ahí igual; sin ningún turno futuro en la semana, cae en hoy.
   useEffect(() => {
     if (vistaInicial !== "semana" || scrollInicialHecho.current) return;
     scrollInicialHecho.current = true;
-    scrollADiaConTurnoMasProximo(dias, turnos);
+    const hoy = startOfDay(new Date());
+    const diaConTurno = dias
+      .filter((d) => d.getTime() >= hoy.getTime())
+      .find((d) => turnos.some((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), d)));
+    scrollAlDia(dias, diaConTurno ?? new Date());
   }, [vistaInicial, dias, turnos]);
 
   return (

@@ -60,10 +60,19 @@ export function PanelSidebar() {
     <>
       {/* Backdrop — solo mobile, solo con el drawer abierto. Clickearlo
           cierra, mismo criterio que cualquier modal de la app
-          (ModalPortal). z-40: mismo nivel que el header (HeaderFrame),
-          por detrás del drawer (z-50) pero por encima del contenido. */}
+          (ModalPortal). Empieza debajo del header (`top-[var(--header-
+          height)]`, no `inset-0`) — pedido explícito del cliente,
+          2026-08-27: "se debería desplegar de altura sin sobrepasar el
+          header" — así el header (con el ícono de hamburguesa) queda
+          SIEMPRE visible y clickeable para cerrar, no tapado por el
+          oscurecido. z-40: mismo nivel que tenía antes, por detrás del
+          drawer (z-50). */}
       {open && (
-        <div className="fixed inset-0 z-40 bg-grafito/50 md:hidden" onClick={close} aria-hidden="true" />
+        <div
+          className="fixed inset-x-0 bottom-0 top-[var(--header-height)] z-40 bg-grafito/50 md:hidden"
+          onClick={close}
+          aria-hidden="true"
+        />
       )}
 
       {/* .panel-sidebar-h (TR-029 en docs/tradeoffs.md): declara el
@@ -74,14 +83,19 @@ export function PanelSidebar() {
           con `!important` (no reordenando reglas — la clase de
           globals.css y esta viven en archivos distintos, forzar el
           orden de compilado es frágil, ver TR-029/034 en este mismo
-          historial): en mobile el drawer es `fixed inset-y-0` (punta a
-          punta de la pantalla, por encima del header, z-50) y necesita
-          `height: auto` para que `top`/`bottom` (via `inset-y-0`) sean
-          los que definan el alto real, no un `calc()` pensado para la
-          versión `sticky` de escritorio que dejaría un hueco al fondo. */}
+          historial). El drawer mobile arranca en `top-[var(--header-
+          height)]` (no `inset-y-0`/top:0 — pedido explícito del
+          cliente, 2026-08-27: "el sidebar... se debería desplegar de
+          altura sin sobrepasar el header") hasta el borde inferior de
+          la pantalla (`bottom-0`) — antes tapaba también al header
+          (incluido su propio ícono de hamburguesa), lo que además hacía
+          imposible tocarlo de nuevo para cerrar el drawer sin recurrir
+          al backdrop. `height: auto` deja que `top`/`bottom` sean los
+          que definan el alto real, no un `calc()` pensado para la
+          versión `sticky` de escritorio. */}
       <aside
         id="panel-sidebar-drawer"
-        className={`panel-sidebar-h max-md:h-auto! fixed inset-y-0 left-0 z-50 flex w-60 flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-transform duration-300 md:sticky md:inset-y-auto md:top-[var(--header-height)] md:z-auto md:h-[calc(100vh-var(--header-height))] md:translate-x-0 md:transition-[width] ${
+        className={`panel-sidebar-h max-md:h-auto! fixed left-0 top-[var(--header-height)] bottom-0 z-50 flex w-60 flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-transform duration-300 md:sticky md:inset-y-auto md:top-[var(--header-height)] md:z-auto md:h-[calc(100vh-var(--header-height))] md:translate-x-0 md:transition-[width] ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-[52px]" : "md:w-60"}`}
       >
