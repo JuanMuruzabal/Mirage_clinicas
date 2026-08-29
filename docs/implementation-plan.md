@@ -459,10 +459,9 @@ Ningún ítem de esta fase toca el exclusion constraint de no-solapamiento (spec
 
 | Tabla/campo | Qué es | Para qué ítem |
 |---|---|---|
-| `HorarioAtencion` (nueva) | Franjas recurrentes por día de semana (`dia_semana`, `hora_desde`, `hora_hasta`), varias filas por día | Ítem 3 |
-| `BloqueoHorario` (nueva) | Excepciones puntuales (fecha concreta o recurrente por día de semana) donde no se puede pedir turno | Ítem 3 |
-| `TipoConsulta.DuracionMinutos` (nuevo campo) | Cuánto dura cada tipo de consulta — hoy no existe, hace falta para calcular slots | Ítems 3, 4 |
-| `Clinic.TiempoEntreTurnosMinutos` (nuevo campo) | Buffer entre turno y turno | Ítems 3, 4 |
+| `HorarioAtencion` (nueva) | Un único rango horario aplicado a todos los días (horario de atención general) | Ítem 3 |
+| `BloqueoHorario` (nueva) | Reglas generales (`Alcance`: `semana`\|`mes`\|`todos`, de una sola vez salvo `todos`) o específicas (`Especifico`+`Fecha` puntual) donde no se puede pedir turno — específica gana sobre general en caso de solape (TR-084) | Ítem 3 |
+| `TipoConsulta.DuracionMinutos`/`.TiempoPostConsultaMinutos`/`.CantidadSesiones` (nuevos campos) | Duración, buffer posterior (reemplaza el buffer a nivel clínica del esbozo original, TR-084) y cantidad de sesiones (informativo, sin lógica esta fase) — por tipo de consulta, no por clínica | Ítems 3, 4 |
 | `ReservaTemporal` (nueva) | Reserva de 10 minutos del horario elegido, mientras el paciente completa el formulario — confirmado explícitamente por el cliente (2026-08-29), ver TR-080 | Ítem 4 |
 | — (sin tabla nueva) | Link de "compartir calendario": token firmado con expiración de 1h (`internal/security`, mismo mecanismo que verificación de mail/reset) | Ítem 5 |
 
@@ -497,14 +496,20 @@ Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief 
 
 #### F2.3 — Ajustes de calendario (brief ítem 3) — bloquea F2.4 y F2.5
 
+Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/UX y reglas de negocio, más específica que el brief original — ver TR-084 en `docs/tradeoffs.md` (reemplaza el esbozo que tenía esta tabla antes, incluida la fila `F2.3.6` de previsualización en vivo, descartada explícitamente por el cliente).
+
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
-| F2.3.1 | Esquema `HorarioAtencion` + `BloqueoHorario` + `TipoConsulta.DuracionMinutos` + `Clinic.TiempoEntreTurnosMinutos` (TR-078) | — | 1-2d | Migraciones aditivas corridas, `go test ./internal/db/...` verde |
-| F2.3.2 | `GET/PUT /clinicas/{slug}/horario-atencion` (horario semanal recurrente) | F2.3.1 | 1-2d | Guardar/leer franjas por día de semana, validado contra Postgres real |
-| F2.3.3 | `GET/POST/DELETE /clinicas/{slug}/bloqueos` (excepciones puntuales) | F2.3.1 | 1-2d | CRUD de bloqueos, recurrentes o de fecha puntual |
-| F2.3.4 | CRUD completo de `TipoConsulta` (`POST`/`PATCH`/`DELETE /tipos-consulta`) — hoy solo existe `GET` | F2.3.1 | 1-2d | El profesional puede crear, renombrar, cambiar color/duración y borrar un tipo de consulta desde la UI |
-| F2.3.5 | Pantalla "Ajustes de calendario" (nueva sección del panel): horario general, tiempo entre turnos, gestión de tipos de consulta | F2.3.2, F2.3.3, F2.3.4 | 3-4d | Los 3 formularios guardan contra los endpoints de arriba, con validación de horarios superpuestos/inválidos |
-| F2.3.6 | Previsualización en vivo del calendario con los ajustes sin guardar todavía, navegable por semana/mes/día | F2.3.5 | 3-4d | Cambiar un valor en el formulario actualiza una vista de calendario de ejemplo sin pegarle al backend hasta "Guardar"; se puede navegar semana/mes/día dentro de esa previsualización |
+| F2.3.1 | Esquema (TR-084): `HorarioAtencion` (franjas recurrentes por día); `BloqueoHorario` con `Alcance` (`semana`\|`mes`\|`todos`), `Especifico` (bool), `Fecha` (si específico), `DiaSemana`+rango resuelto (si general), `TipoRegla` (hoy solo `"bloquear_horario"`); `TipoConsulta` suma `DuracionMinutos`, `TiempoPostConsultaMinutos`, `CantidadSesiones` (informativo, sin lógica) | — | 2-3d | Migraciones aditivas corridas, `go test ./internal/db/...` verde |
+| F2.3.2 | `GET/PUT /clinicas/{slug}/horario-atencion` (un rango único aplicado a todos los días) | F2.3.1 | 1d | Guardar/leer el horario general, validado contra Postgres real |
+| F2.3.3 | `GET/POST/DELETE /clinicas/{slug}/bloqueos` — reglas generales Y específicas por el mismo recurso (distinguidas por `Especifico`); resolución de conflictos (específica gana sobre general en el mismo tramo) vive en el cálculo de disponibilidad (F2.4.1/TR-079), no acá | F2.3.1 | 2d | Alta/baja de reglas de los dos tipos, devueltas ya separadas o filtrables por `Especifico` para las dos tablas de la UI |
+| F2.3.4 | CRUD completo de `TipoConsulta` (`POST`/`PATCH`/`DELETE /tipos-consulta`) — hoy solo existe `GET` — incluye color, duración, `TiempoPostConsultaMinutos`, `CantidadSesiones` | F2.3.1 | 1-2d | El profesional puede crear, renombrar, cambiar color/duración/cantidad de sesiones/tiempo post-consulta y borrar un tipo de consulta desde la UI |
+| F2.3.5 | Botón de tuerca junto al título "Calendario" (despliega "Configuración de calendario") + modal principal (mismo patrón que "Agregar turno": `ModalPortal`, backdrop con blur) con horario de atención + tabla de reglas globales + tabla de reglas específicas (vacías al principio, mismo componente de tabla que Turnos/Pacientes) | F2.3.2, F2.3.3 | 3-4d | Abrir/cerrar el modal principal funciona igual que "Agregar turno"; las dos tablas listan lo que devuelve F2.3.3, vacías si no hay reglas cargadas |
+| F2.3.6 | Sub-modal "Agregar regla" (se abre ENCIMA del modal principal, que queda con blur) — alcance/fecha específica → tipo de regla → día(s) + rango horario → Agregar; guarda de cambios sin guardar (diálogo "tenés cambios pendientes" si se interrumpe con datos cargados; cierre de golpe descarta) | F2.3.5 | 2-3d | Guardar una regla la agrega a la tabla correspondiente sin cerrar el modal principal; interrumpir con datos cargados siempre pasa por el diálogo de confirmación, nunca descarta en silencio |
+| F2.3.7 | Sección "Tipo de consulta" dentro del modal principal: color picker, alta ilimitada, edición de duración/cantidad de sesiones/tiempo post-consulta, borrado | F2.3.4, F2.3.5 | 2d | Los cambios de esta sección guardan contra F2.3.4 sin salir del modal de configuración |
+| F2.3.8 | Visualización en el grid del calendario: un `BloqueoHorario` vigente se pinta en gris más oscuro que el resto de la grilla; click abre un detalle ("Horario bloqueado de tal a tal hora" + tipo de regla) con botón "Ver regla" que abre el modal de configuración ya posicionado en esa fila | F2.3.1 (lectura), F2.3.5 | 2d | Un bloqueo cargado se ve distinto a un hueco libre; "Ver regla" navega a la fila exacta sin que el profesional tenga que buscarla a mano |
+
+**Descartado explícitamente (2026-08-29):** previsualización en vivo del calendario con los ajustes sin guardar — el cliente pidió priorizar velocidad de uso ("hacemos que el ajuste sea rápido y eficiente") en vez de esa pieza, coincidiendo con el riesgo ya anotado en R2F-5 más abajo.
 
 #### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4)
 
@@ -533,7 +538,7 @@ Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief 
 | R2F-2 | ~~El ítem 2 no especifica la interacción exacta~~ — **Resuelto** (2026-08-29): confirmado un botón en pantalla, sin depender de rotación del teléfono | — | F2.2.1 |
 | R2F-3 | Repetir el ciclo "se ve bien en CI, no convence en dispositivo real" ya vivido con el sticky de las tablas (revertido en la sesión previa a esta planificación) | Medio-Alto | F2.1.0 (spike en dispositivo real primero) — TR-082 |
 | R2F-4 | El CRUD de `TipoConsulta` es una pieza nueva completa (hoy no existe), no una extensión — puede correr más lento de lo esperado si aparecen validaciones no previstas (¿se puede borrar un tipo de consulta con turnos ya agendados?) | Medio | Definir esa regla en F2.3.4 antes de construir la UI (F2.3.5), no a mitad de tarea |
-| R2F-5 | "Previsualización en vivo" (F2.3.6) es la tarea más ambigua del brief — el alcance exacto de "poder ir pasando de semana en semana" en un calendario de PRUEBA (sin guardar) puede crecer más de lo estimado | Medio | Acotar el QA de F2.3.6 a un ejemplo concreto con el cliente antes de darla por terminada, no una previsualización 100% fiel a producción desde el primer intento |
+| R2F-5 | ~~"Previsualización en vivo" es la tarea más ambigua del brief~~ — **Resuelto** (2026-08-29): el cliente la descartó por completo a favor de velocidad de uso — ver TR-084 | — | — |
 
 ---
 
