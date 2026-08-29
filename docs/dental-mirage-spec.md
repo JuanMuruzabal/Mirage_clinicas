@@ -207,3 +207,17 @@ Verificar contra el pipeline completo antes de cada commit (lint + typecheck + b
 | `03-calendario.png` | Referencia de calendario/turnero |
 | `04-turnos-pacientes-referencia.png` | Referencia de formato tabla (proyecto Marcuzzi_Madryn) para Turnos y Pacientes |
 | `05-editor-pagina.png` | Layout del editor de página (previsualización + panel de edición) |
+
+---
+
+## 11. Fase 2 — Calendario avanzado y autogestión de turnos
+
+Con el MVP (secciones 2 a 6) dado por concluido, arranca la Fase 2 sobre el brief del cliente en `docs/fase2-dental-mirage.md`. Plan fase por fase, decisiones de arquitectura y preguntas abiertas: `docs/implementation-plan.md` §11 y `docs/tradeoffs.md` TR-078 a TR-083. Resumen de alcance:
+
+1. **Calendario mobile, vista Semana:** la columna de horas y la fila de días acompañan el scroll en cualquier dirección (horizontal/vertical/diagonal), sin perder de vista dónde está posicionado el usuario.
+2. **Vista "pantalla grande" del calendario en mobile:** una opción para ver el calendario con proporciones más parecidas a escritorio sin dejar de estar en el teléfono.
+3. **Ajustes de calendario:** el profesional configura horario de atención general, tiempo entre turnos, y gestiona sus tipos de consulta (nombre/color/**duración**, hoy sin CRUD propio — ver el gap documentado en el plan) y bloqueos puntuales por día/rango — con una previsualización en vivo antes de guardar.
+4. **Selección de horario por el paciente:** el formulario público de pedido de turno (spec §4.4) se extiende a un wizard de varios pasos (¿para quién es? → ¿nuevo o ya registrado? → tipo de consulta → horario disponible → datos de contacto) — el turno sigue llegando `pendiente` a la bandeja del profesional (sin cambios en esa regla), ahora con el horario ya propuesto por el paciente. El horario elegido se reserva por 10 minutos apenas se selecciona (confirmado explícitamente por el cliente, TR-080) — otro paciente no puede pedir ese mismo horario mientras el primero completa el formulario.
+5. **Compartir calendario:** un link efímero (1h) que dispara el mismo wizard del ítem 4, sin depender de que el paciente entre por la página pública de la clínica.
+
+**Depende de** (sin cambios de esquema sobre lo existente, todo aditivo — ver `docs/tradeoffs.md` TR-078/TR-080): `HorarioAtencion`/`BloqueoHorario`/`ReservaTemporal` (tablas nuevas), `TipoConsulta.DuracionMinutos`/`Clinic.TiempoEntreTurnosMinutos` (campos nuevos). El exclusion constraint de no-solapamiento (§9.2) y el significado de `pendiente`/`agendado` (§4.3/§4.4) no cambian.

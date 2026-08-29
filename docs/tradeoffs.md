@@ -886,4 +886,74 @@
 
 ---
 
+## TR-078: Fase 2 arranca — nuevo modelo de datos de disponibilidad (`HorarioAtencion` + `BloqueoHorario`), no una extensión de `Turno`
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan (a partir de `docs/fase2-dental-mirage.md`, el brief que el cliente dejó en `docs/` para esta fase — ver sección 11 de `docs/implementation-plan.md` para el desglose completo en sprints)
+- **Contexto de la decisión:** los ítems 3 y 4 del brief ("ajustes de calendario"/"selección de horario por parte del paciente") necesitan que el backend sepa, para un `Clinic` dado, qué horarios están disponibles — hoy el esquema (`docs/implementation-plan.md` §2.1) no tiene ningún concepto de "horario de atención"; `Turno` solo describe turnos ya pedidos/agendados, no el universo de horarios posibles.
+- **Decisión:** dos tablas nuevas, ambas por `Clinic` (no por `Profesional` legacy — mismo criterio que el resto del esquema post-TR-037, `profesional_id` en `Turno` ya apunta a `Clinic.ID`):
+  - `HorarioAtencion`: franjas recurrentes por día de la semana (`dia_semana 0-6`, `hora_desde`, `hora_hasta`) — el "horario de atención general" del ítem 3. Varias filas por día permiten partir la jornada (mañana/tarde) sin modelar eso como un caso especial.
+  - `BloqueoHorario`: excepciones puntuales — un rango de fecha/hora (o un día entero) en el que NO se puede pedir turno, sea recurrente por día de semana o de una fecha concreta (vacaciones, ausencia puntual). Resuelve "poder editar en los diferentes días de la semana tiempos en los que no se puede pedir turno... y también de los días" del ítem 3.
+  - `TipoConsulta` suma `DuracionMinutos` (hoy no existe — se necesita para calcular cuántos slots entran en una franja); `Clinic` suma `TiempoEntreTurnosMinutos` (el buffer entre turno y turno del ítem 3).
+- **Alternativas descartadas:**
+  - Modelar el horario de atención como turnos "fantasma" pre-creados (bloques `Turno` sin paciente marcando disponibilidad) — se descarta: multiplica filas sin necesidad (un horario semanal recurrente son 5-14 franjas, no una fila por cada slot de 20 minutos hacia el futuro) y mezcla dos conceptos (turno real vs. disponibilidad) en la misma tabla, complicando el exclusion constraint que ya existe (spec §9.2) — ese constraint es sobre turnos reales, no debe tener que lidiar con filas de disponibilidad.
+  - Guardar el horario como JSON suelto en `Clinic` — se descarta: los bloqueos puntuales (fecha específica, no recurrente) no encajan bien en una estructura JSON sin re-inventar un mini-schema adentro; una tabla propia permite indexar por fecha y queda consistente con el resto del esquema (todo lo demás en este proyecto es tablas relacionales, no columnas JSON, salvo casos puntuales ya justificados como `Idiomas` en `ProfessionalProfile`).
+- **Qué se sacrifica:** dos tablas y dos migraciones más de las mínimas indispensables — se acepta porque separan con claridad "qué existe" (turnos) de "qué es posible" (disponibilidad), que es exactamente la distinción que todo el ítem 4 necesita para calcular slots.
+- **Reversibilidad:** Alta antes de sembrar datos reales — son tablas aditivas, ningún cambio sobre `Turno`/el exclusion constraint existente.
+
+## TR-079: Los slots de horario se calculan al vuelo en cada request, no se materializan en una tabla propia
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan
+- **Decisión:** `GET /clinicas/{slug}/disponibilidad?tipoConsultaId=&desde=&hasta=` calcula los horarios libres en el momento: `HorarioAtencion` del rango pedido, menos `BloqueoHorario` que aplique, menos los `Turno` ya `agendado` (y, ver TR-080, también los `pendiente` con horario propuesto) que se solapen, particionado en franjas de `TipoConsulta.DuracionMinutos + Clinic.TiempoEntreTurnosMinutos`.
+- **Alternativas descartadas:** un job que pre-genere y guarde cada slot individual (una fila por cada bloque de 20-30 minutos hacia adelante) — se descarta: agrega un proceso en background más para mantener sincronizado con cualquier cambio de horario/bloqueo/tipo de consulta (si el profesional cambia la duración de un tipo de consulta a mitad de semana, hay que re-generar todo lo futuro), sin necesidad real — el volumen de cálculo (unas pocas franjas por día, por unos pocos días de rango visible) es trivial para calcular en cada request.
+- **Qué se sacrifica:** algo más de CPU por request comparado con leer filas pre-calculadas — irrelevante al volumen de este producto (un profesional, unas decenas de turnos por semana).
+- **Reversibilidad:** Alta — es lógica pura de backend, sin esquema propio que migrar si se decide materializar más adelante.
+
+## TR-080: El horario elegido por el paciente se reserva de inmediato (`ReservaTemporal`, 10 min) — no se acepta la colisión entre dos pedidos simultáneos
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan (pedido explícito del cliente: al presentarle el tradeoff de aceptar la colisión ocasional entre dos pacientes pidiendo el mismo horario casi al mismo tiempo, respondió que necesita reservar el horario apenas se elige, no después)
+- **Contexto de la decisión:** el brief del ítem 4 dice "el profesional ya lo recibirá en su casilla de pendientes ya con el horario y lo confirmará" — el turno en sí sigue entrando `pendiente` (sin cambios ahí), pero el cliente no acepta que dos pacientes puedan ver el mismo slot como libre mientras uno de los dos todavía está completando el formulario.
+- **Decisión:** tabla nueva `ReservaTemporal` (`ClinicID`, `TipoConsultaID`, `HoraInicio`, `HoraFin`, `Token`, `ExpiraEn`), separada de `Turno`:
+  1. Al llegar al paso de elegir horario (F2.4.4), el frontend pide `POST /clinicas/{slug}/reservas` con el slot elegido → el backend crea la fila con `ExpiraEn = ahora + 10 minutos` y devuelve un `Token` de esa reserva puntual.
+  2. `GET /clinicas/{slug}/disponibilidad` (TR-079) descuenta, además de los turnos `agendado`/`pendiente`, cualquier `ReservaTemporal` todavía no vencida — así el segundo paciente ve ese horario como ocupado de inmediato, no recién cuando el primero termine.
+  3. Al enviar el formulario final, `POST /clinicas/{slug}/turnos` exige el `Token` de la reserva — valida que no venció, crea el `Turno` `pendiente` con ese horario, y borra la `ReservaTemporal` (consumida).
+  4. Si el paciente abandona el formulario a mitad de camino, la reserva simplemente vence a los 10 minutos y el job de limpieza periódico (mismo mecanismo de TR-063, extendido para incluir esta tabla) la borra — el horario vuelve a aparecer disponible solo.
+- **Por qué 10 minutos:** tiempo holgado para completar el Paso 3 completo (tipo de consulta ya elegido, solo falta el formulario de datos de contacto) sin ser tan largo como para que un horario quede "fantasma" bloqueado mucho tiempo si alguien lo abandona. Ajustable sin tocar el resto del diseño — es una sola constante.
+- **Alternativas descartadas:**
+  - Aceptar la colisión ocasional y que el profesional decida a mano cuál turno gana al confirmar (la recomendación inicial de esta planificación, antes de la respuesta del cliente) — descartada explícitamente: el cliente prioriza cero colisión visible para el paciente por sobre el ahorro de esta pieza extra.
+  - Crear el `Turno` `pendiente` incompleto desde el momento de elegir el horario (sin tabla de reserva aparte, completando sus datos de contacto recién al final) — se descarta: mezcla dos estados distintos de un mismo turno ("reservado, sin datos de contacto todavía" vs. "pedido de verdad") en una sola tabla que hoy no distingue eso, y complica cualquier vista que liste turnos `pendiente` (tendría que filtrar reservas fantasma sin datos reales).
+- **Qué se sacrifica:** una tabla y un job de limpieza más — aceptado porque resuelve el requisito real del cliente (cero colisión visible), reutilizando la misma infraestructura de limpieza periódica que ya existe (TR-063), no una nueva.
+- **Reversibilidad:** Media — quitar el mecanismo implica volver a la disponibilidad calculada solo contra `Turno` (TR-079 sin este paso extra), sin tocar el modelo de `Turno` en sí.
+
+## TR-081: "Compartir calendario" usa un token firmado con expiración de 1h, no una tabla de sesiones de link
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan
+- **Decisión:** el link de "compartir calendario" (ítem 5) codifica `clinicId` + fecha de expiración en un token firmado — mismo mecanismo (HMAC, `internal/security` ya tiene la primitiva de firmar/verificar tokens con expiración, usada hoy para verificación de mail y reset de contraseña) en vez de un modelo de datos nuevo. Verificar el link es solo validar la firma y la expiración, sin ninguna consulta a una tabla de "links generados".
+- **Alternativas descartadas:** una tabla `CalendarShareToken` (un registro por link generado, con su propia expiración en la base) — se descarta: no aporta nada que el token firmado no dé ya (no hace falta poder "revocar" un link individual antes de que expire — el brief no lo pide, y la ventana de 1h ya es corta), y suma un lugar más para limpiar filas vencidas (mismo tipo de mantenimiento que TR-063 ya resuelve para otra cosa, sin necesidad de duplicarlo acá).
+- **Qué se sacrifica:** no hay forma de invalidar un link ya compartido antes de que expire solo (por ejemplo, si el profesional se arrepiente de haberlo mandado) — aceptable dada la ventana corta (1h) que el propio brief pide.
+- **Reversibilidad:** Alta — es un endpoint de verificación de token sin esquema propio.
+
+## TR-082: Sticky de dos ejes en el calendario mobile (ítem 1) — recomendación de probar temprano en dispositivo real antes de comprometerse a una técnica
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan
+- **Contexto de la decisión:** en la misma sesión de trabajo previa a esta planificación, un intento de reemplazar `position: sticky` por un mecanismo a mano (JS + `position: absolute`, ver conversación) para las tablas de Turnos/Pacientes se implementó, se verificó en CI, y el cliente lo rechazó igual tras probarlo ("no me pareció la solución") — quedó revertido. El ítem 1 de esta fase pide un sticky de DOS ejes a la vez (fila de días + columna de horas sigan al usuario al moverse en cualquier dirección) sobre el grid del calendario (hecho con `<div>`, no una tabla HTML — superficie distinta a la de aquel bug, que era específico de `<thead>`/`<tr>` de WebKit) — no hay garantía de que sea el mismo bug ni de que la misma solución (o su ausencia) aplique igual.
+- **Decisión:** encarar el ítem 1 como una tarea con spike de prueba en dispositivo real (iPhone, el mismo que reportó el bug de las tablas) ANTES de dar por buena cualquier implementación — no asumir que `position: sticky` nativo alcanza ni que hace falta reinventarlo con JS, hasta confirmar cuál de las dos se comporta bien en ese dispositivo puntual para ESTE caso (grid con `<div>`, sticky en dos ejes a la vez, no un `<thead>` de tabla).
+- **Por qué no se resuelve la técnica de antemano acá:** ya hay precedente en este mismo proyecto de una técnica que se veía sólida en code review/CI y no convenció al cliente en el dispositivo real — apostar a una sola técnica sin probarla primero arriesga repetir ese mismo ciclo (implementar → verificar → revertir) una segunda vez, esta vez sobre una feature más grande.
+- **Reversibilidad:** N/A (es una forma de trabajar, no una decisión de código) — el costo de este spike es bajo (una prueba puntual antes de comprometerse) comparado con el de repetir un revert grande.
+
+## TR-083: Rama de trabajo `feature/fase2-*` (no `/features-fase2`) — mismo flujo de PR por sub-fase que ya pidió el cliente, con la nomenclatura ya establecida del proyecto
+
+- **Fecha:** 2026-08-29
+- **Fase:** plan
+- **Contexto:** el brief (`docs/fase2-dental-mirage.md`, "Metodología de trabajo") pide trabajar en una rama `/features-fase2`, con QA del cliente en cada uno de los 5 ítems antes de pasar al siguiente, sin commit/push hasta su aprobación, y un PR a `dev` por cada ítem aprobado.
+- **Decisión:** se adopta el flujo de QA/aprobación tal cual lo pide (nada de commit/push de un ítem hasta que el cliente lo apruebe explícitamente, un PR por ítem aprobado a `dev`) — pero el nombre de rama pasa a `feature/fase2-01-sticky-calendario`, `feature/fase2-02-calendario-full-width`, etc. (una rama por ítem, no una sola rama larga para toda la fase) en vez de una única `/features-fase2`. Motivo: `CLAUDE.md`/spec §9.8 ya establecen `feature/`+descripción como convención de nombrado (sin barra inicial, que además no es un nombre de rama válido en git de forma literal) — mantenerla evita una excepción de nomenclatura para esta fase nada más, y una rama por ítem hace que cada PR quede acotado a lo que el cliente efectivamente aprobó, sin arrastrar cambios de un ítem todavía no aprobado si el siguiente arranca antes de que el anterior se mergee.
+- **Qué se sacrifica:** nada real — es un ajuste de nombre, no de proceso; el criterio de "un commit/push solo tras aprobación explícita" quedó intacto.
+- **Reversibilidad:** Alta — es solo una convención de nombres de rama.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

@@ -449,4 +449,92 @@ Si el cliente responde distinto a alguna de estas, el sprint afectado (ver colum
 
 ---
 
+## 11. Fase 2 — Calendario avanzado y autogestión de turnos
+
+Brief original del cliente: `docs/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
+
+### 11.1 Qué cambia respecto al esquema de la Fase 1
+
+Ningún ítem de esta fase toca el exclusion constraint de no-solapamiento (spec §9.2) ni el significado de `pendiente`/`agendado` — todo lo nuevo es aditivo:
+
+| Tabla/campo | Qué es | Para qué ítem |
+|---|---|---|
+| `HorarioAtencion` (nueva) | Franjas recurrentes por día de semana (`dia_semana`, `hora_desde`, `hora_hasta`), varias filas por día | Ítem 3 |
+| `BloqueoHorario` (nueva) | Excepciones puntuales (fecha concreta o recurrente por día de semana) donde no se puede pedir turno | Ítem 3 |
+| `TipoConsulta.DuracionMinutos` (nuevo campo) | Cuánto dura cada tipo de consulta — hoy no existe, hace falta para calcular slots | Ítems 3, 4 |
+| `Clinic.TiempoEntreTurnosMinutos` (nuevo campo) | Buffer entre turno y turno | Ítems 3, 4 |
+| `ReservaTemporal` (nueva) | Reserva de 10 minutos del horario elegido, mientras el paciente completa el formulario — confirmado explícitamente por el cliente (2026-08-29), ver TR-080 | Ítem 4 |
+| — (sin tabla nueva) | Link de "compartir calendario": token firmado con expiración de 1h (`internal/security`, mismo mecanismo que verificación de mail/reset) | Ítem 5 |
+
+Los slots de horario disponible se calculan al vuelo en cada request (TR-079), no se materializan.
+
+**Gap descubierto durante esta planificación:** hoy `GET /tipos-consulta` es de solo lectura — no existe ningún endpoint para crear, editar o borrar un tipo de consulta (se siembran 2 por defecto al registrarse, spec §9.1/TR-001, y ahí queda). El ítem 3 ("agregar tipo de consultas y modificar su duración") requiere construir ese CRUD completo, no es una extensión menor.
+
+### 11.2 Recomendación: reordenar el ítem 3 antes que el 4 y el 5
+
+El brief pide QA en el orden 1 → 2 → 3 → 4 → 5. Técnicamente, los ítems 4 (selección de horario por el paciente) y 5 (compartir calendario, que reusa el mismo flujo) **dependen** de que exista horario de atención + duración de tipo de consulta configurados (ítem 3) — sin eso no hay contra qué calcular disponibilidad. Los ítems 1 y 2 (calendario mobile) son independientes del resto y pueden ir en cualquier momento.
+
+**Recomendación:** implementar en el orden 1 → 2 → 3 → 4 → 5 igual (no se pierde nada respetando el orden pedido), pero dejar explícito que **4 y 5 no se pueden dar por terminados/QA-eables hasta que 3 esté aprobado** — no es un reordenamiento real, es una advertencia de dependencia para no arrancar el ítem 4 en paralelo pensando que es independiente.
+
+### 11.3 Sprints
+
+Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief para que el QA "uno por uno" del cliente sea directo de rastrear.
+
+#### F2.1 — Calendario mobile: encabezados que acompañan el scroll (brief ítem 1)
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| F2.1.0 | Spike: probar `position: sticky` nativo de dos ejes (fila de días + columna de horas) sobre el grid actual (`calendar-grid.tsx`, `<div>`, no `<table>`) en el iPhone real del cliente, antes de comprometerse a una técnica — TR-082 | — | 0.5d | Confirmado en dispositivo real si el sticky nativo alcanza para este caso puntual (grid con `div`, no thead/tr de tabla) o hace falta una alternativa |
+| F2.1.1 | Columna de horas fija horizontalmente al scrollear la vista Semana | F2.1.0 | 1-2d | Al scrollear horizontal en Semana, la columna de horas (izquierda) no se desplaza fuera de vista |
+| F2.1.2 | Fila de días fija verticalmente al scrollear dentro del día/semana | F2.1.0 | 1-2d | Al scrollear vertical, la fila de encabezados de día no se desplaza fuera de vista |
+| F2.1.3 | Movimiento diagonal: las dos fijaciones conviven sin pisarse ni duplicar la esquina superior-izquierda | F2.1.1, F2.1.2 | 0.5-1d | Scroll diagonal no rompe ninguna de las dos fijaciones ni genera artefactos visuales en la esquina compartida |
+
+#### F2.2 — Vista horizontal/pantalla grande del calendario en mobile (brief ítem 2)
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| F2.2.1 | Botón "ver más grande" en `/panel/calendario` — confirmado con el cliente (2026-08-29): un botón en pantalla, no detección de rotación del teléfono | — | 2-3d | Al tocar el botón, el calendario pasa a un layout con proporciones/espaciado más parecidos a escritorio, sin romper el resto del layout de `/panel/calendario`; un segundo toque (o el mismo botón) vuelve al layout normal |
+
+#### F2.3 — Ajustes de calendario (brief ítem 3) — bloquea F2.4 y F2.5
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| F2.3.1 | Esquema `HorarioAtencion` + `BloqueoHorario` + `TipoConsulta.DuracionMinutos` + `Clinic.TiempoEntreTurnosMinutos` (TR-078) | — | 1-2d | Migraciones aditivas corridas, `go test ./internal/db/...` verde |
+| F2.3.2 | `GET/PUT /clinicas/{slug}/horario-atencion` (horario semanal recurrente) | F2.3.1 | 1-2d | Guardar/leer franjas por día de semana, validado contra Postgres real |
+| F2.3.3 | `GET/POST/DELETE /clinicas/{slug}/bloqueos` (excepciones puntuales) | F2.3.1 | 1-2d | CRUD de bloqueos, recurrentes o de fecha puntual |
+| F2.3.4 | CRUD completo de `TipoConsulta` (`POST`/`PATCH`/`DELETE /tipos-consulta`) — hoy solo existe `GET` | F2.3.1 | 1-2d | El profesional puede crear, renombrar, cambiar color/duración y borrar un tipo de consulta desde la UI |
+| F2.3.5 | Pantalla "Ajustes de calendario" (nueva sección del panel): horario general, tiempo entre turnos, gestión de tipos de consulta | F2.3.2, F2.3.3, F2.3.4 | 3-4d | Los 3 formularios guardan contra los endpoints de arriba, con validación de horarios superpuestos/inválidos |
+| F2.3.6 | Previsualización en vivo del calendario con los ajustes sin guardar todavía, navegable por semana/mes/día | F2.3.5 | 3-4d | Cambiar un valor en el formulario actualiza una vista de calendario de ejemplo sin pegarle al backend hasta "Guardar"; se puede navegar semana/mes/día dentro de esa previsualización |
+
+#### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4)
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| F2.4.0 | Esquema `ReservaTemporal` + job de limpieza extendido (TR-080, reusa el mecanismo de TR-063) | F2.3.1 | 1d | Reservas vencidas (10 min) se borran solas; `go test ./internal/db/...` verde |
+| F2.4.1 | `GET /clinicas/{slug}/disponibilidad` — cálculo de slots al vuelo (TR-079) | F2.4.0 | 2-3d | Devuelve slots libres para un rango de fechas + tipo de consulta, descontando `BloqueoHorario`, turnos ya `agendado`/`pendiente` y `ReservaTemporal` vigentes (TR-080) |
+| F2.4.1b | `POST /clinicas/{slug}/reservas` (crea la reserva de 10 min, devuelve token) | F2.4.0 | 1d | El slot reservado deja de aparecer disponible para cualquier otro pedido de inmediato |
+| F2.4.2 | Paso 1 del wizard público — "¿para quién es el turno?" (2 opciones, animación de cierre/apertura vertical) | — | 1d | Selección visual clara, navegación hacia adelante/atrás sin perder lo ya elegido |
+| F2.4.3 | Paso 2 del wizard — "¿paciente nuevo o ya registrado?" | F2.4.2 | 0.5-1d | Igual criterio de navegación que el paso 1 |
+| F2.4.4 | Paso 3 (paciente nuevo): tipo de consulta → vista semanal del profesional → vista día con horarios libres (crea la `ReservaTemporal` al elegir, F2.4.1b) → formulario de datos → envío (consume el token de la reserva, TR-080) | F2.4.1, F2.4.1b, F2.4.3 | 5-6d | El turno se crea `pendiente` con `HoraInicio`/`HoraFin` ya cargados solo si el token de reserva sigue vigente; token vencido → error controlado pidiendo elegir horario de nuevo, nunca un 500; en mobile, "ver agenda" como acción separada que se puede cerrar sin perder el progreso del formulario |
+| F2.4.5 | Camino paciente ya registrado — mismo flujo de F2.4.4, matcheando por DNI (spec §4.3 ya contempla cargar el turno al paciente existente si el DNI coincide) | F2.4.4 | 1-2d | DNI ya registrado carga el turno al paciente existente, sin duplicar `Paciente` |
+
+#### F2.5 — Compartir calendario (brief ítem 5)
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| F2.5.1 | Endpoint de token firmado + expiración de 1h (TR-081) | F2.3.1 | 1d | Token válido resuelve al mismo flujo de F2.4; vencido devuelve error controlado, nunca un 500 |
+| F2.5.2 | Botón "Compartir calendario" en `/panel/calendario`, con menú nativo de compartir en mobile y WhatsApp Web/mail/copiar link en escritorio | F2.5.1 | 1-2d | El link generado abre el mismo wizard de F2.4 en una ruta pública nueva (sin pasar por `/clinica-x`) |
+
+### 11.4 Riesgos y preguntas abiertas de esta fase
+
+| # | Riesgo/pregunta | Impacto | Mitigación/qué falta confirmar |
+|---|---|---|---|
+| R2F-1 | ~~Colisión de horario entre dos `pendiente` pedidos casi al mismo tiempo~~ — **Resuelto** (2026-08-29): el cliente pidió reservar el horario apenas se elige, no aceptar la colisión — ver `ReservaTemporal`, TR-080 | — | F2.4.0/F2.4.1b |
+| R2F-2 | ~~El ítem 2 no especifica la interacción exacta~~ — **Resuelto** (2026-08-29): confirmado un botón en pantalla, sin depender de rotación del teléfono | — | F2.2.1 |
+| R2F-3 | Repetir el ciclo "se ve bien en CI, no convence en dispositivo real" ya vivido con el sticky de las tablas (revertido en la sesión previa a esta planificación) | Medio-Alto | F2.1.0 (spike en dispositivo real primero) — TR-082 |
+| R2F-4 | El CRUD de `TipoConsulta` es una pieza nueva completa (hoy no existe), no una extensión — puede correr más lento de lo esperado si aparecen validaciones no previstas (¿se puede borrar un tipo de consulta con turnos ya agendados?) | Medio | Definir esa regla en F2.3.4 antes de construir la UI (F2.3.5), no a mitad de tarea |
+| R2F-5 | "Previsualización en vivo" (F2.3.6) es la tarea más ambigua del brief — el alcance exacto de "poder ir pasando de semana en semana" en un calendario de PRUEBA (sin guardar) puede crecer más de lo estimado | Medio | Acotar el QA de F2.3.6 a un ejemplo concreto con el cliente antes de darla por terminada, no una previsualización 100% fiel a producción desde el primer intento |
+
+---
+
 *Documento vivo — actualizar cuando el cliente confirme o corrija alguna de las decisiones asumidas en la sección 9, o cuando `/frontend-design` (T5.1) fije la paleta/tipografía definitivas.*
