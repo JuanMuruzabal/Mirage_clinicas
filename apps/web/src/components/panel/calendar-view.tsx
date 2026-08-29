@@ -14,7 +14,6 @@ import {
   startOfDay,
   type VistaCalendario,
 } from "@/lib/calendar-utils";
-import { CalendarRotationContext } from "@/lib/calendar-rotation-context";
 import { CalendarGrid, GUTTER_PX, COL_PX } from "./calendar-grid";
 import { CalendarMonthGrid } from "./calendar-month-grid";
 import { AgregarTurnoModal } from "./agregar-turno-modal";
@@ -47,18 +46,6 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   const [cargando, setCargando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null);
-  // F2.2 (docs/implementation-plan.md §11, pedido explícito del cliente,
-  // 2026-08-29: "el botón... pondrá la pantalla de calendario en
-  // horizontal... sería como una miniversión de cómo se ve en PC" — SIN
-  // agrandar columnas/letras, el celular sigue en la mano en vertical).
-  // Es el truco clásico de "horizontal sin rotar el teléfono": rotar el
-  // contenedor 90° por CSS (ver el JSX de más abajo) en vez de depender
-  // de la Screen Orientation API — esa API necesita fullscreen real para
-  // poder bloquear la orientación, y iOS Safari no la soporta fuera de
-  // una PWA instalada (justo el navegador que usa el cliente para
-  // probar). Solo mobile (`md:hidden` en el propio overlay) — en
-  // escritorio no tiene sentido.
-  const [modoHorizontal, setModoHorizontal] = useState(false);
 
   // Rediseño 2026-08-27 (pedido explícito del cliente): scroll-to-hoy/
   // al-turno-más-próximo, exclusivo de la vista Semana (la única que
@@ -195,198 +182,40 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
     scrollAlDia(dias, diaConTurno ?? new Date());
   }, [vistaInicial, dias, turnos]);
 
-  // Toolbar y caja del calendario extraídas a variables (F2.2) — el
-  // mismo JSX se usa en modo normal Y en modo horizontal (un solo
-  // contenedor persistente, ver el `return` de más abajo), así que
-  // separarlas evita escribir la lógica/las clases dos veces.
-  const toolbar = (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 shadow-soft">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          aria-label="Anterior"
-          onClick={() => irA(navegar(fecha, vista, -1))}
-          className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
-        >
-          ←
-        </button>
-        <button
-          type="button"
-          onClick={irAHoy}
-          className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-        >
-          Hoy
-        </button>
-        <button
-          type="button"
-          aria-label="Siguiente"
-          onClick={() => irA(navegar(fecha, vista, 1))}
-          className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
-        >
-          →
-        </button>
-        <span className="ml-2 font-[family-name:var(--font-mono)] text-sm text-grafito">{titulo}</span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="flex rounded-full border-[0.5px] border-arena text-sm">
-          {(["dia", "semana", "mes"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => cambiarVista(v)}
-              className={`px-4 py-1.5 capitalize first:rounded-l-full last:rounded-r-full ${
-                vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        {/* Un solo botón, no dos (F2.2, corrección de QA 2026-08-29:
-            "en vez de poner un botón salir, que donde diga horizontal,
-            una vez estando en horizontal, diga vertical") — mismo
-            toggle, cambia de nombre/ícono según el estado actual. Solo
-            mobile — en escritorio no aplica (`md:hidden`). */}
-        <button
-          type="button"
-          onClick={() => setModoHorizontal((actual) => !actual)}
-          aria-label={modoHorizontal ? "Volver a la vista vertical" : "Ver el calendario en horizontal"}
-          className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro md:hidden"
-        >
-          {modoHorizontal ? "⤡ Vertical" : "⤢ Horizontal"}
-        </button>
-      </div>
-    </div>
-  );
-
-  const cajaCalendario = (
-    <div
-      ref={scrollBoxRef}
-      // `h-full` en modo horizontal (F2.2, no `h-[600px]` fijo): ahí el
-      // espacio vertical disponible es el ANCHO real del teléfono
-      // (~375-430px, mucho menos que 600px) — el `min-h-0 flex-1` del
-      // wrapper que la envuelve (ver el JSX de más abajo) le da su alto
-      // real, y esta caja lo llena entero en vez de forzar 600px fijos
-      // que se saldrían de la pantalla rotada.
-      //
-      // Ya NO lleva `style={{ WebkitOverflowScrolling: "touch" }}` (bug
-      // reportado 2026-08-29, persiste tras separar `fixed`/`transform`
-      // en dos elementos — ver el comentario grande más abajo): esta
-      // caja queda anidada dentro de un ancestro con `transform`
-      // (la rotación) que además tiene `transition-transform` PERMANENTE
-      // — exactamente la combinación que `panel-shell.tsx` ya documentó
-      // como disparador de bugs de touch en WebKit ("declararla
-      // explícitamente es justamente lo que dispara este tipo de bug").
-      // Vestigial desde iOS 13 (el scroll con inercia ya es nativo para
-      // `overflow: auto`) — sacarla no cuesta nada y elimina una fuente
-      // más de compositing raro en la rama rotada.
-      className={`relative overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft ${
-        modoHorizontal ? "h-full" : "h-[600px]"
-      }`}
-    >
-      {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
-      {!cargando && vista === "mes" && (
-        <CalendarMonthGrid
-          dias={dias}
-          mesReferencia={fecha}
-          turnos={turnos}
-          tiposConsulta={tiposConsulta}
-          onDiaClick={(dia) => irA(dia, "dia")}
-        />
-      )}
-      {!cargando && vista !== "mes" && (
-        <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={setTurnoSeleccionado} />
-      )}
-    </div>
-  );
-
   return (
-    // CalendarRotationContext (F2.2): le avisa a ModalPortal (que monta
-    // los modales de turno afuera de este árbol, en `document.body`) si
-    // tiene que rotarse igual que el calendario — ver modal-portal.tsx.
-    <CalendarRotationContext.Provider value={modoHorizontal}>
-      {/* Bug reportado 2026-08-29: "los botones desde el modo horizontal
-          no estarían funcionando, los toco y no me muestran nada" —
-          WebKit/iOS tiene un bug documentado con `position: fixed` +
-          `transform` en el MISMO elemento: se ve bien, pero el toque no
-          se registra donde corresponde (el hit-testing no sigue
-          correctamente el elemento ya rotado). La versión anterior
-          combinaba las dos cosas en un solo `<div>` — acá se separan en
-          dos: el de AFUERA es `fixed` (fija contra el viewport real) y
-          NUNCA lleva transform; el de ADENTRO lleva el transform (y la
-          animación) pero nunca es `fixed` (es `absolute`, relativo al
-          de afuera). Ningún elemento combina las dos cosas a la vez.
-
-          El de adentro sigue siendo el mismo contenedor PERSISTENTE
-          entre los dos modos (F2.2, corrección de QA: "aplicar una
-          animación de transición limpia") — antes eran dos árboles de
-          JSX alternados con un ternary (se desmontaba uno y se montaba
-          el otro), lo que hacía imposible animar la transición: CSS no
-          puede interpolar entre un elemento que desaparece y otro que
-          aparece, solo entre dos VALORES de una misma propiedad en el
-          MISMO elemento. `transition-transform` anima el único valor
-          que realmente cambia entre modos (`transform`); ancho/alto/
-          posición cambian sin transición propia, pero el giro en sí
-          queda suave en las dos direcciones (entrar y salir).
-
-          Rotación de 90° por CSS = "horizontal sin rotar el teléfono"
-          (F2.2, pedido explícito del cliente: "una miniversión de cómo
-          se ve en PC", sin agrandar columnas/letras). El truco: dibujar
-          el contenedor de adentro con el ANCHO/ALTO del teléfono ya
-          intercambiados (`100vh`×`100vw`) y recién ahí rotarlo — rotar
-          algo que todavía tiene las proporciones originales lo deja con
-          franjas vacías a los costados en vez de ocupar toda la
-          pantalla. `transform-origin: top left` + `translateY(-100%)`:
-          sin el translate, la rotación deja el contenido fuera de
-          pantalla (rota sobre su propia esquina, que después de rotar
-          termina apuntando para otro lado) — el translate lo reubica
-          para que ocupe justo el área visible del teléfono, de punta a
-          punta. */}
-      <div className={modoHorizontal ? "fixed inset-0 z-50 overflow-hidden bg-hueso" : "contents"}>
-        <div
-          className={`transition-transform duration-300 ease-in-out ${
-            modoHorizontal
-              ? "absolute left-0 top-0 flex flex-col gap-4 p-4"
-              : "flex flex-col gap-4 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]"
-          }`}
-          style={
-            modoHorizontal
-              ? { width: "100vh", height: "100vw", transformOrigin: "top left", transform: "rotate(90deg) translateY(-100%)" }
-              : { transformOrigin: "top left", transform: "none" }
-          }
-        >
-        {/* Rediseño 2026-08-27 (pedido explícito del cliente: "encontrar
-            una forma ingeniosa de manejar el calendario para las
-            opciones de semana y mes sin necesidad de moverse
-            horizontalmente por la página, sino moverse dentro del
-            calendario... todo tiene que ser fijo en movimiento de la
-            página en sí"). Reemplaza la clase `.panel-cal-min-w`/TR-029
-            (título + toolbar + calendario compartían un min-width fijo
-            — hasta 64+dias×130px en Semana — para forzar el scroll
-            horizontal UNIFICADO de <main>, arrastrando toda la página
-            de costado). Título y toolbar ya no fuerzan ningún ancho —
-            envuelven (`flex-wrap`) como cualquier fila normal. El único
-            que necesita moverse de costado en Semana (7 columnas + la
-            franja de horas) es el calendario en sí — ESE contenido
-            lleva su propio min-width (ver `CalendarGrid`/`anchoMinDias`
-            más abajo) DENTRO de esta caja, que es la que scrollea sola
-            (ver el div con `overflow-x-auto` unas líneas más abajo) —
-            nunca la página. Mes no necesita nada de esto (7 columnas
-            fluidas, sin overflow) y Día tampoco (una sola columna). */}
+    // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
+    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // espacio de más entre el header y donde arranca el scroll... quitá
+    // el padding-top sobrante"). El padding lateral/inferior sigue en
+    // clamp() (TR-026: "escalá... con clamp() usando vw"); el superior
+    // se separa y baja a un valor chico y fijo — el que compensa la
+    // altura del header ya lo da `pt-[var(--header-height)]` en
+    // app/panel/layout.tsx (ese no se toca), este de acá era una
+    // segunda capa de aire encima de esa, redundante en mobile.
+    <div className="flex flex-col gap-4 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
+      {/* Rediseño 2026-08-27 (pedido explícito del cliente: "encontrar
+          una forma ingeniosa de manejar el calendario para las opciones
+          de semana y mes sin necesidad de moverse horizontalmente por la
+          página, sino moverse dentro del calendario... todo tiene que
+          ser fijo en movimiento de la página en sí"). Reemplaza la clase
+          `.panel-cal-min-w`/TR-029 (título + toolbar + calendario
+          compartían un min-width fijo — hasta
+          64+dias×130px en Semana — para forzar el scroll horizontal
+          UNIFICADO de <main>, arrastrando toda la página de costado).
+          Título y toolbar ya no fuerzan ningún ancho — envuelven
+          (`flex-wrap`) como cualquier fila normal. El único que necesita
+          moverse de costado en Semana (7 columnas + la franja de horas)
+          es el calendario en sí — ESE contenido lleva su propio
+          min-width (ver `CalendarGrid`/`anchoMinDias` más abajo) DENTRO
+          de esta caja, que es la que scrollea sola (ver el div con
+          `overflow-x-auto` unas líneas más abajo) — nunca la página. Mes
+          no necesita nada de esto (7 columnas fluidas, sin overflow) y
+          Día tampoco (una sola columna). */}
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1
-            className={`font-[family-name:var(--font-display)] font-medium text-grafito ${
-              modoHorizontal ? "text-xl" : "text-3xl max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]"
-            }`}
-          >
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
             Calendario
           </h1>
-          {/* "+ Agregar turno" disponible en los dos modos (F2.2,
-              corrección de QA: "que el usuario pueda cargar turnos en
-              este modo y hacer demás opciones... dentro de calendario")
-              — antes el modo horizontal tenía una versión recortada sin
-              esta acción. */}
           <button
             type="button"
             onClick={() => setModalAbierto(true)}
@@ -396,24 +225,76 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
           </button>
         </div>
 
-        {toolbar}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 shadow-soft">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              aria-label="Anterior"
+              onClick={() => irA(navegar(fecha, vista, -1))}
+              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={irAHoy}
+              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              aria-label="Siguiente"
+              onClick={() => irA(navegar(fecha, vista, 1))}
+              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            >
+              →
+            </button>
+            <span className="ml-2 font-[family-name:var(--font-mono)] text-sm text-grafito">{titulo}</span>
+          </div>
 
-        {/* Altura fija (h-[600px]) en modo normal / `h-full` en modo
-            horizontal (ver `cajaCalendario` más arriba) + scroll interno
-            propio en las dos direcciones — vuelve a ser su propio
+          <div className="flex rounded-full border-[0.5px] border-arena text-sm">
+            {(["dia", "semana", "mes"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => cambiarVista(v)}
+                className={`px-4 py-1.5 capitalize first:rounded-l-full last:rounded-r-full ${
+                  vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Altura fija (h-[600px]) + scroll interno propio en las dos
+            direcciones, sin condición de mobile (antes `max-md:h-auto
+            max-md:overflow-visible`, TR-028, para que esta caja le
+            cediera el scroll a `<main>`) — vuelve a ser su propio
             contenedor de scroll en cualquier ancho: Semana scrollea
             horizontal SOLO acá adentro (ver el min-width que le da
             CalendarGrid a su propio contenido, no a esta caja), Mes/Día
-            no necesitan ningún scroll horizontal y no lo generan.
-            `min-h-0`: sin esto, un hijo `flex-1` dentro de un
-            `flex-col` no se achica por debajo de su alto de contenido
-            (la misma trampa clásica de flexbox de siempre en este
-            proyecto) — en modo horizontal, esta caja necesita poder
-            ocupar SOLO el espacio que sobra después del título y el
-            toolbar, no más. `display: contents` en modo normal: sin
-            envolver nada de más, esta caja ya tenía su propio alto fijo
-            de siempre. */}
-        <div className={modoHorizontal ? "min-h-0 flex-1" : "contents"}>{cajaCalendario}</div>
+            no necesitan ningún scroll horizontal y no lo generan. */}
+        <div
+          ref={scrollBoxRef}
+          className="relative h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
+          {!cargando && vista === "mes" && (
+            <CalendarMonthGrid
+              dias={dias}
+              mesReferencia={fecha}
+              turnos={turnos}
+              tiposConsulta={tiposConsulta}
+              onDiaClick={(dia) => irA(dia, "dia")}
+            />
+          )}
+          {!cargando && vista !== "mes" && (
+            <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={setTurnoSeleccionado} />
+          )}
         </div>
       </div>
 
@@ -431,6 +312,6 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
       {turnoSeleccionado && (
         <TurnoDetalle turno={turnoSeleccionado} tiposConsulta={tiposConsulta} onClose={() => setTurnoSeleccionado(null)} />
       )}
-    </CalendarRotationContext.Provider>
+    </div>
   );
 }

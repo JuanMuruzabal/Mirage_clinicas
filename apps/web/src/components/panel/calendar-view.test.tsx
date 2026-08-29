@@ -88,26 +88,4 @@ describe("CalendarView", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "dia" })).toHaveClass("bg-salvia-oscuro"));
   });
-
-  // F2.2 (docs/implementation-plan.md §11, pedido explícito del
-  // cliente, 2026-08-29, corregido tras QA): un solo botón toggle (no
-  // "Horizontal" + "Salir" separados) que cambia de nombre según el
-  // estado, y "+ Agregar turno" sigue disponible en modo rotado.
-  it("el mismo botón alterna entre 'Horizontal' y 'Vertical', sin perder '+ Agregar turno'", async () => {
-    const user = userEvent.setup();
-    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
-
-    expect(screen.getByRole("button", { name: "Ver el calendario en horizontal" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "+ Agregar turno" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Ver el calendario en horizontal" }));
-    expect(screen.getByRole("button", { name: "Volver a la vista vertical" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ver el calendario en horizontal" })).not.toBeInTheDocument();
-    // "+ Agregar turno" sigue disponible en modo rotado — corrección de
-    // QA: "que el usuario pueda cargar turnos en este modo".
-    expect(screen.getByRole("button", { name: "+ Agregar turno" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Volver a la vista vertical" }));
-    expect(screen.getByRole("button", { name: "Ver el calendario en horizontal" })).toBeInTheDocument();
-  });
 });
