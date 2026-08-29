@@ -43,14 +43,36 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
 
   return (
     <div className="flex" style={anchoMinPx ? { minWidth: anchoMinPx } : undefined}>
-      <div className="w-16 flex-shrink-0">
-        <div className="h-10 border-b border-arena" />
+      {/* F2.1 (docs/implementation-plan.md §11, pedido explícito del
+          cliente): "si me muevo horizontalmente, al costado los horarios
+          me van siguiendo" — columna de horas fija en X (`sticky left-0`)
+          sin fijarse en Y (deja que las horas se desplacen verticalmente
+          con el resto, como siempre). `bg-marfil` explícito: sin esto, un
+          bloque de turno con color propio se transparentaría por debajo
+          al quedar esta columna pegada encima suyo durante el scroll
+          horizontal. */}
+      <div className="sticky left-0 z-10 w-16 flex-shrink-0 bg-marfil">
+        {/* Esquina — única celda fija en LOS DOS ejes a la vez
+            (intersección de la columna de horas y la fila de días). */}
+        <div className="sticky top-0 z-20 h-10 border-b border-arena bg-marfil" />
         <div className="relative" style={{ height: alturaTotal }}>
+          {/* `-translate-y-1/2` centra cada hora SOBRE su línea de grilla
+              (mitad arriba, mitad abajo) — funciona bien para todas
+              salvo la primera (08:00, `i === 0`): esa mitad de arriba
+              cae fuera de este contenedor, en el territorio de la
+              esquina fija de arriba (F2.1, `sticky top-0` + fondo
+              opaco) — antes de F2.1 esa esquina no tenía fondo propio,
+              así que la mitad superior de "08:00" se veía igual por
+              encima; ahora la esquina la tapa (bug reportado
+              2026-08-29, tanto en mobile como en escritorio). Sin el
+              translate, la primera hora queda completa debajo de la
+              esquina en vez de a caballo del borde — el resto de las
+              horas no cambia. */}
           {horas.map((h, i) => (
             <span
               key={h}
               style={{ top: i * PX_POR_HORA }}
-              className="absolute right-2 -translate-y-1/2 font-[family-name:var(--font-mono)] text-xs text-grafito/60"
+              className={`absolute right-2 font-[family-name:var(--font-mono)] text-xs text-grafito/60 ${i === 0 ? "" : "-translate-y-1/2"}`}
             >
               {String(h).padStart(2, "0")}:00
             </span>
@@ -67,7 +89,12 @@ export function CalendarGrid({ dias, turnos, tiposConsulta, onTurnoClick }: Cale
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
           return (
             <div key={dia.toISOString()} className="border-l border-arena first:border-l-0">
-              <div className="flex h-10 items-center justify-center border-b border-arena font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-grafito/60">
+              {/* F2.1: "verticalmente los días [me acompañan]" — fila de
+                  día fija en Y (`sticky top-0`) sin fijarse en X (cada
+                  columna sigue desplazándose horizontalmente con el
+                  resto del grid, como siempre). `bg-marfil` explícito
+                  por el mismo motivo que la columna de horas. */}
+              <div className="sticky top-0 z-10 flex h-10 items-center justify-center border-b border-arena bg-marfil font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-grafito/60">
                 {formatDiaCorto(dia)}
               </div>
               <div

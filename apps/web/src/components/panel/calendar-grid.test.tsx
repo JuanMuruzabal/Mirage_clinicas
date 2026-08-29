@@ -64,6 +64,43 @@ describe("CalendarGrid", () => {
     expect(screen.getByText("20:00")).toBeInTheDocument();
   });
 
+  // Bug reportado 2026-08-29 (tanto mobile como escritorio), tras F2.1:
+  // "la primera hora (08:00) quedó casi tapada por la fila de días" — el
+  // `-translate-y-1/2` que centra cada hora sobre su línea de grilla
+  // hacía que la mitad de arriba de "08:00" cayera detrás de la esquina
+  // fija (ahora con fondo opaco, F2.1). El resto de las horas sigue
+  // centrado sobre su línea como siempre.
+  it("la hora 08:00 no lleva el translate que la esconde detrás de la esquina fija", () => {
+    render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    expect(screen.getByText("08:00")).not.toHaveClass("-translate-y-1/2");
+    expect(screen.getByText("09:00")).toHaveClass("-translate-y-1/2");
+  });
+
+  // F2.1 (docs/implementation-plan.md §11, pedido explícito del
+  // cliente): "si me muevo horizontalmente, al costado los horarios me
+  // van siguiendo, y verticalmente los días" — cada uno fijo en un solo
+  // eje (no en los dos), salvo la esquina compartida.
+  it("la columna de horas queda fija en X, la fila de días en Y, la esquina en los dos ejes", () => {
+    const dosDias = [new Date(2026, 8, 1), new Date(2026, 8, 2)];
+    const { container } = render(
+      <CalendarGrid dias={dosDias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
+    );
+
+    const columnaHoras = container.querySelector(".w-16.flex-shrink-0")!;
+    expect(columnaHoras).toHaveClass("sticky", "left-0");
+    expect(columnaHoras).not.toHaveClass("top-0");
+
+    const esquina = columnaHoras.querySelector(":scope > div")!;
+    expect(esquina).toHaveClass("sticky", "top-0");
+
+    const encabezadosDia = container.querySelectorAll(".flex.h-10.items-center.justify-center");
+    expect(encabezadosDia.length).toBe(2);
+    encabezadosDia.forEach((encabezado) => {
+      expect(encabezado).toHaveClass("sticky", "top-0");
+      expect(encabezado).not.toHaveClass("left-0");
+    });
+  });
+
   it("un turno resuelto (hora de fin pasada) se pinta gris, no con el color de su tipo de consulta", () => {
     const diaPasado = new Date(2020, 0, 15);
     const turnoPasado = {
