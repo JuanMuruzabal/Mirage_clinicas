@@ -1,12 +1,47 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { listTurnosActionMock } = vi.hoisted(() => ({ listTurnosActionMock: vi.fn() }));
+const {
+  listTurnosActionMock,
+  listHorarioAtencionActionMock,
+  listBloqueosActionMock,
+  listTiposConsultaActionMock,
+  listDisponibilidadActionMock,
+  crearBloqueoActionMock,
+  editarBloqueoActionMock,
+} = vi.hoisted(() => ({
+  listTurnosActionMock: vi.fn(),
+  listHorarioAtencionActionMock: vi.fn(),
+  listBloqueosActionMock: vi.fn(),
+  listTiposConsultaActionMock: vi.fn(),
+  listDisponibilidadActionMock: vi.fn(),
+  crearBloqueoActionMock: vi.fn(),
+  editarBloqueoActionMock: vi.fn(),
+}));
 vi.mock("@/app/actions/turnos", () => ({
   listTurnosAction: listTurnosActionMock,
   crearTurnoManualAction: vi.fn(),
   agendarTurnoAction: vi.fn(),
+}));
+// F2.3.8: CalendarView pide horario de atención + reglas al montar (para
+// que CalendarGrid respete el rango de horas configurado y pinte los
+// bloqueos) — sin este mock, el useEffect llama a la Server Action de
+// verdad, que intenta leer cookies() fuera de un request real de
+// Next.js y explota como unhandled rejection en el test.
+// `listTiposConsultaAction` hace falta porque el modal de configuración
+// (F2.3.5, montado de verdad cuando se abre desde acá, no mockeado
+// aparte) también la llama al montar (F2.3.7). `listDisponibilidadAction`
+// (F2.3, corrección de QA) hace falta porque AgregarTurnoModal (montado
+// de verdad al tocar "+ Agregar turno") la llama al elegir tipo/fecha.
+vi.mock("@/app/actions/calendario-config", () => ({
+  listHorarioAtencionAction: listHorarioAtencionActionMock,
+  listBloqueosAction: listBloqueosActionMock,
+  listTiposConsultaAction: listTiposConsultaActionMock,
+  listDisponibilidadAction: listDisponibilidadActionMock,
+  crearBloqueoAction: crearBloqueoActionMock,
+  editarBloqueoAction: editarBloqueoActionMock,
+  eliminarBloqueoAction: vi.fn(),
 }));
 
 const { CalendarView } = await import("./calendar-view");
@@ -17,6 +52,10 @@ describe("CalendarView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listTurnosActionMock.mockResolvedValue([]);
+    listHorarioAtencionActionMock.mockResolvedValue([{ id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" }]);
+    listBloqueosActionMock.mockResolvedValue([]);
+    listTiposConsultaActionMock.mockResolvedValue([]);
+    listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
   });
 
   it("arranca en vista día (Hoy) — pedido explícito del cliente", () => {
@@ -87,5 +126,74 @@ describe("CalendarView", () => {
     await user.click(screen.getAllByText(String(hoy))[0]);
 
     await waitFor(() => expect(screen.getByRole("button", { name: "dia" })).toHaveClass("bg-salvia-oscuro"));
+  });
+
+  // F2.3 (docs/implementation-plan.md §11.3, corregido tras QA: "al
+  // tocarlo se debe deslizar hacia la derecha, y ahí mostrar
+  // configuración" — no un menú desplegable hacia abajo). Dos toques
+  // sobre el MISMO botón: el primero solo despliega el texto, el
+  // segundo abre el modal.
+  it("el botón de tuerca se despliega al primer toque y abre la configuración al segundo", async () => {
+    const user = userEvent.setup();
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+
+    const boton = screen.getByRole("button", { name: "Ajustes del calendario" });
+    // El texto vive siempre en el DOM (se desliza por CSS, `max-width`
+    // de 0 a un valor amplio) — colapsado, no se ve, pero sigue estando.
+    expect(screen.getByText("Configuración de calendario")).toHaveClass("max-w-0");
+    expect(screen.queryByRole("dialog", { name: "Configuración de calendario" })).not.toBeInTheDocument();
+
+    await user.click(boton);
+    expect(screen.getByText("Configuración de calendario")).toHaveClass("max-w-[16rem]");
+    expect(screen.queryByRole("dialog", { name: "Configuración de calendario" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Abrir configuración de calendario" }));
+    expect(await screen.findByRole("dialog", { name: "Configuración de calendario" })).toBeInTheDocument();
+  });
+
+  // Acceso rápido a reservar horario (pedido explícito del cliente,
+  // 2026-09-04): "agregar un acceso rápido a reservar horario desde la
+  // pantalla principal del calendario al lado de agregar turno".
+  describe("acceso rápido '+ Reservar horario'", () => {
+    // Corrección de QA (2026-09-04, textual): "el botón de reservar
+    // horario, debe aparecer verde como el de agregar turno" — antes era
+    // un botón secundario (borde, sin relleno).
+    it("tiene el mismo estilo verde que '+ Agregar turno'", () => {
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+      const reservar = screen.getByRole("button", { name: "+ Reservar horario" });
+      const agregarTurno = screen.getByRole("button", { name: "+ Agregar turno" });
+      expect(reservar.className).toContain("bg-salvia-oscuro");
+      expect(reservar.className).toContain("text-marfil");
+      expect(reservar.className).toBe(agregarTurno.className);
+    });
+
+    it("el botón abre el acceso rápido con las 2 opciones", async () => {
+      const user = userEvent.setup();
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+
+      await user.click(screen.getByRole("button", { name: "+ Reservar horario" }));
+      expect(screen.getByRole("dialog", { name: "Reservar horario" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Agregar general" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Agregar específica" })).toBeInTheDocument();
+    });
+
+    it("guardar una regla nueva recarga bloqueosGenerales/bloqueosEspecificas", async () => {
+      const user = userEvent.setup();
+      crearBloqueoActionMock.mockResolvedValue({
+        bloqueo: { id: "b-1", especifico: false, diaSemana: 1, alcance: "semana", horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario" },
+      });
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+      listBloqueosActionMock.mockClear();
+
+      await user.click(screen.getByRole("button", { name: "+ Reservar horario" }));
+      await user.click(screen.getByRole("button", { name: "Agregar general" }));
+      fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "07:00" } });
+      fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "08:00" } });
+      await user.click(screen.getByRole("button", { name: "Agregar" }));
+
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+      expect(screen.queryByRole("dialog", { name: "Reservar horario" })).not.toBeInTheDocument();
+    });
   });
 });

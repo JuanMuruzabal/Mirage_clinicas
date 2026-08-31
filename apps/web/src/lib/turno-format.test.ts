@@ -2,24 +2,32 @@ import { describe, expect, it } from "vitest";
 import { formatFechaHora, temaTipoConsulta } from "./turno-format";
 
 describe("temaTipoConsulta", () => {
-  it("'Consulta general' resuelve al tema salvia", () => {
-    const tema = temaTipoConsulta({ nombre: "Consulta general" });
-    expect(tema).toEqual({
-      fondo: "var(--color-salvia-claro)",
-      texto: "var(--color-salvia-oscuro)",
-      acento: "var(--color-salvia)",
-    });
+  // Corrección de QA (F2.3): el tema sale del color CONFIGURADO por el
+  // profesional (tipo.color, tipo-consulta-form-modal.tsx), no de un
+  // mapeo fijo por nombre — dos tipos con nombres distintos pero el
+  // mismo color deben verse igual, y el acento siempre es ese mismo hex.
+  it("deriva fondo/texto/acento del color configurado", () => {
+    const tema = temaTipoConsulta({ color: "#6E8F72" });
+    expect(tema.acento).toBe("#6E8F72");
+    expect(tema.fondo).toContain("#6E8F72");
+    expect(tema.texto).toContain("#6E8F72");
   });
 
-  it("cualquier otro nombre (Urgencia u otros) resuelve al tema terracota", () => {
-    expect(temaTipoConsulta({ nombre: "Urgencia" }).acento).toBe("var(--color-terracota)");
-    expect(temaTipoConsulta({ nombre: "Control de rutina" }).acento).toBe("var(--color-terracota)");
+  it("dos tipos con el mismo color resuelven al mismo tema, sin importar el nombre", () => {
+    const a = temaTipoConsulta({ nombre: "Consulta general", color: "#D6563A" } as never);
+    const b = temaTipoConsulta({ nombre: "Urgencia", color: "#D6563A" } as never);
+    expect(a).toEqual(b);
   });
 
   it("sin tipo, devuelve un tema neutro (arena/grafito)", () => {
     const tema = temaTipoConsulta(undefined);
     expect(tema.fondo).toBe("var(--color-arena)");
     expect(tema.texto).toBe("var(--color-grafito)");
+  });
+
+  it("sin color configurado, devuelve el mismo tema neutro", () => {
+    const tema = temaTipoConsulta({ color: "" });
+    expect(tema.fondo).toBe("var(--color-arena)");
   });
 });
 

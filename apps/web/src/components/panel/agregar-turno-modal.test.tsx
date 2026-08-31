@@ -12,11 +12,18 @@ function fijarFechaFutura() {
   fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2030-01-01" } });
 }
 
-const { listTurnosActionMock, crearTurnoManualActionMock, agendarTurnoActionMock, listPacientesActionMock } = vi.hoisted(() => ({
+const {
+  listTurnosActionMock,
+  crearTurnoManualActionMock,
+  agendarTurnoActionMock,
+  listPacientesActionMock,
+  listDisponibilidadActionMock,
+} = vi.hoisted(() => ({
   listTurnosActionMock: vi.fn(),
   crearTurnoManualActionMock: vi.fn(),
   agendarTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
+  listDisponibilidadActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/turnos", () => ({
@@ -26,6 +33,14 @@ vi.mock("@/app/actions/turnos", () => ({
 }));
 vi.mock("@/app/actions/pacientes", () => ({
   listPacientesAction: listPacientesActionMock,
+}));
+// F2.3 (corrección de QA): el modal ya no arma la lista de horarios con un
+// <input type="time"> + horario de atención propio — pide los horarios
+// YA calculados como disponibles a /disponibilidad (vía Server Action).
+// Sin este mock, el useEffect llama a la Server Action de verdad, que
+// explota fuera de un request real de Next.js (unhandled rejection).
+vi.mock("@/app/actions/calendario-config", () => ({
+  listDisponibilidadAction: listDisponibilidadActionMock,
 }));
 
 const { AgregarTurnoModal } = await import("./agregar-turno-modal");
@@ -53,6 +68,10 @@ describe("AgregarTurnoModal", () => {
     vi.clearAllMocks();
     listTurnosActionMock.mockResolvedValue([turnoPendiente]);
     listPacientesActionMock.mockResolvedValue([]);
+    // Lista fija de horarios "disponibles" — no interfiere con los tests
+    // existentes, que no ejercitan el cálculo de disponibilidad en sí
+    // (eso lo cubre disponibilidad_test.go, contra el backend real).
+    listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
   });
 
   it("lista los turnos pendientes al abrir", async () => {
@@ -273,6 +292,63 @@ describe("AgregarTurnoModal", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("fecha pasada");
     expect(agendarTurnoActionMock).not.toHaveBeenCalled();
+  });
+
+  // F2.3 (corrección de QA): "solo me tiene que salir seleccionables los
+  // horarios que entran en mi agenda" — el selector de hora se llena con
+  // los slots que YA vienen calculados por el backend (/disponibilidad),
+  // nunca con horas libres tipeadas a mano.
+  it("el selector de hora arranca colapsado, mostrando el horario ya elegido", async () => {
+    listDisponibilidadActionMock.mockResolvedValue({ slots: ["10:00", "10:30"] });
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("Bruno Iglesias"));
+
+    expect(await screen.findByRole("button", { name: "Hora: 10:00" })).toBeInTheDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  // Corrección de QA (F2.3): "el seleccionar hora se escapa de la
+  // pantalla... que se vean algunos en pantalla e ir scrolleando" — ya
+  // no es un <select> nativo (HoraPicker, lista inline con scroll propio
+  // acotado), ver hora-picker.test.tsx para el detalle de ese componente.
+  // También corrección de QA: "quiero que aparezca colapsada primero...
+  // y una vez que la apriete se vean los horarios".
+  it("tocar el selector de hora despliega una lista inline con scroll propio, no un <select> nativo", async () => {
+    listDisponibilidadActionMock.mockResolvedValue({ slots: ["10:00", "10:30"] });
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("Bruno Iglesias"));
+
+    await user.click(await screen.findByRole("button", { name: "Hora: 10:00" }));
+    const lista = screen.getByRole("listbox", { name: "Hora" });
+    expect(lista.tagName).not.toBe("SELECT");
+    expect(screen.getByRole("option", { name: "10:30" })).toBeInTheDocument();
+  });
+
+  it("no permite confirmar sin ningún horario disponible", async () => {
+    listDisponibilidadActionMock.mockResolvedValue({ slots: [] });
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await user.click(await screen.findByText("Bruno Iglesias"));
+    await waitFor(() => expect(screen.getByText("No hay horarios disponibles")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Elegí un horario disponible");
+    expect(agendarTurnoActionMock).not.toHaveBeenCalled();
+  });
+
+  it("pide de nuevo la disponibilidad cuando cambia el tipo de consulta o la fecha", async () => {
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await user.click(await screen.findByText("Bruno Iglesias"));
+    await waitFor(() => expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-1", expect.any(String)));
+
+    listDisponibilidadActionMock.mockClear();
+    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "tc-2");
+    await waitFor(() => expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-2", expect.any(String)));
   });
 
   it("muestra un texto explicando a qué se refiere cada pestaña", async () => {

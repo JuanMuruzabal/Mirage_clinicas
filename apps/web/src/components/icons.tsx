@@ -89,14 +89,26 @@ export function IconLogout({ className }: IconProps) {
 // IconMenu — 3 rayitas horizontales, para abrir el sidebar de gestión de
 // clínica en mobile (TR-075 en docs/tradeoffs.md, 2026-08-27, pedido
 // explícito del cliente: "poner el icono de las 3 rayitas para
-// desplegar el sidebar"). Deliberadamente NO animado a una X (a
-// diferencia del ícono de 2 líneas del menú anónimo en
-// site-header-chrome.tsx) — abre un panel lateral, no un menú
-// desplegable hacia abajo, la metáfora visual es distinta.
+// desplegar el sidebar"). Corrección de QA (2026-09-05, textual):
+// "cuando tengo desplegado el sidebar cambiar las tres rayitas con una
+// x cuando esta abierto, y cuando se cierra vuelven las rayitas" — el
+// botón que usa este ícono (site-header-chrome.tsx) pasa a alternar con
+// IconX según `panelSidebar.open`; la nota vieja de "deliberadamente NO
+// animado a una X" quedó revertida por este pedido puntual.
 export function IconMenu({ className }: IconProps) {
   return (
     <svg {...svgProps} className={className}>
       <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+    </svg>
+  );
+}
+
+// IconX — reemplaza a IconMenu mientras el drawer del sidebar está
+// abierto (ver el comentario de IconMenu de arriba).
+export function IconX({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M4.5 4.5l11 11M15.5 4.5l-11 11" />
     </svg>
   );
 }

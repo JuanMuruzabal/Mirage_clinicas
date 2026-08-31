@@ -6,7 +6,7 @@ import { useState } from "react";
 import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
-import { IconMenu } from "./icons";
+import { IconMenu, IconX } from "./icons";
 import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
@@ -59,23 +59,37 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
 
-  const mostrarGear = estado === "completo" && isHerramientaRoute(pathname);
-  const mostrarMiClinica = estado !== "anonimo" && !mostrarGear;
+  const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
+  const enRutaConSidebar = isPanelRoute(pathname);
+  // mostrarGear — corrección de QA (2026-09-05, textual): "saque del
+  // header del panel de gestion de clinica la tuerquita de opciones, ya
+  // que en el sidebar da las opciones" — en /panel/** el sidebar YA
+  // ofrece "Tu página"/"Tu perfil" (ver panel-sidebar.tsx) y "Cerrar
+  // sesión" sigue alcanzable desde /perfil (mismo criterio que dejó
+  // TR-075 ahí), así que el gear queda redundante ahí — se saca SOLO en
+  // rutas con sidebar; /perfil, /personalizar-pagina y
+  // /seleccionar-servicio (sin sidebar propio) lo siguen mostrando, es
+  // su único acceso a esas dos opciones. Antes `mostrarGear` y
+  // `esHerramienta` eran la misma condición — separados para poder
+  // sacar el gear sin tocar `ocultarLogo`/`enRutaConSidebar`, que siguen
+  // dependiendo de "es una pantalla de herramienta" en general, no de
+  // "tiene gear".
+  const mostrarGear = esHerramienta && !enRutaConSidebar;
+  const mostrarMiClinica = estado !== "anonimo" && !esHerramienta;
   const mostrarAccesosAnonimos = estado === "anonimo";
 
   // TR-075 en docs/tradeoffs.md (2026-08-27, pedido explícito del
   // cliente: "quitar de aquí el logo de Dental Mirage que te lleva a la
   // home... solo en la página de /seleccionar-servicio debe ser visible
   // el ícono para volver al home"). De las 4 pantallas de herramienta
-  // (mismo `mostrarGear` de arriba), solo /seleccionar-servicio conserva
+  // (`esHerramienta` de arriba), solo /seleccionar-servicio conserva
   // el logo — en las otras 3 (/panel/**, /perfil, /personalizar-pagina)
   // el logo desaparece: en /panel/** en mobile lo reemplaza el ícono de
   // hamburguesa (abre el sidebar), y en el resto de los casos (desktop
   // de /panel/**, y las dos pantallas sin sidebar en cualquier ancho) lo
   // reemplaza un botón "Panel" que vuelve a /seleccionar-servicio.
   const esSeleccionarServicio = pathname === "/seleccionar-servicio";
-  const ocultarLogo = mostrarGear && !esSeleccionarServicio;
-  const enRutaConSidebar = isPanelRoute(pathname);
+  const ocultarLogo = esHerramienta && !esSeleccionarServicio;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
   // menú al navegar: "adjusting state when a prop changes"
@@ -131,7 +145,11 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                   ahí ya existe otra forma de llegar a /seleccionar-
                   servicio (el ítem "Panel" agregado adentro del propio
                   sidebar), así que este espacio se dedica a lo que
-                  realmente hace falta en esa pantalla puntual. */}
+                  realmente hace falta en esa pantalla puntual. Ícono
+                  alternado con el drawer (corrección de QA, 2026-09-05,
+                  textual): "cuando tengo desplegado el sidebar cambiar
+                  las tres rayitas con una x cuando esta abierto, y
+                  cuando se cierra vuelven las rayitas". */}
               {enRutaConSidebar && (
                 <button
                   type="button"
@@ -141,7 +159,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                   aria-label={panelSidebar.open ? "Cerrar menú" : "Abrir menú"}
                   className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-current md:hidden"
                 >
-                  <IconMenu className="h-6 w-6" />
+                  {panelSidebar.open ? <IconX className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
                 </button>
               )}
               {/* Botón "Panel" → /seleccionar-servicio: siempre en

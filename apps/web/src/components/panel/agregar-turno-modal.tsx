@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import type { Paciente, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { agendarTurnoAction, crearTurnoManualAction, listTurnosAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
-import { fechaISOLocal, horaISOLocal } from "@/lib/calendar-utils";
+import { listDisponibilidadAction } from "@/app/actions/calendario-config";
+import { fechaISOLocal } from "@/lib/calendar-utils";
+import { HoraPicker } from "./hora-picker";
 import { ModalPortal } from "./modal-portal";
 
 interface AgregarTurnoModalProps {
@@ -20,8 +22,6 @@ interface AgregarTurnoModalProps {
 
 type Paso = "paciente" | "detalle";
 type Origen = "pendiente" | "conocido" | "nuevo";
-
-const DURACIONES = [15, 30, 45, 60];
 
 // Un renglón por origen: qué es y de dónde sale (pedido explícito del
 // cliente, 2026-08-23 — "dar información a qué hace referencia cada
@@ -71,13 +71,22 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   // detrás de "me deja ingresar horas pasadas").
   const hoyISO = fechaISOLocal();
   const [fecha, setFecha] = useState(() => hoyISO);
-  const [hora, setHora] = useState("09:00");
-  // Tope mínimo de hora (TR-074): solo tiene sentido cuando la fecha
-  // elegida es HOY — un turno para mañana puede ser a cualquier hora. El
-  // navegador lo usa como ayuda nativa (igual criterio que `min` en el
-  // date picker); la validación real sigue siendo la de confirmar().
-  const minHora = fecha === hoyISO ? horaISOLocal() : undefined;
-  const [duracion, setDuracion] = useState(30);
+  // Hora — corrección de QA (F2.3): ya no es un <input type="time"> libre
+  // (dejaba elegir 01:00, 22:00, horarios fuera del calendario, horarios
+  // ya ocupados por otro turno...) sino un <select> con los horarios que
+  // el backend YA calculó como realmente disponibles (GET /disponibilidad
+  // — horario de atención, bloqueos y turnos ya agendados con su propio
+  // tiempo post-consulta, todo descontado de una — ver disponibilidad.go)
+  // para el tipo de consulta y la fecha elegidos. "Duración" también deja
+  // de ser un selector manual: sale de `tipoConsulta.duracionMinutos`, es
+  // intrínseca al tipo de consulta, no algo que se elija turno a turno.
+  const [hora, setHora] = useState("");
+  const [slots, setSlots] = useState<string[]>([]);
+  // Arranca en "cargando" solo si ya hay un tipo de consulta elegido (el
+  // caso normal — tipoGeneral siempre existe si hay algún tipo cargado):
+  // evita quedarse mostrando "Buscando horarios…" para siempre si no hay
+  // ningún tipo de consulta configurado, ver el useEffect de abajo.
+  const [cargandoSlots, setCargandoSlots] = useState(() => Boolean(tipoConsultaId));
   // Motivo de consulta (2026-08-23): un solo campo en el paso "detalle",
   // compartido por los tres caminos — se precarga con lo que ya se sabía
   // (el motivo del turno pendiente, o lo tipeado en "Paciente nuevo") y
@@ -99,6 +108,35 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
       activo = false;
     };
   }, []);
+
+  // Disponibilidad real (F2.3, corrección de QA) — se vuelve a pedir cada
+  // vez que cambia el tipo de consulta (cambia la duración/tiempo
+  // post-consulta que hay que hacer entrar) o la fecha. Si el horario ya
+  // elegido deja de estar en la lista nueva (cambió el tipo o la fecha),
+  // se limpia — nunca se manda un horario que el backend ya no ofrece.
+  // Sin excluirTurnoId: un turno "pendiente" (el único que este modal
+  // puede tocar además de crear uno nuevo) todavía no tiene horario
+  // fijo, así que nunca aparece ocupando un slot en primer lugar —
+  // reprogramar un turno YA agendado es cosa de editar-turno-modal.tsx.
+  useEffect(() => {
+    // setCargandoSlots(true) se dispara desde quien CAMBIA tipoConsultaId/
+    // fecha (los onChange de abajo), no acá adentro — llamar setState de
+    // forma síncrona al entrar a un efecto dispara renders en cascada
+    // (react-hooks/set-state-in-effect, mismo criterio que calendar-view.tsx);
+    // este efecto solo sincroniza con el servidor y apaga el loading
+    // cuando la respuesta llega.
+    if (!tipoConsultaId) return;
+    let activo = true;
+    listDisponibilidadAction(tipoConsultaId, fecha).then((disponibilidad) => {
+      if (!activo) return;
+      setSlots(disponibilidad.slots);
+      setCargandoSlots(false);
+      setHora((actual) => (disponibilidad.slots.includes(actual) ? actual : (disponibilidad.slots[0] ?? "")));
+    });
+    return () => {
+      activo = false;
+    };
+  }, [tipoConsultaId, fecha]);
 
   // Carga los pacientes ya cargados recién cuando el profesional entra a
   // esa pestaña — evita el pedido si nunca la abre.
@@ -169,12 +207,25 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
       setError("Elegí un tipo de consulta.");
       return;
     }
+    if (!hora) {
+      setError("Elegí un horario disponible.");
+      return;
+    }
+    // Duración intrínseca del tipo de consulta (corrección de QA, F2.3:
+    // "eso es intrínseco del tipo de consulta") — ya no un selector
+    // manual. El tiempo post-consulta NO se suma acá: es un margen de
+    // limpieza/orden que ocupa la agenda (así lo descuenta /disponibilidad)
+    // pero no forma parte del turno en sí — se pinta aparte en el
+    // calendario (ver calendar-grid.tsx).
+    const duracion = tiposConsulta.find((t) => t.id === tipoConsultaId)?.duracionMinutos ?? 30;
     const horaInicio = new Date(`${fecha}T${hora}:00`);
     const horaFin = new Date(horaInicio.getTime() + duracion * 60_000);
 
-    // No se puede agendar un turno en el pasado (pedido explícito del
-    // cliente, 2026-08-23) — el backend es la fuente de verdad, esto es
-    // solo feedback inmediato antes de mandar la request.
+    // No se puede agendar un turno en el pasado — red de seguridad
+    // (pedido explícito del cliente, 2026-08-23): en la práctica ya no
+    // debería poder pasar, /disponibilidad no ofrece horarios pasados de
+    // hoy, pero el horario elegido pudo quedar viejo si el profesional
+    // dejó el modal abierto mucho rato.
     if (horaInicio < new Date()) {
       setError("No se puede agendar un turno en una fecha pasada.");
       return;
@@ -257,7 +308,11 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
             <p className="text-xs text-grafito/60">{DESCRIPCION_ORIGEN[origen]}</p>
 
             {origen === "pendiente" && (
-              <div className="flex flex-col gap-2">
+              // max-h + overflow-y-auto (corrección de QA): "a medida que
+              // se van acumulando... turnos pendientes se agranda la
+              // pestaña, organizar esto con un scrollbar" — antes la
+              // lista crecía sin límite y estiraba todo el modal.
+              <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
                 {cargandoPendientes && <p className="text-sm text-grafito/60">Cargando…</p>}
                 {!cargandoPendientes && pendientes.length === 0 && (
                   <p className="text-sm text-grafito/60">No hay turnos pendientes por ahora.</p>
@@ -267,7 +322,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
                     key={t.id}
                     type="button"
                     onClick={() => elegirPendiente(t)}
-                    className="flex flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
+                    className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
                   >
                     <span className="text-sm font-semibold text-grafito">
                       {t.nombreContacto} {t.apellidoContacto}
@@ -293,24 +348,31 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
                     Buscar
                   </button>
                 </form>
-                {cargandoPacientes && <p className="text-sm text-grafito/60">Cargando…</p>}
-                {!cargandoPacientes && pacientesConocidos?.length === 0 && (
-                  <p className="text-sm text-grafito/60">No encontramos pacientes para esa búsqueda.</p>
-                )}
-                {!cargandoPacientes &&
-                  pacientesConocidos?.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => elegirConocido(p)}
-                      className="flex flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
-                    >
-                      <span className="text-sm font-semibold text-grafito">
-                        {p.nombre} {p.apellido}
-                      </span>
-                      <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">DNI {p.dni}</span>
-                    </button>
-                  ))}
+                {/* max-h + overflow-y-auto (corrección de QA): "a medida
+                    que se van acumulando pacientes conocidos... se
+                    agranda la pestaña, organizar esto con un scrollbar"
+                    — el buscador de arriba queda fijo, solo scrollean
+                    los resultados. */}
+                <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                  {cargandoPacientes && <p className="text-sm text-grafito/60">Cargando…</p>}
+                  {!cargandoPacientes && pacientesConocidos?.length === 0 && (
+                    <p className="text-sm text-grafito/60">No encontramos pacientes para esa búsqueda.</p>
+                  )}
+                  {!cargandoPacientes &&
+                    pacientesConocidos?.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => elegirConocido(p)}
+                        className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
+                      >
+                        <span className="text-sm font-semibold text-grafito">
+                          {p.nombre} {p.apellido}
+                        </span>
+                        <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">DNI {p.dni}</span>
+                      </button>
+                    ))}
+                </div>
               </div>
             )}
 
@@ -387,7 +449,14 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
             </div>
 
             <Campo label="Tipo de consulta">
-              <select value={tipoConsultaId} onChange={(e) => setTipoConsultaId(e.target.value)} className={inputClass}>
+              <select
+                value={tipoConsultaId}
+                onChange={(e) => {
+                  setTipoConsultaId(e.target.value);
+                  setCargandoSlots(true);
+                }}
+                className={inputClass}
+              >
                 {tiposConsulta.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
@@ -402,24 +471,29 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
                   type="date"
                   value={fecha}
                   min={hoyISO}
-                  onChange={(e) => setFecha(e.target.value)}
+                  onChange={(e) => {
+                    setFecha(e.target.value);
+                    setCargandoSlots(true);
+                  }}
                   className={inputClass}
                 />
               </Campo>
-              <Campo label="Hora">
-                <input type="time" value={hora} min={minHora} onChange={(e) => setHora(e.target.value)} className={inputClass} />
-              </Campo>
+              {/* Sin <Campo> acá a propósito: ese helper envuelve todo en
+                  un <label>, y un <label> le pega su propio texto como
+                  nombre accesible a CUALQUIER elemento etiquetable que
+                  contenga (button incluido) — cada opción del HoraPicker
+                  terminaba anunciándose como "Hora" en vez de "09:00",
+                  "09:15"... (encontrado depurando el error de hidratación
+                  de /panel/calendario, 2026-08-30: un test con
+                  getByRole("option", {name:"10:00"}) no encontraba nada,
+                  ver hora-picker.test.tsx). El <span> de acá abajo es
+                  puramente visual; HoraPicker ya trae su propio
+                  aria-label="Hora" en el contenedor. */}
+              <div className="flex flex-col gap-1.5 text-sm">
+                <span className="font-medium text-grafito">Hora</span>
+                <HoraPicker slots={slots} value={hora} onChange={setHora} cargando={cargandoSlots} />
+              </div>
             </div>
-
-            <Campo label="Duración">
-              <select value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} className={inputClass}>
-                {DURACIONES.map((d) => (
-                  <option key={d} value={d}>
-                    {d} minutos
-                  </option>
-                ))}
-              </select>
-            </Campo>
 
             <Campo label="Motivo de consulta (opcional)">
               <input value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} className={inputClass} />

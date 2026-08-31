@@ -32,24 +32,29 @@ export interface TemaTipoConsulta {
   acento: string;
 }
 
-// temaTipoConsulta — resuelve el tema de color de un tipo de consulta en
-// la piel cálida del panel (TR-013): reemplaza el hex crudo que trae la
-// API (tipo.color, sembrado en TR-001 con cascarón/urgencia, el Sistema
-// Cascarón) por los acentos nuevos — salvia para "Consulta general",
-// terracota para cualquier otro tipo (Urgencia u otros que se agreguen).
-// Deliberado: cambio de piel solo en apps/web, sin tocar el dato sembrado
-// en apps/api. Expone fondo+texto en vez de un solo color porque salvia/
-// terracota "medios" no llegan a 4.5:1 como texto normal contra blanco —
-// los bloques de calendario usan el par pastel claro + oscuro, no el tono
-// medio de tapa a tapa.
-export function temaTipoConsulta(tipo: Pick<TipoConsulta, "nombre"> | undefined): TemaTipoConsulta {
-  if (!tipo) {
+// temaTipoConsulta — resuelve el tema de color de un tipo de consulta.
+// Hasta F2.3.7 este resolver ignoraba tipo.color y mapeaba por NOMBRE
+// ("Consulta general" → salvia, cualquier otro → terracota, el "Sistema
+// Cascarón" de TR-010/TR-013) — tenía sentido cuando el color no era
+// configurable. Desde que F2.3.7 deja elegir un color por tipo de
+// consulta (tipo-consulta-form-modal.tsx, PALETA_COLORES), ese mapeo por
+// nombre lo dejaba invisible: el profesional cambiaba el color en
+// "Configuración de calendario" y el calendario seguía mostrando siempre
+// salvia/terracota (corrección de QA, F2.3: "el color del tipo de
+// consulta debe ser coherente con el de la configuración"). Ahora deriva
+// fondo/texto directo de tipo.color con `color-mix()`: fondo es un tinte
+// pastel (mezclado con blanco) y texto un tono oscuro (mezclado con
+// negro) del MISMO color — funciona para cualquier hex de la paleta,
+// clara u oscura, sin tener que mantener una tabla de contraste a mano.
+export function temaTipoConsulta(tipo: Pick<TipoConsulta, "color"> | undefined): TemaTipoConsulta {
+  if (!tipo?.color) {
     return { fondo: "var(--color-arena)", texto: "var(--color-grafito)", acento: "var(--color-arena)" };
   }
-  const esGeneral = tipo.nombre === "Consulta general";
-  return esGeneral
-    ? { fondo: "var(--color-salvia-claro)", texto: "var(--color-salvia-oscuro)", acento: "var(--color-salvia)" }
-    : { fondo: "var(--color-terracota-claro)", texto: "var(--color-terracota-oscuro)", acento: "var(--color-terracota)" };
+  return {
+    fondo: `color-mix(in srgb, ${tipo.color} 25%, white)`,
+    texto: `color-mix(in srgb, ${tipo.color} 65%, black)`,
+    acento: tipo.color,
+  };
 }
 
 export const ORIGEN_LABEL: Record<Turno["origen"], string> = {
@@ -57,12 +62,28 @@ export const ORIGEN_LABEL: Record<Turno["origen"], string> = {
   manual: "Manual",
 };
 
+// TIMEZONE: fijo a America/Argentina/Cordoba en las dos llamadas de abajo
+// (encontrado investigando un error de hidratación de React, 2026-08-30)
+// — sin esto, cada `toLocale*String` usa la timezone AMBIENTE del
+// entorno donde corre: el server (Next.js SSR, container en UTC) y el
+// navegador de cada visitante (cualquier timezone del sistema operativo)
+// no tienen por qué coincidir, así que el texto que arma el server para
+// el HTML inicial no coincide con el que arma React al hidratar del
+// lado del cliente — React lo detecta como mismatch (error #418) y
+// descarta el markup del server. Mismo criterio que
+// `internal/clock.Today()` en el backend (CLAUDE.md): toda fecha/hora
+// "vigente" de la app se ancla a Argentina/Córdoba, nunca a la hora
+// ambiente de donde se ejecuta el código — acá aplica igual, aunque sea
+// solo para mostrar texto: los turnos son siempre hora de Córdoba,
+// mostrarlos en la timezone del visitante (o del servidor) sería
+// directamente incorrecto, no solo un problema de hidratación.
+const TIMEZONE_CORDOBA = "America/Argentina/Cordoba";
+
 export function formatFechaHora(iso?: string): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return `${d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })} · ${d.toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })}`;
+  return `${d.toLocaleDateString("es-AR", { day: "numeric", month: "short", timeZone: TIMEZONE_CORDOBA })} · ${d.toLocaleTimeString(
+    "es-AR",
+    { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TIMEZONE_CORDOBA },
+  )}`;
 }

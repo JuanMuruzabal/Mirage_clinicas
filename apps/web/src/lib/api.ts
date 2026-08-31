@@ -1,8 +1,11 @@
 import "server-only";
 import type {
+  BloqueoHorario,
   ClinicaPublica,
   ClinicaResultado,
+  Disponibilidad,
   Especialidad,
+  HorarioAtencion,
   GooglePayload,
   GoogleResponse,
   GoogleStateResponse,
@@ -197,6 +200,164 @@ export function apiListTiposConsulta(token: string): Promise<ApiResult<TipoConsu
   return request<TipoConsulta[]>("/tipos-consulta", { headers: { Authorization: `Bearer ${token}` } });
 }
 
+// --- F2.3: ajustes de calendario (docs/implementation-plan.md §11.3) ---
+
+export interface TipoConsultaPayload {
+  nombre: string;
+  color: string;
+  duracionMinutos: number;
+  tiempoPostConsultaMinutos: number;
+  cantidadSesiones?: number | null;
+}
+
+export function apiCrearTipoConsulta(token: string, payload: TipoConsultaPayload): Promise<ApiResult<TipoConsulta>> {
+  return request<TipoConsulta>("/tipos-consulta", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEditarTipoConsulta(
+  token: string,
+  id: string,
+  payload: TipoConsultaPayload,
+): Promise<ApiResult<TipoConsulta>> {
+  return request<TipoConsulta>(`/tipos-consulta/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEliminarTipoConsulta(token: string, id: string): Promise<ApiResult<null>> {
+  return request<null>(`/tipos-consulta/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiListHorarioAtencion — GET /horario-atencion (rediseño 2026-09-01):
+// devuelve la LISTA completa, la general primero. Reemplaza el viejo
+// apiGetHorarioAtencion (un único objeto).
+export function apiListHorarioAtencion(token: string): Promise<ApiResult<HorarioAtencion[]>> {
+  return request<HorarioAtencion[]>("/horario-atencion", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export interface PutHorarioAtencionGeneralPayload {
+  horaDesde: string;
+  horaHasta: string;
+}
+
+// apiPutHorarioAtencionGeneral — PUT /horario-atencion: upsert de la fila
+// "general" (la única sin vigencia acotada, nunca "no trabaja").
+export function apiPutHorarioAtencionGeneral(
+  token: string,
+  payload: PutHorarioAtencionGeneralPayload,
+): Promise<ApiResult<HorarioAtencion>> {
+  return request<HorarioAtencion>("/horario-atencion", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+// CrearHorarioAtencionPayload — una EXCEPCIÓN temporal (nunca "general",
+// esa va por apiPutHorarioAtencionGeneral). `noTrabaja: true` omite
+// horaDesde/horaHasta — "si hay un día que no trabaja el profesional".
+export interface CrearHorarioAtencionPayload {
+  alcance: "semana" | "mes" | "rango";
+  fechaDesde?: string;
+  fechaHasta?: string;
+  horaDesde?: string;
+  horaHasta?: string;
+  noTrabaja?: boolean;
+}
+
+export function apiCrearHorarioAtencion(
+  token: string,
+  payload: CrearHorarioAtencionPayload,
+): Promise<ApiResult<HorarioAtencion>> {
+  return request<HorarioAtencion>("/horario-atencion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEditarHorarioAtencion(
+  token: string,
+  id: string,
+  payload: CrearHorarioAtencionPayload,
+): Promise<ApiResult<HorarioAtencion>> {
+  return request<HorarioAtencion>(`/horario-atencion/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEliminarHorarioAtencion(token: string, id: string): Promise<ApiResult<null>> {
+  return request<null>(`/horario-atencion/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiListBloqueos(token: string, especifico?: boolean): Promise<ApiResult<BloqueoHorario[]>> {
+  const qs = especifico === undefined ? "" : `?especifico=${especifico}`;
+  return request<BloqueoHorario[]>(`/bloqueos${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export interface CrearBloqueoPayload {
+  especifico: boolean;
+  alcance?: "semana" | "proxima_semana" | "mes" | "proximo_mes" | "todos";
+  diaSemana?: number;
+  fecha?: string;
+  horaDesde: string;
+  horaHasta: string;
+  motivo?: string;
+}
+
+export function apiCrearBloqueo(token: string, payload: CrearBloqueoPayload): Promise<ApiResult<BloqueoHorario>> {
+  return request<BloqueoHorario>("/bloqueos", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEditarBloqueo(token: string, id: string, payload: CrearBloqueoPayload): Promise<ApiResult<BloqueoHorario>> {
+  return request<BloqueoHorario>(`/bloqueos/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiEliminarBloqueo(token: string, id: string): Promise<ApiResult<null>> {
+  return request<null>(`/bloqueos/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiListDisponibilidad — corrección de QA sobre F2.3 (adelanta parte de
+// F2.4.1/TR-079): horarios realmente elegibles para un tipo de consulta
+// en una fecha, ya descontando horario de atención, bloqueos y turnos ya
+// agendados (con su propio tiempo post-consulta). `excluirTurnoId` es
+// para reprogramar un turno existente sin que cuente contra sí mismo.
+export function apiListDisponibilidad(
+  token: string,
+  tipoConsultaId: string,
+  fecha: string,
+  excluirTurnoId?: string,
+): Promise<ApiResult<Disponibilidad>> {
+  const query = new URLSearchParams({ tipoConsultaId, fecha });
+  if (excluirTurnoId) query.set("excluirTurnoId", excluirTurnoId);
+  return request<Disponibilidad>(`/disponibilidad?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
 export interface ListarTurnosParams {
   estado?: "pendiente" | "agendado" | "cancelada";
   desde?: string;
@@ -292,6 +453,23 @@ export function apiCancelarTurno(token: string, turnoId: string): Promise<ApiRes
   return request<Turno>(`/turnos/${turnoId}/cancelar`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// marcarAsistencia (pedido explícito del cliente, 2026-09-04): solo tiene
+// efecto en un turno ya resuelto (ver marcarAsistenciaHandler en
+// turnos.go) — irreversible: una vez marcada, el backend rechaza
+// cualquier otro intento sobre este mismo turno (ni cambiar de valor ni
+// repetirlo), por eso ya no existe un valor "" para deshacerla.
+export function apiMarcarAsistencia(
+  token: string,
+  turnoId: string,
+  asistencia: "asistio" | "ausente",
+): Promise<ApiResult<Turno>> {
+  return request<Turno>(`/turnos/${turnoId}/asistencia`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ asistencia }),
   });
 }
 

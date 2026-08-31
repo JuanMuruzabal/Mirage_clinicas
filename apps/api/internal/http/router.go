@@ -82,6 +82,10 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			registerTurnoRoutes(r, db)
 			registerPacienteRoutes(r, db)
 			registerPaginaPublicaRoutes(r, db)
+			// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
+			registerHorarioAtencionRoutes(r, db)
+			registerBloqueoHorarioRoutes(r, db)
+			registerDisponibilidadRoutes(r, db)
 		})
 	})
 

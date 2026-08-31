@@ -15,6 +15,29 @@ import (
 // TR-006 en docs/tradeoffs.md). Es idempotente: se puede correr muchas
 // veces sin error.
 func RunMigrations(gdb *gorm.DB) error {
+	// Migración manual (corrección de QA, 2026-09-01): horarios_atencion
+	// pasa de 1 fila por clínica (PK=clinic_id, un único horario fijo) a
+	// una LISTA con alcance (general/semana/mes/rango), igual criterio
+	// que bloqueos_horario — "puede que un profesional tenga horarios de
+	// atención variable". GORM AutoMigrate no cambia una primary key ya
+	// existente, así que hace falta recrear la tabla a mano. Sin
+	// producción todavía para este proyecto (CLAUDE.md): se dropea vacía
+	// la primera vez que corre esta versión — cada clínica vuelve a ver
+	// el horario general default (08:00-18:00) hasta que lo guarde de
+	// nuevo. Detecta la tabla vieja por la AUSENCIA de la columna `id`
+	// (idempotente: no vuelve a tocar la tabla una vez migrada).
+	if err := gdb.Exec(`
+		DO $$
+		BEGIN
+		  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'horarios_atencion')
+		     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'horarios_atencion' AND column_name = 'id') THEN
+		    DROP TABLE horarios_atencion;
+		  END IF;
+		END $$
+	`).Error; err != nil {
+		return fmt.Errorf("migración manual de horarios_atencion falló: %w", err)
+	}
+
 	if err := gdb.AutoMigrate(
 		&Profesional{}, &Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
 		// Esquema nuevo de auth/onboarding (docs/feature-sumarte-login.md) —
@@ -23,6 +46,8 @@ func RunMigrations(gdb *gorm.DB) error {
 		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
 		&Clinic{}, &ClinicMember{}, &ClinicInvitation{},
 		&Session{}, &AuthRateCounter{}, &AuditEvent{},
+		// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
+		&HorarioAtencion{}, &BloqueoHorario{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -66,6 +91,66 @@ func RunMigrations(gdb *gorm.DB) error {
 		   WHEN duplicate_object THEN NULL;
 		   WHEN duplicate_table THEN NULL;
 		 END $$`,
+
+		// F2.3 (TR-084): un BloqueoHorario es o bien general (repite por
+		// dia_semana, con alcance/fecha_desde/fecha_hasta) o bien específico
+		// (una fecha puntual, sin dia_semana/alcance) — nunca una mezcla de
+		// campos de los dos casos ni ninguno de los dos.
+		`DO $$ BEGIN
+		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_forma
+		     CHECK (
+		       (especifico = true AND fecha IS NOT NULL AND dia_semana IS NULL AND alcance IS NULL)
+		       OR
+		       (especifico = false AND fecha IS NULL AND dia_semana IS NOT NULL AND alcance IS NOT NULL)
+		     );
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// DROP + ADD (no el patrón DO $$/duplicate_object de arriba): esta
+		// constraint cambió de valores permitidos (corrección de QA,
+		// 2026-08-30, suma "proxima_semana"/"proximo_mes") — con
+		// duplicate_object, una constraint ya creada con los valores VIEJOS
+		// nunca se actualizaría sola. DROP CONSTRAINT IF EXISTS ya es
+		// idempotente por sí solo.
+		`ALTER TABLE bloqueos_horario DROP CONSTRAINT IF EXISTS chk_bloqueo_horario_alcance`,
+		`ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_alcance
+		   CHECK (alcance IS NULL OR alcance IN ('semana','mes','todos','proxima_semana','proximo_mes'))`,
+
+		`DO $$ BEGIN
+		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_tipo_regla
+		     CHECK (tipo_regla = 'bloquear_horario');
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// horarios_atencion (corrección de QA, 2026-09-01): "general" es
+		// la única fila sin vigencia acotada; las demás SIEMPRE la tienen
+		// (se resuelve un rango concreto al crearlas, igual que
+		// bloqueos_horario) — nunca una mezcla de los dos casos.
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_forma
+		     CHECK (
+		       (alcance = 'general' AND fecha_desde IS NULL AND fecha_hasta IS NULL)
+		       OR (alcance <> 'general' AND fecha_desde IS NOT NULL AND fecha_hasta IS NOT NULL)
+		     );
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_alcance
+		     CHECK (alcance IN ('general','semana','mes','rango'));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// hora_desde/hora_hasta viajan siempre juntas — las dos NULL a la
+		// vez es "no trabaja" ese período (corrección de QA: "si hay un
+		// día que no trabaja el profesional, mostrar no hay horarios
+		// disponibles"), nunca una sola de las dos.
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_horas
+		     CHECK ((hora_desde IS NULL) = (hora_hasta IS NULL));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// A lo sumo una fila "general" por clínica — el CRUD la trata
+		// como upsert (internal/http/horario_atencion.go), este índice es
+		// la red de seguridad a nivel de base.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_unico
+		   ON horarios_atencion (clinic_id) WHERE alcance = 'general'`,
 	}
 
 	for _, stmt := range statements {

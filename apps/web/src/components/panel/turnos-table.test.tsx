@@ -9,7 +9,9 @@ const {
   crearTurnoManualActionMock,
   editarTurnoActionMock,
   reprogramarTurnoActionMock,
+  marcarAsistenciaActionMock,
   listPacientesActionMock,
+  listDisponibilidadActionMock,
 } = vi.hoisted(() => ({
   cancelarTurnoActionMock: vi.fn(),
   listTurnosActionMock: vi.fn(),
@@ -17,7 +19,9 @@ const {
   crearTurnoManualActionMock: vi.fn(),
   editarTurnoActionMock: vi.fn(),
   reprogramarTurnoActionMock: vi.fn(),
+  marcarAsistenciaActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
+  listDisponibilidadActionMock: vi.fn(),
 }));
 
 // TurnosTable renderiza AgregarTurnoModal/EditarTurnoModal (mismos módulos
@@ -30,9 +34,13 @@ vi.mock("@/app/actions/turnos", () => ({
   crearTurnoManualAction: crearTurnoManualActionMock,
   editarTurnoAction: editarTurnoActionMock,
   reprogramarTurnoAction: reprogramarTurnoActionMock,
+  marcarAsistenciaAction: marcarAsistenciaActionMock,
 }));
 vi.mock("@/app/actions/pacientes", () => ({
   listPacientesAction: listPacientesActionMock,
+}));
+vi.mock("@/app/actions/calendario-config", () => ({
+  listDisponibilidadAction: listDisponibilidadActionMock,
 }));
 
 const { TurnosTable } = await import("./turnos-table");
@@ -80,6 +88,7 @@ describe("TurnosTable", () => {
     vi.clearAllMocks();
     listTurnosActionMock.mockResolvedValue([]);
     listPacientesActionMock.mockResolvedValue([]);
+    listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
   });
 
   it("muestra un mensaje cuando no hay turnos", () => {
@@ -226,7 +235,7 @@ describe("TurnosTable", () => {
   // agendado con horaFin ya pasado ("resuelto") debe mostrar "Resuelto",
   // no "Confirmado", y no debe poder confirmarse/editarse/cancelarse —
   // solo lectura.
-  it("un turno resuelto (agendado + horaFin pasado) muestra Resuelto y no ofrece acciones", async () => {
+  it("un turno resuelto (agendado + horaFin pasado) muestra Resuelto y no ofrece acciones de edición", async () => {
     const user = userEvent.setup();
     const resuelto = { ...turnoAgendado, horaFin: "2020-01-01T09:30:00Z" };
     render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
@@ -235,10 +244,81 @@ describe("TurnosTable", () => {
     expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
 
     await desplegarFila(user, "Julián Ortiz");
-    expect(screen.getByText("Turno ya resuelto — sin acciones disponibles.")).toBeInTheDocument();
+    expect(screen.getByText("Turno ya resuelto — sin acciones de edición disponibles.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
+  });
+
+  // Paso 2b (pedido explícito del cliente, 2026-09-04): "los turnos
+  // resueltos ahora tienen la opción... de marcar asistidos o ausente...
+  // tanto en el calendario, como de la sección de turnos resueltos en la
+  // pestaña de turnos". Irreversible (corrección de QA, 2026-09-04,
+  // textual): "me debe aparecer un aviso que la elección es irreversible
+  // y confirmar esto" — tocar el botón solo pide confirmación, la Server
+  // Action recién se llama al confirmar.
+  describe("marcar asistencia en un turno resuelto (irreversible)", () => {
+    const resuelto = { ...turnoAgendado, horaFin: "2020-01-01T09:30:00Z" };
+
+    it("tocar 'Asistió' NO llama a la Server Action todavía — pide confirmación con el aviso de irreversibilidad", async () => {
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      await user.click(screen.getByRole("button", { name: "Asistió" }));
+
+      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
+      expect(screen.getByText(/Esta elección es irreversible/)).toBeInTheDocument();
+    });
+
+    it("'Cancelar' en la confirmación vuelve a los dos botones sin llamar a la acción", async () => {
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      await user.click(screen.getByRole("button", { name: "Asistió" }));
+      await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Asistió" })).toBeInTheDocument();
+    });
+
+    it("'Confirmar' llama a marcarAsistenciaAction con el turno correcto y deja la marca fija", async () => {
+      const user = userEvent.setup();
+      marcarAsistenciaActionMock.mockResolvedValue({ turno: { ...resuelto, asistencia: "asistio" } });
+      listTurnosActionMock.mockResolvedValue([{ ...resuelto, asistencia: "asistio" }]);
+      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      await user.click(screen.getByRole("button", { name: "Asistió" }));
+      await user.click(screen.getByRole("button", { name: "Confirmar" }));
+
+      expect(marcarAsistenciaActionMock).toHaveBeenCalledWith(resuelto.id, "asistio");
+      expect(await screen.findByText("No se puede modificar.")).toBeInTheDocument();
+    });
+
+    it("un turno que ya llega marcado muestra la etiqueta fija, sin botones", async () => {
+      const user = userEvent.setup();
+      const yaMarcado = { ...resuelto, asistencia: "ausente" as const };
+      render(<TurnosTable turnosIniciales={[yaMarcado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      expect(screen.getByText("Ausente")).toBeInTheDocument();
+      expect(screen.getByText("No se puede modificar.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
+    });
+
+    it("muestra el error si falla al confirmar la asistencia", async () => {
+      const user = userEvent.setup();
+      marcarAsistenciaActionMock.mockResolvedValue({ error: "no se pudo guardar la asistencia" });
+      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      await user.click(screen.getByRole("button", { name: "Asistió" }));
+      await user.click(screen.getByRole("button", { name: "Confirmar" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("no se pudo guardar la asistencia");
+    });
   });
 
   it("Editar abre el modal con los datos del turno", async () => {

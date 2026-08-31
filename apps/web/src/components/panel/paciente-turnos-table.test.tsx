@@ -49,12 +49,14 @@ describe("PacienteTurnosTable", () => {
     ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
   });
 
-  it("muestra el nombre del tipo de consulta y su color como punto indicador", () => {
+  // Corrección de QA (F2.3): el punto usa el color CONFIGURADO para ese
+  // tipo de consulta (tc-2 → #D6563A), no un tema fijo por nombre.
+  it("muestra el nombre del tipo de consulta y su color configurado como punto indicador", () => {
     const { container } = render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
     const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
-    expect(punto).toHaveStyle({ background: "var(--color-terracota)" });
+    expect(punto).toHaveStyle({ background: "rgb(214, 86, 58)" });
   });
 
   it("muestra estado, fecha y motivo", () => {
