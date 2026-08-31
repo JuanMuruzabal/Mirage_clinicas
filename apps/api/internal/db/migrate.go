@@ -7,6 +7,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// lockKeyMigraciones — clave arbitraria y fija para el advisory lock de
+// RunMigrations (ver el comentario grande ahí abajo). Cualquier int64
+// sirve, solo tiene que ser siempre el mismo número.
+const lockKeyMigraciones = 483920175
+
 // RunMigrations aplica el esquema inicial (docs/implementation-plan.md
 // §2.1): AutoMigrate de GORM para las tablas base, y a continuación el SQL
 // crudo que GORM no puede expresar — la extensión btree_gist, la columna
@@ -14,7 +19,39 @@ import (
 // evita turnos solapados (spec §4.3, regla de negocio no negociable; ver
 // TR-006 en docs/tradeoffs.md). Es idempotente: se puede correr muchas
 // veces sin error.
+//
+// Advisory lock (bug real de CI, 2026-09-06, PR #4 fase2-03-ajustes-
+// calendario): `go test ./internal/...` corre los paquetes en PARALELO
+// por default, y cada paquete de test llama a esta función por su cuenta
+// (`testdb.New(t)`) contra la MISMA base de test compartida. Algunas de
+// las migraciones de más abajo son un DROP+ADD de dos pasos, no atómico
+// (ver el comentario de `chk_bloqueo_horario_alcance`) — si dos llamadas
+// concurrentes entrelazan sus pasos, una de las dos se topa con "la
+// constraint ya existe" (SQLSTATE 42710) aunque el resultado final sea
+// idéntico para las dos. Visto de verdad en CI, en paquetes DISTINTOS en
+// corridas distintas (`internal/db`, `internal/ratelimit`) — confirma que
+// es una carrera real entre procesos, no un bug de una migración en
+// particular. `pg_advisory_xact_lock` serializa toda la función dentro de
+// una transacción: cada llamada espera su turno y, para cuando le toca,
+// la pasada anterior ya la dejó en su forma final (la función es
+// idempotente), así que la propia es un no-op seguro. Se libera solo al
+// terminar la transacción (commit o rollback), sin depender de qué
+// conexión del pool la ejecutó — a diferencia de `pg_advisory_lock`
+// (sesión), que exigiría mantener la MISMA conexión entre el lock y el
+// unlock, algo que un `*gorm.DB` con pool no garantiza entre dos `Exec`
+// separados.
 func RunMigrations(gdb *gorm.DB) error {
+	return gdb.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKeyMigraciones).Error; err != nil {
+			return fmt.Errorf("no se pudo tomar el advisory lock de migraciones: %w", err)
+		}
+		return runMigrationsLocked(tx)
+	})
+}
+
+// runMigrationsLocked — el cuerpo real de RunMigrations, corrido siempre
+// con el advisory lock de arriba ya tomado.
+func runMigrationsLocked(gdb *gorm.DB) error {
 	// Migración manual (corrección de QA, 2026-09-01): horarios_atencion
 	// pasa de 1 fila por clínica (PK=clinic_id, un único horario fijo) a
 	// una LISTA con alcance (general/semana/mes/rango), igual criterio
