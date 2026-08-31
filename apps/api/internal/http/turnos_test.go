@@ -918,3 +918,125 @@ func TestCrearTurnoManual_PacienteConocidoDeOtroProfesionalFalla(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d (no debe poder vincular un paciente ajeno)", rec2.Code, http.StatusBadRequest)
 	}
 }
+
+// TestMarcarAsistencia_EnTurnoResueltoExitoso — pedido explícito del
+// cliente (2026-09-04): "los turnos resueltos ahora tienen la opción...
+// de marcar asistidos o ausente, cosa de poder guardar ese dato".
+func TestMarcarAsistencia_EnTurnoResueltoExitoso(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "asistencia1@example.com")
+	resuelto := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-72*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+resuelto.ID.String()+"/asistencia", reg.Token, marcarAsistenciaRequest{
+		Asistencia: "asistio",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.Asistencia == nil || *got.Asistencia != "asistio" {
+		t.Errorf("asistencia = %v, esperaba \"asistio\"", got.Asistencia)
+	}
+}
+
+// TestMarcarAsistencia_EsIrreversible — pedido explícito del cliente
+// (2026-09-04, textual): "me debe aparecer un aviso que la elección es
+// irreversible y confirmar esto" — el aviso del frontend solo tiene
+// sentido si el backend de verdad lo hace cumplir: una vez marcada, ni
+// cambiar de valor ni volver a mandar el mismo.
+func TestMarcarAsistencia_EsIrreversible(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "asistencia2@example.com")
+	resuelto := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-72*time.Hour))
+	ruta := "/turnos/" + resuelto.ID.String() + "/asistencia"
+
+	primera := doJSONAuth(t, router, http.MethodPatch, ruta, reg.Token, marcarAsistenciaRequest{Asistencia: "asistio"})
+	if primera.Code != http.StatusOK {
+		t.Fatalf("primera marca: status = %d, esperaba %d. body=%s", primera.Code, http.StatusOK, primera.Body.String())
+	}
+
+	// Intentar cambiarla a "ausente" — rechazado.
+	cambio := doJSONAuth(t, router, http.MethodPatch, ruta, reg.Token, marcarAsistenciaRequest{Asistencia: "ausente"})
+	if cambio.Code != http.StatusConflict {
+		t.Errorf("cambiar de valor: status = %d, esperaba %d", cambio.Code, http.StatusConflict)
+	}
+
+	// Volver a mandar el mismo valor — también rechazado, no es idempotente.
+	repetida := doJSONAuth(t, router, http.MethodPatch, ruta, reg.Token, marcarAsistenciaRequest{Asistencia: "asistio"})
+	if repetida.Code != http.StatusConflict {
+		t.Errorf("repetir el mismo valor: status = %d, esperaba %d", repetida.Code, http.StatusConflict)
+	}
+
+	// El valor original sigue intacto pase lo que pase.
+	var turno db.Turno
+	if err := gdb.First(&turno, "id = ?", resuelto.ID).Error; err != nil {
+		t.Fatalf("no se pudo releer el turno: %v", err)
+	}
+	if turno.Asistencia == nil || *turno.Asistencia != "asistio" {
+		t.Errorf("asistencia en la base = %v, esperaba que siguiera en \"asistio\"", turno.Asistencia)
+	}
+}
+
+// TestMarcarAsistencia_ValorInvalidoFalla — solo "asistio"/"ausente"; ""
+// ya no es un valor válido (no hay forma de deshacer, ver el test de
+// irreversibilidad de arriba).
+func TestMarcarAsistencia_ValorInvalidoFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "asistencia3@example.com")
+	resuelto := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-72*time.Hour))
+
+	for nombre, valor := range map[string]string{"valor arbitrario": "tal-vez", "vacío": ""} {
+		t.Run(nombre, func(t *testing.T) {
+			rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+resuelto.ID.String()+"/asistencia", reg.Token, marcarAsistenciaRequest{
+				Asistencia: valor,
+			})
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+			}
+		})
+	}
+}
+
+// TestMarcarAsistencia_TurnoTodaviaNoResueltoFalla — "los turnos
+// resueltos ahora tienen la opción" (no uno que todavía no pasó).
+func TestMarcarAsistencia_TurnoTodaviaNoResueltoFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "asistencia4@example.com")
+
+	futuro := time.Now().Add(72 * time.Hour)
+	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
+		TipoConsultaID: tipoConsultaID, HoraInicio: futuro.Format(time.RFC3339), HoraFin: futuro.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	var creado turnoResponse
+	_ = json.Unmarshal(rec1.Body.Bytes(), &creado)
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+creado.ID+"/asistencia", reg.Token, marcarAsistenciaRequest{
+		Asistencia: "asistio",
+	})
+	if rec.Code != http.StatusConflict {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusConflict)
+	}
+}
+
+// TestMarcarAsistencia_DeOtroProfesionalFalla — mismo criterio que el
+// resto de los endpoints de turnos: nunca operar sobre un turno ajeno.
+func TestMarcarAsistencia_DeOtroProfesionalFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	dueño, tipoDueño := profesionalConTipoConsulta(t, gdb, router, "asistencia5a@example.com")
+	otro, _ := profesionalConTipoConsulta(t, gdb, router, "asistencia5b@example.com")
+	resuelto := crearTurnoAgendadoDePrueba(t, gdb, dueño.Profesional.ID, tipoDueño, time.Now().Add(-72*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+resuelto.ID.String()+"/asistencia", otro.Token, marcarAsistenciaRequest{
+		Asistencia: "asistio",
+	})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+}

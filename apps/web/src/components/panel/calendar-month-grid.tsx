@@ -1,5 +1,5 @@
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { isSameDay } from "@/lib/calendar-utils";
+import { hoyEnCordoba, isSameDay } from "@/lib/calendar-utils";
 import { temaTipoConsulta } from "@/lib/turno-format";
 
 interface CalendarMonthGridProps {
@@ -15,7 +15,11 @@ interface CalendarMonthGridProps {
 // a la vista Día de esa fecha — el detalle hora a hora vive ahí, no acá.
 export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, onDiaClick }: CalendarMonthGridProps) {
   const tipoPorId = new Map(tiposConsulta.map((t) => [t.id, t]));
-  const hoy = new Date();
+  // hoyEnCordoba() (encontrado investigando un error de hidratación de
+  // React, 2026-08-30), no `new Date()` — mismo motivo que en
+  // calendar-view.tsx: esto define qué día se resalta como "hoy" y se
+  // evalúa tanto en el server (SSR) como al hidratar en el cliente.
+  const hoy = hoyEnCordoba();
 
   return (
     // Sin min-width propio, nunca hizo falta (a diferencia de

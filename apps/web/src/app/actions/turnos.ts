@@ -9,6 +9,7 @@ import {
   apiCrearTurnoManual,
   apiEditarTurno,
   apiListTurnos,
+  apiMarcarAsistencia,
   apiReprogramarTurno,
   type AgendarTurnoPayload,
   type CrearTurnoManualPayload,
@@ -103,6 +104,32 @@ export async function editarTurnoAction(
     return { error: result.error };
   }
   revalidatePath("/panel");
+  revalidatePath("/panel/turnos");
+  revalidatePath("/panel/calendario");
+  return { turno: result.data };
+}
+
+// marcarAsistenciaAction (pedido explícito del cliente, 2026-09-04): "los
+// turnos resueltos ahora tienen la opción al ser tocados de marcar
+// asistidos o ausente... opción marcable tanto en el calendario, como de
+// la sección de turnos resueltos en la pestaña de turnos" — una sola
+// Server Action para los dos lugares (TurnoDetalle y TurnosTable).
+// Irreversible (corrección de QA, 2026-09-04, textual): "me debe aparecer
+// un aviso que la elección es irreversible y confirmar esto" — cada
+// caller pide esa confirmación ANTES de invocar esta acción; el backend
+// además la hace cumplir de verdad (rechaza cualquier segundo intento).
+export async function marcarAsistenciaAction(
+  turnoId: string,
+  asistencia: "asistio" | "ausente",
+): Promise<TurnoActionResult | { turno: Turno }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiMarcarAsistencia(token, turnoId, asistencia);
+  if (!result.ok) {
+    return { error: result.error };
+  }
   revalidatePath("/panel/turnos");
   revalidatePath("/panel/calendario");
   return { turno: result.data };

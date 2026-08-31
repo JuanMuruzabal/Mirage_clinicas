@@ -139,7 +139,7 @@ describe("SiteHeader", () => {
   // TR-060: en una pantalla de herramienta con onboarding completo, el
   // botón de configuración reemplaza a los tres links sueltos de antes.
   describe("con onboarding completo, en una pantalla de herramienta", () => {
-    it.each(["/seleccionar-servicio", "/panel", "/perfil", "/personalizar-pagina"])(
+    it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
       "en %s, muestra el botón de configuración (no 'Mi clínica')",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);
@@ -151,6 +151,21 @@ describe("SiteHeader", () => {
         expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
       },
     );
+
+    // Corrección de QA (2026-09-05, textual): "saque del header del panel
+    // de gestion de clinica la tuerquita de opciones, ya que en el
+    // sidebar da las opciones" — /panel/** es la única pantalla de
+    // herramienta CON sidebar propio, así que ahí el botón de
+    // configuración queda redundante (ni "Mi clínica" tampoco aparece).
+    it("en /panel, NO muestra el botón de configuración ni 'Mi clínica' (el sidebar ya da esas opciones)", async () => {
+      usePathnameMock.mockReturnValue("/panel");
+      mockMe({ emailVerificado: true, onboardingCompletado: true });
+
+      renderConProvider(await SiteHeader());
+
+      expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+    });
 
     // TR-061 en docs/tradeoffs.md (pedido explícito del cliente,
     // 2026-08-26): "Volver al inicio" se sacó del header — con el logo

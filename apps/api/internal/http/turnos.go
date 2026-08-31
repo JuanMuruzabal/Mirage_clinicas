@@ -23,6 +23,7 @@ func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Patch("/turnos/{id}/agendar", agendarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/cancelar", cancelarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/hora", reprogramarTurnoHandler(gdb))
+	r.Patch("/turnos/{id}/asistencia", marcarAsistenciaHandler(gdb))
 	r.Patch("/turnos/{id}", editarTurnoHandler(gdb))
 	r.Get("/panel/resumen", resumenPanelHandler(gdb))
 }
@@ -45,6 +46,9 @@ type turnoResponse struct {
 	EmailContacto    string  `json:"emailContacto"`
 	Motivo           string  `json:"motivo"`
 	CreatedAt        string  `json:"createdAt"`
+	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
+	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
+	Asistencia *string `json:"asistencia,omitempty"`
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {
@@ -76,6 +80,7 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 		s := t.HoraFin.Format(time.RFC3339)
 		out.HoraFin = &s
 	}
+	out.Asistencia = t.Asistencia
 	return out
 }
 
@@ -461,6 +466,81 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeTurnoAgendadoError(w, err)
 			return
 		}
+
+		writeJSON(w, http.StatusOK, toTurnoResponse(turno))
+	}
+}
+
+type marcarAsistenciaRequest struct {
+	// Asistencia: "asistio" | "ausente" — pedido explícito del cliente
+	// (2026-09-04): "me debe aparecer un aviso que la elección es
+	// irreversible y confirmar esto" — una vez marcada, no se acepta
+	// ninguna otra request sobre este turno (ver el chequeo de abajo), así
+	// que ya no hace falta un valor "" para deshacerla.
+	Asistencia string `json:"asistencia"`
+}
+
+// marcarAsistenciaHandler — PATCH /turnos/{id}/asistencia (pedido
+// explícito del cliente, 2026-09-04): "los turnos resueltos ahora tienen
+// la opción al ser tocados de marcar asistidos o ausente, cosa de poder
+// guardar ese dato, opción marcable tanto en el calendario, como de la
+// sección de turnos resueltos en la pestaña de turnos" — este único
+// endpoint atiende los dos lugares del frontend (TurnoDetalle y
+// turnos-table.tsx). Solo tiene sentido en un turno YA resuelto (agendado
+// + hora de fin ya pasada) — marcarlo antes no tiene sentido, todavía no
+// pasó. Irreversible (corrección de QA, 2026-09-04, textual): una vez que
+// `Asistencia` ya tiene un valor, cualquier request posterior sobre este
+// turno se rechaza con 409 — el aviso de "esto no se puede deshacer" que
+// pide el cliente en el frontend solo tiene sentido si es cierto acá,
+// nunca solo un texto en la UI sin nada que lo respalde del lado del
+// servidor.
+func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		profesionalID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		turnoID, err := uuid.Parse(chi.URLParam(r, "id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "id de turno inválido")
+			return
+		}
+
+		var req marcarAsistenciaRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+		req.Asistencia = strings.TrimSpace(req.Asistencia)
+		if req.Asistencia != "asistio" && req.Asistencia != "ausente" {
+			writeError(w, http.StatusBadRequest, "asistencia debe ser 'asistio' o 'ausente'")
+			return
+		}
+
+		var turno db.Turno
+		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+			writeError(w, http.StatusNotFound, "turno no encontrado")
+			return
+		}
+		if turno.Estado != "agendado" || turno.HoraFin == nil || turno.HoraFin.After(clock.Now()) {
+			writeError(w, http.StatusConflict, "solo se puede marcar asistencia en un turno ya resuelto")
+			return
+		}
+		if turno.Asistencia != nil {
+			writeError(w, http.StatusConflict, "la asistencia ya fue marcada y no se puede modificar")
+			return
+		}
+
+		// UPDATE directo por columna (no gdb.Model(&turno).Update con un
+		// *string): un valor por struct puede quedar ambiguo según cómo
+		// GORM detecte "zero value" — acá el valor ya está validado arriba
+		// (siempre "asistio" o "ausente"), así que un UPDATE explícito es
+		// lo más simple y no deja dudas.
+		if err := gdb.Exec("UPDATE turnos SET asistencia = ? WHERE id = ?", req.Asistencia, turno.ID).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo guardar la asistencia")
+			return
+		}
+		turno.Asistencia = &req.Asistencia
 
 		writeJSON(w, http.StatusOK, toTurnoResponse(turno))
 	}

@@ -21,6 +21,29 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
+    // TZ fijo (bug real encontrado en CI, 2026-09-06, PR #4): la app
+    // entera ancla cualquier regla de fecha/hora "vigente" a
+    // America/Argentina/Cordoba (CLAUDE.md, internal/clock.Today() del
+    // lado del backend) — pero muchos FIXTURES de test de este lado
+    // arman un turno con el constructor LOCAL de `Date`
+    // (`new Date(2026, 8, 1, 9, 0)`, no `Date.UTC`) y recién después lo
+    // convierten a ISO con `.toISOString()`. Ese constructor interpreta
+    // los campos como hora de pared en la timezone AMBIENTE del proceso
+    // que corre el test — en una máquina de desarrollo con offset UTC-3
+    // sin horario de verano (p. ej. America/Buenos_Aires) el fixture da
+    // el ISO correcto sin que nadie lo note; en un runner de CI (GitHub
+    // Actions, UTC por default) el mismo fixture arma un instante 3
+    // horas más tarde, y cualquier aserción de texto tipo "09:00–09:30"
+    // pasa a ver "06:00–06:30" — así falló `turno-detalle.test.tsx` en
+    // el PR #4 (fase2-03-ajustes-calendario), pese a estar en verde en
+    // local. Fijar `TZ` acá hace que el constructor local de `Date` se
+    // comporte igual en cualquier máquina/CI, sin reescribir cada
+    // fixture existente a `Date.UTC` — mismo principio que
+    // `internal/clock`/`hoyEnCordoba()` ya aplican del lado de la app,
+    // ahora también del lado de los tests que la ejercitan.
+    env: {
+      TZ: "America/Argentina/Cordoba",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

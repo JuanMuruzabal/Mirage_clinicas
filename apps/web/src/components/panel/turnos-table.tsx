@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { cancelarTurnoAction, listTurnosAction } from "@/app/actions/turnos";
+import { cancelarTurnoAction, listTurnosAction, marcarAsistenciaAction } from "@/app/actions/turnos";
 import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora } from "@/lib/turno-format";
 import { QuadrantMark } from "../quadrant-mark";
 import { AgregarTurnoModal } from "./agregar-turno-modal";
@@ -34,6 +34,22 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   const [editarTurno, setEditarTurno] = useState<Turno | null>(null);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // asistenciaPendingId (pedido explícito del cliente, 2026-09-04): "los
+  // turnos resueltos ahora tienen la opción... de marcar asistidos o
+  // ausente... tanto en el calendario, como de la sección de turnos
+  // resueltos en la pestaña de turnos" — este es el lado "pestaña de
+  // turnos" de ese pedido (TurnoDetalle tiene el mismo flujo para el
+  // calendario). `pidiendoConfirmarAsistencia` guarda a la vez el turno Y
+  // el valor que espera el "sí, confirmar" del aviso de irreversibilidad
+  // (corrección de QA, 2026-09-04, textual: "me debe aparecer un aviso
+  // que la elección es irreversible y confirmar esto") — comparado contra
+  // el id de cada fila al renderizar, para no mezclar la confirmación
+  // pendiente de una fila con otra.
+  const [asistenciaPendingId, setAsistenciaPendingId] = useState<string | null>(null);
+  const [pidiendoConfirmarAsistencia, setPidiendoConfirmarAsistencia] = useState<{
+    turnoId: string;
+    valor: "asistio" | "ausente";
+  } | null>(null);
 
   // Bug reportado 2026-08-28: "si toco Ver turno... y este turno está muy
   // debajo de la tabla, tengo que bajar manualmente para ver el turno
@@ -72,6 +88,19 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
     setCancelandoId(turno.id);
     const result = await cancelarTurnoAction(turno.id);
     setCancelandoId(null);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    recargar();
+  }
+
+  async function confirmarAsistencia(turno: Turno, valor: "asistio" | "ausente") {
+    setError(null);
+    setAsistenciaPendingId(turno.id);
+    const result = await marcarAsistenciaAction(turno.id, valor);
+    setAsistenciaPendingId(null);
+    setPidiendoConfirmarAsistencia(null);
     if ("error" in result) {
       setError(result.error);
       return;
@@ -118,7 +147,72 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   // mostrar según estado/resuelto con el JSX de la fila expandida.
   function renderAcciones(t: Turno, resuelto: boolean) {
     if (resuelto) {
-      return <p className="text-xs text-grafito/50">Turno ya resuelto — sin acciones disponibles.</p>;
+      // Irreversible (corrección de QA, 2026-09-04, textual): "me debe
+      // aparecer un aviso que la elección es irreversible y confirmar
+      // esto" — tocar "Asistió"/"Ausente" solo pide confirmación con ese
+      // aviso, recién al confirmar se llama a la Server Action. Ya
+      // marcada, se muestra como etiqueta fija, sin botones.
+      const confirmando = pidiendoConfirmarAsistencia?.turnoId === t.id ? pidiendoConfirmarAsistencia.valor : null;
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-grafito/50">Turno ya resuelto — sin acciones de edición disponibles.</p>
+          {t.asistencia ? (
+            <p className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-grafito/60">Asistencia:</span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
+                }`}
+              >
+                {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
+              </span>
+              <span className="text-xs text-grafito/50">No se puede modificar.</span>
+            </p>
+          ) : confirmando ? (
+            <div className="flex flex-col gap-2">
+              <p role="alert" className="text-xs text-terracota-oscuro">
+                Esta elección es irreversible. ¿Confirmás que el paciente {confirmando === "asistio" ? "asistió" : "estuvo ausente"}?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => confirmarAsistencia(t, confirmando)}
+                  disabled={asistenciaPendingId === t.id}
+                  className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                >
+                  {asistenciaPendingId === t.id ? "Guardando…" : "Confirmar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPidiendoConfirmarAsistencia(null)}
+                  disabled={asistenciaPendingId === t.id}
+                  className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-grafito/60">Asistencia:</span>
+              <button
+                type="button"
+                onClick={() => setPidiendoConfirmarAsistencia({ turnoId: t.id, valor: "asistio" })}
+                className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+              >
+                Asistió
+              </button>
+              <button
+                type="button"
+                onClick={() => setPidiendoConfirmarAsistencia({ turnoId: t.id, valor: "ausente" })}
+                className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
+              >
+                Ausente
+              </button>
+            </div>
+          )}
+        </div>
+      );
     }
     return (
       <>
@@ -338,6 +432,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
       {editarTurno && (
         <EditarTurnoModal
           turno={editarTurno}
+          tiposConsulta={tiposConsulta}
           onClose={() => setEditarTurno(null)}
           onSuccess={() => {
             setEditarTurno(null);

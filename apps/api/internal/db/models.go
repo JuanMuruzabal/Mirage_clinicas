@@ -60,12 +60,25 @@ func (Especialidad) TableName() string { return "especialidades" }
 // internal/http/auth.go). Color es el hex del bloque de calendario (spec
 // §4.3) — "cascarón"/"urgencia" del Sistema Cascarón (docs/tradeoffs.md
 // TR-010), nunca un color de marca.
+//
+// DuracionMinutos/TiempoPostConsultaMinutos/CantidadSesiones (F2.3,
+// TR-084 en docs/tradeoffs.md): el profesional los configura por tipo de
+// consulta, no hay ningún buffer a nivel `Clinic` — "tiempo entre
+// turnos" y "tiempo postconsulta" son el mismo concepto, pedido
+// explícito del cliente ("consulta general dura 45min... quiero que
+// después de terminar haya 20min donde no se pueda reservar turno").
+// CantidadSesiones es puramente informativo esta fase (sin reserva
+// automática de turnos encadenados, confirmado explícitamente por el
+// cliente) — de ahí que sea un puntero: puede no estar cargado todavía.
 type TipoConsulta struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
-	Nombre        string    `gorm:"type:varchar(80);not null"`
-	Color         string    `gorm:"type:varchar(7);not null"`
-	CreatedAt     time.Time
+	ID                        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ProfesionalID             uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
+	Nombre                    string    `gorm:"type:varchar(80);not null"`
+	Color                     string    `gorm:"type:varchar(7);not null"`
+	DuracionMinutos           int       `gorm:"column:duracion_minutos;not null;default:30"`
+	TiempoPostConsultaMinutos int       `gorm:"column:tiempo_post_consulta_minutos;not null;default:0"`
+	CantidadSesiones          *int      `gorm:"column:cantidad_sesiones"`
+	CreatedAt                 time.Time
 }
 
 func (TipoConsulta) TableName() string { return "tipos_consulta" }
@@ -126,6 +139,15 @@ type Turno struct {
 	// Origen: 'pagina_publica' | 'manual' (creado directo desde el modal,
 	// spec §4.3, "para consultas que no llegaron por la página").
 	Origen string `gorm:"type:varchar(20);not null;default:pagina_publica;check:origen IN ('pagina_publica','manual')"`
+
+	// Asistencia: nil (todavía sin marcar) | 'asistio' | 'ausente' — pedido
+	// explícito del cliente, 2026-09-04: "los turnos resueltos ahora tienen
+	// la opción al ser tocados de marcar asistidos o ausente, cosa de poder
+	// guardar ese dato". Solo tiene sentido en un turno ya resuelto
+	// (agendado + hora de fin ya pasada, ver marcarAsistenciaHandler en
+	// turnos.go) — nunca obligatorio, la enorme mayoría de turnos viejos
+	// queda con esto en nil para siempre.
+	Asistencia *string `gorm:"column:asistencia;type:varchar(20);check:asistencia IN ('asistio','ausente')"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

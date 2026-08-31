@@ -190,10 +190,71 @@ export interface ClinicaResultado {
 }
 
 // Catálogo por profesional (TR-001), no global — spec §4.3.
+// duracionMinutos/tiempoPostConsultaMinutos/cantidadSesiones (F2.3,
+// TR-084 en docs/tradeoffs.md): configurables por tipo de consulta, no a
+// nivel de clínica — cantidadSesiones es puramente informativo esta fase.
+// Los tres opcionales acá (aunque la API real siempre los manda) para no
+// forzar a actualizar cada fixture de test existente que arma un
+// TipoConsulta mínimo sin ellos — el código que de verdad los necesita
+// (la sección de tipos de consulta de ConfiguracionCalendarioModal) los
+// trata como presentes en tiempo de ejecución.
 export interface TipoConsulta {
   id: string;
   nombre: string;
   color: string;
+  duracionMinutos?: number;
+  tiempoPostConsultaMinutos?: number;
+  cantidadSesiones?: number;
+}
+
+// Espejo de horarioAtencionResponse (internal/http/horario_atencion.go,
+// rediseño 2026-09-01, corrección de QA: "puede que un profesional tenga
+// horarios de atención variable"). GET /horario-atencion devuelve una
+// LISTA: la fila "general" (siempre presente, aunque sea la sintetizada
+// por default) primero, seguida de las excepciones temporales vigentes
+// (alcance "semana"/"mes"/"rango") — mismo criterio de prioridad que
+// BloqueoHorario, "la más específica gana" mientras esté vigente.
+// horaDesde/horaHasta ausentes a la vez = "no trabaja" ese período.
+export interface HorarioAtencion {
+  id: string;
+  alcance: "general" | "semana" | "mes" | "rango";
+  fechaDesde?: string;
+  fechaHasta?: string;
+  horaDesde?: string;
+  horaHasta?: string;
+}
+
+// Espejo de bloqueoHorarioResponse (internal/http/bloqueos_horario.go,
+// F2.3.3) — cubre reglas generales Y específicas por el mismo tipo
+// (TR-084): una específica trae `fecha`; una general trae `diaSemana` +
+// `alcance` (y fechaDesde/fechaHasta ya resueltos por el backend, salvo
+// alcance "todos"). Fechas como "YYYY-MM-DD", horas como "HH:MM".
+export interface BloqueoHorario {
+  id: string;
+  especifico: boolean;
+  // "proxima_semana"/"proximo_mes" (corrección de QA, 2026-08-30): mismo
+  // criterio "de una sola vez" que "semana"/"mes" (TR-084), ancladas a la
+  // semana/mes SIGUIENTE en vez del actual.
+  alcance?: "semana" | "proxima_semana" | "mes" | "proximo_mes" | "todos";
+  diaSemana?: number;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  fecha?: string;
+  horaDesde: string;
+  horaHasta: string;
+  tipoRegla: string;
+  // Motivo (corrección de QA, F2.3): descriptivo, opcional — "una general
+  // puede ser limpieza semanal, una específica puede ser reposición de
+  // inventario".
+  motivo?: string;
+}
+
+// Espejo de disponibilidadResponse (internal/http/disponibilidad.go,
+// corrección de QA sobre F2.3) — horarios "HH:MM" ya filtrados por
+// horario de atención, bloqueos vigentes y turnos ya agendados (con su
+// propio tiempo post-consulta contando como ocupado).
+export interface Disponibilidad {
+  slots: string[];
 }
 
 // Espejo de turnoResponse (internal/http/turnos.go) — sin
@@ -214,6 +275,9 @@ export interface Turno {
   emailContacto: string;
   motivo: string;
   createdAt: string;
+  // Asistencia (pedido explícito del cliente, 2026-09-04): ausente hasta
+  // que se marca desde un turno ya resuelto — "asistio" | "ausente" | nil.
+  asistencia?: "asistio" | "ausente" | null;
 }
 
 export interface ResumenPanel {

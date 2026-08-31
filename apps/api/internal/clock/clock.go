@@ -46,6 +46,16 @@ func Today() time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
 }
 
+// In convierte un instante cualquiera (ej. Turno.HoraInicio, un timestamptz
+// guardado en UTC) a la hora de pared en Argentina — F2.3 (cálculo de
+// disponibilidad, corrección de QA): comparar "a qué hora del día local
+// cae este turno" contra horarios de atención/bloqueos ("HH:MM" en hora
+// de pared) exige pasar todo a la misma zona primero, nunca comparar
+// contra la hora tal cual la guardó Postgres.
+func In(t time.Time) time.Time {
+	return t.In(location)
+}
+
 // ParseDate interpreta un string "YYYY-MM-DD" como medianoche en Argentina
 // — nunca uses time.Parse a secas para esto. time.Parse sin zona horaria en
 // el layout asume UTC, así que comparar ese resultado contra Today()

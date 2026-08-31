@@ -11,13 +11,44 @@ import {
   formatMesAnio,
   formatRangoSemana,
   horaISOLocal,
+  hoyEnCordoba,
   isSameDay,
+  minutosDesdeMedianocheCordoba,
   navegar,
   rangoVisible,
   startOfDay,
   startOfMonth,
   startOfWeek,
 } from "./calendar-utils";
+
+// hoyEnCordoba — encontrado investigando un error de hidratación de
+// React (2026-08-30): sus campos LOCALES (los que lee el resto de este
+// archivo: getFullYear/getMonth/getDate) tienen que coincidir con el día
+// de Córdoba SEA CUAL SEA la timezone ambiente de quien lo ejecuta — el
+// test real de esto (que la timezone ambiente no importa) vive en Go, no
+// acá: Vitest corre en un solo proceso con una sola timezone ambiente por
+// corrida, así que "mockear otra timezone" para probarlo de verdad
+// requeriría reiniciar el proceso. Lo que sí se puede afirmar sin
+// mockear nada: sus campos locales coinciden con los que arma
+// `Intl.DateTimeFormat` pidiendo explícitamente America/Argentina/Cordoba
+// para "ahora" — si esto se rompe, se rompe también el propio cálculo
+// que usa la función.
+describe("hoyEnCordoba", () => {
+  it("sus campos locales coinciden con 'ahora' en America/Argentina/Cordoba", () => {
+    const partes = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Argentina/Cordoba",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const parte = (tipo: string) => partes.find((p) => p.type === tipo)?.value;
+
+    const hoy = hoyEnCordoba();
+    expect(hoy.getFullYear()).toBe(Number(parte("year")));
+    expect(hoy.getMonth() + 1).toBe(Number(parte("month")));
+    expect(hoy.getDate()).toBe(Number(parte("day")));
+  });
+});
 
 describe("startOfDay", () => {
   it("pone la hora en 00:00:00.000", () => {
@@ -71,8 +102,33 @@ describe("isSameDay", () => {
 });
 
 describe("formatHora / formatDiaCorto / formatMesAnio / formatDiaLargo / formatRangoSemana", () => {
-  it("formatHora da HH:MM en formato 24hs", () => {
-    expect(formatHora(new Date(2026, 8, 1, 9, 5))).toBe("09:05");
+  // formatHora recibe INSTANTES de verdad (horaInicio/horaFin de un
+  // turno) y los convierte siempre a hora de Córdoba (ver el comentario
+  // de TIMEZONE_CORDOBA en calendar-utils.ts) — el input se construye acá
+  // vía Date.UTC a propósito, para que el test no dependa de en qué
+  // timezone corre la máquina que lo ejecuta (a diferencia de `new
+  // Date(2026, 8, 1, 9, 5)`, que "vale" 09:05 en la timezone AMBIENTE del
+  // runner, no necesariamente en Córdoba). Córdoba es UTC-3 todo el año
+  // (sin horario de verano) — 12:05 UTC son 09:05 en Córdoba.
+  it("formatHora da HH:MM en formato 24hs, hora de Córdoba (UTC-3)", () => {
+    expect(formatHora(new Date(Date.UTC(2026, 8, 1, 12, 5)))).toBe("09:05");
+  });
+
+  // minutosDesdeMedianocheCordoba — bug real reportado por el cliente,
+  // 2026-08-30: calendar-grid.tsx usaba `.getHours()/.getMinutes()`
+  // directo para ubicar verticalmente cada turno, y esos getters son
+  // LOCALES — al refrescar la página (SSR en el server, timezone UTC),
+  // los turnos aparecían corridos ~3 horas de su lugar. Mismo criterio
+  // que el test de formatHora de arriba: input armado vía Date.UTC para
+  // no depender de la timezone de la máquina que corre el test.
+  it("minutosDesdeMedianocheCordoba da los minutos desde medianoche en Córdoba (UTC-3)", () => {
+    // 12:05 UTC = 09:05 en Córdoba = 9*60+5 = 545 minutos.
+    expect(minutosDesdeMedianocheCordoba(new Date(Date.UTC(2026, 8, 1, 12, 5)))).toBe(9 * 60 + 5);
+  });
+
+  it("minutosDesdeMedianocheCordoba: la medianoche de Córdoba da 0, no 1440", () => {
+    // 03:00 UTC = 00:00 en Córdoba.
+    expect(minutosDesdeMedianocheCordoba(new Date(Date.UTC(2026, 8, 1, 3, 0)))).toBe(0);
   });
 
   it("formatDiaCorto incluye el día abreviado y el número", () => {

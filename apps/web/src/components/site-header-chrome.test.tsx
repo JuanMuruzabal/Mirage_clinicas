@@ -135,12 +135,29 @@ describe("SiteHeaderChrome — logo", () => {
 // en una pantalla de herramienta con onboarding completo, el botón de
 // configuración reemplaza a los tres links sueltos de antes.
 describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
-  it.each(["/seleccionar-servicio", "/panel", "/panel/turnos", "/perfil", "/personalizar-pagina"])(
+  it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
     "en %s con estado completo, muestra el botón de configuración y no 'Mi clínica'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
       renderHeader("completo");
       expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+    },
+  );
+
+  // Corrección de QA (2026-09-05, textual): "saque del header del panel
+  // de gestion de clinica la tuerquita de opciones, ya que en el
+  // sidebar da las opciones" — a diferencia de /perfil/
+  // /personalizar-pagina/seleccionar-servicio (sin sidebar propio, único
+  // acceso a Tu perfil/Cerrar sesión), en /panel/** el sidebar ya las
+  // ofrece — el gear queda redundante ahí, y "Mi clínica" tampoco
+  // aparece (ese espacio lo ocupa la hamburguesa/el botón "Panel").
+  it.each(["/panel", "/panel/turnos"])(
+    "en %s (con sidebar) con estado completo, NO muestra el botón de configuración ni 'Mi clínica'",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      renderHeader("completo");
+      expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
     },
   );
@@ -199,6 +216,28 @@ describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-07
 
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
     expect(screen.getByRole("button", { name: "Cerrar menú" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // Corrección de QA (2026-09-05, textual): "cuando tengo desplegado el
+  // sidebar cambiar las tres rayitas con una x cuando esta abierto, y
+  // cuando se cierra vuelven las rayitas".
+  it("el ícono cambia de 3 rayitas a una X al abrir el drawer, y vuelve a 3 rayitas al cerrar", async () => {
+    usePathnameMock.mockReturnValue("/panel");
+    const user = userEvent.setup();
+    renderHeader("completo");
+
+    const cerrado = screen.getByRole("button", { name: "Abrir menú" });
+    expect(cerrado.querySelector("path")).toHaveAttribute("d", "M3 5.5h14M3 10h14M3 14.5h14");
+
+    await user.click(cerrado);
+    const abierto = screen.getByRole("button", { name: "Cerrar menú" });
+    expect(abierto.querySelector("path")).toHaveAttribute("d", "M4.5 4.5l11 11M15.5 4.5l-11 11");
+
+    await user.click(abierto);
+    expect(screen.getByRole("button", { name: "Abrir menú" }).querySelector("path")).toHaveAttribute(
+      "d",
+      "M3 5.5h14M3 10h14M3 14.5h14",
+    );
   });
 
   it("en /perfil y /personalizar-pagina (sin sidebar), NO muestra la hamburguesa, muestra 'Panel' en su lugar", () => {
