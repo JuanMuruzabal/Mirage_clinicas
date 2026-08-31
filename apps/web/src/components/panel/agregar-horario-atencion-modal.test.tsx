@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { fechaISOLocal } from "@/lib/calendar-utils";
 
 // Los inputs type="time"/"date" no se escriben de forma confiable
 // carácter por carácter con userEvent.type en jsdom (mismo criterio que
@@ -86,6 +87,44 @@ describe("AgregarHorarioAtencionModal", () => {
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Elegí desde y hasta qué fecha.");
+    expect(crearHorarioAtencionActionMock).not.toHaveBeenCalled();
+  });
+
+  // Corrección de QA (2026-09-06): "desde mi iphone si puedo seleccionar
+  // fechas pasadas... las exepciones" — usa el calendario nativo del
+  // celular, que sí respeta `min` para no ofrecer días anteriores a hoy.
+  it("rango personalizado: 'Fecha desde'/'Fecha hasta' no ofrecen días pasados", async () => {
+    const user = userEvent.setup();
+    render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText("Alcance"), "rango");
+
+    expect(screen.getByLabelText("Fecha desde")).toHaveAttribute("min", fechaISOLocal());
+    expect(screen.getByLabelText("Fecha hasta")).toHaveAttribute("min", fechaISOLocal());
+  });
+
+  it("rango personalizado con fecha desde pasada muestra un error y no llama a la action", async () => {
+    const user = userEvent.setup();
+    render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText("Alcance"), "rango");
+
+    setValor("Fecha desde", "2020-01-01");
+    setValor("Fecha hasta", "2020-01-07");
+    await user.click(screen.getByRole("button", { name: "Agregar" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("No se puede elegir una fecha que ya pasó.");
+    expect(crearHorarioAtencionActionMock).not.toHaveBeenCalled();
+  });
+
+  it("rango personalizado con 'hasta' anterior a 'desde' muestra un error y no llama a la action", async () => {
+    const user = userEvent.setup();
+    render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText("Alcance"), "rango");
+
+    setValor("Fecha desde", "2026-09-10");
+    setValor("Fecha hasta", "2026-09-05");
+    await user.click(screen.getByRole("button", { name: "Agregar" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent('La fecha "hasta" no puede ser anterior a la fecha "desde".');
     expect(crearHorarioAtencionActionMock).not.toHaveBeenCalled();
   });
 

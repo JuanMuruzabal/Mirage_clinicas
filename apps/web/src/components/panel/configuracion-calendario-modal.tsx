@@ -252,7 +252,12 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
                   onClick={() => setAgregandoExcepcion("nuevo")}
                   className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
                 >
-                  + Agregar excepción
+                  {/* "+ Excepción" (corrección de QA, 2026-09-06): antes
+                      "+ Agregar excepción" — muy grande en mobile. Acortado
+                      solo acá, adentro de Configuración de calendario; los
+                      accesos rápidos del calendario ("+ Agregar turno"/
+                      "+ Reservar horario") quedan como estaban. */}
+                  + Excepción
                 </button>
               </div>
               <p className="text-xs text-grafito/60">
@@ -279,7 +284,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
                   onClick={() => setAgregando({ especifico: false })}
                   className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
                 >
-                  + Agregar horario reservado
+                  {/* "+ Horario" (corrección de QA, 2026-09-06): antes
+                      "+ Agregar horario reservado" — muy grande en mobile. */}
+                  + Horario
                 </button>
               </div>
               <p className="text-xs text-grafito/60">
@@ -308,7 +315,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
                   onClick={() => setAgregando({ especifico: true })}
                   className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
                 >
-                  + Agregar horario reservado
+                  {/* "+ Horario" — ver el comentario en la sección de
+                      horarios reservados generales, arriba. */}
+                  + Horario
                 </button>
               </div>
               <p className="text-xs text-grafito/60">

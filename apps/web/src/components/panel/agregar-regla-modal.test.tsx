@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { fechaISOLocal } from "@/lib/calendar-utils";
+import { fechaISOLocal, horaISOLocal } from "@/lib/calendar-utils";
 
 // Los inputs type="time"/"date" no se escriben de forma confiable
 // carácter por carácter con userEvent.type en jsdom (mismo criterio que
@@ -130,6 +130,30 @@ describe("AgregarReglaModal", () => {
 
       expect(screen.getByRole("alert")).toHaveTextContent("No se puede reservar un horario en una fecha u hora que ya pasó.");
       expect(crearBloqueoActionMock).not.toHaveBeenCalled();
+    });
+
+    // Corrección de QA (2026-09-06): "puedo elegir la hora pasada, y
+    // cuando doy a confirmar me sale el error... quiero que te
+    // restringa a no poder seleccionar horarios pasados" — la fecha por
+    // default de una regla específica nueva ya es HOY (fechaISOLocal()),
+    // así que "Desde"/"Hasta" arrancan con el mismo piso.
+    it("con la fecha en HOY, 'Desde'/'Hasta' no ofrecen una hora pasada (min)", () => {
+      render(<AgregarReglaModal especifico={true} onClose={vi.fn()} onGuardada={vi.fn()} />);
+      expect(screen.getByLabelText("Desde")).toHaveAttribute("min", horaISOLocal());
+      expect(screen.getByLabelText("Hasta")).toHaveAttribute("min", horaISOLocal());
+    });
+
+    it("con una fecha futura, 'Desde'/'Hasta' no tienen restricción de hora mínima", () => {
+      render(<AgregarReglaModal especifico={true} onClose={vi.fn()} onGuardada={vi.fn()} />);
+      setValor("Fecha", "2026-12-25");
+      expect(screen.getByLabelText("Desde")).not.toHaveAttribute("min");
+      expect(screen.getByLabelText("Hasta")).not.toHaveAttribute("min");
+    });
+
+    it("una regla general (sin fecha puntual) no restringe la hora mínima", () => {
+      render(<AgregarReglaModal especifico={false} onClose={vi.fn()} onGuardada={vi.fn()} />);
+      expect(screen.getByLabelText("Desde")).not.toHaveAttribute("min");
+      expect(screen.getByLabelText("Hasta")).not.toHaveAttribute("min");
     });
   });
 

@@ -213,11 +213,20 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
               </>
             )}
 
+            {/* min de las horas (corrección de QA, 2026-09-06: "puedo
+                elegir la hora pasada, y cuando doy a confirmar me sale el
+                error... quiero que te restringa a no poder seleccionar
+                horarios pasados") — solo tiene sentido cuando la fecha
+                elegida es HOY: un horario reservado específico para
+                mañana no tiene ninguna hora "pasada". `min` en un
+                <input type="time"> es una hora fija de reloj, no sabe de
+                fechas, así que se calcula acá según `fecha`. */}
             <div className="grid grid-cols-2 gap-4">
               <Campo label="Desde">
                 <input
                   type="time"
                   value={horaDesde}
+                  min={especifico && fecha === fechaISOLocal() ? horaISOLocal() : undefined}
                   onChange={(e) => {
                     setHoraDesde(e.target.value);
                     setTocado(true);
@@ -229,6 +238,7 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
                 <input
                   type="time"
                   value={horaHasta}
+                  min={especifico && fecha === fechaISOLocal() ? horaISOLocal() : undefined}
                   onChange={(e) => {
                     setHoraHasta(e.target.value);
                     setTocado(true);

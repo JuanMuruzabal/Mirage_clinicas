@@ -166,7 +166,7 @@ describe("ConfiguracionCalendarioModal", () => {
       render(<ConfiguracionCalendarioModal onClose={vi.fn()} />);
       await screen.findByText("Todavía no cargaste ninguna excepción de horario.");
 
-      await user.click(seccionExcepciones().getByRole("button", { name: "+ Agregar excepción" }));
+      await user.click(seccionExcepciones().getByRole("button", { name: "+ Excepción" }));
       const subModal = within(screen.getByRole("dialog", { name: "Agregar excepción de horario de atención" }));
       fireEvent.change(subModal.getByLabelText("Desde"), { target: { value: "09:00" } });
       fireEvent.change(subModal.getByLabelText("Hasta"), { target: { value: "13:00" } });
@@ -187,7 +187,7 @@ describe("ConfiguracionCalendarioModal", () => {
       render(<ConfiguracionCalendarioModal onClose={vi.fn()} />);
       await screen.findByText("Todavía no cargaste ninguna excepción de horario.");
 
-      await user.click(seccionExcepciones().getByRole("button", { name: "+ Agregar excepción" }));
+      await user.click(seccionExcepciones().getByRole("button", { name: "+ Excepción" }));
       const subModal = within(screen.getByRole("dialog", { name: "Agregar excepción de horario de atención" }));
       await user.click(subModal.getByLabelText("No trabajo este período"));
       await user.click(subModal.getByRole("button", { name: "Agregar" }));
@@ -311,7 +311,7 @@ describe("ConfiguracionCalendarioModal", () => {
     await screen.findByText("Martes");
 
     const seccionGenerales = screen.getByText("Horarios reservados generales").closest("section")!;
-    await user.click(within(seccionGenerales).getByRole("button", { name: "+ Agregar horario reservado" }));
+    await user.click(within(seccionGenerales).getByRole("button", { name: "+ Horario" }));
 
     const subModal = within(screen.getByRole("dialog", { name: "Agregar horario reservado general" }));
     fireEvent.change(subModal.getByLabelText("Desde"), { target: { value: "06:00" } });

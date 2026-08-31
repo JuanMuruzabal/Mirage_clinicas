@@ -61,6 +61,19 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
       setError("Elegí desde y hasta qué fecha.");
       return false;
     }
+    // Corrección de QA (2026-09-06): "desde mi iphone si puedo
+    // seleccionar fechas pasadas... las exepciones" — el `min` de abajo
+    // evita que el calendario nativo del celular OFREZCA un día pasado,
+    // pero un navegador de escritorio permite tipear la fecha a mano
+    // igual, así que hace falta la misma validación acá.
+    if (alcance === "rango" && fechaDesde < fechaISOLocal()) {
+      setError("No se puede elegir una fecha que ya pasó.");
+      return false;
+    }
+    if (alcance === "rango" && fechaHasta < fechaDesde) {
+      setError("La fecha \"hasta\" no puede ser anterior a la fecha \"desde\".");
+      return false;
+    }
     if (!noTrabaja && (!horaDesde || !horaHasta)) {
       setError("Elegí desde y hasta qué hora, o marcá \"No trabajo este período\".");
       return false;
@@ -116,8 +129,12 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
           </button>
         </div>
 
+        {/* noValidate: el `min` de las fechas de abajo es solo para que el
+            selector nativo (calendario del celular) no OFREZCA un día
+            pasado — la validación real, con el mismo texto de error que el
+            resto del form, es la de `guardar()` de arriba. */}
         {!confirmandoSalida && (
-          <form onSubmit={guardarDesdeElFormulario} className="flex flex-col gap-4 p-6">
+          <form onSubmit={guardarDesdeElFormulario} noValidate className="flex flex-col gap-4 p-6">
             <Campo label="Alcance">
               <select
                 value={alcance}
@@ -142,6 +159,7 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
                   <input
                     type="date"
                     value={fechaDesde}
+                    min={fechaISOLocal()}
                     onChange={(e) => {
                       setFechaDesde(e.target.value);
                       setTocado(true);
@@ -153,6 +171,7 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
                   <input
                     type="date"
                     value={fechaHasta}
+                    min={fechaDesde || fechaISOLocal()}
                     onChange={(e) => {
                       setFechaHasta(e.target.value);
                       setTocado(true);

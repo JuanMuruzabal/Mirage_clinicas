@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { fechaISOLocal } from "@/lib/calendar-utils";
 
 const { editarTurnoActionMock, reprogramarTurnoActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
   editarTurnoActionMock: vi.fn(),
@@ -163,6 +164,15 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
     // horarios…") y se completa apenas resuelve /disponibilidad.
     expect(screen.getByLabelText("Fecha")).not.toHaveValue("");
     await esperarHoraCargada();
+  });
+
+  // Corrección de QA (2026-09-06): "desde mi iphone si puedo seleccionar
+  // fechas pasadas... indispensable en el día del turno, no mostrar días
+  // anteriores" — usa el calendario nativo del celular, que sí respeta
+  // `min` para no ofrecer días anteriores a hoy.
+  it("el selector de fecha no ofrece días pasados", () => {
+    render(<EditarTurnoModal turno={turnoAgendado} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect(screen.getByLabelText("Fecha")).toHaveAttribute("min", fechaISOLocal());
   });
 
   it("pide la disponibilidad excluyendo el propio turno que se está reprogramando", async () => {

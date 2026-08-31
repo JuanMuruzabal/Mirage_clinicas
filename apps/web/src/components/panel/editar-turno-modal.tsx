@@ -274,7 +274,11 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
 
   return (
     <ModalShell titulo="Editar turno" onClose={onClose}>
-      <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
+      {/* noValidate: el `min` del input de fecha es solo para que el
+          selector nativo (el calendario propio del celular en iOS/Android)
+          no OFREZCA un día pasado — la validación real, con el mismo texto
+          de error que el resto del form, es la de `guardar()` de arriba. */}
+      <form onSubmit={guardar} noValidate className="flex flex-col gap-4 p-6">
         <p className="text-sm text-grafito/60">
           Este turno ya está confirmado — solo se puede cambiar el horario y el motivo de consulta. Para corregir un
           dato de contacto, entrá a la ficha del paciente.
@@ -291,6 +295,12 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
             <input
               type="date"
               value={fecha}
+              // min (corrección de QA, 2026-09-06: "desde mi iphone si
+              // puedo seleccionar fechas pasadas... indispensable en el
+              // día del turno, no mostrar días anteriores") — usa el
+              // calendario nativo del celular, que sí respeta `min` para
+              // no ofrecer días previos a hoy.
+              min={fechaISOLocal()}
               onChange={(e) => {
                 setFecha(e.target.value);
                 setCargandoSlots(true);
