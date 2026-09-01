@@ -707,7 +707,7 @@ type resumenPanelResponse struct {
 	TurnosHoy          []resumenTurnoItem            `json:"turnosHoy"`
 	TurnosProximos     []resumenTurnoItem            `json:"turnosProximos"`
 	HorariosReservados []resumenHorarioReservadoItem `json:"horariosReservados"`
-	TotalConfirmados   int64                          `json:"totalConfirmados"`
+	TotalConfirmados   int64                         `json:"totalConfirmados"`
 	TurnosResueltos    []resumenTurnoItem            `json:"turnosResueltos"`
 	// TurnosAsistidos/TurnosAusentes (F2.3 extra ítem 1, corrección de QA
 	// 2026-09-06 — nueva tarjeta "Estadística" al lado de "Turnos
