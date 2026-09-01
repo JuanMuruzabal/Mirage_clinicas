@@ -555,6 +555,87 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 | R2F-4 | El CRUD de `TipoConsulta` es una pieza nueva completa (hoy no existe), no una extensión — puede correr más lento de lo esperado si aparecen validaciones no previstas (¿se puede borrar un tipo de consulta con turnos ya agendados?) | Medio | Definir esa regla en F2.3.4 antes de construir la UI (F2.3.5), no a mitad de tarea — **resuelto**: devuelve 409 si hay turnos asociados, ver `apps/api/internal/http/tipos_consulta.go` |
 | R2F-5 | ~~"Previsualización en vivo" es la tarea más ambigua del brief~~ — **Resuelto** (2026-08-29): el cliente la descartó por completo a favor de velocidad de uso — ver TR-084 | — | — |
 
+### 11.5 Ítems extra de F2.3 (brief post-QA del cliente)
+
+Brief completo (transcripción del `.docx` original que dejó el cliente):
+`docs/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
+"perdí cómo era la numeración que teníamos" — la segmentación de abajo
+quedó confirmada por el cliente (2026-09-06), con un orden de
+implementación propio, distinto del orden en que aparecen en el brief:
+**2.3.1 → 2.3.2 → 2.3.5 → 2.3.3 → 2.3.4** (resuelve de entrada la
+dependencia dura de más abajo, arrancando por 2.3.5 antes que 2.3.3).
+Mismo proceso TR-083: una rama por ítem, QA antes de commit, PR con
+"2.3.N" en el título una vez aprobado. Ninguno de estos ítems tiene TR
+asignado todavía — se documentan en `docs/tradeoffs.md` a medida que cada
+uno se implementa y las decisiones quedan tomadas de verdad, mismo
+criterio que TR-084 en adelante para el F2.3 original.
+
+**Qué cambia respecto al esquema actual:**
+
+| Tabla/campo | Qué es hoy | Qué pide el brief |
+|---|---|---|
+| `Turno.Estado = "pendiente"` | Turno recién llegado del formulario público, sin `HoraInicio`/`HoraFin`/`PacienteID` (spec §4.4, TR-006) — el exclusion constraint de solapamiento lo ignora a propósito | Se elimina el estado y el concepto por completo (Extra 2.3.3) — pero **solo es viable después** de que el formulario público asigne horario real de entrada (Extra 2.3.5); no se puede sacar `pendiente` del medio sin haber resuelto antes cómo se crea un turno sin ese estado |
+| `Paciente.DNI` | `varchar(20) not null`, **sin unique constraint** — `crearTurnoAgendadoConPaciente` (`internal/http/turnos.go`) siempre crea un `Paciente` nuevo cuando no se pasa un `pacienteExistenteID`, nunca busca por DNI | Índice único `(profesional_id, dni)` + lógica de "buscar por DNI antes de crear" en cualquier camino de alta de paciente (formulario público nuevo, Extra 2.3.5) |
+| `GET /panel/resumen` (`resumenPanelHandler`) | Devuelve 2 contadores (`turnosPendientes`, `turnosConfirmados`) para las 2 tarjetas actuales de `/panel` | Reescritura completa: 5 tarjetas, 3 de ellas con una LISTA (no solo un número) para el cuerpo con scroll (Extra 2.3.1) |
+
+**Dependencia dura, no listada como tal en el brief:** Extra 2.3.3 (sacar
+`pendiente`) necesita que Extra 2.3.5 (nuevo formulario público) ya esté
+en producción — mientras el formulario viejo siga mandando turnos sin
+horario, sacar el estado `pendiente` deja esos turnos sin ningún lugar
+válido donde vivir. Implementar en el orden que el cliente pidió (3 antes
+que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
+`dev` hasta que el 5 esté aprobado — misma lógica que la advertencia de
+§11.2 para F2.4/F2.5 sobre F2.3.
+
+#### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard)
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E1.1 | `GET /panel/resumen` devuelve las 5 tarjetas: listas de turnos de hoy/próximos/horarios reservados (cada fila con lo necesario para navegar: id de turno o de bloqueo, hora, nombre/motivo) + los 2 contadores simples (total confirmados, resueltos) | — | 2d | Response nuevo cubre los 5 casos sin romper ningún consumidor viejo de `apiResumenPanel` (o se actualiza junto) |
+| E1.2 | Componente de tarjeta con cuerpo scrolleable: cabecera (eyebrow + número + link) igual que hoy, cuerpo semi-transparente (no gris) con la lista, cada fila clickeable | E1.1 | 2d | Con más filas de las que entran, el cuerpo scrollea sin agrandar la tarjeta; el fondo del cuerpo no es gris sólido |
+| E1.3 | Tarjeta "Turnos de hoy": filas → turno específico en vista Día; "Ver calendario" → vista Día de hoy | E1.2 | 1d | Tocar una fila abre `TurnoDetalle` del turno correcto en `/panel/calendario` vista Día |
+| E1.4 | Tarjeta "Turnos próximos": excluye los de hoy, cada fila con el día antes de la hora; filas/"Ver calendario" → vista Semana | E1.2 | 1d | Un turno de hoy nunca aparece acá; el link cae en vista Semana con el turno visible |
+| E1.5 | Tarjeta "Horarios reservados": filas con día+hora+motivo; cabecera dice "Ver horarios reservados" y abre Configuración de calendario (no el calendario en sí) | E1.2 | 1d | El botón de cabecera abre `ConfiguracionCalendarioModal`, no navega a `/panel/calendario` |
+| E1.6 | Tarjetas 4 (total confirmados) y 5 (resueltos, sin asistió/ausente): solo número + lista simple fecha/hora/nombre para la de resueltos | E1.1 | 1d | Resueltos no muestra ningún estado de asistencia (eso es otro flujo, ya implementado en Turnos/calendario) |
+| E1.7 | Componente reusable "Ver texto" (botón + modal con blur) para motivo largo en el cuerpo de la tarjeta 3- — se construye ACÁ, no en Extra 2.3.3: E3.3/E4.1 (más adelante en el orden confirmado) lo reusan tal cual en vez de duplicarlo | E1.5 | 1d | Motivo largo nunca desborda la fila de la tarjeta; el mismo componente sirve sin cambios para "Ver motivo"/"Ver mail" cuando lleguen los ítems 3.3/3.4 |
+
+#### Extra 2.3.2 — Banner de conflicto en el calendario
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E2.1 | Banner "Tienes X turnos en conflictos, toca para ver" entre el selector Día/Semana/Mes y el grid, animación de entrada que empuja el calendario hacia abajo | — | 1-2d | El banner no se superpone al calendario, lo desplaza |
+| E2.2 | Contador reactivo a los conflictos vigentes (mismo criterio que `turnoResuelto()` de TR-090: un conflicto ya resuelto no cuenta) — desaparece solo cuando llega a 0 | E2.1, TR-090 (ya implementado) | 1d | Resolver un conflicto (o que su horario pase) baja el contador sin recargar la página |
+| E2.3 | "Toca para ver" abre el "Ver eventos" (`BloqueoDetalleModal`) del conflicto más próximo en el tiempo | E2.2 | 1d | Con 2+ conflictos, siempre abre el más próximo primero |
+
+#### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido
+
+**Bloqueada hasta que Extra 2.3.5 esté aprobado** (ver dependencia dura de
+arriba).
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E3.1 | Backend: eliminar el estado `pendiente` del todo — `agendarTurnoHandler`, `solicitarTurnoPublicoHandler` y cualquier query que lo filtre quedan obsoletos o se reescriben contra Extra 2.3.5 | Extra 2.3.5 | 2-3d | `go test ./internal/...` verde sin ninguna referencia viva a `"pendiente"` |
+| E3.2 | Frontend: pestaña "Confirmado" autoseleccionada al entrar a `/panel/turnos`; se saca la pestaña/filtro de pendientes de `turnos-table.tsx` | E3.1 | 1d | Entrar a Turnos nunca aterriza en una pestaña de pendientes (ya no existe) |
+| E3.3 | Aplicar el componente "Ver texto" ya construido en Extra 2.3.1/E1.7 al motivo de la fila de turno (deja de mostrarse inline); editable solo si `origen === "manual"` | E1.7 | 1d | Un motivo largo nunca rompe el ancho de la fila; intentar editarlo en un turno de `origen: "pagina_publica"` no ofrece la opción |
+| E3.4 | Botón "Ver paciente" en la fila de turno (misma navegación que el botón homónimo del calendario) | — | 0.5d | Lleva a la ficha del paciente correcto |
+| E3.5 | Filtro rápido HOY/SEMANA/MES antes de "Desde/Hasta", en Turnos y en "Turnos activos" de la ficha de paciente (mismos filtros que ya tiene Pacientes, imitando la captura del brief) | — | 1-2d | Elegir "Hoy" filtra a los turnos de la fecha actual sin tocar Desde/Hasta a mano |
+
+#### Extra 2.3.4 — Pacientes: "Ver mail" para direcciones largas
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E4.1 | Mail de más de 30 caracteres se reemplaza por el botón "Ver mail" (mismo componente de Extra 2.3.1/E1.7) en la tabla de Pacientes | E1.7 | 0.5d | Un mail corto se sigue mostrando inline, sin el botón |
+
+#### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E5.1 | Índice único `(profesional_id, dni)` en `pacientes` + `crearTurnoAgendadoConPaciente` busca por DNI antes de crear un `Paciente` nuevo (cualquier camino de alta, no solo el nuevo formulario) | — | 1-2d | Insertar dos pacientes con el mismo DNI para la misma clínica falla a nivel de base; el flujo de agendar nunca lo intenta porque busca antes |
+| E5.2 | `POST /clinicas/{slug}/turnos` reescrito: recibe tipo de consulta + horario elegido (reusa el cálculo de disponibilidad ya existente, TR-086) en vez de solo datos de contacto; crea el turno con `HoraInicio`/`HoraFin` reales (nunca más `pendiente`) | F2.3 (`GET /disponibilidad`, ya implementado), E5.1 | 3-4d | Un turno creado desde la página pública aparece en Turnos y en el calendario con horario fijo, sin pasar por ningún estado intermedio |
+| E5.3 | `pedir-turno-form.tsx` reescrito: datos de contacto → tipo de consulta → fecha → horario disponible (mismo flujo visual que "Agregar turno" del profesional) | E5.2 | 3-4d | El paciente completa el turno de punta a punta sin salir del formulario público |
+| E5.4 | Fix del bug: volver de "paciente conocido" a "turno con paciente nuevo" en `agregar-turno-modal.tsx` no debe dejar precargados los datos del paciente conocido | — | 0.5-1d | Cambiar de pestaña limpia el formulario de "paciente nuevo"; intentar crear con un DNI ya existente ahí da el error de E5.1, no un alta duplicada |
+| E5.5 | Botón "+ Agregar paciente" en la sección Pacientes (alta directa, sin pasar por un turno) | E5.1 | 1d | Un paciente nuevo se puede cargar sin necesidad de crearle un turno primero |
+
 ---
 
 *Documento vivo — actualizar cuando el cliente confirme o corrija alguna de las decisiones asumidas en la sección 9, o cuando `/frontend-design` (T5.1) fije la paleta/tipografía definitivas.*
