@@ -587,7 +587,15 @@ que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
 `dev` hasta que el 5 esté aprobado — misma lógica que la advertencia de
 §11.2 para F2.4/F2.5 sobre F2.3.
 
-#### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard)
+#### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard) — **implementado, en QA con el cliente**
+
+**E1.1 a E1.7 completas**, más varias rondas de corrección de QA sobre la primera entrega (ya incorporadas al código, no son tareas nuevas) — detalle completo en TR-094 de `docs/tradeoffs.md`:
+
+- Se sumó una 6ª tarjeta, "Estadística" (turnos asistidos/ausentes, acumulado histórico), al lado de "Turnos confirmados" — no estaba en el plan original de E1.1-E1.7.
+- Deep-link real a una fecha/turno/bloqueo específico (no solo "cae en la semana actual") — corrigió un bug real de RSC (un `Date` cruzando de Server a Client Component se rompía según el timezone de quien mira la pantalla).
+- Tipografía del cuerpo de tarjeta rediseñada (display grande, hora en verde con inicio y fin, columna de hora con ancho fijo + `tabular-nums` para que el nombre de cada fila arranque siempre alineado, contenido truncado con "…").
+- Efecto "vidrio" del cuerpo reescrito dos veces: primero porque `backdrop-filter` no tenía nada real detrás para desenfocar, después porque el cuerpo no llenaba el alto disponible de la tarjeta (bug de `align-items: stretch` del grid).
+- Íconos decorativos de cabecera, uno por tarjeta, unificados en tamaño/posición tras una primera versión que interferían con los links "Ver X →".
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|

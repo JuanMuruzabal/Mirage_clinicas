@@ -440,7 +440,8 @@ export function apiReprogramarTurno(token: string, turnoId: string, payload: Rep
   });
 }
 
-// T2.2: conteo de turnos pendientes/confirmados para el dashboard General.
+// T2.2 (F2.3 extra ítem 1 lo reescribe de punta a punta, docs/implementation-plan.md
+// §11.5): datos de las 5 tarjetas del dashboard "Turnero".
 export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>> {
   return request<ResumenPanel>("/panel/resumen", { headers: { Authorization: `Bearer ${token}` } });
 }

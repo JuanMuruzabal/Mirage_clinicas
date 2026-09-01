@@ -1,96 +1,165 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { apiResumenPanel } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { formatDiaCorto, parseFechaISOLocal } from "@/lib/calendar-utils";
+import { TarjetaConLista, TarjetaEstadistica, TarjetaSimple, FilaResumen } from "@/components/panel/tarjeta-turnero";
+import {
+  IconoAvance,
+  IconoCasilleros,
+  IconoEstadistica,
+  IconoReloj,
+  IconoSello,
+  IconoTilde,
+} from "@/components/panel/tarjeta-turnero-iconos";
+import { AbrirConfiguracionBoton } from "@/components/panel/abrir-configuracion-boton";
+import { VerTextoBoton } from "@/components/ver-texto-boton";
+import { textoEsLargo } from "@/lib/texto-largo";
 
 export const metadata: Metadata = { title: "General — Dental Mirage" };
 
-// Dashboard General (T2.2, spec §4.2) — vista resumida: turnos pendientes
-// (→ Turnos) y turnos próximos (→ Calendario), cada tarjeta clickeable.
-// "Turnos próximos" (pedido explícito del cliente, 2026-08-23) — el
-// backend ya cuenta solo agendado sin resolver (GET /panel/resumen, ver
-// internal/http/turnos.go); la tarjeta antes decía "Agenda" arriba del
-// número, ambiguo respecto de qué se estaba contando — ahora dice "Turnos
-// próximos" tanto arriba como en el link de abajo.
+// Dashboard "Turnero" (F2.3 extra ítem 1 — rediseño completo,
+// docs/implementation-plan.md §11.5, brief en
+// docs/fase2.3-extra-dental-mirage.md): reemplaza las 2 tarjetas viejas
+// (turnos pendientes/turnos próximos, T2.2) por 5 — 3 con un cuerpo de
+// filas scrolleable, 2 solo con un número. El estado `pendiente` en sí
+// sigue existiendo en el backend (lo saca recién el ítem 2.3.3/2.3.5,
+// implementado después según el orden confirmado por el cliente) — este
+// dashboard solo deja de tener una tarjeta propia para eso.
 export default async function PanelGeneralPage() {
   const token = await getSessionToken();
   const resumenResult = token ? await apiResumenPanel(token) : null;
-  const resumen = resumenResult?.ok ? resumenResult.data : { turnosPendientes: 0, turnosConfirmados: 0 };
+  const resumen = resumenResult?.ok
+    ? resumenResult.data
+    : {
+        turnosHoy: [],
+        turnosProximos: [],
+        horariosReservados: [],
+        totalConfirmados: 0,
+        turnosResueltos: [],
+        turnosAsistidos: 0,
+        turnosAusentes: 0,
+      };
 
   return (
-    // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
-    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
-    // espacio de más entre el header y donde arranca el scroll").
     <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-        General
-      </h1>
+      {/* gap-3 (corrección de QA, 2026-09-06: "separar más el título
+          General [del] subtítulo Turnero") — antes gap-1, quedaban casi
+          pegados. */}
+      <div className="flex flex-col gap-3">
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+          General
+        </h1>
+        {/* "TURNERO" más visible + descripción al lado (corrección de QA,
+            2026-09-06) — antes era un subtítulo chico tipo eyebrow, casi
+            invisible; ahora un subtítulo real, con una bajada explicando
+            qué es esta sección. */}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-wide text-salvia-oscuro uppercase">
+            Turnero
+          </h2>
+          <p className="text-sm text-grafito/60">Control general de tus turnos y pacientes.</p>
+        </div>
+      </div>
 
-      {/* max-md:grid-cols-1 + max-md:min-w (rama fix/mobile, duodécima
-          corrección 2026-08-24 — ver TR-035 en docs/tradeoffs.md, pedido
-          explícito del cliente: "que los cuadros de general esten uno
-          abajo del otro" — revierte la parte de TR-034 que las ponía
-          siempre lado a lado en mobile). Apiladas en mobile (una fila por
-          tarjeta), pero cada una con un piso de ancho propio (18rem =
-          288px) para que NO vuelva a pasar lo que motivó TR-034: con el
-          sidebar expandido, sin ningún mínimo, cada tarjeta se aplastaba
-          en la poca franja que quedaba libre. Escritorio sigue con
-          `grid-cols-2` sin condición, sin cambios. */}
       <div className="grid grid-cols-2 gap-6 max-md:grid-cols-1 max-md:min-w-[18rem]">
-        <ResumenCard
-          // ?estado=pendiente (pedido explícito del cliente, 2026-08-27:
-          // "cuando doy click al de turnos pendientes me debe llevar al
-          // apartado de turnos pendientes") — antes mandaba a /panel/turnos
-          // sin filtro, aterrizando en lo que estuviera activo por default
-          // en vez de en lo que esta tarjeta dice.
-          href="/panel/turnos?estado=pendiente"
-          eyebrow="Pedidos entrantes"
-          titulo="Turnos pendientes"
-          valor={resumen.turnosPendientes}
-        />
-        <ResumenCard
-          // ?vista=semana (pedido explícito del cliente, 2026-08-27:
-          // "turnos próximos al calendario de semana donde sea visible el
-          // primer turno más próximo") — calendario/page.tsx lee este
-          // parámetro y calendar-view.tsx arranca en Semana en vez de Día,
-          // con scroll automático hasta el primer turno próximo.
-          href="/panel/calendario?vista=semana"
-          eyebrow="Turnos próximos"
-          titulo="Ver calendario"
-          valor={resumen.turnosConfirmados}
-          // "Ok"/confirmado se lee en salvia — el resto de los números del
-          // dashboard queda en grafito neutro (TR-013 en docs/tradeoffs.md,
-          // "color con significado, no decorativo").
+        <TarjetaConLista
+          eyebrow="Turnos de hoy"
+          valor={resumen.turnosHoy.length}
+          hrefCabecera="/panel/calendario?vista=dia"
+          labelCabecera="Ver calendario"
+          vacioMensaje="No hay turnos para hoy."
           acento
+          icono={<IconoReloj className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          filas={resumen.turnosHoy.map((t) => ({
+            key: t.id,
+            href: `/panel/calendario?vista=dia&fecha=${t.fecha}&turno=${t.id}`,
+            contenido: (
+              <FilaResumen hora={`${t.hora} a ${t.horaFin}`}>{t.nombre}</FilaResumen>
+            ),
+          }))}
+        />
+
+        <TarjetaConLista
+          eyebrow="Turnos próximos"
+          valor={resumen.turnosProximos.length}
+          hrefCabecera="/panel/calendario?vista=semana"
+          labelCabecera="Ver calendario"
+          vacioMensaje="No hay turnos próximos."
+          acento
+          icono={<IconoAvance className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          filas={resumen.turnosProximos.map((t) => ({
+            key: t.id,
+            href: `/panel/calendario?vista=semana&fecha=${t.fecha}&turno=${t.id}`,
+            contenido: (
+              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(t.fecha))} hora={`${t.hora} a ${t.horaFin}`}>
+                {t.nombre}
+              </FilaResumen>
+            ),
+          }))}
+        />
+
+        <TarjetaConLista
+          eyebrow="Horarios reservados"
+          valor={resumen.horariosReservados.length}
+          cabeceraCustom={<AbrirConfiguracionBoton />}
+          vacioMensaje="Todavía no cargaste ningún horario reservado."
+          acento
+          // Un poco más abajo que las demás (pedido explícito del
+          // cliente, 2026-09-06) — mismo tamaño/offset horizontal, más
+          // margen inferior.
+          icono={<IconoCasilleros className="pointer-events-none absolute right-2 -bottom-8 h-24 w-24 text-salvia/35" />}
+          filas={resumen.horariosReservados.map((h) => ({
+            key: h.id,
+            href: `/panel/calendario?vista=semana&fecha=${h.fecha}&bloqueo=${h.id}`,
+            contenido: (
+              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(h.fecha))} hora={`${h.horaDesde} a ${h.horaHasta}`} uppercase={false}>
+                {textoEsLargo(h.motivo) ? <VerTextoBoton titulo="Motivo" texto={h.motivo} variante="link" /> : (h.motivo ?? "")}
+              </FilaResumen>
+            ),
+          }))}
+        />
+
+        <TarjetaConLista
+          eyebrow="Turnos resueltos"
+          valor={resumen.turnosResueltos.length}
+          hrefCabecera="/panel/turnos?estado=resuelto"
+          labelCabecera="Ver turnos"
+          vacioMensaje="Todavía no hay turnos resueltos."
+          acento
+          icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          filas={resumen.turnosResueltos.map((t) => ({
+            key: t.id,
+            href: `/panel/turnos?estado=resuelto&turno=${t.id}`,
+            contenido: (
+              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(t.fecha))} hora={`${t.hora} a ${t.horaFin}`}>
+                {t.nombre}
+              </FilaResumen>
+            ),
+          }))}
+        />
+
+        {/* Última (corrección de QA, 2026-09-06: "la tarjeta de turnos
+            confirmados debe ser la última") — antes iba cuarta. */}
+        <TarjetaSimple
+          eyebrow="Turnos confirmados"
+          valor={resumen.totalConfirmados}
+          href="/panel/turnos?estado=agendado"
+          titulo="Ver turnos"
+          acento
+          icono={<IconoSello className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-arena" />}
+        />
+
+        {/* "Estadística" (corrección de QA, 2026-09-06: "crear una
+            tarjeta nueva al lado de turnos confirmados... turnos
+            asistidos en verde y turnos ausentados en rojo") — acumulado
+            histórico completo, no acotado a hoy/la semana. */}
+        <TarjetaEstadistica
+          eyebrow="Estadística"
+          asistieron={resumen.turnosAsistidos}
+          ausentes={resumen.turnosAusentes}
+          icono={<IconoEstadistica className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
         />
       </div>
     </div>
-  );
-}
-
-function ResumenCard({
-  href,
-  eyebrow,
-  titulo,
-  valor,
-  acento = false,
-}: {
-  href: string;
-  eyebrow: string;
-  titulo: string;
-  valor: number;
-  acento?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col gap-2 rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft transition-colors duration-300 hover:bg-arena"
-    >
-      <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">{eyebrow}</p>
-      <p className={`font-[family-name:var(--font-display)] text-6xl font-medium ${acento ? "text-salvia-oscuro" : "text-grafito"}`}>
-        {valor}
-      </p>
-      <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">{titulo} →</p>
-    </Link>
   );
 }

@@ -15,6 +15,7 @@ import {
   isSameDay,
   minutosDesdeMedianocheCordoba,
   navegar,
+  parseFechaISOLocal,
   rangoVisible,
   startOfDay,
   startOfMonth,
@@ -223,5 +224,23 @@ describe("horaISOLocal", () => {
   it("da HH:MM con cero-relleno, en la hora LOCAL (no UTC)", () => {
     expect(horaISOLocal(new Date(2026, 0, 1, 9, 5))).toBe("09:05");
     expect(horaISOLocal(new Date(2026, 0, 1, 23, 0))).toBe("23:00");
+  });
+});
+
+// F2.3 extra ítem 1 (docs/implementation-plan.md §11.5) — inverso de
+// fechaISOLocal, para reconstruir la fecha de un deep-link (?fecha=) sin
+// el bug de `new Date("YYYY-MM-DD")` (ISO-parsea como UTC medianoche,
+// corre un día para atrás en timezones negativos).
+describe("parseFechaISOLocal", () => {
+  it("da un Date cuyos getters locales devuelven el mismo Y/M/D pedido", () => {
+    const d = parseFechaISOLocal("2026-09-10");
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(8); // 0-indexado
+    expect(d.getDate()).toBe(10);
+  });
+
+  it("es el inverso exacto de fechaISOLocal", () => {
+    const original = new Date(2030, 5, 15);
+    expect(fechaISOLocal(parseFechaISOLocal(fechaISOLocal(original)))).toBe(fechaISOLocal(original));
   });
 });

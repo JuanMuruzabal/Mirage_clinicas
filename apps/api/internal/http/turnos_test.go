@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/testdb"
 )
@@ -506,7 +507,12 @@ func TestAgendarTurno_SolapamientoFallaControlado(t *testing.T) {
 	}
 }
 
-func TestResumenPanel_CuentaPendientesYConfirmados(t *testing.T) {
+// TestResumenPanel_NoCuentaPendientes — F2.3 extra ítem 1 (rediseño del
+// Turnero, docs/implementation-plan.md §11.5): el dashboard deja de tener
+// una tarjeta de "turnos pendientes" — este endpoint ya no los cuenta ni
+// los expone de ninguna forma, aunque el estado `pendiente` en sí sigue
+// existiendo en la base (eso lo saca recién el ítem 2.3.3/2.3.5).
+func TestResumenPanel_NoCuentaPendientes(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen1@example.com")
@@ -514,12 +520,12 @@ func TestResumenPanel_CuentaPendientesYConfirmados(t *testing.T) {
 	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
 	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
 
-	inicio := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	futuro := clock.Today().AddDate(0, 0, 2).Add(12 * time.Hour)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+		HoraInicio:     futuro.Format(time.RFC3339),
+		HoraFin:        futuro.Add(30 * time.Minute).Format(time.RFC3339),
 	})
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
@@ -528,11 +534,8 @@ func TestResumenPanel_CuentaPendientesYConfirmados(t *testing.T) {
 	}
 	var got resumenPanelResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.TurnosPendientes != 2 {
-		t.Errorf("TurnosPendientes = %d, esperaba 2", got.TurnosPendientes)
-	}
-	if got.TurnosConfirmados != 1 {
-		t.Errorf("TurnosConfirmados = %d, esperaba 1", got.TurnosConfirmados)
+	if got.TotalConfirmados != 1 {
+		t.Errorf("TotalConfirmados = %d, esperaba 1", got.TotalConfirmados)
 	}
 }
 
@@ -555,8 +558,230 @@ func TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados(t *testing.T) {
 	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
 	var got resumenPanelResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.TurnosConfirmados != 1 {
-		t.Errorf("TurnosConfirmados = %d, esperaba 1 (solo el futuro, no el resuelto)", got.TurnosConfirmados)
+	if got.TotalConfirmados != 1 {
+		t.Errorf("TotalConfirmados = %d, esperaba 1 (solo el futuro, no el resuelto)", got.TotalConfirmados)
+	}
+}
+
+// TestResumenPanel_TurnosHoyYProximos — F2.3 extra ítem 1: "turnos de
+// hoy" y "turnos próximos" son listas separadas y mutuamente excluyentes
+// (un turno de hoy nunca aparece en "próximos", ver el brief en
+// docs/fase2.3-extra-dental-mirage.md). `clock.Now().Add(1*time.Minute)`
+// (no una hora fija del día): garantiza que el turno todavía NO está
+// resuelto sea cual sea la hora real a la que corra el test — corrección
+// de QA posterior ("turnos de hoy no muestra turnos resueltos") excluye
+// los ya resueltos de esta lista, así que un horario fijo como "hoy a las
+// 10" sería flaky corriendo el test de tarde.
+func TestResumenPanel_TurnosHoyYProximos(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen3@example.com")
+
+	hoyTurno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, clock.Now().Add(1*time.Minute))
+	mananaTurno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, clock.Today().AddDate(0, 0, 1).Add(10*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosHoy) != 1 || got.TurnosHoy[0].ID != hoyTurno.ID.String() {
+		t.Errorf("TurnosHoy = %+v, esperaba solo el turno de hoy (%s)", got.TurnosHoy, hoyTurno.ID)
+	}
+	if got.TurnosHoy[0].Nombre != "P Q" {
+		t.Errorf("TurnosHoy[0].Nombre = %q, esperaba \"P Q\"", got.TurnosHoy[0].Nombre)
+	}
+	// horaFin (corrección de QA: "agregar de que hora a que hora") —
+	// crearTurnoAgendadoDePrueba arma un turno de 30 minutos.
+	horaFinEsperada := clock.In(*hoyTurno.HoraFin).Format("15:04")
+	if got.TurnosHoy[0].HoraFin != horaFinEsperada {
+		t.Errorf("TurnosHoy[0].HoraFin = %q, esperaba %q", got.TurnosHoy[0].HoraFin, horaFinEsperada)
+	}
+	if len(got.TurnosProximos) != 1 || got.TurnosProximos[0].ID != mananaTurno.ID.String() {
+		t.Errorf("TurnosProximos = %+v, esperaba solo el turno de mañana (%s)", got.TurnosProximos, mananaTurno.ID)
+	}
+}
+
+// TestResumenPanel_TurnosHoy_NoIncluyeResueltos — corrección de QA
+// (2026-09-06): "turnos de hoy no muestra turnos resueltos" — un turno de
+// hoy cuya hora de fin ya pasó vive únicamente en la tarjeta "Turnos
+// resueltos", no acá.
+func TestResumenPanel_TurnosHoy_NoIncluyeResueltos(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen3b@example.com")
+
+	crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-1*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosHoy) != 0 {
+		t.Errorf("TurnosHoy = %+v, esperaba vacío (el turno ya está resuelto)", got.TurnosHoy)
+	}
+}
+
+// TestResumenPanel_TurnosResueltos — un turno `agendado` cuya hora de fin
+// ya pasó, y todavía sin asistencia marcada, aparece en la lista.
+func TestResumenPanel_TurnosResueltos(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen4@example.com")
+
+	resuelto := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-3*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosResueltos) != 1 || got.TurnosResueltos[0].ID != resuelto.ID.String() {
+		t.Errorf("TurnosResueltos = %+v, esperaba solo el turno resuelto (%s)", got.TurnosResueltos, resuelto.ID)
+	}
+}
+
+// TestResumenPanel_TurnosResueltos_NoIncluyeYaMarcados — corrección de QA
+// (2026-09-06): "una vez que esté marcado como asistido y ausente debe
+// dejar de aparecer en la tarjeta" — esta lista es "todavía falta
+// marcar", no el historial completo de resueltos.
+func TestResumenPanel_TurnosResueltos_NoIncluyeYaMarcados(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen4b@example.com")
+
+	yaMarcado := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-3*time.Hour))
+	asistio := "asistio"
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", yaMarcado.ID).Update("asistencia", &asistio).Error; err != nil {
+		t.Fatalf("no se pudo marcar la asistencia de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosResueltos) != 0 {
+		t.Errorf("TurnosResueltos = %+v, esperaba vacío (el turno ya tiene asistencia marcada)", got.TurnosResueltos)
+	}
+	if got.TurnosAsistidos != 1 {
+		t.Errorf("TurnosAsistidos = %d, esperaba 1", got.TurnosAsistidos)
+	}
+}
+
+// TestResumenPanel_Estadistica — tarjeta "Estadística" (F2.3 extra ítem
+// 1, corrección de QA 2026-09-06): cuenta el total histórico de
+// asistidos/ausentes, sin acotar por fecha.
+func TestResumenPanel_Estadistica(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen6@example.com")
+
+	asistio1 := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-3*time.Hour))
+	asistio2 := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-96*time.Hour))
+	ausente := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-5*time.Hour))
+
+	valorAsistio, valorAusente := "asistio", "ausente"
+	for _, m := range []struct {
+		id    string
+		valor *string
+	}{
+		{asistio1.ID.String(), &valorAsistio},
+		{asistio2.ID.String(), &valorAsistio},
+		{ausente.ID.String(), &valorAusente},
+	} {
+		if err := gdb.Model(&db.Turno{}).Where("id = ?", m.id).Update("asistencia", m.valor).Error; err != nil {
+			t.Fatalf("no se pudo marcar la asistencia de prueba: %v", err)
+		}
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if got.TurnosAsistidos != 2 {
+		t.Errorf("TurnosAsistidos = %d, esperaba 2", got.TurnosAsistidos)
+	}
+	if got.TurnosAusentes != 1 {
+		t.Errorf("TurnosAusentes = %d, esperaba 1", got.TurnosAusentes)
+	}
+}
+
+// TestResumenPanel_HorariosReservados — específico y general aparecen los
+// dos, cada uno con una fecha concreta (la propia en el específico, la
+// próxima ocurrencia del día de semana en el general — no hay una sola
+// fecha real en la base para una regla que se repite).
+func TestResumenPanel_HorariosReservados(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "resumen5@example.com")
+	clinicID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+
+	fechaEspecifica := clock.Today().AddDate(0, 0, 3)
+	motivo := "Limpieza"
+	especifico := db.BloqueoHorario{
+		ClinicID:   clinicID,
+		Especifico: true,
+		Fecha:      &fechaEspecifica,
+		HoraDesde:  "08:00",
+		HoraHasta:  "09:00",
+		TipoRegla:  "bloquear_horario",
+		Motivo:     &motivo,
+	}
+	if err := gdb.Create(&especifico).Error; err != nil {
+		t.Fatalf("no se pudo crear el bloqueo específico de prueba: %v", err)
+	}
+
+	// General: hoy + 30 días de ventana, un día de semana fijo — sea cual
+	// sea "hoy" al correr el test, la próxima ocurrencia cae dentro de esa
+	// ventana (a lo sumo 6 días después).
+	fechaDesde := clock.Today()
+	fechaHasta := clock.Today().AddDate(0, 0, 30)
+	diaSemana := 3
+	alcance := "mes"
+	general := db.BloqueoHorario{
+		ClinicID:   clinicID,
+		Especifico: false,
+		Alcance:    &alcance,
+		DiaSemana:  &diaSemana,
+		FechaDesde: &fechaDesde,
+		FechaHasta: &fechaHasta,
+		HoraDesde:  "07:00",
+		HoraHasta:  "08:00",
+		TipoRegla:  "bloquear_horario",
+	}
+	if err := gdb.Create(&general).Error; err != nil {
+		t.Fatalf("no se pudo crear el bloqueo general de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.HorariosReservados) != 2 {
+		t.Fatalf("HorariosReservados = %+v, esperaba 2", got.HorariosReservados)
+	}
+	var vistoEspecifico, vistoGeneral bool
+	for _, h := range got.HorariosReservados {
+		if h.ID == especifico.ID.String() {
+			vistoEspecifico = true
+			if h.Fecha != fechaEspecifica.Format("2006-01-02") {
+				t.Errorf("fecha del específico = %q, esperaba %q", h.Fecha, fechaEspecifica.Format("2006-01-02"))
+			}
+		}
+		if h.ID == general.ID.String() {
+			vistoGeneral = true
+			fechaCalculada, err := time.Parse("2006-01-02", h.Fecha)
+			if err != nil {
+				t.Fatalf("fecha del general no parseable: %v", err)
+			}
+			if int(fechaCalculada.Weekday()) != diaSemana {
+				t.Errorf("día de semana calculado = %d, esperaba %d", int(fechaCalculada.Weekday()), diaSemana)
+			}
+		}
+	}
+	if !vistoEspecifico || !vistoGeneral {
+		t.Errorf("esperaba ver tanto el bloqueo específico como el general, vistoEspecifico=%v vistoGeneral=%v", vistoEspecifico, vistoGeneral)
 	}
 }
 

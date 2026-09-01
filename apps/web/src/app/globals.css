@@ -311,6 +311,78 @@ body {
   border-radius: 9999px;
 }
 
+/* `.panel-card-scroll` — mismo criterio que `.panel-table-scroll` de
+   arriba (scrollbar fina, color arena, track transparente), separada en
+   su propia clase porque semánticamente es para el cuerpo scrolleable de
+   una tarjeta (F2.3 extra ítem 1, docs/implementation-plan.md §11.5:
+   "si el cuerpo de tarjeta tiene [scroll], hacer esta discreta"), no una
+   tabla de gestión. */
+.panel-card-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-arena) transparent;
+}
+
+.panel-card-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-card-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-card-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-arena);
+  border-radius: 9999px;
+}
+
+/* `.panel-card-vidrio` — cuerpo "medio transparente" de una tarjeta del
+   Turnero (F2.3 extra ítem 1, corrección de QA 2026-09-06: "no se ve la
+   transparencia... se sigue viendo de color cascarón", "la transparencia
+   debe ser más opaca, es decir que los objetos de fondo tengan más
+   blur"). `backdrop-filter: blur` en el propio elemento no alcanzaba acá:
+   depende de que TODOS los ancestros hasta la textura real de la página
+   (`.panel-texture`, aplicada varios niveles arriba en PanelShell) no
+   creen su propio contexto de apilamiento ni pinten nada opaco de por
+   medio — fràgil, y en la práctica el cuerpo terminaba viéndose como un
+   color plano sin ningún desenfoque real detrás.
+
+   Solución robusta: la tarjeta pinta y desenfoca SU PROPIA copia de la
+   misma textura (`soft-cross.svg`, la de `.panel-texture`) en un
+   pseudo-elemento detrás del contenido, en vez de depender de lo que
+   haya de verdad detrás en la página. `::before` con `inset` negativo
+   (se extiende más allá del propio borde) para que el `blur` no deje un
+   borde nítido/viñeta visible en los bordes de la tarjeta; `overflow:
+   hidden` en el contenedor recorta ese excedente. El contenido real va
+   en un `position: relative` propio (`z-index: 1`) para quedar arriba
+   del pseudo-elemento (`z-index: 0`), nítido. */
+.panel-card-vidrio {
+  position: relative;
+  /* Solo X: el cuerpo de la tarjeta también necesita overflow-y: auto
+     (scroll vertical, aplicado como utility de Tailwind junto a esta
+     clase) — el desborde vertical del `inset` negativo de abajo ya queda
+     contenido por ESE overflow-y, sin pisarlo acá con el shorthand. */
+  overflow-x: hidden;
+}
+
+.panel-card-vidrio::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  background-color: var(--color-hueso);
+  background-image: url("/textures/soft-cross.svg");
+  background-repeat: repeat;
+  /* blur(3px) — bajado de 7px (corrección de QA, 2026-09-06: "quitale más
+     intensidad al blur"), sigue siendo un desenfoque real y visible, sin
+     emborronar la textura hasta perderla del todo. */
+  filter: blur(3px);
+  z-index: 0;
+}
+
+.panel-card-vidrio > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* `.panel-th-sticky` — bug reportado 2026-08-28 (Safari de iOS): "cuando
    hago scroll hacia arriba más allá del tope... y se dispara el rebote
    elástico, la fila de encabezado se despega y baja varios cientos de
