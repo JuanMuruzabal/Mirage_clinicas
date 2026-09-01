@@ -358,6 +358,22 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                         <QuadrantMark estado={t.estado} />
                         {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
                       </span>
+                      {/* Corrección de QA (2026-09-06): "abajo del estado
+                          asistido... poner lo que el profesional marcó" —
+                          antes solo se veía al desplegar la fila
+                          (renderAcciones, más abajo). `!expandido`: al
+                          desplegar, esa misma marca ya aparece ahí con más
+                          contexto ("No se puede modificar.") — evita
+                          mostrarla duplicada en las dos filas a la vez. */}
+                      {resuelto && t.asistencia && !expandido && (
+                        <span
+                          className={`mt-1 block rounded-full px-2 py-0.5 text-center text-[10px] font-semibold ${
+                            t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
+                          }`}
+                        >
+                          {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
+                        </span>
+                      )}
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
                     <td className="px-4 py-3 text-right">

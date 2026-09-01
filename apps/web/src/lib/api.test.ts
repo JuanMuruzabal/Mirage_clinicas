@@ -226,16 +226,25 @@ describe("lib/api", () => {
   });
 
   it("apiResumenPanel manda el Authorization header", async () => {
+    const cuerpo = {
+      turnosHoy: [],
+      turnosProximos: [],
+      horariosReservados: [],
+      totalConfirmados: 2,
+      turnosResueltos: [],
+      turnosAsistidos: 0,
+      turnosAusentes: 0,
+    };
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ turnosPendientes: 1, turnosConfirmados: 2 }),
+      json: async () => cuerpo,
     } as Response);
     vi.stubGlobal("fetch", fetchSpy);
 
     const result = await apiResumenPanel("un-token");
 
-    expect(result).toEqual({ ok: true, data: { turnosPendientes: 1, turnosConfirmados: 2 } });
+    expect(result).toEqual({ ok: true, data: cuerpo });
     const [url] = fetchSpy.mock.calls[0];
     expect(url).toContain("/panel/resumen");
   });

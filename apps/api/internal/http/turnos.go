@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -673,19 +674,55 @@ func isExclusionViolation(err error) bool {
 	return strings.Contains(err.Error(), "23P01") || strings.Contains(err.Error(), "exclusion")
 }
 
-type resumenPanelResponse struct {
-	TurnosPendientes  int64 `json:"turnosPendientes"`
-	TurnosConfirmados int64 `json:"turnosConfirmados"`
+// resumenListLimit acota las 3 listas del dashboard (turnos próximos,
+// resueltos, horarios reservados) — es un preview, no un listado
+// completo; la lista entera sigue disponible en Turnos/Configuración de
+// calendario vía el link de cabecera de cada tarjeta.
+const resumenListLimit = 20
+
+type resumenTurnoItem struct {
+	ID      string `json:"id"`
+	Fecha   string `json:"fecha"`   // YYYY-MM-DD, Córdoba
+	Hora    string `json:"hora"`    // HH:MM, Córdoba
+	HoraFin string `json:"horaFin"` // HH:MM, Córdoba — corrección de QA: "agregar de que hora a que hora porque solo dice la hora de inicio"
+	Nombre  string `json:"nombre"`
 }
 
-// resumenPanelHandler — GET /panel/resumen (T2.2, dashboard General):
-// conteo de turnos pendientes/confirmados para las dos tarjetas
-// clickeables del dashboard. "Confirmados" cuenta solo los turnos
-// `agendado` que todavía no pasaron (pedido explícito del cliente,
-// 2026-08-23: la tarjeta pasa a leerse como "Turnos próximos") — un turno
-// ya resuelto no es lo que un profesional espera ver como "lo que viene",
-// mismo criterio que separa la pestaña "Resueltos" en la vista Turnos
-// (GET /turnos?resuelto=).
+type resumenHorarioReservadoItem struct {
+	ID        string  `json:"id"`
+	Fecha     string  `json:"fecha"` // fecha real (específico) o próxima ocurrencia (general) — siempre una fecha concreta para poder linkear a una semana real del calendario
+	HoraDesde string  `json:"horaDesde"`
+	HoraHasta string  `json:"horaHasta"`
+	Motivo    *string `json:"motivo"`
+}
+
+// resumenPanelResponse — F2.3 extra, ítem 1 (rediseño del "Turnero"):
+// reemplaza los 2 contadores viejos (pendientes/confirmados) por los
+// datos de las 5 tarjetas nuevas. "Turnos pendientes" deja de tener
+// tarjeta propia acá (el brief saca ese concepto del dashboard) — el
+// estado `pendiente` en sí sigue existiendo en la base hasta el ítem
+// F2.3 extra 2.3.3/2.3.5 (docs/implementation-plan.md §11.5), esto solo
+// deja de contarlo en ESTE endpoint puntual.
+type resumenPanelResponse struct {
+	TurnosHoy          []resumenTurnoItem            `json:"turnosHoy"`
+	TurnosProximos     []resumenTurnoItem            `json:"turnosProximos"`
+	HorariosReservados []resumenHorarioReservadoItem `json:"horariosReservados"`
+	TotalConfirmados   int64                          `json:"totalConfirmados"`
+	TurnosResueltos    []resumenTurnoItem            `json:"turnosResueltos"`
+	// TurnosAsistidos/TurnosAusentes (F2.3 extra ítem 1, corrección de QA
+	// 2026-09-06 — nueva tarjeta "Estadística" al lado de "Turnos
+	// confirmados") — total histórico marcado, sin acotar por fecha (a
+	// diferencia de las listas de arriba, que son un preview acotado):
+	// "estadística" es un acumulado, no un pendiente por revisar.
+	TurnosAsistidos int64 `json:"turnosAsistidos"`
+	TurnosAusentes  int64 `json:"turnosAusentes"`
+}
+
+// resumenPanelHandler — GET /panel/resumen (T2.2, dashboard General; F2.3
+// extra ítem 1 lo reescribe de punta a punta). "Confirmados" sigue
+// contando solo los turnos `agendado` que todavía no pasaron (pedido
+// explícito del cliente, 2026-08-23) — mismo criterio que antes, ahora
+// bajo el nombre `totalConfirmados`.
 func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -693,20 +730,161 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		var pendientes, confirmados int64
-		if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND estado = ?", profesionalID, "pendiente").Count(&pendientes).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
-			return
-		}
-		if err := gdb.Model(&db.Turno{}).
-			Where("profesional_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", clock.Now()).
-			Count(&confirmados).Error; err != nil {
+		hoy := clock.Today()
+		mañana := hoy.Add(24 * time.Hour)
+		ahora := clock.Now()
+
+		// Corrección de QA: "turnos de hoy no muestra turnos resueltos" —
+		// un turno de hoy cuya hora de fin ya pasó vive en la tarjeta
+		// "Turnos resueltos", no acá (mismo criterio que separa esas dos
+		// pestañas en /panel/turnos).
+		var turnosHoyDB []db.Turno
+		if err := gdb.Where(
+			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
+			profesionalID, "agendado", hoy, mañana, ahora,
+		).
+			Order("hora_inicio").
+			Find(&turnosHoyDB).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, resumenPanelResponse{TurnosPendientes: pendientes, TurnosConfirmados: confirmados})
+		var turnosProximosDB []db.Turno
+		if err := gdb.Where("profesional_id = ? AND estado = ? AND hora_inicio >= ?", profesionalID, "agendado", mañana).
+			Order("hora_inicio").
+			Limit(resumenListLimit).
+			Find(&turnosProximosDB).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+
+		var totalConfirmados int64
+		if err := gdb.Model(&db.Turno{}).
+			Where("profesional_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", ahora).
+			Count(&totalConfirmados).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+
+		// Corrección de QA: "una vez marcado como asistido/ausente debe
+		// dejar de aparecer en la tarjeta" — esta lista es una bandeja de
+		// "todavía falta marcar", no un historial completo (ese sigue
+		// siendo la pestaña "Resueltos" de /panel/turnos, sin este filtro).
+		var turnosResueltosDB []db.Turno
+		if err := gdb.Where(
+			"profesional_id = ? AND estado = ? AND hora_fin < ? AND asistencia IS NULL",
+			profesionalID, "agendado", ahora,
+		).
+			Order("hora_fin DESC").
+			Limit(resumenListLimit).
+			Find(&turnosResueltosDB).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+
+		// Horarios reservados vigentes: específicos que no pasaron todavía
+		// (a nivel de día calendario, sin precisión de hora — es un preview
+		// del dashboard, no la fuente de verdad de disponibilidad) y
+		// generales cuya ventana (fecha_hasta) no venció.
+		var bloqueos []db.BloqueoHorario
+		if err := gdb.Where(
+			"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
+			profesionalID, hoy, hoy,
+		).Find(&bloqueos).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+
+		// Tarjeta "Estadística" (F2.3 extra ítem 1, corrección de QA): total
+		// histórico de turnos marcados asistió/ausente, sin acotar por
+		// fecha — a diferencia de las listas de arriba, acá interesa el
+		// acumulado completo, no un pendiente por revisar.
+		var turnosAsistidos, turnosAusentes int64
+		if err := gdb.Model(&db.Turno{}).
+			Where("profesional_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "asistio").
+			Count(&turnosAsistidos).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+		if err := gdb.Model(&db.Turno{}).
+			Where("profesional_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "ausente").
+			Count(&turnosAusentes).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, resumenPanelResponse{
+			TurnosHoy:          toResumenTurnoItems(turnosHoyDB),
+			TurnosProximos:     toResumenTurnoItems(turnosProximosDB),
+			HorariosReservados: toResumenHorarioItems(bloqueos, hoy),
+			TotalConfirmados:   totalConfirmados,
+			TurnosResueltos:    toResumenTurnoItems(turnosResueltosDB),
+			TurnosAsistidos:    turnosAsistidos,
+			TurnosAusentes:     turnosAusentes,
+		})
 	}
+}
+
+func toResumenTurnoItems(turnos []db.Turno) []resumenTurnoItem {
+	out := make([]resumenTurnoItem, len(turnos))
+	for i, t := range turnos {
+		var fecha, hora, horaFin string
+		if t.HoraInicio != nil {
+			local := clock.In(*t.HoraInicio)
+			fecha = local.Format("2006-01-02")
+			hora = local.Format("15:04")
+		}
+		if t.HoraFin != nil {
+			horaFin = clock.In(*t.HoraFin).Format("15:04")
+		}
+		out[i] = resumenTurnoItem{
+			ID:      t.ID.String(),
+			Fecha:   fecha,
+			Hora:    hora,
+			HoraFin: horaFin,
+			Nombre:  strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+		}
+	}
+	return out
+}
+
+// toResumenHorarioItems arma las filas de la tarjeta "Horarios
+// reservados" y las ordena por fecha — una regla GENERAL no tiene una
+// única fecha en la base (se repite por día de semana), así que se le
+// calcula la próxima ocurrencia desde hoy: sin eso, la tarjeta no tendría
+// a qué semana real del calendario llevar al tocarla.
+func toResumenHorarioItems(bloqueos []db.BloqueoHorario, hoy time.Time) []resumenHorarioReservadoItem {
+	items := make([]resumenHorarioReservadoItem, 0, len(bloqueos))
+	for _, b := range bloqueos {
+		var fecha time.Time
+		switch {
+		case b.Especifico && b.Fecha != nil:
+			fecha = *b.Fecha
+		case !b.Especifico && b.DiaSemana != nil:
+			fecha = proximaFechaDeDiaSemana(hoy, *b.DiaSemana)
+		default:
+			continue // dato inconsistente (chk_bloqueo_horario_forma ya lo evita) — se salta por las dudas
+		}
+		items = append(items, resumenHorarioReservadoItem{
+			ID:        b.ID.String(),
+			Fecha:     fecha.Format("2006-01-02"),
+			HoraDesde: b.HoraDesde,
+			HoraHasta: b.HoraHasta,
+			Motivo:    b.Motivo,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Fecha < items[j].Fecha })
+	if len(items) > resumenListLimit {
+		items = items[:resumenListLimit]
+	}
+	return items
+}
+
+// proximaFechaDeDiaSemana — próxima fecha, hoy inclusive, que cae en
+// diaSemana (0=domingo…6=sábado, mismo criterio que time.Weekday).
+func proximaFechaDeDiaSemana(hoy time.Time, diaSemana int) time.Time {
+	delta := (diaSemana - int(hoy.Weekday()) + 7) % 7
+	return hoy.AddDate(0, 0, delta)
 }
 
 // profesionalIDFromRequest resuelve el ID de clínica del caller — helper

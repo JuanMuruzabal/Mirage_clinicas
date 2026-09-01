@@ -308,6 +308,27 @@ describe("TurnosTable", () => {
       expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
     });
 
+    // Corrección de QA (2026-09-06): "abajo del estado asistido... poner
+    // lo que el profesional marcó" — visible en la columna de estado SIN
+    // desplegar la fila.
+    it("un turno ya marcado muestra la marca junto al estado sin desplegar la fila", () => {
+      const yaMarcado = { ...resuelto, asistencia: "ausente" as const };
+      render(<TurnosTable turnosIniciales={[yaMarcado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      expect(screen.getByText("Resuelto")).toBeInTheDocument();
+      expect(screen.getByText("Ausente")).toBeInTheDocument();
+    });
+
+    it("al desplegar la fila, la marca de la columna de estado no se duplica con la de las acciones", async () => {
+      const user = userEvent.setup();
+      const yaMarcado = { ...resuelto, asistencia: "asistio" as const };
+      render(<TurnosTable turnosIniciales={[yaMarcado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      expect(screen.getByText("Asistió")).toBeInTheDocument();
+      await desplegarFila(user, "Julián Ortiz");
+      expect(screen.getAllByText("Asistió")).toHaveLength(1);
+    });
+
     it("muestra el error si falla al confirmar la asistencia", async () => {
       const user = userEvent.setup();
       marcarAsistenciaActionMock.mockResolvedValue({ error: "no se pudo guardar la asistencia" });

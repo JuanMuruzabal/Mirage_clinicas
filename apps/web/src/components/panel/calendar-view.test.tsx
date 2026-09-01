@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const {
@@ -61,6 +61,81 @@ describe("CalendarView", () => {
   it("arranca en vista día (Hoy) — pedido explícito del cliente", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
     expect(screen.getByRole("button", { name: "dia" })).toHaveClass("bg-salvia-oscuro");
+  });
+
+  // F2.3 extra ítem 1 (docs/implementation-plan.md §11.5) — deep-link
+  // desde una fila de tarjeta del dashboard "Turnero". String, no un Date
+  // ya armado (bug real de QA, 2026-09-06: un Date cruzando de Server a
+  // Client Component se reconstruye por su INSTANTE, no por sus dígitos
+  // de calendario locales — ver el comentario grande en calendar-view.tsx).
+  it("fechaInicialStr ancla la vista inicial a esa fecha, no a hoy", () => {
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2030-06-15" />);
+    // formatDiaLargo da algo como "Sábado 15 de junio de 2030" — alcanza
+    // con el año/día para confirmar que no ancló en "hoy".
+    expect(screen.getByText(/15 de junio de 2030/i)).toBeInTheDocument();
+  });
+
+  it("turnoAFocalizarId abre el detalle de ese turno apenas se monta, sin ningún click", () => {
+    const turno = {
+      id: "t-1",
+      estado: "agendado" as const,
+      origen: "manual" as const,
+      tipoConsultaId: "tc-1",
+      horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(),
+      horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+      nombreContacto: "María",
+      apellidoContacto: "Games",
+      dniContacto: "1",
+      telefonoContacto: "1",
+      emailContacto: "",
+      motivo: "",
+      createdAt: new Date().toISOString(),
+    };
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[turno]} turnoAFocalizarId="t-1" />);
+
+    // El grid también pinta un bloque con el nombre del turno — el
+    // nombre aparece dos veces en la página (grid + modal), por eso la
+    // aserción se scopea al modal en vez de screen.getByText a secas.
+    const dialogo = screen.getByRole("dialog", { name: "Detalle del turno" });
+    expect(within(dialogo).getByText("María Games")).toBeInTheDocument();
+  });
+
+  it("turnoAFocalizarId que no matchea ningún turno cargado no abre nada", () => {
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} turnoAFocalizarId="no-existe" />);
+    expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
+  });
+
+  // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // §11.5) — corrección de QA: "en la tarjeta de horarios reservados,
+  // cuando dé click a un elemento del cuerpo, también llevarme a la
+  // tarjeta de ese elemento... es lo mismo que sucede si le doy click a
+  // la tarjeta en el calendario".
+  it("bloqueoAFocalizarId abre el 'Ver eventos' de ese horario reservado apenas cargan los bloqueos", async () => {
+    const especifico = {
+      id: "b-1",
+      especifico: true as const,
+      fecha: "2026-09-01",
+      horaDesde: "08:00",
+      horaHasta: "09:00",
+      tipoRegla: "bloquear_horario",
+    };
+    listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [especifico] : []));
+
+    render(
+      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2026-09-01" bloqueoAFocalizarId="b-1" />,
+    );
+
+    expect(await screen.findByRole("dialog", { name: "Horario bloqueado" })).toBeInTheDocument();
+  });
+
+  it("bloqueoAFocalizarId que no matchea ningún bloqueo cargado no abre nada", async () => {
+    listBloqueosActionMock.mockResolvedValue([]);
+    render(
+      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2026-09-01" bloqueoAFocalizarId="no-existe" />,
+    );
+
+    await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {

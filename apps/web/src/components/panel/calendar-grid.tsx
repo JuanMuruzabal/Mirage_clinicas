@@ -118,7 +118,7 @@ function turnoResuelto(t: Turno): boolean {
 // Un cluster de un solo TURNO sin ninguna regla no genera ningún
 // SegmentoBloqueo — ese turno se sigue dibujando en el loop de turnos de
 // siempre, sin ningún cambio (ver turnosEnConflictoIds más abajo).
-interface SegmentoBloqueo {
+export interface SegmentoBloqueo {
   id: string;
   reglas: BloqueoHorario[];
   turnos: Turno[];
@@ -201,7 +201,12 @@ function agruparEnClusters(items: ItemSolapable[]): ItemSolapable[][] {
 // disponibilidad real para reservar (ver disponibilidad.go) no depende de
 // nada de esto — ahí todas las reglas simplemente se unen, sin ninguna
 // prioridad (TR-086/087 en docs/tradeoffs.md).
-function segmentosParaVisualizar(
+// Exportada (F2.3 extra ítem 1, docs/implementation-plan.md §11.5): el
+// deep-link "Ver eventos" de una fila de la tarjeta "Horarios reservados"
+// del dashboard (calendar-view.tsx, bloqueoAFocalizarId) necesita
+// resolver a qué cluster pertenece un bloqueo puntual — mismo cálculo que
+// usa el click real sobre el grid, no una versión aparte.
+export function segmentosParaVisualizar(
   dia: Date,
   generales: BloqueoHorario[],
   especificas: BloqueoHorario[],

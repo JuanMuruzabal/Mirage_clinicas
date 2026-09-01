@@ -280,9 +280,38 @@ export interface Turno {
   asistencia?: "asistio" | "ausente" | null;
 }
 
+export interface ResumenTurnoItem {
+  id: string;
+  fecha: string; // YYYY-MM-DD, Córdoba
+  hora: string; // HH:MM, Córdoba
+  horaFin: string; // HH:MM, Córdoba
+  nombre: string;
+}
+
+export interface ResumenHorarioReservadoItem {
+  id: string;
+  // Fecha real (específico) o próxima ocurrencia del día de semana
+  // (general, que en la base no tiene una única fecha) — siempre
+  // concreta, para poder linkear a una semana real del calendario.
+  fecha: string;
+  horaDesde: string;
+  horaHasta: string;
+  motivo: string | null;
+}
+
+// ResumenPanel (F2.3 extra, ítem 1 — rediseño del "Turnero",
+// docs/implementation-plan.md §11.5): reemplaza los 2 contadores viejos
+// (pendientes/confirmados) por los datos de las 5 tarjetas nuevas.
 export interface ResumenPanel {
-  turnosPendientes: number;
-  turnosConfirmados: number;
+  turnosHoy: ResumenTurnoItem[];
+  turnosProximos: ResumenTurnoItem[];
+  horariosReservados: ResumenHorarioReservadoItem[];
+  totalConfirmados: number;
+  turnosResueltos: ResumenTurnoItem[];
+  // Tarjeta "Estadística" (corrección de QA, 2026-09-06) — total
+  // histórico, sin acotar por fecha.
+  turnosAsistidos: number;
+  turnosAusentes: number;
 }
 
 // --- Sprint 3: turnos entrantes + pacientes + formulario público ---

@@ -14,9 +14,10 @@ import {
   isSameDay,
   startOfDay,
   hoyEnCordoba,
+  parseFechaISOLocal,
   type VistaCalendario,
 } from "@/lib/calendar-utils";
-import { CalendarGrid, GUTTER_PX, COL_PX } from "./calendar-grid";
+import { CalendarGrid, GUTTER_PX, COL_PX, segmentosParaVisualizar } from "./calendar-grid";
 import { CalendarMonthGrid } from "./calendar-month-grid";
 import { AgregarTurnoModal } from "./agregar-turno-modal";
 import { TurnoDetalle } from "./turno-detalle";
@@ -32,6 +33,36 @@ interface CalendarViewProps {
   // (pedido explícito del cliente, 2026-08-27) — sin esto, "Hoy" (día)
   // sigue siendo el default de siempre (2026-08-23).
   vistaInicial?: VistaCalendario;
+  // fechaInicialStr/turnoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // §11.5) — deep-link desde una fila de tarjeta del dashboard "Turnero":
+  // fechaInicialStr ancla la semana/día que se ve al entrar a la fecha
+  // REAL del turno en vez de siempre "hoy"/la semana actual;
+  // turnoAFocalizarId abre el detalle de ese turno apenas están cargados
+  // los datos.
+  //
+  // STRING ("YYYY-MM-DD"), no un Date ya armado (bug real de QA,
+  // 2026-09-06: "toco un turno de hoy... en el calendario me está
+  // ubicando... del día 31 no hoy 1") — un Date es un INSTANTE (un
+  // timestamp), y al cruzar de Server a Client Component, React lo
+  // serializa/reconstruye por ese instante exacto, no por sus dígitos de
+  // calendario locales. `calendario/page.tsx` (servidor, en el
+  // contenedor, típicamente UTC) arma `new Date(2026, 8, 1)` — medianoche
+  // LOCAL AL CONTENEDOR, ej. "2026-09-01T00:00:00Z" si el contenedor está
+  // en UTC. Ese mismo instante, leído del lado del CLIENTE con getters
+  // locales (`getDate()`, lo que hace `fecha` de acá abajo) en un
+  // navegador con timezone negativo (Argentina, UTC-3) da "31 de agosto,
+  // 21:00" — un día entero para atrás. Pasando el string y parseándolo
+  // ACÁ, con `parseFechaISOLocal` (mismo constructor local en el mismo
+  // proceso que lo lee), el resultado es siempre el mismo sea cual sea el
+  // timezone del contenedor o del navegador de quien mira la pantalla.
+  fechaInicialStr?: string;
+  turnoAFocalizarId?: string;
+  // bloqueoAFocalizarId (F2.3 extra ítem 1) — deep-link desde una fila de
+  // la tarjeta "Horarios reservados" del dashboard: abre el mismo "Ver
+  // eventos" que tocar ese bloqueo en el grid — el cluster de
+  // solapamiento entero al que pertenezca, si corresponde, no solo ese
+  // bloqueo puntual aislado.
+  bloqueoAFocalizarId?: string;
 }
 
 // T2.3: toolbar prev/next/Hoy + toggle Mes/Semana/Día + contenedor de
@@ -40,7 +71,14 @@ interface CalendarViewProps {
 // error controlado de solapamiento ya vienen resueltos por las Server
 // Actions (app/actions/turnos.ts) — este componente solo muestra el error
 // que le devuelvan.
-export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: CalendarViewProps) {
+export function CalendarView({
+  tiposConsulta,
+  turnosIniciales,
+  vistaInicial,
+  fechaInicialStr,
+  turnoAFocalizarId,
+  bloqueoAFocalizarId,
+}: CalendarViewProps) {
   // Vista inicial "Hoy" (día) por default — pedido explícito del cliente
   // (2026-08-23): lo primero que se ve al entrar al calendario es el día
   // de hoy, no la semana. `vistaInicial` (2026-08-27) permite arrancar
@@ -55,7 +93,7 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   // cada uno si sus timezones ambiente no coinciden (el container corre
   // en UTC; el navegador de cada visitante, en la suya) — mismatch de
   // hidratación, "sáb 29" (server) vs "dom 30" (cliente).
-  const [fecha, setFecha] = useState(() => hoyEnCordoba());
+  const [fecha, setFecha] = useState(() => (fechaInicialStr ? parseFechaISOLocal(fechaInicialStr) : hoyEnCordoba()));
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
   const [cargando, setCargando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -67,7 +105,16 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   // (cargarConfigCalendario, más abajo) para que se vea en el grid al
   // toque, sin esperar a abrir/cerrar Configuración de calendario.
   const [reservarHorarioAbierto, setReservarHorarioAbierto] = useState(false);
-  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null);
+  // turnoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // §11.5): en vez de un useEffect que llame a setTurnoSeleccionado al
+  // montar (react-hooks/set-state-in-effect: "avoid calling setState
+  // directly within an effect"), se resuelve una sola vez acá mismo, en
+  // el inicializador perezoso — turnosIniciales ya viene con el turno
+  // adentro (calendario/page.tsx resuelve el rango a partir de la fecha
+  // real del turno), no hace falta esperar ningún fetch de cliente.
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(() =>
+    turnoAFocalizarId ? (turnosIniciales.find((t) => t.id === turnoAFocalizarId) ?? null) : null,
+  );
   // Botón de tuerca junto al título (F2.3, pedido explícito del cliente):
   // se despliega un menú de un solo ítem ("Configuración de calendario")
   // antes de abrir el modal — mismo patrón que HeaderConfigMenu
@@ -105,14 +152,50 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   // abierto desde el grid normal (sin conflicto) lo deja vacío.
   const [turnosEnConflictoSeleccionados, setTurnosEnConflictoSeleccionados] = useState<Turno[]>([]);
   const [reglasEnConflictoDelTurno, setReglasEnConflictoDelTurno] = useState<BloqueoHorario[]>([]);
+  // focoBloqueoInicialHecho — guarda de una sola vez para resolver
+  // bloqueoAFocalizarId (F2.3 extra ítem 1) apenas cargan los bloqueos por
+  // primera vez; evita reabrir el modal cada vez que cargarConfigCalendario
+  // se vuelve a llamar (ej. al cerrar Configuración de calendario).
+  const focoBloqueoInicialHecho = useRef(false);
 
   function cargarConfigCalendario() {
-    listBloqueosAction(false).then(setBloqueosGenerales);
-    listBloqueosAction(true).then(setBloqueosEspecificas);
+    Promise.all([listBloqueosAction(false), listBloqueosAction(true)]).then(([generales, especificas]) => {
+      setBloqueosGenerales(generales);
+      setBloqueosEspecificas(especificas);
+      // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+      // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
+      // Horarios reservados], también llevarme a la tarjeta de ese
+      // elemento... si forma parte de un solapamiento, también abrirme
+      // esa tarjeta" — mismo cálculo de clusters que usa el click real
+      // sobre el grid (segmentosParaVisualizar), no una versión aparte;
+      // dentro del .then() (no synchronous en el cuerpo del efecto que lo
+      // dispara) porque depende de que generales/especificas ya hayan
+      // llegado del servidor.
+      if (bloqueoAFocalizarId && !focoBloqueoInicialHecho.current) {
+        focoBloqueoInicialHecho.current = true;
+        const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha));
+        const segmento = segmentosParaVisualizar(fecha, generales, especificas, turnosDelDia).find((s) =>
+          s.reglas.some((r) => r.id === bloqueoAFocalizarId),
+        );
+        if (segmento) {
+          setReglasSeleccionadas(segmento.reglas);
+          setTurnosEnConflictoSeleccionados(segmento.turnos);
+        }
+      }
+    });
   }
 
+  // Deliberadamente solo al montar: `cargarConfigCalendario` cierra sobre
+  // `bloqueoAFocalizarId`/`turnos`/`fecha` para la resolución del deep-link
+  // (más arriba), pero esa resolución solo debe intentarse UNA VEZ, con
+  // los valores iniciales — la propia guarda `focoBloqueoInicialHecho` ya
+  // impide que se repita después, así que agregar esas variables acá
+  // dispararía el efecto de nuevo sin necesidad (y las mutaciones
+  // reales del modal de configuración ya llaman a `cargarConfigCalendario`
+  // por su cuenta vía `cerrarConfig`, más abajo).
   useEffect(() => {
     cargarConfigCalendario();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function cerrarConfig() {
@@ -249,12 +332,22 @@ export function CalendarView({ tiposConsulta, turnosIniciales, vistaInicial }: C
   useEffect(() => {
     if (vistaInicial !== "semana" || scrollInicialHecho.current) return;
     scrollInicialHecho.current = true;
+    // Con turnoAFocalizarId (deep-link desde una tarjeta del dashboard,
+    // F2.3 extra ítem 1), el día a mostrar es el DE ESE TURNO puntual, no
+    // heurística de "el primero con algo cargado" — si no, con más de un
+    // turno en la semana visible, podía scrollear a uno distinto del que
+    // el profesional vino a ver.
+    const turnoObjetivo = turnoAFocalizarId ? turnos.find((t) => t.id === turnoAFocalizarId) : undefined;
+    if (turnoObjetivo?.horaInicio) {
+      scrollAlDia(dias, new Date(turnoObjetivo.horaInicio));
+      return;
+    }
     const hoy = startOfDay(hoyEnCordoba());
     const diaConTurno = dias
       .filter((d) => d.getTime() >= hoy.getTime())
       .find((d) => turnos.some((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), d)));
     scrollAlDia(dias, diaConTurno ?? hoyEnCordoba());
-  }, [vistaInicial, dias, turnos]);
+  }, [vistaInicial, dias, turnos, turnoAFocalizarId]);
 
   useEffect(() => {
     if (!menuAjustesAbierto) return;

@@ -165,6 +165,21 @@ export function horaISOLocal(d: Date = new Date()): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+// parseFechaISOLocal — inverso de fechaISOLocal (F2.3 extra ítem 1,
+// docs/implementation-plan.md §11.5): construye el Date con el
+// constructor LOCAL (no `new Date("YYYY-MM-DD")`, que ISO-parsea como
+// UTC medianoche y corre un día para atrás en cualquier timezone
+// negativo, incluida Córdoba) — así sus getters locales (getFullYear/
+// getMonth/getDate, que es lo que usa rangoVisible/diasDeVista) devuelven
+// exactamente el Y/M/D pedido, sea cual sea el timezone ambiente
+// (servidor en UTC, navegador del profesional en la suya). Usado para
+// anclar el calendario a la fecha real de un turno/horario reservado al
+// llegar desde una tarjeta del dashboard ("Turnero").
+export function parseFechaISOLocal(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // formatDiaCorto/formatMesAnio/formatRangoSemana/formatDiaLargo — a
 // propósito SIN `timeZone: TIMEZONE_CORDOBA` acá (a diferencia de
 // formatHora/formatFechaHora en turno-format.ts, que sí lo llevan).
