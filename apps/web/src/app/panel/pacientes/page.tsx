@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { apiListPacientes } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { PacientesTable } from "@/components/panel/pacientes-table";
+import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
 
 export const metadata: Metadata = { title: "Pacientes — Dental Mirage" };
 
@@ -44,18 +45,27 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           forzado acá, el buscador vuelve a su `max-w-md` original, a
           ancho completo en mobile. Cero cambio en escritorio. */}
       <div className="flex flex-col gap-6">
-        <form action="/panel/pacientes" method="get" className="flex max-w-md gap-2 max-md:w-full max-md:max-w-none">
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Nombre, apellido o DNI…"
-            className="flex-1 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
-          />
-          <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
-            Buscar
-          </button>
-        </form>
+        {/* + Agregar paciente (Extra 2.3.5, E5.5) al lado del buscador —
+            mismo criterio de layout que "+ Agregar turno"/"+ Reservar
+            horario" en Calendario: acceso directo sin entrar a un turno
+            primero. `flex-wrap` para que en mobile, con `w-full` en el
+            buscador, el botón caiga a su propia línea en vez de
+            achicarse. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <form action="/panel/pacientes" method="get" className="flex max-w-md flex-1 gap-2 max-md:w-full max-md:max-w-none">
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Nombre, apellido o DNI…"
+              className="flex-1 rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+            />
+            <button type="submit" className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95">
+              Buscar
+            </button>
+          </form>
+          <AgregarPacienteButton />
+        </div>
 
         {/* Misma tabla en mobile y escritorio (rediseño local, ver
             comentario de arriba) — columnas reducidas debajo de `md`,

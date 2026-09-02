@@ -1195,4 +1195,61 @@
 
 ---
 
+## TR-100: Extra 2.3.5 — DNI único por clínica + formulario público reescrito de punta a punta
+
+- **Fecha:** 2026-09-02
+- **Fase:** ejecución (E5.1/E5.2/E5.3 de `docs/implementation-plan.md` §11.5)
+- **Contexto:** el formulario público de pedido de turno solo pedía datos de contacto y dejaba el turno `pendiente`, sin horario, a la espera de que el profesional lo agendara a mano (TR-006) — dependencia dura documentada desde el brief post-QA para poder sacar el estado `pendiente` del todo en Extra 2.3.3. Tampoco existía ningún control de unicidad de DNI: cualquier alta de paciente (formulario público o "Agregar turno > paciente nuevo") creaba una fila nueva en `pacientes` sin buscar si ya existía una con ese DNI.
+- **Decisión:**
+  - **Índice único `(profesional_id, dni)`** en `pacientes` (`idx_paciente_dni_unico`, RunMigrations) — antes de crearlo, un bloque de migración de-duplica en caliente cualquier fila ya cargada con el mismo DNI (conserva la más vieja, reasigna los turnos de las descartadas antes de borrarlas): sin producción todavía (CLAUDE.md), pero el entorno de desarrollo YA tenía duplicados reales de pruebas anteriores que hubieran roto el `CREATE UNIQUE INDEX` en seco.
+  - **`crearOBuscarPacientePorDNI`** (turnos.go): antes de crear un Paciente nuevo por cualquier camino de alta con datos de contacto sueltos (público o "paciente nuevo" del panel), busca primero por `(profesional_id, dni)` y reusa la ficha existente si la encuentra — nunca duplica. Una violación de unicidad igual (carrera entre dos requests concurrentes con el mismo DNI) se traduce a "buscar de nuevo y usar la que ganó", nunca un 500.
+  - **`POST /clinicas/{slug}/turnos` reescrito**: pasa a recibir `tipoConsultaId`/`fecha`/`hora` (elegidos por el paciente en el propio formulario) en vez de solo datos de contacto — revalida el horario elegido DENTRO de la transacción (reusando `calcularDisponibilidad`, TR-086, el mismo cálculo real que usa el profesional) y crea el turno directamente `agendado`, con horario real, nunca más `pendiente`. Dos endpoints públicos nuevos de apoyo: `GET /clinicas/{slug}/tipos-consulta` (versión reducida, sin tiempo post-consulta/preferencia de atención — detalles internos del cálculo) y `GET /clinicas/{slug}/disponibilidad` (mismo cálculo que la versión autenticada, resuelto por slug en vez de por sesión).
+  - **`pedir-turno-form.tsx` reescrito** como wizard de pasos, mismo flujo visual que "Agregar turno" del profesional: datos de contacto → tipo de consulta + fecha + horario disponible (ver también TR-103 para el paso de verificación de mail que se sumó en el medio).
+- **Alternativas descartadas:** un mecanismo de "reserva temporal" de 10 minutos al elegir el horario (la idea original del brief, spec §11 ítem 4) — descartado a favor de que el exclusion constraint de la base (T2.5) sea la única garantía anti-carrera, más simple y sin una tabla ni un cron de limpieza extra; la revalidación dentro de la transacción alcanza para dar un mensaje legible en el caso real de carrera.
+- **Qué se sacrifica:** nada de alcance — el estado `pendiente` sigue existiendo en el esquema hasta Extra 2.3.3, que lo saca del todo (ahora desbloqueado: el formulario público ya no lo genera).
+- **Reversibilidad:** media — el índice único y la reescritura del endpoint público son aditivos/reversibles; la de-duplicación en caliente de la migración no lo es (borra filas reales), aunque conserva siempre la más vieja y reasigna sus turnos, sin pérdida de datos de negocio.
+
+---
+
+## TR-101: DNI ya existente en "Agregar turno" — verificación explícita en el panel + los datos reales del paciente siempre pisan al formulario
+
+- **Fecha:** 2026-09-02
+- **Fase:** ejecución (bug reportado por el cliente sobre TR-100, dos rondas)
+- **Contexto:** con la reutilización silenciosa de TR-100, un profesional podía tipear en "Agregar turno > Paciente nuevo" un DNI ya cargado con un nombre/teléfono/email DISTINTOS a los reales — el turno se guardaba con los datos recién tipeados pero vinculado a la ficha existente, sin ningún aviso: "se genera un turno con un paciente que no está en el apartado pacientes... no hay verificación en este lugar".
+- **Decisión:** dos capas, una de UX y una de integridad de datos — ninguna reemplaza a la otra:
+  - **Verificación explícita (solo panel, `agregar-turno-modal.tsx`):** antes de avanzar de "Paciente nuevo" al paso de detalle, se busca el DNI tipeado contra los pacientes ya cargados (mismo buscador de "Paciente conocido", filtrado por coincidencia EXACTA). Si ya existe, no avanza — "No se pudo generar el turno: el paciente con DNI X ya existe y es [Nombre Apellido]", con un atajo "Usar este paciente" que salta directo a esa ficha en vez de mandar a buscarla a mano.
+  - **Sincronización de datos (backend, `crearOBuscarPacientePorDNI`, aplica a los DOS caminos — panel y formulario público):** sin importar qué haya llegado tipeado, si el DNI ya existe, el snapshot de contacto del turno (`NombreContacto`/`ApellidoContacto`/`TelefonoContacto`/`EmailContacto`) se pisa con los datos REALES del paciente encontrado antes de guardarlo — pedido textual del cliente: "sin importar lo que pongan en el formulario, si el DNI ya existe... los datos que mostrará en el calendario son los datos del paciente que hay en el sistema y no los del formulario". Esta capa es la que de verdad cierra el hueco en el formulario público, donde bloquear no es una opción razonable (un paciente real reservando de nuevo con su propio DNI es el caso normal, no un ataque).
+- **Alternativas descartadas:** bloquear también el formulario público ante un DNI ya cargado — descartado porque ahí el caso normal es exactamente ese (alguien que ya fue paciente pide otro turno), bloquear sería romper el flujo legítimo más común; la sincronización de datos alcanza para que ningún dato ajeno quede guardado.
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta — ambas capas son de presentación/validación sobre datos ya existentes, sin cambios de esquema.
+
+---
+
+## TR-102: "+ Agregar paciente" — alta directa sin pasar por un turno
+
+- **Fecha:** 2026-09-02
+- **Fase:** ejecución (E5.5 de `docs/implementation-plan.md` §11.5)
+- **Contexto:** hasta ahora un Paciente solo se creaba de rebote al agendarle un turno — no había forma de cargar la ficha de alguien sin, de paso, tener que inventarle un turno.
+- **Decisión:** `POST /pacientes` nuevo — a diferencia de `crearOBuscarPacientePorDNI` (TR-100/101, que REUSA una ficha existente porque el flujo que lo llama necesita seguir creando un turno igual), acá un DNI repetido es un error real (409 "ya existe un paciente con ese DNI"): es un alta explícita de alguien nuevo, no debe reusar en silencio una ficha que el profesional no eligió. Botón "+ Agregar paciente" nuevo junto al buscador de la sección Pacientes, mismo criterio de layout que "+ Agregar turno"/"+ Reservar horario" en Calendario.
+- **Alternativas descartadas:** ninguna real — pedido simple y sin ambigüedad.
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta.
+
+---
+
+## TR-103: "Confirmanos que sos vos" — verificación de mail por código de 6 dígitos en el wizard público
+
+- **Fecha:** 2026-09-02
+- **Fase:** ejecución (pedido explícito del cliente, último paso de Extra 2.3.5 — "es fundamental")
+- **Contexto:** con el formulario público ya creando turnos reales de punta a punta (TR-100), nada verificaba que quien lo completaba controlara de verdad el mail que puso — cualquiera podía escribir el mail de otra persona.
+- **Decisión:**
+  - Un paso nuevo del wizard, entre datos de contacto y tipo de consulta/fecha/horario: "Confirmanos que sos vos", código de 6 dígitos mandado al mail. Mismo mecanismo que la verificación de cuenta (TR-055 — código en vez de link, `internal/security.NewNumericCode`), pero sin ningún `User` detrás: tabla nueva `VerificacionTurnoPublico` (una fila por intento, sin FK a ninguna cuenta) y una plantilla de mail propia ("Confirmanos que sos vos", asunto con el nombre de la clínica — distinta de "Confirmá tu cuenta").
+  - Una sola fila cubre las dos fases del flujo, reusando `ExpiresAt` para lo que corresponda en cada momento: al mandar el código, es la ventana de 15 minutos para tipearlo (`turnoVerifCodigoTTL`, igual que TR-055); al confirmarlo bien, se adelanta a una ventana de 30 minutos (`turnoVerifPruebaTTL`) para terminar el resto del wizard — y se emite un TOKEN OPACO de un solo uso (mismo mecanismo que sesiones/reset de contraseña, `security.NewToken`) que el frontend guarda y manda junto con el pedido de turno final. `POST /clinicas/{slug}/turnos` rechaza sin un token válido, sin usar, para el mismo mail y la misma clínica — lo consume (marca usado) DENTRO de la misma transacción que crea el turno, así que si el turno falla más adelante (horario ya no disponible) el token sigue sirviendo para reintentar con otro horario sin verificar de nuevo.
+  - Rate-limiting igual de estricto que el resto de auth (`internal/ratelimit`, scopes `turno_verif_enviar`/`turno_verif_confirmar` nuevos): cooldown de 60s entre envíos al mismo mail (evita spam de clics en "Reenviar código"), tope por cuenta y por IP en las dos puntas — la key es `clinicId:email`, no un `userId`, porque acá no hay cuenta.
+- **Alternativas descartadas:** reusar `internal/db.VerificationToken` (la tabla de verificación de cuenta) — descartada porque tiene una FK `not null` a `User`, y acá quien pide el código es un visitante anónimo sin cuenta; una tabla propia, más simple, evita forzar esa relación con un valor inventado.
+- **Qué se sacrifica:** ninguna prueba automatizada de punta a punta contra Resend real — la app deployada es la única forma de confirmar que el mail llega de verdad (en desarrollo, `LogSender` solo imprime el código en los logs); el flujo en sí (validación, rate-limit, expiración, consumo del token) queda cubierto por tests contra Postgres real, sin mockear Resend.
+- **Reversibilidad:** media — tabla y endpoints nuevos, aditivos; sacar el paso implicaría también sacar el chequeo del token en `POST /clinicas/{slug}/turnos`, un cambio de contrato hacia atrás si algún cliente del formulario público ya lo integró.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

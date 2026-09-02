@@ -802,17 +802,8 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 			}
 			turno.PacienteID = &paciente.ID
 		} else {
-			paciente := db.Paciente{
-				ProfesionalID: profesionalID,
-				Nombre:        turno.NombreContacto,
-				Apellido:      turno.ApellidoContacto,
-				DNI:           turno.DNIContacto,
-				Telefono:      turno.TelefonoContacto,
-			}
-			if turno.EmailContacto != "" {
-				paciente.Email = &turno.EmailContacto
-			}
-			if err := tx.Create(&paciente).Error; err != nil {
+			paciente, err := crearOBuscarPacientePorDNI(tx, profesionalID, turno)
+			if err != nil {
 				return err
 			}
 			turno.PacienteID = &paciente.ID
@@ -823,6 +814,83 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 		}
 		return tx.Save(turno).Error
 	})
+}
+
+// crearOBuscarPacientePorDNI — Extra 2.3.5 (E5.1): "cualquier camino de
+// alta" que llega con datos de contacto sueltos (nunca un
+// pacienteExistenteID explícito, ese caso ya está resuelto arriba) busca
+// primero si ya existe un Paciente con ese DNI para el mismo profesional
+// antes de crear uno nuevo — evita fichas duplicadas de la misma persona
+// (ej. pide un turno dos veces desde la página pública con el mismo DNI).
+//
+// Corrección de bug reportado por el cliente: "si genero un turno,
+// modificando el nombre apellido o algunos de estos datos, el turno se me
+// va a generar con ese nuevo nombre o datos cambiados, pero asignado al
+// paciente con el dni puesto... sin importar lo que pongan en el
+// formulario, si el DNI ya existe dentro de pacientes, los datos que
+// mostrará en el calendario son los datos del paciente que hay en el
+// sistema y no los del formulario". Cuando el DNI ya existe, ESTA función
+// pisa el snapshot de contacto del `turno` (Nombre/Apellido/Telefono/
+// Email) con los datos REALES del paciente encontrado, sin importar qué
+// haya llegado tipeado — así el turno nunca puede terminar mostrando un
+// nombre distinto al de la ficha a la que en verdad está vinculado (cierra
+// el hueco de "generar un turno con datos ajenos" usando el DNI de otra
+// persona, en cualquiera de los dos caminos que llegan acá: "Agregar
+// turno > paciente nuevo" en el panel, y el formulario público). Los datos
+// reales de un paciente solo se corrigen a propósito desde "Editar
+// paciente", nunca de rebote al agendar. El índice único (profesional_id,
+// dni) de RunMigrations es la red de seguridad final contra una carrera
+// entre dos requests concurrentes con el mismo DNI — isUniqueViolation la
+// traduce a un error legible más abajo.
+func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.Turno) (db.Paciente, error) {
+	var existente db.Paciente
+	err := tx.Where("profesional_id = ? AND dni = ?", profesionalID, turno.DNIContacto).First(&existente).Error
+	if err == nil {
+		sincronizarContactoConPaciente(turno, existente)
+		return existente, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return db.Paciente{}, err
+	}
+
+	paciente := db.Paciente{
+		ProfesionalID: profesionalID,
+		Nombre:        turno.NombreContacto,
+		Apellido:      turno.ApellidoContacto,
+		DNI:           turno.DNIContacto,
+		Telefono:      turno.TelefonoContacto,
+	}
+	if turno.EmailContacto != "" {
+		paciente.Email = &turno.EmailContacto
+	}
+	if err := tx.Create(&paciente).Error; err != nil {
+		if isUniqueViolation(err) {
+			// Carrera real: otra request creó el mismo DNI entre el SELECT
+			// de arriba y este INSERT. Se busca una última vez en vez de
+			// fallar — el resultado para quien llamó es el mismo "hay un
+			// paciente con este DNI, se usa ese" que si lo hubiéramos
+			// encontrado desde el principio.
+			var ganador db.Paciente
+			if err2 := tx.Where("profesional_id = ? AND dni = ?", profesionalID, turno.DNIContacto).First(&ganador).Error; err2 == nil {
+				sincronizarContactoConPaciente(turno, ganador)
+				return ganador, nil
+			}
+		}
+		return db.Paciente{}, err
+	}
+	return paciente, nil
+}
+
+// sincronizarContactoConPaciente pisa el snapshot de contacto de un turno
+// con los datos reales de un Paciente ya existente — ver el comentario
+// grande de crearOBuscarPacientePorDNI arriba.
+func sincronizarContactoConPaciente(turno *db.Turno, paciente db.Paciente) {
+	turno.NombreContacto = paciente.Nombre
+	turno.ApellidoContacto = paciente.Apellido
+	turno.TelefonoContacto = paciente.Telefono
+	if paciente.Email != nil {
+		turno.EmailContacto = *paciente.Email
+	}
 }
 
 // writeTurnoAgendadoError traduce los errores de crearTurnoAgendadoConPaciente

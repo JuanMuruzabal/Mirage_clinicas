@@ -30,6 +30,13 @@ type Sender interface {
 	SendVerificationEmail(ctx context.Context, to, code string) error
 	SendPasswordResetEmail(ctx context.Context, to, resetURL string) error
 	SendWelcomeEmail(ctx context.Context, to, nombre string) error
+	// SendTurnoVerificationEmail — Extra 2.3.5 (E5.6): "Confirmanos que sos
+	// vos" del wizard público de pedido de turno. Mismo mecanismo que
+	// SendVerificationEmail (código de 6 dígitos, no un link) pero con otro
+	// texto/asunto y sin ninguna cuenta detrás — nombreClinica identifica
+	// de qué clínica es el pedido, ya que quien lo recibe puede haber
+	// pedido turno en más de una.
+	SendTurnoVerificationEmail(ctx context.Context, to, code, nombreClinica string) error
 }
 
 // LogSender es la implementación de desarrollo: no manda nada de verdad,
@@ -49,6 +56,11 @@ func (LogSender) SendPasswordResetEmail(_ context.Context, to, resetURL string) 
 
 func (LogSender) SendWelcomeEmail(_ context.Context, to, nombre string) error {
 	log.Printf("[mail:dev] bienvenida para %s (%s)", to, nombre)
+	return nil
+}
+
+func (LogSender) SendTurnoVerificationEmail(_ context.Context, to, code, nombreClinica string) error {
+	log.Printf("[mail:dev] código de verificación de turno (%s) para %s: %s", nombreClinica, to, code)
 	return nil
 }
 
@@ -124,6 +136,14 @@ func (s *ResendSender) SendPasswordResetEmail(ctx context.Context, to, resetURL 
 
 func (s *ResendSender) SendWelcomeEmail(ctx context.Context, to, nombre string) error {
 	subject, html, err := renderWelcomeEmail(nombre)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, to, subject, html)
+}
+
+func (s *ResendSender) SendTurnoVerificationEmail(ctx context.Context, to, code, nombreClinica string) error {
+	subject, html, err := renderTurnoVerificacionEmail(code, nombreClinica)
 	if err != nil {
 		return err
 	}

@@ -189,13 +189,18 @@ func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
 // valor real y ejercitar el flujo de verificación/reset de punta a punta
 // sin mockear internal/security.
 type capturingMailSender struct {
-	mu          sync.Mutex
-	verifyCodes map[string]string
-	resetURLs   map[string]string
+	mu               sync.Mutex
+	verifyCodes      map[string]string
+	resetURLs        map[string]string
+	turnoVerifyCodes map[string]string
 }
 
 func newCapturingMailSender() *capturingMailSender {
-	return &capturingMailSender{verifyCodes: map[string]string{}, resetURLs: map[string]string{}}
+	return &capturingMailSender{
+		verifyCodes:      map[string]string{},
+		resetURLs:        map[string]string{},
+		turnoVerifyCodes: map[string]string{},
+	}
 }
 
 func (c *capturingMailSender) SendVerificationEmail(_ context.Context, to, code string) error {
@@ -214,6 +219,16 @@ func (c *capturingMailSender) SendPasswordResetEmail(_ context.Context, to, rese
 
 func (c *capturingMailSender) SendWelcomeEmail(_ context.Context, _, _ string) error { return nil }
 
+// SendTurnoVerificationEmail — Extra 2.3.5 (E5.6): "Confirmanos que sos
+// vos" del wizard público, mismo patrón de captura que
+// SendVerificationEmail (cuenta) de arriba.
+func (c *capturingMailSender) SendTurnoVerificationEmail(_ context.Context, to, code, _ string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.turnoVerifyCodes[to] = code
+	return nil
+}
+
 // codigoDeLaUltimaVerificacion — TR-055 en docs/tradeoffs.md: el mail de
 // verificación manda un código de 6 dígitos directo, ya no un link del
 // que haya que extraer un ?token=.
@@ -221,6 +236,14 @@ func (c *capturingMailSender) codigoDeLaUltimaVerificacion(email string) string 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.verifyCodes[email]
+}
+
+// codigoDeLaUltimaVerificacionDeTurno — Extra 2.3.5 (E5.6), mismo criterio
+// que codigoDeLaUltimaVerificacion pero para el código del wizard público.
+func (c *capturingMailSender) codigoDeLaUltimaVerificacionDeTurno(email string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.turnoVerifyCodes[email]
 }
 
 func (c *capturingMailSender) tokenFromLastResetURL(email string) string {

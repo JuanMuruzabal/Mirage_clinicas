@@ -118,6 +118,52 @@ type Paciente struct {
 
 func (Paciente) TableName() string { return "pacientes" }
 
+// VerificacionTurnoPublico — pedido explícito del cliente (Extra 2.3.5):
+// "Confirmanos que sos vos", un paso más del wizard público de pedido de
+// turno antes de "pedir turno" de verdad — un código de 6 dígitos al mail
+// que puso, mismo mecanismo que la verificación de cuenta (TR-055,
+// internal/mail + internal/security.NewNumericCode), pero sin ningún User
+// detrás: quien completa el formulario público es un visitante anónimo,
+// no una cuenta con sesión.
+//
+// Una sola fila cubre las DOS fases del flujo, reusando `ExpiresAt` para
+// lo que corresponda en cada momento (nunca se chequean las dos ventanas
+// a la vez, así que no hace falta una columna separada por fase):
+//  1. Al mandar el código (enviarVerificacionTurnoPublicoHandler):
+//     CodigoHash con hash del código, ExpiresAt = ahora + 15 min (mismo
+//     TTL que verificationCodeTTL de auth.go) — la ventana para
+//     TIPEARLO.
+//  2. Al confirmarlo bien (confirmarVerificacionTurnoPublicoHandler): se
+//     emite un token opaco de un solo uso (TokenHash, mismo mecanismo
+//     que sesiones/reset de password — security.NewToken) y ExpiresAt se
+//     ADELANTA a ahora + 30 min — la ventana para TERMINAR el resto del
+//     wizard (tipo de consulta → fecha → horario) y mandar ese token
+//     junto con el pedido de turno final.
+//
+// TokenHash es *string (no string) para que el índice único permita
+// múltiples filas sin confirmar todavía (todas con NULL) sin chocar entre
+// sí — Postgres no compara NULLs como iguales bajo un índice único.
+type VerificacionTurnoPublico struct {
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID   uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;index"`
+	Email      string     `gorm:"type:varchar(255);not null"`
+	CodigoHash string     `gorm:"column:codigo_hash;type:varchar(64);not null"`
+	TokenHash  *string    `gorm:"column:token_hash;type:varchar(64);uniqueIndex"`
+	ExpiresAt  time.Time  `gorm:"column:expires_at;not null"`
+	VerifiedAt *time.Time `gorm:"column:verified_at"`
+	// UsedAt: dos sentidos distintos según la fase (nunca ambiguo porque
+	// nunca se leen juntos) — antes de verificar, marca un código
+	// invalidado por uno más nuevo (TR-055: "invalida tokens previos sin
+	// usar antes de emitir uno nuevo"); después de verificar, marca el
+	// token de prueba ya consumido por el POST /turnos final (de un solo
+	// uso, no se puede reusar para pedir un segundo turno con el mismo
+	// código verificado).
+	UsedAt    *time.Time `gorm:"column:used_at"`
+	CreatedAt time.Time
+}
+
+func (VerificacionTurnoPublico) TableName() string { return "verificaciones_turno_publico" }
+
 // Turno es la pieza central del esquema (spec §4.3/§4.4). Mientras está
 // `pendiente` (llegó del formulario público, spec §4.4) todavía no tiene
 // paciente_id ni horario fijo — esos campos de contacto quedan sueltos acá

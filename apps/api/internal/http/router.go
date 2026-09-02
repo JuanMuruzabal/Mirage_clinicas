@@ -61,7 +61,7 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 
 	registerEspecialidadRoutes(r, db)
 	registerClinicaRoutes(r, db)
-	registerTurnoPublicoRoutes(r, db)
+	registerTurnoPublicoRoutes(r, db, deps)
 
 	// Grupo con sesión requerida pero SIN clínica todavía — /me y
 	// /onboarding/* (paso 2/3 del wizard) tienen que poder operar antes de
