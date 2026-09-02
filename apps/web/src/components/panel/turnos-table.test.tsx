@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const {
   cancelarTurnoActionMock,
   listTurnosActionMock,
-  agendarTurnoActionMock,
   crearTurnoManualActionMock,
-  editarTurnoActionMock,
   reprogramarTurnoActionMock,
   marcarAsistenciaActionMock,
   listPacientesActionMock,
@@ -15,24 +13,20 @@ const {
 } = vi.hoisted(() => ({
   cancelarTurnoActionMock: vi.fn(),
   listTurnosActionMock: vi.fn(),
-  agendarTurnoActionMock: vi.fn(),
   crearTurnoManualActionMock: vi.fn(),
-  editarTurnoActionMock: vi.fn(),
   reprogramarTurnoActionMock: vi.fn(),
   marcarAsistenciaActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
 }));
 
-// TurnosTable renderiza AgregarTurnoModal/EditarTurnoModal (mismos módulos
-// que sus propios tests) — mockeamos todas las acciones que esos
-// componentes importan, no solo las que usa TurnosTable directamente.
+// TurnosTable renderiza EditarTurnoModal (mismo módulo que su propio
+// test) — mockeamos todas las acciones que ese componente importa, no
+// solo las que usa TurnosTable directamente.
 vi.mock("@/app/actions/turnos", () => ({
   cancelarTurnoAction: cancelarTurnoActionMock,
   listTurnosAction: listTurnosActionMock,
-  agendarTurnoAction: agendarTurnoActionMock,
   crearTurnoManualAction: crearTurnoManualActionMock,
-  editarTurnoAction: editarTurnoActionMock,
   reprogramarTurnoAction: reprogramarTurnoActionMock,
   marcarAsistenciaAction: marcarAsistenciaActionMock,
 }));
@@ -46,19 +40,6 @@ vi.mock("@/app/actions/calendario-config", () => ({
 const { TurnosTable } = await import("./turnos-table");
 
 const tiposConsulta = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" }];
-
-const turnoPendiente = {
-  id: "pend-1",
-  estado: "pendiente" as const,
-  origen: "pagina_publica" as const,
-  nombreContacto: "Bruno",
-  apellidoContacto: "Iglesias",
-  dniContacto: "30111222",
-  telefonoContacto: "+5493511234567",
-  emailContacto: "bruno@example.com",
-  motivo: "Dolor de muela",
-  createdAt: new Date().toISOString(),
-};
 
 const turnoAgendado = {
   id: "agen-1",
@@ -125,32 +106,12 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
   });
 
-  it("muestra 'Confirmar' solo para turnos pendientes, una vez desplegada la fila", async () => {
-    const user = userEvent.setup();
-    render(<TurnosTable turnosIniciales={[turnoPendiente]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-    await desplegarFila(user, "Bruno Iglesias");
-    expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
-  });
-
-  it("no muestra 'Confirmar' para un turno ya agendado", async () => {
+  it("no muestra 'Confirmar' para un turno ya agendado (TR-104: 'pendiente' no existe más)", async () => {
     const user = userEvent.setup();
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
     await desplegarFila(user, "Julián Ortiz");
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
-  });
-
-  it("Cancelar un turno PENDIENTE llama a la acción directo, sin pedir confirmación", async () => {
-    cancelarTurnoActionMock.mockResolvedValue({ turno: { ...turnoPendiente, estado: "cancelada" } });
-    const user = userEvent.setup();
-    render(<TurnosTable turnosIniciales={[turnoPendiente]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-    await desplegarFila(user, "Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-    expect(screen.queryByRole("dialog", { name: "Cancelar turno" })).not.toBeInTheDocument();
-    await waitFor(() => expect(cancelarTurnoActionMock).toHaveBeenCalledWith("pend-1"));
   });
 
   it("Cancelar un turno AGENDADO abre el modal de confirmación extra, y no llama a la acción hasta confirmar", async () => {
@@ -204,17 +165,6 @@ describe("TurnosTable", () => {
     await user.click(within(dialogo).getByRole("button", { name: "Sí, cancelar turno" }));
 
     expect(await within(dialogo).findByRole("alert")).toHaveTextContent("turno no encontrado");
-  });
-
-  it("muestra el error de cancelación directa (pendiente) sin romper la tabla", async () => {
-    cancelarTurnoActionMock.mockResolvedValue({ error: "turno no encontrado" });
-    const user = userEvent.setup();
-    render(<TurnosTable turnosIniciales={[turnoPendiente]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-    await desplegarFila(user, "Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("turno no encontrado");
   });
 
   it("no muestra 'Cancelar' ni 'Editar' para turnos ya cancelados", async () => {
@@ -370,25 +320,126 @@ describe("TurnosTable", () => {
     expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 
-  it("T3.4: Confirmar abre '+ Agregar turno' con el paciente pendiente ya elegido, y al confirmar recarga la lista", async () => {
-    agendarTurnoActionMock.mockResolvedValue({ turno: { ...turnoPendiente, estado: "agendado" } });
-    listTurnosActionMock.mockResolvedValue([{ ...turnoPendiente, estado: "agendado" }]);
-    const user = userEvent.setup();
-    render(<TurnosTable turnosIniciales={[turnoPendiente]} tiposConsulta={tiposConsulta} filtros={{ estado: "pendiente" }} />);
+  // Corrección de QA: "dar un indicador visual en la tabla de turnos el
+  // tipo de consulta, ya que está ausente" — punto de color + nombre
+  // (nunca el color solo, TR-013), con "Ver tipo →" para un nombre largo.
+  describe("corrección de QA: indicador de tipo de consulta", () => {
+    it("muestra el nombre del tipo con su color configurado como punto indicador", () => {
+      const turnoConTipo = { ...turnoAgendado, tipoConsultaId: "tc-1" };
+      const { container } = render(<TurnosTable turnosIniciales={[turnoConTipo]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
-    await desplegarFila(user, "Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+      expect(screen.getByText("Consulta general")).toBeInTheDocument();
+      const punto = container.querySelector(".rounded-full[style]") as HTMLElement;
+      expect(punto).toHaveStyle({ background: "rgb(231, 217, 190)" });
+    });
 
-    const dialogo = await screen.findByRole("dialog", { name: "Agregar turno" });
-    expect(within(dialogo).queryByRole("button", { name: "Paciente nuevo" })).not.toBeInTheDocument();
-    // La fecha por defecto es "hoy" — se fija una futura para que el test
-    // no dependa de a qué hora del día corre (ya no se puede agendar en
-    // el pasado, 2026-08-23).
-    fireEvent.change(within(dialogo).getByLabelText("Fecha"), { target: { value: "2030-01-01" } });
-    await user.click(within(dialogo).getByRole("button", { name: "Confirmar" }));
+    it("sin tipoConsultaId (o si no se encuentra), muestra —", () => {
+      render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+      expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+    });
 
-    await waitFor(() => expect(agendarTurnoActionMock).toHaveBeenCalledWith("pend-1", expect.any(Object)));
-    await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalledWith({ estado: "pendiente" }));
-    expect(screen.queryByRole("dialog", { name: "Agregar turno" })).not.toBeInTheDocument();
+    it("un nombre de tipo largo se oculta detrás de 'Ver tipo →', y lo muestra completo en un modal", async () => {
+      const tipoNombreLargo = [{ id: "tc-largo", nombre: "Consulta de ortodoncia y control post-tratamiento prolongado", color: "#E7D9BE" }];
+      const turnoConTipoLargo = { ...turnoAgendado, tipoConsultaId: "tc-largo" };
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[turnoConTipoLargo]} tiposConsulta={tipoNombreLargo} filtros={{}} />);
+
+      const boton = screen.getByRole("button", { name: "Ver tipo →" });
+      expect(screen.queryByText(tipoNombreLargo[0].nombre)).not.toBeInTheDocument();
+
+      await user.click(boton);
+      const dialogo = await screen.findByRole("dialog", { name: "Tipo" });
+      expect(within(dialogo).getByText(tipoNombreLargo[0].nombre)).toBeInTheDocument();
+    });
+  });
+
+  // Extra 2.3.3 (E3.3): un motivo largo ya no se muestra inline (rompía
+  // el ancho de la fila) — se reemplaza por el botón "Ver motivo de consulta"
+  // (VerTextoBoton, Extra 2.3.1/E1.7), que abre el texto completo en un
+  // modal aparte.
+  describe("E3.3: 'Ver motivo' para un motivo largo", () => {
+    const motivoLargo = "Dolor intenso en la muela del juicio inferior derecha desde hace tres días, empeora al masticar";
+    const turnoMotivoLargo = { ...turnoAgendado, id: "agen-largo", motivo: motivoLargo };
+
+    it("un motivo largo se oculta detrás del botón 'Ver motivo', sin mostrar el texto inline", () => {
+      render(<TurnosTable turnosIniciales={[turnoMotivoLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      expect(screen.getByRole("button", { name: "Ver motivo de consulta" })).toBeInTheDocument();
+      expect(screen.queryByText(motivoLargo)).not.toBeInTheDocument();
+    });
+
+    it("tocar 'Ver motivo' muestra el texto completo en un modal", async () => {
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[turnoMotivoLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await user.click(screen.getByRole("button", { name: "Ver motivo de consulta" }));
+
+      const dialogo = await screen.findByRole("dialog", { name: "Motivo de consulta" });
+      expect(within(dialogo).getByText(motivoLargo)).toBeInTheDocument();
+    });
+
+    it("un motivo corto se sigue mostrando inline, sin botón 'Ver motivo'", () => {
+      render(<TurnosTable turnosIniciales={[{ ...turnoAgendado, motivo: "Control" }]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      expect(screen.getByText("Control")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver motivo de consulta" })).not.toBeInTheDocument();
+    });
+  });
+
+  // Corrección de QA: mismo "Ver mail" de Pacientes (Extra 2.3.4/E4.1),
+  // pero acá en la columna Contacto, como link con flecha ("Ver email →",
+  // sin la pastilla con borde de "Ver motivo" al lado) — pedido explícito
+  // del cliente.
+  describe("corrección de QA: 'Ver email →' en la columna Contacto para un mail largo", () => {
+    const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
+    const turnoEmailLargo = { ...turnoAgendado, id: "agen-mail-largo", emailContacto: emailLargo };
+
+    it("un email largo se oculta detrás de 'Ver email →', sin la pastilla con borde", () => {
+      render(<TurnosTable turnosIniciales={[turnoEmailLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      const link = screen.getByRole("button", { name: "Ver email →" });
+      expect(link.className).not.toContain("rounded-full");
+      expect(screen.queryByText(emailLargo)).not.toBeInTheDocument();
+    });
+
+    it("tocarlo muestra el texto completo en un modal, sin desplegar la fila", async () => {
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[turnoEmailLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await user.click(screen.getByRole("button", { name: "Ver email →" }));
+
+      const dialogo = await screen.findByRole("dialog", { name: "Email" });
+      expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+    });
+
+    it("un email corto se sigue mostrando inline, sin el link 'Ver email →'", () => {
+      render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      expect(screen.getByText("julian@example.com")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver email →" })).not.toBeInTheDocument();
+    });
+  });
+
+  // Extra 2.3.3 (E3.4): misma navegación que el botón homónimo del
+  // calendario (turno-detalle.tsx) — lleva a la ficha del paciente.
+  describe("E3.4: botón 'Ver paciente'", () => {
+    it("aparece al desplegar la fila cuando el turno tiene pacienteId, y lleva a su ficha", async () => {
+      const user = userEvent.setup();
+      const turnoConPaciente = { ...turnoAgendado, pacienteId: "pac-1" };
+      render(<TurnosTable turnosIniciales={[turnoConPaciente]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      const link = screen.getByRole("link", { name: "Ver paciente →" });
+      expect(link).toHaveAttribute("href", "/panel/pacientes/pac-1");
+    });
+
+    it("no aparece si el turno no tiene pacienteId", async () => {
+      const user = userEvent.setup();
+      render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+      await desplegarFila(user, "Julián Ortiz");
+      expect(screen.queryByRole("link", { name: "Ver paciente →" })).not.toBeInTheDocument();
+    });
   });
 });

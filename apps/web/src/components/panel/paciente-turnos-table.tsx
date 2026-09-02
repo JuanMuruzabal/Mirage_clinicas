@@ -3,13 +3,33 @@
 import { useMemo, useState } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { ESTADO_CLASS, ESTADO_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
+import { rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
+import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
+import { VerTextoBoton } from "../ver-texto-boton";
 import { ClickableTableRow } from "./clickable-table-row";
+
+// RANGOS_RAPIDOS — Extra 2.3.3 (E3.5): mismo atajo HOY/SEMANA/MES que
+// app/panel/turnos/page.tsx, acá aplicado al estado de cliente
+// (desde/hasta) en vez de a la URL — esta tabla ya filtraba puramente del
+// lado del cliente sobre los turnos ya traídos con la ficha del paciente.
+const RANGOS_RAPIDOS: { label: string; rango: RangoRapido }[] = [
+  { label: "Hoy", rango: "hoy" },
+  { label: "Semana", rango: "semana" },
+  { label: "Mes", rango: "mes" },
+];
 
 interface PacienteTurnosTableProps {
   turnos: Turno[];
   tiposConsulta: TipoConsulta[];
   vacio: string;
+  // mostrarRangosRapidos (corrección de QA, pedido explícito del
+  // cliente) — los atajos HOY/SEMANA/MES tienen poco sentido en
+  // "Historial de turnos" (son turnos ya pasados por definición; "Hoy"
+  // ahí casi siempre da vacío) — se sacan SOLO de ese lugar, Desde/Hasta
+  // sigue disponible en los dos. Default `true`: "Turnos activos" (el
+  // otro consumidor de este componente) los mantiene sin tocar nada.
+  mostrarRangosRapidos?: boolean;
 }
 
 // PacienteTurnosTable (T3.6, pedido explícito del cliente 2026-08-23) —
@@ -28,7 +48,7 @@ interface PacienteTurnosTableProps {
 // cliente, sobre los turnos ya traídos con la ficha del paciente (no hay
 // necesidad de otro viaje al backend, esta lista ya es acotada a un solo
 // paciente).
-export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTurnosTableProps) {
+export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRangosRapidos = true }: PacienteTurnosTableProps) {
   const [tipoId, setTipoId] = useState("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
@@ -100,6 +120,34 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
           </select>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Extra 2.3.3 (E3.5): atajos HOY/SEMANA/MES antes de
+              Desde/Hasta — precargan las dos fechas de una, en vez de
+              obligar a elegirlas a mano para el caso común. Se sacan de
+              "Historial de turnos" a pedido del cliente (mostrarRangosRapidos
+              = false ahí): son turnos ya pasados por definición, "Hoy" no
+              tiene sentido en ese contexto. */}
+          {mostrarRangosRapidos &&
+            RANGOS_RAPIDOS.map((r) => {
+            const calculado = rangoRapidoFechas(r.rango);
+            const activo = desde === calculado.desde && hasta === calculado.hasta;
+            return (
+              <button
+                key={r.rango}
+                type="button"
+                onClick={() => {
+                  setDesde(calculado.desde);
+                  setHasta(calculado.hasta);
+                }}
+                // Corrección de QA: mismo verde sólido que el resto de
+                // los botones de acción (bg-salvia-oscuro), no el borde
+                // neutro de un botón secundario — el activo suma un
+                // anillo para distinguirse sin dejar de ser verde.
+                className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-salvia-oscuro" : ""}`}
+              >
+                {r.label}
+              </button>
+            );
+          })}
           <label className="flex items-center gap-1.5 text-xs text-grafito/60">
             Desde
             <input
@@ -195,7 +243,16 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                         style={{ background: temaTipoConsulta(tipo).acento }}
                       />
                     </td>
-                    <td className="px-4 py-3 text-grafito">{tipo?.nombre ?? "—"}</td>
+                    <td className="px-4 py-3 text-grafito">
+                      {/* Corrección de QA (pedido textual del cliente):
+                          "si el tipo de consulta es muy largo... poner
+                          un botón 'Ver tipo'" — mismo componente/umbral
+                          que ya aplica en TurnosTable (tipoConsultaNombreEsLargo,
+                          más largo que "Consulta general"). El punto de
+                          color de la columna de al lado se sigue viendo
+                          siempre, sea cual sea el nombre. */}
+                      {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} flecha /> : (tipo?.nombre ?? "—")}
+                    </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
@@ -203,7 +260,13 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio }: PacienteTu
                         {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
                       </span>
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-grafito/60">{t.motivo || "—"}</td>
+                    <td className="max-md:hidden px-4 py-3 text-grafito/60">
+                      {/* Corrección de QA: mismo "Ver motivo" que ya
+                          aplica en TurnosTable (Extra 2.3.3/E3.3) — acá
+                          faltaba, tanto en "Turnos activos" como en
+                          "Historial de turnos" (mismo componente). */}
+                      {textoEsLargo(t.motivo) ? <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} /> : t.motivo || "—"}
+                    </td>
                   </ClickableTableRow>
                 );
               })}

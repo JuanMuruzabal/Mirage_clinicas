@@ -14,8 +14,11 @@ import {
   hoyEnCordoba,
   isSameDay,
   minutosDesdeMedianocheCordoba,
+  finDiaCordobaISO,
+  inicioDiaCordobaISO,
   navegar,
   parseFechaISOLocal,
+  rangoRapidoFechas,
   rangoVisible,
   startOfDay,
   startOfMonth,
@@ -231,6 +234,59 @@ describe("horaISOLocal", () => {
 // fechaISOLocal, para reconstruir la fecha de un deep-link (?fecha=) sin
 // el bug de `new Date("YYYY-MM-DD")` (ISO-parsea como UTC medianoche,
 // corre un día para atrás en timezones negativos).
+// Extra 2.3.3 (E3.5, docs/implementation-plan.md §11.5) — filtro rápido
+// HOY/SEMANA/MES de Turnos y "Turnos activos" de la ficha de paciente.
+// Anclado a "ahora" (hoyEnCordoba()), así que los tests comparan contra
+// el mismo cálculo hecho con los otros helpers ya probados arriba, en
+// vez de fechas fijas a mano — evita que la suite empiece a fallar sola
+// el día que cambie la fecha real de ejecución.
+describe("rangoRapidoFechas", () => {
+  it("'hoy' da el mismo día en desde y hasta", () => {
+    const hoy = fechaISOLocal(hoyEnCordoba());
+    expect(rangoRapidoFechas("hoy")).toEqual({ desde: hoy, hasta: hoy });
+  });
+
+  it("'semana' da de lunes a domingo de la semana actual", () => {
+    const inicio = startOfWeek(hoyEnCordoba());
+    expect(rangoRapidoFechas("semana")).toEqual({
+      desde: fechaISOLocal(inicio),
+      hasta: fechaISOLocal(addDays(inicio, 6)),
+    });
+  });
+
+  it("'mes' da del primer al último día del mes actual", () => {
+    const hoy = hoyEnCordoba();
+    expect(rangoRapidoFechas("mes")).toEqual({
+      desde: fechaISOLocal(startOfMonth(hoy)),
+      hasta: fechaISOLocal(endOfMonth(hoy)),
+    });
+  });
+});
+
+// Extra 2.3.3 (E3.5), bug reportado por el cliente en QA: GET /turnos
+// exige RFC3339 en desde/hasta — un "YYYY-MM-DD" suelto lo rechaza (400,
+// tragado en silencio como lista vacía por listTurnosAction).
+describe("inicioDiaCordobaISO / finDiaCordobaISO", () => {
+  it("dan un instante RFC3339 válido, parseable como Date real", () => {
+    expect(new Date(inicioDiaCordobaISO("2026-09-02")).toString()).not.toBe("Invalid Date");
+    expect(new Date(finDiaCordobaISO("2026-09-02")).toString()).not.toBe("Invalid Date");
+  });
+
+  it("inicioDiaCordobaISO: medianoche de Córdoba son las 03:00 UTC", () => {
+    expect(new Date(inicioDiaCordobaISO("2026-09-02")).toISOString()).toBe("2026-09-02T03:00:00.000Z");
+  });
+
+  it("finDiaCordobaISO: el final del día de Córdoba cae al día siguiente en UTC", () => {
+    expect(new Date(finDiaCordobaISO("2026-09-02")).toISOString()).toBe("2026-09-03T02:59:59.000Z");
+  });
+
+  it("finDiaCordobaISO es posterior a inicioDiaCordobaISO del mismo día", () => {
+    const inicio = new Date(inicioDiaCordobaISO("2026-09-02")).getTime();
+    const fin = new Date(finDiaCordobaISO("2026-09-02")).getTime();
+    expect(fin).toBeGreaterThan(inicio);
+  });
+});
+
 describe("parseFechaISOLocal", () => {
   it("da un Date cuyos getters locales devuelven el mismo Y/M/D pedido", () => {
     const d = parseFechaISOLocal("2026-09-10");

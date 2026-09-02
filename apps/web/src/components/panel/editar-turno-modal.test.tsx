@@ -3,13 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 
-const { editarTurnoActionMock, reprogramarTurnoActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
-  editarTurnoActionMock: vi.fn(),
+const { reprogramarTurnoActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
   reprogramarTurnoActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
 }));
 vi.mock("@/app/actions/turnos", () => ({
-  editarTurnoAction: editarTurnoActionMock,
   reprogramarTurnoAction: reprogramarTurnoActionMock,
 }));
 // F2.3 (corrección de QA): EditarHoraForm ya no arma el selector de hora
@@ -52,10 +50,15 @@ function esperarHoraCargada() {
   return waitFor(() => expect(screen.getByLabelText(/^Hora/)).not.toHaveTextContent("Buscando horarios"));
 }
 
-const turnoPendiente = {
-  id: "turno-1",
-  estado: "pendiente" as const,
-  origen: "pagina_publica" as const,
+// Turno `pendiente` sacado del todo en Extra 2.3.3 (TR-104) — este modal
+// ya solo tiene una forma posible (EditarHoraForm, siempre edita el
+// horario), así que un solo fixture "agendado" alcanza. `origen: "manual"`
+// es el caso con motivo editable; `turnoPaginaPublica` (más abajo) cubre
+// el caso E3.3 con motivo de solo lectura.
+const turnoAgendado = {
+  id: "turno-2",
+  estado: "agendado" as const,
+  origen: "manual" as const,
   nombreContacto: "Bruno",
   apellidoContacto: "Iglesias",
   dniContacto: "30111222",
@@ -63,80 +66,10 @@ const turnoPendiente = {
   emailContacto: "bruno@example.com",
   motivo: "Dolor de muela",
   createdAt: new Date().toISOString(),
-};
-
-const turnoAgendado = {
-  ...turnoPendiente,
-  id: "turno-2",
-  estado: "agendado" as const,
-  origen: "manual" as const,
   tipoConsultaId: "tc-1",
   horaInicio: "2026-09-01T13:00:00.000Z",
   horaFin: "2026-09-01T13:30:00.000Z",
 };
-
-describe("EditarTurnoModal — turno pendiente (edita todos los datos de contacto)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("precarga los campos con los datos actuales del turno", () => {
-    render(<EditarTurnoModal turno={turnoPendiente} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Bruno");
-    expect(screen.getByLabelText("DNI")).toHaveValue("30111222");
-  });
-
-  it("guarda cambios y llama a onSuccess con el turno actualizado", async () => {
-    editarTurnoActionMock.mockResolvedValue({ turno: { ...turnoPendiente, nombreContacto: "Brunito" } });
-    const onSuccess = vi.fn();
-    const user = userEvent.setup();
-    render(<EditarTurnoModal turno={turnoPendiente} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
-
-    await user.clear(screen.getByLabelText("Nombre"));
-    await user.type(screen.getByLabelText("Nombre"), "Brunito");
-    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-
-    expect(editarTurnoActionMock).toHaveBeenCalledWith(
-      "turno-1",
-      expect.objectContaining({ nombreContacto: "Brunito", dniContacto: "30111222" }),
-    );
-    expect(onSuccess).toHaveBeenCalledWith({ ...turnoPendiente, nombreContacto: "Brunito" });
-  });
-
-  it("exige nombre/apellido/DNI/teléfono", async () => {
-    const user = userEvent.setup();
-    render(<EditarTurnoModal turno={turnoPendiente} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    await user.clear(screen.getByLabelText("DNI"));
-    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("obligatorios");
-    expect(editarTurnoActionMock).not.toHaveBeenCalled();
-  });
-
-  it("muestra el error que devuelve la acción", async () => {
-    editarTurnoActionMock.mockResolvedValue({ error: "turno no encontrado" });
-    const user = userEvent.setup();
-    render(<EditarTurnoModal turno={turnoPendiente} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("turno no encontrado");
-  });
-
-  it("se cierra con el botón Cancelar y con la X", async () => {
-    const onClose = vi.fn();
-    const user = userEvent.setup();
-    render(<EditarTurnoModal turno={turnoPendiente} tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={vi.fn()} />);
-
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByRole("button", { name: "Cerrar" }));
-    expect(onClose).toHaveBeenCalledTimes(2);
-  });
-});
 
 describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
   beforeEach(() => {
@@ -199,7 +132,7 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
     expect(onSuccess).toHaveBeenCalledWith({ ...turnoAgendado, horaInicio: "2026-09-02T13:00:00.000Z" });
   });
 
-  it("precarga el motivo actual y permite editarlo antes de guardar", async () => {
+  it("precarga el motivo actual y permite editarlo antes de guardar (origen manual)", async () => {
     reprogramarTurnoActionMock.mockResolvedValue({ turno: turnoAgendado });
     const user = userEvent.setup();
     render(<EditarTurnoModal turno={turnoAgendado} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -213,6 +146,27 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(reprogramarTurnoActionMock).toHaveBeenCalledWith("turno-2", expect.objectContaining({ motivo: "Control de rutina" }));
+  });
+
+  // Extra 2.3.3 (E3.3, TR-104), acceptance criterion textual: "intentar
+  // editarlo en un turno de origen 'pagina_publica' no ofrece la opción"
+  // — el motivo de un turno pedido desde la página pública se muestra de
+  // solo lectura, nunca como un input editable.
+  it("un turno de origen 'pagina_publica' no ofrece la opción de editar el motivo", async () => {
+    const turnoPaginaPublica = { ...turnoAgendado, id: "turno-3", origen: "pagina_publica" as const };
+    reprogramarTurnoActionMock.mockResolvedValue({ turno: turnoPaginaPublica });
+    const user = userEvent.setup();
+    render(<EditarTurnoModal turno={turnoPaginaPublica} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    expect(screen.queryByLabelText("Motivo de consulta (opcional)")).not.toBeInTheDocument();
+    expect(screen.getByText("Dolor de muela")).toBeInTheDocument();
+    expect(screen.getByText(/no permiten editar el motivo acá/)).toBeInTheDocument();
+
+    // El horario se sigue pudiendo reprogramar igual — solo el motivo
+    // queda de solo lectura.
+    await esperarHoraCargada();
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(reprogramarTurnoActionMock).toHaveBeenCalledWith("turno-3", expect.objectContaining({ motivo: "Dolor de muela" }));
   });
 
   it("muestra el error de solapamiento (T2.5) que devuelve la acción", async () => {

@@ -72,25 +72,40 @@ func crearTurnoAgendadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, tipoC
 	return turno
 }
 
-func crearTurnoPendienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID string) db.Turno {
+// crearTurnoAgendadoConContactoDePrueba — TR-104: reemplaza a la vieja
+// crearTurnoPendienteDePrueba (el estado `pendiente` se sacó del todo, ver
+// tradeoffs.md) para los tests que necesitan un turno con datos de
+// contacto CONOCIDOS (Bruno Iglesias, DNI 30111222) — a diferencia de
+// crearTurnoAgendadoDePrueba (turnos_test.go original, contacto genérico
+// "P"/"Q"), que alcanza cuando el test no busca por esos datos.
+func crearTurnoAgendadoConContactoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, tipoConsultaID string, inicio time.Time) db.Turno {
 	t.Helper()
 	pid, err := uuid.Parse(profesionalID)
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
+	tid, err := uuid.Parse(tipoConsultaID)
+	if err != nil {
+		t.Fatalf("tipoConsultaID inválido: %v", err)
+	}
+	inicio = inicio.Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
 		ProfesionalID:    pid,
-		Estado:           "pendiente",
+		Estado:           "agendado",
+		TipoConsultaID:   &tid,
+		HoraInicio:       &inicio,
+		HoraFin:          &fin,
 		NombreContacto:   "Bruno",
 		ApellidoContacto: "Iglesias",
 		DNIContacto:      "30111222",
 		TelefonoContacto: "+5493511234567",
 		EmailContacto:    "bruno@example.com",
 		Motivo:           "Dolor de muela",
-		Origen:           "pagina_publica",
+		Origen:           "manual",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
-		t.Fatalf("no se pudo crear el turno pendiente de prueba: %v", err)
+		t.Fatalf("no se pudo crear el turno agendado de prueba: %v", err)
 	}
 	return turno
 }
@@ -102,7 +117,7 @@ func TestTurnos_RequierenAutenticacion(t *testing.T) {
 	for _, req := range []*http.Request{
 		httptest.NewRequest(http.MethodGet, "/turnos", nil),
 		httptest.NewRequest(http.MethodPost, "/turnos", nil),
-		httptest.NewRequest(http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000/agendar", nil),
+		httptest.NewRequest(http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000/cancelar", nil),
 		httptest.NewRequest(http.MethodGet, "/panel/resumen", nil),
 	} {
 		rec := httptest.NewRecorder()
@@ -116,13 +131,14 @@ func TestTurnos_RequierenAutenticacion(t *testing.T) {
 func TestListTurnos_FiltraPorEstadoYEsPorProfesional(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "list1@example.com")
-	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "list1@example.com")
+	crearTurnoAgendadoConContactoDePrueba(t, gdb, reg.Profesional.ID, tipoID, inicio)
 
-	otro, _ := profesionalConTipoConsulta(t, gdb, router, "list2@example.com")
-	crearTurnoPendienteDePrueba(t, gdb, otro.Profesional.ID)
+	otro, tipoOtro := profesionalConTipoConsulta(t, gdb, router, "list2@example.com")
+	crearTurnoAgendadoConContactoDePrueba(t, gdb, otro.Profesional.ID, tipoOtro, inicio)
 
-	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?estado=pendiente", reg.Token, nil)
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?estado=agendado", reg.Token, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -217,6 +233,62 @@ func TestListTurnos_ResueltoInvalidoFalla(t *testing.T) {
 	})
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?resuelto=quizas", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestListTurnos_FiltraPorTipoConsulta — corrección de QA (Extra 2.3.3):
+// "faltó el filtro de tipo de consulta" en la vista Turnos. Mismo criterio
+// que TestListTurnos_FiltraPorEstadoYEsPorProfesional: dos turnos del
+// mismo profesional, cada uno con un tipo de consulta distinto, filtrar
+// por uno de los dos ids trae solo ese turno.
+func TestListTurnos_FiltraPorTipoConsulta(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoGeneralID := profesionalConTipoConsulta(t, gdb, router, "tipofiltro@example.com")
+
+	profesionalID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	tipoUrgencia := db.TipoConsulta{ProfesionalID: profesionalID, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
+	if err := gdb.Create(&tipoUrgencia).Error; err != nil {
+		t.Fatalf("no se pudo crear el segundo tipo de consulta: %v", err)
+	}
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "General", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
+		TipoConsultaID: tipoGeneralID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	inicioUrgencia := inicio.Add(2 * time.Hour)
+	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Urgente", ApellidoContacto: "Q", DNIContacto: "2", TelefonoContacto: "2",
+		TipoConsultaID: tipoUrgencia.ID.String(), HoraInicio: inicioUrgencia.Format(time.RFC3339), HoraFin: inicioUrgencia.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?tipoConsultaId="+tipoUrgencia.ID.String(), reg.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got []turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, esperaba 1 (solo el turno de Urgencia)", len(got))
+	}
+	if got[0].NombreContacto != "Urgente" {
+		t.Errorf("NombreContacto = %q, esperaba Urgente", got[0].NombreContacto)
+	}
+}
+
+func TestListTurnos_TipoConsultaInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "tipofiltroinvalido@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?tipoConsultaId=no-es-un-uuid", reg.Token, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
 	}
@@ -406,190 +478,6 @@ func TestCrearTurnoManual_SolapamientoFallaControlado(t *testing.T) {
 	rec2 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, payload(inicio.Add(15*time.Minute)))
 	if rec2.Code != http.StatusConflict {
 		t.Fatalf("status = %d, esperaba %d (T2.5: error controlado, no 500). body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
-	}
-}
-
-func TestAgendarTurno_Exitoso(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar1@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	var got turnoResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.Estado != "agendado" {
-		t.Errorf("Estado = %q, esperaba agendado", got.Estado)
-	}
-	if got.PacienteID == nil {
-		t.Fatal("esperaba que se creara y vinculara un Paciente al agendar")
-	}
-	if got.Origen != "pagina_publica" {
-		t.Errorf("Origen = %q, esperaba que se conserve pagina_publica", got.Origen)
-	}
-}
-
-// TestAgendarTurno_ActualizaMotivo — pedido explícito del cliente
-// (2026-08-23): confirmar un turno pendiente permite completar/corregir el
-// motivo de consulta en el mismo paso.
-func TestAgendarTurno_ActualizaMotivo(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendarmotivo@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID) // motivo original: "Dolor de muela"
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-		Motivo:         "Control de rutina",
-	})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	var got turnoResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.Motivo != "Control de rutina" {
-		t.Errorf("Motivo = %q, esperaba 'Control de rutina'", got.Motivo)
-	}
-}
-
-// TestAgendarTurno_FechaPasadaFalla — pedido explícito del cliente
-// (2026-08-23): no se puede confirmar un turno pendiente con horario pasado.
-func TestAgendarTurno_FechaPasadaFalla(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pasado2@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	pasado := time.Now().Add(-time.Hour)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     pasado.Format(time.RFC3339),
-		HoraFin:        pasado.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestAgendarTurno_YaAgendadoFalla(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar2@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	body := agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	}
-	doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, body)
-
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, body)
-	if rec.Code != http.StatusConflict {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusConflict)
-	}
-}
-
-func TestAgendarTurno_NoExisteFalla(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar3@example.com")
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000/agendar", reg.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
-	}
-}
-
-func TestAgendarTurno_DeOtroProfesionalFalla(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	dueño, _ := profesionalConTipoConsulta(t, gdb, router, "agendar4a@example.com")
-	otro, tipoConsultaIDOtro := profesionalConTipoConsulta(t, gdb, router, "agendar4b@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, dueño.Profesional.ID)
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", otro.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaIDOtro,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, esperaba %d (no debe poder agendar un turno ajeno)", rec.Code, http.StatusNotFound)
-	}
-}
-
-func TestAgendarTurno_SolapamientoFallaControlado(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar5@example.com")
-
-	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
-	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
-		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Format(time.RFC3339),
-		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     inicio.Add(10 * time.Minute).Format(time.RFC3339),
-		HoraFin:        inicio.Add(40 * time.Minute).Format(time.RFC3339),
-	})
-	if rec.Code != http.StatusConflict {
-		t.Errorf("status = %d, esperaba %d (T2.5)", rec.Code, http.StatusConflict)
-	}
-}
-
-// TestResumenPanel_NoCuentaPendientes — F2.3 extra ítem 1 (rediseño del
-// Turnero, docs/implementation-plan.md §11.5): el dashboard deja de tener
-// una tarjeta de "turnos pendientes" — este endpoint ya no los cuenta ni
-// los expone de ninguna forma, aunque el estado `pendiente` en sí sigue
-// existiendo en la base (eso lo saca recién el ítem 2.3.3/2.3.5).
-func TestResumenPanel_NoCuentaPendientes(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen1@example.com")
-
-	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	futuro := clock.Today().AddDate(0, 0, 2).Add(12 * time.Hour)
-	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
-		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
-		TipoConsultaID: tipoConsultaID,
-		HoraInicio:     futuro.Format(time.RFC3339),
-		HoraFin:        futuro.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-
-	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	var got resumenPanelResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.TotalConfirmados != 1 {
-		t.Errorf("TotalConfirmados = %d, esperaba 1", got.TotalConfirmados)
 	}
 }
 
@@ -948,8 +836,8 @@ func TestListTurnos_TokenBasuraEsRechazado(t *testing.T) {
 func TestListTurnos_BuscaPorNombreDNIOEmail(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "buscarturno1@example.com")
-	crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID) // Bruno Iglesias, DNI 30111222
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "buscarturno1@example.com")
+	crearTurnoAgendadoConContactoDePrueba(t, gdb, reg.Profesional.ID, tipoID, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)) // Bruno Iglesias, DNI 30111222
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/turnos?q=30111222", reg.Token, nil)
 	var got []turnoResponse
@@ -969,10 +857,10 @@ func TestListTurnos_BuscaPorNombreDNIOEmail(t *testing.T) {
 func TestCancelarTurno_Exitoso(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar1@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "cancelar1@example.com")
+	turno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC))
 
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/cancelar", reg.Token, nil)
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", reg.Token, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -986,11 +874,11 @@ func TestCancelarTurno_Exitoso(t *testing.T) {
 func TestCancelarTurno_EsIdempotente(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar2@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "cancelar2@example.com")
+	turno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC))
 
-	doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/cancelar", reg.Token, nil)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/cancelar", reg.Token, nil)
+	doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", reg.Token, nil)
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", reg.Token, nil)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("cancelar dos veces no debería fallar: status=%d body=%s", rec.Code, rec.Body.String())
@@ -1000,88 +888,13 @@ func TestCancelarTurno_EsIdempotente(t *testing.T) {
 func TestCancelarTurno_DeOtroProfesionalFalla(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	dueño, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar3a@example.com")
+	dueño, tipoDueño := profesionalConTipoConsulta(t, gdb, router, "cancelar3a@example.com")
 	otro, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar3b@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, dueño.Profesional.ID)
+	turno := crearTurnoAgendadoDePrueba(t, gdb, dueño.Profesional.ID, tipoDueño, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC))
 
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/cancelar", otro.Token, nil)
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", otro.Token, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
-	}
-}
-
-func TestEditarTurno_Exitoso(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "editar1@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String(), reg.Token, editarTurnoRequest{
-		NombreContacto: "Bruno", ApellidoContacto: "Iglesias Editado", DNIContacto: "30111222",
-		TelefonoContacto: "+5493511230000", EmailContacto: "nuevo@example.com", Motivo: "Motivo editado",
-	})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-	var got turnoResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.ApellidoContacto != "Iglesias Editado" {
-		t.Errorf("ApellidoContacto = %q, esperaba 'Iglesias Editado'", got.ApellidoContacto)
-	}
-	if got.Motivo != "Motivo editado" {
-		t.Errorf("Motivo = %q, esperaba 'Motivo editado'", got.Motivo)
-	}
-}
-
-func TestEditarTurno_CamposObligatoriosFaltantes(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "editar2@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
-
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String(), reg.Token, editarTurnoRequest{
-		NombreContacto: "", ApellidoContacto: "Iglesias", DNIContacto: "1", TelefonoContacto: "1",
-	})
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
-	}
-}
-
-func TestEditarTurno_NoExisteFalla(t *testing.T) {
-	router, gdb := newTestRouter(t)
-	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
-		Nombre: "María Games", Email: "editar3@example.com", Password: "password123456", NombreClinica: "Clínica",
-	})
-
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000", reg.Token, editarTurnoRequest{
-		NombreContacto: "A", ApellidoContacto: "B", DNIContacto: "1", TelefonoContacto: "1",
-	})
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
-	}
-}
-
-// TestEditarTurno_TurnoAgendadoFalla — ajuste 2026-08-23: un turno ya
-// `agendado` solo se reprograma por hora (PATCH /turnos/{id}/hora), nunca
-// edita sus datos de contacto por este endpoint.
-func TestEditarTurno_TurnoAgendadoFalla(t *testing.T) {
-	gdb := testdb.New(t)
-	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "editar4@example.com")
-
-	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
-		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
-		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
-	})
-	var turnoCreado turnoResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &turnoCreado)
-
-	recEditar := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turnoCreado.ID, reg.Token, editarTurnoRequest{
-		NombreContacto: "Julián", ApellidoContacto: "Otro apellido", DNIContacto: "1", TelefonoContacto: "1",
-	})
-	if recEditar.Code != http.StatusConflict {
-		t.Errorf("status = %d, esperaba %d", recEditar.Code, http.StatusConflict)
 	}
 }
 
@@ -1121,14 +934,18 @@ func TestReprogramarTurno_Exitoso(t *testing.T) {
 	}
 }
 
-func TestReprogramarTurno_PendienteFalla(t *testing.T) {
+// TestReprogramarTurno_CanceladaFalla — solo se reprograma un turno ya
+// `agendado`; uno `cancelada` (el único otro estado posible desde TR-104)
+// no admite reprogramarse.
+func TestReprogramarTurno_CanceladaFalla(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "reprog2@example.com")
-	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "reprog2@example.com")
+	turno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC))
+	doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", reg.Token, nil)
 
-	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/hora", reg.Token, reprogramarTurnoRequest{
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/hora", reg.Token, reprogramarTurnoRequest{
 		HoraInicio: inicio.Format(time.RFC3339),
 		HoraFin:    inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})

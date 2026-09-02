@@ -22,12 +22,10 @@ import (
 func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/turnos", listTurnosHandler(gdb))
 	r.Post("/turnos", crearTurnoManualHandler(gdb))
-	r.Patch("/turnos/{id}/agendar", agendarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/cancelar", cancelarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/hora", reprogramarTurnoHandler(gdb))
 	r.Post("/turnos/autoreservar", autoreservarTurnosHandler(gdb))
 	r.Patch("/turnos/{id}/asistencia", marcarAsistenciaHandler(gdb))
-	r.Patch("/turnos/{id}", editarTurnoHandler(gdb))
 	r.Get("/panel/resumen", resumenPanelHandler(gdb))
 }
 
@@ -92,20 +90,24 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 	return out
 }
 
-// listTurnosHandler — GET /turnos?estado=&desde=&hasta=&q=&resuelto=.
-// `estado` filtra por columna exacta (pendiente/agendado/cancelada);
-// `desde`/`hasta` (RFC3339) filtran por hora_inicio — lo que usa el
-// calendario (T2.3) para pedir solo el rango visible. `q` (T3.3) busca por
-// nombre/apellido/DNI/email de contacto, igual que el buscador de la vista
-// Turnos. `resuelto` (true/false, pedido explícito del cliente,
-// 2026-08-23) filtra turnos `agendado` cuya hora de fin ya pasó (pestaña
-// "Resueltos" de la vista Turnos) — solo tiene efecto si además se manda
-// `estado=agendado`; nunca cambia el significado de `estado=agendado` por
-// sí solo, así el calendario (que pide `estado=agendado` sin este
-// parámetro, para pintar pasados en gris y futuros normal) sigue trayendo
-// ambos. Sin filtros, devuelve todos los turnos del profesional (usado por
-// T2.2 para calcular el resumen si hiciera falta, y por el modal T2.4 para
-// listar pendientes con estado=pendiente).
+// listTurnosHandler — GET /turnos?estado=&desde=&hasta=&q=&resuelto=&tipoConsultaId=.
+// `estado` filtra por columna exacta (agendado/cancelada — TR-104: ya no
+// existe `pendiente`); `desde`/`hasta` (RFC3339) filtran por hora_inicio —
+// lo que usa el calendario (T2.3) para pedir solo el rango visible. `q`
+// (T3.3) busca por nombre/apellido/DNI/email de contacto, igual que el
+// buscador de la vista Turnos. `resuelto` (true/false, pedido explícito
+// del cliente, 2026-08-23) filtra turnos `agendado` cuya hora de fin ya
+// pasó (pestaña "Resueltos" de la vista Turnos) — solo tiene efecto si
+// además se manda `estado=agendado`; nunca cambia el significado de
+// `estado=agendado` por sí solo, así el calendario (que pide
+// `estado=agendado` sin este parámetro, para pintar pasados en gris y
+// futuros normal) sigue trayendo ambos. `tipoConsultaId` (corrección de
+// QA, Extra 2.3.3: "faltó el filtro de tipo de consulta" en la vista
+// Turnos) filtra por columna exacta — mismo filtro que ya existía del
+// lado del cliente en "Turnos activos"/"Historial" de la ficha de
+// paciente (paciente-turnos-table.tsx), acá resuelto en el servidor.
+// Sin filtros, devuelve todos los turnos del profesional (usado por T2.2
+// para calcular el resumen si hiciera falta).
 func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -151,6 +153,14 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 				return
 			}
 			query = query.Where("hora_inicio <= ?", t)
+		}
+		if tipoConsultaID := r.URL.Query().Get("tipoConsultaId"); tipoConsultaID != "" {
+			id, err := uuid.Parse(tipoConsultaID)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "el parámetro 'tipoConsultaId' debe ser un id válido")
+				return
+			}
+			query = query.Where("tipo_consulta_id = ?", id)
 		}
 
 		var turnos []db.Turno
@@ -231,82 +241,6 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-type agendarTurnoRequest struct {
-	TipoConsultaID string `json:"tipoConsultaId"`
-	HoraInicio     string `json:"horaInicio"`
-	HoraFin        string `json:"horaFin"`
-	// Motivo (opcional, pedido explícito del cliente 2026-08-23): el
-	// profesional puede completar o corregir el motivo de consulta en este
-	// mismo paso de confirmar el turno pendiente, no solo al crear uno
-	// manual — el frontend siempre manda el valor vigente (el que trajo el
-	// turno pendiente, editado o no), así que se pisa sin condicional, igual
-	// que editarTurnoHandler.
-	Motivo string `json:"motivo"`
-}
-
-// agendarTurnoHandler — PATCH /turnos/{id}/agendar: camino "desde turnos
-// pendientes" del modal — el turno ya existe (llegó de la página pública),
-// solo le falta tipo de consulta + horario para pasar a `agendado`.
-func agendarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		profesionalID, ok := profesionalIDFromRequest(w, r)
-		if !ok {
-			return
-		}
-		turnoID, err := uuid.Parse(chi.URLParam(r, "id"))
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "id de turno inválido")
-			return
-		}
-
-		var req agendarTurnoRequest
-		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
-			return
-		}
-
-		var turno db.Turno
-		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
-			writeError(w, http.StatusNotFound, "turno no encontrado")
-			return
-		}
-		if turno.Estado != "pendiente" {
-			writeError(w, http.StatusConflict, "este turno ya fue agendado o cancelado")
-			return
-		}
-
-		tipoConsultaID, err := uuid.Parse(req.TipoConsultaID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "el tipo de consulta no es válido")
-			return
-		}
-		horaInicio, horaFin, err := parseRangoHorario(req.HoraInicio, req.HoraFin)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		// Pedido explícito del cliente (2026-08-23): no se puede confirmar un
-		// turno pendiente con una fecha/hora que ya pasó.
-		if horaInicio.Before(clock.Now()) {
-			writeError(w, http.StatusBadRequest, "no se puede agendar un turno en una fecha pasada")
-			return
-		}
-
-		turno.TipoConsultaID = &tipoConsultaID
-		turno.HoraInicio = &horaInicio
-		turno.HoraFin = &horaFin
-		turno.Motivo = strings.TrimSpace(req.Motivo)
-		turno.Estado = "agendado"
-
-		if err := crearTurnoAgendadoConPaciente(gdb, profesionalID, &turno, nil); err != nil {
-			writeTurnoAgendadoError(w, err)
-			return
-		}
-
-		writeJSON(w, http.StatusOK, toTurnoResponse(turno))
-	}
-}
-
 // cancelarTurnoHandler — PATCH /turnos/{id}/cancelar (T3.3, acción
 // "Cancelar" de la vista Turnos). `cancelada` es terminal — spec §4.4 no
 // prevé "reabrir" un turno cancelado, así que cancelar uno que ya está
@@ -341,91 +275,25 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-type editarTurnoRequest struct {
-	NombreContacto   string `json:"nombreContacto"`
-	ApellidoContacto string `json:"apellidoContacto"`
-	DNIContacto      string `json:"dniContacto"`
-	TelefonoContacto string `json:"telefonoContacto"`
-	EmailContacto    string `json:"emailContacto"`
-	Motivo           string `json:"motivo"`
-}
-
-// editarTurnoHandler — PATCH /turnos/{id} (T3.3, acción "Editar" de un
-// turno `pendiente`): corrige los datos de contacto. Ajuste pedido por el
-// cliente (2026-08-23): una vez que el turno pasa a `agendado`, sus datos
-// de contacto ya se usaron para crear el `paciente` — de ahí en más, lo
-// único editable acá es el horario, vía /turnos/{id}/hora
-// (reprogramarTurnoHandler), nunca el nombre/DNI/motivo desde este
-// endpoint. Nunca el tipo de consulta tampoco, eso sigue siendo solo cosa
-// de /agendar (T2.4), para no esquivar el exclusion constraint (T2.5).
-func editarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		profesionalID, ok := profesionalIDFromRequest(w, r)
-		if !ok {
-			return
-		}
-		turnoID, err := uuid.Parse(chi.URLParam(r, "id"))
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "id de turno inválido")
-			return
-		}
-
-		var turno db.Turno
-		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
-			writeError(w, http.StatusNotFound, "turno no encontrado")
-			return
-		}
-		if turno.Estado != "pendiente" {
-			writeError(w, http.StatusConflict, "un turno confirmado solo permite editar el horario, no los datos de contacto")
-			return
-		}
-
-		var req editarTurnoRequest
-		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
-			return
-		}
-		req.NombreContacto = strings.TrimSpace(req.NombreContacto)
-		req.ApellidoContacto = strings.TrimSpace(req.ApellidoContacto)
-		req.DNIContacto = strings.TrimSpace(req.DNIContacto)
-		req.TelefonoContacto = strings.TrimSpace(req.TelefonoContacto)
-		if req.NombreContacto == "" || req.ApellidoContacto == "" || req.DNIContacto == "" || req.TelefonoContacto == "" {
-			writeError(w, http.StatusBadRequest, "nombre, apellido, DNI y teléfono son obligatorios")
-			return
-		}
-
-		turno.NombreContacto = req.NombreContacto
-		turno.ApellidoContacto = req.ApellidoContacto
-		turno.DNIContacto = req.DNIContacto
-		turno.TelefonoContacto = req.TelefonoContacto
-		turno.EmailContacto = strings.TrimSpace(req.EmailContacto)
-		turno.Motivo = strings.TrimSpace(req.Motivo)
-
-		if err := gdb.Save(&turno).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo editar el turno")
-			return
-		}
-
-		writeJSON(w, http.StatusOK, toTurnoResponse(turno))
-	}
-}
-
 type reprogramarTurnoRequest struct {
 	HoraInicio string `json:"horaInicio"`
 	HoraFin    string `json:"horaFin"`
 	// Motivo (opcional, pedido explícito del cliente 2026-08-23): un turno
 	// confirmado solo permite cambiar horario y motivo por acá, nunca los
 	// datos de contacto — el frontend siempre manda el valor vigente, así
-	// que se pisa sin condicional, igual que editarTurnoHandler.
+	// que se pisa sin condicional. TR-104: es el ÚNICO endpoint que edita un
+	// turno ya creado (editarTurnoHandler, el que corregía datos de contacto
+	// de un turno `pendiente`, se sacó del todo junto con ese estado).
 	Motivo string `json:"motivo"`
 }
 
-// reprogramarTurnoHandler — PATCH /turnos/{id}/hora: acción "Editar" de un
-// turno ya `agendado` (ajuste pedido por el cliente, 2026-08-23) — a
-// diferencia de editarTurnoHandler (turnos `pendiente`), acá solo se puede
-// cambiar el horario y el motivo de consulta, nunca los datos de contacto.
-// El cambio de horario pasa por el mismo exclusion constraint (T2.5) que
-// agendar por primera vez: un solapamiento se traduce a 409, nunca un 500.
+// reprogramarTurnoHandler — PATCH /turnos/{id}/hora: acción "Editar" de la
+// vista Turnos/calendario (ajuste pedido por el cliente, 2026-08-23) —
+// solo cambia el horario y el motivo de consulta, nunca los datos de
+// contacto (esos ya se usaron para crear el `paciente` al crear el turno;
+// se corrigen desde "Editar paciente", no desde acá). El cambio de horario
+// pasa por el mismo exclusion constraint (T2.5) que agendar por primera
+// vez: un solapamiento se traduce a 409, nunca un 500.
 func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -950,11 +818,8 @@ type resumenHorarioReservadoItem struct {
 
 // resumenPanelResponse — F2.3 extra, ítem 1 (rediseño del "Turnero"):
 // reemplaza los 2 contadores viejos (pendientes/confirmados) por los
-// datos de las 5 tarjetas nuevas. "Turnos pendientes" deja de tener
-// tarjeta propia acá (el brief saca ese concepto del dashboard) — el
-// estado `pendiente` en sí sigue existiendo en la base hasta el ítem
-// F2.3 extra 2.3.3/2.3.5 (docs/implementation-plan.md §11.5), esto solo
-// deja de contarlo en ESTE endpoint puntual.
+// datos de las 5 tarjetas nuevas. "Turnos pendientes" ya no existe ni como
+// concepto (TR-104 sacó el estado `pendiente` del todo, Extra 2.3.3).
 type resumenPanelResponse struct {
 	TurnosHoy          []resumenTurnoItem            `json:"turnosHoy"`
 	TurnosProximos     []resumenTurnoItem            `json:"turnosProximos"`

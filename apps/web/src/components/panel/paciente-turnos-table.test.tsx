@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { PacienteTurnosTable } from "./paciente-turnos-table";
 
 // Cada fila ahora es un ClickableTableRow (TR-074 en docs/tradeoffs.md —
@@ -57,6 +58,29 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
     const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
     expect(punto).toHaveStyle({ background: "rgb(214, 86, 58)" });
+  });
+
+  // Corrección de QA (pedido textual del cliente): "si el tipo de
+  // consulta es muy largo... poner un botón 'Ver tipo'" — mismo umbral
+  // que TurnosTable (tipoConsultaNombreEsLargo: más largo que "Consulta
+  // general", 16 caracteres). El punto de color sigue viendo siempre,
+  // sea cual sea el nombre.
+  it("un nombre de tipo largo se oculta detrás de 'Ver tipo →', sin tapar el punto de color", async () => {
+    const tipoLargo = [{ id: "tc-largo", nombre: "Consulta de ortodoncia y control", color: "#D6563A" }];
+    const turnoConTipoLargo = { ...turno, tipoConsultaId: "tc-largo" };
+    const user = userEvent.setup();
+    const { container } = render(<PacienteTurnosTable turnos={[turnoConTipoLargo]} tiposConsulta={tipoLargo} vacio="" />);
+
+    // queryByText a secas también encuentra la <option> del selector de
+    // tipos (que sí lleva el nombre completo) — se busca puntualmente la
+    // celda de la tabla, no cualquier texto en la página.
+    expect(screen.queryByRole("cell", { name: tipoLargo[0].nombre })).not.toBeInTheDocument();
+    const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
+    expect(punto).toHaveStyle({ background: "rgb(214, 86, 58)" });
+
+    await user.click(screen.getByRole("button", { name: "Ver tipo →" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Tipo" });
+    expect(dialogo).toHaveTextContent(tipoLargo[0].nombre);
   });
 
   it("muestra estado, fecha y motivo", () => {
@@ -139,6 +163,64 @@ describe("PacienteTurnosTable", () => {
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2030-10-01" } });
 
     expect(screen.getByText("Ningún turno coincide con el filtro.")).toBeInTheDocument();
+  });
+
+  // Extra 2.3.3 (E3.5): atajos HOY/SEMANA/MES antes de Desde/Hasta.
+  it("tocar 'Hoy' precarga Desde y Hasta con la fecha de hoy", async () => {
+    const user = userEvent.setup();
+    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
+
+    await user.click(screen.getByRole("button", { name: "Hoy" }));
+
+    const { desde, hasta } = rangoRapidoFechas("hoy");
+    expect(screen.getByLabelText("Desde")).toHaveValue(desde);
+    expect(screen.getByLabelText("Hasta")).toHaveValue(hasta);
+  });
+
+  it("tocar 'Semana' precarga Desde/Hasta con el lunes a domingo de la semana actual", async () => {
+    const user = userEvent.setup();
+    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
+
+    await user.click(screen.getByRole("button", { name: "Semana" }));
+
+    const { desde, hasta } = rangoRapidoFechas("semana");
+    expect(screen.getByLabelText("Desde")).toHaveValue(desde);
+    expect(screen.getByLabelText("Hasta")).toHaveValue(hasta);
+  });
+
+  // Corrección de QA (pedido explícito del cliente): los atajos HOY/
+  // SEMANA/MES se sacan SOLO de "Historial de turnos" — Desde/Hasta
+  // sigue disponible ahí, y "Turnos activos" (mostrarRangosRapidos=true
+  // por default, sin tocar su call site) no se ve afectado.
+  it("mostrarRangosRapidos=false saca los atajos HOY/SEMANA/MES, sin tocar Desde/Hasta", () => {
+    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" mostrarRangosRapidos={false} />);
+
+    expect(screen.queryByRole("button", { name: "Hoy" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Semana" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mes" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Desde")).toBeInTheDocument();
+    expect(screen.getByLabelText("Hasta")).toBeInTheDocument();
+  });
+
+  // Corrección de QA: "Ver motivo" (Extra 2.3.3/E3.3) faltaba acá — mismo
+  // componente que ya aplica en TurnosTable, para "Turnos activos" e
+  // "Historial de turnos" (mismo componente en los dos lugares).
+  it("motivo largo: se oculta detrás de 'Ver motivo', y clickearlo no navega la fila", async () => {
+    const motivoLargo = "Dolor intenso en la muela del juicio inferior derecha desde hace tres días";
+    const user = userEvent.setup();
+    render(<PacienteTurnosTable turnos={[{ ...turno, motivo: motivoLargo }]} tiposConsulta={tiposConsulta} vacio="" />);
+    // pushMock no se limpia entre tests de este archivo (no hay
+    // `beforeEach(vi.clearAllMocks)`) — se compara contra la cantidad de
+    // llamadas ya acumuladas, no contra cero.
+    const llamadasPrevias = pushMock.mock.calls.length;
+
+    expect(screen.getByRole("button", { name: "Ver motivo de consulta" })).toBeInTheDocument();
+    expect(screen.queryByText(motivoLargo)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver motivo de consulta" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Motivo de consulta" });
+    expect(dialogo).toBeInTheDocument();
+    expect(pushMock.mock.calls.length).toBe(llamadasPrevias);
   });
 
   it("'Limpiar filtros' vuelve a mostrar todos los turnos", async () => {

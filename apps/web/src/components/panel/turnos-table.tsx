@@ -1,12 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { cancelarTurnoAction, listTurnosAction, marcarAsistenciaAction } from "@/app/actions/turnos";
-import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora } from "@/lib/turno-format";
+import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
+import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
-import { AgregarTurnoModal } from "./agregar-turno-modal";
+import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { CancelarTurnoModal } from "./cancelar-turno-modal";
 import { EditarTurnoModal } from "./editar-turno-modal";
@@ -29,10 +31,13 @@ interface TurnosTableProps {
 // una columna aparte, que competía por espacio con los datos del turno.
 export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }: TurnosTableProps) {
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  // tipoPorId — corrección de QA: "dar un indicador visual en la tabla de
+  // turnos el tipo de consulta, ya que está ausente" — mismo criterio que
+  // paciente-turnos-table.tsx (temaTipoConsulta, punto de color + nombre,
+  // nunca el color solo — TR-013).
+  const tipoPorId = useMemo(() => new Map(tiposConsulta.map((t) => [t.id, t])), [tiposConsulta]);
   const [expandidoId, setExpandidoId] = useState<string | null>(abrirId ?? null);
-  const [confirmarTurno, setConfirmarTurno] = useState<Turno | null>(null);
   const [editarTurno, setEditarTurno] = useState<Turno | null>(null);
-  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // asistenciaPendingId (pedido explícito del cliente, 2026-09-04): "los
   // turnos resueltos ahora tienen la opción... de marcar asistidos o
@@ -67,10 +72,11 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   }, []);
 
   // Cancelar un turno agendado deshace un compromiso ya asumido con el
-  // paciente — pide confirmación extra vía CancelarTurnoModal. Un turno
-  // pendiente todavía no era un compromiso real (recién llegó de la
-  // página pública o se está por descartar), así que se cancela directo,
-  // sin preguntar (pedido explícito del cliente, 2026-08-23).
+  // paciente — pide confirmación extra vía CancelarTurnoModal. Hasta
+  // Extra 2.3.3 un turno `pendiente` se cancelaba directo, sin preguntar
+  // (recién llegado de la página pública, todavía no era un compromiso
+  // real); ese estado se sacó del todo (TR-104) — ahora cualquier turno
+  // (siempre `agendado` en este punto) pasa por el modal de confirmación.
   const [cancelarModalTurno, setCancelarModalTurno] = useState<Turno | null>(null);
   const [cancelarModalPending, setCancelarModalPending] = useState(false);
   const [cancelarModalError, setCancelarModalError] = useState<string | null>(null);
@@ -81,18 +87,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
 
   function alternarExpandido(id: string) {
     setExpandidoId((actual) => (actual === id ? null : id));
-  }
-
-  async function ejecutarCancelacion(turno: Turno) {
-    setError(null);
-    setCancelandoId(turno.id);
-    const result = await cancelarTurnoAction(turno.id);
-    setCancelandoId(null);
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-    recargar();
   }
 
   async function confirmarAsistencia(turno: Turno, valor: "asistio" | "ausente") {
@@ -109,10 +103,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   }
 
   function pedirCancelar(turno: Turno) {
-    if (turno.estado === "pendiente") {
-      ejecutarCancelacion(turno);
-      return;
-    }
     setCancelarModalError(null);
     setCancelarModalTurno(turno);
   }
@@ -136,6 +126,29 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
       <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
         No hay turnos para este filtro.
       </p>
+    );
+  }
+
+  // renderTipoConsulta — corrección de QA: "dar un indicador visual en la
+  // tabla de turnos el tipo de consulta, ya que está ausente" — mismo
+  // criterio de dos señales a la vez (color + nombre, nunca el color
+  // solo, TR-013) que paciente-turnos-table.tsx. Un nombre largo pasa a
+  // "Ver tipo →" en vez de romper el ancho de la columna (mismo
+  // componente que "Ver motivo"/"Ver paciente" de al lado) — el umbral es
+  // el específico de tipoConsultaNombreEsLargo (más largo que "Consulta
+  // general"), no el genérico de 30 caracteres de textoEsLargo. Extraída
+  // para no duplicar la lógica entre la columna de escritorio y el
+  // bloque de mobile (mismo criterio que renderAcciones, más abajo).
+  function renderTipoConsulta(tipo: TipoConsulta | undefined) {
+    if (!tipo) return "—";
+    if (tipoConsultaNombreEsLargo(tipo.nombre)) {
+      return <VerTextoBoton titulo="Tipo" texto={tipo.nombre} flecha />;
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true" className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: temaTipoConsulta(tipo).acento }} />
+        {tipo.nombre}
+      </span>
     );
   }
 
@@ -216,15 +229,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
     }
     return (
       <>
-        {t.estado === "pendiente" && (
-          <button
-            type="button"
-            onClick={() => setConfirmarTurno(t)}
-            className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
-          >
-            Confirmar
-          </button>
-        )}
         {t.estado !== "cancelada" && (
           <button
             type="button"
@@ -238,10 +242,9 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           <button
             type="button"
             onClick={() => pedirCancelar(t)}
-            disabled={cancelandoId === t.id}
-            className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro disabled:opacity-60"
+            className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
           >
-            {cancelandoId === t.id ? "Cancelando…" : "Cancelar"}
+            Cancelar
           </button>
         )}
       </>
@@ -309,6 +312,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                 fuerza a 1px completo, visible en cualquier dispositivo. */}
             <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
               <th className="panel-th-sticky px-4 py-3">Paciente</th>
+              <th className="panel-th-sticky max-md:hidden px-4 py-3">Tipo de consulta</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Contacto</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
               <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
@@ -329,6 +333,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
               // que TurnoDetalle), se deriva acá: agendado + horaFin ya
               // pasado.
               const resuelto = t.estado === "agendado" && Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < new Date().getTime();
+              const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
               return (
                 <Fragment key={t.id}>
                   <tr
@@ -347,11 +352,31 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                         </div>
                       </div>
                     </td>
+                    <td className="max-md:hidden px-4 py-3 text-sm text-grafito">{renderTipoConsulta(tipo)}</td>
                     <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito">
                       <div>{t.telefonoContacto}</div>
-                      {t.emailContacto && <div className="text-grafito/50">{t.emailContacto}</div>}
+                      {/* Corrección de QA: un mail largo en la columna de
+                          Contacto pasa a "Ver email →", solo texto (sin
+                          la pastilla con borde que usa "Ver motivo" al
+                          lado) — variante "link" de VerTextoBoton. */}
+                      {t.emailContacto &&
+                        (textoEsLargo(t.emailContacto) ? (
+                          <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
+                        ) : (
+                          <div className="text-grafito/50">{t.emailContacto}</div>
+                        ))}
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-grafito">{t.motivo || "—"}</td>
+                    <td className="max-md:hidden px-4 py-3 text-grafito">
+                      {/* Extra 2.3.3 (E3.3): un motivo largo no se muestra
+                          más inline — rompía el ancho de la fila. Reusa
+                          VerTextoBoton (Extra 2.3.1/E1.7), el mismo
+                          componente de "Ver mail" en Pacientes. */}
+                      {textoEsLargo(t.motivo) ? (
+                        <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} />
+                      ) : (
+                        t.motivo || "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
@@ -393,7 +418,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                   </tr>
                   {expandido && (
                     <tr className="border-b border-arena bg-hueso last:border-b-0 md:border-b-[0.5px]">
-                      <td colSpan={7} className="px-4 py-3">
+                      <td colSpan={8} className="px-4 py-3">
                         {/* Contacto/Motivo/Origen — ocultos como columna en
                             mobile (arriba), reaparecen ACÁ al desplegar la
                             fila, junto a los botones. Desde `md` no hace
@@ -408,21 +433,47 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                             mismo tamaño, más grande, solo las etiquetas
                             (dt) se mantienen chicas a propósito. */}
                         <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-base md:hidden">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tipo de consulta</dt>
+                          <dd className="text-grafito">{renderTipoConsulta(tipo)}</dd>
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Contacto</dt>
                           <dd className="font-[family-name:var(--font-mono)] text-grafito">
                             <div>{t.telefonoContacto}</div>
-                            {t.emailContacto && <div className="break-all text-grafito/50">{t.emailContacto}</div>}
+                            {t.emailContacto &&
+                              (textoEsLargo(t.emailContacto) ? (
+                                <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
+                              ) : (
+                                <div className="break-all text-grafito/50">{t.emailContacto}</div>
+                              ))}
                           </dd>
                           {t.motivo && (
                             <>
                               <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Motivo</dt>
-                              <dd className="text-grafito">{t.motivo}</dd>
+                              <dd className="text-grafito">
+                                {textoEsLargo(t.motivo) ? <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} /> : t.motivo}
+                              </dd>
                             </>
                           )}
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Origen</dt>
                           <dd className="text-grafito/50">{ORIGEN_LABEL[t.origen]}</dd>
                         </dl>
-                        <div className="flex flex-wrap gap-2">{renderAcciones(t, resuelto)}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {renderAcciones(t, resuelto)}
+                          {/* Extra 2.3.3 (E3.4) — misma navegación que el
+                              botón homónimo de TurnoDetalle en el
+                              calendario (turno-detalle.tsx): un turno
+                              manual sin ficha vinculada (bug de DNI ya
+                              corregido, ver continuarConNuevo en
+                              agregar-turno-modal.tsx) no tiene
+                              `pacienteId`, así que no se ofrece el botón. */}
+                          {t.pacienteId && (
+                            <Link
+                              href={`/panel/pacientes/${t.pacienteId}`}
+                              className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                            >
+                              Ver paciente →
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -432,18 +483,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           </tbody>
         </table>
       </div>
-
-      {confirmarTurno && (
-        <AgregarTurnoModal
-          tiposConsulta={tiposConsulta}
-          turnoPendienteInicial={confirmarTurno}
-          onClose={() => setConfirmarTurno(null)}
-          onSuccess={() => {
-            setConfirmarTurno(null);
-            recargar();
-          }}
-        />
-      )}
 
       {editarTurno && (
         <EditarTurnoModal

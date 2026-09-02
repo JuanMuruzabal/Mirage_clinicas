@@ -164,22 +164,24 @@ type VerificacionTurnoPublico struct {
 
 func (VerificacionTurnoPublico) TableName() string { return "verificaciones_turno_publico" }
 
-// Turno es la pieza central del esquema (spec §4.3/§4.4). Mientras está
-// `pendiente` (llegó del formulario público, spec §4.4) todavía no tiene
-// paciente_id ni horario fijo — esos campos de contacto quedan sueltos acá
-// hasta que el profesional lo agenda desde el modal "+ Agregar turno"
-// (spec §4.3), momento en el que se crea/vincula el Paciente y se fija
-// HoraInicio/HoraFin. Ver TR-006 en docs/tradeoffs.md.
+// Turno es la pieza central del esquema (spec §4.3/§4.4). El estado
+// `pendiente` (turno del formulario público sin horario fijo todavía,
+// TR-006) existió hasta Extra 2.3.5 — el formulario público ahora asigna
+// horario real de entrada (TR-100), así que todo turno nace `agendado` de
+// punta a punta; `pendiente` se sacó del todo (Extra 2.3.3, TR-104):
+// nunca más un valor válido de `Estado`, ni en el check constraint ni en
+// ningún código que lo use.
 type Turno struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	ProfesionalID  uuid.UUID  `gorm:"column:profesional_id;type:uuid;not null;index"`
 	PacienteID     *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
 	TipoConsultaID *uuid.UUID `gorm:"column:tipo_consulta_id;type:uuid"`
-	// Estado: 'pendiente' | 'agendado' | 'cancelada' (spec §4.4).
-	Estado string `gorm:"type:varchar(20);not null;default:pendiente;check:estado IN ('pendiente','agendado','cancelada')"`
-	// HoraInicio/HoraFin: nil mientras `pendiente`. La columna generada
-	// `rango_horario` (tstzrange) y el exclusion constraint que la usa se
-	// agregan en RunMigrations vía SQL crudo — GORM no puede expresarlos.
+	// Estado: 'agendado' | 'cancelada' (spec §4.4, TR-104).
+	Estado string `gorm:"type:varchar(20);not null;default:agendado;check:estado IN ('agendado','cancelada')"`
+	// HoraInicio/HoraFin: siempre fijos desde TR-104 (todo turno nace
+	// `agendado`). La columna generada `rango_horario` (tstzrange) y el
+	// exclusion constraint que la usa se agregan en RunMigrations vía SQL
+	// crudo — GORM no puede expresarlos.
 	HoraInicio *time.Time `gorm:"column:hora_inicio"`
 	HoraFin    *time.Time `gorm:"column:hora_fin"`
 

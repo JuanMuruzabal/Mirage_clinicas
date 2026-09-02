@@ -5,20 +5,17 @@ import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 // no repetir el mismo diccionario en dos componentes.
 
 export const ESTADO_LABEL: Record<Turno["estado"], string> = {
-  pendiente: "Pendiente",
   agendado: "Confirmado",
   cancelada: "Cancelada",
 };
 
 // Nunca cascarón/urgencia acá — TR-010 en docs/tradeoffs.md los reserva
-// exclusivamente para el bloque de tipo_consulta del calendario. Salvia y
-// terracota (TR-013, piel cálida del panel) sí se usan para el estado del
-// turno con significado explícito — confirmado = "ok" = salvia, pendiente
-// = alerta suave = terracota — además de la marca de cuadrante de al lado
-// (1 lleno = pendiente, 4 llenos = agendado, tachado = cancelada), nunca
-// el color solo.
+// exclusivamente para el bloque de tipo_consulta del calendario. Salvia
+// (TR-013, piel cálida del panel) se usa para el estado del turno con
+// significado explícito — confirmado = "ok" = salvia — además de la marca
+// de cuadrante de al lado (4 llenos = agendado, tachado = cancelada),
+// nunca el color solo.
 export const ESTADO_CLASS: Record<Turno["estado"], string> = {
-  pendiente: "font-semibold text-terracota-oscuro",
   agendado: "font-semibold text-salvia-oscuro",
   cancelada: "text-grafito/50",
 };

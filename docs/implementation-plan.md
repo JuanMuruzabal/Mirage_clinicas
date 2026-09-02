@@ -585,7 +585,8 @@ horario, sacar el estado `pendiente` deja esos turnos sin ningún lugar
 válido donde vivir. Implementar en el orden que el cliente pidió (3 antes
 que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
 `dev` hasta que el 5 esté aprobado — misma lógica que la advertencia de
-§11.2 para F2.4/F2.5 sobre F2.3.
+§11.2 para F2.4/F2.5 sobre F2.3. **Resuelta** (2026-09-02): Extra 2.3.5
+completó su QA antes de arrancar 2.3.3, ver TR-104 en `docs/tradeoffs.md`.
 
 #### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard) — **implementado, mergeado a `dev` (PR #5)**
 
@@ -627,10 +628,32 @@ Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle
 | E2.5 | Excepciones de horario de atención visualizadas en el calendario, mismo mecanismo de cluster/"Ver eventos" que horarios reservados; excepción pura → tarjeta suave "No trabajo en este período", clickeable, navega a Configuración (TR-097) | E1.7 | 2-3d | Una excepción que se solapa con un horario reservado o un turno pasa a "Ver eventos →"; una excepción sola nunca lo hace |
 | E2.6 | Preferencia de atención por tipo de consulta: ventana horaria opcional que acota (nunca ensancha) la disponibilidad real de ese tipo (TR-098) | F2.3 (`GET /disponibilidad`, ya implementado) | 2d | Un tipo con preferencia 8:00-12:00 nunca ofrece un horario fuera de esa franja, aunque el horario de atención general sea más amplio |
 
-#### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido
+#### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido — **implementado, aprobado por el cliente**
 
-**Bloqueada hasta que Extra 2.3.5 esté aprobado** (ver dependencia dura de
-arriba).
+**E3.1 a E3.5 completas**, más varias rondas de corrección de QA sobre la
+primera entrega (ya incorporadas al código, no son tareas nuevas) —
+detalle completo en TR-104 de `docs/tradeoffs.md`: bug real de los
+filtros de fecha (`GET /turnos?desde=&hasta=` exige RFC3339, no
+"YYYY-MM-DD"), color verde sólido en los botones nuevos, "Ver motivo"/
+"Ver mail" sumados también a "Turnos activos"/"Historial"/"Datos de
+contacto" de la ficha de paciente, atajos HOY/SEMANA/MES sacados de
+"Historial de turnos" (pedido explícito del cliente), filtro + columna
++ indicador visual de tipo de consulta en Turnos (nuevo del todo, con
+"Ver tipo →" si el nombre es más largo que "Consulta general" — umbral
+propio, no el genérico de 30 caracteres), y "Todas" repuesta como
+pestaña elegible a mano. Dos ajustes sobre el plan original, encontrados
+al implementar:
+
+- E3.2 también reemplaza la bolsa sin filtro "Todas" (que vivía desde el
+  rediseño de 2026-08-27) por "Confirmadas" autoseleccionada — no solo
+  saca la pestaña de pendientes, cambia cuál es el default real (luego
+  repuesta como pestaña elegible a mano, ver arriba).
+- E3.5: "mismos filtros que ya tiene Pacientes" era una imprecisión del
+  brief — la lista de Pacientes no tiene filtro de fecha; el precedente
+  real a imitar era el Desde/Hasta que ya tenía `paciente-turnos-table.tsx`
+  ("Turnos activos"/"Historial" de la ficha de paciente). `/panel/turnos`
+  no tenía ningún filtro de fecha — Desde/Hasta se sumó ahí de cero, no
+  solo los atajos HOY/SEMANA/MES.
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -640,7 +663,7 @@ arriba).
 | E3.4 | Botón "Ver paciente" en la fila de turno (misma navegación que el botón homónimo del calendario) | — | 0.5d | Lleva a la ficha del paciente correcto |
 | E3.5 | Filtro rápido HOY/SEMANA/MES antes de "Desde/Hasta", en Turnos y en "Turnos activos" de la ficha de paciente (mismos filtros que ya tiene Pacientes, imitando la captura del brief) | — | 1-2d | Elegir "Hoy" filtra a los turnos de la fecha actual sin tocar Desde/Hasta a mano |
 
-#### Extra 2.3.4 — Pacientes: "Ver mail" para direcciones largas
+#### Extra 2.3.4 — Pacientes: "Ver mail" para direcciones largas — **implementado, aprobado por el cliente**
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|

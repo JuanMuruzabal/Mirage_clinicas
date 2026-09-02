@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  apiAgendarTurno,
   apiBuscarClinicas,
   apiCrearTurnoManual,
   apiDeployarPaginaPublica,
@@ -180,6 +179,16 @@ describe("lib/api", () => {
     expect(url).toContain("hasta=2026-09-08");
   });
 
+  it("apiListTurnos arma la query string con tipoConsultaId", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await apiListTurnos("un-token", { tipoConsultaId: "tc-1" });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(url).toContain("tipoConsultaId=tc-1");
+  });
+
   it("apiListTurnos sin params no agrega '?'", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] } as Response);
     vi.stubGlobal("fetch", fetchSpy);
@@ -208,21 +217,6 @@ describe("lib/api", () => {
     expect(url).toContain("/turnos");
     expect(init?.method).toBe("POST");
     expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer un-token");
-  });
-
-  it("apiAgendarTurno manda PATCH a /turnos/{id}/agendar", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "1" }) } as Response);
-    vi.stubGlobal("fetch", fetchSpy);
-
-    await apiAgendarTurno("un-token", "turno-1", {
-      tipoConsultaId: "tc-1",
-      horaInicio: "2026-09-01T09:00:00Z",
-      horaFin: "2026-09-01T09:30:00Z",
-    });
-
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toContain("/turnos/turno-1/agendar");
-    expect(init?.method).toBe("PATCH");
   });
 
   it("apiResumenPanel manda el Authorization header", async () => {

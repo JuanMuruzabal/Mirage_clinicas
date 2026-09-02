@@ -5,9 +5,7 @@ const {
   revalidatePathMock,
   apiListTurnosMock,
   apiCrearTurnoManualMock,
-  apiAgendarTurnoMock,
   apiCancelarTurnoMock,
-  apiEditarTurnoMock,
   apiReprogramarTurnoMock,
   apiAutoreservarTurnosMock,
   getSessionTokenMock,
@@ -18,9 +16,7 @@ const {
   revalidatePathMock: vi.fn(),
   apiListTurnosMock: vi.fn(),
   apiCrearTurnoManualMock: vi.fn(),
-  apiAgendarTurnoMock: vi.fn(),
   apiCancelarTurnoMock: vi.fn(),
-  apiEditarTurnoMock: vi.fn(),
   apiReprogramarTurnoMock: vi.fn(),
   apiAutoreservarTurnosMock: vi.fn(),
   getSessionTokenMock: vi.fn(),
@@ -31,23 +27,15 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/api", () => ({
   apiListTurnos: apiListTurnosMock,
   apiCrearTurnoManual: apiCrearTurnoManualMock,
-  apiAgendarTurno: apiAgendarTurnoMock,
   apiCancelarTurno: apiCancelarTurnoMock,
-  apiEditarTurno: apiEditarTurnoMock,
   apiReprogramarTurno: apiReprogramarTurnoMock,
   apiAutoreservarTurnos: apiAutoreservarTurnosMock,
 }));
 vi.mock("@/lib/session", () => ({ getSessionToken: getSessionTokenMock }));
 
-const {
-  listTurnosAction,
-  crearTurnoManualAction,
-  agendarTurnoAction,
-  cancelarTurnoAction,
-  editarTurnoAction,
-  reprogramarTurnoAction,
-  autoreservarTurnosAction,
-} = await import("./turnos");
+const { listTurnosAction, crearTurnoManualAction, cancelarTurnoAction, reprogramarTurnoAction, autoreservarTurnosAction } = await import(
+  "./turnos"
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -76,7 +64,7 @@ describe("listTurnosAction", () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
     apiListTurnosMock.mockResolvedValue({ ok: true, data: [{ id: "1" }] });
 
-    await expect(listTurnosAction({ estado: "pendiente" })).resolves.toEqual([{ id: "1" }]);
+    await expect(listTurnosAction({ estado: "agendado" })).resolves.toEqual([{ id: "1" }]);
   });
 
   it("devuelve [] si la API falla (no rompe el calendario)", async () => {
@@ -119,34 +107,6 @@ describe("crearTurnoManualAction", () => {
   });
 });
 
-describe("agendarTurnoAction", () => {
-  const payloadAgendar = { tipoConsultaId: "tc-1", horaInicio: "2026-09-01T09:00:00Z", horaFin: "2026-09-01T09:30:00Z" };
-
-  it("redirige a /ingresar sin sesión", async () => {
-    getSessionTokenMock.mockResolvedValue(undefined);
-    await expect(agendarTurnoAction("turno-1", payloadAgendar)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
-  });
-
-  it("en éxito, revalida el panel y devuelve el turno", async () => {
-    getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiAgendarTurnoMock.mockResolvedValue({ ok: true, data: { id: "turno-1", estado: "agendado" } });
-
-    const result = await agendarTurnoAction("turno-1", payloadAgendar);
-
-    expect(result).toEqual({ turno: { id: "turno-1", estado: "agendado" } });
-    expect(apiAgendarTurnoMock).toHaveBeenCalledWith("un-jwt", "turno-1", payloadAgendar);
-  });
-
-  it("en error, devuelve el mensaje", async () => {
-    getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiAgendarTurnoMock.mockResolvedValue({ ok: false, status: 409, error: "ya fue agendado" });
-
-    const result = await agendarTurnoAction("turno-1", payloadAgendar);
-
-    expect(result).toEqual({ error: "ya fue agendado" });
-  });
-});
-
 describe("cancelarTurnoAction", () => {
   it("redirige a /ingresar sin sesión", async () => {
     getSessionTokenMock.mockResolvedValue(undefined);
@@ -171,41 +131,6 @@ describe("cancelarTurnoAction", () => {
     const result = await cancelarTurnoAction("turno-1");
 
     expect(result).toEqual({ error: "turno no encontrado" });
-    expect(revalidatePathMock).not.toHaveBeenCalled();
-  });
-});
-
-describe("editarTurnoAction", () => {
-  const payloadEditar = {
-    nombreContacto: "María",
-    apellidoContacto: "Games",
-    dniContacto: "1",
-    telefonoContacto: "1",
-  };
-
-  it("redirige a /ingresar sin sesión", async () => {
-    getSessionTokenMock.mockResolvedValue(undefined);
-    await expect(editarTurnoAction("turno-1", payloadEditar)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
-  });
-
-  it("en éxito, revalida turnos/calendario/panel y devuelve el turno", async () => {
-    getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiEditarTurnoMock.mockResolvedValue({ ok: true, data: { id: "turno-1", nombreContacto: "María" } });
-
-    const result = await editarTurnoAction("turno-1", payloadEditar);
-
-    expect(result).toEqual({ turno: { id: "turno-1", nombreContacto: "María" } });
-    expect(apiEditarTurnoMock).toHaveBeenCalledWith("un-jwt", "turno-1", payloadEditar);
-    expect(revalidatePathMock).toHaveBeenCalledWith("/panel/turnos");
-  });
-
-  it("en error, devuelve el mensaje sin revalidar", async () => {
-    getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiEditarTurnoMock.mockResolvedValue({ ok: false, status: 400, error: "el DNI es obligatorio" });
-
-    const result = await editarTurnoAction("turno-1", payloadEditar);
-
-    expect(result).toEqual({ error: "el DNI es obligatorio" });
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

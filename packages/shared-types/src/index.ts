@@ -272,7 +272,9 @@ export interface Disponibilidad {
 // contra el catálogo de TipoConsulta que ya tiene cargado.
 export interface Turno {
   id: string;
-  estado: "pendiente" | "agendado" | "cancelada";
+  // TR-104: el estado `pendiente` se sacó del todo (Extra 2.3.3) — todo
+  // turno nace `agendado`, con horario real, de punta a punta.
+  estado: "agendado" | "cancelada";
   origen: "pagina_publica" | "manual";
   tipoConsultaId?: string;
   horaInicio?: string;

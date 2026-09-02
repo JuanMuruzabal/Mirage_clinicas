@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Paciente, TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { agendarTurnoAction, crearTurnoManualAction, listTurnosAction } from "@/app/actions/turnos";
+import { crearTurnoManualAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
 import { listDisponibilidadAction } from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
@@ -13,15 +13,10 @@ interface AgregarTurnoModalProps {
   tiposConsulta: TipoConsulta[];
   onClose: () => void;
   onSuccess: (turno: Turno) => void;
-  // T3.4: al abrir el modal desde un turno pendiente puntual de la vista
-  // Turnos ("Confirmar"), se salta el paso "paciente" y arranca directo en
-  // "detalle" con ese paciente ya elegido — mismo componente que T2.4, sin
-  // duplicar lógica.
-  turnoPendienteInicial?: Turno;
 }
 
 type Paso = "paciente" | "detalle";
-type Origen = "pendiente" | "conocido" | "nuevo";
+type Origen = "conocido" | "nuevo";
 
 // NUEVO_PACIENTE_INICIAL — Extra 2.3.5 (E5.4, fix de bug): estado vacío del
 // formulario "paciente nuevo", factorizado para poder resetearlo al volver
@@ -37,27 +32,30 @@ const NUEVO_PACIENTE_INICIAL = {
 
 // Un renglón por origen: qué es y de dónde sale (pedido explícito del
 // cliente, 2026-08-23 — "dar información a qué hace referencia cada
-// sección y de dónde estoy cargando los pacientes").
+// sección y de dónde estoy cargando los pacientes"). El origen "pendiente"
+// (pedidos sin horario confirmado desde la página pública) se sacó del
+// todo en Extra 2.3.3 (TR-104): ese estado ya no existe, el formulario
+// público asigna horario real desde Extra 2.3.5.
 const DESCRIPCION_ORIGEN: Record<Origen, string> = {
-  pendiente: "Pedidos de turno que llegaron desde tu página pública y todavía no tienen horario confirmado.",
   conocido: "Elegí de tu lista de Pacientes ya cargados — no hace falta volver a tipear sus datos.",
   nuevo: "Para alguien que nunca tuvo un turno con vos: se crea su ficha de paciente en este mismo paso.",
 };
 
-// Modal "+ Agregar turno" (spec §4.3, renombrado de "+ Nueva sesión") —
-// tres caminos de paciente (desde pendientes / conocido / nuevo, estos dos
-// últimos sumados 2026-08-23), tipo de consulta + hora + motivo, confirmar.
-// Fondo con blur (backdrop-blur) como pide la spec.
-export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPendienteInicial }: AgregarTurnoModalProps) {
-  const [paso, setPaso] = useState<Paso>(turnoPendienteInicial ? "detalle" : "paciente");
-  const [origen, setOrigen] = useState<Origen>("pendiente");
-
-  const [pendientes, setPendientes] = useState<Turno[]>([]);
-  const [cargandoPendientes, setCargandoPendientes] = useState(true);
-  const [turnoPendiente, setTurnoPendiente] = useState<Turno | null>(turnoPendienteInicial ?? null);
+// Modal "+ Agregar turno" (spec §4.3, renombrado de "+ Nueva sesión") — dos
+// caminos de paciente (conocido / nuevo), tipo de consulta + hora + motivo,
+// confirmar. Fondo con blur (backdrop-blur) como pide la spec.
+export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: AgregarTurnoModalProps) {
+  const [paso, setPaso] = useState<Paso>("paciente");
+  const [origen, setOrigen] = useState<Origen>("conocido");
 
   const [pacientesConocidos, setPacientesConocidos] = useState<Paciente[] | null>(null);
-  const [cargandoPacientes, setCargandoPacientes] = useState(false);
+  // Arranca en "cargando" (a diferencia de las demás pestañas, "conocido"
+  // es la que se elige por defecto desde Extra 2.3.3 — TR-104 — así que
+  // siempre hay un pedido en vuelo apenas se monta el modal, ver el
+  // useEffect de abajo). Evita disparar setState de forma síncrona dentro
+  // del efecto (react-hooks/set-state-in-effect) — mismo criterio que
+  // `cargandoSlots` un poco más abajo.
+  const [cargandoPacientes, setCargandoPacientes] = useState(true);
   const [buscarPaciente, setBuscarPaciente] = useState("");
   const [pacienteElegidoId, setPacienteElegidoId] = useState<string | null>(null);
 
@@ -99,25 +97,21 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   // ningún tipo de consulta configurado, ver el useEffect de abajo.
   const [cargandoSlots, setCargandoSlots] = useState(() => Boolean(tipoConsultaId));
   // Motivo de consulta (2026-08-23): un solo campo en el paso "detalle",
-  // compartido por los tres caminos — se precarga con lo que ya se sabía
-  // (el motivo del turno pendiente, o lo tipeado en "Paciente nuevo") y
-  // queda editable ahí mismo antes de confirmar.
-  const [motivoDetalle, setMotivoDetalle] = useState(() => turnoPendienteInicial?.motivo ?? "");
+  // compartido por los dos caminos — se precarga con lo tipeado en
+  // "Paciente nuevo" y queda editable ahí mismo antes de confirmar.
+  const [motivoDetalle, setMotivoDetalle] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  // Carga los pacientes ya cargados apenas se abre el modal — "conocido"
+  // es la pestaña por defecto desde Extra 2.3.3 (antes era "pendiente",
+  // sacada del todo — TR-104).
   useEffect(() => {
-    let activo = true;
-    listTurnosAction({ estado: "pendiente" }).then((turnos) => {
-      if (activo) {
-        setPendientes(turnos);
-        setCargandoPendientes(false);
-      }
+    listPacientesAction().then((pacientes) => {
+      setPacientesConocidos(pacientes);
+      setCargandoPacientes(false);
     });
-    return () => {
-      activo = false;
-    };
   }, []);
 
   // Disponibilidad real (F2.3, corrección de QA) — se vuelve a pedir cada
@@ -125,10 +119,6 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   // post-consulta que hay que hacer entrar) o la fecha. Si el horario ya
   // elegido deja de estar en la lista nueva (cambió el tipo o la fecha),
   // se limpia — nunca se manda un horario que el backend ya no ofrece.
-  // Sin excluirTurnoId: un turno "pendiente" (el único que este modal
-  // puede tocar además de crear uno nuevo) todavía no tiene horario
-  // fijo, así que nunca aparece ocupando un slot en primer lugar —
-  // reprogramar un turno YA agendado es cosa de editar-turno-modal.tsx.
   useEffect(() => {
     // setCargandoSlots(true) se dispara desde quien CAMBIA tipoConsultaId/
     // fecha (los onChange de abajo), no acá adentro — llamar setState de
@@ -150,7 +140,8 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   }, [tipoConsultaId, fecha]);
 
   // Carga los pacientes ya cargados recién cuando el profesional entra a
-  // esa pestaña — evita el pedido si nunca la abre.
+  // esa pestaña — evita el pedido si nunca la abre (el mount ya la pide
+  // una vez porque "conocido" arranca elegida por defecto, ver arriba).
   function abrirPestañaConocido() {
     setOrigen("conocido");
     if (pacientesConocidos === null && !cargandoPacientes) {
@@ -190,15 +181,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     });
   }
 
-  function elegirPendiente(t: Turno) {
-    setTurnoPendiente(t);
-    setPacienteElegidoId(null);
-    setMotivoDetalle(t.motivo);
-    setPaso("detalle");
-  }
-
   function elegirConocido(p: Paciente) {
-    setTurnoPendiente(null);
     setPacienteElegidoId(p.id);
     setDuplicadoDni(null);
     setError(null);
@@ -248,7 +231,6 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
       return;
     }
 
-    setTurnoPendiente(null);
     setPacienteElegidoId(null);
     setMotivoDetalle(nuevoPaciente.motivo);
     setPaso("detalle");
@@ -286,22 +268,14 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     }
 
     setPending(true);
-    const result =
-      turnoPendiente !== null
-        ? await agendarTurnoAction(turnoPendiente.id, {
-            tipoConsultaId,
-            horaInicio: horaInicio.toISOString(),
-            horaFin: horaFin.toISOString(),
-            motivo: motivoDetalle,
-          })
-        : await crearTurnoManualAction({
-            ...nuevoPaciente,
-            motivo: motivoDetalle,
-            tipoConsultaId,
-            horaInicio: horaInicio.toISOString(),
-            horaFin: horaFin.toISOString(),
-            pacienteId: pacienteElegidoId ?? undefined,
-          });
+    const result = await crearTurnoManualAction({
+      ...nuevoPaciente,
+      motivo: motivoDetalle,
+      tipoConsultaId,
+      horaInicio: horaInicio.toISOString(),
+      horaFin: horaFin.toISOString(),
+      pacienteId: pacienteElegidoId ?? undefined,
+    });
 
     setPending(false);
     if ("error" in result) {
@@ -311,9 +285,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     onSuccess(result.turno);
   }
 
-  const nombrePacientePendiente = turnoPendiente
-    ? `${turnoPendiente.nombreContacto} ${turnoPendiente.apellidoContacto}`
-    : `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
+  const nombrePaciente = `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
 
   return (
     <ModalPortal>
@@ -339,13 +311,6 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
             <div className="flex gap-1 rounded-full border-[0.5px] border-arena p-1">
               <button
                 type="button"
-                onClick={() => setOrigen("pendiente")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "pendiente" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                Desde pendientes
-              </button>
-              <button
-                type="button"
                 onClick={abrirPestañaConocido}
                 className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "conocido" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
@@ -360,32 +325,6 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
               </button>
             </div>
             <p className="text-xs text-grafito/60">{DESCRIPCION_ORIGEN[origen]}</p>
-
-            {origen === "pendiente" && (
-              // max-h + overflow-y-auto (corrección de QA): "a medida que
-              // se van acumulando... turnos pendientes se agranda la
-              // pestaña, organizar esto con un scrollbar" — antes la
-              // lista crecía sin límite y estiraba todo el modal.
-              <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                {cargandoPendientes && <p className="text-sm text-grafito/60">Cargando…</p>}
-                {!cargandoPendientes && pendientes.length === 0 && (
-                  <p className="text-sm text-grafito/60">No hay turnos pendientes por ahora.</p>
-                )}
-                {pendientes.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => elegirPendiente(t)}
-                    className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
-                  >
-                    <span className="text-sm font-semibold text-grafito">
-                      {t.nombreContacto} {t.apellidoContacto}
-                    </span>
-                    {t.motivo && <span className="text-xs text-grafito/60">{t.motivo}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {origen === "conocido" && (
               <div className="flex flex-col gap-3">
@@ -511,7 +450,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
           <form onSubmit={confirmar} noValidate className="flex flex-col gap-5 p-6">
             <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
               <span className="text-grafito/60">Paciente: </span>
-              <span className="font-semibold text-grafito">{nombrePacientePendiente}</span>
+              <span className="font-semibold text-grafito">{nombrePaciente}</span>
             </div>
 
             <Campo label="Tipo de consulta">
