@@ -2,26 +2,31 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { apiListTiposConsulta, apiListTurnos, type ListarTurnosParams } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { finDiaCordobaISO, inicioDiaCordobaISO, rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
 import { TurnosTable } from "@/components/panel/turnos-table";
 
 export const metadata: Metadata = { title: "Turnos — Dental Mirage" };
 
-type Tab = "pendiente" | "agendado" | "resuelto" | "cancelada" | "todas";
+type Tab = "agendado" | "resuelto" | "cancelada" | "todas";
 
 // "Resueltos" (pedido explícito del cliente, 2026-08-23) separa, dentro de
 // lo que antes era una sola bolsa "Confirmadas", los turnos cuya hora de
 // fin ya pasó — mejor organización, no un estado nuevo en la base: sigue
 // siendo `agendado`, filtrado por `resuelto` (GET /turnos, ver
 // internal/http/turnos.go).
-// "Todas" sacada de las pestañas (pedido explícito del cliente,
-// 2026-08-27) — `parseTab`/`filtrosDeTab` siguen resolviendo ese caso
-// (sin filtro) para quien llega sin `?estado=` en la URL, solo que ya no
-// hay un botón propio para elegirlo a mano.
+// "Pendientes" sacada de las pestañas (Extra 2.3.3, TR-104): ese estado
+// se eliminó del todo — un turno siempre nace `agendado`, con horario
+// real, incluso el que llega de la página pública (Extra 2.3.5). "Todas"
+// se había sacado de las pestañas en ese mismo cambio (entrar sin
+// `?estado=` autoseleccionaba "Confirmadas", E3.2) — pedido explícito del
+// cliente, se repone como pestaña visible de nuevo; el DEFAULT sin
+// `?estado=` sigue siendo "Confirmadas" (parseTab de abajo), la única
+// diferencia es que ahora "Todas" también se puede elegir a mano.
 const TABS: { label: string; tab: Tab }[] = [
-  { label: "Pendientes", tab: "pendiente" },
   { label: "Confirmadas", tab: "agendado" },
   { label: "Resueltos", tab: "resuelto" },
   { label: "Canceladas", tab: "cancelada" },
+  { label: "Todas", tab: "todas" },
 ];
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -29,22 +34,53 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 }
 
 function parseTab(value: string | undefined): Tab {
-  if (value === "pendiente" || value === "agendado" || value === "resuelto" || value === "cancelada") return value;
-  return "todas";
+  if (value === "resuelto" || value === "cancelada" || value === "todas") return value;
+  return "agendado";
 }
 
-function filtrosDeTab(tab: Tab, q: string | undefined): ListarTurnosParams {
-  switch (tab) {
-    case "resuelto":
-      return { estado: "agendado", resuelto: true, q };
-    case "agendado":
-      return { estado: "agendado", resuelto: false, q };
-    case "todas":
-      return { q };
-    default:
-      return { estado: tab, q };
-  }
+// desde/hasta llegan como "YYYY-MM-DD" (URL/`<input type="date">`) — acá
+// se convierten al instante RFC3339 que de verdad exige el backend (bug
+// de QA, ver el comentario grande de inicioDiaCordobaISO/finDiaCordobaISO
+// en lib/calendar-utils.ts). El resto de este archivo sigue usando la
+// versión plana (URL, `defaultValue` de los inputs) — la conversión pasa
+// únicamente acá, justo antes de armar los filtros para la API.
+function filtrosDeTab(
+  tab: Tab,
+  q: string | undefined,
+  desde: string | undefined,
+  hasta: string | undefined,
+  tipoConsultaId: string | undefined,
+): ListarTurnosParams {
+  const base: ListarTurnosParams = (() => {
+    switch (tab) {
+      case "resuelto":
+        return { estado: "agendado", resuelto: true, q };
+      case "agendado":
+        return { estado: "agendado", resuelto: false, q };
+      case "cancelada":
+        return { estado: "cancelada", q };
+      default:
+        // "todas" — sin filtro de estado, trae agendados y cancelados juntos.
+        return { q };
+    }
+  })();
+  return {
+    ...base,
+    desde: desde ? inicioDiaCordobaISO(desde) : undefined,
+    hasta: hasta ? finDiaCordobaISO(hasta) : undefined,
+    tipoConsultaId,
+  };
 }
+
+// RANGOS_RAPIDOS — Extra 2.3.3 (E3.5): "filtro rápido HOY/SEMANA/MES antes
+// de Desde/Hasta" — atajos que precargan Desde/Hasta con un rango ya
+// calculado (rangoRapidoFechas, lib/calendar-utils.ts), en vez de que el
+// profesional tenga que elegir las dos fechas a mano para el caso común.
+const RANGOS_RAPIDOS: { label: string; rango: RangoRapido }[] = [
+  { label: "Hoy", rango: "hoy" },
+  { label: "Semana", rango: "semana" },
+  { label: "Mes", rango: "mes" },
+];
 
 // /panel/turnos (T3.3, "Turnos entrantes") — tabs + búsqueda por
 // searchParams (GET, URL compartible, mismo patrón que /buscar): cada
@@ -55,12 +91,21 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   const resolved = await searchParams;
   const tab = parseTab(firstParam(resolved.estado));
   const q = firstParam(resolved.q);
+  // Desde/Hasta (Extra 2.3.3, E3.5) — mismos nombres de query param que
+  // el resto de este archivo (GET, URL compartible): un rango vacío no
+  // filtra nada, igual que hoy filtrosDeTab omite `q` cuando no vino.
+  const desde = firstParam(resolved.desde);
+  const hasta = firstParam(resolved.hasta);
+  // tipoConsultaId (corrección de QA: "faltó el filtro de tipo de
+  // consulta" en Turnos) — mismo filtro que ya tenía "Turnos activos"/
+  // "Historial" de la ficha de paciente, acá resuelto en el servidor.
+  const tipoConsultaId = firstParam(resolved.tipoConsultaId);
   // Deep-link desde TurnoDetalle ("Ver turno →", 2026-08-23): esa fila
   // arranca ya desplegada, ver TurnosTable/abrirId.
   const abrirId = firstParam(resolved.turno);
 
   const token = await getSessionToken();
-  const filtros = filtrosDeTab(tab, q);
+  const filtros = filtrosDeTab(tab, q, desde, hasta, tipoConsultaId);
 
   const [tiposResult, turnosResult] = token
     ? await Promise.all([apiListTiposConsulta(token), apiListTurnos(token, filtros)])
@@ -114,7 +159,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           >
             {TABS.map((t) => {
               const active = t.tab === tab;
-              const href = t.tab === "todas" ? `/panel/turnos${q ? `?q=${encodeURIComponent(q)}` : ""}` : `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+              const href = `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}`;
               return (
                 <Link
                   key={t.tab}
@@ -128,7 +173,10 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           </nav>
 
           <form action="/panel/turnos" method="get" className="flex gap-2 max-md:w-full">
-            {tab !== "todas" && <input type="hidden" name="estado" value={tab} />}
+            <input type="hidden" name="estado" value={tab} />
+            {desde && <input type="hidden" name="desde" value={desde} />}
+            {hasta && <input type="hidden" name="hasta" value={hasta} />}
+            {tipoConsultaId && <input type="hidden" name="tipoConsultaId" value={tipoConsultaId} />}
             <input
               type="search"
               name="q"
@@ -142,14 +190,102 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           </form>
         </div>
 
-        {/* key por pestaña+búsqueda: fuerza a remontar TurnosTable en cada
-            cambio de filtro. Sin esto, su `useState(turnosIniciales)` solo
-            toma el valor inicial una vez — al navegar entre pestañas (misma
-            instancia de componente, React no la desmonta solo porque cambió
-            un prop) la tabla seguía mostrando los datos de la pestaña
-            anterior hasta un refresh manual (bug reportado 2026-08-23). */}
+        {/* Extra 2.3.3 (E3.5): filtro rápido HOY/SEMANA/MES antes de
+            Desde/Hasta — mismo par de campos que ya tenía
+            paciente-turnos-table.tsx, acá server-driven vía searchParams
+            en vez de estado de cliente (esta página nunca tuvo filtro de
+            fecha, era pura tab+búsqueda). Los atajos son links (navegan
+            directo con Desde/Hasta ya calculados); el form de abajo es
+            para un rango elegido a mano. */}
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {RANGOS_RAPIDOS.map((r) => {
+            const calculado = rangoRapidoFechas(r.rango);
+            const activo = desde === calculado.desde && hasta === calculado.hasta;
+            const href = `/panel/turnos?estado=${tab}${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}&desde=${calculado.desde}&hasta=${calculado.hasta}`;
+            return (
+              <Link
+                key={r.rango}
+                href={href}
+                // Corrección de QA: mismo verde sólido que "Buscar"/
+                // "Confirmar" (bg-salvia-oscuro) en vez del borde neutro
+                // que usan los botones secundarios (Editar, etc.) — el
+                // activo suma un anillo para distinguirse sin dejar de
+                // ser verde.
+                className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-salvia-oscuro" : ""}`}
+              >
+                {r.label}
+              </Link>
+            );
+          })}
+          <form action="/panel/turnos" method="get" className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="estado" value={tab} />
+            {q && <input type="hidden" name="q" value={q} />}
+            {/* Corrección de QA: "faltó el filtro de tipo de consulta" —
+                mismo filtro que ya tenía "Turnos activos"/"Historial" de
+                la ficha de paciente (paciente-turnos-table.tsx), acá
+                resuelto en el servidor junto con Desde/Hasta (mismo
+                botón "Aplicar"). */}
+            {tiposConsulta.length > 0 && (
+              <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+                Tipo
+                <select
+                  name="tipoConsultaId"
+                  defaultValue={tipoConsultaId ?? ""}
+                  className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+                >
+                  <option value="">Todos los tipos</option>
+                  {tiposConsulta.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+              Desde
+              <input
+                type="date"
+                name="desde"
+                defaultValue={desde}
+                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+              />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+              Hasta
+              <input
+                type="date"
+                name="hasta"
+                defaultValue={hasta}
+                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
+            >
+              Aplicar
+            </button>
+          </form>
+          {(desde || hasta || tipoConsultaId) && (
+            <Link
+              href={`/panel/turnos?estado=${tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className="text-xs font-medium text-salvia-oscuro hover:text-grafito"
+            >
+              Limpiar filtros
+            </Link>
+          )}
+        </div>
+
+        {/* key por pestaña+búsqueda+rango de fecha: fuerza a remontar
+            TurnosTable en cada cambio de filtro. Sin esto, su
+            `useState(turnosIniciales)` solo toma el valor inicial una vez
+            — al navegar entre pestañas (misma instancia de componente,
+            React no la desmonta solo porque cambió un prop) la tabla
+            seguía mostrando los datos de la pestaña anterior hasta un
+            refresh manual (bug reportado 2026-08-23). */}
         <TurnosTable
-          key={`${tab}-${q ?? ""}-${abrirId ?? ""}`}
+          key={`${tab}-${q ?? ""}-${desde ?? ""}-${hasta ?? ""}-${tipoConsultaId ?? ""}-${abrirId ?? ""}`}
           turnosIniciales={turnos}
           tiposConsulta={tiposConsulta}
           filtros={filtros}

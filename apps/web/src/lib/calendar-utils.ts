@@ -253,6 +253,51 @@ export function diasDeVista(fecha: Date, vista: VistaCalendario): Date[] {
   return dias;
 }
 
+export type RangoRapido = "hoy" | "semana" | "mes";
+
+// rangoRapidoFechas — Extra 2.3.3 (E3.5, docs/implementation-plan.md
+// §11.5): "filtro rápido HOY/SEMANA/MES antes de Desde/Hasta" en Turnos
+// (app/panel/turnos/page.tsx) y en "Turnos activos"/"Historial" de la
+// ficha de paciente (paciente-turnos-table.tsx) — un solo cálculo para
+// los dos lugares, ya en "YYYY-MM-DD" (fechaISOLocal) listo para
+// <input type="date">/querystring. Anclado a hoyEnCordoba(), nunca a la
+// timezone ambiente de quien ejecuta el código (uno de los dos lugares
+// corre en el servidor) — mismo criterio que el resto de este archivo.
+export function rangoRapidoFechas(tipo: RangoRapido): { desde: string; hasta: string } {
+  const hoy = hoyEnCordoba();
+  if (tipo === "hoy") {
+    return { desde: fechaISOLocal(hoy), hasta: fechaISOLocal(hoy) };
+  }
+  if (tipo === "semana") {
+    const inicio = startOfWeek(hoy);
+    return { desde: fechaISOLocal(inicio), hasta: fechaISOLocal(addDays(inicio, 6)) };
+  }
+  return { desde: fechaISOLocal(startOfMonth(hoy)), hasta: fechaISOLocal(endOfMonth(hoy)) };
+}
+
+// inicioDiaCordobaISO/finDiaCordobaISO — Extra 2.3.3 (E3.5, bug reportado
+// por el cliente en QA: "hay varios turnos de hoy y al tocar hoy me dice
+// que no se encontraron turnos, lo mismo con la semana y el rango de
+// fechas"). `GET /turnos?desde=&hasta=` (internal/http/turnos.go) parsea
+// esos parámetros con `time.RFC3339` — un "YYYY-MM-DD" suelto (lo que da
+// `rangoRapidoFechas`/un `<input type="date">`) no es RFC3339 válido, así
+// que el backend devolvía 400 y `listTurnosAction` lo traga en silencio
+// como lista vacía ("no rompe el calendario") — de ahí el "no se
+// encontraron turnos" con turnos reales en pantalla. Córdoba es UTC-3
+// fijo todo el año (sin horario de verano, mismo criterio que
+// TIMEZONE_CORDOBA de arriba) — el offset numérico se hardcodea acá en
+// vez de convertir con un `Date` local: el RFC3339 de Go acepta un
+// offset explícito como "-03:00" tal cual (layout `...Z07:00`), y así
+// esto da el instante correcto sin importar en qué timezone corra el
+// proceso que arma la URL (server de Next.js en Docker, típicamente UTC).
+export function inicioDiaCordobaISO(fechaISO: string): string {
+  return `${fechaISO}T00:00:00-03:00`;
+}
+
+export function finDiaCordobaISO(fechaISO: string): string {
+  return `${fechaISO}T23:59:59-03:00`;
+}
+
 // navegar — mover la fecha de referencia un "paso" (prev/next del
 // toolbar), del tamaño que corresponda a la vista activa.
 export function navegar(fecha: Date, vista: VistaCalendario, direccion: 1 | -1): Date {

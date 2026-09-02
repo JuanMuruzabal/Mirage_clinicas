@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { editarPacienteActionMock } = vi.hoisted(() => ({ editarPacienteActionMock: vi.fn() }));
@@ -32,6 +32,21 @@ describe("PacienteDatos", () => {
   it("muestra — cuando no hay email", () => {
     render(<PacienteDatos pacienteInicial={{ ...paciente, email: null }} />);
     expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  // Corrección de QA: "Ver mail" (Extra 2.3.4/E4.1) faltaba acá — mismo
+  // componente que ya aplica en la tabla de Pacientes.
+  it("email largo: se oculta detrás de 'Ver email', con el texto completo en el modal", async () => {
+    const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
+    const user = userEvent.setup();
+    render(<PacienteDatos pacienteInicial={{ ...paciente, email: emailLargo }} />);
+
+    expect(screen.getByRole("button", { name: "Ver email" })).toBeInTheDocument();
+    expect(screen.queryByText(emailLargo)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver email" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Email" });
+    expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
   });
 
   it("'Editar datos' abre el modal, y al guardar actualiza los datos mostrados", async () => {

@@ -116,9 +116,9 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 
 		// La constraint central del proyecto (spec §4.3): a nivel de base de
 		// datos, dos turnos `agendado` del mismo profesional no pueden tener
-		// horarios que se solapen. Turnos `pendiente`/`cancelada` nunca
-		// conflictúan — el WHERE los excluye del todo, no alcanza con que su
-		// rango_horario esté vacío.
+		// horarios que se solapen. Un turno `cancelada` nunca conflictúa —
+		// el WHERE lo excluye del todo, aunque conserve el mismo horario que
+		// tenía antes de cancelarse.
 		`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
 		     EXCLUDE USING gist (
@@ -232,6 +232,26 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// idx_horario_atencion_general_unico de arriba.
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_paciente_dni_unico
 		   ON pacientes (profesional_id, dni)`,
+
+		// Extra 2.3.3 (TR-104): el estado `pendiente` se saca del todo — antes
+		// de estrechar el check constraint de abajo, borra cualquier turno
+		// `pendiente` que haya quedado de antes de Extra 2.3.5 (sin
+		// producción todavía, CLAUDE.md; un turno pendiente nunca tuvo
+		// horario ni paciente vinculado, así que no hay nada de negocio real
+		// que preservar — a diferencia del de-duplicado de pacientes de
+		// arriba, acá no hace falta reasignar nada antes de borrar).
+		// Idempotente: sin filas `pendiente`, no borra nada.
+		`DELETE FROM turnos WHERE estado = 'pendiente'`,
+
+		// DROP + ADD (no el patrón DO $$/duplicate_object): el check
+		// constraint cambió de valores permitidos (saca 'pendiente' del
+		// todo) — con duplicate_object, una constraint ya creada con los
+		// valores VIEJOS nunca se actualizaría sola. DROP CONSTRAINT IF
+		// EXISTS ya es idempotente por sí solo.
+		`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS chk_turnos_estado`,
+		`ALTER TABLE turnos ADD CONSTRAINT chk_turnos_estado
+		   CHECK (estado IN ('agendado', 'cancelada'))`,
+		`ALTER TABLE turnos ALTER COLUMN estado SET DEFAULT 'agendado'`,
 	}
 
 	for _, stmt := range statements {

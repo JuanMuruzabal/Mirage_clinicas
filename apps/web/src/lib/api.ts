@@ -429,7 +429,8 @@ export function apiListDisponibilidad(
 }
 
 export interface ListarTurnosParams {
-  estado?: "pendiente" | "agendado" | "cancelada";
+  // TR-104: `pendiente` se sacó del todo — solo agendado/cancelada.
+  estado?: "agendado" | "cancelada";
   desde?: string;
   hasta?: string;
   q?: string;
@@ -438,6 +439,9 @@ export interface ListarTurnosParams {
   // sin esto, estado=agendado sigue trayendo pasados y futuros juntos
   // (lo que necesita el calendario).
   resuelto?: boolean;
+  // tipoConsultaId (corrección de QA, Extra 2.3.3: "faltó el filtro de
+  // tipo de consulta" en la vista Turnos) — filtra por columna exacta.
+  tipoConsultaId?: string;
 }
 
 export function apiListTurnos(token: string, params: ListarTurnosParams = {}): Promise<ApiResult<Turno[]>> {
@@ -447,6 +451,7 @@ export function apiListTurnos(token: string, params: ListarTurnosParams = {}): P
   if (params.hasta) query.set("hasta", params.hasta);
   if (params.q) query.set("q", params.q);
   if (params.resuelto !== undefined) query.set("resuelto", String(params.resuelto));
+  if (params.tipoConsultaId) query.set("tipoConsultaId", params.tipoConsultaId);
   const qs = query.toString();
   return request<Turno[]>(`/turnos${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
 }
@@ -475,24 +480,6 @@ export function apiCrearTurnoManual(token: string, payload: CrearTurnoManualPayl
   });
 }
 
-export interface AgendarTurnoPayload {
-  tipoConsultaId: string;
-  horaInicio: string;
-  horaFin: string;
-  // 2026-08-23: se puede completar/corregir el motivo de consulta en este
-  // mismo paso de confirmar un turno pendiente.
-  motivo?: string;
-}
-
-// Camino "desde turnos pendientes" del modal "+ Agregar turno" (spec §4.3).
-export function apiAgendarTurno(token: string, turnoId: string, payload: AgendarTurnoPayload): Promise<ApiResult<Turno>> {
-  return request<Turno>(`/turnos/${turnoId}/agendar`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
-}
-
 export interface ReprogramarTurnoPayload {
   horaInicio: string;
   horaFin: string;
@@ -501,7 +488,7 @@ export interface ReprogramarTurnoPayload {
 
 // reprogramarTurno — "Editar" de un turno ya confirmado (2026-08-23): solo
 // cambia el horario y el motivo de consulta, nunca los datos de contacto
-// (eso es editarTurno, y solo funciona en turnos pendientes).
+// (esos se corrigen desde "Editar paciente", TR-104).
 export function apiReprogramarTurno(token: string, turnoId: string, payload: ReprogramarTurnoPayload): Promise<ApiResult<Turno>> {
   return request<Turno>(`/turnos/${turnoId}/hora`, {
     method: "PATCH",
@@ -555,25 +542,6 @@ export function apiMarcarAsistencia(
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ asistencia }),
-  });
-}
-
-export interface EditarTurnoPayload {
-  nombreContacto: string;
-  apellidoContacto: string;
-  dniContacto: string;
-  telefonoContacto: string;
-  emailContacto?: string;
-  motivo?: string;
-}
-
-// Editar (T3.3) corrige solo los datos de contacto — nunca horario ni tipo
-// de consulta, eso pasa por /agendar (T2.4).
-export function apiEditarTurno(token: string, turnoId: string, payload: EditarTurnoPayload): Promise<ApiResult<Turno>> {
-  return request<Turno>(`/turnos/${turnoId}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
   });
 }
 

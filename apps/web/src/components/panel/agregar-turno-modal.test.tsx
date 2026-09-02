@@ -12,24 +12,14 @@ function fijarFechaFutura() {
   fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2030-01-01" } });
 }
 
-const {
-  listTurnosActionMock,
-  crearTurnoManualActionMock,
-  agendarTurnoActionMock,
-  listPacientesActionMock,
-  listDisponibilidadActionMock,
-} = vi.hoisted(() => ({
-  listTurnosActionMock: vi.fn(),
+const { crearTurnoManualActionMock, listPacientesActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
   crearTurnoManualActionMock: vi.fn(),
-  agendarTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/turnos", () => ({
-  listTurnosAction: listTurnosActionMock,
   crearTurnoManualAction: crearTurnoManualActionMock,
-  agendarTurnoAction: agendarTurnoActionMock,
 }));
 vi.mock("@/app/actions/pacientes", () => ({
   listPacientesAction: listPacientesActionMock,
@@ -50,39 +40,40 @@ const tiposConsulta = [
   { id: "tc-2", nombre: "Urgencia", color: "#D6563A" },
 ];
 
-const turnoPendiente = {
-  id: "pend-1",
-  estado: "pendiente" as const,
-  origen: "pagina_publica" as const,
-  nombreContacto: "Bruno",
-  apellidoContacto: "Iglesias",
-  dniContacto: "1",
-  telefonoContacto: "1",
-  emailContacto: "bruno@example.com",
-  motivo: "Dolor de muela",
+// Fixture "paciente conocido" por defecto — reemplaza al viejo turno
+// `pendiente` (TR-104, Extra 2.3.3 sacó ese estado del todo): la pestaña
+// "Paciente conocido" es la que arranca elegida por defecto ahora, así
+// que la mayoría de los tests llegan al paso "detalle" clickeando este
+// paciente en vez de un turno pendiente.
+const pacienteBruno = {
+  id: "pac-bruno",
+  nombre: "Bruno",
+  apellido: "Iglesias",
+  dni: "30111222",
+  telefono: "+5493511112222",
+  email: "bruno@example.com",
   createdAt: new Date().toISOString(),
 };
 
 describe("AgregarTurnoModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listTurnosActionMock.mockResolvedValue([turnoPendiente]);
-    listPacientesActionMock.mockResolvedValue([]);
+    listPacientesActionMock.mockResolvedValue([pacienteBruno]);
     // Lista fija de horarios "disponibles" — no interfiere con los tests
     // existentes, que no ejercitan el cálculo de disponibilidad en sí
     // (eso lo cubre disponibilidad_test.go, contra el backend real).
     listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
   });
 
-  it("lista los turnos pendientes al abrir", async () => {
+  it("lista los pacientes conocidos al abrir (pestaña por defecto)", async () => {
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
     expect(await screen.findByText("Bruno Iglesias")).toBeInTheDocument();
-    expect(listTurnosActionMock).toHaveBeenCalledWith({ estado: "pendiente" });
+    expect(listPacientesActionMock).toHaveBeenCalledWith();
   });
 
-  it("camino 'desde pendientes': elegir uno agenda con agendarTurnoAction", async () => {
-    agendarTurnoActionMock.mockResolvedValue({ turno: { id: "pend-1", estado: "agendado" } });
+  it("camino 'paciente conocido': elegir uno precarga sus datos y manda pacienteId", async () => {
+    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-1", estado: "agendado" } });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
@@ -93,11 +84,11 @@ describe("AgregarTurnoModal", () => {
     fijarFechaFutura();
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => expect(agendarTurnoActionMock).toHaveBeenCalledTimes(1));
-    const [turnoId, payload] = agendarTurnoActionMock.mock.calls[0];
-    expect(turnoId).toBe("pend-1");
-    expect(payload.tipoConsultaId).toBe("tc-1");
-    expect(onSuccess).toHaveBeenCalledWith({ id: "pend-1", estado: "agendado" });
+    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    const [payload] = crearTurnoManualActionMock.mock.calls[0];
+    expect(payload.pacienteId).toBe("pac-bruno");
+    expect(payload.dniContacto).toBe("30111222");
+    expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-1", estado: "agendado" });
   });
 
   it("camino 'paciente nuevo': crea con crearTurnoManualAction", async () => {
@@ -144,7 +135,6 @@ describe("AgregarTurnoModal", () => {
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByText("Bruno Iglesias");
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
     await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
@@ -173,7 +163,6 @@ describe("AgregarTurnoModal", () => {
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByText("Bruno Iglesias");
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
     await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
@@ -195,7 +184,6 @@ describe("AgregarTurnoModal", () => {
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByText("Bruno Iglesias");
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
@@ -203,7 +191,7 @@ describe("AgregarTurnoModal", () => {
   });
 
   it("T2.5: muestra el error de solapamiento devuelto por la Server Action, sin cerrar el modal", async () => {
-    agendarTurnoActionMock.mockResolvedValue({ error: "ese horario se superpone con otro turno ya agendado" });
+    crearTurnoManualActionMock.mockResolvedValue({ error: "ese horario se superpone con otro turno ya agendado" });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
@@ -225,111 +213,11 @@ describe("AgregarTurnoModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("muestra 'sin turnos pendientes' cuando la lista viene vacía", async () => {
-    listTurnosActionMock.mockResolvedValue([]);
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    expect(await screen.findByText(/No hay turnos pendientes/)).toBeInTheDocument();
-  });
-
-  it("T3.4: con turnoPendienteInicial, arranca directo en 'detalle' sin pedir elegir paciente", async () => {
-    agendarTurnoActionMock.mockResolvedValue({ turno: { id: "pend-1", estado: "agendado" } });
-    const onSuccess = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <AgregarTurnoModal
-        tiposConsulta={tiposConsulta}
-        onClose={vi.fn()}
-        onSuccess={onSuccess}
-        turnoPendienteInicial={turnoPendiente}
-      />,
-    );
-
-    expect(screen.getByText(/Bruno Iglesias/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Paciente nuevo" })).not.toBeInTheDocument();
-    fijarFechaFutura();
-    await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-    await waitFor(() => expect(agendarTurnoActionMock).toHaveBeenCalledTimes(1));
-    expect(agendarTurnoActionMock.mock.calls[0][0]).toBe("pend-1");
-    expect(onSuccess).toHaveBeenCalledWith({ id: "pend-1", estado: "agendado" });
-  });
-
-  it("camino 'paciente conocido': carga la lista al abrir la pestaña, y elegir uno precarga sus datos y manda pacienteId", async () => {
-    const pacienteConocido = {
-      id: "pac-1",
-      nombre: "Julián",
-      apellido: "Ortiz",
-      dni: "30222333",
-      telefono: "+5493511111111",
-      email: "julian@example.com",
-      createdAt: new Date().toISOString(),
-    };
-    listPacientesActionMock.mockResolvedValue([pacienteConocido]);
-    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-2", estado: "agendado" } });
-    const onSuccess = vi.fn();
-    const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
-
-    await screen.findByText("Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Paciente conocido" }));
-
-    expect(await screen.findByText("Julián Ortiz")).toBeInTheDocument();
-    expect(listPacientesActionMock).toHaveBeenCalledWith();
-
-    await user.click(screen.getByText("Julián Ortiz"));
-    // Paso "detalle": ya viene con los datos de Julián precargados.
-    expect(screen.getByText(/Julián Ortiz/)).toBeInTheDocument();
-    fijarFechaFutura();
-    await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
-    const [payload] = crearTurnoManualActionMock.mock.calls[0];
-    expect(payload.pacienteId).toBe("pac-1");
-    expect(payload.dniContacto).toBe("30222333");
-    expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-2", estado: "agendado" });
-  });
-
-  // Extra 2.3.5 (E5.4, fix de bug): volver de "paciente conocido" a "paciente
-  // nuevo" no debe dejar precargados los datos del conocido — antes de este
-  // fix, elegir un paciente conocido, volver con "Atrás" y tocar "Paciente
-  // nuevo" mostraba el formulario ya lleno con los datos de ese paciente.
-  it("volver de 'paciente conocido' a 'paciente nuevo' no deja precargados los datos del conocido", async () => {
-    const pacienteConocido = {
-      id: "pac-1",
-      nombre: "Julián",
-      apellido: "Ortiz",
-      dni: "30222333",
-      telefono: "+5493511111111",
-      email: "julian@example.com",
-      createdAt: new Date().toISOString(),
-    };
-    listPacientesActionMock.mockResolvedValue([pacienteConocido]);
-    const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    await screen.findByText("Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Paciente conocido" }));
-    await user.click(await screen.findByText("Julián Ortiz"));
-
-    // Paso "detalle" con Julián precargado — vuelve atrás y cambia a "nuevo".
-    await user.click(screen.getByRole("button", { name: "Atrás" }));
-    await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
-
-    expect(screen.getByLabelText("Nombre")).toHaveValue("");
-    expect(screen.getByLabelText("Apellido")).toHaveValue("");
-    expect(screen.getByLabelText("DNI")).toHaveValue("");
-    expect(screen.getByLabelText("Teléfono")).toHaveValue("");
-    expect(screen.getByLabelText("Email (opcional)")).toHaveValue("");
-  });
-
-  it("paciente conocido: buscar filtra la lista con el texto tipeado", async () => {
+  it("camino 'paciente conocido': buscar filtra la lista con el texto tipeado", async () => {
     listPacientesActionMock.mockResolvedValue([]);
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByText("Bruno Iglesias");
-    await user.click(screen.getByRole("button", { name: "Paciente conocido" }));
     await screen.findByText(/No encontramos pacientes/);
 
     await user.type(screen.getByLabelText("Buscar paciente"), "Julián");
@@ -338,31 +226,11 @@ describe("AgregarTurnoModal", () => {
     await waitFor(() => expect(listPacientesActionMock).toHaveBeenCalledWith("Julián"));
   });
 
-  it("camino 'desde pendientes': el motivo del turno pendiente se precarga en 'detalle' y se puede editar antes de confirmar", async () => {
-    agendarTurnoActionMock.mockResolvedValue({ turno: { id: "pend-1", estado: "agendado" } });
-    const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
-
-    await user.click(await screen.findByText("Bruno Iglesias"));
-    const motivo = screen.getByLabelText("Motivo de consulta (opcional)");
-    expect(motivo).toHaveValue("Dolor de muela");
-
-    await user.clear(motivo);
-    await user.type(motivo, "Control de rutina");
-    fijarFechaFutura();
-    await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-    await waitFor(() => expect(agendarTurnoActionMock).toHaveBeenCalledTimes(1));
-    const [, payload] = agendarTurnoActionMock.mock.calls[0];
-    expect(payload.motivo).toBe("Control de rutina");
-  });
-
   it("camino 'paciente nuevo': el motivo tipeado en el paso 1 llega a crearTurnoManualAction", async () => {
     crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-1", estado: "agendado" } });
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByText("Bruno Iglesias");
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Julián");
     await user.type(screen.getByLabelText("Apellido"), "Ortiz");
@@ -381,6 +249,27 @@ describe("AgregarTurnoModal", () => {
     expect(payload.motivo).toBe("Dolor de muela");
   });
 
+  // Extra 2.3.5 (E5.4, fix de bug): volver de "paciente conocido" a "paciente
+  // nuevo" no debe dejar precargados los datos del conocido — antes de este
+  // fix, elegir un paciente conocido, volver con "Atrás" y tocar "Paciente
+  // nuevo" mostraba el formulario ya lleno con los datos de ese paciente.
+  it("volver de 'paciente conocido' a 'paciente nuevo' no deja precargados los datos del conocido", async () => {
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await user.click(await screen.findByText("Bruno Iglesias"));
+
+    // Paso "detalle" con Bruno precargado — vuelve atrás y cambia a "nuevo".
+    await user.click(screen.getByRole("button", { name: "Atrás" }));
+    await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
+
+    expect(screen.getByLabelText("Nombre")).toHaveValue("");
+    expect(screen.getByLabelText("Apellido")).toHaveValue("");
+    expect(screen.getByLabelText("DNI")).toHaveValue("");
+    expect(screen.getByLabelText("Teléfono")).toHaveValue("");
+    expect(screen.getByLabelText("Email (opcional)")).toHaveValue("");
+  });
+
   it("no permite confirmar un turno en una fecha pasada", async () => {
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -390,7 +279,7 @@ describe("AgregarTurnoModal", () => {
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("fecha pasada");
-    expect(agendarTurnoActionMock).not.toHaveBeenCalled();
+    expect(crearTurnoManualActionMock).not.toHaveBeenCalled();
   });
 
   // F2.3 (corrección de QA): "solo me tiene que salir seleccionables los
@@ -435,7 +324,7 @@ describe("AgregarTurnoModal", () => {
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Elegí un horario disponible");
-    expect(agendarTurnoActionMock).not.toHaveBeenCalled();
+    expect(crearTurnoManualActionMock).not.toHaveBeenCalled();
   });
 
   it("pide de nuevo la disponibilidad cuando cambia el tipo de consulta o la fecha", async () => {
@@ -455,7 +344,7 @@ describe("AgregarTurnoModal", () => {
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
     await screen.findByText("Bruno Iglesias");
-    expect(screen.getByText(/llegaron desde tu página pública/)).toBeInTheDocument();
+    expect(screen.getByText(/no hace falta volver a tipear sus datos/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     expect(screen.getByText(/nunca tuvo un turno con vos/)).toBeInTheDocument();

@@ -17,11 +17,6 @@ describe("QuadrantMark", () => {
     expect(llenos).toHaveLength(0);
   });
 
-  it("estado 'pendiente': 1 cuadrante lleno", () => {
-    const { container } = render(<QuadrantMark estado="pendiente" />);
-    expect(container.querySelectorAll("i.bg-current")).toHaveLength(1);
-  });
-
   it("estado 'agendado': los 4 cuadrantes llenos", () => {
     const { container } = render(<QuadrantMark estado="agendado" />);
     expect(container.querySelectorAll("i.bg-current")).toHaveLength(4);

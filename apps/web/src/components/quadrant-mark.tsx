@@ -1,12 +1,12 @@
-export type EstadoTurno = "pendiente" | "agendado" | "cancelada";
+// TR-104: `pendiente` se sacó del todo — solo quedan agendado/cancelada.
+export type EstadoTurno = "agendado" | "cancelada";
 
 interface QuadrantMarkProps {
   className?: string;
   // T3.3: variante que encodea el estado real de un turno en una tabla
-  // (docs/tradeoffs.md TR-010) — 1 cuadrante lleno = pendiente, 4 llenos =
-  // agendado, tachado diagonal = cancelada. Sin `estado`, es la forma
-  // puramente decorativa/estructural (reemplaza al border-radius en la
-  // esquina de un panel).
+  // (docs/tradeoffs.md TR-010) — 4 llenos = agendado, tachado diagonal =
+  // cancelada. Sin `estado`, es la forma puramente decorativa/estructural
+  // (reemplaza al border-radius en la esquina de un panel).
   estado?: EstadoTurno;
 }
 
@@ -15,7 +15,6 @@ interface QuadrantMarkProps {
 // todavía (la lectura real de un odontograma queda para cuando se sume el
 // indicador de carga que menciona TR-010).
 const CUADRANTES_LLENOS: Record<EstadoTurno, number> = {
-  pendiente: 1,
   agendado: 4,
   cancelada: 0,
 };

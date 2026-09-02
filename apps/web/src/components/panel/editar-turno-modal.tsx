@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { editarTurnoAction, reprogramarTurnoAction } from "@/app/actions/turnos";
+import { reprogramarTurnoAction } from "@/app/actions/turnos";
 import { listDisponibilidadAction } from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
@@ -15,21 +15,20 @@ interface EditarTurnoModalProps {
   onSuccess: (turno: Turno) => void;
 }
 
-// EditarTurnoModal (T3.3) — ajuste pedido por el cliente (2026-08-23): lo
-// que se puede editar depende del estado del turno.
-//   · pendiente → todos los datos de contacto (comportamiento original).
-//   · agendado  → solo el horario (nombre/DNI/etc. ya se usaron para crear
-//     el paciente); el cambio de horario pasa por el mismo exclusion
-//     constraint que agendar por primera vez (T2.5).
-// Nunca el tipo de consulta acá — eso sigue siendo del modal "+ Agregar
-// turno" (T2.4/T3.4). `tiposConsulta` (F2.3, corrección de QA) hace falta
-// igual: para saber la duración intrínseca del tipo YA elegido cuando se
-// reprograma el horario.
+// EditarTurnoModal (T3.3) — ajuste pedido por el cliente (2026-08-23):
+// editar un turno ya agendado solo cambia el horario (nombre/DNI/etc. ya
+// se usaron para crear el paciente, se corrigen desde "Editar paciente");
+// el cambio de horario pasa por el mismo exclusion constraint que agendar
+// por primera vez (T2.5). Hasta Extra 2.3.3 había una rama aparte para
+// turnos `pendiente` (editaba todos los datos de contacto) — ese estado
+// se sacó del todo (TR-104), así que este componente ya solo tiene una
+// forma posible: siempre `EditarHoraForm`. Nunca el tipo de consulta acá
+// — eso sigue siendo del modal "+ Agregar turno" (T2.4/T3.4).
+// `tiposConsulta` (F2.3, corrección de QA) hace falta igual: para saber
+// la duración intrínseca del tipo YA elegido cuando se reprograma el
+// horario.
 export function EditarTurnoModal({ turno, tiposConsulta, onClose, onSuccess }: EditarTurnoModalProps) {
-  if (turno.estado === "agendado") {
-    return <EditarHoraForm turno={turno} tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={onSuccess} />;
-  }
-  return <EditarContactoForm turno={turno} tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={onSuccess} />;
+  return <EditarHoraForm turno={turno} tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={onSuccess} />;
 }
 
 function ModalShell({
@@ -63,116 +62,6 @@ function ModalShell({
         </div>
       </div>
     </ModalPortal>
-  );
-}
-
-function EditarContactoForm({ turno, onClose, onSuccess }: EditarTurnoModalProps) {
-  const [campos, setCampos] = useState({
-    nombreContacto: turno.nombreContacto,
-    apellidoContacto: turno.apellidoContacto,
-    dniContacto: turno.dniContacto,
-    telefonoContacto: turno.telefonoContacto,
-    emailContacto: turno.emailContacto,
-    motivo: turno.motivo,
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  function actualizar<K extends keyof typeof campos>(campo: K, valor: string) {
-    setCampos((c) => ({ ...c, [campo]: valor }));
-  }
-
-  async function guardar(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (
-      !campos.nombreContacto.trim() ||
-      !campos.apellidoContacto.trim() ||
-      !campos.dniContacto.trim() ||
-      !campos.telefonoContacto.trim()
-    ) {
-      setError("Nombre, apellido, DNI y teléfono son obligatorios.");
-      return;
-    }
-
-    setPending(true);
-    const result = await editarTurnoAction(turno.id, {
-      ...campos,
-      emailContacto: campos.emailContacto || undefined,
-      motivo: campos.motivo || undefined,
-    });
-    setPending(false);
-
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-    onSuccess(result.turno);
-  }
-
-  return (
-    <ModalShell titulo="Editar turno" onClose={onClose}>
-      <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
-        <p className="text-sm text-grafito/60">
-          Este turno todavía está pendiente — se puede corregir cualquier dato de contacto. Una vez confirmado, solo se
-          va a poder cambiar el horario.
-        </p>
-        <Campo label="Nombre">
-          <input value={campos.nombreContacto} onChange={(e) => actualizar("nombreContacto", e.target.value)} className={inputClass} />
-        </Campo>
-        <Campo label="Apellido">
-          <input
-            value={campos.apellidoContacto}
-            onChange={(e) => actualizar("apellidoContacto", e.target.value)}
-            className={inputClass}
-          />
-        </Campo>
-        <Campo label="DNI">
-          <input value={campos.dniContacto} onChange={(e) => actualizar("dniContacto", e.target.value)} className={inputClass} />
-        </Campo>
-        <Campo label="Teléfono">
-          <input
-            value={campos.telefonoContacto}
-            onChange={(e) => actualizar("telefonoContacto", e.target.value)}
-            className={inputClass}
-          />
-        </Campo>
-        <Campo label="Email (opcional)">
-          <input
-            type="email"
-            value={campos.emailContacto}
-            onChange={(e) => actualizar("emailContacto", e.target.value)}
-            className={inputClass}
-          />
-        </Campo>
-        <Campo label="Motivo de consulta (opcional)">
-          <input value={campos.motivo} onChange={(e) => actualizar("motivo", e.target.value)} className={inputClass} />
-        </Campo>
-
-        {error && (
-          <p role="alert" className="text-sm text-terracota-oscuro">
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-          >
-            {pending ? "Guardando…" : "Guardar cambios"}
-          </button>
-        </div>
-      </form>
-    </ModalShell>
   );
 }
 
@@ -280,8 +169,8 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
           de error que el resto del form, es la de `guardar()` de arriba. */}
       <form onSubmit={guardar} noValidate className="flex flex-col gap-4 p-6">
         <p className="text-sm text-grafito/60">
-          Este turno ya está confirmado — solo se puede cambiar el horario y el motivo de consulta. Para corregir un
-          dato de contacto, entrá a la ficha del paciente.
+          Este turno ya está confirmado — solo se puede cambiar el horario{turno.origen === "manual" ? " y el motivo de consulta" : ""}.
+          Para corregir un dato de contacto, entrá a la ficha del paciente.
         </p>
         <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
           <span className="text-grafito/60">Paciente: </span>
@@ -318,9 +207,22 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
             <HoraPicker slots={slots} value={hora} onChange={setHora} cargando={cargandoSlots} />
           </div>
         </div>
-        <Campo label="Motivo de consulta (opcional)">
-          <input value={motivo} onChange={(e) => setMotivo(e.target.value)} className={inputClass} />
-        </Campo>
+        {/* Extra 2.3.3 (E3.3, TR-104): "intentar editarlo en un turno de
+            origen 'pagina_publica' no ofrece la opción" — un turno pedido
+            desde la página pública trae su motivo tal cual lo escribió el
+            paciente; solo el motivo de un turno cargado a mano
+            (`origen === "manual"`) es editable acá. */}
+        {turno.origen === "manual" ? (
+          <Campo label="Motivo de consulta (opcional)">
+            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} className={inputClass} />
+          </Campo>
+        ) : (
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-grafito">Motivo de consulta</span>
+            <p className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito/70">{motivo || "Sin motivo especificado."}</p>
+            <span className="text-xs text-grafito/50">Los turnos pedidos desde la página pública no permiten editar el motivo acá.</span>
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-terracota-oscuro">

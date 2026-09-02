@@ -11,3 +11,20 @@
 export function textoEsLargo(texto: string | null | undefined): texto is string {
   return Boolean(texto && texto.length > 30);
 }
+
+// tipoConsultaNombreEsLargo — corrección de QA, pedido textual del
+// cliente: "si el tipo de consulta es muy largo... poner un botón que
+// sea 'Ver tipo', si es más largo que 'Consulta general' tomando en
+// cuenta el espacio en blanco como carácter... aplicar esto" — umbral
+// PROPIO para el nombre del tipo de consulta, distinto del genérico de
+// 30 caracteres de `textoEsLargo` (motivo/mail): más largo que "Consulta
+// general" (el tipo sembrado por default al registrarse, TR-001),
+// contando el espacio como un carácter más — "Consulta general" tiene
+// 16 caracteres exactos, calculado acá con `.length` (nunca hardcodeado
+// a mano) para que quede autodescriptivo y no se desincronice si el
+// nombre sembrado cambia algún día.
+const LARGO_TIPO_CONSULTA_REFERENCIA = "Consulta general".length;
+
+export function tipoConsultaNombreEsLargo(nombre: string | null | undefined): nombre is string {
+  return Boolean(nombre && nombre.length > LARGO_TIPO_CONSULTA_REFERENCIA);
+}

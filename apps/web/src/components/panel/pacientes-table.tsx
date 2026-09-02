@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import type { Paciente } from "@dental-mirage/shared-types";
+import { textoEsLargo } from "@/lib/texto-largo";
+import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { ClickableTableRow } from "./clickable-table-row";
 
@@ -64,7 +66,13 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                   </td>
                   <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
                   <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
-                  <td className="max-md:hidden px-4 py-3 text-grafito/60">{p.email || "—"}</td>
+                  <td className="max-md:hidden px-4 py-3 text-grafito/60">
+                    {/* Extra 2.3.4 (E4.1): un email largo no se muestra
+                        más inline — rompía el ancho de la fila. Reusa
+                        VerTextoBoton (Extra 2.3.1/E1.7), el mismo
+                        componente de "Ver motivo" en Turnos. */}
+                    {textoEsLargo(p.email) ? <VerTextoBoton titulo="Email" texto={p.email} /> : p.email || "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-3">
                       {/* Chevron — solo mobile: desde `md` el DNI/Email ya
@@ -98,7 +106,9 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">DNI</dt>
                         <dd className="font-[family-name:var(--font-mono)] text-grafito">{p.dni}</dd>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
-                        <dd className="text-grafito">{p.email || "—"}</dd>
+                        <dd className="text-grafito">
+                          {textoEsLargo(p.email) ? <VerTextoBoton titulo="Email" texto={p.email} /> : p.email || "—"}
+                        </dd>
                       </dl>
                     </td>
                   </tr>

@@ -10,6 +10,7 @@ const {
   listDisponibilidadActionMock,
   crearBloqueoActionMock,
   editarBloqueoActionMock,
+  listPacientesActionMock,
 } = vi.hoisted(() => ({
   listTurnosActionMock: vi.fn(),
   listHorarioAtencionActionMock: vi.fn(),
@@ -18,11 +19,21 @@ const {
   listDisponibilidadActionMock: vi.fn(),
   crearBloqueoActionMock: vi.fn(),
   editarBloqueoActionMock: vi.fn(),
+  listPacientesActionMock: vi.fn(),
 }));
 vi.mock("@/app/actions/turnos", () => ({
   listTurnosAction: listTurnosActionMock,
   crearTurnoManualAction: vi.fn(),
-  agendarTurnoAction: vi.fn(),
+}));
+// listPacientesAction (Extra 2.3.3, TR-104): "conocido" pasó a ser la
+// pestaña por defecto de AgregarTurnoModal (antes era "pendiente", sacada
+// del todo) — ese modal, montado de verdad al tocar "+ Agregar turno",
+// ahora pide la lista de pacientes apenas se monta. Sin este mock, el
+// useEffect llama a la Server Action de verdad, que intenta leer
+// cookies() fuera de un request real de Next.js y explota como unhandled
+// rejection en el test (mismo motivo que el comentario de abajo).
+vi.mock("@/app/actions/pacientes", () => ({
+  listPacientesAction: listPacientesActionMock,
 }));
 // F2.3.8: CalendarView pide horario de atención + reglas al montar (para
 // que CalendarGrid respete el rango de horas configurado y pinte los
@@ -56,6 +67,7 @@ describe("CalendarView", () => {
     listBloqueosActionMock.mockResolvedValue([]);
     listTiposConsultaActionMock.mockResolvedValue([]);
     listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
+    listPacientesActionMock.mockResolvedValue([]);
   });
 
   it("arranca en vista día (Hoy) — pedido explícito del cliente", () => {

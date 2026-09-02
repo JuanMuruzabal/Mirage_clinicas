@@ -103,7 +103,12 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
 
       <section className="flex flex-col gap-3 max-md:order-4">
         <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Historial de turnos</h2>
-        <PacienteTurnosTable turnos={historial} tiposConsulta={tiposConsulta} vacio="Todavía no hay turnos pasados o pendientes." />
+        <PacienteTurnosTable
+          turnos={historial}
+          tiposConsulta={tiposConsulta}
+          vacio="Todavía no hay turnos pasados o pendientes."
+          mostrarRangosRapidos={false}
+        />
       </section>
     </div>
   );

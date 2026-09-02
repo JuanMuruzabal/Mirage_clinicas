@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { Paciente } from "@dental-mirage/shared-types";
+import { textoEsLargo } from "@/lib/texto-largo";
+import { VerTextoBoton } from "../ver-texto-boton";
 import { EditarPacienteModal } from "./editar-paciente-modal";
 
 interface PacienteDatosProps {
@@ -27,7 +29,15 @@ export function PacienteDatos({ pacienteInicial }: PacienteDatosProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         <Dato label="DNI" valor={paciente.dni} />
         <Dato label="Teléfono" valor={paciente.telefono} />
-        <Dato label="Email" valor={paciente.email || "—"} />
+        {/* Corrección de QA: mismo "Ver mail" que ya aplica en la tabla
+            de Pacientes (Extra 2.3.4/E4.1) — acá faltaba, en la sección
+            "Datos de contacto" de la ficha. */}
+        <Dato
+          label="Email"
+          valor={
+            textoEsLargo(paciente.email) ? <VerTextoBoton titulo="Email" texto={paciente.email} /> : paciente.email || "—"
+          }
+        />
       </div>
 
       {modalAbierto && (
@@ -44,7 +54,7 @@ export function PacienteDatos({ pacienteInicial }: PacienteDatosProps) {
   );
 }
 
-function Dato({ label, valor }: { label: string; valor: string }) {
+function Dato({ label, valor }: { label: string; valor: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-semibold uppercase tracking-wide text-grafito/50">{label}</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PacientesTable } from "./pacientes-table";
 
@@ -71,5 +71,45 @@ describe("PacientesTable", () => {
   it("el link 'Ver ficha' apunta a la ficha del paciente", () => {
     render(<PacientesTable pacientes={[paciente]} />);
     expect(screen.getByRole("link", { name: "Ver ficha →" })).toHaveAttribute("href", "/panel/pacientes/p-1");
+  });
+
+  // Extra 2.3.4 (E4.1): un email largo ya no se muestra inline (rompía el
+  // ancho de la fila) — se reemplaza por el botón "Ver email"
+  // (VerTextoBoton, Extra 2.3.1/E1.7), que abre el texto completo en un
+  // modal aparte, sin navegar a la ficha (stopPropagation propio de
+  // VerTextoBoton, mismo criterio que el chevron/"Ver ficha").
+  describe("E4.1: 'Ver email' para un email largo", () => {
+    const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
+    const pacienteEmailLargo = { ...paciente, email: emailLargo };
+
+    it("un email largo se oculta detrás del botón 'Ver email', sin mostrar el texto inline", () => {
+      render(<PacientesTable pacientes={[pacienteEmailLargo]} />);
+
+      expect(screen.getByRole("button", { name: "Ver email" })).toBeInTheDocument();
+      expect(screen.queryByText(emailLargo)).not.toBeInTheDocument();
+    });
+
+    it("tocar 'Ver email' muestra el texto completo en un modal, sin navegar a la ficha", async () => {
+      const user = userEvent.setup();
+      render(<PacientesTable pacientes={[pacienteEmailLargo]} />);
+      // pushMock no se limpia entre tests de este archivo (no hay
+      // `beforeEach(vi.clearAllMocks)`) — se compara contra la cantidad de
+      // llamadas ya acumuladas, no contra cero, para no depender del
+      // orden en que corren los demás tests del describe.
+      const llamadasPrevias = pushMock.mock.calls.length;
+
+      await user.click(screen.getByRole("button", { name: "Ver email" }));
+
+      const dialogo = await screen.findByRole("dialog", { name: "Email" });
+      expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
+      expect(pushMock.mock.calls.length).toBe(llamadasPrevias);
+    });
+
+    it("un email corto se sigue mostrando inline, sin botón 'Ver email'", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+
+      expect(screen.getByRole("cell", { name: "bruno@example.com" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver email" })).not.toBeInTheDocument();
+    });
   });
 });

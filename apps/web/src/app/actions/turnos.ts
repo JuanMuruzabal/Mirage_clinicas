@@ -5,17 +5,13 @@ import { redirect } from "next/navigation";
 import type { Turno } from "@dental-mirage/shared-types";
 import type { AutoreservarTurnosResponse } from "@dental-mirage/shared-types";
 import {
-  apiAgendarTurno,
   apiAutoreservarTurnos,
   apiCancelarTurno,
   apiCrearTurnoManual,
-  apiEditarTurno,
   apiListTurnos,
   apiMarcarAsistencia,
   apiReprogramarTurno,
-  type AgendarTurnoPayload,
   type CrearTurnoManualPayload,
-  type EditarTurnoPayload,
   type ListarTurnosParams,
   type ReprogramarTurnoPayload,
 } from "@/lib/api";
@@ -55,25 +51,6 @@ export async function crearTurnoManualAction(payload: CrearTurnoManualPayload): 
   return { turno: result.data };
 }
 
-// agendarTurnoAction — modal "+ Agregar turno", camino "desde turnos
-// pendientes".
-export async function agendarTurnoAction(
-  turnoId: string,
-  payload: AgendarTurnoPayload,
-): Promise<TurnoActionResult | { turno: Turno }> {
-  const token = await getSessionToken();
-  if (!token) {
-    redirect("/ingresar");
-  }
-  const result = await apiAgendarTurno(token, turnoId, payload);
-  if (!result.ok) {
-    return { error: result.error };
-  }
-  revalidatePath("/panel");
-  revalidatePath("/panel/calendario");
-  return { turno: result.data };
-}
-
 // cancelarTurnoAction — vista Turnos (T3.3), acción "Cancelar". Idempotente
 // del lado del backend: cancelar dos veces no es un error.
 export async function cancelarTurnoAction(turnoId: string): Promise<TurnoActionResult | { turno: Turno }> {
@@ -82,26 +59,6 @@ export async function cancelarTurnoAction(turnoId: string): Promise<TurnoActionR
     redirect("/ingresar");
   }
   const result = await apiCancelarTurno(token, turnoId);
-  if (!result.ok) {
-    return { error: result.error };
-  }
-  revalidatePath("/panel");
-  revalidatePath("/panel/turnos");
-  revalidatePath("/panel/calendario");
-  return { turno: result.data };
-}
-
-// editarTurnoAction — vista Turnos (T3.3), acción "Editar": corrige solo
-// los datos de contacto, nunca horario ni tipo de consulta.
-export async function editarTurnoAction(
-  turnoId: string,
-  payload: EditarTurnoPayload,
-): Promise<TurnoActionResult | { turno: Turno }> {
-  const token = await getSessionToken();
-  if (!token) {
-    redirect("/ingresar");
-  }
-  const result = await apiEditarTurno(token, turnoId, payload);
   if (!result.ok) {
     return { error: result.error };
   }

@@ -51,7 +51,17 @@ func TestRunMigrations_PermiteTurnosNoSolapados(t *testing.T) {
 	}
 }
 
-func TestRunMigrations_PendienteNuncaConflictúaAunqueElHorarioSeaIgual(t *testing.T) {
+// TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual —
+// TR-104: el estado `pendiente` se sacó del todo (antes probaba que un
+// turno `pendiente`, sin horario fijo, nunca podía chocar con el
+// constraint). El único otro estado que queda además de `agendado` es
+// `cancelada`, que SÍ tiene horario fijo (chk_turno_agendado_horario ya no
+// distingue por estado la obligatoriedad de horario) — el exclusion
+// constraint sigue excluyéndolo igual, vía su propio WHERE (estado =
+// 'agendado'), así que un turno cancelado con el MISMO horario que uno
+// agendado nunca debería chocar: cancelar tiene que liberar el horario de
+// verdad, no solo "de palabra".
+func TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual(t *testing.T) {
 	gdb := testdb.New(t)
 
 	profesionalID := crearProfesionalDePrueba(t, gdb)
@@ -64,20 +74,10 @@ func TestRunMigrations_PendienteNuncaConflictúaAunqueElHorarioSeaIgual(t *testi
 		t.Fatalf("el turno agendado debería poder crearse: %v", err)
 	}
 
-	// TR-006: un turno `pendiente` no tiene horario fijo todavía, así que
-	// nunca puede chocar con el constraint (que solo mira `agendado`).
-	pendiente := db.Turno{
-		ProfesionalID:    profesionalID,
-		Estado:           "pendiente",
-		NombreContacto:   "Bruno",
-		ApellidoContacto: "Iglesias",
-		DNIContacto:      "30111222",
-		TelefonoContacto: "+5493511234567",
-		EmailContacto:    "bruno@example.com",
-		Origen:           "pagina_publica",
-	}
-	if err := gdb.Create(&pendiente).Error; err != nil {
-		t.Errorf("un turno pendiente nunca debería chocar con el constraint: %v", err)
+	cancelada := turnoAgendadoDePrueba(profesionalID, inicio, fin)
+	cancelada.Estado = "cancelada"
+	if err := gdb.Create(&cancelada).Error; err != nil {
+		t.Errorf("un turno cancelado nunca debería chocar con el constraint, aunque tenga el mismo horario: %v", err)
 	}
 }
 
