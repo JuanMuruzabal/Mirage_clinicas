@@ -121,7 +121,11 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
         if (e.target === e.currentTarget) pedirCerrar();
       }}
     >
-      <div className="flex w-full max-w-md flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+      {/* max-h-[90vh] (corrección de QA, mismo bug de "se ve muy grande"
+          encontrado en TipoConsultaFormModal — mismo patrón ya usado en
+          agregar-turno-modal.tsx/editar-turno-modal.tsx/
+          configuracion-calendario-modal.tsx). */}
+      <div className="flex max-h-[90vh] w-full max-w-md max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
           <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
           <button type="button" onClick={pedirCerrar} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
@@ -183,6 +187,11 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
             )}
 
             <label className="flex items-center gap-2 text-sm text-grafito">
+              {/* accent-salvia-oscuro (corrección de QA, mismo bug visual
+                  encontrado en TipoConsultaFormModal — checkbox nativo
+                  sin estilizar, azul del navegador en vez de la paleta
+                  de la app): mismo criterio, cualquier checkbox nuevo
+                  debería llevarlo desde el vamos. */}
               <input
                 type="checkbox"
                 checked={noTrabaja}
@@ -190,34 +199,45 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
                   setNoTrabaja(e.target.checked);
                   setTocado(true);
                 }}
+                className="accent-salvia-oscuro"
               />
               No trabajo este período
             </label>
 
             {!noTrabaja && (
-              <div className="grid grid-cols-2 gap-4">
-                <Campo label="Desde">
-                  <input
-                    type="time"
-                    value={horaDesde}
-                    onChange={(e) => {
-                      setHoraDesde(e.target.value);
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="Hasta">
-                  <input
-                    type="time"
-                    value={horaHasta}
-                    onChange={(e) => {
-                      setHoraHasta(e.target.value);
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  />
-                </Campo>
+              <div className="flex flex-col gap-2">
+                {/* Aclaración (corrección de QA, 2026-09-08): un
+                    profesional interpretó "Desde/Hasta" como el horario
+                    QUE NO trabaja (como un horario reservado) — es al
+                    revés, son las horas en las que SÍ atiende ese
+                    período (bloqueado afuera de ese rango). Este texto
+                    deja explícito qué representan los dos campos de
+                    abajo antes de que los complete. */}
+                <p className="text-sm text-grafito/70">O trabajo desde / hasta este horario:</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Campo label="Desde">
+                    <input
+                      type="time"
+                      value={horaDesde}
+                      onChange={(e) => {
+                        setHoraDesde(e.target.value);
+                        setTocado(true);
+                      }}
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="Hasta">
+                    <input
+                      type="time"
+                      value={horaHasta}
+                      onChange={(e) => {
+                        setHoraHasta(e.target.value);
+                        setTocado(true);
+                      }}
+                      className={inputClass}
+                    />
+                  </Campo>
+                </div>
               </div>
             )}
 

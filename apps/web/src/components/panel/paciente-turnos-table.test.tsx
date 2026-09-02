@@ -20,8 +20,8 @@ const turno = {
   estado: "agendado" as const,
   origen: "manual" as const,
   tipoConsultaId: "tc-2",
-  horaInicio: "2026-09-01T13:00:00.000Z",
-  horaFin: "2026-09-01T13:30:00.000Z",
+  horaInicio: "2030-09-01T13:00:00.000Z",
+  horaFin: "2030-09-01T13:30:00.000Z",
   nombreContacto: "Bruno",
   apellidoContacto: "Iglesias",
   dniContacto: "1",
@@ -136,7 +136,7 @@ describe("PacienteTurnosTable", () => {
   it("filtra por rango de fecha y avisa cuando ningún turno coincide", () => {
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
-    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-10-01" } });
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2030-10-01" } });
 
     expect(screen.getByText("Ningún turno coincide con el filtro.")).toBeInTheDocument();
   });

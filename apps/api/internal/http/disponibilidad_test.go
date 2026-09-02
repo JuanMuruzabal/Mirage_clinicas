@@ -387,3 +387,75 @@ func TestDisponibilidad_ExcepcionRango_SoloAplicaDentroDelRangoElegido(t *testin
 		t.Errorf("slots fuera del rango = %v, esperaba el horario general (08:00-18:00), la excepción no debería aplicar ahí", fuera.Slots)
 	}
 }
+
+// crearTipoConPreferencia — igual que crearTipoDePrueba, pero con
+// preferencia de atención (nueva función, 2026-09-08).
+func crearTipoConPreferencia(t *testing.T, router http.Handler, token, preferenciaDesde, preferenciaHasta string) tipoConsultaResponse {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", token, tipoConsultaRequest{
+		Nombre: "Tipo de prueba", Color: "#123ABC", DuracionMinutos: 30,
+		PreferenciaHoraDesde: preferenciaDesde, PreferenciaHoraHasta: preferenciaHasta,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("no se pudo crear el tipo de prueba con preferencia: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var tipo tipoConsultaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &tipo); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	return tipo
+}
+
+// TestDisponibilidad_PreferenciaDeAtencionAcotaLaVentana — nueva función,
+// pedido textual del cliente, 2026-09-08: "el profesional solo quiere
+// atender consultas generales de 8:00 a 12:00... que la disponibilidad de
+// este tipo de turno sea afectada por esto" — horario de atención general
+// más amplio (08:00-18:00), la preferencia de ESTE tipo lo recorta a
+// 08:00-12:00 nomás, sin afectar a otros tipos.
+func TestDisponibilidad_PreferenciaDeAtencionAcotaLaVentana(t *testing.T) {
+	router, _, reg := crearClinicaDePruebaDisponibilidad(t, "disp-pref1@example.com")
+	doJSONAuth(t, router, http.MethodPut, "/horario-atencion", reg.Token, putHorarioAtencionGeneralRequest{HoraDesde: "08:00", HoraHasta: "18:00"})
+	conPreferencia := crearTipoConPreferencia(t, router, reg.Token, "08:00", "12:00")
+	sinPreferencia := crearTipoDePrueba(t, router, reg.Token, 30, 0)
+
+	out := pedirDisponibilidad(t, router, reg.Token, conPreferencia.ID, fechaDePruebaDisponibilidad, "")
+	if !contieneSlot(out.Slots, "08:00") {
+		t.Errorf("slots = %v, esperaba 08:00 (dentro de la preferencia)", out.Slots)
+	}
+	if contieneSlot(out.Slots, "12:00") {
+		t.Errorf("slots = %v, 12:00 no debería aparecer — la preferencia termina justo ahí, sin lugar para un turno completo", out.Slots)
+	}
+	if contieneSlot(out.Slots, "14:00") {
+		t.Errorf("slots = %v, 14:00 está fuera de la preferencia (08:00-12:00), aunque el horario de atención general llegue hasta las 18:00", out.Slots)
+	}
+
+	// Otro tipo, sin preferencia, sigue viendo el horario de atención
+	// COMPLETO — la preferencia es por tipo, nunca global.
+	outSinPreferencia := pedirDisponibilidad(t, router, reg.Token, sinPreferencia.ID, fechaDePruebaDisponibilidad, "")
+	if !contieneSlot(outSinPreferencia.Slots, "14:00") {
+		t.Errorf("slots (sin preferencia) = %v, esperaba 14:00 disponible — la preferencia de OTRO tipo no debe afectarlo", outSinPreferencia.Slots)
+	}
+}
+
+// TestDisponibilidad_PreferenciaNuncaAmpliaMasAllaDelHorarioAtencion —
+// corrección de QA (mismo pedido, 2026-09-08): la preferencia solo puede
+// RECORTAR, nunca ampliar — si el horario de atención general (o una
+// excepción/bloqueo) ya es más angosto que la preferencia configurada,
+// sigue ganando lo más angosto de los dos.
+func TestDisponibilidad_PreferenciaNuncaAmpliaMasAllaDelHorarioAtencion(t *testing.T) {
+	router, _, reg := crearClinicaDePruebaDisponibilidad(t, "disp-pref2@example.com")
+	// Horario de atención general MÁS ANGOSTO que la preferencia de abajo.
+	doJSONAuth(t, router, http.MethodPut, "/horario-atencion", reg.Token, putHorarioAtencionGeneralRequest{HoraDesde: "10:00", HoraHasta: "14:00"})
+	tipo := crearTipoConPreferencia(t, router, reg.Token, "08:00", "18:00")
+
+	out := pedirDisponibilidad(t, router, reg.Token, tipo.ID, fechaDePruebaDisponibilidad, "")
+	if contieneSlot(out.Slots, "08:00") || contieneSlot(out.Slots, "09:00") {
+		t.Errorf("slots = %v, la preferencia (08:00-18:00) no debería ampliar el horario de atención real (10:00-14:00)", out.Slots)
+	}
+	if !contieneSlot(out.Slots, "10:00") {
+		t.Errorf("slots = %v, esperaba 10:00 disponible (dentro de ambos rangos)", out.Slots)
+	}
+	if contieneSlot(out.Slots, "14:00") {
+		t.Errorf("slots = %v, 14:00 no debería aparecer — ahí termina el horario de atención real", out.Slots)
+	}
+}

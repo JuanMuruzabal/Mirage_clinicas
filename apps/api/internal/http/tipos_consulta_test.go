@@ -105,6 +105,63 @@ func TestCrearTipoConsulta(t *testing.T) {
 	}
 }
 
+// TestCrearTipoConsulta_ConPreferenciaDeAtencion — nueva función, pedido
+// textual del cliente, 2026-09-08: "el profesional solo quiere atender
+// consultas generales de 8:00 a 12:00... poder configurar esto".
+func TestCrearTipoConsulta_ConPreferenciaDeAtencion(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ana", Email: "crear-tipo-pref@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", reg.Token, tipoConsultaRequest{
+		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+		PreferenciaHoraDesde: "08:00", PreferenciaHoraHasta: "12:00",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var got tipoConsultaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.PreferenciaHoraDesde == nil || *got.PreferenciaHoraDesde != "08:00" {
+		t.Errorf("PreferenciaHoraDesde = %v, esperaba \"08:00\"", got.PreferenciaHoraDesde)
+	}
+	if got.PreferenciaHoraHasta == nil || *got.PreferenciaHoraHasta != "12:00" {
+		t.Errorf("PreferenciaHoraHasta = %v, esperaba \"12:00\"", got.PreferenciaHoraHasta)
+	}
+}
+
+// TestEditarTipoConsulta_QuitaLaPreferenciaDeAtencion — un tipo con
+// preferencia ya guardada puede volver a "sin preferencia" mandando
+// ambos campos vacíos — nunca queda un valor viejo pegado.
+func TestEditarTipoConsulta_QuitaLaPreferenciaDeAtencion(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ana", Email: "editar-tipo-pref@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	crearRec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", reg.Token, tipoConsultaRequest{
+		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+		PreferenciaHoraDesde: "08:00", PreferenciaHoraHasta: "12:00",
+	})
+	var creado tipoConsultaResponse
+	_ = json.Unmarshal(crearRec.Body.Bytes(), &creado)
+
+	editarRec := doJSONAuth(t, router, http.MethodPatch, "/tipos-consulta/"+creado.ID, reg.Token, tipoConsultaRequest{
+		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+	})
+	if editarRec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", editarRec.Code, http.StatusOK, editarRec.Body.String())
+	}
+	var got tipoConsultaResponse
+	_ = json.Unmarshal(editarRec.Body.Bytes(), &got)
+	if got.PreferenciaHoraDesde != nil || got.PreferenciaHoraHasta != nil {
+		t.Errorf("got = %+v, esperaba la preferencia limpia (nil)", got)
+	}
+}
+
 func TestCrearTipoConsulta_Validaciones(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
@@ -122,6 +179,13 @@ func TestCrearTipoConsulta_Validaciones(t *testing.T) {
 		"tiempo post-consulta negativo":  {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, TiempoPostConsultaMinutos: -1},
 		"tiempo post-consulta > 4 horas": {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, TiempoPostConsultaMinutos: 241},
 		"cantidad de sesiones cero":      {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, CantidadSesiones: &sesionesCero},
+		// Preferencia de atención (nueva función, 2026-09-08): ambos
+		// vacíos o ambos con horario válido, nunca uno solo.
+		"preferencia solo con desde":           {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, PreferenciaHoraDesde: "08:00"},
+		"preferencia solo con hasta":           {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, PreferenciaHoraHasta: "12:00"},
+		"preferencia con formato inválido":     {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, PreferenciaHoraDesde: "8", PreferenciaHoraHasta: "12:00"},
+		"preferencia con hasta igual a desde":  {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, PreferenciaHoraDesde: "08:00", PreferenciaHoraHasta: "08:00"},
+		"preferencia con hasta antes de desde": {Nombre: "X", Color: "#123ABC", DuracionMinutos: 30, PreferenciaHoraDesde: "12:00", PreferenciaHoraHasta: "08:00"},
 	}
 
 	for nombre, body := range casos {

@@ -141,7 +141,7 @@ func TestListTurnos_FiltraPorRangoDeFechas(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "rango@example.com")
 
-	base := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
+	base := time.Date(2030, 9, 1, 9, 0, 0, 0, time.UTC)
 	crear := func(inicio time.Time) {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
@@ -227,7 +227,7 @@ func TestCrearTurnoManual_Exitoso(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
 		EmailContacto:  "julian@example.com",
@@ -263,7 +263,7 @@ func TestCrearTurnoManual_CamposObligatoriosFaltantes(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual2@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
@@ -280,7 +280,7 @@ func TestCrearTurnoManual_TipoConsultaInvalido(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "manual3@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: "no-es-un-uuid",
@@ -297,7 +297,7 @@ func TestCrearTurnoManual_HorarioInvalido(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual4@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID,
@@ -333,7 +333,7 @@ func TestCrearTurnoManual_SolapamientoFallaControlado(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "solapa1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	payload := func(i time.Time) crearTurnoManualRequest {
 		return crearTurnoManualRequest{
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
@@ -361,7 +361,7 @@ func TestAgendarTurno_Exitoso(t *testing.T) {
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar1@example.com")
 	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -393,7 +393,7 @@ func TestAgendarTurno_ActualizaMotivo(t *testing.T) {
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendarmotivo@example.com")
 	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID) // motivo original: "Dolor de muela"
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", reg.Token, agendarTurnoRequest{
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -435,7 +435,7 @@ func TestAgendarTurno_YaAgendadoFalla(t *testing.T) {
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar2@example.com")
 	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	body := agendarTurnoRequest{
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -454,7 +454,7 @@ func TestAgendarTurno_NoExisteFalla(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar3@example.com")
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000/agendar", reg.Token, agendarTurnoRequest{
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -472,7 +472,7 @@ func TestAgendarTurno_DeOtroProfesionalFalla(t *testing.T) {
 	otro, tipoConsultaIDOtro := profesionalConTipoConsulta(t, gdb, router, "agendar4b@example.com")
 	pendiente := crearTurnoPendienteDePrueba(t, gdb, dueño.Profesional.ID)
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/agendar", otro.Token, agendarTurnoRequest{
 		TipoConsultaID: tipoConsultaIDOtro,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -488,7 +488,7 @@ func TestAgendarTurno_SolapamientoFallaControlado(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "agendar5@example.com")
 
-	inicio := time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 11, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID,
@@ -598,6 +598,28 @@ func TestResumenPanel_TurnosHoyYProximos(t *testing.T) {
 	}
 	if len(got.TurnosProximos) != 1 || got.TurnosProximos[0].ID != mananaTurno.ID.String() {
 		t.Errorf("TurnosProximos = %+v, esperaba solo el turno de mañana (%s)", got.TurnosProximos, mananaTurno.ID)
+	}
+}
+
+// TestResumenPanel_TurnosProximos_NoIncluyeMasAlladeManana — corrección
+// de QA, 2026-09-08: "turnos próximos solo me mostrará los turnos de
+// mañana" — antes esta lista traía cualquier turno futuro sin techo
+// (semanas hacia adelante); ahora se acota estrictamente al día
+// siguiente, un turno de pasado mañana no debe aparecer.
+func TestResumenPanel_TurnosProximos_NoIncluyeMasAlladeManana(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen3c@example.com")
+
+	mananaTurno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, clock.Today().AddDate(0, 0, 1).Add(10*time.Hour))
+	crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, clock.Today().AddDate(0, 0, 2).Add(10*time.Hour))
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosProximos) != 1 || got.TurnosProximos[0].ID != mananaTurno.ID.String() {
+		t.Errorf("TurnosProximos = %+v, esperaba solo el de mañana (%s), sin el de pasado mañana", got.TurnosProximos, mananaTurno.ID)
 	}
 }
 
@@ -768,6 +790,11 @@ func TestResumenPanel_HorariosReservados(t *testing.T) {
 			if h.Fecha != fechaEspecifica.Format("2006-01-02") {
 				t.Errorf("fecha del específico = %q, esperaba %q", h.Fecha, fechaEspecifica.Format("2006-01-02"))
 			}
+			// EtiquetaGeneral (corrección de QA, 2026-09-08): un específico
+			// tiene una fecha real, no hay nada que aclarar — nil.
+			if h.EtiquetaGeneral != nil {
+				t.Errorf("EtiquetaGeneral del específico = %q, esperaba nil", *h.EtiquetaGeneral)
+			}
 		}
 		if h.ID == general.ID.String() {
 			vistoGeneral = true
@@ -778,10 +805,80 @@ func TestResumenPanel_HorariosReservados(t *testing.T) {
 			if int(fechaCalculada.Weekday()) != diaSemana {
 				t.Errorf("día de semana calculado = %d, esperaba %d", int(fechaCalculada.Weekday()), diaSemana)
 			}
+			// alcance "mes" (Este mes) → sin nombrar el mes, se da por
+			// sobreentendido.
+			if h.EtiquetaGeneral == nil || *h.EtiquetaGeneral != "Todos los mié" {
+				t.Errorf("EtiquetaGeneral del general (alcance mes) = %v, esperaba %q", h.EtiquetaGeneral, "Todos los mié")
+			}
 		}
 	}
 	if !vistoEspecifico || !vistoGeneral {
 		t.Errorf("esperaba ver tanto el bloqueo específico como el general, vistoEspecifico=%v vistoGeneral=%v", vistoEspecifico, vistoGeneral)
+	}
+}
+
+// TestResumenPanel_EtiquetaGeneralSegunAlcance — corrección de QA,
+// 2026-09-08: "si hace referencia a un horario reservado general y está
+// configurado para este mes poner TODOS LOS MIE... si está para el
+// próximo mes TODOS LOS MIE DE (MES)... si está para todos los meses
+// TODOS LOS MIE DE ESTE AÑO" — un caso por Alcance, aparte del ya
+// cubierto (mes) en TestResumenPanel_HorariosReservados.
+func TestResumenPanel_EtiquetaGeneralSegunAlcance(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "resumen-etiqueta@example.com")
+	clinicID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+
+	diaSemana := 3 // miércoles
+	proximoMesEsperado := nombresMes[int(startOfMonth(clock.Today()).AddDate(0, 1, 0).Month())-1]
+
+	casos := []struct {
+		alcance  string
+		esperado string
+	}{
+		{db.BloqueoAlcanceProximoMes, "Todos los mié de " + proximoMesEsperado},
+		{db.BloqueoAlcanceTodos, "Todos los mié de este año"},
+	}
+
+	for _, c := range casos {
+		alcance := c.alcance
+		bloqueo := db.BloqueoHorario{
+			ClinicID:   clinicID,
+			Especifico: false,
+			Alcance:    &alcance,
+			DiaSemana:  &diaSemana,
+			HoraDesde:  "07:00",
+			HoraHasta:  "08:00",
+			TipoRegla:  "bloquear_horario",
+		}
+		if err := gdb.Create(&bloqueo).Error; err != nil {
+			t.Fatalf("no se pudo crear el bloqueo de prueba (alcance %q): %v", c.alcance, err)
+		}
+
+		rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+		var got resumenPanelResponse
+		_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+		var visto bool
+		for _, h := range got.HorariosReservados {
+			if h.ID != bloqueo.ID.String() {
+				continue
+			}
+			visto = true
+			if h.EtiquetaGeneral == nil || *h.EtiquetaGeneral != c.esperado {
+				t.Errorf("alcance %q: EtiquetaGeneral = %v, esperaba %q", c.alcance, h.EtiquetaGeneral, c.esperado)
+			}
+		}
+		if !visto {
+			t.Fatalf("alcance %q: no apareció en HorariosReservados = %+v", c.alcance, got.HorariosReservados)
+		}
+
+		if err := gdb.Delete(&bloqueo).Error; err != nil {
+			t.Fatalf("no se pudo borrar el bloqueo de prueba (alcance %q): %v", c.alcance, err)
+		}
 	}
 }
 
@@ -918,7 +1015,7 @@ func TestEditarTurno_TurnoAgendadoFalla(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "editar4@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -939,7 +1036,7 @@ func TestReprogramarTurno_Exitoso(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "reprog1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -976,7 +1073,7 @@ func TestReprogramarTurno_PendienteFalla(t *testing.T) {
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "reprog2@example.com")
 	pendiente := crearTurnoPendienteDePrueba(t, gdb, reg.Profesional.ID)
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+pendiente.ID.String()+"/hora", reg.Token, reprogramarTurnoRequest{
 		HoraInicio: inicio.Format(time.RFC3339),
 		HoraFin:    inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -1044,7 +1141,7 @@ func TestReprogramarTurno_SolapamientoFallaControlado(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "reprog3@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	crear := func(i time.Time) turnoResponse {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
@@ -1073,7 +1170,7 @@ func TestReprogramarTurno_NoExisteFalla(t *testing.T) {
 		Nombre: "María Games", Email: "reprog4@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/00000000-0000-0000-0000-000000000000/hora", reg.Token, reprogramarTurnoRequest{
 		HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1090,7 +1187,7 @@ func TestCrearTurnoManual_PacienteConocidoVinculaSinDuplicar(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "conocido1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -1126,7 +1223,7 @@ func TestCrearTurnoManual_PacienteConocidoDeOtroProfesionalFalla(t *testing.T) {
 	dueño, tipoDueño := profesionalConTipoConsulta(t, gdb, router, "conocido2a@example.com")
 	otro, tipoOtro := profesionalConTipoConsulta(t, gdb, router, "conocido2b@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoDueño, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),

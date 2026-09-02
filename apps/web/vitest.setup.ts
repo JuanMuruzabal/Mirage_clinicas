@@ -47,6 +47,16 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+// jsdom tampoco implementa Element.prototype.scrollTo (a diferencia de
+// window.scrollTo — ver el comentario de arriba, ese SÍ existe como
+// no-op) — calendar-view.tsx lo usa para posicionar el calendario
+// (scrollAlDia/scrollAHora, corrección de QA 2026-09-08: "Ver
+// calendario ->" de las tarjetas del dashboard). Sin este stub, revienta
+// con "box.scrollTo is not a function" apenas monta.
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = () => {};
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({

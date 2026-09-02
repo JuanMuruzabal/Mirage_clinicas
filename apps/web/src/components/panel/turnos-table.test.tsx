@@ -70,8 +70,8 @@ const turnoAgendado = {
   telefonoContacto: "+5493511111111",
   emailContacto: "julian@example.com",
   motivo: "",
-  horaInicio: "2026-09-01T09:00:00Z",
-  horaFin: "2026-09-01T09:30:00Z",
+  horaInicio: "2030-09-01T09:00:00Z",
+  horaFin: "2030-09-01T09:30:00Z",
   createdAt: new Date().toISOString(),
 };
 

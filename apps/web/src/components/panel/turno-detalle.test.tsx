@@ -16,8 +16,8 @@ const turno = {
   estado: "agendado" as const,
   origen: "manual" as const,
   tipoConsultaId: "tc-1",
-  horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(),
-  horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+  horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(),
+  horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
   nombreContacto: "María",
   apellidoContacto: "Games",
   dniContacto: "1",
@@ -116,6 +116,18 @@ describe("TurnoDetalle", () => {
   it("sin enConflicto (uso normal), no muestra ningún aviso de conflicto", () => {
     render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
     expect(screen.queryByText(/en conflicto/)).not.toBeInTheDocument();
+  });
+
+  // Autoreservado (nueva función, pedido textual del cliente,
+  // 2026-09-08): "cuando tocas la tarjeta informar que es autoreservado".
+  it("con autoreservado, avisa que el turno se reprogramó automáticamente", () => {
+    render(<TurnoDetalle turno={{ ...turno, autoreservado: true }} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+    expect(screen.getByText("Este turno fue reprogramado automáticamente con “Autoreservar turnos”.")).toBeInTheDocument();
+  });
+
+  it("sin autoreservado, no muestra ese aviso", () => {
+    render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+    expect(screen.queryByText(/reprogramado automáticamente/)).not.toBeInTheDocument();
   });
 
   // Paso 2b (pedido explícito del cliente, 2026-09-04): "los turnos

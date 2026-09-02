@@ -157,7 +157,13 @@ export function FilaResumen({ etiqueta, hora, children, uppercase = true }: Fila
   return (
     <div className="flex flex-col gap-0.5">
       {etiqueta && (
-        <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-grafito/50">{etiqueta}</span>
+        // font-bold (corrección de QA, 2026-09-08: "esos días ponerlos en
+        // negrita así se ven bien") — antes era font-normal por default,
+        // se perdía un poco al lado de la hora/contenido en negrita justo
+        // debajo.
+        <span className="font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-grafito/50">
+          {etiqueta}
+        </span>
       )}
       <div className="flex items-baseline gap-x-3">
         <span className="w-[8.5rem] shrink-0 font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-salvia-oscuro">

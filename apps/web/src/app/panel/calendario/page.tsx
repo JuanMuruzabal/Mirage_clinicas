@@ -35,6 +35,12 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
   const vistaInicial: VistaCalendario = firstParam(resolved.vista) === "semana" ? "semana" : "dia";
   const fechaParam = firstParam(resolved.fecha);
   const turnoAFocalizarId = firstParam(resolved.turno);
+  // posicionar (corrección de QA, 2026-09-08): "Ver calendario ->" de
+  // las tarjetas "Turnos de hoy"/"Turnos próximos" del dashboard — a
+  // diferencia de `turno` (deep-link de UNA FILA puntual, que abre el
+  // detalle), este solo UBICA el calendario con ese turno a la vista,
+  // sin abrir nada.
+  const turnoAPosicionar = firstParam(resolved.posicionar);
   const bloqueoAFocalizarId = firstParam(resolved.bloqueo);
 
   const token = await getSessionToken();
@@ -72,6 +78,7 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
       // por qué un Date no puede cruzar a un Client Component acá.
       fechaInicialStr={fechaParam}
       turnoAFocalizarId={turnoAFocalizarId}
+      turnoAPosicionar={turnoAPosicionar}
       bloqueoAFocalizarId={bloqueoAFocalizarId}
     />
   );

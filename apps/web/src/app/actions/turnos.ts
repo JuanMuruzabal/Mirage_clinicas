@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Turno } from "@dental-mirage/shared-types";
+import type { AutoreservarTurnosResponse } from "@dental-mirage/shared-types";
 import {
   apiAgendarTurno,
+  apiAutoreservarTurnos,
   apiCancelarTurno,
   apiCrearTurnoManual,
   apiEditarTurno,
@@ -153,4 +155,27 @@ export async function reprogramarTurnoAction(
   revalidatePath("/panel/turnos");
   revalidatePath("/panel/calendario");
   return { turno: result.data };
+}
+
+// autoreservarTurnosAction — botón "Autoreservar turnos" del modal de
+// conflicto (nueva función, pedido textual del cliente, 2026-09-08).
+// `revalidatePath` acá (a diferencia de las demás acciones de este
+// archivo) no alcanza para refrescar el calendario ya abierto en
+// pantalla — es un Client Component con su propio estado de turnos
+// (calendar-view.tsx), así que el caller además tiene que volver a pedir
+// los turnos del rango visible después de un resultado OK (ver
+// onReprogramados en bloqueo-detalle-modal.tsx).
+export async function autoreservarTurnosAction(turnoIds: string[]): Promise<TurnoActionResult | AutoreservarTurnosResponse> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiAutoreservarTurnos(token, turnoIds);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/panel");
+  revalidatePath("/panel/turnos");
+  revalidatePath("/panel/calendario");
+  return result.data;
 }

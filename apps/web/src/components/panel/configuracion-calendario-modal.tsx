@@ -22,6 +22,12 @@ interface ConfiguracionCalendarioModalProps {
   // — el id de la regla a la que hay que llevar la vista apenas cargan
   // las tablas: scrollea hasta ella y la resalta un momento.
   reglaAFocalizarId?: string;
+  // "Ver excepción de horario" desde una tarjeta "No trabajo en este
+  // período" del calendario (nueva función, 2026-09-08, bloqueo-detalle-modal.tsx)
+  // — mismo mecanismo que reglaAFocalizarId, pero apuntando a una fila de
+  // la tabla de excepciones de horario de atención en vez de una de
+  // horarios reservados.
+  horarioAtencionAFocalizarId?: string;
 }
 
 const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -30,7 +36,13 @@ const ALCANCE_LABEL: Record<string, string> = {
   proxima_semana: "Próxima semana",
   mes: "Este mes",
   proximo_mes: "Próximo mes",
-  todos: "Todos los meses",
+  // "Este año" (corrección de QA, 2026-09-08, aprovechando el cambio de
+  // la tarjeta "Horarios reservados" del dashboard): el valor real ("todos")
+  // no cambia — sigue siendo "sin fecha de fin" en la base — pero el
+  // texto "Todos los meses" no se entendía bien al lado de "Este
+  // mes"/"Próximo mes"; "Este año" es más claro y es el mismo texto que
+  // ahora usa esa tarjeta ("Todos los mié DE ESTE AÑO").
+  todos: "Este año",
 };
 
 // ConfiguracionCalendarioModal — F2.3.5-F2.3.7 (docs/implementation-plan.md
@@ -39,7 +51,7 @@ const ALCANCE_LABEL: Record<string, string> = {
 // (ModalPortal, backdrop con blur) — pedido explícito del cliente: "este
 // será del mismo tipo que los div que se generan cuando aprieto por
 // ejemplo el botón de agregar turno".
-export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: ConfiguracionCalendarioModalProps) {
+export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horarioAtencionAFocalizarId }: ConfiguracionCalendarioModalProps) {
   const [horarioGeneral, setHorarioGeneral] = useState<HorarioAtencion | null>(null);
   const [horarioError, setHorarioError] = useState<string | null>(null);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
@@ -62,6 +74,7 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
   const [errorTipo, setErrorTipo] = useState<string | null>(null);
 
   const filaFocalizadaRef = useRef<HTMLTableRowElement | null>(null);
+  const filaFocalizadaExcepcionRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
     let activo = true;
@@ -92,6 +105,14 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
     if (!reglaAFocalizarId || !filaFocalizadaRef.current) return;
     filaFocalizadaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [reglaAFocalizarId, generales, especificas]);
+
+  // Mismo mecanismo, para "Ver excepción de horario" (nueva función,
+  // 2026-09-08) — apunta a la tabla de excepciones en vez de horarios
+  // reservados.
+  useEffect(() => {
+    if (!horarioAtencionAFocalizarId || !filaFocalizadaExcepcionRef.current) return;
+    filaFocalizadaExcepcionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [horarioAtencionAFocalizarId, excepciones]);
 
   async function guardarHorarioGeneral(e: React.FormEvent) {
     e.preventDefault();
@@ -266,6 +287,8 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
               </p>
               <ExcepcionesHorarioTable
                 excepciones={excepciones}
+                horarioAtencionAFocalizarId={horarioAtencionAFocalizarId}
+                filaFocalizadaRef={filaFocalizadaExcepcionRef}
                 onEditar={(h) => setAgregandoExcepcion(h)}
                 onEliminar={eliminarExcepcion}
               />
@@ -430,10 +453,14 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId }: Con
 // más abajo.
 function ExcepcionesHorarioTable({
   excepciones,
+  horarioAtencionAFocalizarId,
+  filaFocalizadaRef,
   onEditar,
   onEliminar,
 }: {
   excepciones: HorarioAtencion[] | null;
+  horarioAtencionAFocalizarId?: string;
+  filaFocalizadaRef: React.RefObject<HTMLTableRowElement | null>;
   onEditar: (horario: HorarioAtencion) => void;
   onEliminar: (id: string) => void;
 }) {
@@ -457,7 +484,14 @@ function ExcepcionesHorarioTable({
         </thead>
         <tbody>
           {excepciones.map((h) => (
-            <FilaExcepcionHorario key={h.id} horario={h} onEditar={() => onEditar(h)} onEliminar={() => onEliminar(h.id)} />
+            <FilaExcepcionHorario
+              key={h.id}
+              horario={h}
+              focalizada={h.id === horarioAtencionAFocalizarId}
+              filaFocalizadaRef={filaFocalizadaRef}
+              onEditar={() => onEditar(h)}
+              onEliminar={() => onEliminar(h.id)}
+            />
           ))}
         </tbody>
       </table>
@@ -467,10 +501,14 @@ function ExcepcionesHorarioTable({
 
 function FilaExcepcionHorario({
   horario: h,
+  focalizada,
+  filaFocalizadaRef,
   onEditar,
   onEliminar,
 }: {
   horario: HorarioAtencion;
+  focalizada: boolean;
+  filaFocalizadaRef: React.RefObject<HTMLTableRowElement | null>;
   onEditar: () => void;
   onEliminar: () => void;
 }) {
@@ -479,9 +517,10 @@ function FilaExcepcionHorario({
   return (
     <>
       <tr
+        ref={focalizada ? filaFocalizadaRef : undefined}
         onClick={() => setDesplegada((actual) => !actual)}
         className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-hueso md:cursor-default ${
-          desplegada ? "bg-hueso" : ""
+          focalizada ? "bg-salvia-claro" : desplegada ? "bg-hueso" : ""
         }`}
       >
         <td className="px-4 py-2 text-grafito">{ALCANCE_LABEL_EXCEPCION[h.alcance] ?? h.alcance}</td>
