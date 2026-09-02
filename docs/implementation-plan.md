@@ -587,7 +587,7 @@ que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
 `dev` hasta que el 5 esté aprobado — misma lógica que la advertencia de
 §11.2 para F2.4/F2.5 sobre F2.3.
 
-#### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard) — **implementado, en QA con el cliente**
+#### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard) — **implementado, mergeado a `dev` (PR #5)**
 
 **E1.1 a E1.7 completas**, más varias rondas de corrección de QA sobre la primera entrega (ya incorporadas al código, no son tareas nuevas) — detalle completo en TR-094 de `docs/tradeoffs.md`:
 
@@ -607,13 +607,25 @@ que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
 | E1.6 | Tarjetas 4 (total confirmados) y 5 (resueltos, sin asistió/ausente): solo número + lista simple fecha/hora/nombre para la de resueltos | E1.1 | 1d | Resueltos no muestra ningún estado de asistencia (eso es otro flujo, ya implementado en Turnos/calendario) |
 | E1.7 | Componente reusable "Ver texto" (botón + modal con blur) para motivo largo en el cuerpo de la tarjeta 3- — se construye ACÁ, no en Extra 2.3.3: E3.3/E4.1 (más adelante en el orden confirmado) lo reusan tal cual en vez de duplicarlo | E1.5 | 1d | Motivo largo nunca desborda la fila de la tarjeta; el mismo componente sirve sin cambios para "Ver motivo"/"Ver mail" cuando lleguen los ítems 3.3/3.4 |
 
-#### Extra 2.3.2 — Banner de conflicto en el calendario
+Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle en TR-099 de `docs/tradeoffs.md`, ya incorporadas al código): "Turnos próximos" se acota a solo mañana (antes no tenía techo superior); "Ver calendario →" de cabecera pasa a solo POSICIONAR el calendario en el turno/horario más próximo (nunca abre la tarjeta de detalle — corrección sobre una primera implementación equivocada); "Ver horarios reservados →" y las filas de esa tarjeta también posicionan el calendario, no solo abren el modal.
+
+#### Extra 2.3.2 — Banner de conflicto en el calendario — **implementado, en QA con el cliente**
+
+**E2.1 a E2.3 completas**, y el ítem creció bastante más allá del brief original: durante la misma ronda de QA el cliente pidió tres funciones nuevas no listadas en el brief post-QA (Autoreservar turnos, Excepciones de horario de atención visualizadas en el calendario, Preferencia de atención por tipo de consulta) — se implementaron todas en esta misma rama (`feature/fase2-3-2-banner-conflicto`) en vez de abrir una rama por función, dado que surgieron como una sola conversación de QA continua sobre el calendario. Detalle completo de cada una en `docs/tradeoffs.md` TR-095 a TR-099.
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
-| E2.1 | Banner "Tienes X turnos en conflictos, toca para ver" entre el selector Día/Semana/Mes y el grid, animación de entrada que empuja el calendario hacia abajo | — | 1-2d | El banner no se superpone al calendario, lo desplaza |
+| E2.1 | Banner "Tenés X turnos en conflicto, tocá para ver" entre el selector Día/Semana/Mes y el grid, animación de entrada que empuja el calendario hacia abajo | — | 1-2d | El banner no se superpone al calendario, lo desplaza |
 | E2.2 | Contador reactivo a los conflictos vigentes (mismo criterio que `turnoResuelto()` de TR-090: un conflicto ya resuelto no cuenta) — desaparece solo cuando llega a 0 | E2.1, TR-090 (ya implementado) | 1d | Resolver un conflicto (o que su horario pase) baja el contador sin recargar la página |
-| E2.3 | "Toca para ver" abre el "Ver eventos" (`BloqueoDetalleModal`) del conflicto más próximo en el tiempo | E2.2 | 1d | Con 2+ conflictos, siempre abre el más próximo primero |
+| E2.3 | "Tocá para ver" abre el "Ver eventos" (`BloqueoDetalleModal`) del conflicto más próximo en el tiempo | E2.2 | 1d | Con 2+ conflictos, siempre abre el más próximo primero |
+
+**Extra, fuera del brief original — pedido explícito del cliente durante esta QA:**
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E2.4 | Autoreservar turnos: botón en la pantalla de conflicto que reprograma los turnos afectados al próximo horario libre (día actual u otro), por orden de horario original; pantalla de confirmación anterior→nuevo horario, turnos autoreservados con textura rayada en el calendario (TR-096) | E2.3 | 3-4d | Con 2+ turnos en conflicto sin ningún hueco libre en común, "Autoreservar" los deja sin superponerse entre sí ni con nada más agendado |
+| E2.5 | Excepciones de horario de atención visualizadas en el calendario, mismo mecanismo de cluster/"Ver eventos" que horarios reservados; excepción pura → tarjeta suave "No trabajo en este período", clickeable, navega a Configuración (TR-097) | E1.7 | 2-3d | Una excepción que se solapa con un horario reservado o un turno pasa a "Ver eventos →"; una excepción sola nunca lo hace |
+| E2.6 | Preferencia de atención por tipo de consulta: ventana horaria opcional que acota (nunca ensancha) la disponibilidad real de ese tipo (TR-098) | F2.3 (`GET /disponibilidad`, ya implementado) | 2d | Un tipo con preferencia 8:00-12:00 nunca ofrece un horario fuera de esa franja, aunque el horario de atención general sea más amplio |
 
 #### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido
 

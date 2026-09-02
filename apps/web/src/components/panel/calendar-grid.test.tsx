@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CalendarGrid } from "./calendar-grid";
+import { CalendarGrid, esExcepcionSintetica } from "./calendar-grid";
 
 const tiposConsulta = [
   { id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" },
   { id: "tc-2", nombre: "Urgencia", color: "#D6563A" },
 ];
 
-const dias = [new Date(2026, 8, 1)];
+const dias = [new Date(2030, 8, 1)];
 
 const turnos = [
   {
@@ -16,8 +16,8 @@ const turnos = [
     estado: "agendado" as const,
     origen: "manual" as const,
     tipoConsultaId: "tc-1",
-    horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(),
-    horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+    horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(),
+    horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
     nombreContacto: "María",
     apellidoContacto: "Games",
     dniContacto: "1",
@@ -38,7 +38,7 @@ describe("CalendarGrid", () => {
 
   it("no muestra turnos de otro día", () => {
     render(
-      <CalendarGrid dias={[new Date(2026, 8, 2)]} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
+      <CalendarGrid dias={[new Date(2030, 8, 2)]} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
     );
     expect(screen.queryByText("María Games")).not.toBeInTheDocument();
   });
@@ -74,8 +74,8 @@ describe("CalendarGrid", () => {
     const turnoUTC = [
       {
         ...turnos[0],
-        horaInicio: new Date(Date.UTC(2026, 8, 1, 12, 0)).toISOString(), // 09:00 en Córdoba
-        horaFin: new Date(Date.UTC(2026, 8, 1, 12, 30)).toISOString(),
+        horaInicio: new Date(Date.UTC(2030, 8, 1, 12, 0)).toISOString(), // 09:00 en Córdoba
+        horaFin: new Date(Date.UTC(2030, 8, 1, 12, 30)).toISOString(),
       },
     ];
     render(<CalendarGrid dias={dias} turnos={turnoUTC} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
@@ -108,7 +108,7 @@ describe("CalendarGrid", () => {
   // van siguiendo, y verticalmente los días" — cada uno fijo en un solo
   // eje (no en los dos), salvo la esquina compartida.
   it("la columna de horas queda fija en X, la fila de días en Y, la esquina en los dos ejes", () => {
-    const dosDias = [new Date(2026, 8, 1), new Date(2026, 8, 2)];
+    const dosDias = [new Date(2030, 8, 1), new Date(2030, 8, 2)];
     const { container } = render(
       <CalendarGrid dias={dosDias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
     );
@@ -142,6 +142,26 @@ describe("CalendarGrid", () => {
     expect(bloque.className).toContain("text-grafito/60");
   });
 
+  // Autoreservado (nueva función, pedido textual del cliente,
+  // 2026-09-08): "estos horarios auto reservados en el calendario se
+  // deben ver con rayas" — mismo color del tipo de consulta, con una
+  // textura de rayas diagonales encima (repeating-linear-gradient), no
+  // un color aparte.
+  it("un turno autoreservado se pinta con rayas, no con el color plano del tipo de consulta", () => {
+    const turnoAutoreservado = { ...turnos[0], autoreservado: true };
+    render(<CalendarGrid dias={dias} turnos={[turnoAutoreservado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    expect(bloque.style.background).toContain("repeating-linear-gradient");
+  });
+
+  it("un turno normal (no autoreservado) sigue con el color plano del tipo de consulta", () => {
+    render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    expect(bloque.style.background).not.toContain("repeating-linear-gradient");
+  });
+
   // Corrección de QA (F2.3): "el horario de atención que no modifique
   // cómo se ve el calendario" — el rango de horas del grid queda FIJO
   // (08-20) sin importar lo que se configure en "Horario de atención";
@@ -165,12 +185,12 @@ describe("CalendarGrid", () => {
   // si sobra algo del cluster por debajo, una franja lisa sin texto (ver
   // agruparEnClusters/segmentosParaVisualizar en calendar-grid.tsx).
   describe("bloqueos horarios", () => {
-    // 2026-09-01 es martes (diaSemana=2).
+    // 2030-09-01 es domingo (diaSemana=0).
     const bloqueoGeneral = {
-      id: "bg-1", especifico: false, diaSemana: 2, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
+      id: "bg-1", especifico: false, diaSemana: 0, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
     };
     const bloqueoEspecifico = {
-      id: "be-1", especifico: true, fecha: "2026-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario",
+      id: "be-1", especifico: true, fecha: "2030-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario",
     };
 
     it("pinta un bloqueo general que aplica ese día", () => {
@@ -187,7 +207,7 @@ describe("CalendarGrid", () => {
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
-          bloqueosGenerales={[{ ...bloqueoGeneral, diaSemana: 3 }]}
+          bloqueosGenerales={[{ ...bloqueoGeneral, diaSemana: 1 }]}
         />,
       );
       expect(screen.queryByLabelText(/Horario bloqueado/)).not.toBeInTheDocument();
@@ -515,7 +535,7 @@ describe("CalendarGrid", () => {
   // arriba — la única diferencia es la pista roja del cuerpo.
   describe("conflictos entre turnos y horarios reservados (paso 2)", () => {
     const bloqueoGeneral = {
-      id: "bg-1", especifico: false, diaSemana: 2, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
+      id: "bg-1", especifico: false, diaSemana: 0, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
     };
 
     it("un turno sin ningún horario reservado superpuesto se dibuja normal, sin pasar por 'Ver eventos'", () => {
@@ -570,7 +590,7 @@ describe("CalendarGrid", () => {
     // cluster de conflicto, con las dos pistas mostrando sus cantidades.
     it("dos horarios reservados combinados que además se solapan con un turno: una sola tarjeta con las dos pistas", () => {
       const generalA = { ...bloqueoGeneral, horaDesde: "08:45", horaHasta: "09:10" };
-      const especificaB = { id: "be-1", especifico: true, fecha: "2026-09-01", horaDesde: "09:05", horaHasta: "09:20", tipoRegla: "bloquear_horario" };
+      const especificaB = { id: "be-1", especifico: true, fecha: "2030-09-01", horaDesde: "09:05", horaHasta: "09:20", tipoRegla: "bloquear_horario" };
       const { container } = render(
         <CalendarGrid
           dias={dias}
@@ -630,10 +650,10 @@ describe("CalendarGrid", () => {
 
     it("el mini-header 'Ver eventos →' CON resto redondea solo arriba, el resto solo abajo", () => {
       const bloqueoGeneral = {
-        id: "bg-1", especifico: false, diaSemana: 2, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
+        id: "bg-1", especifico: false, diaSemana: 0, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
       };
       const bloqueoEspecifico = {
-        id: "be-1", especifico: true, fecha: "2026-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario",
+        id: "be-1", especifico: true, fecha: "2030-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario",
       };
       const { container } = render(
         <CalendarGrid
@@ -655,9 +675,9 @@ describe("CalendarGrid", () => {
 
     it("el mini-header SIN resto (el cluster entero cabe en el header) redondea las cuatro esquinas", () => {
       const generalCorta = {
-        id: "bg-corta", especifico: false, diaSemana: 2, alcance: "todos" as const, horaDesde: "09:00", horaHasta: "09:15", tipoRegla: "bloquear_horario",
+        id: "bg-corta", especifico: false, diaSemana: 0, alcance: "todos" as const, horaDesde: "09:00", horaHasta: "09:15", tipoRegla: "bloquear_horario",
       };
-      const especificaCorta = { id: "be-corta", especifico: true, fecha: "2026-09-01", horaDesde: "09:00", horaHasta: "09:15", tipoRegla: "bloquear_horario" };
+      const especificaCorta = { id: "be-corta", especifico: true, fecha: "2030-09-01", horaDesde: "09:00", horaHasta: "09:15", tipoRegla: "bloquear_horario" };
       render(
         <CalendarGrid
           dias={dias}
@@ -671,6 +691,122 @@ describe("CalendarGrid", () => {
       const header = screen.getByLabelText("Horario bloqueado de 09:00 a 09:15");
       expect(header.className).toContain("rounded-field");
       expect(header.className).not.toContain("rounded-t-field");
+    });
+  });
+
+  // Excepciones de horario de atención (nueva función, pedido textual del
+  // cliente, 2026-09-08): "básicamente es lo mismo que horarios
+  // reservados, pero ahora puede abarcar días completos" — se traducen a
+  // horarios reservados sintéticos (cierresDeExcepciones) y pasan por el
+  // MISMO clustering que reglas reales + turnos, sin sistema aparte.
+  describe("excepciones de horario de atención", () => {
+    it("\"no trabajo este período\" (sin horaDesde/horaHasta) cubre toda la grilla visible, sin nada real de por medio", () => {
+      const excepcion = { id: "ha-1", alcance: "semana" as const, fechaDesde: "2030-08-26", fechaHasta: "2030-09-01" };
+      render(
+        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+      );
+      const tarjeta = screen.getByText("No trabajo en este período");
+      // Cubre de 08:00 (HORA_INICIO) a 20:00 (HORA_FIN) — 12 horas * 64px.
+      expect(tarjeta.closest("button")).toHaveStyle({ top: "0px", height: "768px" });
+    });
+
+    // Corrección de QA, 2026-09-08: "al hacer click en la tarjeta me
+    // muestra a qué excepción de horario hace referencia, igual que
+    // horario reservado" — clickeable, mismo onBloqueoClick que un
+    // horario reservado real (aunque no haya nada real de por medio).
+    it("una excepción sola (sin nada real) es clickeable y avisa con el mismo onBloqueoClick que un horario reservado", async () => {
+      const user = userEvent.setup();
+      const onBloqueoClick = vi.fn();
+      const excepcion = { id: "ha-1", alcance: "semana" as const, fechaDesde: "2030-08-26", fechaHasta: "2030-09-01" };
+      render(
+        <CalendarGrid
+          dias={dias}
+          turnos={[]}
+          tiposConsulta={tiposConsulta}
+          onTurnoClick={vi.fn()}
+          horariosAtencion={[excepcion]}
+          onBloqueoClick={onBloqueoClick}
+        />,
+      );
+      await user.click(screen.getByText("No trabajo en este período"));
+      expect(onBloqueoClick).toHaveBeenCalledTimes(1);
+      const [reglas] = onBloqueoClick.mock.calls[0];
+      expect(reglas).toHaveLength(1);
+      expect(esExcepcionSintetica(reglas[0])).toBe(true);
+    });
+
+    it("con horario reducido (horaDesde/horaHasta), cierra lo que queda AFUERA de esa ventana en dos tramos", () => {
+      const excepcion = { id: "ha-2", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "14:00" };
+      render(
+        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+      );
+      const tarjetas = screen.getAllByText("No trabajo en este período");
+      expect(tarjetas).toHaveLength(2);
+      // 08:00-10:00 (2 horas) y 14:00-20:00 (6 horas).
+      const altos = tarjetas.map((t) => (t.closest("button") as HTMLElement).style.height).sort();
+      expect(altos).toEqual(["128px", "384px"]);
+    });
+
+    it("una excepción que no aplica ese día no dibuja nada", () => {
+      const excepcion = { id: "ha-3", alcance: "rango" as const, fechaDesde: "2030-09-05", fechaHasta: "2030-09-10" };
+      render(
+        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+      );
+      expect(screen.queryByText("No trabajo en este período")).not.toBeInTheDocument();
+    });
+
+    it("dos excepciones que se solapan entre sí (sin nada real) se juntan en UNA sola tarjeta, sin 'Ver eventos'", () => {
+      // Mismo ejemplo textual del cliente: "10:00 a 11:00 y... 10:30 a
+      // 12:00... se verá un no trabajo en este período de 10:00 a 12:00".
+      const primera = { id: "ha-4", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "20:00" };
+      const segunda = { id: "ha-5", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:30", horaHasta: "20:00" };
+      render(
+        <CalendarGrid
+          dias={dias}
+          turnos={[]}
+          tiposConsulta={tiposConsulta}
+          onTurnoClick={vi.fn()}
+          horariosAtencion={[primera, segunda]}
+        />,
+      );
+      // Cada excepción cierra 08:00-10:00 / 08:00-10:30 respectivamente —
+      // se solapan (ambas arrancan en 08:00) y se juntan en una sola
+      // tarjeta 08:00-10:30 (2.5 horas), no dos tarjetas ni "Ver eventos →".
+      expect(screen.getAllByText("No trabajo en este período")).toHaveLength(1);
+      expect(screen.queryByText("Ver eventos →")).not.toBeInTheDocument();
+      const tarjeta = screen.getByText("No trabajo en este período").closest("button") as HTMLElement;
+      expect(tarjeta.style.height).toBe("160px"); // 2.5 horas * 64px
+    });
+
+    it("una excepción que se solapa con un horario reservado real se transforma en 'Ver eventos', con las dos pistas por separado", () => {
+      const excepcion = { id: "ha-6", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "09:00", horaHasta: "20:00" };
+      // Cierra 08:00-09:00 — se solapa con un horario reservado 07:30-08:30.
+      const bloqueo = { id: "b-1", especifico: true, fecha: "2030-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario" };
+      render(
+        <CalendarGrid
+          dias={dias}
+          turnos={[]}
+          tiposConsulta={tiposConsulta}
+          onTurnoClick={vi.fn()}
+          bloqueosEspecificas={[bloqueo]}
+          horariosAtencion={[excepcion]}
+        />,
+      );
+      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("1 horario reservado")).toBeInTheDocument();
+      expect(screen.getByText("1 horario de no trabajo")).toBeInTheDocument();
+    });
+
+    it("una excepción que se solapa con un turno se transforma en 'Ver eventos' igual que un horario reservado", () => {
+      const excepcion = { id: "ha-7", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "20:00" };
+      // Cierra 08:00-10:00 — se solapa con un turno 09:00-09:30.
+      render(
+        <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+      );
+      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("1 turno en conflicto")).toBeInTheDocument();
+      expect(screen.getByText("1 horario de no trabajo")).toBeInTheDocument();
+      expect(screen.queryByText("horario reservado")).not.toBeInTheDocument();
     });
   });
 });

@@ -75,6 +75,21 @@ describe("AgregarHorarioAtencionModal", () => {
     expect(crearHorarioAtencionActionMock).toHaveBeenCalledWith({ alcance: "mes", noTrabaja: true });
   });
 
+  // Corrección de QA, 2026-09-08: un profesional interpretó "Desde/Hasta"
+  // como el horario que NO trabaja (como un horario reservado) — es al
+  // revés (son las horas en las que SÍ atiende ese período). Esta
+  // aclaración va justo arriba de esos dos campos, y desaparece junto con
+  // ellos al marcar "No trabajo este período" (ahí ya no aplica).
+  it("aclara que Desde/Hasta son las horas en las que SÍ trabaja, no al revés", async () => {
+    const user = userEvent.setup();
+    render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+
+    expect(screen.getByText("O trabajo desde / hasta este horario:")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("No trabajo este período"));
+    expect(screen.queryByText("O trabajo desde / hasta este horario:")).not.toBeInTheDocument();
+  });
+
   it("rango personalizado sin fechas muestra un error y no llama a la action", async () => {
     const user = userEvent.setup();
     render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);

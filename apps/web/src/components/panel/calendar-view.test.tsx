@@ -81,8 +81,8 @@ describe("CalendarView", () => {
       estado: "agendado" as const,
       origen: "manual" as const,
       tipoConsultaId: "tc-1",
-      horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(),
-      horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+      horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(),
+      horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
       nombreContacto: "María",
       apellidoContacto: "Games",
       dniContacto: "1",
@@ -105,6 +105,52 @@ describe("CalendarView", () => {
     expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
   });
 
+  // turnoAPosicionar (corrección de QA, 2026-09-08): "Ver calendario ->"
+  // de las tarjetas del dashboard — a diferencia de turnoAFocalizarId
+  // (deep-link de una fila puntual, que sí abre el detalle), este NUNCA
+  // abre TurnoDetalle: "no tiene que abrir la tarjeta del turno más
+  // próximo, sino ubicar el calendario a la vista del usuario con el
+  // turno más próximo visible, no abre la tarjeta de ningún turno".
+  it("turnoAPosicionar ubica el calendario en ese turno, pero NUNCA abre su detalle", () => {
+    const scrollToSpy = vi.spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(() => {});
+    try {
+      const turno = {
+        id: "t-1",
+        estado: "agendado" as const,
+        origen: "manual" as const,
+        tipoConsultaId: "tc-1",
+        horaInicio: new Date(2030, 8, 1, 15, 0).toISOString(),
+        horaFin: new Date(2030, 8, 1, 15, 30).toISOString(),
+        nombreContacto: "María",
+        apellidoContacto: "Games",
+        dniContacto: "1",
+        telefonoContacto: "1",
+        emailContacto: "",
+        motivo: "",
+        createdAt: new Date().toISOString(),
+      };
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[turno]} turnoAPosicionar="t-1" />);
+
+      expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
+      // Vertical: (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64,
+      // menos una hora de aire (ver scrollAHora) = (7 - 1) * 64 = 384.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
+  it("turnoAPosicionar que no matchea ningún turno cargado no scrollea ni abre nada", () => {
+    const scrollToSpy = vi.spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(() => {});
+    try {
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} turnoAPosicionar="no-existe" />);
+      expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
+      expect(scrollToSpy).not.toHaveBeenCalled();
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
   // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
   // §11.5) — corrección de QA: "en la tarjeta de horarios reservados,
   // cuando dé click a un elemento del cuerpo, también llevarme a la
@@ -114,7 +160,7 @@ describe("CalendarView", () => {
     const especifico = {
       id: "b-1",
       especifico: true as const,
-      fecha: "2026-09-01",
+      fecha: "2030-09-01",
       horaDesde: "08:00",
       horaHasta: "09:00",
       tipoRegla: "bloquear_horario",
@@ -122,20 +168,151 @@ describe("CalendarView", () => {
     listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [especifico] : []));
 
     render(
-      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2026-09-01" bloqueoAFocalizarId="b-1" />,
+      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2030-09-01" bloqueoAFocalizarId="b-1" />,
     );
 
     expect(await screen.findByRole("dialog", { name: "Horario bloqueado" })).toBeInTheDocument();
   });
 
+  // Corrección de QA, 2026-09-08: "al tocar algún elemento del cuerpo de
+  // la tarjeta... de horarios reservados, también que te ubique
+  // visualmente... como hace con turnos de hoy y turnos próximos".
+  it("bloqueoAFocalizarId también ubica el calendario en la hora de ese horario reservado", async () => {
+    const scrollToSpy = vi.spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(() => {});
+    try {
+      const especifico = {
+        id: "b-1",
+        especifico: true as const,
+        fecha: "2030-09-01",
+        horaDesde: "15:00",
+        horaHasta: "16:00",
+        tipoRegla: "bloquear_horario",
+      };
+      listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [especifico] : []));
+
+      render(
+        <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2030-09-01" bloqueoAFocalizarId="b-1" />,
+      );
+
+      await screen.findByRole("dialog", { name: "Horario bloqueado" });
+      // (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64, menos una
+      // hora de aire (ver scrollAHora en calendar-view.tsx) = (7-1)*64 = 384.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
   it("bloqueoAFocalizarId que no matchea ningún bloqueo cargado no abre nada", async () => {
     listBloqueosActionMock.mockResolvedValue([]);
     render(
-      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2026-09-01" bloqueoAFocalizarId="no-existe" />,
+      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2030-09-01" bloqueoAFocalizarId="no-existe" />,
     );
 
     await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // Banner de conflicto (F2.3 extra ítem 2, docs/implementation-plan.md
+  // §11.5) — pedido textual: "Tienes X turnos en conflictos, toca para
+  // ver", entre el selector día/semana/mes y el calendario.
+  describe("banner de conflicto", () => {
+    const turnoEnConflicto = {
+      id: "t-conflicto",
+      estado: "agendado" as const,
+      origen: "manual" as const,
+      tipoConsultaId: "tc-1",
+      horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(),
+      horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
+      nombreContacto: "Bruno",
+      apellidoContacto: "Iglesias",
+      dniContacto: "1",
+      telefonoContacto: "1",
+      emailContacto: "",
+      motivo: "",
+      createdAt: new Date().toISOString(),
+    };
+    const bloqueoSolapado = {
+      id: "b-conflicto",
+      especifico: true as const,
+      fecha: "2030-09-01",
+      horaDesde: "09:15",
+      horaHasta: "09:45",
+      tipoRegla: "bloquear_horario",
+    };
+
+    it("sin conflictos, no muestra el banner", () => {
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} fechaInicialStr="2030-09-01" />);
+      expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+    });
+
+    it("con un turno solapado a un horario reservado específico, muestra 'Tienes 1 turno en conflictos'", async () => {
+      // listTurnosAction se vuelve a llamar al montar (rango visible) y
+      // pisa `turnosIniciales` con lo que devuelva el mock — sin esto el
+      // turno de la fixture desaparece antes de que los bloqueos terminen
+      // de cargar, y el cluster nunca se arma (bug real encontrado acá).
+      listTurnosActionMock.mockResolvedValue([turnoEnConflicto]);
+      listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [bloqueoSolapado] : []));
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[turnoEnConflicto]}
+          fechaInicialStr="2030-09-01"
+        />,
+      );
+
+      expect(await screen.findByText("Tienes 1 turno en conflictos, toca para ver")).toBeInTheDocument();
+    });
+
+    it("un turno en conflicto que ya pasó no cuenta (turnoResuelto)", async () => {
+      const yaResuelto = { ...turnoEnConflicto, horaFin: new Date(2020, 0, 1).toISOString() };
+      listTurnosActionMock.mockResolvedValue([yaResuelto]);
+      listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [bloqueoSolapado] : []));
+      render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[yaResuelto]} fechaInicialStr="2030-09-01" />);
+
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+      expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+    });
+
+    it("tocar el banner abre el 'Ver eventos' del conflicto", async () => {
+      const user = userEvent.setup();
+      listTurnosActionMock.mockResolvedValue([turnoEnConflicto]);
+      listBloqueosActionMock.mockImplementation((esp: boolean) => Promise.resolve(esp ? [bloqueoSolapado] : []));
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[turnoEnConflicto]}
+          fechaInicialStr="2030-09-01"
+        />,
+      );
+
+      await user.click(await screen.findByText("Tienes 1 turno en conflictos, toca para ver"));
+
+      expect(screen.getByRole("dialog", { name: "Horarios reservados y turnos" })).toBeInTheDocument();
+    });
+
+    // Excepciones de horario de atención (nueva función, 2026-09-08):
+    // "básicamente es lo mismo que horarios reservados" — una excepción
+    // que se solapa con un turno cuenta para el banner igual que un
+    // horario reservado real, sin ningún camino aparte.
+    it("un turno solapado con una excepción de horario de atención también cuenta para el banner", async () => {
+      listTurnosActionMock.mockResolvedValue([turnoEnConflicto]);
+      listHorarioAtencionActionMock.mockResolvedValue([
+        { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+        // "No trabajo este período" 09:15-20:00 — cierra 08:00-09:15, que
+        // se solapa con el turno 09:00-09:30.
+        { id: "ha-1", alcance: "rango", fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "09:15", horaHasta: "20:00" },
+      ]);
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[turnoEnConflicto]}
+          fechaInicialStr="2030-09-01"
+        />,
+      );
+
+      expect(await screen.findByText("Tienes 1 turno en conflictos, toca para ver")).toBeInTheDocument();
+    });
   });
 
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {

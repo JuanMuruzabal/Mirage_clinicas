@@ -340,6 +340,25 @@ describe("ConfiguracionCalendarioModal", () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
+  // "Ver excepción de horario" (nueva función, 2026-09-08, bloqueo-detalle-modal.tsx)
+  // — mismo mecanismo que reglaAFocalizarId, pero apuntando a una fila de
+  // la tabla de excepciones de horario de atención.
+  it("resalta y scrollea hasta la excepción pedida por horarioAtencionAFocalizarId", async () => {
+    listHorarioAtencionActionMock.mockResolvedValue([
+      { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+      { id: "exc-1", alcance: "semana", fechaDesde: "2030-09-01", fechaHasta: "2030-09-07", horaDesde: "09:00", horaHasta: "13:00" },
+    ]);
+    render(<ConfiguracionCalendarioModal onClose={vi.fn()} horarioAtencionAFocalizarId="exc-1" />);
+
+    // Scopeado a la sección de excepciones — "Esta semana" también
+    // aparece como Alcance de un horario reservado general en el fixture
+    // por default de este archivo (gen-1).
+    const seccion = within((await screen.findByText("Excepciones de horario")).closest("section")!);
+    const fila = seccion.getByText("Esta semana").closest("tr")!;
+    expect(fila).toHaveClass("bg-salvia-claro");
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+  });
+
   // F2.3.7 (docs/implementation-plan.md §11.3) — gestión de tipos de
   // consulta dentro del modal de configuración.
   describe("Tipos de consulta", () => {

@@ -191,7 +191,10 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
                     <option value="proxima_semana">Próxima semana</option>
                     <option value="mes">Este mes</option>
                     <option value="proximo_mes">Próximo mes</option>
-                    <option value="todos">Todos los meses</option>
+                    {/* "Este año" (corrección de QA, 2026-09-08) — mismo
+                        valor "todos" de siempre, solo cambia el texto
+                        (ver ALCANCE_LABEL en configuracion-calendario-modal.tsx). */}
+                    <option value="todos">Este año</option>
                   </select>
                 </Campo>
                 <Campo label="Día">

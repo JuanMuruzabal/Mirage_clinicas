@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { eliminarBloqueoActionMock } = vi.hoisted(() => ({ eliminarBloqueoActionMock: vi.fn() }));
+const { eliminarBloqueoActionMock, autoreservarTurnosActionMock } = vi.hoisted(() => ({
+  eliminarBloqueoActionMock: vi.fn(),
+  autoreservarTurnosActionMock: vi.fn(),
+}));
 vi.mock("@/app/actions/calendario-config", () => ({
   eliminarBloqueoAction: eliminarBloqueoActionMock,
+}));
+vi.mock("@/app/actions/turnos", () => ({
+  autoreservarTurnosAction: autoreservarTurnosActionMock,
 }));
 
 const { BloqueoDetalleModal } = await import("./bloqueo-detalle-modal");
@@ -37,6 +43,35 @@ describe("BloqueoDetalleModal", () => {
 
     await user.click(screen.getByRole("button", { name: "Ver horario reservado" }));
     expect(onVerRegla).toHaveBeenCalledWith("b-1");
+  });
+
+  // Excepción de horario de atención sintética sola (nueva función,
+  // corrección de QA 2026-09-08: "agregar botón de ver excepción de
+  // horario al tocar la tarjeta de horario de excepción en el
+  // calendario") — la tarjeta es clickeable (calendar-grid.tsx) y llega
+  // acá como una regla sintética sola: "Ver..." sigue funcionando, solo
+  // con otra etiqueta; "Eliminar" no aplica (no hay un bloqueo real
+  // detrás de este id, se borra desde Configuración de calendario).
+  it("con una excepción sintética sola, muestra 'Ver excepción de horario' pero no 'Eliminar'", async () => {
+    const user = userEvent.setup();
+    const onVerRegla = vi.fn();
+    const excepcionSintetica = {
+      id: "excepcion:ha-1:2026-09-01:0:completo",
+      especifico: true as const,
+      fecha: "2026-09-01",
+      horaDesde: "08:00",
+      horaHasta: "20:00",
+      tipoRegla: "bloquear_horario",
+      motivo: "No trabajo en este período",
+    };
+    render(<BloqueoDetalleModal reglas={[excepcionSintetica]} onClose={vi.fn()} onVerRegla={onVerRegla} />);
+    expect(screen.getByText("08:00 – 20:00")).toBeInTheDocument();
+    expect(screen.getByText("No trabajo en este período")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver horario reservado" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver excepción de horario" }));
+    expect(onVerRegla).toHaveBeenCalledWith(excepcionSintetica.id);
   });
 
   it("la X cierra el modal", async () => {
@@ -85,15 +120,30 @@ describe("BloqueoDetalleModal", () => {
       expect(screen.getByText("Reunión")).toBeInTheDocument();
     });
 
-    // Corrección de QA (2026-09-03): "si se superponen muchas cosas, se
-    // hace muy grande la vista de los eventos" — la lista tiene su
-    // propio scroll (no crece la tarjeta sin límite), mismo criterio que
-    // ReglasTable en configuracion-calendario-modal.tsx.
-    it("la lista de reglas tiene su propio scroll (no crece sin límite)", () => {
-      render(<BloqueoDetalleModal reglas={[general, especifica]} onClose={vi.fn()} onVerRegla={vi.fn()} />);
-      const lista = screen.getByText("07:00 – 08:00").closest("div")!.parentElement!;
-      expect(lista.className).toContain("overflow-y-auto");
-      expect(lista.className).toMatch(/max-h-/);
+    // Corrección de QA (2026-09-03, reemplazada 2026-09-08): "si se
+    // superponen muchas cosas, se hace muy grande la vista de los
+    // eventos" — la lista tiene su propio scroll (no crece la tarjeta sin
+    // límite). Desde 2026-09-08 el límite ya no es un `max-h-` fijo a
+    // ojo: se mide el alto real de la PRIMERA tarjeta (ScrollDeUnaTarjeta)
+    // y se usa como `max-height` inline, para mostrar siempre exactamente
+    // una tarjeta completa — "le propongo una más elegante... porque
+    // ahora el horario reservado no se ve casi" (con el `max-h-72` viejo,
+    // la primera tarjeta quedaba cortada a la mitad). jsdom no calcula
+    // layout real, así que `offsetHeight` se stubea acá para poder
+    // verificar el número exacto que termina en el estilo.
+    it("la lista de reglas siempre muestra una tarjeta completa, con su propio scroll si hay más", () => {
+      const offsetHeightSpy = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(120);
+      try {
+        render(<BloqueoDetalleModal reglas={[general, especifica]} onClose={vi.fn()} onVerRegla={vi.fn()} />);
+        // .closest("div") → la tarjeta de la regla; un .parentElement más
+        // que antes → el wrapper con el ref que mide (ScrollDeUnaTarjeta);
+        // otro más → el contenedor con scroll en sí.
+        const lista = screen.getByText("07:00 – 08:00").closest("div")!.parentElement!.parentElement!;
+        expect(lista.className).toContain("overflow-y-auto");
+        expect(lista.style.maxHeight).toBe("120px");
+      } finally {
+        offsetHeightSpy.mockRestore();
+      }
     });
 
     it("tiene un botón 'Ver este horario reservado' por cada regla, cada uno con su propio id", async () => {
@@ -119,6 +169,35 @@ describe("BloqueoDetalleModal", () => {
       expect(screen.getAllByRole("button", { name: "Ver este horario reservado" })).toHaveLength(3);
       expect(screen.getByText("Auditoría")).toBeInTheDocument();
     });
+
+    // Excepción de horario de atención sintética (nueva función,
+    // 2026-09-08): calendar-grid.tsx arma un "horario reservado" sintético
+    // (id "excepcion-...") para representar el cierre de una excepción —
+    // no es un horario reservado real de la base, así que no tiene a
+    // dónde "ver" ni qué "eliminar" desde acá.
+    it("una regla sintética de excepción muestra 'Ver excepción de horario' (no 'Ver este horario reservado') y sin botón de eliminar", async () => {
+      const user = userEvent.setup();
+      const onVerRegla = vi.fn();
+      const excepcionSintetica = {
+        id: "excepcion:ha-1:2026-09-01:0:completo",
+        especifico: true as const,
+        fecha: "2026-09-01",
+        horaDesde: "08:00",
+        horaHasta: "20:00",
+        tipoRegla: "bloquear_horario",
+        motivo: "No trabajo en este período",
+      };
+      render(<BloqueoDetalleModal reglas={[general, excepcionSintetica]} onClose={vi.fn()} onVerRegla={onVerRegla} />);
+      // La real sigue con "Ver este horario reservado"; la sintética
+      // muestra "Ver excepción de horario" en su lugar — nunca las dos
+      // reglas con el mismo botón/etiqueta.
+      expect(screen.getAllByRole("button", { name: "Ver este horario reservado" })).toHaveLength(1);
+      const botonExcepcion = screen.getByRole("button", { name: "Ver excepción de horario" });
+      expect(screen.getAllByText("No trabajo en este período")).toHaveLength(1);
+
+      await user.click(botonExcepcion);
+      expect(onVerRegla).toHaveBeenCalledWith(excepcionSintetica.id);
+    });
   });
 
   // Paso 2 — manejo de conflictos con turnos (2026-09-04, pedido textual
@@ -128,7 +207,7 @@ describe("BloqueoDetalleModal", () => {
     const tiposConsulta = [{ id: "tc-1", nombre: "Urgencia", color: "#D6563A" }];
     const turno = {
       id: "t-1", estado: "agendado" as const, origen: "manual" as const, tipoConsultaId: "tc-1",
-      horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(), horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+      horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(), horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
       nombreContacto: "María", apellidoContacto: "Games", dniContacto: "1", telefonoContacto: "1",
       emailContacto: "", motivo: "", createdAt: new Date().toISOString(),
     };
@@ -169,6 +248,22 @@ describe("BloqueoDetalleModal", () => {
       );
       await user.click(screen.getByRole("button", { name: "Ver turno" }));
       expect(onVerTurno).toHaveBeenCalledWith(turno);
+    });
+
+    // Corrección de QA, 2026-09-08: "marcar el aviso... una vez debajo
+    // del mini título... en vez de dentro de cada tarjeta... así no se
+    // hace tan grande la ventana" — con dos turnos en conflicto, el
+    // aviso aparece UNA sola vez, no una por tarjeta.
+    it("con dos turnos en conflicto, el aviso aparece una sola vez, no repetido por tarjeta", () => {
+      const otro = { ...turno, id: "t-2", nombreContacto: "Bruno", apellidoContacto: "Iglesias" };
+      render(
+        <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno, otro]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+      );
+      expect(screen.getAllByText("María Games")).toHaveLength(1);
+      expect(screen.getAllByText("Bruno Iglesias")).toHaveLength(1);
+      expect(
+        screen.getAllByText("Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario."),
+      ).toHaveLength(1);
     });
 
     it("sin turnos en conflicto, no muestra la sección 'Turnos en conflicto'", () => {
@@ -224,6 +319,155 @@ describe("BloqueoDetalleModal", () => {
         expect(screen.getByText("Turnos resueltos")).toBeInTheDocument();
         expect(screen.getAllByRole("button", { name: "Ver turno" })).toHaveLength(2);
       });
+    });
+  });
+
+  // Autoreservar turnos (nueva función, pedido textual del cliente,
+  // 2026-09-08): "dar un botón de autoreservar turno para los
+  // afectados... después mostrará una pantalla que dice el turno x
+  // horario viejo -> turno x horario nuevo y un botón de informar
+  // afectados".
+  describe("autoreservar turnos", () => {
+    const tiposConsulta = [{ id: "tc-1", nombre: "Urgencia", color: "#D6563A" }];
+    const turno = {
+      id: "t-1", estado: "agendado" as const, origen: "manual" as const, tipoConsultaId: "tc-1",
+      horaInicio: new Date(2030, 8, 1, 9, 0).toISOString(), horaFin: new Date(2030, 8, 1, 9, 30).toISOString(),
+      nombreContacto: "María", apellidoContacto: "Games", dniContacto: "1", telefonoContacto: "1",
+      emailContacto: "", motivo: "", createdAt: new Date().toISOString(),
+    };
+
+    it("sin turnos en conflicto, no muestra el botón", () => {
+      render(<BloqueoDetalleModal reglas={[bloqueo]} onClose={vi.fn()} onVerRegla={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Autoreservar turnos" })).not.toBeInTheDocument();
+    });
+
+    it("al hacer click, llama a la acción con los ids de los turnos en conflicto", async () => {
+      const user = userEvent.setup();
+      const otro = { ...turno, id: "t-2" };
+      autoreservarTurnosActionMock.mockResolvedValue({ resultados: [] });
+      render(
+        <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno, otro]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+
+      expect(autoreservarTurnosActionMock).toHaveBeenCalledWith(["t-1", "t-2"]);
+    });
+
+    it("en éxito, reemplaza el cuerpo por la pantalla de confirmación con el horario viejo y el nuevo", async () => {
+      const user = userEvent.setup();
+      autoreservarTurnosActionMock.mockResolvedValue({
+        resultados: [
+          {
+            turnoId: "t-1",
+            nombre: "María Games",
+            horaInicioAnterior: "2026-09-01T09:00:00-03:00",
+            horaFinAnterior: "2026-09-01T09:30:00-03:00",
+            horaInicioNueva: "2026-09-02T09:00:00-03:00",
+            horaFinNueva: "2026-09-02T09:30:00-03:00",
+            reprogramado: true,
+          },
+        ],
+      });
+      render(
+        <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+
+      expect(await screen.findByText("Turnos reprogramados")).toBeInTheDocument();
+      expect(screen.getByText("María Games")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Informar afectados" })).toBeInTheDocument();
+      // La sección/aviso de conflicto de antes ya no está — el cuerpo se
+      // reemplazó por la pantalla de confirmación.
+      expect(screen.queryByText("Turnos en conflicto")).not.toBeInTheDocument();
+    });
+
+    // Corrección de QA, 2026-09-08: "si son más de 1 turno mostrar 3 y
+    // medio (en caso de ser 4) y más de esos bajar con scrollbar" — a
+    // diferencia de las demás listas de este modal (una tarjeta a la
+    // vez), esta pantalla deja ver 3.5 tarjetas de entrada.
+    it("con varios turnos reprogramados, el alto visible es de 3.5 tarjetas, no 1", async () => {
+      const user = userEvent.setup();
+      const offsetHeightSpy = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+      try {
+        autoreservarTurnosActionMock.mockResolvedValue({
+          resultados: [
+            { turnoId: "t-1", nombre: "María Games", horaInicioAnterior: "2026-09-01T09:00:00-03:00", horaFinAnterior: "2026-09-01T09:30:00-03:00", horaInicioNueva: "2026-09-02T09:00:00-03:00", horaFinNueva: "2026-09-02T09:30:00-03:00", reprogramado: true },
+            { turnoId: "t-2", nombre: "Bruno Iglesias", horaInicioAnterior: "2026-09-01T09:30:00-03:00", horaFinAnterior: "2026-09-01T10:00:00-03:00", horaInicioNueva: "2026-09-02T09:30:00-03:00", horaFinNueva: "2026-09-02T10:00:00-03:00", reprogramado: true },
+          ],
+        });
+        render(
+          <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+        );
+
+        await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+        await screen.findByText("Turnos reprogramados");
+
+        // 100px * 3.5 + 8px (gap) * 2.5 = 370px.
+        const lista = screen.getByText("María Games").closest("div")!.parentElement!.parentElement!;
+        expect(lista.style.maxHeight).toBe("370px");
+      } finally {
+        offsetHeightSpy.mockRestore();
+      }
+    });
+
+    it("un turno sin hueco libre se muestra sin horario nuevo, no como si se hubiera movido", async () => {
+      const user = userEvent.setup();
+      autoreservarTurnosActionMock.mockResolvedValue({
+        resultados: [
+          {
+            turnoId: "t-1",
+            nombre: "María Games",
+            horaInicioAnterior: "2026-09-01T09:00:00-03:00",
+            horaFinAnterior: "2026-09-01T09:30:00-03:00",
+            horaInicioNueva: null,
+            horaFinNueva: null,
+            reprogramado: false,
+          },
+        ],
+      });
+      render(
+        <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+
+      expect(await screen.findByText("No se encontró un horario libre — sigue como estaba.")).toBeInTheDocument();
+      expect(screen.getByText("1 turno no se pudo reprogramar.")).toBeInTheDocument();
+    });
+
+    it("en error, muestra el mensaje y no reemplaza el cuerpo", async () => {
+      const user = userEvent.setup();
+      autoreservarTurnosActionMock.mockResolvedValue({ error: "solo se pueden autoreservar turnos confirmados" });
+      render(
+        <BloqueoDetalleModal reglas={[bloqueo]} turnos={[turno]} tiposConsulta={tiposConsulta} onClose={vi.fn()} onVerRegla={vi.fn()} />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+
+      expect(await screen.findByText("solo se pueden autoreservar turnos confirmados")).toBeInTheDocument();
+      expect(screen.getByText("Turnos en conflicto")).toBeInTheDocument();
+    });
+
+    it("en éxito, avisa al padre con onReprogramados para que recargue los turnos", async () => {
+      const user = userEvent.setup();
+      const onReprogramados = vi.fn();
+      autoreservarTurnosActionMock.mockResolvedValue({ resultados: [] });
+      render(
+        <BloqueoDetalleModal
+          reglas={[bloqueo]}
+          turnos={[turno]}
+          tiposConsulta={tiposConsulta}
+          onClose={vi.fn()}
+          onVerRegla={vi.fn()}
+          onReprogramados={onReprogramados}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Autoreservar turnos" }));
+
+      await waitFor(() => expect(onReprogramados).toHaveBeenCalledTimes(1));
     });
   });
 

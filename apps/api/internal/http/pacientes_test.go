@@ -15,7 +15,7 @@ func TestListPacientes_DevuelveLosCreadosPorTurnos(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
@@ -39,7 +39,7 @@ func TestListPacientes_BuscaPorNombreApellidoODNI(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac2@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	crear := func(nombre, dni string, offset time.Duration) {
 		doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 			NombreContacto: nombre, ApellidoContacto: "Apellido", DNIContacto: dni, TelefonoContacto: "+549",
@@ -73,7 +73,7 @@ func TestListPacientes_SoloDelProfesionalAutenticado(t *testing.T) {
 	reg1, tipo1 := profesionalConTipoConsulta(t, gdb, router, "pac3a@example.com")
 	reg2, _ := profesionalConTipoConsulta(t, gdb, router, "pac3b@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg1.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo1, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -105,7 +105,7 @@ func TestGetPaciente_DevuelveDatosYHistorialDeTurnos(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac4@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
@@ -148,7 +148,7 @@ func TestEditarPaciente_Exitoso(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "editapac1@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -177,7 +177,7 @@ func TestEditarPaciente_DNIInvalidoFalla(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "editapac2@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -213,7 +213,7 @@ func TestEditarPaciente_DeOtroProfesionalFalla(t *testing.T) {
 	dueño, tipo := profesionalConTipoConsulta(t, gdb, router, "editapac4a@example.com")
 	otro, _ := profesionalConTipoConsulta(t, gdb, router, "editapac4b@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
@@ -235,7 +235,7 @@ func TestGetPaciente_DeOtroProfesionalFalla(t *testing.T) {
 	dueño, tipo := profesionalConTipoConsulta(t, gdb, router, "pac6a@example.com")
 	otro, _ := profesionalConTipoConsulta(t, gdb, router, "pac6b@example.com")
 
-	inicio := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),

@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  AutoreservarTurnosResponse,
   BloqueoHorario,
   ClinicaPublica,
   ClinicaResultado,
@@ -208,6 +209,11 @@ export interface TipoConsultaPayload {
   duracionMinutos: number;
   tiempoPostConsultaMinutos: number;
   cantidadSesiones?: number | null;
+  // preferenciaHoraDesde/preferenciaHoraHasta (nueva función, 2026-09-08)
+  // — "" en ambos (o ausentes) significa "sin preferencia"; el backend
+  // rechaza mandar solo uno de los dos.
+  preferenciaHoraDesde?: string;
+  preferenciaHoraHasta?: string;
 }
 
 export function apiCrearTipoConsulta(token: string, payload: TipoConsultaPayload): Promise<ApiResult<TipoConsulta>> {
@@ -437,6 +443,20 @@ export function apiReprogramarTurno(token: string, turnoId: string, payload: Rep
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
+  });
+}
+
+// apiAutoreservarTurnos — botón "Autoreservar turnos" del modal de
+// conflicto (nueva función, pedido textual del cliente, 2026-09-08):
+// mueve cada turno de `turnoIds` al próximo horario libre (por orden de
+// prioridad, calculado del lado del backend — ver
+// autoreservarTurnosHandler en apps/api). Devuelve el horario ANTERIOR y
+// el NUEVO de cada uno para la pantalla de confirmación.
+export function apiAutoreservarTurnos(token: string, turnoIds: string[]): Promise<ApiResult<AutoreservarTurnosResponse>> {
+  return request<AutoreservarTurnosResponse>("/turnos/autoreservar", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ turnoIds }),
   });
 }
 

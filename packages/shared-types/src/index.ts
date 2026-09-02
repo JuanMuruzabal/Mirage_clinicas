@@ -205,6 +205,16 @@ export interface TipoConsulta {
   duracionMinutos?: number;
   tiempoPostConsultaMinutos?: number;
   cantidadSesiones?: number;
+  // preferenciaHoraDesde/preferenciaHoraHasta (nueva función, pedido
+  // textual del cliente, 2026-09-08): "el profesional solo quiere
+  // atender consultas generales de 8:00 a 12:00... que la disponibilidad
+  // de este tipo de turno sea afectada por esto" — ambos ausentes (sin
+  // preferencia, la mayoría de los tipos) o ambos con un horario
+  // "HH:MM", nunca uno solo. Recorta la ventana de calcularDisponibilidad
+  // SOLO para turnos de este tipo, nunca la amplía más allá del horario
+  // de atención real.
+  preferenciaHoraDesde?: string;
+  preferenciaHoraHasta?: string;
 }
 
 // Espejo de horarioAtencionResponse (internal/http/horario_atencion.go,
@@ -278,6 +288,32 @@ export interface Turno {
   // Asistencia (pedido explícito del cliente, 2026-09-04): ausente hasta
   // que se marca desde un turno ya resuelto — "asistio" | "ausente" | nil.
   asistencia?: "asistio" | "ausente" | null;
+  // Autoreservado (nueva función, 2026-09-08): true si el botón
+  // "Autoreservar turnos" del modal de conflicto movió este turno al
+  // próximo horario libre — se pinta con rayas en el calendario y avisa
+  // en TurnoDetalle. Opcional (igual que `asistencia`) para no romper los
+  // fixtures de test existentes que construyen un Turno sin este campo.
+  autoreservado?: boolean;
+}
+
+// AutoreservarResultadoItem/AutoreservarTurnosResponse — respuesta de
+// POST /turnos/autoreservar (nueva función, pedido textual del cliente,
+// 2026-09-08): un item por turno del lote, con su horario ANTERIOR
+// (siempre) y el NUEVO (solo si `reprogramado` — si no se encontró ningún
+// hueco libre dentro de la ventana de búsqueda del backend, queda en
+// null y el turno no se tocó).
+export interface AutoreservarResultadoItem {
+  turnoId: string;
+  nombre: string;
+  horaInicioAnterior: string;
+  horaFinAnterior: string;
+  horaInicioNueva: string | null;
+  horaFinNueva: string | null;
+  reprogramado: boolean;
+}
+
+export interface AutoreservarTurnosResponse {
+  resultados: AutoreservarResultadoItem[];
 }
 
 export interface ResumenTurnoItem {
@@ -297,6 +333,13 @@ export interface ResumenHorarioReservadoItem {
   horaDesde: string;
   horaHasta: string;
   motivo: string | null;
+  // etiquetaGeneral (corrección de QA, 2026-09-08): para un horario
+  // GENERAL, reemplaza el día corto de `fecha` (que sugiere una fecha
+  // puntual) por un texto que aclara que se repite — "Todos los mié",
+  // "Todos los mié de octubre" o "Todos los mié de este año" según el
+  // Alcance. null para un horario ESPECÍFICO — el frontend cae al día
+  // corto de siempre en ese caso.
+  etiquetaGeneral: string | null;
 }
 
 // ResumenPanel (F2.3 extra, ítem 1 — rediseño del "Turnero",

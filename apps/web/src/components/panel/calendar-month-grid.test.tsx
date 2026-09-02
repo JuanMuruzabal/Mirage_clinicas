@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { diasDeVista } from "@/lib/calendar-utils";
 import { CalendarMonthGrid } from "./calendar-month-grid";
 
-const mesReferencia = new Date(2026, 8, 15);
+const mesReferencia = new Date(2031, 8, 15);
 const dias = diasDeVista(mesReferencia, "mes");
 
 const tiposConsulta = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" }];
@@ -14,8 +14,8 @@ const turnoEnDia1 = {
   estado: "agendado" as const,
   origen: "manual" as const,
   tipoConsultaId: "tc-1",
-  horaInicio: new Date(2026, 8, 1, 9, 0).toISOString(),
-  horaFin: new Date(2026, 8, 1, 9, 30).toISOString(),
+  horaInicio: new Date(2031, 8, 1, 9, 0).toISOString(),
+  horaFin: new Date(2031, 8, 1, 9, 30).toISOString(),
   nombreContacto: "María",
   apellidoContacto: "Games",
   dniContacto: "1",

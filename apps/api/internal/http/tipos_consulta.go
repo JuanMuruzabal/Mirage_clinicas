@@ -21,6 +21,16 @@ const (
 	tiempoPostConsultaMinutosMax = 4 * 60 // 4 horas
 )
 
+// nilSiVacio — "" (el campo no vino, o vino en blanco) pasa a nil para
+// las columnas nullable de TipoConsulta (PreferenciaHoraDesde/Hasta) —
+// mismo criterio que CantidadSesiones ya usaba con *int.
+func nilSiVacio(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 type tipoConsultaResponse struct {
 	ID                        string `json:"id"`
 	Nombre                    string `json:"nombre"`
@@ -28,6 +38,12 @@ type tipoConsultaResponse struct {
 	DuracionMinutos           int    `json:"duracionMinutos"`
 	TiempoPostConsultaMinutos int    `json:"tiempoPostConsultaMinutos"`
 	CantidadSesiones          *int   `json:"cantidadSesiones,omitempty"`
+	// PreferenciaHoraDesde/PreferenciaHoraHasta (nueva función, pedido
+	// textual del cliente, 2026-09-08): "el profesional solo quiere
+	// atender consultas generales de 8:00 a 12:00" — ver el comentario
+	// grande en db.TipoConsulta.
+	PreferenciaHoraDesde *string `json:"preferenciaHoraDesde,omitempty"`
+	PreferenciaHoraHasta *string `json:"preferenciaHoraHasta,omitempty"`
 }
 
 func toTipoConsultaResponse(t db.TipoConsulta) tipoConsultaResponse {
@@ -38,6 +54,8 @@ func toTipoConsultaResponse(t db.TipoConsulta) tipoConsultaResponse {
 		DuracionMinutos:           t.DuracionMinutos,
 		TiempoPostConsultaMinutos: t.TiempoPostConsultaMinutos,
 		CantidadSesiones:          t.CantidadSesiones,
+		PreferenciaHoraDesde:      t.PreferenciaHoraDesde,
+		PreferenciaHoraHasta:      t.PreferenciaHoraHasta,
 	}
 }
 
@@ -85,6 +103,12 @@ type tipoConsultaRequest struct {
 	DuracionMinutos           int    `json:"duracionMinutos"`
 	TiempoPostConsultaMinutos int    `json:"tiempoPostConsultaMinutos"`
 	CantidadSesiones          *int   `json:"cantidadSesiones"`
+	// PreferenciaHoraDesde/PreferenciaHoraHasta (nueva función, pedido
+	// textual del cliente, 2026-09-08) — "" (ambos vacíos) significa "sin
+	// preferencia", el caso normal. Con uno solo lleno es un error (ver
+	// validar más abajo) — nunca un HoraDesde sin su Hasta a medias.
+	PreferenciaHoraDesde string `json:"preferenciaHoraDesde"`
+	PreferenciaHoraHasta string `json:"preferenciaHoraHasta"`
 }
 
 // validar corrige espacios y devuelve un mensaje de error controlado (nunca
@@ -93,6 +117,8 @@ type tipoConsultaRequest struct {
 func (req *tipoConsultaRequest) validar() string {
 	req.Nombre = strings.TrimSpace(req.Nombre)
 	req.Color = strings.TrimSpace(req.Color)
+	req.PreferenciaHoraDesde = strings.TrimSpace(req.PreferenciaHoraDesde)
+	req.PreferenciaHoraHasta = strings.TrimSpace(req.PreferenciaHoraHasta)
 
 	if req.Nombre == "" {
 		return "el nombre no puede estar vacío"
@@ -108,6 +134,21 @@ func (req *tipoConsultaRequest) validar() string {
 	}
 	if req.CantidadSesiones != nil && *req.CantidadSesiones < 1 {
 		return "la cantidad de sesiones debe ser mayor a 0"
+	}
+	// Preferencia de atención (nueva función, 2026-09-08): "el profesional
+	// solo quiere atender consultas generales de 8:00 a 12:00" — ambos
+	// vacíos (sin preferencia) o ambos con un horario válido, nunca uno
+	// solo.
+	if (req.PreferenciaHoraDesde == "") != (req.PreferenciaHoraHasta == "") {
+		return "la preferencia de atención necesita desde y hasta, o ninguno de los dos"
+	}
+	if req.PreferenciaHoraDesde != "" {
+		if !horaRegex.MatchString(req.PreferenciaHoraDesde) || !horaRegex.MatchString(req.PreferenciaHoraHasta) {
+			return "la preferencia de atención debe tener el formato HH:MM"
+		}
+		if req.PreferenciaHoraHasta <= req.PreferenciaHoraDesde {
+			return "la preferencia de atención: la hora hasta debe ser posterior a la de desde"
+		}
 	}
 	return ""
 }
@@ -136,6 +177,8 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			DuracionMinutos:           req.DuracionMinutos,
 			TiempoPostConsultaMinutos: req.TiempoPostConsultaMinutos,
 			CantidadSesiones:          req.CantidadSesiones,
+			PreferenciaHoraDesde:      nilSiVacio(req.PreferenciaHoraDesde),
+			PreferenciaHoraHasta:      nilSiVacio(req.PreferenciaHoraHasta),
 		}
 		if err := gdb.Create(&tipo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el tipo de consulta")
@@ -179,6 +222,8 @@ func editarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		tipo.DuracionMinutos = req.DuracionMinutos
 		tipo.TiempoPostConsultaMinutos = req.TiempoPostConsultaMinutos
 		tipo.CantidadSesiones = req.CantidadSesiones
+		tipo.PreferenciaHoraDesde = nilSiVacio(req.PreferenciaHoraDesde)
+		tipo.PreferenciaHoraHasta = nilSiVacio(req.PreferenciaHoraHasta)
 
 		if err := gdb.Save(&tipo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el tipo de consulta")

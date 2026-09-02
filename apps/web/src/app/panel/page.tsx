@@ -40,6 +40,27 @@ export default async function PanelGeneralPage() {
         turnosAusentes: 0,
       };
 
+  // proximoTurnoHoy/proximoTurnoManana (corrección de QA, 2026-09-08): "el
+  // ver calendario de estas tarjetas me llevara a la primera vista del
+  // turno más próximo" — el header "Ver calendario" de "Turnos de hoy"/
+  // "Turnos próximos" UBICA el calendario en el turno más próximo de SU
+  // propia lista (ya viene ordenada por hora_inicio desde el backend, el
+  // primero es el más próximo) — corrección de QA, mismo día: "no tiene
+  // que abrir la tarjeta del turno más próximo, sino ubicar el
+  // calendario a la vista del usuario con el turno más próximo visible,
+  // no abre la tarjeta de ningún turno" — por eso usa `posicionar`, NO
+  // `turno` (ese último sí abre el detalle, es el que ya usa cada fila
+  // del cuerpo). Sin turnos, cae al link plano de siempre (no hay a
+  // dónde deep-linkear).
+  const proximoTurnoHoy = resumen.turnosHoy[0];
+  const proximoTurnoManana = resumen.turnosProximos[0];
+  const hrefTurnosHoy = proximoTurnoHoy
+    ? `/panel/calendario?vista=dia&fecha=${proximoTurnoHoy.fecha}&posicionar=${proximoTurnoHoy.id}`
+    : "/panel/calendario?vista=dia";
+  const hrefTurnosProximos = proximoTurnoManana
+    ? `/panel/calendario?vista=semana&fecha=${proximoTurnoManana.fecha}&posicionar=${proximoTurnoManana.id}`
+    : "/panel/calendario?vista=semana";
+
   return (
     <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       {/* gap-3 (corrección de QA, 2026-09-06: "separar más el título
@@ -65,7 +86,7 @@ export default async function PanelGeneralPage() {
         <TarjetaConLista
           eyebrow="Turnos de hoy"
           valor={resumen.turnosHoy.length}
-          hrefCabecera="/panel/calendario?vista=dia"
+          hrefCabecera={hrefTurnosHoy}
           labelCabecera="Ver calendario"
           vacioMensaje="No hay turnos para hoy."
           acento
@@ -82,7 +103,7 @@ export default async function PanelGeneralPage() {
         <TarjetaConLista
           eyebrow="Turnos próximos"
           valor={resumen.turnosProximos.length}
-          hrefCabecera="/panel/calendario?vista=semana"
+          hrefCabecera={hrefTurnosProximos}
           labelCabecera="Ver calendario"
           vacioMensaje="No hay turnos próximos."
           acento
@@ -112,7 +133,11 @@ export default async function PanelGeneralPage() {
             key: h.id,
             href: `/panel/calendario?vista=semana&fecha=${h.fecha}&bloqueo=${h.id}`,
             contenido: (
-              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(h.fecha))} hora={`${h.horaDesde} a ${h.horaHasta}`} uppercase={false}>
+              <FilaResumen
+                etiqueta={h.etiquetaGeneral ?? formatDiaCorto(parseFechaISOLocal(h.fecha))}
+                hora={`${h.horaDesde} a ${h.horaHasta}`}
+                uppercase={false}
+              >
                 {textoEsLargo(h.motivo) ? <VerTextoBoton titulo="Motivo" texto={h.motivo} variante="link" /> : (h.motivo ?? "")}
               </FilaResumen>
             ),

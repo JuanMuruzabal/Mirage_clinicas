@@ -209,6 +209,17 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
                 Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario.
               </p>
             )}
+            {/* Autoreservado (nueva función, pedido textual del cliente,
+                2026-09-08): "cuando tocas la tarjeta informar que es
+                autoreservado" — se pinta con rayas en el calendario (ver
+                calendar-grid.tsx) y este es el aviso al tocarla. Tono
+                informativo (salvia), no de advertencia (terracota) — el
+                movimiento ya se hizo, no hay nada pendiente de resolver. */}
+            {turno.autoreservado && (
+              <p className="rounded-field border-[0.5px] border-salvia bg-salvia-claro px-3 py-2 text-xs text-salvia-oscuro">
+                Este turno fue reprogramado automáticamente con &ldquo;Autoreservar turnos&rdquo;.
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap gap-2 border-t-[0.5px] border-arena pt-4">
               <Link
                 href={hrefVerTurno}

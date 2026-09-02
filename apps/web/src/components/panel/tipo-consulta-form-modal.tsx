@@ -41,6 +41,18 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
   const [cantidadSesiones, setCantidadSesiones] = useState(
     tipoExistente?.cantidadSesiones !== undefined ? String(tipoExistente.cantidadSesiones) : "",
   );
+  // Preferencia de atención (nueva función, pedido textual del cliente,
+  // 2026-09-08): "el profesional solo quiere atender consultas generales
+  // de 8:00 a 12:00... poder configurar esto y que la disponibilidad de
+  // este tipo de turno sea afectada por esto" — checkbox + Desde/Hasta,
+  // mismo patrón visual que "No trabajo este período" en
+  // AgregarHorarioAtencionModal, pero al revés: acá arranca DESTILDADO
+  // (sin preferencia, el caso normal) y tildarlo revela los dos campos.
+  const [preferenciaActiva, setPreferenciaActiva] = useState(
+    Boolean(tipoExistente?.preferenciaHoraDesde && tipoExistente?.preferenciaHoraHasta),
+  );
+  const [preferenciaHoraDesde, setPreferenciaHoraDesde] = useState(tipoExistente?.preferenciaHoraDesde ?? "");
+  const [preferenciaHoraHasta, setPreferenciaHoraHasta] = useState(tipoExistente?.preferenciaHoraHasta ?? "");
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -52,6 +64,14 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
       setError("El nombre no puede estar vacío.");
       return;
     }
+    if (preferenciaActiva && (!preferenciaHoraDesde || !preferenciaHoraHasta)) {
+      setError("Elegí desde y hasta qué hora para la preferencia de atención, o destildá la opción.");
+      return;
+    }
+    if (preferenciaActiva && preferenciaHoraHasta <= preferenciaHoraDesde) {
+      setError("En la preferencia de atención, la hora \"hasta\" debe ser posterior a la de \"desde\".");
+      return;
+    }
 
     const payload = {
       nombre: nombre.trim(),
@@ -59,6 +79,8 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
       duracionMinutos,
       tiempoPostConsultaMinutos,
       cantidadSesiones: cantidadSesiones === "" ? null : Number(cantidadSesiones),
+      preferenciaHoraDesde: preferenciaActiva ? preferenciaHoraDesde : "",
+      preferenciaHoraHasta: preferenciaActiva ? preferenciaHoraHasta : "",
     };
 
     setPending(true);
@@ -84,7 +106,12 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex w-full max-w-md flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+      {/* max-h-[90vh] (corrección de QA, foto "se ve muy grande.png"):
+          con "Preferencia de atención" sumada, este form pasó a ser más
+          alto que la pantalla en note/mobile, sin ningún techo — mismo
+          patrón ya usado en agregar-turno-modal.tsx/editar-turno-modal.tsx/
+          configuracion-calendario-modal.tsx. */}
+      <div className="flex max-h-[90vh] w-full max-w-md max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
           <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
             {tipoExistente ? "Editar tipo de consulta" : "Agregar tipo de consulta"}
@@ -165,6 +192,49 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
               className={inputClass}
             />
           </Campo>
+
+          {/* Preferencia de atención (nueva función, 2026-09-08): "el
+              profesional solo quiere atender consultas generales de
+              8:00 a 12:00" — recorta la disponibilidad SOLO para este
+              tipo, además del horario de atención/bloqueos de siempre. */}
+          <label className="flex items-center gap-2 text-sm text-grafito">
+            {/* accent-salvia-oscuro (corrección de QA, "queda mal
+                visualmente" — foto "tipo_consulta_bug.png"): sin esto,
+                el checkbox usa el azul nativo del navegador, un color
+                que no existe en ningún otro lugar de la paleta
+                cascarón/salvia/terracota de la app. */}
+            <input
+              type="checkbox"
+              checked={preferenciaActiva}
+              onChange={(e) => setPreferenciaActiva(e.target.checked)}
+              className="accent-salvia-oscuro"
+            />
+            Preferencia de atención
+          </label>
+
+          {preferenciaActiva && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-grafito/70">Solo ofrecer este tipo de consulta entre:</p>
+              <div className="grid grid-cols-2 gap-4">
+                <Campo label="Desde">
+                  <input
+                    type="time"
+                    value={preferenciaHoraDesde}
+                    onChange={(e) => setPreferenciaHoraDesde(e.target.value)}
+                    className={inputClass}
+                  />
+                </Campo>
+                <Campo label="Hasta">
+                  <input
+                    type="time"
+                    value={preferenciaHoraHasta}
+                    onChange={(e) => setPreferenciaHoraHasta(e.target.value)}
+                    className={inputClass}
+                  />
+                </Campo>
+              </div>
+            </div>
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-terracota-oscuro">

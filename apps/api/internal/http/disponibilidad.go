@@ -316,6 +316,19 @@ func calcularDisponibilidad(
 	desdeMin := horaAMinutos(horaDesde)
 	hastaMin := horaAMinutos(horaHasta)
 
+	// Preferencia de atención (nueva función, pedido textual del cliente,
+	// 2026-09-08): "el profesional solo quiere atender consultas
+	// generales de 8:00 a 12:00... que la disponibilidad de este tipo de
+	// turno sea afectada por esto" — recorta la ventana SOLO para este
+	// tipo (max/min, nunca reemplazo): si el horario de atención general
+	// ya es más angosto que la preferencia, sigue ganando el más angosto
+	// de los dos — la preferencia nunca puede AMPLIAR el horario de
+	// atención real.
+	if tipo.PreferenciaHoraDesde != nil && tipo.PreferenciaHoraHasta != nil {
+		desdeMin = max(desdeMin, horaAMinutos(*tipo.PreferenciaHoraDesde))
+		hastaMin = min(hastaMin, horaAMinutos(*tipo.PreferenciaHoraHasta))
+	}
+
 	// No ofrecer horarios ya pasados si `fecha` es HOY — mismo criterio
 	// que el resto del proyecto ("no se puede agendar un turno en una
 	// fecha pasada"), ahora aplicado también a los candidatos que se

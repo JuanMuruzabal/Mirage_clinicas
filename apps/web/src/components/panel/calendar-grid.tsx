@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import type { BloqueoHorario, TipoConsulta, Turno } from "@dental-mirage/shared-types";
+import type { BloqueoHorario, HorarioAtencion, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { fechaISOLocal, formatDiaCorto, formatHora, isSameDay, minutosDesdeMedianocheCordoba } from "@/lib/calendar-utils";
 import { temaTipoConsulta } from "@/lib/turno-format";
 
@@ -10,9 +10,15 @@ import { temaTipoConsulta } from "@/lib/turno-format";
 // asociado, ver AgregarTurnoModal/EditarTurnoModal). El grid en sí
 // siempre muestra este mismo rango, para no confundir con una grilla
 // que cambia de alto según lo que se configuró.
-const HORA_INICIO = 8;
+// Exportadas (corrección de QA, 2026-09-08: "Ver calendario ->" de las
+// tarjetas del dashboard tiene que UBICAR el calendario con el turno más
+// próximo A LA VISTA, no solo el día — calendar-view.tsx necesita esta
+// misma geometría para calcular a qué scrollTop corresponde una hora
+// concreta, mismo criterio que GUTTER_PX/COL_PX ya exportadas para el
+// scroll horizontal).
+export const HORA_INICIO = 8;
 const HORA_FIN = 20;
-const PX_POR_HORA = 64;
+export const PX_POR_HORA = 64;
 
 // MINI_HEADER_PX — alto FIJO del mini-header "Ver eventos →" de un tramo
 // "combinado" (corrección de QA, 2026-09-02/03, ver "foto_incosistencia_5/6.png"
@@ -67,6 +73,16 @@ function minutosAHora(mins: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+// fondoConRayas — textura de un turno autoreservado (nueva función,
+// 2026-09-08): "estos horarios auto reservados en el calendario se deben
+// ver con rayas" — mismo color de fondo que ya tendría el turno (el del
+// tipo de consulta, o gris si ya está resuelto), con rayas diagonales de
+// un tono más oscuro encima, en vez de un color aparte que compitiera con
+// la paleta de tipos de consulta existente.
+function fondoConRayas(color: string): string {
+  return `repeating-linear-gradient(135deg, ${color}, ${color} 6px, rgba(0,0,0,0.14) 6px, rgba(0,0,0,0.14) 12px)`;
+}
+
 // turnoResuelto — mismo criterio derivado que ya usan TurnoDetalle/
 // turnos-table.tsx (agendado + hora de fin ya pasada, nunca un estado real
 // en la base). Un turno en conflicto que llega a resolverse deja de
@@ -76,7 +92,7 @@ function minutosAHora(mins: number): string {
 // dado el caso de agendar algo con reserva y al final no hacer nada con
 // eso" — ver la pista del cuerpo más abajo, que separa `seg.turnos` en
 // estos dos grupos.
-function turnoResuelto(t: Turno): boolean {
+export function turnoResuelto(t: Turno): boolean {
   return Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < Date.now();
 }
 
@@ -206,16 +222,92 @@ function agruparEnClusters(items: ItemSolapable[]): ItemSolapable[][] {
 // del dashboard (calendar-view.tsx, bloqueoAFocalizarId) necesita
 // resolver a qué cluster pertenece un bloqueo puntual — mismo cálculo que
 // usa el click real sobre el grid, no una versión aparte.
+// PREFIJO_EXCEPCION_SINTETICA — separador ":" (nunca aparece en un uuid
+// ni en una fecha "YYYY-MM-DD", a diferencia de "-") — id sintético real:
+// `excepcion:{horarioAtencionId}:{fecha}:{índice}:{sufijo}`. Con "-" como
+// separador el uuid y la fecha (ambos con guiones) hacían el id
+// AMBIGUO para volver a sacar el id real (idRealDeExcepcion más abajo).
+const PREFIJO_EXCEPCION_SINTETICA = "excepcion:";
+
+// esExcepcionSintetica — distingue un "horario reservado" sintético,
+// armado acá mismo a partir de una excepción de horario de atención
+// (cierresDeExcepciones más abajo), de un BloqueoHorario real que vive en
+// la base. Exportada para que bloqueo-detalle-modal.tsx pueda distinguir
+// cuáles de sus `reglas` son horarios reservados de verdad y cuáles son
+// "no trabajo" derivado de una excepción, sin duplicar el criterio.
+export function esExcepcionSintetica(regla: BloqueoHorario): boolean {
+  return regla.id.startsWith(PREFIJO_EXCEPCION_SINTETICA);
+}
+
+// idRealDeExcepcion — extrae el id REAL de HorarioAtencion de un id
+// sintético (nueva función, pedido textual del cliente, 2026-09-08:
+// "agregar botón de ver excepción de horario al tocar la tarjeta de
+// horario de excepción en el calendario") — null si `id` no es un id
+// sintético (así también sirve como chequeo, ver su uso en
+// calendar-view.tsx). Exportada para que calendar-view.tsx sepa a qué
+// fila de la tabla de excepciones (ConfiguracionCalendarioModal) llevar
+// la vista, en vez de tratarlo como un horario reservado real.
+export function idRealDeExcepcion(id: string): string | null {
+  if (!id.startsWith(PREFIJO_EXCEPCION_SINTETICA)) return null;
+  return id.split(":")[1] ?? null;
+}
+
+// cierresDeExcepciones — nueva función (pedido textual del cliente,
+// 2026-09-08): "básicamente es lo mismo que horarios reservados, pero
+// ahora puede abarcar días completos" — una excepción de horario de
+// atención (esta semana/este mes/un rango, ver AgregarHorarioAtencionModal)
+// se traduce acá a uno o más "horarios reservados" SINTÉTICOS para el día
+// pedido, reutilizando DE LLENO el mismo pipeline de clustering que ya
+// resuelve horarios reservados reales + turnos (agruparEnClusters,
+// segmentosParaVisualizar) — nunca un sistema aparte. Dos casos:
+//   - "No trabajo este período" (horaDesde/horaHasta nulos): cierra la
+//     grilla ENTERA visible ese día (de HORA_INICIO a HORA_FIN) — un solo
+//     tramo sintético.
+//   - Horario reducido (horaDesde/horaHasta configurados, ej. 10:00 a
+//     14:00 en vez del horario normal): cierra lo que queda AFUERA de esa
+//     ventana — hasta dos tramos sintéticos (antes de horaDesde, después
+//     de horaHasta), cada uno solo si de verdad recorta algo de la
+//     grilla visible.
+// El `motivo` sintético ("No trabajo en este período") es el texto que
+// ve el profesional tanto en la tarjeta simple como en el body del modal
+// combinado — una excepción no tiene un motivo propio como un horario
+// reservado real, así que siempre es este mismo texto fijo.
+function cierresDeExcepciones(dia: Date, horariosAtencion: HorarioAtencion[]): BloqueoHorario[] {
+  const fechaDia = fechaISOLocal(dia);
+  const gridDesde = `${String(HORA_INICIO).padStart(2, "0")}:00`;
+  const gridHasta = `${String(HORA_FIN).padStart(2, "0")}:00`;
+
+  const excepcionesDelDia = horariosAtencion.filter(
+    (h) => h.alcance !== "general" && h.fechaDesde && h.fechaHasta && fechaDia >= h.fechaDesde && fechaDia <= h.fechaHasta,
+  );
+
+  return excepcionesDelDia.flatMap((h, i): BloqueoHorario[] => {
+    const base = { id: "", especifico: true as const, fecha: fechaDia, tipoRegla: "bloquear_horario", motivo: "No trabajo en este período" };
+    if (!h.horaDesde || !h.horaHasta) {
+      return [{ ...base, id: `${PREFIJO_EXCEPCION_SINTETICA}${h.id}:${fechaDia}:${i}:completo`, horaDesde: gridDesde, horaHasta: gridHasta }];
+    }
+    const cierres: BloqueoHorario[] = [];
+    if (h.horaDesde > gridDesde) {
+      cierres.push({ ...base, id: `${PREFIJO_EXCEPCION_SINTETICA}${h.id}:${fechaDia}:${i}:antes`, horaDesde: gridDesde, horaHasta: h.horaDesde });
+    }
+    if (h.horaHasta < gridHasta) {
+      cierres.push({ ...base, id: `${PREFIJO_EXCEPCION_SINTETICA}${h.id}:${fechaDia}:${i}:despues`, horaDesde: h.horaHasta, horaHasta: gridHasta });
+    }
+    return cierres;
+  });
+}
+
 export function segmentosParaVisualizar(
   dia: Date,
   generales: BloqueoHorario[],
   especificas: BloqueoHorario[],
   turnosDelDia: Turno[],
+  horariosAtencion: HorarioAtencion[] = [],
 ): SegmentoBloqueo[] {
   const fechaDia = fechaISOLocal(dia);
   const diaSemana = dia.getDay();
 
-  const especificasDelDia = especificas.filter((b) => b.fecha === fechaDia);
+  const especificasDelDia = [...especificas.filter((b) => b.fecha === fechaDia), ...cierresDeExcepciones(dia, horariosAtencion)];
 
   const generalesDelDia = generales.filter((b) => {
     if (b.diaSemana !== diaSemana) return false;
@@ -311,6 +403,14 @@ interface CalendarGridProps {
   // que todavía no tenga estos datos a mano.
   bloqueosGenerales?: BloqueoHorario[];
   bloqueosEspecificas?: BloqueoHorario[];
+  // horariosAtencion (nueva función, 2026-09-08): excepciones temporales
+  // de horario de atención ("esta semana"/"este mes"/un rango, ver
+  // AgregarHorarioAtencionModal) — "básicamente es lo mismo que horarios
+  // reservados, pero ahora puede abarcar días completos" (textual del
+  // cliente). Se traducen a horarios reservados sintéticos día por día
+  // (cierresDeExcepciones) y entran al mismo pipeline de clustering que
+  // ya resuelve horarios reservados + turnos, sin ningún sistema aparte.
+  horariosAtencion?: HorarioAtencion[];
   // onBloqueoClick recibe SIEMPRE una lista de reglas (corrección de QA,
   // 2026-08-31): un solo elemento para un tramo "normal", dos o más para
   // un tramo "combinado" — "que al tocar en el centro muestre la
@@ -333,6 +433,7 @@ export function CalendarGrid({
   onTurnoClick,
   bloqueosGenerales = [],
   bloqueosEspecificas = [],
+  horariosAtencion = [],
   onBloqueoClick,
 }: CalendarGridProps) {
   const horas = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i);
@@ -397,7 +498,7 @@ export function CalendarGrid({
       <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
         {dias.map((dia) => {
           const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
-          const bloqueosDelDia = segmentosParaVisualizar(dia, bloqueosGenerales, bloqueosEspecificas, turnosDelDia);
+          const bloqueosDelDia = segmentosParaVisualizar(dia, bloqueosGenerales, bloqueosEspecificas, turnosDelDia, horariosAtencion);
           // Turnos absorbidos por un segmento "conflicto" (paso 2): se
           // dibujan DENTRO de esa tarjeta combinada, no en el loop de
           // turnos de siempre — evita duplicarlos en el grid.
@@ -428,6 +529,49 @@ export function CalendarGrid({
                 {bloqueosDelDia.map((seg) => {
                   const top = (seg.desde / 60 - HORA_INICIO) * PX_POR_HORA;
                   const alto = ((seg.hasta - seg.desde) / 60) * PX_POR_HORA;
+                  // reglasReales/reglasExcepcion (nueva función, pedido
+                  // textual del cliente, 2026-09-08): separa los horarios
+                  // reservados de VERDAD de los sintéticos que arma
+                  // cierresDeExcepciones más arriba, para poder mostrar
+                  // ambos conteos por separado en la pista del cuerpo
+                  // ("1 horario reservado" / "horario de no trabajo") sin
+                  // perder cuáles son cuáles.
+                  const reglasReales = seg.reglas.filter((r) => !esExcepcionSintetica(r));
+                  const reglasExcepcion = seg.reglas.filter(esExcepcionSintetica);
+                  const puroExcepcion = reglasReales.length === 0;
+
+                  // "No trabajo en este período" sin nada real mezclado
+                  // (ni horario reservado, ni turno) — pedido textual del
+                  // cliente: "si 2 excepción horario se solapan no poner
+                  // la tarjeta ver eventos sino que se junten sin cambiar
+                  // la tarjeta" — se ve como un tramo simple (nunca el
+                  // mini-header "Ver eventos →"), más suave que un
+                  // horario reservado real para no competir visualmente.
+                  // Sí es clickeable (corrección de QA, 2026-09-08: "al
+                  // hacer click en la tarjeta me muestra a qué excepción
+                  // de horario hace referencia, igual que horario
+                  // reservado") — mismo onBloqueoClick que un horario
+                  // reservado real, BloqueoDetalleModal ya sabe mostrar
+                  // una regla sintética (hora + "No trabajo en este
+                  // período", sin botón "Ver"/"Eliminar" — no hay a dónde
+                  // navegar desde una excepción). Cubre TANTO el caso
+                  // "normal" (una sola excepción) como "combinado" (dos o
+                  // más que se solapan entre sí): en ambos, ninguna regla
+                  // real ni turno está de por medio.
+                  if (puroExcepcion && seg.variante !== "conflicto") {
+                    return (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        onClick={() => onBloqueoClick?.(seg.reglas, dia, seg.turnos)}
+                        aria-label={`Horario bloqueado de ${minutosAHora(seg.desde)} a ${minutosAHora(seg.hasta)}`}
+                        style={{ top, height: alto }}
+                        className="absolute inset-x-1 overflow-hidden rounded-field bg-grafito/12 px-2 py-1 text-left text-xs hover:bg-grafito/20"
+                      >
+                        <span className="block truncate font-medium text-grafito/70">No trabajo en este período</span>
+                      </button>
+                    );
+                  }
 
                   if (seg.variante === "combinado" || seg.variante === "conflicto") {
                     // Mini-header FIJO en el borde de ARRIBA del cluster
@@ -522,12 +666,30 @@ export function CalendarGrid({
                                 </span>
                               </span>
                             )}
-                            <span className="flex items-center gap-1.5">
-                              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-grafito/40" />
-                              <span className="truncate text-[10px] font-medium text-grafito/60">
-                                {seg.reglas.length} {seg.reglas.length === 1 ? "horario reservado" : "horarios reservados"}
+                            {/* horario(s) reservado(s) real(es) y
+                                horario(s) de no trabajo (excepción de
+                                horario de atención) por separado — nueva
+                                función, pedido textual del cliente,
+                                2026-09-08: "el cuerpo mostrando '1
+                                horario reservado' y abajo 'horario de no
+                                trabajo'". Cada línea solo aparece si hay
+                                al menos uno de ese tipo en el cluster. */}
+                            {reglasReales.length > 0 && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-grafito/40" />
+                                <span className="truncate text-[10px] font-medium text-grafito/60">
+                                  {reglasReales.length} {reglasReales.length === 1 ? "horario reservado" : "horarios reservados"}
+                                </span>
                               </span>
-                            </span>
+                            )}
+                            {reglasExcepcion.length > 0 && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-grafito/40" />
+                                <span className="truncate text-[10px] font-medium text-grafito/60">
+                                  {reglasExcepcion.length} {reglasExcepcion.length === 1 ? "horario de no trabajo" : "horarios de no trabajo"}
+                                </span>
+                              </span>
+                            )}
                           </div>
                         )}
                       </Fragment>
@@ -593,12 +755,21 @@ export function CalendarGrid({
                   // postturno solo abajo, el conjunto se ve como una sola
                   // tarjeta con un segundo tono debajo, nunca dos.
                   const hayPost = tiempoPost > 0 && !resuelto;
+                  // Autoreservado (nueva función, 2026-09-08): "estos
+                  // horarios auto reservados en el calendario se deben
+                  // ver con rayas" — mismo color del tipo de consulta
+                  // (o gris, si ya está resuelto), con una textura de
+                  // rayas diagonales encima, para distinguirlo de un
+                  // turno agendado a mano sin perder la identidad de
+                  // color del tipo de consulta.
+                  const colorBase = resuelto ? "var(--color-arena)" : tema.fondo;
+                  const background = t.autoreservado ? fondoConRayas(colorBase) : colorBase;
                   return (
                     <div key={t.id}>
                       <button
                         type="button"
                         onClick={() => onTurnoClick(t)}
-                        style={{ top, height: alto, background: resuelto ? "var(--color-arena)" : tema.fondo }}
+                        style={{ top, height: alto, background }}
                         className={`absolute inset-x-1 overflow-hidden border px-2 py-1 text-left text-xs hover:brightness-95 ${
                           hayPost ? "rounded-t-field" : "rounded-field"
                         } ${resuelto ? "border-arena text-grafito/60" : "border-transparent"}`}

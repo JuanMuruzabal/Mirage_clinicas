@@ -94,4 +94,97 @@ describe("TipoConsultaFormModal", () => {
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  // Preferencia de atención (nueva función, pedido textual del cliente,
+  // 2026-09-08): "el profesional solo quiere atender consultas generales
+  // de 8:00 a 12:00... poder configurar esto".
+  describe("preferencia de atención", () => {
+    it("arranca destildada y sin los campos Desde/Hasta a la vista", () => {
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+      expect(screen.getByLabelText("Preferencia de atención")).not.toBeChecked();
+      expect(screen.queryByLabelText("Desde")).not.toBeInTheDocument();
+    });
+
+    it("tildarla revela Desde/Hasta", async () => {
+      const user = userEvent.setup();
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+
+      await user.click(screen.getByLabelText("Preferencia de atención"));
+
+      expect(screen.getByLabelText("Desde")).toBeInTheDocument();
+      expect(screen.getByLabelText("Hasta")).toBeInTheDocument();
+    });
+
+    it("modo edición: precarga la preferencia existente, ya tildada", () => {
+      render(
+        <TipoConsultaFormModal
+          tipoExistente={{ ...tipoExistente, preferenciaHoraDesde: "08:00", preferenciaHoraHasta: "12:00" }}
+          onClose={vi.fn()}
+          onGuardado={vi.fn()}
+        />,
+      );
+      expect(screen.getByLabelText("Preferencia de atención")).toBeChecked();
+      expect(screen.getByLabelText("Desde")).toHaveValue("08:00");
+      expect(screen.getByLabelText("Hasta")).toHaveValue("12:00");
+    });
+
+    it("tildada sin completar las horas, no guarda y avisa", async () => {
+      const user = userEvent.setup();
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+      await user.type(screen.getByLabelText("Nombre"), "Consulta general");
+      await user.click(screen.getByLabelText("Preferencia de atención"));
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(/desde y hasta qué hora/);
+      expect(crearTipoConsultaActionMock).not.toHaveBeenCalled();
+    });
+
+    it("con hasta anterior o igual a desde, no guarda y avisa", async () => {
+      const user = userEvent.setup();
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+      await user.type(screen.getByLabelText("Nombre"), "Consulta general");
+      await user.click(screen.getByLabelText("Preferencia de atención"));
+      await user.type(screen.getByLabelText("Desde"), "12:00");
+      await user.type(screen.getByLabelText("Hasta"), "08:00");
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(/posterior a la de "desde"/);
+      expect(crearTipoConsultaActionMock).not.toHaveBeenCalled();
+    });
+
+    it("tildada y completa, manda preferenciaHoraDesde/Hasta en el payload", async () => {
+      const user = userEvent.setup();
+      crearTipoConsultaActionMock.mockResolvedValue({
+        tipoConsulta: { id: "tc-2", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30, tiempoPostConsultaMinutos: 0 },
+      });
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+      await user.type(screen.getByLabelText("Nombre"), "Consulta general");
+      await user.click(screen.getByLabelText("Preferencia de atención"));
+      await user.type(screen.getByLabelText("Desde"), "08:00");
+      await user.type(screen.getByLabelText("Hasta"), "12:00");
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(crearTipoConsultaActionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ preferenciaHoraDesde: "08:00", preferenciaHoraHasta: "12:00" }),
+      );
+    });
+
+    it("sin tildar, manda preferenciaHoraDesde/Hasta vacíos (sin preferencia)", async () => {
+      const user = userEvent.setup();
+      crearTipoConsultaActionMock.mockResolvedValue({
+        tipoConsulta: { id: "tc-2", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30, tiempoPostConsultaMinutos: 0 },
+      });
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+      await user.type(screen.getByLabelText("Nombre"), "Consulta general");
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(crearTipoConsultaActionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ preferenciaHoraDesde: "", preferenciaHoraHasta: "" }),
+      );
+    });
+  });
 });

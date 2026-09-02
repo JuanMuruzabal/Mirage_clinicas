@@ -78,7 +78,18 @@ type TipoConsulta struct {
 	DuracionMinutos           int       `gorm:"column:duracion_minutos;not null;default:30"`
 	TiempoPostConsultaMinutos int       `gorm:"column:tiempo_post_consulta_minutos;not null;default:0"`
 	CantidadSesiones          *int      `gorm:"column:cantidad_sesiones"`
-	CreatedAt                 time.Time
+	// PreferenciaHoraDesde/PreferenciaHoraHasta (nueva función, pedido
+	// textual del cliente, 2026-09-08): "el profesional solo quiere
+	// atender consultas generales de 8:00 a 12:00... que la disponibilidad
+	// de este tipo de turno sea afectada por esto" — ambos nil (sin
+	// preferencia, la mayoría de los tipos) o ambos con valor ("HH:MM"),
+	// nunca uno solo — ver validar() en tipos_consulta.go. Acota
+	// calcularDisponibilidad SOLO para turnos de ESTE tipo, además de (no
+	// en lugar de) el horario de atención general/excepciones/bloqueos —
+	// nunca puede AMPLIAR el horario, solo recortarlo más.
+	PreferenciaHoraDesde *string `gorm:"column:preferencia_hora_desde;type:varchar(5)"`
+	PreferenciaHoraHasta *string `gorm:"column:preferencia_hora_hasta;type:varchar(5)"`
+	CreatedAt            time.Time
 }
 
 func (TipoConsulta) TableName() string { return "tipos_consulta" }
@@ -148,6 +159,15 @@ type Turno struct {
 	// turnos.go) — nunca obligatorio, la enorme mayoría de turnos viejos
 	// queda con esto en nil para siempre.
 	Asistencia *string `gorm:"column:asistencia;type:varchar(20);check:asistencia IN ('asistio','ausente')"`
+
+	// Autoreservado (nueva función, 2026-09-08): marca un turno movido por
+	// el botón "Autoreservar turnos" del modal de conflicto
+	// (bloqueo-detalle-modal.tsx) — el profesional pidió el traslado
+	// automático al próximo horario libre en vez de coordinar el cambio a
+	// mano con el paciente. Puramente informativo: se pinta con rayas en
+	// el calendario y avisa en el detalle del turno que fue reprogramado
+	// así, para que el profesional sepa por qué cambió de horario solo.
+	Autoreservado bool `gorm:"column:autoreservado;not null;default:false"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

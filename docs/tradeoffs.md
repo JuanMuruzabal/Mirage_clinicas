@@ -1114,4 +1114,85 @@
 
 ---
 
+## TR-095: Extra 2.3.2 — Banner de conflicto en el calendario
+
+- **Fecha:** 2026-09-01
+- **Fase:** ejecución (ítem 2 del brief post-QA de F2.3 extra, `docs/fase2.3-extra-dental-mirage.md`; plan en `docs/implementation-plan.md` §11.5)
+- **Contexto:** el calendario ya agrupa conflictos en tarjetas "Ver eventos →" (TR-089/090), pero no había ningún aviso a nivel de la vista completa — el profesional solo se enteraba de un conflicto si scrolleaba hasta encontrarlo. El brief pide un banner "Tenés X turnos en conflicto, tocá para ver" entre el selector Día/Semana/Mes y el grid.
+- **Decisión:**
+  - Banner reactivo: cuenta con el mismo criterio de `turnoResuelto()` de TR-090 (un conflicto ya resuelto, sea porque pasó su horario o porque el profesional lo resolvió a mano, deja de contar) — recalculado en cada render sobre los mismos datos (turnos + bloqueos + horarios de atención, ver TR-097) que ya carga la vista, sin ningún fetch ni polling propio.
+  - Empuja el calendario hacia abajo en vez de superponerse, con una animación de entrada/salida — aparece y desaparece solo según el contador cruce 0.
+  - "Tocá para ver" abre el "Ver eventos" del conflicto MÁS PRÓXIMO en el tiempo (los conflictos se ordenan por fecha/hora antes de elegir cuál mostrar).
+  - Corrección de QA sobre la primera entrega: el aviso rojo de "turno en conflicto" pasó de repetirse UNA VEZ POR CADA turno dentro de la ventana "Ver eventos" a aparecer una sola vez, debajo del mini-título "Turnos en conflicto" — la ventana crecía innecesariamente con conflictos de 3+ turnos.
+- **Alternativas descartadas:** un contador con su propio fetch independiente — descartado por reusar exactamente los mismos datos que ya calcula `segmentosParaVisualizar` para el grid, sin duplicar la definición de qué cuenta como conflicto.
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta — presentación pura sobre datos ya existentes.
+
+---
+
+## TR-096: Autoreservar turnos
+
+- **Fecha:** 2026-09-01
+- **Fase:** ejecución (pedido explícito del cliente durante la QA de Extra 2.3.2, fuera del brief post-QA original de 5 ítems — `docs/fase2.3-extra-dental-mirage.md`)
+- **Contexto:** cuando dos turnos quedan en conflicto (superpuestos por una carga manual), el profesional tenía que reprogramar cada uno a mano desde "Editar turno". El cliente pidió un botón "Autoreservar turnos" en la pantalla de conflicto que mueva automáticamente los turnos afectados al próximo horario libre.
+- **Decisión:**
+  - `POST /turnos/autoreservar` nuevo: recibe los IDs de turno del conflicto seleccionado, los ordena por su `HoraInicio` ORIGINAL ascendente (prioridad: el turno agendado más temprano se reprograma primero — sin ninguna señal de quién "debería" ceder el horario, se usó orden de horario en vez de orden de creación) y corre todo dentro de una única transacción.
+  - Búsqueda día por día (desde el día del turno o desde hoy, lo que sea más tarde; tope de 90 días) reusando `calcularDisponibilidad` SIN modificarla — la disponibilidad de "autoreservar" es literalmente la misma que la de "Agregar turno", ningún cálculo paralelo.
+  - Cada turno se persiste (nuevo horario + `Autoreservado=true`) ANTES de buscar el siguiente turno del lote: el hueco que un turno deja libre queda disponible para el próximo del mismo lote, y el hueco que un turno recién tomó no se vuelve a ofrecer — ambas garantías salen gratis de reusar la misma consulta contra la base, sin bookkeeping en memoria aparte.
+  - `Turno.Autoreservado bool` nuevo, expuesto en la respuesta — el calendario pinta estos turnos con una textura de rayas diagonales sobre el color de su tipo de consulta (no un color nuevo, para no perder esa identidad visual), y `TurnoDetalle` muestra un aviso "Este turno fue reprogramado automáticamente con 'Autoreservar turnos'." al tocarlo.
+  - Pantalla de confirmación posterior, dentro del mismo modal de conflicto: lista horario anterior → horario nuevo por turno, mostrando "3 y media" tarjetas a la vez con scroll para ver el resto (mecanismo genérico `ScrollDeUnaTarjeta`, generalizado con un prop `mostrar` — ver también TR-097/TR-099 para dónde más se reusa), y un botón "Informar afectados" sin funcionalidad todavía (pedido explícito del cliente: dejarlo visible como preparación de una futura notificación al paciente, fuera de alcance de este ítem).
+- **Alternativas descartadas:** reprogramar en el orden en que el usuario seleccionó los turnos (sin reordenar por horario) — descartada por no dar un resultado determinístico ni "justo" cuando el conflicto tiene más de 2 turnos.
+- **Qué se sacrifica:** "Informar afectados" queda como botón inerte — ninguna notificación real sale de esta pieza; se reprograman turnos de verdad (cambio real de `HoraInicio`/`HoraFin`, deshacerlo requiere editar el turno a mano, no hay un "deshacer" de un click).
+- **Reversibilidad:** media en el dato (turnos ya movidos, reversión manual vía "Editar turno"); alta en el mecanismo (endpoint y columna `Autoreservado` son aditivos, se pueden dejar de usar sin borrar nada).
+
+---
+
+## TR-097: Excepciones de horario de atención visualizadas en el calendario
+
+- **Fecha:** 2026-09-01
+- **Fase:** ejecución (pedido explícito del cliente durante la QA de Extra 2.3.2, fuera del brief post-QA original)
+- **Contexto:** las excepciones de horario de atención (alcance semana/mes/rango, o "no trabajo este período", F2.3/TR-084) ya se cargaban desde Configuración de calendario, pero no se veían en el grid — nada le mostraba al profesional, mirando el calendario, que un día completo (o una franja) estaba cerrado por una excepción vigente.
+- **Decisión:**
+  - "Es lo mismo que horarios reservados, pero ahora puede abarcar días completos" (pedido textual del cliente) — resuelto representando cada excepción como un `BloqueoHorario` SINTÉTICO (`cierresDeExcepciones` en `calendar-grid.tsx`) y alimentándolo a la MISMA pipeline de clustering que ya usan los horarios reservados reales (`agruparEnClusters`/`segmentosParaVisualizar`), en vez de construir una pieza paralela.
+  - IDs sintéticos con formato `excepcion:{idReal}:{fecha}:{idx}:{sufijo}` — separador `:` en vez de `-` porque tanto los UUID como las fechas ISO ya contienen guiones, lo que haría ambiguo reconstruir el ID real a partir del sintético.
+  - Un cluster hecho ENTERAMENTE de excepciones sintéticas (sin ningún horario reservado real ni turno adentro) se pinta como una tarjeta suave y clickeable, sin "Ver eventos →": "No trabajo en este período". En cuanto se mezcla con un horario reservado real O un turno — cualquiera de los dos — pasa a ser una tarjeta "Ver eventos →", mismo criterio que ya regía turno+bloqueo desde TR-090, extendido ahora a excepción+bloqueo y excepción+turno. Esta regla se fijó recién tras una corrección explícita del cliente sobre una primera respuesta mía equivocada ("separados"): "si se juntan un horario reservado con una excepción de horario, sea cual sea, se transforma en tarjeta 'ver eventos'".
+  - La tarjeta "No trabajo en este período" es clickeable e igual de navegable que un horario reservado — abre un "Ver excepción de horario" que posiciona/resalta la fila correcta en Configuración de calendario (mismo mecanismo de scroll-to-row que ya tenía "Ver horario reservado").
+  - Aclaración agregada al formulario de agregar/editar excepción, debajo del checkbox "No trabajo este período": "O trabajo desde / hasta este horario:" — evita la confusión real de un profesional que interpretó Desde/Hasta como el horario que NO trabaja; el semántico correcto, sin cambios, siempre fue "las horas en las que SÍ atiende durante ese período" (bloqueado afuera de ese rango).
+- **Alternativas descartadas:** un componente y una lógica de renderizado separados para excepciones, en paralelo a los de horarios reservados — descartada de entrada por el cliente ("es aplicar la misma lógica que venimos haciendo con horarios reservados") y confirmada en la práctica como la opción correcta, al no duplicar ninguna regla de solapamiento/agrupamiento.
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta — puramente de presentación (el dato de la excepción ya existía en la base desde F2.3/TR-084), sin cambios de esquema.
+
+---
+
+## TR-098: Preferencia de atención por tipo de consulta
+
+- **Fecha:** 2026-09-01
+- **Fase:** ejecución (pedido explícito del cliente durante la QA de Extra 2.3.2, fuera del brief post-QA original)
+- **Contexto:** pedido textual del cliente: "el profesional solo quiere atender consultas generales de 8:00 a 12:00... poder configurar esto y que la disponibilidad de este tipo de turno sea afectada por esto". Hasta ahora la disponibilidad de un tipo de consulta dependía solo del horario de atención general + horarios reservados + turnos ya agendados, sin ninguna forma de acotarla más por tipo.
+- **Decisión:**
+  - `TipoConsulta.PreferenciaHoraDesde`/`.PreferenciaHoraHasta *string` nuevas (`varchar(5)`, ambas-o-ninguna, mismo formato/validación que el resto de los campos de hora de la app).
+  - `calcularDisponibilidad` INTERSECTA (nunca ensancha) la ventana ya resuelta de horario de atención/excepciones: `desdeMin = max(desdeMin, preferenciaDesde)`, `hastaMin = min(hastaMin, preferenciaHasta)` — colocado después de resolver horario de atención/excepciones (TR-097) pero antes de la lógica de "no ofrecer horarios pasados", para que los tres recortes se compongan sin pisarse entre sí.
+  - UI: checkbox "Preferencia de atención" en el form de tipo de consulta — arranca DESTILDADO (al revés del checkbox de excepciones, que arranca marcado; acá el caso normal es sin preferencia), y al tildarlo revela los campos Desde/Hasta.
+- **Alternativas descartadas:** un único campo de preferencia a nivel `Clinic` (una sola ventana para todos los tipos de consulta) — descartada porque el pedido es explícitamente por tipo ("consultas generales" en particular, no todos los tipos por igual).
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta — campos nuevos nullable, sin migración de datos existentes (`NULL` = sin preferencia, comportamiento idéntico al de antes de este ítem).
+
+---
+
+## TR-099: Dashboard "Turnero" — correcciones de QA sobre TR-094 (deep-link vs. posicionamiento, alcance de "Turnos próximos")
+
+- **Fecha:** 2026-09-01
+- **Fase:** ejecución (correcciones de QA sobre el dashboard entregado en TR-094, señaladas por el cliente durante la QA de Extra 2.3.2)
+- **Contexto:** tres correcciones puntuales sobre TR-094, encontradas ya con el dashboard en uso.
+- **Decisión:**
+  - "Turnos próximos" pasa a mostrar SOLO los turnos de mañana (antes: todo turno futuro desde mañana en adelante, sin techo) — `resumenPanelHandler` acota la query con un segundo límite superior (pasado-mañana).
+  - Distinción nueva entre DEEP-LINK (abre la tarjeta de detalle de un turno específico — comportamiento de siempre al tocar una fila, sin cambios) y POSICIONAR (solo scrollea el calendario para dejar un turno/horario a la vista, sin abrir ninguna tarjeta). El link de cabecera "Ver calendario →" de cada tarjeta usa POSICIONAR, nunca deep-link — corrección explícita del cliente sobre una primera implementación mía equivocada: "no tiene que abrir la tarjeta del turno más próximo, sino ubicar el calendario a la vista del usuario... no abre la tarjeta de ningún turno".
+  - Mecanismo: query param nuevo `posicionar=` (separado de `turno=`, que sigue siendo el deep-link real), `scrollAHora(minutos)` refactorizada para recibir minutos-desde-medianoche-Córdoba en vez de un `Date` — la geometría de scroll y la del renderizado del grid comparten las mismas constantes `HORA_INICIO`/`PX_POR_HORA`, ahora exportadas de `calendar-grid.tsx` para no divergir nunca entre sí.
+  - "Ver horarios reservados →" (cabecera) y tocar una fila del cuerpo de esa misma tarjeta también posicionan/scrollean el calendario a la vista del horario correspondiente, mismo mecanismo que las tarjetas de turnos — antes solo abrían el modal de detalle, sin ningún posicionamiento visual del grid detrás.
+- **Alternativas descartadas:** reusar el mismo query param `turno=` para "posicionar" (implementación inicial, corregida por el cliente) — descartada porque ese param ya dispara la apertura del modal de detalle vía `turnoAFocalizarId`, efecto no deseado para un link que solo debe ubicar la vista.
+- **Qué se sacrifica:** nada de alcance.
+- **Reversibilidad:** alta — presentación pura sobre datos ya existentes.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

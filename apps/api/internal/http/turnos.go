@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Patch("/turnos/{id}/agendar", agendarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/cancelar", cancelarTurnoHandler(gdb))
 	r.Patch("/turnos/{id}/hora", reprogramarTurnoHandler(gdb))
+	r.Post("/turnos/autoreservar", autoreservarTurnosHandler(gdb))
 	r.Patch("/turnos/{id}/asistencia", marcarAsistenciaHandler(gdb))
 	r.Patch("/turnos/{id}", editarTurnoHandler(gdb))
 	r.Get("/panel/resumen", resumenPanelHandler(gdb))
@@ -50,6 +52,10 @@ type turnoResponse struct {
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
+	// Autoreservado (2026-09-08): true si este turno se movió con el botón
+	// "Autoreservar turnos" del modal de conflicto — el frontend lo pinta
+	// con rayas en el calendario y lo avisa en TurnoDetalle.
+	Autoreservado bool `json:"autoreservado"`
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {
@@ -82,6 +88,7 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 		out.HoraFin = &s
 	}
 	out.Asistencia = t.Asistencia
+	out.Autoreservado = t.Autoreservado
 	return out
 }
 
@@ -472,6 +479,174 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
+// autoreservarBusquedaMaxDias — tope de días hacia adelante que se
+// escanean buscando un hueco libre antes de rendirse con un turno puntual
+// (pedido del cliente: "el horario más próximo autoreservado no
+// necesariamente tiene que ser el mismo día" — sin un tope, un
+// profesional sin ningún hueco libre real dejaría esto buscando para
+// siempre en cada request).
+const autoreservarBusquedaMaxDias = 90
+
+type autoreservarTurnosRequest struct {
+	TurnoIds []string `json:"turnoIds"`
+}
+
+// autoreservarResultadoItem — un turno del lote, con su horario ANTERIOR
+// (siempre) y el NUEVO (solo si `Reprogramado`) — el frontend arma la
+// pantalla "horario viejo → horario nuevo" con esto, mostrando también los
+// que no se pudieron mover (`Reprogramado: false`, ningún hueco libre
+// dentro de autoreservarBusquedaMaxDias) en vez de fallar todo el lote.
+type autoreservarResultadoItem struct {
+	TurnoID            string  `json:"turnoId"`
+	Nombre             string  `json:"nombre"`
+	HoraInicioAnterior string  `json:"horaInicioAnterior"`
+	HoraFinAnterior    string  `json:"horaFinAnterior"`
+	HoraInicioNueva    *string `json:"horaInicioNueva,omitempty"`
+	HoraFinNueva       *string `json:"horaFinNueva,omitempty"`
+	Reprogramado       bool    `json:"reprogramado"`
+}
+
+type autoreservarTurnosResponse struct {
+	Resultados []autoreservarResultadoItem `json:"resultados"`
+}
+
+// autoreservarTurnosHandler — POST /turnos/autoreservar: botón
+// "Autoreservar turnos" del modal de conflicto (nueva función, pedido
+// textual del cliente, 2026-09-08): "dar un botón de autoreservar turno
+// para los afectados, una vez que se da click, por orden de prioridad
+// (quien tiene el turno antes que el otro) si es que hay más de un turno
+// afectado, auto reservar el turno al horario más próximo disponible...
+// no necesariamente tiene que ser el mismo día".
+//
+// Prioridad = orden de HoraInicio ORIGINAL ascendente (quien tenía el
+// turno más temprano se procesa primero). Cada turno se mueve al primer
+// hueco libre calculado con la MISMA lógica que "Agregar turno"/"Editar
+// turno" (calcularDisponibilidad — horario de atención, bloqueos y demás
+// turnos ya agendados), escaneando día por día desde su propio día
+// original (o desde hoy, si ese día ya pasó) hasta
+// autoreservarBusquedaMaxDias. Todo el lote corre en una sola
+// transacción: cada turno se persiste ANTES de buscarle hueco al
+// siguiente, así un hueco que el turno A acaba de ocupar nunca se le
+// vuelve a ofrecer a B, y el hueco que A dejó libre (su horario viejo)
+// sí puede quedar disponible para B — sin esto, el lote podría intentar
+// mandar a dos turnos distintos al mismo horario nuevo.
+func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		profesionalID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+
+		var req autoreservarTurnosRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+		if len(req.TurnoIds) == 0 {
+			writeError(w, http.StatusBadRequest, "turnoIds es obligatorio")
+			return
+		}
+		ids := make([]uuid.UUID, 0, len(req.TurnoIds))
+		for _, s := range req.TurnoIds {
+			id, err := uuid.Parse(s)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "turnoIds tiene un id inválido")
+				return
+			}
+			ids = append(ids, id)
+		}
+
+		var turnos []db.Turno
+		if err := gdb.Where("id IN ? AND profesional_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron cargar los turnos")
+			return
+		}
+		if len(turnos) != len(ids) {
+			writeError(w, http.StatusNotFound, "alguno de los turnos no existe")
+			return
+		}
+		for _, t := range turnos {
+			if t.Estado != "agendado" || t.HoraInicio == nil || t.HoraFin == nil {
+				writeError(w, http.StatusConflict, "solo se pueden autoreservar turnos confirmados")
+				return
+			}
+		}
+
+		sort.Slice(turnos, func(i, j int) bool { return turnos[i].HoraInicio.Before(*turnos[j].HoraInicio) })
+
+		resultados := make([]autoreservarResultadoItem, 0, len(turnos))
+		err := gdb.Transaction(func(tx *gorm.DB) error {
+			for i := range turnos {
+				t := &turnos[i]
+				item := autoreservarResultadoItem{
+					TurnoID:            t.ID.String(),
+					Nombre:             strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+					HoraInicioAnterior: t.HoraInicio.Format(time.RFC3339),
+					HoraFinAnterior:    t.HoraFin.Format(time.RFC3339),
+				}
+
+				var tipo db.TipoConsulta
+				if t.TipoConsultaID == nil {
+					resultados = append(resultados, item)
+					continue
+				}
+				if err := tx.Where("id = ? AND profesional_id = ?", *t.TipoConsultaID, profesionalID).First(&tipo).Error; err != nil {
+					resultados = append(resultados, item)
+					continue
+				}
+
+				local := clock.In(*t.HoraInicio)
+				dia := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
+				if dia.Before(clock.Today()) {
+					dia = clock.Today()
+				}
+
+				var nuevaHoraInicio, nuevaHoraFin time.Time
+				encontrado := false
+				for d := 0; d < autoreservarBusquedaMaxDias; d++ {
+					fechaCandidata := dia.AddDate(0, 0, d)
+					slots, err := calcularDisponibilidad(tx, profesionalID, tipo, fechaCandidata, &t.ID)
+					if err != nil {
+						return err
+					}
+					if len(slots) == 0 {
+						continue
+					}
+					nuevaHoraInicio = combinarFechaYHora(fechaCandidata, slots[0])
+					nuevaHoraFin = nuevaHoraInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
+					encontrado = true
+					break
+				}
+				if !encontrado {
+					resultados = append(resultados, item)
+					continue
+				}
+
+				t.HoraInicio = &nuevaHoraInicio
+				t.HoraFin = &nuevaHoraFin
+				t.Autoreservado = true
+				if err := tx.Save(t).Error; err != nil {
+					return err
+				}
+
+				nuevaInicioStr := nuevaHoraInicio.Format(time.RFC3339)
+				nuevaFinStr := nuevaHoraFin.Format(time.RFC3339)
+				item.HoraInicioNueva = &nuevaInicioStr
+				item.HoraFinNueva = &nuevaFinStr
+				item.Reprogramado = true
+				resultados = append(resultados, item)
+			}
+			return nil
+		})
+		if err != nil {
+			writeTurnoAgendadoError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, autoreservarTurnosResponse{Resultados: resultados})
+	}
+}
+
 type marcarAsistenciaRequest struct {
 	// Asistencia: "asistio" | "ausente" — pedido explícito del cliente
 	// (2026-09-04): "me debe aparecer un aviso que la elección es
@@ -694,6 +869,15 @@ type resumenHorarioReservadoItem struct {
 	HoraDesde string  `json:"horaDesde"`
 	HoraHasta string  `json:"horaHasta"`
 	Motivo    *string `json:"motivo"`
+	// EtiquetaGeneral (corrección de QA, 2026-09-08): para un horario
+	// reservado GENERAL, reemplaza en el dashboard el día corto de la
+	// PRÓXIMA ocurrencia (ej. "MIÉ 2") — que sugiere una fecha puntual —
+	// por un texto que deja en claro que se repite ("Todos los miércoles
+	// de octubre"). nil para un horario ESPECÍFICO (una fecha real, sin
+	// nada que aclarar) — el frontend cae al día corto de siempre en ese
+	// caso. Ver etiquetaHorarioGeneral más abajo para el texto exacto
+	// según el Alcance.
+	EtiquetaGeneral *string `json:"etiquetaGeneral"`
 }
 
 // resumenPanelResponse — F2.3 extra, ítem 1 (rediseño del "Turnero"):
@@ -732,6 +916,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		hoy := clock.Today()
 		mañana := hoy.Add(24 * time.Hour)
+		pasadoMañana := mañana.Add(24 * time.Hour)
 		ahora := clock.Now()
 
 		// Corrección de QA: "turnos de hoy no muestra turnos resueltos" —
@@ -749,8 +934,15 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// "Turnos próximos" — corrección de QA, 2026-09-08: acotado a
+		// MAÑANA nomás (antes traía cualquier turno futuro sin techo) —
+		// "hoy" ya tiene su propia tarjeta, esta muestra el día siguiente
+		// concreto, no una lista larga de semanas hacia adelante.
 		var turnosProximosDB []db.Turno
-		if err := gdb.Where("profesional_id = ? AND estado = ? AND hora_inicio >= ?", profesionalID, "agendado", mañana).
+		if err := gdb.Where(
+			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+			profesionalID, "agendado", mañana, pasadoMañana,
+		).
 			Order("hora_inicio").
 			Limit(resumenListLimit).
 			Find(&turnosProximosDB).Error; err != nil {
@@ -866,11 +1058,12 @@ func toResumenHorarioItems(bloqueos []db.BloqueoHorario, hoy time.Time) []resume
 			continue // dato inconsistente (chk_bloqueo_horario_forma ya lo evita) — se salta por las dudas
 		}
 		items = append(items, resumenHorarioReservadoItem{
-			ID:        b.ID.String(),
-			Fecha:     fecha.Format("2006-01-02"),
-			HoraDesde: b.HoraDesde,
-			HoraHasta: b.HoraHasta,
-			Motivo:    b.Motivo,
+			ID:              b.ID.String(),
+			Fecha:           fecha.Format("2006-01-02"),
+			HoraDesde:       b.HoraDesde,
+			HoraHasta:       b.HoraHasta,
+			Motivo:          b.Motivo,
+			EtiquetaGeneral: etiquetaHorarioGeneral(b, hoy),
 		})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Fecha < items[j].Fecha })
@@ -885,6 +1078,58 @@ func toResumenHorarioItems(bloqueos []db.BloqueoHorario, hoy time.Time) []resume
 func proximaFechaDeDiaSemana(hoy time.Time, diaSemana int) time.Time {
 	delta := (diaSemana - int(hoy.Weekday()) + 7) % 7
 	return hoy.AddDate(0, 0, delta)
+}
+
+// diasSemanaCorto — misma abreviatura de 3 letras que ya usa el frontend
+// para el día corto de las etiquetas de fecha puntual (formatDiaCorto,
+// calendar-utils.ts, ej. "MIÉ 2") — pedido textual del cliente: "TODOS
+// LOS MIE", no el nombre completo del día (más largo, no entra tan bien
+// en una etiqueta chica).
+var diasSemanaCorto = [7]string{"dom", "lun", "mar", "mié", "jue", "vie", "sáb"}
+var nombresMes = [12]string{
+	"enero", "febrero", "marzo", "abril", "mayo", "junio",
+	"julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+}
+
+// etiquetaHorarioGeneral — corrección de QA, 2026-09-08: un horario
+// reservado GENERAL se repite todas las semanas por DiaSemana, así que
+// mostrar en el dashboard solo la fecha de su PRÓXIMA ocurrencia (ej.
+// "MIÉ 2") sugiere una fecha puntual, cuando en realidad se repite. Este
+// texto reemplaza esa etiqueta, con el alcance exacto que ya configura el
+// profesional (mismo campo `Alcance` que usa Configuración de calendario):
+//   - "mes" (Este mes): "Todos los miércoles" a secas — el mes actual se
+//     da por sobreentendido.
+//   - "proximo_mes" (Próximo mes): "Todos los miércoles de octubre", con
+//     el nombre real del mes que sigue (calculado con startOfMonth antes
+//     de sumar un mes — sumarle un mes directo a `hoy` desborda mal en
+//     los días 29/30/31 si el mes siguiente es más corto, ver
+//     bloqueos_horario.go).
+//   - "todos" (Este año — antes "Todos los meses" en Configuración de
+//     calendario, renombrado en esta misma corrección: la regla en
+//     realidad no se guarda "para siempre" en la práctica, el profesional
+//     la revisa/renueva año a año): "Todos los miércoles de este año".
+//   - "semana"/"proxima_semana": nil — esas ya son "de una sola vez", la
+//     fecha puntual que ya se calcula (la próxima ocurrencia) no es
+//     engañosa en ese caso.
+func etiquetaHorarioGeneral(b db.BloqueoHorario, hoy time.Time) *string {
+	if b.Especifico || b.DiaSemana == nil || b.Alcance == nil {
+		return nil
+	}
+	dia := diasSemanaCorto[*b.DiaSemana]
+
+	var texto string
+	switch *b.Alcance {
+	case db.BloqueoAlcanceMes:
+		texto = fmt.Sprintf("Todos los %s", dia)
+	case db.BloqueoAlcanceProximoMes:
+		proximoMes := startOfMonth(hoy).AddDate(0, 1, 0)
+		texto = fmt.Sprintf("Todos los %s de %s", dia, nombresMes[int(proximoMes.Month())-1])
+	case db.BloqueoAlcanceTodos:
+		texto = fmt.Sprintf("Todos los %s de este año", dia)
+	default:
+		return nil
+	}
+	return &texto
 }
 
 // profesionalIDFromRequest resuelve el ID de clínica del caller — helper
