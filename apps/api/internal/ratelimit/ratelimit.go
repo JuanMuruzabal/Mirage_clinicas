@@ -53,6 +53,18 @@ var (
 	// generoso para un typo humano, imposible de explotar por fuerza
 	// bruta.
 	LimitConfirmCodePerAccount = Limit{Max: 8, Window: 15 * time.Minute}
+
+	// Extra 2.3.5 (E5.6) — "Confirmanos que sos vos" del wizard público de
+	// pedido de turno. Mismos criterios que los límites de arriba, pero la
+	// key es (clinicId+email) en vez de un userId (acá no hay cuenta).
+	LimitTurnoVerifEnviarPerIP = Limit{Max: 20, Window: time.Hour}
+	// LimitTurnoVerifEnviarCooldown — mismo criterio que
+	// LimitResendCooldown: 1 envío cada 60s por mail, para que "Reenviar
+	// código" no se pueda apretar en bucle.
+	LimitTurnoVerifEnviarCooldown     = Limit{Max: 1, Window: 60 * time.Second}
+	LimitTurnoVerifEnviarPerCuenta    = Limit{Max: 5, Window: time.Hour}
+	LimitTurnoVerifConfirmarPerIP     = Limit{Max: 30, Window: time.Hour}
+	LimitTurnoVerifConfirmarPerCuenta = Limit{Max: 8, Window: 15 * time.Minute}
 )
 
 // scopeLoginFailed cuenta intentos de login fallidos consecutivos por

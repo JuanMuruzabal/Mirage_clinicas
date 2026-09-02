@@ -125,6 +125,72 @@ describe("AgregarTurnoModal", () => {
     expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-1", estado: "agendado" });
   });
 
+  // Corrección de bug reportado por el cliente: "desde el calendario me
+  // deja crear paciente nuevo con un DNI que ya existe... se genera un
+  // turno con un paciente que no está en el apartado pacientes, no hay
+  // verificación en este lugar" — el backend ya reusaba la ficha existente
+  // (E5.1), pero en silencio; ahora se verifica ANTES de avanzar de paso.
+  it("paciente nuevo: bloquea si el DNI ya pertenece a otro paciente", async () => {
+    const existente = {
+      id: "pac-existente",
+      nombre: "Julián",
+      apellido: "Ortiz",
+      dni: "30222333",
+      telefono: "+5493511111111",
+      email: "julian@example.com",
+      createdAt: new Date().toISOString(),
+    };
+    listPacientesActionMock.mockResolvedValue([existente]);
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await screen.findByText("Bruno Iglesias");
+    await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
+    await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
+    await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
+    await user.type(screen.getByLabelText("DNI"), "30222333");
+    await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo generar el turno: el paciente con DNI 30222333 ya existe y es Julián Ortiz");
+    // No avanzó al paso "detalle" — el select de tipo de consulta no aparece.
+    expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
+    expect(crearTurnoManualActionMock).not.toHaveBeenCalled();
+  });
+
+  it("paciente nuevo con DNI duplicado: 'Usar este paciente' salta a conocido con esos datos", async () => {
+    const existente = {
+      id: "pac-existente",
+      nombre: "Julián",
+      apellido: "Ortiz",
+      dni: "30222333",
+      telefono: "+5493511111111",
+      email: "julian@example.com",
+      createdAt: new Date().toISOString(),
+    };
+    listPacientesActionMock.mockResolvedValue([existente]);
+    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-3", estado: "agendado" } });
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await screen.findByText("Bruno Iglesias");
+    await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
+    await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
+    await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
+    await user.type(screen.getByLabelText("DNI"), "30222333");
+    await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await user.click(await screen.findByRole("button", { name: "Usar este paciente" }));
+    expect(screen.getByText(/Julián Ortiz/)).toBeInTheDocument();
+    fijarFechaFutura();
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    const [payload] = crearTurnoManualActionMock.mock.calls[0];
+    expect(payload.pacienteId).toBe("pac-existente");
+  });
+
   it("paciente nuevo: exige nombre/apellido/DNI/teléfono antes de continuar", async () => {
     const user = userEvent.setup();
     render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -222,6 +288,39 @@ describe("AgregarTurnoModal", () => {
     expect(payload.pacienteId).toBe("pac-1");
     expect(payload.dniContacto).toBe("30222333");
     expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-2", estado: "agendado" });
+  });
+
+  // Extra 2.3.5 (E5.4, fix de bug): volver de "paciente conocido" a "paciente
+  // nuevo" no debe dejar precargados los datos del conocido — antes de este
+  // fix, elegir un paciente conocido, volver con "Atrás" y tocar "Paciente
+  // nuevo" mostraba el formulario ya lleno con los datos de ese paciente.
+  it("volver de 'paciente conocido' a 'paciente nuevo' no deja precargados los datos del conocido", async () => {
+    const pacienteConocido = {
+      id: "pac-1",
+      nombre: "Julián",
+      apellido: "Ortiz",
+      dni: "30222333",
+      telefono: "+5493511111111",
+      email: "julian@example.com",
+      createdAt: new Date().toISOString(),
+    };
+    listPacientesActionMock.mockResolvedValue([pacienteConocido]);
+    const user = userEvent.setup();
+    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await screen.findByText("Bruno Iglesias");
+    await user.click(screen.getByRole("button", { name: "Paciente conocido" }));
+    await user.click(await screen.findByText("Julián Ortiz"));
+
+    // Paso "detalle" con Julián precargado — vuelve atrás y cambia a "nuevo".
+    await user.click(screen.getByRole("button", { name: "Atrás" }));
+    await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
+
+    expect(screen.getByLabelText("Nombre")).toHaveValue("");
+    expect(screen.getByLabelText("Apellido")).toHaveValue("");
+    expect(screen.getByLabelText("DNI")).toHaveValue("");
+    expect(screen.getByLabelText("Teléfono")).toHaveValue("");
+    expect(screen.getByLabelText("Email (opcional)")).toHaveValue("");
   });
 
   it("paciente conocido: buscar filtra la lista con el texto tipeado", async () => {

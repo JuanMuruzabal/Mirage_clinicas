@@ -646,15 +646,27 @@ arriba).
 |---|---|---|---|---|
 | E4.1 | Mail de más de 30 caracteres se reemplaza por el botón "Ver mail" (mismo componente de Extra 2.3.1/E1.7) en la tabla de Pacientes | E1.7 | 0.5d | Un mail corto se sigue mostrando inline, sin el botón |
 
-#### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug
+#### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug — **implementado, en QA con el cliente**
+
+**E5.1 a E5.5 completas**, más una función más pedida por el cliente durante esta misma QA, fuera del brief post-QA original — "Confirmanos que sos vos" (E5.6), un paso de verificación de mail por código de 6 dígitos que se sumó al wizard público antes de que se pueda pedir el turno de verdad. Detalle completo de cada decisión en `docs/tradeoffs.md` TR-100 a TR-103.
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
-| E5.1 | Índice único `(profesional_id, dni)` en `pacientes` + `crearTurnoAgendadoConPaciente` busca por DNI antes de crear un `Paciente` nuevo (cualquier camino de alta, no solo el nuevo formulario) | — | 1-2d | Insertar dos pacientes con el mismo DNI para la misma clínica falla a nivel de base; el flujo de agendar nunca lo intenta porque busca antes |
+| E5.1 | Índice único `(profesional_id, dni)` en `pacientes` + búsqueda por DNI antes de crear un `Paciente` nuevo (cualquier camino de alta, no solo el nuevo formulario) | — | 1-2d | Insertar dos pacientes con el mismo DNI para la misma clínica falla a nivel de base; el flujo de agendar nunca lo intenta porque busca antes |
 | E5.2 | `POST /clinicas/{slug}/turnos` reescrito: recibe tipo de consulta + horario elegido (reusa el cálculo de disponibilidad ya existente, TR-086) en vez de solo datos de contacto; crea el turno con `HoraInicio`/`HoraFin` reales (nunca más `pendiente`) | F2.3 (`GET /disponibilidad`, ya implementado), E5.1 | 3-4d | Un turno creado desde la página pública aparece en Turnos y en el calendario con horario fijo, sin pasar por ningún estado intermedio |
 | E5.3 | `pedir-turno-form.tsx` reescrito: datos de contacto → tipo de consulta → fecha → horario disponible (mismo flujo visual que "Agregar turno" del profesional) | E5.2 | 3-4d | El paciente completa el turno de punta a punta sin salir del formulario público |
-| E5.4 | Fix del bug: volver de "paciente conocido" a "turno con paciente nuevo" en `agregar-turno-modal.tsx` no debe dejar precargados los datos del paciente conocido | — | 0.5-1d | Cambiar de pestaña limpia el formulario de "paciente nuevo"; intentar crear con un DNI ya existente ahí da el error de E5.1, no un alta duplicada |
+| E5.4 | Fix del bug: volver de "paciente conocido" a "turno con paciente nuevo" en `agregar-turno-modal.tsx` no debe dejar precargados los datos del paciente conocido | — | 0.5-1d | Cambiar de pestaña limpia el formulario de "paciente nuevo"; intentar crear con un DNI ya existente ahí avisa y no avanza (TR-101), en vez de un alta duplicada |
 | E5.5 | Botón "+ Agregar paciente" en la sección Pacientes (alta directa, sin pasar por un turno) | E5.1 | 1d | Un paciente nuevo se puede cargar sin necesidad de crearle un turno primero |
+
+**Extra, fuera del brief original — pedido explícito del cliente durante esta QA:**
+
+| ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
+|---|---|---|---|---|
+| E5.6 | "Confirmanos que sos vos": paso nuevo del wizard público entre datos de contacto y tipo de consulta/fecha/horario — código de 6 dígitos al mail, mismo mecanismo que la verificación de cuenta (TR-055) pero sin ninguna cuenta detrás (TR-103) | E5.3 | 2-3d | Sin confirmar el código, `POST /clinicas/{slug}/turnos` rechaza el pedido; el código vence a los 15 minutos y solo sirve una vez |
+
+Corrección de QA encontrada sobre E5.1: un profesional podía tipear en "Agregar turno > Paciente nuevo" un DNI ya cargado con datos distintos a los reales — el turno quedaba vinculado a la ficha existente pero sin ningún aviso, mostrando el nombre recién tipeado. Se resolvió en dos capas (TR-101): verificación explícita en el panel (no avanza, ofrece "Usar este paciente") + sincronización de datos en el backend (el snapshot de contacto del turno siempre refleja los datos reales del paciente encontrado, sin importar qué haya tipeado el formulario — aplica también al formulario público, donde bloquear no es una opción razonable).
+
+Probado y descartado en esta misma ronda: hacer sticky (flotante) el título+toolbar de Turnos/Calendario/Pacientes al scrollear — implementado y revertido antes de commitear, el cliente no lo encontró bien visualmente ("no quedan bien"). Sin rastro en el código.
 
 ---
 

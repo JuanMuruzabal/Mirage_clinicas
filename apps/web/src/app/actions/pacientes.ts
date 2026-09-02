@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Paciente } from "@dental-mirage/shared-types";
-import { apiEditarPaciente, apiListPacientes, type EditarPacientePayload } from "@/lib/api";
+import { apiCrearPaciente, apiEditarPaciente, apiListPacientes, type CrearPacientePayload, type EditarPacientePayload } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 export interface PacienteActionResult {
@@ -41,5 +41,20 @@ export async function editarPacienteAction(
   }
   revalidatePath("/panel/pacientes");
   revalidatePath(`/panel/pacientes/${pacienteId}`);
+  return { paciente: result.data };
+}
+
+// crearPacienteAction — "+ Agregar paciente" (Extra 2.3.5, E5.5): alta
+// directa en la sección Pacientes, sin pasar por un turno.
+export async function crearPacienteAction(payload: CrearPacientePayload): Promise<PacienteActionResult | { paciente: Paciente }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiCrearPaciente(token, payload);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/panel/pacientes");
   return { paciente: result.data };
 }

@@ -23,6 +23,18 @@ interface AgregarTurnoModalProps {
 type Paso = "paciente" | "detalle";
 type Origen = "pendiente" | "conocido" | "nuevo";
 
+// NUEVO_PACIENTE_INICIAL — Extra 2.3.5 (E5.4, fix de bug): estado vacío del
+// formulario "paciente nuevo", factorizado para poder resetearlo al volver
+// de "paciente conocido" (ver abrirPestañaNuevo más abajo).
+const NUEVO_PACIENTE_INICIAL = {
+  nombreContacto: "",
+  apellidoContacto: "",
+  dniContacto: "",
+  telefonoContacto: "",
+  emailContacto: "",
+  motivo: "",
+};
+
 // Un renglón por origen: qué es y de dónde sale (pedido explícito del
 // cliente, 2026-08-23 — "dar información a qué hace referencia cada
 // sección y de dónde estoy cargando los pacientes").
@@ -49,14 +61,13 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   const [buscarPaciente, setBuscarPaciente] = useState("");
   const [pacienteElegidoId, setPacienteElegidoId] = useState<string | null>(null);
 
-  const [nuevoPaciente, setNuevoPaciente] = useState({
-    nombreContacto: "",
-    apellidoContacto: "",
-    dniContacto: "",
-    telefonoContacto: "",
-    emailContacto: "",
-    motivo: "",
-  });
+  const [nuevoPaciente, setNuevoPaciente] = useState(NUEVO_PACIENTE_INICIAL);
+  // duplicadoDni/verificandoDni — corrección de bug (ver continuarConNuevo
+  // más abajo): paciente encontrado por DNI exacto al intentar avanzar
+  // desde "Paciente nuevo", para poder ofrecer "Usar este paciente" sin
+  // que el profesional tenga que ir a buscarlo a mano en "conocido".
+  const [duplicadoDni, setDuplicadoDni] = useState<Paciente | null>(null);
+  const [verificandoDni, setVerificandoDni] = useState(false);
 
   const tipoGeneral = tiposConsulta.find((t) => t.nombre === "Consulta general") ?? tiposConsulta[0];
   const [tipoConsultaId, setTipoConsultaId] = useState(tipoGeneral?.id ?? "");
@@ -151,6 +162,25 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     }
   }
 
+  // abrirPestañaNuevo — Extra 2.3.5 (E5.4, fix de bug): "volver de 'paciente
+  // conocido' a 'turno con paciente nuevo' no debe dejar precargados los
+  // datos del paciente conocido". elegirConocido (más abajo) precarga
+  // `nuevoPaciente` con los datos de quien se eligió — si el profesional
+  // vuelve con "Atrás" y después toca esta pestaña, esos datos quedaban
+  // pisando el formulario de "paciente nuevo" en vez de arrancar en blanco.
+  // Solo se limpia cuando hay un `pacienteElegidoId` real (viene de
+  // "conocido"): si ya estaba en "nuevo" tipeando, no se pisa lo que
+  // escribió.
+  function abrirPestañaNuevo() {
+    if (pacienteElegidoId !== null) {
+      setNuevoPaciente(NUEVO_PACIENTE_INICIAL);
+      setPacienteElegidoId(null);
+    }
+    setDuplicadoDni(null);
+    setError(null);
+    setOrigen("nuevo");
+  }
+
   function buscarPacientesConocidos(e: React.FormEvent) {
     e.preventDefault();
     setCargandoPacientes(true);
@@ -170,6 +200,8 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
   function elegirConocido(p: Paciente) {
     setTurnoPendiente(null);
     setPacienteElegidoId(p.id);
+    setDuplicadoDni(null);
+    setError(null);
     setNuevoPaciente({
       nombreContacto: p.nombre,
       apellidoContacto: p.apellido,
@@ -182,18 +214,40 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
     setPaso("detalle");
   }
 
-  function continuarConNuevo(e: React.FormEvent) {
+  // continuarConNuevo — Extra 2.3.5, corrección de bug reportado por el
+  // cliente: "desde el calendario me deja crear paciente nuevo con un DNI
+  // que ya existe... se genera un turno con un paciente que no está en el
+  // apartado pacientes, no hay verificación en este lugar". El backend
+  // (crearOBuscarPacientePorDNI, E5.1) SÍ reusa la ficha existente en vez
+  // de duplicarla — pero en silencio: el turno terminaba mostrando el
+  // nombre recién tipeado mientras el Paciente vinculado de verdad
+  // (encontrado por DNI) podía tener otro nombre distinto, sin ningún
+  // aviso de que eso pasó. Se verifica ACÁ, antes de avanzar de paso, con
+  // el mismo buscador de "Paciente conocido" (listPacientesAction) — el
+  // backend hace ILIKE parcial, así que se filtra por coincidencia EXACTA
+  // de DNI. Si ya existe, no se avanza: se ofrece ir directo a "Paciente
+  // conocido" con esa ficha (mismo camino que elegirConocido) en vez de
+  // seguir con datos que terminarían ignorados.
+  async function continuarConNuevo(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (
-      !nuevoPaciente.nombreContacto.trim() ||
-      !nuevoPaciente.apellidoContacto.trim() ||
-      !nuevoPaciente.dniContacto.trim() ||
-      !nuevoPaciente.telefonoContacto.trim()
-    ) {
+    setDuplicadoDni(null);
+    const dni = nuevoPaciente.dniContacto.trim();
+    if (!nuevoPaciente.nombreContacto.trim() || !nuevoPaciente.apellidoContacto.trim() || !dni || !nuevoPaciente.telefonoContacto.trim()) {
       setError("Nombre, apellido, DNI y teléfono son obligatorios.");
       return;
     }
+
+    setVerificandoDni(true);
+    const encontrados = await listPacientesAction(dni);
+    setVerificandoDni(false);
+    const existente = encontrados.find((p) => p.dni === dni);
+    if (existente) {
+      setDuplicadoDni(existente);
+      setError(`No se pudo generar el turno: el paciente con DNI ${dni} ya existe y es ${existente.nombre} ${existente.apellido}.`);
+      return;
+    }
+
     setTurnoPendiente(null);
     setPacienteElegidoId(null);
     setMotivoDetalle(nuevoPaciente.motivo);
@@ -299,7 +353,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
               </button>
               <button
                 type="button"
-                onClick={() => setOrigen("nuevo")}
+                onClick={abrirPestañaNuevo}
                 className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
                 Paciente nuevo
@@ -424,12 +478,24 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess, turnoPend
 
                 {error && <ErrorMsg>{error}</ErrorMsg>}
 
-                <button
-                  type="submit"
-                  className="self-end rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  Continuar
-                </button>
+                <div className="flex items-center justify-end gap-3">
+                  {duplicadoDni && (
+                    <button
+                      type="button"
+                      onClick={() => elegirConocido(duplicadoDni)}
+                      className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                    >
+                      Usar este paciente
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={verificandoDni}
+                    className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                  >
+                    {verificandoDni ? "Verificando…" : "Continuar"}
+                  </button>
+                </div>
               </form>
             )}
           </div>

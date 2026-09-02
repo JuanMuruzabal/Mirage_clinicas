@@ -254,6 +254,13 @@ const (
 	// token de 32 bytes anterior) hace falta su propio scope, con límite
 	// por CUENTA además del de IP.
 	RateLimitScopeConfirmCode = "confirm_code"
+	// RateLimitScopeTurnoVerifEnviar/Confirmar — Extra 2.3.5 (E5.6): mismo
+	// criterio que RateLimitScopeResendVerify/ConfirmCode de arriba, pero
+	// para "Confirmanos que sos vos" del wizard público — la key acá es
+	// (clinicId+email), no un userId, porque quien pide el código no tiene
+	// cuenta.
+	RateLimitScopeTurnoVerifEnviar    = "turno_verif_enviar"
+	RateLimitScopeTurnoVerifConfirmar = "turno_verif_confirmar"
 )
 
 // AuditEvent registra eventos sensibles (spec §7: login, login fallido,

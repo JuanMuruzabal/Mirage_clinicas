@@ -85,6 +85,8 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		&Session{}, &AuthRateCounter{}, &AuditEvent{},
 		// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 		&HorarioAtencion{}, &BloqueoHorario{},
+		// Extra 2.3.5 (E5.6): "Confirmanos que sos vos" en el wizard público.
+		&VerificacionTurnoPublico{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -188,6 +190,48 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// la red de seguridad a nivel de base.
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_unico
 		   ON horarios_atencion (clinic_id) WHERE alcance = 'general'`,
+
+		// Extra 2.3.5 (E5.1): antes de que existiera el índice único de abajo,
+		// ya se habían cargado Paciente duplicados (mismo profesional_id+dni)
+		// en desarrollo — sin producción todavía (CLAUDE.md), pero el CREATE
+		// UNIQUE INDEX de abajo fallaría igual contra esos datos ya
+		// cargados. Este bloque deja una sola fila por (profesional_id, dni)
+		// — la más vieja (MIN(created_at), MIN(id) como desempate) — reasigna
+		// cualquier turno que apuntara a una fila descartada hacia la que se
+		// conserva, y recién después borra las descartadas. Idempotente: sin
+		// duplicados, el loop no encuentra filas y no hace nada.
+		`DO $$
+		DECLARE
+		  duplicado RECORD;
+		  ids uuid[];
+		  conservar uuid;
+		  descartar uuid[];
+		BEGIN
+		  FOR duplicado IN
+		    SELECT array_agg(id ORDER BY created_at, id) AS ids
+		    FROM pacientes
+		    GROUP BY profesional_id, dni
+		    HAVING COUNT(*) > 1
+		  LOOP
+		    ids := duplicado.ids;
+		    conservar := ids[1];
+		    descartar := ids[2:array_length(ids, 1)];
+		    UPDATE turnos SET paciente_id = conservar WHERE paciente_id = ANY(descartar);
+		    DELETE FROM pacientes WHERE id = ANY(descartar);
+		  END LOOP;
+		END $$`,
+
+		// Extra 2.3.5 (docs/implementation-plan.md §11.5, E5.1): un mismo DNI
+		// no puede tener dos fichas de Paciente dentro de la misma clínica —
+		// antes de esto, cualquier camino de alta (formulario público,
+		// "Agregar turno" con paciente nuevo) creaba un Paciente nuevo sin
+		// buscar primero si ya existía uno con ese DNI. La búsqueda-antes-de-
+		// crear en internal/http/turnos.go (crearOBuscarPacientePorDNI) es la
+		// que evita que esto se dispare en el camino feliz — este índice es
+		// la red de seguridad a nivel de base, mismo criterio que
+		// idx_horario_atencion_general_unico de arriba.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_paciente_dni_unico
+		   ON pacientes (profesional_id, dni)`,
 	}
 
 	for _, stmt := range statements {

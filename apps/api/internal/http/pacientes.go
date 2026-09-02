@@ -17,6 +17,7 @@ import (
 // autenticadas, acotadas al profesional del token.
 func registerPacienteRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/pacientes", listPacientesHandler(gdb))
+	r.Post("/pacientes", crearPacienteHandler(gdb))
 	r.Get("/pacientes/{id}", getPacienteHandler(gdb))
 	r.Patch("/pacientes/{id}", editarPacienteHandler(gdb))
 }
@@ -181,10 +182,101 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		if err := gdb.Save(&paciente).Error; err != nil {
+			// Extra 2.3.5 (E5.1): el DNI ahora es único por clínica — corregir
+			// la ficha de un paciente hacia un DNI que ya usa otro paciente
+			// tiene que dar un error legible en el modal, nunca un 500 crudo
+			// (mismo criterio que writeTurnoAgendadoError con el solapamiento
+			// de horario en turnos.go).
+			if isUniqueViolation(err) {
+				writeError(w, http.StatusConflict, "ya existe otro paciente con ese DNI")
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
 			return
 		}
 
 		writeJSON(w, http.StatusOK, toPacienteResponse(paciente))
+	}
+}
+
+type crearPacienteRequest struct {
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	DNI      string `json:"dni"`
+	Telefono string `json:"telefono"`
+	Email    string `json:"email"`
+}
+
+// crearPacienteHandler — POST /pacientes (Extra 2.3.5, E5.5): alta directa
+// de un paciente sin pasar por un turno, pedido explícito del cliente
+// ("+ Agregar paciente" en la sección Pacientes). A diferencia de
+// crearOBuscarPacientePorDNI (turnos.go) — que REUSA un paciente existente
+// porque viene de un flujo que necesita seguir creando el turno igual —
+// acá un DNI repetido es un error real: el profesional está tratando de
+// dar de alta a alguien que ya tiene ficha, así que se lo manda a buscarlo
+// en vez de crear una segunda fila o reusar en silencio una que no eligió.
+func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		profesionalID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+
+		var req crearPacienteRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+		req.Nombre = strings.TrimSpace(req.Nombre)
+		req.Apellido = strings.TrimSpace(req.Apellido)
+		req.DNI = strings.TrimSpace(req.DNI)
+		req.Telefono = strings.TrimSpace(req.Telefono)
+		req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+		if req.Nombre == "" || req.Apellido == "" {
+			writeError(w, http.StatusBadRequest, "nombre y apellido son obligatorios")
+			return
+		}
+		if !dniRegex.MatchString(req.DNI) {
+			writeError(w, http.StatusBadRequest, "el DNI debe tener 7 u 8 dígitos, sin puntos")
+			return
+		}
+		if !telefonoRegex.MatchString(req.Telefono) {
+			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
+			return
+		}
+		if req.Email != "" {
+			if _, err := mail.ParseAddress(req.Email); err != nil {
+				writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
+				return
+			}
+		}
+
+		var existente db.Paciente
+		if err := gdb.Where("profesional_id = ? AND dni = ?", profesionalID, req.DNI).First(&existente).Error; err == nil {
+			writeError(w, http.StatusConflict, "ya existe un paciente con ese DNI")
+			return
+		}
+
+		paciente := db.Paciente{
+			ProfesionalID: profesionalID,
+			Nombre:        req.Nombre,
+			Apellido:      req.Apellido,
+			DNI:           req.DNI,
+			Telefono:      req.Telefono,
+		}
+		if req.Email != "" {
+			paciente.Email = &req.Email
+		}
+		if err := gdb.Create(&paciente).Error; err != nil {
+			if isUniqueViolation(err) {
+				writeError(w, http.StatusConflict, "ya existe un paciente con ese DNI")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "no se pudo crear el paciente")
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente))
 	}
 }

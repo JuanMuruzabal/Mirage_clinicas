@@ -100,6 +100,31 @@ export function apiGetClinicaPublica(slug: string): Promise<ApiResult<ClinicaPub
   return request<ClinicaPublica>(`/clinicas/${slug}`);
 }
 
+// TipoConsultaPublico — Extra 2.3.5 (E5.2/E5.3): versión reducida de
+// TipoConsulta para el wizard público, sin tiempo post-consulta/cantidad de
+// sesiones/preferencia de atención — detalles internos del cálculo de
+// disponibilidad, no algo que el paciente elija o necesite ver.
+export interface TipoConsultaPublico {
+  id: string;
+  nombre: string;
+  color: string;
+  duracionMinutos: number;
+}
+
+// Primer paso de datos del wizard público después de los datos de
+// contacto: qué tipos de consulta ofrece la clínica (E5.3).
+export function apiListTiposConsultaPublico(slug: string): Promise<ApiResult<TipoConsultaPublico[]>> {
+  return request<TipoConsultaPublico[]>(`/clinicas/${slug}/tipos-consulta`);
+}
+
+// Mismo cálculo que apiListDisponibilidad (autenticado, lo usa el
+// profesional) — acá resuelto por slug público en vez de por sesión, y sin
+// excluirTurnoId (el wizard público siempre pide un turno nuevo).
+export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: string, fecha: string): Promise<ApiResult<Disponibilidad>> {
+  const query = new URLSearchParams({ tipoConsultaId, fecha });
+  return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
+}
+
 export interface SolicitarTurnoPublicoPayload {
   nombreContacto: string;
   apellidoContacto: string;
@@ -107,16 +132,55 @@ export interface SolicitarTurnoPublicoPayload {
   telefonoContacto: string;
   emailContacto: string;
   motivo?: string;
+  // tipoConsultaId/fecha/hora — Extra 2.3.5 (E5.2/E5.3): el wizard público
+  // ahora elige tipo de consulta, fecha y horario disponible antes de
+  // confirmar — el turno nace `agendado`, con horario real, nunca más
+  // `pendiente` (TR-006 queda solo para turnos ya viejos hasta que Extra
+  // 2.3.3 saque el estado del todo).
+  tipoConsultaId: string;
+  fecha: string;
+  hora: string;
+  // verificacionToken (E5.6, "Confirmanos que sos vos") — token opaco que
+  // devuelve apiConfirmarVerificacionTurnoPublico tras validar el código
+  // de 6 dígitos mandado a emailContacto. Sin esto, el backend rechaza el
+  // pedido de turno.
+  verificacionToken: string;
 }
 
-// Formulario público de pedido de turno (spec §4.4, T3.1/T3.2) — sin
-// autenticación, crea el turno en estado `pendiente` en paralelo al envío
-// por WhatsApp que arma el frontend (TR-003).
+// EnviarVerificacionTurnoPublicoPayload/apiEnviarVerificacionTurnoPublico
+// (E5.6) — primer paso de "Confirmanos que sos vos": manda un código de 6
+// dígitos al mail que puso el paciente.
+export function apiEnviarVerificacionTurnoPublico(slug: string, email: string): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/clinicas/${slug}/verificacion-email`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+// apiConfirmarVerificacionTurnoPublico (E5.6) — valida el código y, si es
+// correcto, devuelve el token de prueba que el resto del wizard tiene que
+// mandar junto con el pedido de turno final.
+export function apiConfirmarVerificacionTurnoPublico(slug: string, email: string, codigo: string): Promise<ApiResult<{ token: string }>> {
+  return request<{ token: string }>(`/clinicas/${slug}/verificacion-email/confirmar`, {
+    method: "POST",
+    body: JSON.stringify({ email, codigo }),
+  });
+}
+
+export interface SolicitarTurnoPublicoResponse {
+  id: string;
+  horaInicio: string;
+  horaFin: string;
+}
+
+// Formulario público de pedido de turno (spec §4.4, Extra 2.3.5) — sin
+// autenticación, crea el turno directamente `agendado` en paralelo al
+// envío por WhatsApp que arma el frontend (TR-003).
 export function apiSolicitarTurnoPublico(
   slug: string,
   payload: SolicitarTurnoPublicoPayload,
-): Promise<ApiResult<{ id: string }>> {
-  return request<{ id: string }>(`/clinicas/${slug}/turnos`, {
+): Promise<ApiResult<SolicitarTurnoPublicoResponse>> {
+  return request<SolicitarTurnoPublicoResponse>(`/clinicas/${slug}/turnos`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -517,6 +581,27 @@ export function apiEditarTurno(token: string, turnoId: string, payload: EditarTu
 export function apiListPacientes(token: string, q?: string): Promise<ApiResult<Paciente[]>> {
   const qs = q ? `?q=${encodeURIComponent(q)}` : "";
   return request<Paciente[]>(`/pacientes${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export interface CrearPacientePayload {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono: string;
+  email?: string;
+}
+
+// "+ Agregar paciente" (Extra 2.3.5, E5.5): alta directa sin pasar por un
+// turno. A diferencia del alta que ocurre de rebote al agendar (que reusa
+// un paciente existente por DNI, turnos.go), acá un DNI repetido es un
+// error real — el backend lo rechaza con 409 en vez de reusar en silencio
+// una ficha que el profesional no eligió.
+export function apiCrearPaciente(token: string, payload: CrearPacientePayload): Promise<ApiResult<Paciente>> {
+  return request<Paciente>("/pacientes", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
 }
 
 // T3.6: detalle de paciente + historial completo de turnos.

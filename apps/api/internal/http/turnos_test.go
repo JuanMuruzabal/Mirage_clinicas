@@ -258,6 +258,60 @@ func TestCrearTurnoManual_Exitoso(t *testing.T) {
 	}
 }
 
+// TestCrearTurnoManual_IgnoraDatosDelFormularioSiElDNIYaExiste — corrección
+// de bug reportado por el cliente: "si genero un turno, modificando el
+// nombre apellido o algunos de estos datos, el turno se me va a generar
+// con ese nuevo nombre o datos cambiados, pero asignado al paciente con el
+// dni puesto... sin importar lo que pongan en el formulario, si el DNI ya
+// existe... los datos que mostrará en el calendario son los datos del
+// paciente que hay en el sistema y no los del formulario". "Paciente
+// nuevo" con un DNI ya cargado no debe poder disfrazarse de otra persona.
+func TestCrearTurnoManual_IgnoraDatosDelFormularioSiElDNIYaExiste(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual-dni-existente@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
+		EmailContacto:  "julian@example.com",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     inicio.Format(time.RFC3339),
+		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+
+	// Segundo turno, mismo DNI pero con nombre/teléfono/email DISTINTOS.
+	otroInicio := inicio.Add(time.Hour)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Otro", ApellidoContacto: "Apellido", DNIContacto: "30222333", TelefonoContacto: "+5493519999999",
+		EmailContacto:  "otro@example.com",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     otroInicio.Format(time.RFC3339),
+		HoraFin:        otroInicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var got turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.NombreContacto != "Julián" || got.ApellidoContacto != "Ortiz" {
+		t.Errorf("nombreContacto/apellidoContacto = %q/%q, esperaba Julián/Ortiz (datos reales del paciente existente)", got.NombreContacto, got.ApellidoContacto)
+	}
+	if got.TelefonoContacto != "+5493511111111" {
+		t.Errorf("telefonoContacto = %q, esperaba el teléfono real del paciente, no el tipeado en el segundo turno", got.TelefonoContacto)
+	}
+	if got.EmailContacto != "julian@example.com" {
+		t.Errorf("emailContacto = %q, esperaba el email real del paciente, no el tipeado en el segundo turno", got.EmailContacto)
+	}
+
+	var count int64
+	gdb.Model(&db.Paciente{}).Where("dni = ?", "30222333").Count(&count)
+	if count != 1 {
+		t.Errorf("count de pacientes con ese DNI = %d, esperaba 1 (sin duplicar)", count)
+	}
+}
+
 func TestCrearTurnoManual_CamposObligatoriosFaltantes(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
