@@ -1381,4 +1381,16 @@
 
 ---
 
+## TR-112: GORM deja de loguear "record not found" como si fuera un error
+
+- **Fecha:** 2026-09-05
+- **Fase:** limpieza de logs de producción, pedido del cliente tras revisar la consola de Render.
+- **Contexto:** el cliente pegó varias líneas de log de `dental-mirage-api` en Render (`record not found` en `ratelimit.go`, `clinicas.go`, `paciente_verificado_publico.go`, `turno_publico.go`, `paciente_conflicto_publico.go`) preguntando si eran graves. Ninguna lo era: todas corresponden a queries "¿existe X?" que el propio código maneja como resultado válido (¿ya hay un contador de rate limit para esta clave?, ¿el slug pedido es una clínica real?, ¿ya hay una ficha con este DNI?) — nunca un fallo real. El logger por default de GORM (`logger.Default.LogMode(logger.Warn)`, usado en `internal/db/db.go` desde el día 1) loguea CUALQUIER `gorm.ErrRecordNotFound` en rojo como si fuera un error, sin importar que el caller lo esté chequeando con `errors.Is` y tratándolo como un camino normal.
+- **Decisión:** `internal/db/db.go` arma su propio `logger.New(...)` (mismo formato/umbral/colores que `logger.Default`, la única diferencia real) con `IgnoreRecordNotFoundError: true`. Como `internal/testdb` también pasa por `db.Connect`, esto también calla el mismo ruido en la salida de `go test` — molestaba ahí también, se veía en cada corrida de este proyecto desde el principio.
+- **Alternativas descartadas:** silenciar el logger por completo (`logger.Silent`) — descartado, un error de Postgres real (conexión caída, columna inexistente, timeout) tiene que seguir viéndose; envolver cada `First()`/`Find()` del código para que no propague el log — no existe ese mecanismo en GORM a ese nivel, la única perilla real es `IgnoreRecordNotFoundError` en la config del logger.
+- **Qué se sacrifica:** nada — sigue logueando cualquier error real (timeouts, columnas rotas, violaciones de constraint que no sean "not found"), solo deja de loguear el caso específico que el código ya trata como no-error.
+- **Reversibilidad:** total — una línea (`IgnoreRecordNotFoundError: true`) en un solo archivo.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
