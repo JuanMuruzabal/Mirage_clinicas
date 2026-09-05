@@ -49,6 +49,68 @@ describe("PacienteDatos", () => {
     expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
   });
 
+  // Fase 2.4.1, corrección de QA: mails/teléfonos migrados por una
+  // resolución de conflicto ("el mail es de la persona verificada") se
+  // agrupan detrás de "Ver mails →"/"Ver teléfonos →" en vez de mostrar
+  // solo el principal.
+  describe("mails/teléfonos alternativos (Fase 2.4.1)", () => {
+    it("con un solo mail alternativo, agrupa detrás de 'Ver mails →'", async () => {
+      const user = userEvent.setup();
+      render(<PacienteDatos pacienteInicial={paciente} emailsAlternativos={["bruno.alt@example.com"]} />);
+
+      expect(screen.queryByText("bruno@example.com")).not.toBeInTheDocument();
+      const boton = screen.getByRole("button", { name: "Ver mails →" });
+      await user.click(boton);
+
+      const dialogo = await screen.findByRole("dialog", { name: "Mails" });
+      expect(dialogo).toHaveTextContent("bruno@example.com");
+      expect(dialogo).toHaveTextContent("bruno.alt@example.com");
+    });
+
+    it("con un teléfono alternativo, agrupa detrás de 'Ver teléfonos →'", async () => {
+      const user = userEvent.setup();
+      render(<PacienteDatos pacienteInicial={paciente} telefonosAlternativos={["+5493519999999"]} />);
+
+      expect(screen.queryByText("+5493511234567")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Ver teléfonos →" }));
+
+      const dialogo = await screen.findByRole("dialog", { name: "Teléfonos" });
+      expect(dialogo).toHaveTextContent("+5493511234567");
+      expect(dialogo).toHaveTextContent("+5493519999999");
+    });
+
+    // Bug real reportado por el cliente, 2026-09-05: "se migró todo menos
+    // el mail" — con la ficha verificada SIN mail propio, el único mail
+    // alternativo migrado no entraba en la rama "> 1" y el respaldo
+    // mostraba el mail principal (vacío) en vez del alternativo.
+    it("con la ficha SIN mail propio y un solo mail alternativo, muestra ese mail (no '—')", () => {
+      render(<PacienteDatos pacienteInicial={{ ...paciente, email: null }} emailsAlternativos={["migrado@example.com"]} />);
+
+      expect(screen.getByText("migrado@example.com")).toBeInTheDocument();
+      expect(screen.queryByText("—")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver mails →" })).not.toBeInTheDocument();
+    });
+
+    it("con la ficha SIN mail propio y un mail alternativo largo, se oculta detrás de 'Ver email'", async () => {
+      const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
+      const user = userEvent.setup();
+      render(<PacienteDatos pacienteInicial={{ ...paciente, email: null }} emailsAlternativos={[emailLargo]} />);
+
+      expect(screen.getByRole("button", { name: "Ver email" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Ver email" }));
+      const dialogo = await screen.findByRole("dialog", { name: "Email" });
+      expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
+    });
+
+    it("sin alternativos, muestra el mail/teléfono principal como siempre", () => {
+      render(<PacienteDatos pacienteInicial={paciente} />);
+      expect(screen.queryByRole("button", { name: "Ver mails →" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver teléfonos →" })).not.toBeInTheDocument();
+      expect(screen.getByText("bruno@example.com")).toBeInTheDocument();
+      expect(screen.getByText("+5493511234567")).toBeInTheDocument();
+    });
+  });
+
   it("'Editar datos' abre el modal, y al guardar actualiza los datos mostrados", async () => {
     editarPacienteActionMock.mockResolvedValue({ paciente: { ...paciente, dni: "30222333" } });
     const user = userEvent.setup();

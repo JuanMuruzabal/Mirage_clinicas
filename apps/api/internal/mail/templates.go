@@ -15,6 +15,7 @@ var (
 	passwordResetTpl     = template.Must(template.ParseFS(templatesFS, "templates/password_reset.html"))
 	welcomeTpl           = template.Must(template.ParseFS(templatesFS, "templates/welcome.html"))
 	turnoVerificacionTpl = template.Must(template.ParseFS(templatesFS, "templates/turno_verificacion.html"))
+	turnoConfirmadoTpl   = template.Must(template.ParseFS(templatesFS, "templates/turno_confirmado.html"))
 )
 
 type verificationData struct{ Code string }
@@ -43,6 +44,17 @@ func renderTurnoVerificacionEmail(code, nombreClinica string) (subject, html str
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de verificación de turno: %w", err)
 	}
 	return fmt.Sprintf("Tu código para pedir turno en %s", nombreClinica), buf.String(), nil
+}
+
+// renderTurnoConfirmadoEmail — pedido textual del cliente: "cada vez que
+// se saque un turno, enviar una notificación por mail, al mail con el
+// que se hizo el turno".
+func renderTurnoConfirmadoEmail(info TurnoConfirmadoInfo) (subject, html string, err error) {
+	var buf bytes.Buffer
+	if err := turnoConfirmadoTpl.Execute(&buf, info); err != nil {
+		return "", "", fmt.Errorf("no se pudo renderizar el mail de turno confirmado: %w", err)
+	}
+	return fmt.Sprintf("Turno confirmado en %s", info.NombreClinica), buf.String(), nil
 }
 
 func renderPasswordResetEmail(resetURL string) (subject, html string, err error) {

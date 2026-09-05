@@ -255,9 +255,23 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
+                      <span className={`inline-flex flex-wrap items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
                         <QuadrantMark estado={t.estado} />
                         {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
+                        {/* Corrección de QA: "en la ficha de pacientes en
+                            historial de turnos si el turno fue ausente o
+                            asistió, ya que no hay referencia visual de
+                            esto" — mismo criterio de color que
+                            TurnosTable/TurnoDetalle/calendar-grid.tsx. */}
+                        {resuelto && t.asistencia && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
+                            }`}
+                          >
+                            {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
+                          </span>
+                        )}
                       </span>
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-grafito/60">

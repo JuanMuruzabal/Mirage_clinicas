@@ -98,6 +98,40 @@ describe("CalendarMonthGrid", () => {
     expect(puntoDeTurno(container)).toHaveStyle({ background: "var(--color-arena)" });
   });
 
+  // Corrección de QA: "en el calendario a los turnos resueltos si son
+  // asistidos que tengan un contorno verde y los ausentes un contorno
+  // rojo" — acá el "turno" es un punto de 1.5px, el contorno es un
+  // anillo alrededor.
+  it("un turno resuelto marcado 'asistio' tiene anillo verde", () => {
+    const turnoPasado = { ...turnoEnDia1, horaInicio: "2020-01-01T09:00:00Z", horaFin: "2020-01-01T09:30:00Z", asistencia: "asistio" as const };
+    const diasPasado = diasDeVista(new Date(2020, 0, 15), "mes");
+    const { container } = render(
+      <CalendarMonthGrid
+        dias={diasPasado}
+        mesReferencia={new Date(2020, 0, 15)}
+        turnos={[turnoPasado]}
+        tiposConsulta={tiposConsulta}
+        onDiaClick={vi.fn()}
+      />,
+    );
+    expect(puntoDeTurno(container)).toHaveClass("ring-salvia-oscuro");
+  });
+
+  it("un turno resuelto marcado 'ausente' tiene anillo rojo", () => {
+    const turnoPasado = { ...turnoEnDia1, horaInicio: "2020-01-01T09:00:00Z", horaFin: "2020-01-01T09:30:00Z", asistencia: "ausente" as const };
+    const diasPasado = diasDeVista(new Date(2020, 0, 15), "mes");
+    const { container } = render(
+      <CalendarMonthGrid
+        dias={diasPasado}
+        mesReferencia={new Date(2020, 0, 15)}
+        turnos={[turnoPasado]}
+        tiposConsulta={tiposConsulta}
+        onDiaClick={vi.fn()}
+      />,
+    );
+    expect(puntoDeTurno(container)).toHaveClass("ring-terracota-oscuro");
+  });
+
   // Corrección de QA (F2.3): el acento es el color CONFIGURADO para ese
   // tipo de consulta (tc-1 → #E7D9BE), no un tema fijo por nombre.
   it("un turno pinta su punto con el color configurado para su tipo de consulta", () => {

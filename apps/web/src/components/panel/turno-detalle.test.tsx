@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-const { marcarAsistenciaActionMock } = vi.hoisted(() => ({ marcarAsistenciaActionMock: vi.fn() }));
-vi.mock("@/app/actions/turnos", () => ({
-  marcarAsistenciaAction: marcarAsistenciaActionMock,
-}));
 
 const { TurnoDetalle } = await import("./turno-detalle");
 
@@ -130,87 +125,39 @@ describe("TurnoDetalle", () => {
     expect(screen.queryByText(/reprogramado automáticamente/)).not.toBeInTheDocument();
   });
 
-  // Paso 2b (pedido explícito del cliente, 2026-09-04): "los turnos
-  // resueltos ahora tienen la opción al ser tocados de marcar asistidos o
-  // ausente, cosa de poder guardar ese dato... tanto en el calendario,
-  // como de la sección de turnos resueltos en la pestaña de turnos" — acá
-  // el lado "calendario" de ese pedido. Irreversible (corrección de QA,
-  // 2026-09-04, textual): "me debe aparecer un aviso que la elección es
-  // irreversible y confirmar esto" — tocar el botón solo pide
-  // confirmación, la Server Action recién se llama al confirmar.
-  describe("marcar asistencia (solo en un turno resuelto, irreversible)", () => {
+  // Corrección de QA (rediseño del cartel de asistencia en tiempo real,
+  // `AsistenciaCartelGlobal`): "vamos a quitar todos los otros botones
+  // para poner ausente o presente fuera de esto, por ejemplo... en la
+  // tarjeta del calendario" — este panel deja de tener forma de marcar
+  // asistencia, solo muestra lo que el cartel ya marcó (o un aviso de que
+  // todavía está pendiente ahí).
+  describe("asistencia (solo lectura, el cartel global es quien la marca)", () => {
     const resuelto = { ...turno, horaInicio: "2020-01-01T09:00:00Z", horaFin: "2020-01-01T09:30:00Z" };
 
-    it("un turno todavía no resuelto no ofrece marcar asistencia", () => {
+    it("un turno todavía no resuelto no muestra nada de asistencia", () => {
       render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+      expect(screen.queryByText("Asistencia")).not.toBeInTheDocument();
+    });
+
+    it("un turno resuelto sin marcar avisa que está pendiente en el cartel, sin botones", () => {
+      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+      expect(screen.getByText("Pendiente de confirmar en el cartel de asistencia.")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Ausente" })).not.toBeInTheDocument();
     });
 
-    it("tocar 'Asistió' NO llama a la Server Action todavía — pide confirmación con el aviso de irreversibilidad", async () => {
-      const user = userEvent.setup();
-      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
-      expect(screen.getByText(/Esta elección es irreversible/)).toBeInTheDocument();
-      expect(screen.getByText(/¿Confirmás que el paciente asistió\?/)).toBeInTheDocument();
+    it("un turno ya marcado 'asistio' muestra la etiqueta correspondiente", () => {
+      const marcado = { ...resuelto, asistencia: "asistio" as const };
+      render(<TurnoDetalle turno={marcado} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
+      expect(screen.getByText("Asistió")).toBeInTheDocument();
     });
 
-    it("tocar 'Ausente' pide confirmar con el texto correcto ('estuvo ausente')", async () => {
-      const user = userEvent.setup();
-      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
-      await user.click(screen.getByRole("button", { name: "Ausente" }));
-      expect(screen.getByText(/¿Confirmás que el paciente estuvo ausente\?/)).toBeInTheDocument();
-    });
-
-    it("'Cancelar' en la confirmación vuelve a los dos botones sin llamar a la acción", async () => {
-      const user = userEvent.setup();
-      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "Asistió" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Ausente" })).toBeInTheDocument();
-    });
-
-    it("'Confirmar' llama a marcarAsistenciaAction y deja la marca fija, sin botones", async () => {
-      const user = userEvent.setup();
-      marcarAsistenciaActionMock.mockResolvedValue({ turno: { ...resuelto, asistencia: "asistio" } });
-      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-      expect(marcarAsistenciaActionMock).toHaveBeenCalledWith("t-1", "asistio");
-      expect(await screen.findByText("No se puede modificar.")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Ausente" })).not.toBeInTheDocument();
-    });
-
-    it("un turno que ya llega marcado muestra la etiqueta fija de entrada, sin botones", () => {
-      const yaMarcado = { ...resuelto, asistencia: "ausente" as const };
-      render(<TurnoDetalle turno={yaMarcado} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
+    it("un turno ya marcado 'ausente' muestra la etiqueta correspondiente, sin botones", () => {
+      const marcado = { ...resuelto, asistencia: "ausente" as const };
+      render(<TurnoDetalle turno={marcado} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
       expect(screen.getByText("Ausente")).toBeInTheDocument();
-      expect(screen.getByText("No se puede modificar.")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Ausente" })).not.toBeInTheDocument();
-    });
-
-    it("muestra el error si falla al confirmar la asistencia", async () => {
-      const user = userEvent.setup();
-      marcarAsistenciaActionMock.mockResolvedValue({ error: "la asistencia ya fue marcada y no se puede modificar" });
-      render(<TurnoDetalle turno={resuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Confirmar" }));
-      await waitFor(() =>
-        expect(screen.getByRole("alert")).toHaveTextContent("la asistencia ya fue marcada y no se puede modificar"),
-      );
     });
   });
 });

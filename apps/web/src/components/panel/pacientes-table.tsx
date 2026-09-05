@@ -7,6 +7,7 @@ import { textoEsLargo } from "@/lib/texto-largo";
 import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { ClickableTableRow } from "./clickable-table-row";
+import { EstadoVerificadoBadge } from "./estado-verificado-badge";
 
 interface PacientesTableProps {
   pacientes: Paciente[];
@@ -41,6 +42,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
               (2026-08-28). */}
           <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
             <th className="panel-th-sticky px-4 py-3">Nombre</th>
+            <th className="panel-th-sticky px-4 py-3">Estado</th>
             <th className="panel-th-sticky max-md:hidden px-4 py-3">DNI</th>
             <th className="panel-th-sticky px-4 py-3">Teléfono</th>
             <th className="panel-th-sticky max-md:hidden px-4 py-3">Email</th>
@@ -63,6 +65,9 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         {p.nombre} {p.apellido}
                       </p>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <EstadoVerificadoBadge verificado={p.verificado} />
                   </td>
                   <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
                   <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
@@ -101,7 +106,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                 </ClickableTableRow>
                 {expandido && (
                   <tr className="border-b border-arena bg-hueso last:border-b-0 md:hidden">
-                    <td colSpan={5} className="px-4 py-3">
+                    <td colSpan={6} className="px-4 py-3">
                       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-base">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">DNI</dt>
                         <dd className="font-[family-name:var(--font-mono)] text-grafito">{p.dni}</dd>

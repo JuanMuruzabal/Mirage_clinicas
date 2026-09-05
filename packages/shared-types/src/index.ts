@@ -296,6 +296,10 @@ export interface Turno {
   // en TurnoDetalle. Opcional (igual que `asistencia`) para no romper los
   // fixtures de test existentes que construyen un Turno sin este campo.
   autoreservado?: boolean;
+  // pacienteVerificado (corrección de seguridad, Fase 2.4.1) — mismo
+  // criterio que Paciente.verificado: false si no hay paciente vinculado.
+  // Opcional por lo mismo que autoreservado — no romper fixtures viejos.
+  pacienteVerificado?: boolean;
 }
 
 // AutoreservarResultadoItem/AutoreservarTurnosResponse — respuesta de
@@ -324,6 +328,11 @@ export interface ResumenTurnoItem {
   hora: string; // HH:MM, Córdoba
   horaFin: string; // HH:MM, Córdoba
   nombre: string;
+  // asistencia (rediseño de "Turnos resueltos" del dashboard — ya no es
+  // una bandeja de pendientes, ahora reporta lo que se marcó hoy): vacío
+  // en `turnosHoy`/`turnosProximos` (nunca hay uno marcado ahí, son
+  // siempre vigentes), "asistio" | "ausente" en `turnosResueltos`.
+  asistencia?: "asistio" | "ausente" | "";
 }
 
 export interface ResumenHorarioReservadoItem {
@@ -357,6 +366,26 @@ export interface ResumenPanel {
   // histórico, sin acotar por fecha.
   turnosAsistidos: number;
   turnosAusentes: number;
+}
+
+// TurnosPendientesAsistenciaResponse — espejo de
+// turnosPendientesAsistenciaResponse (internal/http/turnos_pendientes_asistencia.go).
+// Fuente de datos de AsistenciaCartelGlobal (TR-107, 1.3ter): sin ningún
+// tope de fecha a propósito — el cartel es la única forma de marcar
+// asistencia y tiene que seguir apareciendo, sea cual sea la antigüedad
+// del turno sin marcar, hasta que se resuelva.
+export interface TurnosPendientesAsistenciaResponse {
+  vencidos: Turno[];
+  proximoVencimiento: string | null;
+}
+
+// PanelNotificacionesResponse — espejo de panelNotificacionesResponse
+// (internal/http/panel_notificaciones.go). Fuente de datos del aviso
+// global de conflictos (fuera de Pacientes/Calendario) — ver
+// NotificacionesConflictoGlobal.
+export interface PanelNotificacionesResponse {
+  conflictosPacientes: number;
+  conflictosCalendario: number;
 }
 
 // --- Sprint 3: turnos entrantes + pacientes + formulario público ---
@@ -395,10 +424,83 @@ export interface Paciente {
   telefono: string;
   email?: string | null;
   createdAt: string;
+  // verificado (Fase 2.4.1) — al menos 1 turno resuelto y asistido,
+  // calculado al vuelo en el backend (nunca una columna en la base, mismo
+  // criterio que "resuelto" en Turnos, TR-074). Opcional para no romper
+  // fixtures de test existentes que no lo incluyen — ausente se trata
+  // igual que `false`.
+  verificado?: boolean;
 }
 
 // Espejo de pacienteDetalleResponse — datos personales + historial
 // completo de turnos (T3.6); el front separa "activos" de "historial".
 export interface PacienteDetalle extends Paciente {
   turnos: Turno[];
+  // emailsAlternativos/telefonosAlternativos (Fase 2.4.1, corrección de
+  // QA) — mails/teléfonos sumados a esta ficha VERIFICADA al resolver un
+  // conflicto de pacientes con "el mail es de la persona verificada".
+  // Vacío/ausente en la enorme mayoría de los pacientes.
+  emailsAlternativos?: string[];
+  telefonosAlternativos?: string[];
+}
+
+// Espejo de conflictoPacienteResponse (Fase 2.4.1,
+// internal/http/pacientes_conflicto_panel.go) — dos fichas compitiendo por
+// el mismo DNI, para la pantalla de resolución en /panel/pacientes.
+export interface ConflictoPaciente {
+  id: string;
+  pacienteVerificado: Paciente;
+  pacienteEnConflicto: Paciente;
+  turno: Turno;
+  motivo: string;
+  createdAt: string;
+  // turnoVigenteDelMismoTipo (Fase 2.4.1, corrección de QA) — si el
+  // paciente verificado YA tiene un turno vigente del MISMO tipo de
+  // consulta que `turno`, viene acá: resolver "es la persona verificada"
+  // NO migra `turno` en ese caso (lo cancela, prevalece este).
+  turnoVigenteDelMismoTipo?: Turno;
+}
+
+// Espejo de mailBloqueadoResponse/ipBloqueadaResponse/auditoriaBloqueoResponse
+// (corrección de seguridad, Fase 2.4.1, internal/http/seguridad_turno_publico.go)
+// — "el apartado de auditoría de turnos de bloqueos, donde muestre los
+// mails bloqueados etc, por las dudas de algún malentendido".
+export interface MailBloqueado {
+  id: string;
+  email: string;
+  bloqueadoHasta: string;
+  createdAt: string;
+}
+
+export interface IPBloqueada {
+  id: string;
+  ip: string;
+  bloqueadoHasta: string;
+  createdAt: string;
+}
+
+export interface AuditoriaBloqueo {
+  id: string;
+  // motivo: "mail_muchos_dnis" (mismo mail, muchos DNIs distintos) |
+  // "ip_rotacion" (mail y DNI rotando juntos desde la misma IP) |
+  // "dni_tipo_tope" (tope de turnos sin verificar por DNI+tipo de
+  // consulta — solo aparece en modo simulado, ver `simulado` abajo: este
+  // detector nunca bloquea ni borra nada de verdad, solo rechaza el
+  // pedido).
+  motivo: "mail_muchos_dnis" | "ip_rotacion" | "dni_tipo_tope";
+  email?: string;
+  ip?: string;
+  dnis: string;
+  turnosBorrados: number;
+  // simulado — corrección de seguridad (Fase 2.4.1): true en local (sin
+  // RESEND_API_KEY configurada) — esta fila describe qué SE HABRÍA
+  // bloqueado/borrado, nunca pasó de verdad.
+  simulado: boolean;
+  createdAt: string;
+}
+
+export interface BloqueosSeguridad {
+  mailsBloqueados: MailBloqueado[];
+  ipsBloqueadas: IPBloqueada[];
+  auditoria: AuditoriaBloqueo[];
 }

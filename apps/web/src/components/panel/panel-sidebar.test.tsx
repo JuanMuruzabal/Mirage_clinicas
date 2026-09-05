@@ -37,11 +37,18 @@ describe("PanelSidebar", () => {
     expect(activo).toHaveClass("bg-salvia-claro");
   });
 
-  it("lista Panel, General/Calendario/Turnos/Pacientes y Tu página/Tu perfil", () => {
+  it("lista Panel, General/Calendario/Turnos/Pacientes y Tu página/Tu perfil/Seguridad", () => {
     renderSidebar();
-    for (const label of ["Panel", "General", "Calendario", "Turnos", "Pacientes", "Tu página", "Tu perfil"]) {
+    for (const label of ["Panel", "General", "Calendario", "Turnos", "Pacientes", "Tu página", "Tu perfil", "Seguridad"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+
+  // Corrección de seguridad (Fase 2.4.1): "Seguridad" lleva a la
+  // auditoría de mails/IPs bloqueados por el formulario público.
+  it("'Seguridad' lleva a /panel/seguridad", () => {
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Seguridad" })).toHaveAttribute("href", "/panel/seguridad");
   });
 
   // TR-075 en docs/tradeoffs.md (pedido explícito del cliente,
@@ -105,10 +112,11 @@ describe("PanelSidebar", () => {
     expect(linkPagina.querySelector("svg")).toBeInTheDocument();
     expect(linkPerfil.querySelector("svg")).toBeInTheDocument();
 
-    // Con las dos herramientas de arriba (T2.1) da 6 <svg> en total —
+    // Con las dos herramientas de arriba (T2.1) más "Seguridad"
+    // (corrección de seguridad, Fase 2.4.1) da 7 <svg> en total —
     // "Panel" usa QuadrantMark, que es un <span>, no suma acá.
     const iconos = container.querySelectorAll("svg");
-    expect(iconos).toHaveLength(6);
+    expect(iconos).toHaveLength(7);
   });
 
   // TR-075 en docs/tradeoffs.md (pedido explícito del cliente,

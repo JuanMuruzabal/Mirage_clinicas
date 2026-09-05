@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { Paciente } from "@dental-mirage/shared-types";
-import { apiCrearPaciente, apiEditarPaciente, apiListPacientes, type CrearPacientePayload, type EditarPacientePayload } from "@/lib/api";
+import type { ConflictoPaciente, Paciente } from "@dental-mirage/shared-types";
+import {
+  apiCrearPaciente,
+  apiEditarPaciente,
+  apiListConflictosPaciente,
+  apiListPacientes,
+  apiResolverConflictoPaciente,
+  type CrearPacientePayload,
+  type EditarPacientePayload,
+} from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 export interface PacienteActionResult {
@@ -57,4 +65,33 @@ export async function crearPacienteAction(payload: CrearPacientePayload): Promis
   }
   revalidatePath("/panel/pacientes");
   return { paciente: result.data };
+}
+
+// listConflictosPacienteAction — Fase 2.4.1: banner + pantalla de
+// resolución de conflictos en /panel/pacientes. Un error de red se
+// devuelve como lista vacía (mismo criterio que listPacientesAction) — el
+// banner simplemente no aparece, no bloquea la pantalla.
+export async function listConflictosPacienteAction(): Promise<ConflictoPaciente[]> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiListConflictosPaciente(token);
+  return result.ok ? result.data : [];
+}
+
+// resolverConflictoPacienteAction — Fase 2.4.1: los dos botones de la
+// pantalla de resolución ("el mail es de la persona verificada" / "el
+// mail no es del paciente verificado").
+export async function resolverConflictoPacienteAction(conflictoId: string, esVerificado: boolean): Promise<PacienteActionResult | { ok: true }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiResolverConflictoPaciente(token, conflictoId, { esVerificado });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/panel/pacientes");
+  return { ok: true };
 }

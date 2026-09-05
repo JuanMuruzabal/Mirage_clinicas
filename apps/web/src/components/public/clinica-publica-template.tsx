@@ -1,5 +1,6 @@
 import { QuadrantMark } from "@/components/quadrant-mark";
-import { PedirTurnoForm } from "./pedir-turno-form";
+import { PedirTurnoButton } from "./pedir-turno-button";
+import { MisTurnosButton } from "./mis-turnos-button";
 
 interface ClinicaPublicaTemplateProps {
   slug: string;
@@ -75,9 +76,17 @@ export function ClinicaPublicaTemplate({
         )}
       </nav>
 
-      <section id="turno" className="mx-auto w-full max-w-xl scroll-mt-6">
-        <h2 className="mb-4 text-center font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Pedí tu turno</h2>
-        <PedirTurnoForm slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefono} />
+      {/* Fase 2.4.1 (corrección de QA sobre F4.1.6): esta sección ya no
+          embebe el wizard directo — es solo el botón que lo abre por
+          encima de la página (ver PedirTurnoButton). */}
+      <section id="turno" className="mx-auto flex w-full max-w-xl scroll-mt-6 flex-col items-center gap-4 text-center">
+        <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Pedí tu turno</h2>
+        <p className="text-sm text-grafito/70">Elegí el horario que más te convenga en simples pasos.</p>
+        <PedirTurnoButton slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefono} />
+        {/* Pedido textual del cliente: botón "MIS TURNOS" debajo de
+            "Pedir turno" — DNI+mail directo, muestra el turno activo
+            como tarjeta si coincide. */}
+        <MisTurnosButton slug={slug} />
       </section>
 
       <section

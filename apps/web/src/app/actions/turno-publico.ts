@@ -3,9 +3,13 @@
 import {
   apiConfirmarVerificacionTurnoPublico,
   apiEnviarVerificacionTurnoPublico,
+  apiGetPacienteVerificadoPublico,
   apiListDisponibilidadPublica,
   apiListTiposConsultaPublico,
+  apiMisTurnoPublico,
   apiSolicitarTurnoPublico,
+  type MisTurnoPublico,
+  type PacienteVerificadoPublico,
   type SolicitarTurnoPublicoPayload,
   type TipoConsultaPublico,
 } from "@/lib/api";
@@ -42,19 +46,25 @@ export async function listDisponibilidadPublicaAction(
 export interface EnviarVerificacionEmailResult {
   error?: string;
   ok?: boolean;
+  // codigoDev (Fase 2.4.1) — ver EnviarVerificacionTurnoPublicoResponse:
+  // solo viene en local, nunca en producción.
+  codigoDev?: string;
 }
 
 // enviarVerificacionEmailAction — Extra 2.3.5 (E5.6), "Confirmanos que sos
 // vos": primer paso después de los datos de contacto — manda un código de
 // 6 dígitos al mail que puso. Se usa tanto para el envío inicial como para
 // "Reenviar código" (misma acción, el backend decide si corresponde por
-// el cooldown de 60s).
-export async function enviarVerificacionEmailAction(slug: string, email: string): Promise<EnviarVerificacionEmailResult> {
-  const result = await apiEnviarVerificacionTurnoPublico(slug, email);
+// el cooldown de 60s). `captchaToken` (corrección de seguridad, Fase
+// 2.4.1) viene del widget de Turnstile en el propio formulario — este es
+// el único punto de entrada de todo el flujo público de turnos, así que
+// es donde tiene que frenar la automatización.
+export async function enviarVerificacionEmailAction(slug: string, email: string, captchaToken: string): Promise<EnviarVerificacionEmailResult> {
+  const result = await apiEnviarVerificacionTurnoPublico(slug, email, captchaToken);
   if (!result.ok) {
     return { error: result.error };
   }
-  return { ok: true };
+  return { ok: true, codigoDev: result.data.codigoDev };
 }
 
 export interface ConfirmarVerificacionEmailResult {
@@ -71,6 +81,31 @@ export async function confirmarVerificacionEmailAction(slug: string, email: stri
     return { error: result.error };
   }
   return { token: result.data.token };
+}
+
+export interface PacienteVerificadoPublicoResult {
+  error?: string;
+  paciente?: PacienteVerificadoPublico;
+}
+
+// pacienteVerificadoPublicoAction — Fase 2.4.1, camino "ya he venido
+// antes" del wizard: busca la "tarjeta clickeable" para el DNI/mail ya
+// verificados con el código de 6 dígitos. Un 404 no es un error de
+// verdad — significa "no encontramos una ficha verificada con esos
+// datos", y el wizard lo interpreta como una invitación a empezar como
+// paciente nuevo, así que se devuelve como `error` para que el
+// componente decida qué mostrar.
+export async function pacienteVerificadoPublicoAction(
+  slug: string,
+  dni: string,
+  email: string,
+  verificacionToken: string,
+): Promise<PacienteVerificadoPublicoResult> {
+  const result = await apiGetPacienteVerificadoPublico(slug, dni, email, verificacionToken);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  return { paciente: result.data };
 }
 
 // solicitarTurnoPublicoAction — formulario público de pedido de turno
@@ -90,4 +125,22 @@ export async function solicitarTurnoPublicoAction(
     return { error: result.error };
   }
   return { id: result.data.id, horaInicio: result.data.horaInicio, horaFin: result.data.horaFin };
+}
+
+export interface MisTurnoPublicoResult {
+  error?: string;
+  turno?: MisTurnoPublico;
+}
+
+// misTurnoPublicoAction — botón "Mis turnos" de la página pública (pedido
+// textual del cliente): DNI+mail directo, sin código de verificación. Un
+// 404 no es un error real — "no encontramos ningún turno activo con esos
+// datos" — se devuelve como `error` para que el formulario lo muestre tal
+// cual.
+export async function misTurnoPublicoAction(slug: string, dni: string, email: string): Promise<MisTurnoPublicoResult> {
+  const result = await apiMisTurnoPublico(slug, dni, email);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  return { turno: result.data };
 }

@@ -6,12 +6,14 @@ const {
   apiListDisponibilidadPublicaMock,
   apiEnviarVerificacionTurnoPublicoMock,
   apiConfirmarVerificacionTurnoPublicoMock,
+  apiMisTurnoPublicoMock,
 } = vi.hoisted(() => ({
   apiSolicitarTurnoPublicoMock: vi.fn(),
   apiListTiposConsultaPublicoMock: vi.fn(),
   apiListDisponibilidadPublicaMock: vi.fn(),
   apiEnviarVerificacionTurnoPublicoMock: vi.fn(),
   apiConfirmarVerificacionTurnoPublicoMock: vi.fn(),
+  apiMisTurnoPublicoMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -20,6 +22,7 @@ vi.mock("@/lib/api", () => ({
   apiListDisponibilidadPublica: apiListDisponibilidadPublicaMock,
   apiEnviarVerificacionTurnoPublico: apiEnviarVerificacionTurnoPublicoMock,
   apiConfirmarVerificacionTurnoPublico: apiConfirmarVerificacionTurnoPublicoMock,
+  apiMisTurnoPublico: apiMisTurnoPublicoMock,
 }));
 
 const {
@@ -28,6 +31,7 @@ const {
   listDisponibilidadPublicaAction,
   enviarVerificacionEmailAction,
   confirmarVerificacionEmailAction,
+  misTurnoPublicoAction,
 } = await import("./turno-publico");
 
 beforeEach(() => {
@@ -116,10 +120,10 @@ describe("enviarVerificacionEmailAction", () => {
   it("en éxito, devuelve ok", async () => {
     apiEnviarVerificacionTurnoPublicoMock.mockResolvedValue({ ok: true, data: { mensaje: "Te mandamos un código a tu correo." } });
 
-    const result = await enviarVerificacionEmailAction("clinica-x", "bruno@example.com");
+    const result = await enviarVerificacionEmailAction("clinica-x", "bruno@example.com", "captcha-token");
 
     expect(result).toEqual({ ok: true });
-    expect(apiEnviarVerificacionTurnoPublicoMock).toHaveBeenCalledWith("clinica-x", "bruno@example.com");
+    expect(apiEnviarVerificacionTurnoPublicoMock).toHaveBeenCalledWith("clinica-x", "bruno@example.com", "captcha-token");
   });
 
   it("en error (p. ej. cooldown), devuelve el mensaje", async () => {
@@ -129,7 +133,7 @@ describe("enviarVerificacionEmailAction", () => {
       error: "esperá un momento antes de pedir otro código",
     });
 
-    const result = await enviarVerificacionEmailAction("clinica-x", "bruno@example.com");
+    const result = await enviarVerificacionEmailAction("clinica-x", "bruno@example.com", "captcha-token");
 
     expect(result).toEqual({ error: "esperá un momento antes de pedir otro código" });
   });
@@ -155,5 +159,36 @@ describe("confirmarVerificacionEmailAction", () => {
     const result = await confirmarVerificacionEmailAction("clinica-x", "bruno@example.com", "000000");
 
     expect(result).toEqual({ error: "el código es incorrecto o ya venció" });
+  });
+});
+
+describe("misTurnoPublicoAction", () => {
+  it("en éxito, devuelve el turno", async () => {
+    const turno = {
+      fecha: "8 de septiembre de 2026",
+      horaInicio: "08:00",
+      horaFin: "08:30",
+      tipoConsultaNombre: "Consulta general",
+      nombreContacto: "Bruno",
+      apellidoContacto: "Iglesias",
+    };
+    apiMisTurnoPublicoMock.mockResolvedValue({ ok: true, data: turno });
+
+    const result = await misTurnoPublicoAction("clinica-x", "30111222", "bruno@example.com");
+
+    expect(result).toEqual({ turno });
+    expect(apiMisTurnoPublicoMock).toHaveBeenCalledWith("clinica-x", "30111222", "bruno@example.com");
+  });
+
+  it("sin ningún turno que coincida, devuelve el mensaje del backend", async () => {
+    apiMisTurnoPublicoMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      error: "no encontramos ningún turno activo con esos datos",
+    });
+
+    const result = await misTurnoPublicoAction("clinica-x", "30111222", "nadie@example.com");
+
+    expect(result).toEqual({ error: "no encontramos ningún turno activo con esos datos" });
   });
 });

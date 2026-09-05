@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconPerfil, IconTurnos } from "./sidebar-icons";
+import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconPerfil, IconSeguridad, IconTurnos } from "./sidebar-icons";
 import { QuadrantMark } from "../quadrant-mark";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 
@@ -186,6 +186,22 @@ export function PanelSidebar() {
           >
             <IconPerfil className="h-5 w-5 flex-shrink-0" />
             {!collapsed && <span className="truncate">Tu perfil</span>}
+          </Link>
+          {/* Seguridad (corrección de seguridad, Fase 2.4.1) — mails/IPs
+              que el sistema bloqueó solo por abuso del formulario
+              público, más la auditoría de qué se borró. Uso ocasional
+              ("por las dudas de algún malentendido"), no un flujo diario
+              — por eso vive acá abajo, junto a Tu página/Tu perfil, no en
+              la navegación principal de arriba. */}
+          <Link
+            href="/panel/seguridad"
+            title={collapsed ? "Seguridad" : undefined}
+            className={`flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
+            <IconSeguridad className="h-5 w-5 flex-shrink-0" />
+            {!collapsed && <span className="truncate">Seguridad</span>}
           </Link>
         </div>
       </aside>

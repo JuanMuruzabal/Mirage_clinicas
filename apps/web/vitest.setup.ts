@@ -57,6 +57,27 @@ if (!Element.prototype.scrollTo) {
   Element.prototype.scrollTo = () => {};
 }
 
+// jsdom tampoco implementa Element.prototype.set/release/hasPointerCapture
+// — asistencia-cartel-global.tsx los usa en el botón de "mantener
+// apretado" (bug real reportado por el cliente, 2026-09-05: sin capturar
+// el puntero, alejar el cursor unos píxeles del botón durante los 10
+// segundos cancelaba la espera en silencio). Un Set por elemento alcanza
+// para el comportamiento real que le importa a los tests: capturar,
+// consultar y liberar un pointerId.
+if (!Element.prototype.setPointerCapture) {
+  const capturas = new WeakMap<Element, Set<number>>();
+  Element.prototype.setPointerCapture = function (pointerId: number) {
+    if (!capturas.has(this)) capturas.set(this, new Set());
+    capturas.get(this)!.add(pointerId);
+  };
+  Element.prototype.releasePointerCapture = function (pointerId: number) {
+    capturas.get(this)?.delete(pointerId);
+  };
+  Element.prototype.hasPointerCapture = function (pointerId: number) {
+    return capturas.get(this)?.has(pointerId) ?? false;
+  };
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({

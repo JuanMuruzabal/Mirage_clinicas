@@ -261,6 +261,11 @@ const (
 	// cuenta.
 	RateLimitScopeTurnoVerifEnviar    = "turno_verif_enviar"
 	RateLimitScopeTurnoVerifConfirmar = "turno_verif_confirmar"
+	// RateLimitScopeMisTurnosConsulta — pedido textual del cliente:
+	// botón "Mis turnos" de la página pública (misTurnosPublicoHandler),
+	// consulta por DNI+mail sin verificación de código — por IP, para
+	// que probar combinaciones de DNI al voleo no sea gratis.
+	RateLimitScopeMisTurnosConsulta = "mis_turnos_consulta"
 )
 
 // AuditEvent registra eventos sensibles (spec §7: login, login fallido,

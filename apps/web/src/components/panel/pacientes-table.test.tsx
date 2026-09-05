@@ -112,4 +112,29 @@ describe("PacientesTable", () => {
       expect(screen.queryByRole("button", { name: "Ver email" })).not.toBeInTheDocument();
     });
   });
+
+  // Fase 2.4.1, pedido explícito del cliente: columna "Estado" con
+  // VERIFICADO en verde / NO VERIFICADO en naranja.
+  describe("columna Estado (Fase 2.4.1)", () => {
+    it("paciente verificado muestra el badge verde VERIFICADO", () => {
+      render(<PacientesTable pacientes={[{ ...paciente, verificado: true }]} />);
+
+      const badge = screen.getByText("VERIFICADO");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("border-salvia", "bg-salvia-claro", "text-salvia-oscuro");
+    });
+
+    it("paciente no verificado muestra el badge naranja NO VERIFICADO", () => {
+      render(<PacientesTable pacientes={[{ ...paciente, verificado: false }]} />);
+
+      const badge = screen.getByText("NO VERIFICADO");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("border-terracota", "bg-terracota-claro", "text-terracota-oscuro");
+    });
+
+    it("sin el campo verificado (fixture vieja), se trata como no verificado", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+      expect(screen.getByText("NO VERIFICADO")).toBeInTheDocument();
+    });
+  });
 });

@@ -37,6 +37,26 @@ type Sender interface {
 	// de qué clínica es el pedido, ya que quien lo recibe puede haber
 	// pedido turno en más de una.
 	SendTurnoVerificationEmail(ctx context.Context, to, code, nombreClinica string) error
+	// SendTurnoConfirmadoEmail — pedido textual del cliente: "cada vez que
+	// se saque un turno, enviar una notificación por mail, al mail con el
+	// que se hizo el turno". Se manda DESPUÉS de que el turno ya quedó
+	// creado (mismo criterio que el resto de los mails de este archivo: un
+	// envío que falla nunca tumba el request que lo dispara), tanto para
+	// el camino "primera vez" como "ya he venido antes".
+	SendTurnoConfirmadoEmail(ctx context.Context, to string, info TurnoConfirmadoInfo) error
+}
+
+// TurnoConfirmadoInfo — agrupa los datos del turno para el mail de
+// confirmación en un struct en vez de una firma con 6+ parámetros
+// sueltos (único método de este archivo que necesita tantos datos a la
+// vez).
+type TurnoConfirmadoInfo struct {
+	NombreClinica  string
+	NombrePaciente string
+	Fecha          string // ya formateada, ej. "martes 8 de septiembre de 2026"
+	HoraInicio     string
+	HoraFin        string
+	TipoConsulta   string
 }
 
 // LogSender es la implementación de desarrollo: no manda nada de verdad,
@@ -61,6 +81,11 @@ func (LogSender) SendWelcomeEmail(_ context.Context, to, nombre string) error {
 
 func (LogSender) SendTurnoVerificationEmail(_ context.Context, to, code, nombreClinica string) error {
 	log.Printf("[mail:dev] código de verificación de turno (%s) para %s: %s", nombreClinica, to, code)
+	return nil
+}
+
+func (LogSender) SendTurnoConfirmadoEmail(_ context.Context, to string, info TurnoConfirmadoInfo) error {
+	log.Printf("[mail:dev] turno confirmado (%s) para %s: %s %s-%s (%s)", info.NombreClinica, to, info.Fecha, info.HoraInicio, info.HoraFin, info.TipoConsulta)
 	return nil
 }
 
@@ -144,6 +169,14 @@ func (s *ResendSender) SendWelcomeEmail(ctx context.Context, to, nombre string) 
 
 func (s *ResendSender) SendTurnoVerificationEmail(ctx context.Context, to, code, nombreClinica string) error {
 	subject, html, err := renderTurnoVerificacionEmail(code, nombreClinica)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, to, subject, html)
+}
+
+func (s *ResendSender) SendTurnoConfirmadoEmail(ctx context.Context, to string, info TurnoConfirmadoInfo) error {
+	subject, html, err := renderTurnoConfirmadoEmail(info)
 	if err != nil {
 		return err
 	}

@@ -348,8 +348,19 @@ export function BloqueoDetalleModal({
                   algo con reserva y al final no hacer nada con eso" — ya
                   no hay nada urgente que resolver, así que sin el aviso
                   de conflicto; el botón "Ver turno" sigue sirviendo para
-                  marcar asistió/ausente desde ahí. */}
-              {turnosResueltos.length > 0 && (
+                  consultar el detalle desde ahí.
+                  Corrección de QA (2026-09-05): "si en la tarjeta de
+                  solapamiento hay turnos en conflicto, solo mostrar los
+                  turnos en conflicto y el horario reservado... excluir...
+                  las tarjetas de los turnos resueltos, ya que esto lo
+                  hace poco intuitivo" — con al menos un turno EN
+                  CONFLICTO en el mismo cluster, esta sección se oculta
+                  del todo (mezclar lo urgente con lo histórico confundía
+                  más de lo que informaba). Sigue apareciendo tal cual
+                  cuando el cluster es SOLO de turnos resueltos, sin
+                  ningún conflicto activo — ahí sí sigue siendo la única
+                  información relevante para mostrar. */}
+              {turnosResueltos.length > 0 && turnosEnConflicto.length === 0 && (
                 <>
                   <p className="text-sm font-medium text-grafito">Turnos resueltos</p>
                   <ScrollDeUnaTarjeta

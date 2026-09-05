@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/testdb"
 )
 
@@ -126,6 +129,92 @@ func TestGetPaciente_DevuelveDatosYHistorialDeTurnos(t *testing.T) {
 	}
 	if len(got.Turnos) != 1 || got.Turnos[0].ID != turnoCreado.ID {
 		t.Errorf("Turnos = %+v, esperaba 1 con el turno recién creado", got.Turnos)
+	}
+	// Fase 2.4.1 (indicador visual de la tabla de Pacientes), corrección
+	// de QA: esta ficha nació de "Agregar turno" con paciente nuevo (el
+	// panel del profesional, no el formulario público) — Origen "manual"
+	// la deja VERIFICADA de entrada, aunque el turno en sí todavía sea
+	// futuro y sin asistencia marcada.
+	if !got.Verificado {
+		t.Error("Verificado = false, esperaba true (ficha creada a mano por el profesional)")
+	}
+}
+
+// TestGetPaciente_VerificadoConTurnoResueltoYAsistido — Fase 2.4.1: la
+// ficha de un paciente con al menos un turno resuelto y asistido devuelve
+// Verificado=true en /pacientes/{id}.
+func TestGetPaciente_VerificadoConTurnoResueltoYAsistido(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac-verif-get@example.com")
+	paciente := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, "30111222", "bruno@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/"+paciente.ID.String(), reg.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got pacienteDetalleResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if !got.Verificado {
+		t.Error("Verificado = false, esperaba true")
+	}
+}
+
+// TestListPacientes_IncluyeEstadoVerificado — Fase 2.4.1, corrección de
+// QA: el listado marca cada fila con su propio estado, sin mezclar el de
+// otro paciente — cubre los DOS caminos que verifican una ficha (turno
+// resuelto/asistido, y Origen "manual") contra una ficha genuinamente no
+// verificada (llegada por el formulario público, sin turnos).
+func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac-verif-list@example.com")
+	verificadoPorTurno := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, "30111222", "bruno@example.com")
+
+	// "Agregar turno" con paciente nuevo, desde el panel — Origen "manual",
+	// verificado de entrada aunque el turno en sí sea futuro.
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     inicio.Format(time.RFC3339),
+		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	var pacientesConDNI222333 []db.Paciente
+	gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30222333").Find(&pacientesConDNI222333)
+	if len(pacientesConDNI222333) != 1 {
+		t.Fatalf("esperaba 1 paciente con DNI 30222333, encontré %d", len(pacientesConDNI222333))
+	}
+	verificadoPorOrigenManualID := pacientesConDNI222333[0].ID.String()
+
+	// Ficha genuinamente NO verificada — "llegada" por el formulario
+	// público, sin ningún turno todavía.
+	profesionalID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	noVerificado := db.Paciente{
+		ProfesionalID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: "+549", Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&noVerificado).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente no verificado de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes", reg.Token, nil)
+	var got []pacienteResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if len(got) != 3 {
+		t.Fatalf("got = %+v, esperaba 3 pacientes", got)
+	}
+	verificadosEsperados := map[string]bool{
+		verificadoPorTurno.ID.String(): true,
+		verificadoPorOrigenManualID:    true,
+		noVerificado.ID.String():       false,
+	}
+	for _, p := range got {
+		if p.Verificado != verificadosEsperados[p.ID] {
+			t.Errorf("paciente %s: Verificado = %v, esperaba %v", p.Nombre, p.Verificado, verificadosEsperados[p.ID])
+		}
 	}
 }
 

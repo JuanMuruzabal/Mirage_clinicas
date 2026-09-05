@@ -1,21 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { redirectMock, revalidatePathMock, apiEditarPacienteMock, apiListPacientesMock, getSessionTokenMock } = vi.hoisted(() => ({
+const {
+  redirectMock,
+  revalidatePathMock,
+  apiEditarPacienteMock,
+  apiListPacientesMock,
+  apiListConflictosPacienteMock,
+  apiResolverConflictoPacienteMock,
+  getSessionTokenMock,
+} = vi.hoisted(() => ({
   redirectMock: vi.fn((path: string) => {
     throw new Error(`NEXT_REDIRECT:${path}`);
   }),
   revalidatePathMock: vi.fn(),
   apiEditarPacienteMock: vi.fn(),
   apiListPacientesMock: vi.fn(),
+  apiListConflictosPacienteMock: vi.fn(),
+  apiResolverConflictoPacienteMock: vi.fn(),
   getSessionTokenMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
-vi.mock("@/lib/api", () => ({ apiEditarPaciente: apiEditarPacienteMock, apiListPacientes: apiListPacientesMock }));
+vi.mock("@/lib/api", () => ({
+  apiEditarPaciente: apiEditarPacienteMock,
+  apiListPacientes: apiListPacientesMock,
+  apiListConflictosPaciente: apiListConflictosPacienteMock,
+  apiResolverConflictoPaciente: apiResolverConflictoPacienteMock,
+}));
 vi.mock("@/lib/session", () => ({ getSessionToken: getSessionTokenMock }));
 
-const { editarPacienteAction, listPacientesAction } = await import("./pacientes");
+const { editarPacienteAction, listPacientesAction, listConflictosPacienteAction, resolverConflictoPacienteAction } = await import("./pacientes");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,5 +86,55 @@ describe("listPacientesAction", () => {
     apiListPacientesMock.mockResolvedValue({ ok: false, status: 500, error: "error" });
 
     await expect(listPacientesAction()).resolves.toEqual([]);
+  });
+});
+
+describe("listConflictosPacienteAction", () => {
+  it("redirige a /ingresar sin sesión", async () => {
+    getSessionTokenMock.mockResolvedValue(undefined);
+    await expect(listConflictosPacienteAction()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("devuelve la lista en éxito", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiListConflictosPacienteMock.mockResolvedValue({ ok: true, data: [{ id: "conf-1" }] });
+
+    await expect(listConflictosPacienteAction()).resolves.toEqual([{ id: "conf-1" }]);
+    expect(apiListConflictosPacienteMock).toHaveBeenCalledWith("un-jwt");
+  });
+
+  it("devuelve [] si la API falla", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiListConflictosPacienteMock.mockResolvedValue({ ok: false, status: 500, error: "error" });
+
+    await expect(listConflictosPacienteAction()).resolves.toEqual([]);
+  });
+});
+
+describe("resolverConflictoPacienteAction", () => {
+  it("redirige a /ingresar sin sesión", async () => {
+    getSessionTokenMock.mockResolvedValue(undefined);
+    await expect(resolverConflictoPacienteAction("conf-1", true)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("en éxito, revalida /panel/pacientes y devuelve ok", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiResolverConflictoPacienteMock.mockResolvedValue({ ok: true, data: { mensaje: "conflicto resuelto" } });
+
+    const result = await resolverConflictoPacienteAction("conf-1", true);
+
+    expect(result).toEqual({ ok: true });
+    expect(apiResolverConflictoPacienteMock).toHaveBeenCalledWith("un-jwt", "conf-1", { esVerificado: true });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/panel/pacientes");
+  });
+
+  it("en error, devuelve el mensaje sin revalidar", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiResolverConflictoPacienteMock.mockResolvedValue({ ok: false, status: 409, error: "este conflicto ya fue resuelto" });
+
+    const result = await resolverConflictoPacienteAction("conf-1", false);
+
+    expect(result).toEqual({ error: "este conflicto ya fue resuelto" });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });
