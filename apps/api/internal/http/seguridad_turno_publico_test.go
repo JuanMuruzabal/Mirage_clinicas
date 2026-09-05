@@ -175,3 +175,56 @@ func TestDesbloquearMail_InexistenteDaNotFound(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
 	}
 }
+
+func TestDesbloquearMail_SinTokenFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	_ = gdb
+	rec := doJSONAuth(t, router, http.MethodDelete, "/pacientes/seguridad/bloqueos-mail/00000000-0000-0000-0000-000000000000", "token-invalido", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestDesbloquearMail_IdInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "seguridad6@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	rec := doJSONAuth(t, router, http.MethodDelete, "/pacientes/seguridad/bloqueos-mail/no-es-un-uuid", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestDesbloquearIP_SinTokenFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	_ = gdb
+	rec := doJSONAuth(t, router, http.MethodDelete, "/pacientes/seguridad/bloqueos-ip/00000000-0000-0000-0000-000000000000", "token-invalido", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestDesbloquearIP_IdInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "seguridad7@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	rec := doJSONAuth(t, router, http.MethodDelete, "/pacientes/seguridad/bloqueos-ip/no-es-un-uuid", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestDesbloquearIP_InexistenteDaNotFound — mismo criterio que
+// TestDesbloquearMail_InexistenteDaNotFound, para IP.
+func TestDesbloquearIP_InexistenteDaNotFound(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "seguridad8@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	rec := doJSONAuth(t, router, http.MethodDelete, "/pacientes/seguridad/bloqueos-ip/00000000-0000-0000-0000-000000000000", reg.Token, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+}

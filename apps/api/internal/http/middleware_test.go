@@ -30,6 +30,42 @@ func TestProfesionalIDFromRequest_SinClinicIDEnElContextoDevuelve401(t *testing.
 	}
 }
 
+// TestHandlersConProfesionalIDFromRequest_SinClinicIDEnElContextoDevuelven401
+// — mismo criterio que el test de arriba, para el propio "if !ok { return }"
+// de cada handler — es una rama de código DISTINTA a la de
+// profesionalIDFromRequest (cada handler tiene la suya propia, inline),
+// igual de inalcanzable vía HTTP real por el mismo motivo. gdb queda en
+// nil a propósito: la rama bajo prueba retorna antes de tocarlo. Lista no
+// exhaustiva — se agregan acá los handlers que se van tocando, no hace
+// falta cubrir los ~20 que usan el mismo patrón de una sola vez.
+func TestHandlersConProfesionalIDFromRequest_SinClinicIDEnElContextoDevuelven401(t *testing.T) {
+	handlers := map[string]http.HandlerFunc{
+		"listConflictosPacienteHandler":     listConflictosPacienteHandler(nil),
+		"resolverConflictoPacienteHandler":  resolverConflictoPacienteHandler(nil),
+		"panelNotificacionesHandler":        panelNotificacionesHandler(nil),
+		"listBloqueosSeguridadHandler":      listBloqueosSeguridadHandler(nil),
+		"desbloquearMailHandler":            desbloquearMailHandler(nil),
+		"desbloquearIPHandler":              desbloquearIPHandler(nil),
+		"turnosPendientesAsistenciaHandler": turnosPendientesAsistenciaHandler(nil),
+		"listTurnosHandler":                 listTurnosHandler(nil),
+		"crearTurnoManualHandler":           crearTurnoManualHandler(nil),
+		"cancelarTurnoHandler":              cancelarTurnoHandler(nil),
+		"cancelarTurnosSinVerificarHandler": cancelarTurnosSinVerificarHandler(nil),
+		"reprogramarTurnoHandler":           reprogramarTurnoHandler(nil),
+		"autoreservarTurnosHandler":         autoreservarTurnosHandler(nil),
+		"marcarAsistenciaHandler":           marcarAsistenciaHandler(nil),
+		"resumenPanelHandler":               resumenPanelHandler(nil),
+	}
+	for nombre, handler := range handlers {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		handler(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s: status = %d, esperaba %d", nombre, rec.Code, http.StatusUnauthorized)
+		}
+	}
+}
+
 func TestUserIDFromRequest_SinSesionEnElContextoDevuelve401(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()

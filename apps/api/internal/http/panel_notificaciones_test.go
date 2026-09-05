@@ -34,6 +34,15 @@ func TestPanelNotificaciones_VacioSinNada(t *testing.T) {
 	}
 }
 
+func TestPanelNotificaciones_SinTokenFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	_ = gdb
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/notificaciones", "token-invalido", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
 // TestPanelNotificaciones_ContConflictoDePacientesPendiente — cuenta los
 // ConflictoPaciente con Resuelto=false; uno ya resuelto no cuenta.
 func TestPanelNotificaciones_ContConflictoDePacientesPendiente(t *testing.T) {

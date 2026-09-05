@@ -1512,3 +1512,128 @@ func TestSolicitarTurnoPublico_NoRequiereAutenticacion(t *testing.T) {
 		t.Error("POST /clinicas/{slug}/turnos no debería exigir autenticación")
 	}
 }
+
+// TestSolicitarTurnoPublico_IPYaBloqueadaRechazaDirecto — ipEstaBloqueada
+// se chequea ANTES de validar el token de verificación (turno_publico.go,
+// mismo motivo que el resto de los chequeos tempranos: no dejar avanzar
+// nada de un cliente ya bloqueado), así que ni siquiera hace falta un
+// token válido para ejercitar este camino — a diferencia de
+// TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP, que
+// prueba CÓMO se llega a bloquear la IP, este prueba qué pasa DESPUÉS.
+func TestSolicitarTurnoPublico_IPYaBloqueadaRechazaDirecto(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "ipbloqueada1@example.com")
+	pid, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	bloqueo := db.IPBloqueadaTurnoPublico{ProfesionalID: pid, IP: "192.0.2.1", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
+	if err := gdb.Create(&bloqueo).Error; err != nil {
+		t.Fatalf("no se pudo crear el bloqueo de IP: %v", err)
+	}
+
+	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", "cualquier-token")
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "no se puede pedir turno desde esta conexión") {
+		t.Errorf("body = %s, esperaba el mensaje de IP bloqueada", rec.Body.String())
+	}
+}
+
+// TestTurnoActivoDelMismoTipoYDeOtroTipo_Dormantes — turnoActivoDelMismoTipo/
+// turnoActivoDeOtroTipo (TR-107) quedaron inalcanzables en la práctica
+// desde turnoActivoPorDNI (TR-109, superconjunto estricto) — se prueban
+// directo (sin pasar por el handler HTTP, que ya no puede llegar a
+// ejercitarlas) para no perder cobertura de su lógica propia, mismo
+// criterio de "no descartar nada" que ya se aplicó al dejar el código.
+func TestTurnoActivoDelMismoTipoYDeOtroTipo_Dormantes(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "dormant1@example.com")
+	pid, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	tid, err := uuid.Parse(tipoID)
+	if err != nil {
+		t.Fatalf("tipoConsultaID inválido: %v", err)
+	}
+	otroTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	otid, err := uuid.Parse(otroTipo)
+	if err != nil {
+		t.Fatalf("otroTipoConsultaID inválido: %v", err)
+	}
+
+	// Sin ningún turno todavía: las dos funciones devuelven nil, nil.
+	if turno, err := turnoActivoDelMismoTipo(gdb, pid, "30111222", tid); err != nil || turno != nil {
+		t.Errorf("turnoActivoDelMismoTipo sin turnos = (%v, %v), esperaba (nil, nil)", turno, err)
+	}
+	if turno, err := turnoActivoDeOtroTipo(gdb, pid, "30111222", tid); err != nil || turno != nil {
+		t.Errorf("turnoActivoDeOtroTipo sin turnos = (%v, %v), esperaba (nil, nil)", turno, err)
+	}
+
+	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
+	turno := db.Turno{
+		ProfesionalID: pid, Estado: "agendado", TipoConsultaID: &tid, HoraInicio: &inicio, HoraFin: &fin,
+		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
+		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com", Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno de prueba: %v", err)
+	}
+
+	// Mismo tipo: turnoActivoDelMismoTipo lo encuentra, turnoActivoDeOtroTipo no.
+	if got, err := turnoActivoDelMismoTipo(gdb, pid, "30111222", tid); err != nil || got == nil || got.ID != turno.ID {
+		t.Errorf("turnoActivoDelMismoTipo = (%v, %v), esperaba encontrar el turno %s", got, err, turno.ID)
+	}
+	if got, err := turnoActivoDeOtroTipo(gdb, pid, "30111222", tid); err != nil || got != nil {
+		t.Errorf("turnoActivoDeOtroTipo (mismo tipo consultado) = (%v, %v), esperaba (nil, nil)", got, err)
+	}
+	// Consultando por el OTRO tipo: turnoActivoDeOtroTipo lo encuentra,
+	// turnoActivoDelMismoTipo no (el turno real es del primer tipo).
+	if got, err := turnoActivoDeOtroTipo(gdb, pid, "30111222", otid); err != nil || got == nil || got.ID != turno.ID {
+		t.Errorf("turnoActivoDeOtroTipo (otro tipo consultado) = (%v, %v), esperaba encontrar el turno %s", got, err, turno.ID)
+	}
+	if got, err := turnoActivoDelMismoTipo(gdb, pid, "30111222", otid); err != nil || got != nil {
+		t.Errorf("turnoActivoDelMismoTipo (otro tipo consultado) = (%v, %v), esperaba (nil, nil)", got, err)
+	}
+}
+
+// TestErroresDormantesDeTurnoPublico_FormateanElMensaje — errTurnoPublicoDuplicado
+// (F4.1.3), errTurnoActivoConOtroMail y errYaTieneOtroTipoActivo (TR-107)
+// quedaron inalcanzables en la práctica desde que turnoActivoPorDNI
+// (TR-109) es un superconjunto estricto de las dos — se dejan en el
+// código sin borrar, mismo criterio de siempre ("no descartar nada de lo
+// ya establecido"). Test directo sobre el método Error() de cada uno
+// (nunca se llega a disparar desde una request real), cubriendo las dos
+// ramas de formateo de fecha (con y sin HoraInicio cargado).
+func TestErroresDormantesDeTurnoPublico_FormateanElMensaje(t *testing.T) {
+	inicio := time.Date(2030, 6, 3, 10, 0, 0, 0, time.UTC)
+
+	dup := &errTurnoPublicoDuplicado{turno: db.Turno{HoraInicio: &inicio}}
+	if got := dup.Error(); !strings.Contains(got, "03/06 10:00hs") {
+		t.Errorf("errTurnoPublicoDuplicado.Error() = %q, esperaba la fecha formateada", got)
+	}
+	dupSinHora := &errTurnoPublicoDuplicado{turno: db.Turno{}}
+	if got := dupSinHora.Error(); !strings.Contains(got, "una fecha ya agendada") {
+		t.Errorf("errTurnoPublicoDuplicado.Error() sin HoraInicio = %q, esperaba el fallback", got)
+	}
+
+	otroMail := &errTurnoActivoConOtroMail{email: "bruno@example.com"}
+	if got := otroMail.Error(); strings.Contains(got, "bruno@example.com") {
+		t.Errorf("errTurnoActivoConOtroMail.Error() = %q, no debería exponer el mail sin censurar", got)
+	}
+
+	otroTipo := &errYaTieneOtroTipoActivo{turno: db.Turno{HoraInicio: &inicio}}
+	if got := otroTipo.Error(); !strings.Contains(got, "03/06 10:00hs") {
+		t.Errorf("errYaTieneOtroTipoActivo.Error() = %q, esperaba la fecha formateada", got)
+	}
+	otroTipoSinHora := &errYaTieneOtroTipoActivo{turno: db.Turno{}}
+	if got := otroTipoSinHora.Error(); !strings.Contains(got, "una fecha ya agendada") {
+		t.Errorf("errYaTieneOtroTipoActivo.Error() sin HoraInicio = %q, esperaba el fallback", got)
+	}
+}

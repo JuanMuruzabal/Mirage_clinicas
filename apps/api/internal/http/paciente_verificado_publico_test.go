@@ -207,3 +207,13 @@ func TestPacienteVerificadoPublico_DNIInvalidoFalla(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
 	}
 }
+
+func TestPacienteVerificadoPublico_EmailInvalidoFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif9@example.com")
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoURL(reg.Profesional.Slug, "30111222", "no-es-un-mail", "token"), nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}

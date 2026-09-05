@@ -629,3 +629,21 @@ func TestResolverConflictoPaciente_IdInexistenteFalla(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
 }
+
+func TestResolverConflictoPaciente_SinTokenFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	_ = gdb
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+uuid.NewString()+"/resolver", "token-invalido", resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestResolverConflictoPaciente_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "conf9@example.com")
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/no-es-un-uuid/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}

@@ -326,6 +326,30 @@ func TestConfirmarVerificacionTurnoPublico_CodigoIncorrectoRechaza(t *testing.T)
 	}
 }
 
+func TestConfirmarVerificacionTurnoPublico_EmailInvalidoFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "verifconfirmar-email@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/verificacion-email/confirmar",
+		confirmarVerificacionTurnoPublicoRequest{Email: "no-es-un-mail", Codigo: "123456"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestConfirmarVerificacionTurnoPublico_CodigoVacioFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "verifconfirmar-codigo@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/verificacion-email/confirmar",
+		confirmarVerificacionTurnoPublicoRequest{Email: "paciente@example.com", Codigo: "   "})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
 func TestConfirmarVerificacionTurnoPublico_CodigoVencidoRechaza(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
