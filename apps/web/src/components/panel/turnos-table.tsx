@@ -324,7 +324,14 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Tipo de consulta</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Contacto</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
-              <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
+              {/* Corrección de QA (2026-09-06): "Fecha y hora" envolvía en
+                  3 líneas en mobile (columna angosta con solo 3 visibles:
+                  Paciente/Fecha/Estado) — "Fecha" a secas entra en una
+                  línea; desde `md` sigue el texto completo. */}
+              <th className="panel-th-sticky px-4 py-3">
+                <span className="md:hidden">Fecha</span>
+                <span className="hidden md:inline">Fecha y hora</span>
+              </th>
               <th className="panel-th-sticky px-4 py-3">Estado</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Origen</th>
               <th className="panel-th-sticky w-10 px-4 py-3" aria-hidden="true" />
@@ -437,7 +444,30 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                   </tr>
                   {expandido && (
                     <tr className="border-b border-arena bg-hueso last:border-b-0 md:border-b-[0.5px]">
-                      <td colSpan={8} className="px-4 py-3">
+                      {/* w-px + el div interno min-w-full — corrección de QA
+                          (2026-09-06, "imitando las dimensiones de mi
+                          celular el mail queda recortado"): en una
+                          `<table>` con `table-layout: auto` (el default,
+                          sin tocar acá porque el ancho de columna
+                          "a medida" es justo lo que hace ver bien las
+                          columnas de escritorio), el algoritmo de ancho
+                          mira el contenido de CUALQUIER celda —incluida
+                          una con `colSpan`— para decidir cuánto necesita
+                          la tabla entera, y en algunos navegadores/casos
+                          eso ignora que el contenido de adentro ya puede
+                          envolver (`break-all`): la tabla entera se
+                          estira para "no perder" ese texto, y el
+                          `overflow-x-hidden` del contenedor de más arriba
+                          termina RECORTANDO en vez de envolver. `w-px`
+                          en la celda le dice al algoritmo de ancho "esta
+                          celda casi no necesita nada" (gana prioridad
+                          sobre medir el contenido de adentro); el `div`
+                          con `min-w-full` de adentro después sí ocupa
+                          todo el ancho real ya resuelto de la tabla —
+                          truco estándar de CSS para este problema
+                          puntual, no afecta el resto de las columnas. */}
+                      <td colSpan={8} className="w-px px-4 py-3">
+                        <div className="min-w-full">
                         {/* Contacto/Motivo/Origen — ocultos como columna en
                             mobile (arriba), reaparecen ACÁ al desplegar la
                             fila, junto a los botones. Desde `md` no hace
@@ -451,29 +481,75 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                             el resto; ahora todos los valores comparten el
                             mismo tamaño, más grande, solo las etiquetas
                             (dt) se mantienen chicas a propósito. */}
-                        <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-base md:hidden">
+                        {/* grid-cols-[auto_minmax(0,1fr)] — corrección de QA
+                            (2026-09-06, "el mail tiende a desbordarse... se
+                            ven no alineados"): con `1fr` a secas, una celda
+                            de contenido intrínsecamente ancho (un email
+                            largo) empuja la columna más allá del ancho
+                            disponible en vez de achicarse — el clásico bug
+                            de CSS Grid ("min-width: auto" por default en
+                            los hijos). `minmax(0, 1fr)` fuerza el mínimo a
+                            0, dejando que `break-all` de adentro recién ahí
+                            pueda envolver de verdad en vez de desbordar la
+                            pantalla. `min-w-0` explícito en la celda del
+                            teléfono/mail por las dudas (el `<dd>` en sí
+                            también necesita poder achicarse, no solo la
+                            columna del grid). */}
+                        {/* items-start explícito (corrección de QA,
+                            2026-09-06) — sin esto, el default de CSS
+                            Grid ("stretch") estira cada `dt`/`dd` a la
+                            altura de TODA su fila. También se pareja el
+                            tono de todos los valores a `text-grafito`
+                            (antes el mail y Origen quedaban en `/50`, más
+                            tenues que Tipo de consulta/teléfono al lado —
+                            leído como inconsistente/"desalineado" a
+                            simple vista, no un problema de posición sino
+                            de peso visual). Se saca también la fuente
+                            monoespaciada de Teléfono/Email (pedido
+                            textual del cliente: "tiene 2 tamaños
+                            diferentes el contenido a la referencia") —
+                            al mismo `text-base`, una fuente monoespaciada
+                            se ve más grande que la fuente normal de
+                            Tipo de consulta/Origen al lado; ahora las 4
+                            filas comparten exactamente la misma fuente.
+                            Teléfono/Email — corrección de QA (2026-09-06,
+                            seguía viéndose desalineado): "Contacto" metía
+                            las dos líneas (teléfono + mail) contra UNA
+                            sola etiqueta, en la misma celda del grid — la
+                            fuente real de la rareza visual (una etiqueta
+                            de una línea nunca queda prolijamente alineada
+                            contra un valor de dos). Se separan en dos
+                            filas propias, cada una con su propia
+                            etiqueta — mismo criterio que ya usa
+                            PacientesTable (DNI/Teléfono/Email, cada uno
+                            su fila), nunca dos datos combinados en una. */}
+                        <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 text-base md:hidden">
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tipo de consulta</dt>
-                          <dd className="text-grafito">{renderTipoConsulta(tipo)}</dd>
-                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Contacto</dt>
-                          <dd className="font-[family-name:var(--font-mono)] text-grafito">
-                            <div>{t.telefonoContacto}</div>
-                            {t.emailContacto &&
-                              (textoEsLargo(t.emailContacto) ? (
-                                <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
-                              ) : (
-                                <div className="break-all text-grafito/50">{t.emailContacto}</div>
-                              ))}
-                          </dd>
+                          <dd className="min-w-0 text-grafito">{renderTipoConsulta(tipo)}</dd>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
+                          <dd className="min-w-0 text-grafito">{t.telefonoContacto}</dd>
+                          {t.emailContacto && (
+                            <>
+                              <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
+                              <dd className="min-w-0 text-grafito">
+                                {textoEsLargo(t.emailContacto) ? (
+                                  <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
+                                ) : (
+                                  <span className="break-all">{t.emailContacto}</span>
+                                )}
+                              </dd>
+                            </>
+                          )}
                           {t.motivo && (
                             <>
                               <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Motivo</dt>
-                              <dd className="text-grafito">
+                              <dd className="min-w-0 text-grafito">
                                 {textoEsLargo(t.motivo) ? <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} /> : t.motivo}
                               </dd>
                             </>
                           )}
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Origen</dt>
-                          <dd className="text-grafito/50">{ORIGEN_LABEL[t.origen]}</dd>
+                          <dd className="min-w-0 text-grafito">{ORIGEN_LABEL[t.origen]}</dd>
                         </dl>
                         <div className="flex flex-wrap gap-2">
                           {renderAcciones(t, resuelto)}
@@ -492,6 +568,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                               Ver paciente →
                             </Link>
                           )}
+                        </div>
                         </div>
                       </td>
                     </tr>

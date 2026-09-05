@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { apiListTiposConsulta, apiListTurnos, type ListarTurnosParams } from "@/lib/api";
+import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
-import { finDiaCordobaISO, inicioDiaCordobaISO, rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
+import { filtrosDeTab, parseTab, parseVerificacion, type Tab } from "@/lib/turnos-filtros";
 import { TurnosTable } from "@/components/panel/turnos-table";
+import { TurnosFiltros } from "@/components/panel/turnos-filtros";
 
 export const metadata: Metadata = { title: "Turnos — Dental Mirage" };
-
-type Tab = "agendado" | "resuelto" | "cancelada" | "todas";
 
 // "Resueltos" (pedido explícito del cliente, 2026-08-23) separa, dentro de
 // lo que antes era una sola bolsa "Confirmadas", los turnos cuya hora de
@@ -32,66 +31,6 @@ const TABS: { label: string; tab: Tab }[] = [
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
-
-function parseTab(value: string | undefined): Tab {
-  if (value === "resuelto" || value === "cancelada" || value === "todas") return value;
-  return "agendado";
-}
-
-// desde/hasta llegan como "YYYY-MM-DD" (URL/`<input type="date">`) — acá
-// se convierten al instante RFC3339 que de verdad exige el backend (bug
-// de QA, ver el comentario grande de inicioDiaCordobaISO/finDiaCordobaISO
-// en lib/calendar-utils.ts). El resto de este archivo sigue usando la
-// versión plana (URL, `defaultValue` de los inputs) — la conversión pasa
-// únicamente acá, justo antes de armar los filtros para la API.
-function filtrosDeTab(
-  tab: Tab,
-  q: string | undefined,
-  desde: string | undefined,
-  hasta: string | undefined,
-  tipoConsultaId: string | undefined,
-  verificacion: "verificado" | "sin_verificar" | undefined,
-): ListarTurnosParams {
-  const base: ListarTurnosParams = (() => {
-    switch (tab) {
-      case "resuelto":
-        return { estado: "agendado", resuelto: true, q };
-      case "agendado":
-        return { estado: "agendado", resuelto: false, q };
-      case "cancelada":
-        return { estado: "cancelada", q };
-      default:
-        // "todas" — sin filtro de estado, trae agendados y cancelados juntos.
-        return { q };
-    }
-  })();
-  return {
-    ...base,
-    desde: desde ? inicioDiaCordobaISO(desde) : undefined,
-    hasta: hasta ? finDiaCordobaISO(hasta) : undefined,
-    tipoConsultaId,
-    verificacion,
-  };
-}
-
-// parseVerificacion — corrección de seguridad (Fase 2.4.1): da visibilidad
-// al profesional sobre turnos de pacientes que todavía no demostraron ser
-// reales (ver pacienteEstaVerificado en el backend) — mismo criterio de
-// parseo defensivo que parseTab, cualquier valor que no sea uno de los dos
-// esperados se trata como "sin filtro".
-function parseVerificacion(value: string | undefined): "verificado" | "sin_verificar" | undefined {
-  return value === "verificado" || value === "sin_verificar" ? value : undefined;
-}
-
-// RANGOS_RAPIDOS — Extra 2.3.3 (E3.5): "filtro rápido HOY/SEMANA/MES antes
-// de Desde/Hasta" — atajos que precargan Desde/Hasta con un rango ya
-// calculado (rangoRapidoFechas, lib/calendar-utils.ts), en vez de que el
-// profesional tenga que elegir las dos fechas a mano para el caso común.
-const RANGOS_RAPIDOS: { label: string; rango: RangoRapido }[] = [
-  { label: "Hoy", rango: "hoy" },
-  { label: "Semana", rango: "semana" },
-  { label: "Mes", rango: "mes" },
-];
 
 // /panel/turnos (T3.3, "Turnos entrantes") — tabs + búsqueda por
 // searchParams (GET, URL compartible, mismo patrón que /buscar): cada
@@ -212,107 +151,24 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           </form>
         </div>
 
-        {/* Extra 2.3.3 (E3.5): filtro rápido HOY/SEMANA/MES antes de
-            Desde/Hasta — mismo par de campos que ya tenía
-            paciente-turnos-table.tsx, acá server-driven vía searchParams
-            en vez de estado de cliente (esta página nunca tuvo filtro de
-            fecha, era pura tab+búsqueda). Los atajos son links (navegan
-            directo con Desde/Hasta ya calculados); el form de abajo es
-            para un rango elegido a mano. */}
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          {RANGOS_RAPIDOS.map((r) => {
-            const calculado = rangoRapidoFechas(r.rango);
-            const activo = desde === calculado.desde && hasta === calculado.hasta;
-            const href = `/panel/turnos?estado=${tab}${querySecundaria}&desde=${calculado.desde}&hasta=${calculado.hasta}`;
-            return (
-              <Link
-                key={r.rango}
-                href={href}
-                // Corrección de QA: mismo verde sólido que "Buscar"/
-                // "Confirmar" (bg-salvia-oscuro) en vez del borde neutro
-                // que usan los botones secundarios (Editar, etc.) — el
-                // activo suma un anillo para distinguirse sin dejar de
-                // ser verde.
-                className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-salvia-oscuro" : ""}`}
-              >
-                {r.label}
-              </Link>
-            );
-          })}
-          <form action="/panel/turnos" method="get" className="flex flex-wrap items-center gap-2">
-            <input type="hidden" name="estado" value={tab} />
-            {q && <input type="hidden" name="q" value={q} />}
-            {/* Corrección de QA: "faltó el filtro de tipo de consulta" —
-                mismo filtro que ya tenía "Turnos activos"/"Historial" de
-                la ficha de paciente (paciente-turnos-table.tsx), acá
-                resuelto en el servidor junto con Desde/Hasta (mismo
-                botón "Aplicar"). */}
-            {tiposConsulta.length > 0 && (
-              <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-                Tipo
-                <select
-                  name="tipoConsultaId"
-                  defaultValue={tipoConsultaId ?? ""}
-                  className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-                >
-                  <option value="">Todos los tipos</option>
-                  {tiposConsulta.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {/* verificacion (corrección de seguridad, Fase 2.4.1) — le da
-                al profesional una forma rápida de encontrar turnos de
-                pacientes que todavía no demostraron ser reales, sin abrir
-                ficha por ficha. */}
-            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-              Verificación
-              <select
-                name="verificacion"
-                defaultValue={verificacion ?? ""}
-                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-              >
-                <option value="">Todos</option>
-                <option value="sin_verificar">Sin verificar</option>
-                <option value="verificado">Verificados</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-              Desde
-              <input
-                type="date"
-                name="desde"
-                defaultValue={desde}
-                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-              />
-            </label>
-            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
-              Hasta
-              <input
-                type="date"
-                name="hasta"
-                defaultValue={hasta}
-                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
-            >
-              Aplicar
-            </button>
-          </form>
-          {(desde || hasta || tipoConsultaId || verificacion) && (
-            <Link
-              href={`/panel/turnos?estado=${tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-              className="text-xs font-medium text-salvia-oscuro hover:text-grafito"
-            >
-              Limpiar filtros
-            </Link>
-          )}
+        {/* Corrección de QA (2026-09-06), pedido textual del cliente: "los
+            filtros de búsqueda... pasan a aparecer cuando se toca un
+            botón... bottom sheet en mobile... en vez de decir aplicar,
+            aparezca 'ver X turnos'... en pc debe aparecer como saltan los
+            demás carteles". Reemplaza la fila siempre visible de Tipo de
+            consulta/Verificación/Desde-Hasta/Hoy-Semana-Mes/Aplicar/
+            Limpiar filtros — pestañas y buscador de texto (arriba) quedan
+            sin cambios, pedido explícito del cliente. */}
+        <div>
+          <TurnosFiltros
+            tab={tab}
+            q={q}
+            tiposConsulta={tiposConsulta}
+            desde={desde}
+            hasta={hasta}
+            tipoConsultaId={tipoConsultaId}
+            verificacion={verificacion}
+          />
         </div>
 
         {/* key por pestaña+búsqueda+rango de fecha: fuerza a remontar

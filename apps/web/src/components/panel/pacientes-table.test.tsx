@@ -113,6 +113,92 @@ describe("PacientesTable", () => {
     });
   });
 
+  // Corrección de QA (2026-09-06, screenshot del cliente): en mobile,
+  // Teléfono competía con Nombre/Estado por el ancho y quedaba recortado.
+  // Pasa a max-md:hidden (mismo criterio que DNI/Email), visible desde
+  // `md` como columna propia y, en mobile, dentro del panel desplegable.
+  describe("Teléfono pasa al panel desplegable en mobile (2026-09-06)", () => {
+    it("Teléfono sigue siendo una columna visible en la fila (desktop)", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+      expect(screen.getByRole("cell", { name: paciente.telefono })).toBeInTheDocument();
+    });
+
+    it("al desplegar, el panel muestra también el teléfono junto a DNI/Email", async () => {
+      const user = userEvent.setup();
+      render(<PacientesTable pacientes={[paciente]} />);
+
+      await user.click(screen.getByRole("button", { name: "Mostrar datos" }));
+
+      // getAllByText porque el teléfono ahora aparece dos veces (la celda
+      // de siempre + el panel desplegado) — mismo criterio ya establecido
+      // en este archivo para el email largo/corto.
+      expect(screen.getAllByText(paciente.telefono).length).toBe(2);
+    });
+  });
+
+  // Pedido textual del cliente (2026-09-06): "en mobile, tocar la fila
+  // debería mostrar la demás info [en vez de navegar], como en Turnos...
+  // poner un botón en mobile para ver la ficha". Por debajo de 768px
+  // (mockeando matchMedia), tocar la fila despliega el panel en vez de
+  // navegar — la navegación real pasa al botón "Ver ficha" de adentro del
+  // panel. En escritorio (matchMedia por default en este archivo, ver el
+  // stub de vitest.setup.ts) sigue navegando directo, sin cambios
+  // (confirmado más arriba, "tocar el chevron despliega... y tocar la
+  // fila sí navega").
+  describe("en mobile, tocar la fila despliega en vez de navegar (2026-09-06)", () => {
+    function mockearMobile() {
+      const original = window.matchMedia;
+      window.matchMedia = ((query: string) => ({
+        matches: query.includes("max-width"),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })) as typeof window.matchMedia;
+      return () => {
+        window.matchMedia = original;
+      };
+    }
+
+    it("tocar la fila despliega el panel sin navegar", async () => {
+      const restaurar = mockearMobile();
+      try {
+        const user = userEvent.setup();
+        render(<PacientesTable pacientes={[paciente]} />);
+        const llamadasPrevias = pushMock.mock.calls.length;
+
+        await user.click(screen.getByText("Bruno Iglesias"));
+
+        expect(pushMock.mock.calls.length).toBe(llamadasPrevias);
+        expect(screen.getByRole("button", { name: "Ocultar datos" })).toBeInTheDocument();
+      } finally {
+        restaurar();
+      }
+    });
+
+    it("el panel desplegado tiene un botón 'Ver ficha' propio que sí navega (es un link)", async () => {
+      const restaurar = mockearMobile();
+      try {
+        const user = userEvent.setup();
+        render(<PacientesTable pacientes={[paciente]} />);
+
+        await user.click(screen.getByText("Bruno Iglesias"));
+
+        // Dos links "Ver ficha →" en el DOM a la vez (el de siempre,
+        // max-md:hidden vía CSS, y el nuevo del panel) — ambos con el
+        // mismo href, ninguno depende de JS para funcionar.
+        const links = screen.getAllByRole("link", { name: "Ver ficha →" });
+        expect(links.length).toBe(2);
+        links.forEach((link) => expect(link).toHaveAttribute("href", "/panel/pacientes/p-1"));
+      } finally {
+        restaurar();
+      }
+    });
+  });
+
   // Fase 2.4.1, pedido explícito del cliente: columna "Estado" con
   // VERIFICADO en verde / NO VERIFICADO en naranja.
   describe("columna Estado (Fase 2.4.1)", () => {

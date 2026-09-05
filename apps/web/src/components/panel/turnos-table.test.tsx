@@ -193,6 +193,26 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
   });
 
+  // Corrección de QA (2026-09-06, screenshot del cliente): "Contacto"
+  // metía teléfono y mail en una sola celda contra una sola etiqueta —
+  // la fuente real del desalineado visual reportado. Se separan en dos
+  // filas propias del panel desplegado (mobile), mismo criterio que
+  // PacientesTable.
+  it("el panel desplegado muestra Teléfono y Email como filas propias, no combinadas en 'Contacto'", async () => {
+    const user = userEvent.setup();
+    render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+
+    await desplegarFila(user, "Julián Ortiz");
+
+    // "Contacto" sigue existiendo como encabezado de columna de
+    // escritorio (`<th>`, siempre en el DOM, oculto en mobile por CSS) —
+    // lo relevante acá es que el panel desplegado (mobile) ya no lo usa
+    // como etiqueta combinada, por eso se verifica Teléfono/Email por
+    // separado en vez de la ausencia de "Contacto".
+    expect(screen.getByText("Teléfono")).toBeInTheDocument();
+    expect(screen.getByText("Email")).toBeInTheDocument();
+  });
+
   it("clickear la fila la despliega y clickearla de nuevo la cierra", async () => {
     const user = userEvent.setup();
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);

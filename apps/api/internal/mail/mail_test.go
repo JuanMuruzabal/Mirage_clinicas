@@ -61,6 +61,21 @@ func TestResendSender_SendTurnoVerificationEmail_MandaElCodigoYLaClinica(t *test
 	if subject, _ := capturedBody["subject"].(string); !strings.Contains(subject, "Clínica X") {
 		t.Errorf("subject = %q, esperaba que nombre a la clínica", subject)
 	}
+
+	// Corrección de QA (2026-09-06): "los códigos de confirmación de
+	// turno me llegan a spam" — un mail solo-HTML (sin versión de texto
+	// plano) es una señal clásica de spam para OTPs; el campo `text` de
+	// Resend (multipart/alternative) tenía que empezar a mandarse.
+	text, _ := capturedBody["text"].(string)
+	if text == "" {
+		t.Fatal("esperaba una versión de texto plano (campo 'text'), vino vacía")
+	}
+	if strings.Contains(text, "<") {
+		t.Errorf("el texto plano no debería tener tags HTML sin limpiar: %q", text)
+	}
+	if !strings.Contains(text, "482913") || !strings.Contains(text, "Clínica X") {
+		t.Errorf("el texto plano debería tener el mismo contenido que el HTML: %q", text)
+	}
 }
 
 // TestResendSender_SendTurnoConfirmadoEmail_MandaLosDatosDelTurno — TR-109:
