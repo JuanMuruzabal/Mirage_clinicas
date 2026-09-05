@@ -163,9 +163,20 @@ describe("PacienteTurnosTable", () => {
     expect(filas.length).toBeGreaterThanOrEqual(1);
   });
 
-  // Filtros por tipo de consulta y fecha (pedido explícito del cliente,
-  // 2026-08-23: "poder agregar filtros para encontrar con facilidad los
-  // turnos activos e historial de turnos").
+  // Corrección de QA (2026-09-06), pedido textual del cliente: "los
+  // filtros de búsqueda... pasan a aparecer cuando se toca un botón...
+  // en vez de decir aplicar, aparezca 'ver X turnos'" — Tipo/Hoy-Semana-
+  // Mes/Desde-Hasta viven ahora dentro de FiltrosSheet (botón "Filtros"),
+  // y filtrar es de dos pasos: elegir en el panel (borrador, no filtra
+  // todavía) → tocar "Ver X turnos" (recién ahí se confirma).
+  async function abrirFiltros(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Filtros" }));
+  }
+
+  async function confirmarFiltros(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /^Ver \d+ turnos?$/ }));
+  }
+
   it("filtra por tipo de consulta", async () => {
     const user = userEvent.setup();
     const otro = { ...turno, id: "t-2", tipoConsultaId: "tc-1", nombreContacto: "Ana", motivo: "" };
@@ -174,16 +185,23 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Consulta general" })).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Filtrar por tipo de consulta"), "tc-1");
+    await abrirFiltros(user);
+    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "tc-1");
+    expect(screen.getByRole("button", { name: "Ver 1 turno" })).toBeInTheDocument();
+    await confirmarFiltros(user);
 
     expect(screen.queryByRole("cell", { name: "Urgencia" })).not.toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Consulta general" })).toBeInTheDocument();
   });
 
-  it("filtra por rango de fecha y avisa cuando ningún turno coincide", () => {
+  it("filtra por rango de fecha y avisa cuando ningún turno coincide", async () => {
+    const user = userEvent.setup();
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
+    await abrirFiltros(user);
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2030-10-01" } });
+    expect(screen.getByRole("button", { name: "Ver 0 turnos" })).toBeInTheDocument();
+    await confirmarFiltros(user);
 
     expect(screen.getByText("Ningún turno coincide con el filtro.")).toBeInTheDocument();
   });
@@ -193,6 +211,7 @@ describe("PacienteTurnosTable", () => {
     const user = userEvent.setup();
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
+    await abrirFiltros(user);
     await user.click(screen.getByRole("button", { name: "Hoy" }));
 
     const { desde, hasta } = rangoRapidoFechas("hoy");
@@ -204,6 +223,7 @@ describe("PacienteTurnosTable", () => {
     const user = userEvent.setup();
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
+    await abrirFiltros(user);
     await user.click(screen.getByRole("button", { name: "Semana" }));
 
     const { desde, hasta } = rangoRapidoFechas("semana");
@@ -215,8 +235,11 @@ describe("PacienteTurnosTable", () => {
   // SEMANA/MES se sacan SOLO de "Historial de turnos" — Desde/Hasta
   // sigue disponible ahí, y "Turnos activos" (mostrarRangosRapidos=true
   // por default, sin tocar su call site) no se ve afectado.
-  it("mostrarRangosRapidos=false saca los atajos HOY/SEMANA/MES, sin tocar Desde/Hasta", () => {
+  it("mostrarRangosRapidos=false saca los atajos HOY/SEMANA/MES, sin tocar Desde/Hasta", async () => {
+    const user = userEvent.setup();
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" mostrarRangosRapidos={false} />);
+
+    await abrirFiltros(user);
 
     expect(screen.queryByRole("button", { name: "Hoy" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Semana" })).not.toBeInTheDocument();
@@ -246,14 +269,24 @@ describe("PacienteTurnosTable", () => {
     expect(pushMock.mock.calls.length).toBe(llamadasPrevias);
   });
 
-  it("'Limpiar filtros' vuelve a mostrar todos los turnos", async () => {
+  it("'Limpiar filtros' resetea el borrador (no navega solo) — 'Ver X turnos' confirma", async () => {
     const user = userEvent.setup();
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
 
+    await abrirFiltros(user);
     fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-01-01" } });
+    await confirmarFiltros(user);
     expect(screen.getByText("Ningún turno coincide con el filtro.")).toBeInTheDocument();
 
+    // Reabre la hoja — el borrador arranca desde lo confirmado (Hasta
+    // sigue en "2026-01-01"), "Limpiar filtros" lo resetea pero la tabla
+    // de abajo sigue sin cambios hasta confirmar de nuevo.
+    await abrirFiltros(user);
     await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+    expect(screen.getByText("Ningún turno coincide con el filtro.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver 1 turno" })).toBeInTheDocument();
+
+    await confirmarFiltros(user);
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
   });
 });

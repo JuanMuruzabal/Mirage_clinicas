@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -111,6 +113,29 @@ type resendRequest struct {
 	To      []string `json:"to"`
 	Subject string   `json:"subject"`
 	HTML    string   `json:"html"`
+	Text    string   `json:"text"`
+}
+
+// htmlTagRegex/textoPlanoDesdeHTML — corrección de QA (2026-09-06),
+// pedido textual del cliente: "los códigos de confirmación de turno me
+// llegan a spam... el mail de turno sacado sí me llega a principal".
+// Ninguna de las plantillas mandaba una versión de texto plano junto con
+// el HTML (`resendRequest` no tenía el campo `text` de la API de Resend)
+// — un mail solo-HTML es justamente el patrón que separa a un mail
+// transaccional legítimo de uno de phishing a ojos de los clasificadores
+// de spam de Gmail/Outlook (todo OTP real de un banco/Google manda las
+// dos partes, "multipart/alternative"); el mail de "turno confirmado"
+// tiene menos señales de riesgo (sin código numérico grande, sin
+// urgencia de "vence en 15 minutos") así que se libraba más seguido,
+// pero el problema de fondo (solo HTML) aplicaba a los dos por igual.
+// Regex sobre las propias plantillas (controladas por nosotros, nunca
+// HTML de un tercero) en vez de un parser HTML completo — alcanza y
+// evita sumar una dependencia nueva solo para esto.
+var htmlTagRegex = regexp.MustCompile(`<[^>]*>`)
+
+func textoPlanoDesdeHTML(html string) string {
+	sinTags := htmlTagRegex.ReplaceAllString(html, " ")
+	return strings.Join(strings.Fields(sinTags), " ")
 }
 
 func (s *ResendSender) send(ctx context.Context, to, subject, html string) error {
@@ -119,7 +144,7 @@ func (s *ResendSender) send(ctx context.Context, to, subject, html string) error
 		base = resendAPIURL
 	}
 
-	body, err := json.Marshal(resendRequest{From: s.From, To: []string{to}, Subject: subject, HTML: html})
+	body, err := json.Marshal(resendRequest{From: s.From, To: []string{to}, Subject: subject, HTML: html, Text: textoPlanoDesdeHTML(html)})
 	if err != nil {
 		return fmt.Errorf("no se pudo serializar el mail: %w", err)
 	}

@@ -44,7 +44,12 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
             <th className="panel-th-sticky px-4 py-3">Nombre</th>
             <th className="panel-th-sticky px-4 py-3">Estado</th>
             <th className="panel-th-sticky max-md:hidden px-4 py-3">DNI</th>
-            <th className="panel-th-sticky px-4 py-3">Teléfono</th>
+            {/* Teléfono pasa a max-md:hidden (corrección de QA,
+                2026-09-06): en mobile competía con Nombre/Estado por el
+                mismo ancho y terminaba recortado — ahora entra al panel
+                desplegable junto a DNI/Email, mismo criterio que
+                TurnosTable con Contacto/Motivo/Origen. */}
+            <th className="panel-th-sticky max-md:hidden px-4 py-3">Teléfono</th>
             <th className="panel-th-sticky max-md:hidden px-4 py-3">Email</th>
             <th className="panel-th-sticky px-4 py-3" />
           </tr>
@@ -56,6 +61,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
               <Fragment key={p.id}>
                 <ClickableTableRow
                   href={`/panel/pacientes/${p.id}`}
+                  mobileOnClick={() => alternarExpandido(p.id)}
                   className={`border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px] ${expandido ? "bg-hueso" : ""}`}
                 >
                   <td className="px-4 py-3">
@@ -70,7 +76,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                     <EstadoVerificadoBadge verificado={p.verificado} />
                   </td>
                   <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
-                  <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
+                  <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
                   <td className="max-md:hidden px-4 py-3 text-grafito/60">
                     {/* Extra 2.3.4 (E4.1): un email largo no se muestra
                         más inline — rompía el ancho de la fila. Reusa
@@ -98,7 +104,15 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                       >
                         ▾
                       </button>
-                      <Link href={`/panel/pacientes/${p.id}`} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+                      {/* Corrección de QA (2026-09-06): en mobile este
+                          link competía por espacio con el chevron y el
+                          resto de la fila — pasa a max-md:hidden, la
+                          navegación en mobile ahora vive como botón
+                          propio dentro del panel desplegado (ver abajo). */}
+                      <Link
+                        href={`/panel/pacientes/${p.id}`}
+                        className="max-md:hidden text-sm font-medium text-salvia-oscuro hover:text-grafito"
+                      >
                         Ver ficha →
                       </Link>
                     </div>
@@ -106,15 +120,69 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                 </ClickableTableRow>
                 {expandido && (
                   <tr className="border-b border-arena bg-hueso last:border-b-0 md:hidden">
-                    <td colSpan={6} className="px-4 py-3">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-base">
+                    {/* w-px + el div interno min-w-full — corrección de QA
+                        (2026-09-06, "imitando las dimensiones de mi
+                        celular el mail queda recortado"): en una
+                        `<table>` con `table-layout: auto` (el default),
+                        el algoritmo de ancho mira el contenido de
+                        CUALQUIER celda —incluida una con `colSpan`— para
+                        decidir cuánto necesita la tabla entera, y eso
+                        puede ignorar que el contenido de adentro ya
+                        envuelve (`break-all`): la tabla entera se estira,
+                        y el `overflow-x-hidden` del contenedor de más
+                        arriba termina RECORTANDO en vez de envolver.
+                        `w-px` en la celda le dice al algoritmo de ancho
+                        "esta celda casi no necesita nada"; el `div` con
+                        `min-w-full` de adentro ocupa todo el ancho real
+                        ya resuelto de la tabla — mismo truco que
+                        TurnosTable. */}
+                    <td colSpan={6} className="w-px px-4 py-3">
+                      <div className="min-w-full">
+                      {/* grid-cols-[auto_minmax(0,1fr)] — corrección de QA
+                          (2026-09-06): con `1fr` a secas, una celda con
+                          contenido intrínsecamente ancho (un email largo)
+                          empuja la columna más allá del espacio
+                          disponible en vez de achicarse — el clásico bug
+                          de CSS Grid ("min-width: auto" por default en
+                          los hijos). `minmax(0, 1fr)` fuerza el mínimo a
+                          0, dejando que el texto/`break-all` de adentro
+                          recién ahí puedan envolver de verdad en vez de
+                          desbordar la pantalla (mismo fix en
+                          TurnosTable). `items-start` (corrección de QA,
+                          "también en pacientes se ve un poco
+                          desalineado") — sin esto, el default "stretch"
+                          de CSS Grid estira cada `dt`/`dd` a la altura de
+                          toda su fila; con Email pudiendo envolver a más
+                          de una línea y DNI/Teléfono siempre en una sola,
+                          las etiquetas quedaban ancladas arriba de una
+                          caja más alta de la que su texto necesitaba.
+                          Sin fuente monoespaciada en DNI/Teléfono
+                          (corrección de QA, pedido textual: "tiene 2
+                          tamaños diferentes el contenido a la
+                          referencia") — al mismo `text-base`, una fuente
+                          monoespaciada se ve más grande que la fuente
+                          normal de Email al lado; ahora las 3 filas
+                          comparten la misma fuente. */}
+                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 text-base">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">DNI</dt>
-                        <dd className="font-[family-name:var(--font-mono)] text-grafito">{p.dni}</dd>
+                        <dd className="min-w-0 text-grafito">{p.dni}</dd>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
+                        <dd className="min-w-0 text-grafito">{p.telefono}</dd>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
-                        <dd className="text-grafito">
+                        <dd className="min-w-0 break-all text-grafito">
                           {textoEsLargo(p.email) ? <VerTextoBoton titulo="Email" texto={p.email} /> : p.email || "—"}
                         </dd>
                       </dl>
+                      {/* Botón real (pedido textual del cliente: "poner un
+                          botón en mobile para ver la ficha") — reemplaza
+                          al link de arriba, que en mobile queda oculto. */}
+                      <Link
+                        href={`/panel/pacientes/${p.id}`}
+                        className="mt-3 inline-block rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                      >
+                        Ver ficha →
+                      </Link>
+                      </div>
                     </td>
                   </tr>
                 )}
