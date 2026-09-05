@@ -304,7 +304,12 @@ describe("BloqueoDetalleModal", () => {
         expect(onVerTurno).toHaveBeenCalledWith(turnoResuelto);
       });
 
-      it("con un turno en conflicto Y uno resuelto a la vez, muestra las dos secciones por separado", () => {
+      // Corrección de QA (2026-09-05): "si en la tarjeta de solapamiento
+      // hay turnos en conflicto, solo mostrar los turnos en conflicto y
+      // el horario reservado... excluir... las tarjetas de los turnos
+      // resueltos, ya que esto lo hace poco intuitivo" — reemplaza el
+      // comportamiento anterior (mostrar las dos secciones por separado).
+      it("con un turno en conflicto Y uno resuelto a la vez, solo muestra el en conflicto", () => {
         const enConflicto = { ...turno, id: "t-activo" };
         render(
           <BloqueoDetalleModal
@@ -316,8 +321,8 @@ describe("BloqueoDetalleModal", () => {
           />,
         );
         expect(screen.getByText("Turnos en conflicto")).toBeInTheDocument();
-        expect(screen.getByText("Turnos resueltos")).toBeInTheDocument();
-        expect(screen.getAllByRole("button", { name: "Ver turno" })).toHaveLength(2);
+        expect(screen.queryByText("Turnos resueltos")).not.toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: "Ver turno" })).toHaveLength(1);
       });
     });
   });

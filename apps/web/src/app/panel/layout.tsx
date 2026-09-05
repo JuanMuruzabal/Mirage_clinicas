@@ -1,6 +1,8 @@
 import { requireOnboardingComplete } from "@/lib/session";
 import { PanelSidebar } from "@/components/panel/panel-sidebar";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { AsistenciaCartelGlobal } from "@/components/panel/asistencia-cartel-global";
+import { NotificacionesConflictoGlobal } from "@/components/panel/notificaciones-conflicto-global";
 
 // Shell de gestión de clínica (T2.1, spec §4.1) — protegido, sidebar +
 // contenido. pt-[var(--header-height)] compensa el header fixed (mismo
@@ -65,8 +67,21 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
     <PanelShell>
       <PanelSidebar />
       <main className="panel-main-h min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain">
+        {/* NotificacionesConflictoGlobal — pedido textual del cliente:
+            aviso de conflicto (pacientes o calendario) visible desde
+            CUALQUIER pantalla del panel, arriba del todo (ver
+            docs/foto1.png). Primer hijo de `<main>`, antes que la propia
+            página — cada pantalla se salta su propio aviso más
+            específico para no duplicarlo (ver el componente). */}
+        <NotificacionesConflictoGlobal />
         {children}
       </main>
+      {/* AsistenciaCartelGlobal (TR-107, 1.3ter) — montado acá, no dentro
+          de una página puntual, para que aparezca sin importar en qué
+          pantalla del panel esté el profesional cuando un turno cumple
+          su hora de fin. Usa un portal al body (ModalPortal), así que su
+          posición en este árbol no afecta dónde se pinta. */}
+      <AsistenciaCartelGlobal />
     </PanelShell>
   );
 }

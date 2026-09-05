@@ -65,6 +65,14 @@ var (
 	LimitTurnoVerifEnviarPerCuenta    = Limit{Max: 5, Window: time.Hour}
 	LimitTurnoVerifConfirmarPerIP     = Limit{Max: 30, Window: time.Hour}
 	LimitTurnoVerifConfirmarPerCuenta = Limit{Max: 8, Window: 15 * time.Minute}
+
+	// LimitMisTurnosConsultaPerIP — pedido textual del cliente: botón
+	// "Mis turnos" de la página pública. Sin código de verificación de
+	// por medio (a diferencia del resto de estos límites), así que probar
+	// combinaciones de DNI+mail al voleo tiene que costar algo — 20/hora
+	// por IP+clínica alcanza para un uso real (alguien consultando su
+	// propio turno más de una vez) sin habilitar fuerza bruta cómoda.
+	LimitMisTurnosConsultaPerIP = Limit{Max: 20, Window: time.Hour}
 )
 
 // scopeLoginFailed cuenta intentos de login fallidos consecutivos por

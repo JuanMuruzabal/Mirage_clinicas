@@ -20,6 +20,10 @@ func registerPacienteRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Post("/pacientes", crearPacienteHandler(gdb))
 	r.Get("/pacientes/{id}", getPacienteHandler(gdb))
 	r.Patch("/pacientes/{id}", editarPacienteHandler(gdb))
+	// Fase 2.4.1 — conflictos entre fichas de paciente detectados desde el
+	// formulario público (ver pacientes_conflicto_panel.go).
+	r.Get("/pacientes/conflictos", listConflictosPacienteHandler(gdb))
+	r.Post("/pacientes/conflictos/{id}/resolver", resolverConflictoPacienteHandler(gdb))
 }
 
 type pacienteResponse struct {
@@ -30,17 +34,25 @@ type pacienteResponse struct {
 	Telefono  string  `json:"telefono"`
 	Email     *string `json:"email,omitempty"`
 	CreatedAt string  `json:"createdAt"`
+	// Verificado (Fase 2.4.1, indicador visual pedido por el cliente para
+	// la tabla de Pacientes) — mismo criterio que pacienteEstaVerificado
+	// (paciente_verificado_publico.go): al menos 1 turno resuelto y
+	// asistido. Se computa al vuelo en cada handler de este archivo,
+	// nunca una columna en la base — mismo criterio derivado que
+	// "resuelto" en Turnos (TR-074).
+	Verificado bool `json:"verificado"`
 }
 
-func toPacienteResponse(p db.Paciente) pacienteResponse {
+func toPacienteResponse(p db.Paciente, verificado bool) pacienteResponse {
 	return pacienteResponse{
-		ID:        p.ID.String(),
-		Nombre:    p.Nombre,
-		Apellido:  p.Apellido,
-		DNI:       p.DNI,
-		Telefono:  p.Telefono,
-		Email:     p.Email,
-		CreatedAt: p.CreatedAt.Format(time.RFC3339),
+		ID:         p.ID.String(),
+		Nombre:     p.Nombre,
+		Apellido:   p.Apellido,
+		DNI:        p.DNI,
+		Telefono:   p.Telefono,
+		Email:      p.Email,
+		CreatedAt:  p.CreatedAt.Format(time.RFC3339),
+		Verificado: verificado,
 	}
 }
 
@@ -65,9 +77,17 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Una sola query para todos los pacientes de la lista, no una por
+		// fila — ver pacientesVerificadosIDs (paciente_verificado_publico.go).
+		verificados, err := pacientesVerificadosIDs(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+			return
+		}
+
 		out := make([]pacienteResponse, len(pacientes))
 		for i, p := range pacientes {
-			out[i] = toPacienteResponse(p)
+			out[i] = toPacienteResponse(p, verificados[p.ID])
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -76,6 +96,15 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 type pacienteDetalleResponse struct {
 	pacienteResponse
 	Turnos []turnoResponse `json:"turnos"`
+	// EmailsAlternativos/TelefonosAlternativos (Fase 2.4.1, corrección de
+	// QA) — mails/teléfonos sumados a esta ficha VERIFICADA al resolver
+	// un conflicto de pacientes con "el mail es de la persona verificada"
+	// (ver resolverConflictoPacienteHandler). El frontend muestra "Ver
+	// mails →"/"Ver teléfonos →" en Datos de contacto cuando hay más de
+	// uno — vacío en la enorme mayoría de los pacientes, que nunca tuvo
+	// un conflicto.
+	EmailsAlternativos    []string `json:"emailsAlternativos,omitempty"`
+	TelefonosAlternativos []string `json:"telefonosAlternativos,omitempty"`
 }
 
 // getPacienteHandler — GET /pacientes/{id} (T3.6): datos personales +
@@ -111,9 +140,37 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			turnosOut[i] = toTurnoResponse(t)
 		}
 
+		verificado, err := pacienteEstaVerificado(gdb, paciente)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+
+		var emailsAlt []db.PacienteEmailAlternativo
+		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at").Find(&emailsAlt).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+		emailsOut := make([]string, len(emailsAlt))
+		for i, e := range emailsAlt {
+			emailsOut[i] = e.Email
+		}
+
+		var telsAlt []db.PacienteTelefonoAlternativo
+		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at").Find(&telsAlt).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+		telsOut := make([]string, len(telsAlt))
+		for i, t := range telsAlt {
+			telsOut[i] = t.Telefono
+		}
+
 		writeJSON(w, http.StatusOK, pacienteDetalleResponse{
-			pacienteResponse: toPacienteResponse(paciente),
-			Turnos:           turnosOut,
+			pacienteResponse:      toPacienteResponse(paciente, verificado),
+			Turnos:                turnosOut,
+			EmailsAlternativos:    emailsOut,
+			TelefonosAlternativos: telsOut,
 		})
 	}
 }
@@ -195,7 +252,12 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, toPacienteResponse(paciente))
+		verificado, err := pacienteEstaVerificado(gdb, paciente)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			return
+		}
+		writeJSON(w, http.StatusOK, toPacienteResponse(paciente, verificado))
 	}
 }
 
@@ -264,6 +326,10 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			Apellido:      req.Apellido,
 			DNI:           req.DNI,
 			Telefono:      req.Telefono,
+			// Origen "manual" (corrección de QA, Fase 2.4.1) — alta directa
+			// por el profesional, que ya tiene a la persona en frente:
+			// queda VERIFICADA de entrada (ver pacienteEstaVerificado).
+			Origen: "manual",
 		}
 		if req.Email != "" {
 			paciente.Email = &req.Email
@@ -277,6 +343,11 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente))
+		verificado, err := pacienteEstaVerificado(gdb, paciente)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo crear el paciente")
+			return
+		}
+		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente, verificado))
 	}
 }

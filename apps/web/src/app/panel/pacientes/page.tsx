@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { apiListPacientes } from "@/lib/api";
+import { apiListConflictosPaciente, apiListPacientes, apiListTiposConsulta } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { PacientesTable } from "@/components/panel/pacientes-table";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
+import { ConflictosPacienteBanner } from "@/components/panel/conflictos-paciente-banner";
+import { QueEsVerificadoBoton } from "@/components/panel/que-es-verificado-boton";
 
 export const metadata: Metadata = { title: "Pacientes — Dental Mirage" };
 
@@ -23,15 +25,33 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const result = token ? await apiListPacientes(token, q) : null;
   const pacientes = result?.ok ? result.data : [];
 
+  // Fase 2.4.1: conflictos de pacientes sin resolver (dos fichas
+  // compitiendo por el mismo DNI, detectadas desde el formulario público)
+  // — banner arriba de la tabla, igual criterio que el banner de
+  // conflicto del calendario (TR-095).
+  const conflictosResult = token ? await apiListConflictosPaciente(token) : null;
+  const conflictos = conflictosResult?.ok ? conflictosResult.data : [];
+  // Corrección de QA: la pantalla de resolución de conflictos muestra el
+  // NOMBRE del tipo de consulta del turno en conflicto (y del que ya
+  // estuviera activo, si hay colisión) — el endpoint de conflictos solo
+  // trae el id.
+  const tiposConsultaResult = token ? await apiListTiposConsulta(token) : null;
+  const tiposConsulta = tiposConsultaResult?.ok ? tiposConsultaResult.data : [];
+
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
     // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll... quitá
     // el padding-top sobrante").
     <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-        Pacientes
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+          Pacientes
+        </h1>
+        <QueEsVerificadoBoton />
+      </div>
+
+      <ConflictosPacienteBanner conflictos={conflictos} tiposConsulta={tiposConsulta} />
 
       {/* Rediseño 2026-08-27 (pedido explícito del cliente, reemplaza el
           intento de cards apiladas) — "quiero que las tablas...

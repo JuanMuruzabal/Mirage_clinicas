@@ -23,10 +23,13 @@ func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/turnos", listTurnosHandler(gdb))
 	r.Post("/turnos", crearTurnoManualHandler(gdb))
 	r.Patch("/turnos/{id}/cancelar", cancelarTurnoHandler(gdb))
+	r.Post("/turnos/cancelar-sin-verificar", cancelarTurnosSinVerificarHandler(gdb))
 	r.Patch("/turnos/{id}/hora", reprogramarTurnoHandler(gdb))
 	r.Post("/turnos/autoreservar", autoreservarTurnosHandler(gdb))
 	r.Patch("/turnos/{id}/asistencia", marcarAsistenciaHandler(gdb))
+	r.Get("/turnos/pendientes-asistencia", turnosPendientesAsistenciaHandler(gdb))
 	r.Get("/panel/resumen", resumenPanelHandler(gdb))
+	r.Get("/panel/notificaciones", panelNotificacionesHandler(gdb))
 }
 
 // turnoResponse no incluye nombre/color de tipo_consulta a propósito — el
@@ -54,6 +57,15 @@ type turnoResponse struct {
 	// "Autoreservar turnos" del modal de conflicto — el frontend lo pinta
 	// con rayas en el calendario y lo avisa en TurnoDetalle.
 	Autoreservado bool `json:"autoreservado"`
+	// PacienteVerificado (corrección de seguridad, Fase 2.4.1) — mismo
+	// criterio que Paciente.verificado (pacienteEstaVerificado): false si
+	// el turno no tiene paciente vinculado. Se completa aparte, solo en
+	// listTurnosHandler (necesita el set de pacientes verificados del
+	// profesional, no algo que toTurnoResponse pueda calcular con un solo
+	// Turno) — da visibilidad al profesional sobre turnos de pacientes que
+	// todavía no demostraron ser reales, pedido explícito del cliente tras
+	// la charla de seguridad sobre el formulario público.
+	PacienteVerificado bool `json:"pacienteVerificado"`
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {
@@ -90,7 +102,7 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 	return out
 }
 
-// listTurnosHandler — GET /turnos?estado=&desde=&hasta=&q=&resuelto=&tipoConsultaId=.
+// listTurnosHandler — GET /turnos?estado=&desde=&hasta=&q=&resuelto=&tipoConsultaId=&verificacion=.
 // `estado` filtra por columna exacta (agendado/cancelada — TR-104: ya no
 // existe `pendiente`); `desde`/`hasta` (RFC3339) filtran por hora_inicio —
 // lo que usa el calendario (T2.3) para pedir solo el rango visible. `q`
@@ -106,6 +118,12 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 // Turnos) filtra por columna exacta — mismo filtro que ya existía del
 // lado del cliente en "Turnos activos"/"Historial" de la ficha de
 // paciente (paciente-turnos-table.tsx), acá resuelto en el servidor.
+// `verificacion` (corrección de seguridad, Fase 2.4.1) — "verificado" o
+// "sin_verificar", filtra según si el paciente vinculado ya demostró ser
+// real (ver pacienteEstaVerificado/pacientesVerificadosQuery) — le da al
+// profesional una forma rápida de encontrar turnos de pacientes que
+// todavía nadie confirmó, sin abrir ficha por ficha. Un turno sin
+// paciente vinculado cuenta como "sin_verificar".
 // Sin filtros, devuelve todos los turnos del profesional (usado por T2.2
 // para calcular el resumen si hiciera falta).
 func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
@@ -162,6 +180,23 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 			query = query.Where("tipo_consulta_id = ?", id)
 		}
+		// verificacion (corrección de seguridad, Fase 2.4.1) — "sin_verificar"
+		// es el filtro que le da al profesional visibilidad sobre turnos de
+		// pacientes que todavía no demostraron ser reales (ver
+		// pacientesVerificadosQuery), para poder revisarlos/limpiarlos de un
+		// vistazo en vez de abrir ficha por ficha.
+		if verificacion := r.URL.Query().Get("verificacion"); verificacion != "" {
+			sub := pacientesVerificadosQuery(gdb, profesionalID)
+			switch verificacion {
+			case "verificado":
+				query = query.Where("paciente_id IN (?)", sub)
+			case "sin_verificar":
+				query = query.Where("paciente_id IS NULL OR paciente_id NOT IN (?)", sub)
+			default:
+				writeError(w, http.StatusBadRequest, "el parámetro 'verificacion' debe ser 'verificado' o 'sin_verificar'")
+				return
+			}
+		}
 
 		var turnos []db.Turno
 		if err := query.Order("created_at").Find(&turnos).Error; err != nil {
@@ -169,9 +204,18 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		verificados, err := pacientesVerificadosIDs(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los turnos")
+			return
+		}
+
 		out := make([]turnoResponse, len(turnos))
 		for i, t := range turnos {
 			out[i] = toTurnoResponse(t)
+			if t.PacienteID != nil {
+				out[i].PacienteVerificado = verificados[*t.PacienteID]
+			}
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -264,7 +308,27 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		if turno.Estado != "cancelada" {
-			if err := gdb.Model(&turno).Update("estado", "cancelada").Error; err != nil {
+			// Transacción (Fase 2.4.1, corrección de QA): cancelar puede
+			// ser el último turno que "salvaba" a una ficha no verificada
+			// (borrarPacienteNoVerificadoSiSinHistorialReal) — si esa
+			// segunda parte falla, no debe quedar el turno cancelado de
+			// un lado y el paciente sin evaluar del otro.
+			err := gdb.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Model(&turno).Update("estado", "cancelada").Error; err != nil {
+					return err
+				}
+				if turno.PacienteID != nil {
+					borrado, err := borrarPacienteNoVerificadoSiSinHistorialReal(tx, *turno.PacienteID)
+					if err != nil {
+						return err
+					}
+					if borrado {
+						turno.PacienteID = nil
+					}
+				}
+				return nil
+			})
+			if err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo cancelar el turno")
 				return
 			}
@@ -272,6 +336,60 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, toTurnoResponse(turno))
+	}
+}
+
+type cancelarTurnosSinVerificarResponse struct {
+	Cancelados int `json:"cancelados"`
+}
+
+// cancelarTurnosSinVerificarHandler — POST /turnos/cancelar-sin-verificar
+// (corrección de seguridad, Fase 2.4.1): "cómo se hace para borrar todos
+// los turnos sin verificar" — acción explícita del profesional, pedida
+// desde el filtro "Sin verificar" de /panel/turnos (turnos-table.tsx), un
+// clic en vez de cancelar fila por fila. Mismo criterio "nunca se borra un
+// turno" que cancelarTurnoHandler — CANCELA (no un DELETE de la fila),
+// queda como registro histórico. Alcance: solo turnos VIGENTES
+// (`estado='agendado' AND hora_fin >= now()`, mismo criterio que
+// turnoVigenteDeTipo) de pacientes que todavía no demostraron ser reales
+// (pacientesVerificadosQuery) — un turno ya resuelto no ocupa ningún
+// horario, no hay nada que "liberar" cancelándolo.
+func cancelarTurnosSinVerificarHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		profesionalID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+
+		var cancelados int
+		err := gdb.Transaction(func(tx *gorm.DB) error {
+			sub := pacientesVerificadosQuery(tx, profesionalID)
+			var turnos []db.Turno
+			if err := tx.Where(
+				"profesional_id = ? AND estado = 'agendado' AND hora_fin >= now() AND (paciente_id IS NULL OR paciente_id NOT IN (?))",
+				profesionalID, sub,
+			).Find(&turnos).Error; err != nil {
+				return err
+			}
+			for _, turno := range turnos {
+				if err := tx.Model(&db.Turno{}).Where("id = ?", turno.ID).Update("estado", "cancelada").Error; err != nil {
+					return err
+				}
+				if turno.PacienteID != nil {
+					if _, err := borrarPacienteNoVerificadoSiSinHistorialReal(tx, *turno.PacienteID); err != nil {
+						return err
+					}
+				}
+			}
+			cancelados = len(turnos)
+			return nil
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron cancelar los turnos")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, cancelarTurnosSinVerificarResponse{Cancelados: cancelados})
 	}
 }
 
@@ -538,6 +656,24 @@ type marcarAsistenciaRequest struct {
 // pide el cliente en el frontend solo tiene sentido si es cierto acá,
 // nunca solo un texto en la UI sin nada que lo respalde del lado del
 // servidor.
+// errConflictoPacienteSinResolver — corrección de QA, pedido textual del
+// cliente (revisión sobre el diseño anterior, que resolvía solo el
+// conflicto retroactivo): "no dejar poner asistencia o ausencia hasta que
+// se resuelva el conflicto". Evita el escenario real encontrado en QA: un
+// conflicto ya pendiente (ConflictoPaciente.Resuelto = false) donde el
+// lado "en conflicto" consigue su propia asistencia después, sin que el
+// profesional haya resuelto nada — el sistema terminaba decidiendo solo
+// cuál de las dos identidades prevalece, y podía borrar a la que en
+// realidad era la real. Con este bloqueo, mientras el ticket siga
+// pendiente, ninguna de las dos fichas puede marcar asistencia/ausencia en
+// NINGÚN turno propio — de paso evita otro caso real: marcar "ausente" en
+// la ficha en conflicto (sin este bloqueo) la borraría sola
+// (borrarPacienteNoVerificadoSiSinHistorialReal) dejando el ticket
+// pendiente apuntando a una ficha que ya no existe.
+var errConflictoPacienteSinResolver = errors.New(
+	"hay un conflicto de identidad sin resolver con este paciente — resolvelo desde Pacientes antes de marcar asistencia",
+)
+
 func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -579,8 +715,111 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// *string): un valor por struct puede quedar ambiguo según cómo
 		// GORM detecte "zero value" — acá el valor ya está validado arriba
 		// (siempre "asistio" o "ausente"), así que un UPDATE explícito es
-		// lo más simple y no deja dudas.
-		if err := gdb.Exec("UPDATE turnos SET asistencia = ? WHERE id = ?", req.Asistencia, turno.ID).Error; err != nil {
+		// lo más simple y no deja dudas. Todo en una transacción (Fase
+		// 2.4.1: se le suma la regla de auto-borrado de abajo) — si esa
+		// segunda parte falla, no queda la asistencia marcada de un lado y
+		// el paciente sin borrar del otro (TR-092: la marca es
+		// irreversible, un estado a medias sería peor que fallar entero).
+		err = gdb.Transaction(func(tx *gorm.DB) error {
+			// Carve-out de TR-107 (1.3bis): si ESTE turno puntual es el
+			// que originó un ConflictoPaciente todavía pendiente
+			// (TurnoEnConflictoID), marcar su asistencia resuelve el
+			// conflicto ahí mismo en vez de chocar con el bloqueo general
+			// de abajo — "asistió" confirma que la ficha en conflicto es
+			// la misma persona (fusión estándar, dirección fija: nunca
+			// puede terminar borrando a la ya verificada, a diferencia
+			// del bug de TR-106); "ausente" borra la ficha en conflicto y
+			// cierra el ticket SIN bloquear su mail (un ausente no prueba
+			// fraude). Si el conflicto ya se resolvió por otra vía antes
+			// de esta fecha, el lookup no encuentra nada y cae al chequeo
+			// general de siempre (item 27 de la checklist del doc).
+			var conflictoDisputado db.ConflictoPaciente
+			errConflicto := tx.Where("turno_en_conflicto_id = ? AND resuelto = false", turno.ID).First(&conflictoDisputado).Error
+			if errConflicto != nil && !errors.Is(errConflicto, gorm.ErrRecordNotFound) {
+				return errConflicto
+			}
+			esCarveOutDeConflicto := errConflicto == nil
+
+			// Corrección de QA: mientras la ficha de este turno participe
+			// de un ConflictoPaciente sin resolver (de cualquiera de los 2
+			// lados), no se puede marcar asistencia/ausencia en NINGÚN
+			// OTRO turno propio — ver errConflictoPacienteSinResolver. No
+			// aplica al turno disputado en sí (carve-out de arriba).
+			if !esCarveOutDeConflicto && turno.PacienteID != nil {
+				var conflictosPendientes int64
+				if err := tx.Model(&db.ConflictoPaciente{}).
+					Where("resuelto = false AND (paciente_verificado_id = ? OR paciente_en_conflicto_id = ?)", *turno.PacienteID, *turno.PacienteID).
+					Count(&conflictosPendientes).Error; err != nil {
+					return err
+				}
+				if conflictosPendientes > 0 {
+					return errConflictoPacienteSinResolver
+				}
+			}
+
+			if err := tx.Exec("UPDATE turnos SET asistencia = ? WHERE id = ?", req.Asistencia, turno.ID).Error; err != nil {
+				return err
+			}
+
+			if esCarveOutDeConflicto {
+				if req.Asistencia == "asistio" {
+					if err := resolverConflictoComoVerdadero(tx, conflictoDisputado, &turno.ID); err != nil {
+						return err
+					}
+					turno.PacienteID = &conflictoDisputado.PacienteVerificadoID
+				} else {
+					if err := resolverConflictoComoFalso(tx, conflictoDisputado, profesionalID, false, &turno.ID); err != nil {
+						return err
+					}
+					turno.PacienteID = nil
+				}
+				return nil
+			}
+			// Fase 2.4.1 (`docs/FASE 2.4 - detallada y bien especificada.docx`),
+			// regla nueva pedida textualmente por el cliente: "para un
+			// paciente no verificado si se ausenta a lo que vendría siendo
+			// su PRIMER turno, eliminar de la tabla pacientes este
+			// paciente" — nunca llegó a demostrar que es real.
+			if req.Asistencia == "ausente" && turno.PacienteID != nil {
+				borrado, err := borrarPacienteNoVerificadoSiSinHistorialReal(tx, *turno.PacienteID)
+				if err != nil {
+					return err
+				}
+				if borrado {
+					turno.PacienteID = nil
+				}
+			}
+			// Corrección de QA, pedido textual del cliente: "esto no se
+			// tiene que auto solucionar, se debe marcar al profesional
+			// para que lo resuelva manualmente" — si ESTE turno acaba de
+			// verificar a la ficha (o ya estaba verificada por otro lado),
+			// se detectan fichas "hermanas" (mismo DNI, sin ticket
+			// todavía) y se deja un ConflictoPaciente PENDIENTE para cada
+			// una — nunca se migra/cancela/borra nada acá, eso queda para
+			// resolverConflictoPacienteHandler (pacientes_conflicto_panel.go).
+			if req.Asistencia == "asistio" && turno.PacienteID != nil {
+				var paciente db.Paciente
+				if err := tx.First(&paciente, "id = ?", *turno.PacienteID).Error; err == nil {
+					verificado, err := pacienteEstaVerificado(tx, paciente)
+					if err != nil {
+						return err
+					}
+					if verificado {
+						if err := generarConflictosRetroactivosPorDNI(tx, paciente); err != nil {
+							return err
+						}
+					}
+				} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			if errors.Is(err, errConflictoPacienteSinResolver) {
+				writeError(w, http.StatusConflict, err.Error())
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "no se pudo guardar la asistencia")
 			return
 		}
@@ -711,8 +950,13 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 // entre dos requests concurrentes con el mismo DNI — isUniqueViolation la
 // traduce a un error legible más abajo.
 func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.Turno) (db.Paciente, error) {
+	// `en_conflicto = false` (Fase 2.4.1) — nunca reusar/sincronizar contra
+	// una ficha temporaria de un conflicto de pacientes todavía sin
+	// resolver (db.Paciente.EnConflicto) — ese no es "el" paciente real
+	// para este DNI hasta que el profesional lo resuelva desde
+	// /panel/pacientes.
 	var existente db.Paciente
-	err := tx.Where("profesional_id = ? AND dni = ?", profesionalID, turno.DNIContacto).First(&existente).Error
+	err := tx.Where("profesional_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
 	if err == nil {
 		sincronizarContactoConPaciente(turno, existente)
 		return existente, nil
@@ -727,6 +971,13 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 		Apellido:      turno.ApellidoContacto,
 		DNI:           turno.DNIContacto,
 		Telefono:      turno.TelefonoContacto,
+		// Origen "manual" (corrección de QA, Fase 2.4.1) — esta función
+		// solo la usa el panel del profesional ("Agregar turno" con
+		// paciente nuevo) — a diferencia del formulario público
+		// (crearFichaPacientePublico), acá el profesional ya tiene a la
+		// persona en frente, así que la ficha queda VERIFICADA de
+		// entrada (ver pacienteEstaVerificado).
+		Origen: "manual",
 	}
 	if turno.EmailContacto != "" {
 		paciente.Email = &turno.EmailContacto
@@ -797,6 +1048,13 @@ type resumenTurnoItem struct {
 	Hora    string `json:"hora"`    // HH:MM, Córdoba
 	HoraFin string `json:"horaFin"` // HH:MM, Córdoba — corrección de QA: "agregar de que hora a que hora porque solo dice la hora de inicio"
 	Nombre  string `json:"nombre"`
+	// Asistencia (corrección de QA — rediseño de "Turnos resueltos" del
+	// dashboard, ver el comentario grande en resumenPanelHandler más
+	// abajo): "asistio" | "ausente" | omitido — el resto de las tarjetas
+	// no lo necesitan (nunca hay uno marcado en "Turnos de hoy"/"Turnos
+	// próximos", son siempre turnos vigentes), así que toResumenTurnoItems
+	// lo deja vacío para esas y solo lo completa para turnosResueltos.
+	Asistencia string `json:"asistencia,omitempty"`
 }
 
 type resumenHorarioReservadoItem struct {
@@ -891,16 +1149,22 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Corrección de QA: "una vez marcado como asistido/ausente debe
-		// dejar de aparecer en la tarjeta" — esta lista es una bandeja de
-		// "todavía falta marcar", no un historial completo (ese sigue
-		// siendo la pestaña "Resueltos" de /panel/turnos, sin este filtro).
+		// Corrección de QA (rediseño del cartel de asistencia en tiempo
+		// real, `AsistenciaCartelGlobal` — la marca ya no espera a que el
+		// profesional entre a ninguna pantalla en particular, dispara
+		// SOLA apenas se cumple la hora de fin): esta tarjeta deja de ser
+		// una bandeja de "todavía falta marcar" (ese pendiente, con el
+		// cartel siempre encima bloqueando hasta que se resuelva, ya no
+		// tiene sentido como concepto — nunca debería acumularse) y pasa
+		// a ser un reporte de HOY: los turnos que YA se marcaron
+		// (asistio/ausente), en el mismo formato que "Turnos de hoy"
+		// (hora, nombre) más el resultado.
 		var turnosResueltosDB []db.Turno
 		if err := gdb.Where(
-			"profesional_id = ? AND estado = ? AND hora_fin < ? AND asistencia IS NULL",
-			profesionalID, "agendado", ahora,
+			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
+			profesionalID, "agendado", hoy, mañana,
 		).
-			Order("hora_fin DESC").
+			Order("hora_inicio").
 			Limit(resumenListLimit).
 			Find(&turnosResueltosDB).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
@@ -962,12 +1226,17 @@ func toResumenTurnoItems(turnos []db.Turno) []resumenTurnoItem {
 		if t.HoraFin != nil {
 			horaFin = clock.In(*t.HoraFin).Format("15:04")
 		}
+		var asistencia string
+		if t.Asistencia != nil {
+			asistencia = *t.Asistencia
+		}
 		out[i] = resumenTurnoItem{
-			ID:      t.ID.String(),
-			Fecha:   fecha,
-			Hora:    hora,
-			HoraFin: horaFin,
-			Nombre:  strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+			ID:         t.ID.String(),
+			Fecha:      fecha,
+			Hora:       hora,
+			HoraFin:    horaFin,
+			Nombre:     strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+			Asistencia: asistencia,
 		}
 	}
 	return out
@@ -1022,6 +1291,16 @@ var diasSemanaCorto = [7]string{"dom", "lun", "mar", "mié", "jue", "vie", "sáb
 var nombresMes = [12]string{
 	"enero", "febrero", "marzo", "abril", "mayo", "junio",
 	"julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+}
+
+// formatFechaLargaEs — "8 de septiembre de 2026", hora Córdoba (mismo
+// criterio de timezone que el resto del archivo — clock.In, nunca la
+// hora cruda del timestamp). Usado en el mail de "turno confirmado"
+// (turno_publico.go) — Go no localiza nombres de mes por su cuenta,
+// reusa el mismo array que etiquetaHorarioGeneral más abajo.
+func formatFechaLargaEs(t time.Time) string {
+	local := clock.In(t)
+	return fmt.Sprintf("%d de %s de %d", local.Day(), nombresMes[int(local.Month())-1], local.Year())
 }
 
 // etiquetaHorarioGeneral — corrección de QA, 2026-09-08: un horario

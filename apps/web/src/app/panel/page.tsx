@@ -145,19 +145,30 @@ export default async function PanelGeneralPage() {
         />
 
         <TarjetaConLista
-          eyebrow="Turnos resueltos"
+          // Corrección de QA (rediseño del cartel de asistencia en
+          // tiempo real, `AsistenciaCartelGlobal`): esta tarjeta deja de
+          // ser una bandeja de "todavía falta marcar" — el cartel,
+          // siempre encima bloqueando hasta que se resuelva, ya cubre
+          // eso desde cualquier pantalla — y pasa a ser un reporte de
+          // HOY: los turnos que YA se marcaron, con el resultado. Mismo
+          // formato que "Turnos de hoy" (hora, nombre, sin etiqueta de
+          // día — siempre es hoy) más el resultado.
+          eyebrow="Turnos resueltos hoy"
           valor={resumen.turnosResueltos.length}
           hrefCabecera="/panel/turnos?estado=resuelto"
           labelCabecera="Ver turnos"
-          vacioMensaje="Todavía no hay turnos resueltos."
+          vacioMensaje="Todavía no se marcó ningún turno hoy."
           acento
           icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
           filas={resumen.turnosResueltos.map((t) => ({
             key: t.id,
             href: `/panel/turnos?estado=resuelto&turno=${t.id}`,
             contenido: (
-              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(t.fecha))} hora={`${t.hora} a ${t.horaFin}`}>
-                {t.nombre}
+              <FilaResumen hora={`${t.hora} a ${t.horaFin}`}>
+                {t.nombre}{" "}
+                <span className={t.asistencia === "asistio" ? "text-salvia-oscuro" : "text-terracota-oscuro"}>
+                  {t.asistencia === "asistio" ? "· Asistió" : "· Ausente"}
+                </span>
               </FilaResumen>
             ),
           }))}

@@ -50,6 +50,7 @@ function filtrosDeTab(
   desde: string | undefined,
   hasta: string | undefined,
   tipoConsultaId: string | undefined,
+  verificacion: "verificado" | "sin_verificar" | undefined,
 ): ListarTurnosParams {
   const base: ListarTurnosParams = (() => {
     switch (tab) {
@@ -69,7 +70,17 @@ function filtrosDeTab(
     desde: desde ? inicioDiaCordobaISO(desde) : undefined,
     hasta: hasta ? finDiaCordobaISO(hasta) : undefined,
     tipoConsultaId,
+    verificacion,
   };
+}
+
+// parseVerificacion — corrección de seguridad (Fase 2.4.1): da visibilidad
+// al profesional sobre turnos de pacientes que todavía no demostraron ser
+// reales (ver pacienteEstaVerificado en el backend) — mismo criterio de
+// parseo defensivo que parseTab, cualquier valor que no sea uno de los dos
+// esperados se trata como "sin filtro".
+function parseVerificacion(value: string | undefined): "verificado" | "sin_verificar" | undefined {
+  return value === "verificado" || value === "sin_verificar" ? value : undefined;
 }
 
 // RANGOS_RAPIDOS — Extra 2.3.3 (E3.5): "filtro rápido HOY/SEMANA/MES antes
@@ -100,12 +111,22 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   // consulta" en Turnos) — mismo filtro que ya tenía "Turnos activos"/
   // "Historial" de la ficha de paciente, acá resuelto en el servidor.
   const tipoConsultaId = firstParam(resolved.tipoConsultaId);
+  // verificacion (corrección de seguridad, Fase 2.4.1) — ver
+  // parseVerificacion más arriba.
+  const verificacion = parseVerificacion(firstParam(resolved.verificacion));
   // Deep-link desde TurnoDetalle ("Ver turno →", 2026-08-23): esa fila
   // arranca ya desplegada, ver TurnosTable/abrirId.
   const abrirId = firstParam(resolved.turno);
 
   const token = await getSessionToken();
-  const filtros = filtrosDeTab(tab, q, desde, hasta, tipoConsultaId);
+  const filtros = filtrosDeTab(tab, q, desde, hasta, tipoConsultaId, verificacion);
+  // querySecundaria — se repite en el href de cada tab/atajo de fecha de
+  // abajo para no perder los demás filtros activos al navegar entre
+  // ellos (mismo criterio que ya se aplicaba a tipoConsultaId, extendido
+  // acá para no seguir concatenando a mano en cada lugar).
+  const querySecundaria = `${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}${
+    verificacion ? `&verificacion=${verificacion}` : ""
+  }`;
 
   const [tiposResult, turnosResult] = token
     ? await Promise.all([apiListTiposConsulta(token), apiListTurnos(token, filtros)])
@@ -159,7 +180,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           >
             {TABS.map((t) => {
               const active = t.tab === tab;
-              const href = `/panel/turnos?estado=${t.tab}${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}`;
+              const href = `/panel/turnos?estado=${t.tab}${querySecundaria}`;
               return (
                 <Link
                   key={t.tab}
@@ -177,6 +198,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             {desde && <input type="hidden" name="desde" value={desde} />}
             {hasta && <input type="hidden" name="hasta" value={hasta} />}
             {tipoConsultaId && <input type="hidden" name="tipoConsultaId" value={tipoConsultaId} />}
+            {verificacion && <input type="hidden" name="verificacion" value={verificacion} />}
             <input
               type="search"
               name="q"
@@ -201,7 +223,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           {RANGOS_RAPIDOS.map((r) => {
             const calculado = rangoRapidoFechas(r.rango);
             const activo = desde === calculado.desde && hasta === calculado.hasta;
-            const href = `/panel/turnos?estado=${tab}${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}&desde=${calculado.desde}&hasta=${calculado.hasta}`;
+            const href = `/panel/turnos?estado=${tab}${querySecundaria}&desde=${calculado.desde}&hasta=${calculado.hasta}`;
             return (
               <Link
                 key={r.rango}
@@ -242,6 +264,22 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
                 </select>
               </label>
             )}
+            {/* verificacion (corrección de seguridad, Fase 2.4.1) — le da
+                al profesional una forma rápida de encontrar turnos de
+                pacientes que todavía no demostraron ser reales, sin abrir
+                ficha por ficha. */}
+            <label className="flex items-center gap-1.5 text-xs text-grafito/60">
+              Verificación
+              <select
+                name="verificacion"
+                defaultValue={verificacion ?? ""}
+                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs text-grafito outline-none focus:border-salvia"
+              >
+                <option value="">Todos</option>
+                <option value="sin_verificar">Sin verificar</option>
+                <option value="verificado">Verificados</option>
+              </select>
+            </label>
             <label className="flex items-center gap-1.5 text-xs text-grafito/60">
               Desde
               <input
@@ -267,7 +305,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
               Aplicar
             </button>
           </form>
-          {(desde || hasta || tipoConsultaId) && (
+          {(desde || hasta || tipoConsultaId || verificacion) && (
             <Link
               href={`/panel/turnos?estado=${tab}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
               className="text-xs font-medium text-salvia-oscuro hover:text-grafito"
@@ -285,7 +323,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             seguía mostrando los datos de la pestaña anterior hasta un
             refresh manual (bug reportado 2026-08-23). */}
         <TurnosTable
-          key={`${tab}-${q ?? ""}-${desde ?? ""}-${hasta ?? ""}-${tipoConsultaId ?? ""}-${abrirId ?? ""}`}
+          key={`${tab}-${q ?? ""}-${desde ?? ""}-${hasta ?? ""}-${tipoConsultaId ?? ""}-${verificacion ?? ""}-${abrirId ?? ""}`}
           turnosIniciales={turnos}
           tiposConsulta={tiposConsulta}
           filtros={filtros}

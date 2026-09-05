@@ -99,6 +99,29 @@ describe("PacienteTurnosTable", () => {
     expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
   });
 
+  // Corrección de QA: "en la ficha de pacientes en historial de turnos
+  // si el turno fue ausente o asistió, ya que no hay referencia visual
+  // de esto" — junto a la etiqueta "Resuelto", no reemplazándola.
+  it("un turno resuelto marcado 'asistio' muestra la etiqueta Asistió junto a Resuelto", () => {
+    const marcado = { ...turno, horaFin: "2020-01-01T13:30:00.000Z", asistencia: "asistio" as const };
+    render(<PacienteTurnosTable turnos={[marcado]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.getByText("Resuelto")).toBeInTheDocument();
+    expect(screen.getByText("Asistió")).toBeInTheDocument();
+  });
+
+  it("un turno resuelto marcado 'ausente' muestra la etiqueta Ausente", () => {
+    const marcado = { ...turno, horaFin: "2020-01-01T13:30:00.000Z", asistencia: "ausente" as const };
+    render(<PacienteTurnosTable turnos={[marcado]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.getByText("Ausente")).toBeInTheDocument();
+  });
+
+  it("un turno resuelto sin marcar todavía no muestra ninguna etiqueta de asistencia", () => {
+    const sinMarcar = { ...turno, horaFin: "2020-01-01T13:30:00.000Z" };
+    render(<PacienteTurnosTable turnos={[sinMarcar]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.queryByText("Asistió")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ausente")).not.toBeInTheDocument();
+  });
+
   // TR-076 en docs/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): tocar un turno resuelto tiene que abrir la pestaña
   // "Resueltos", no "Confirmadas" (?estado=resuelto, no el estado real

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const {
   cancelarTurnoActionMock,
+  cancelarTurnosSinVerificarActionMock,
   listTurnosActionMock,
   crearTurnoManualActionMock,
   reprogramarTurnoActionMock,
@@ -12,6 +13,7 @@ const {
   listDisponibilidadActionMock,
 } = vi.hoisted(() => ({
   cancelarTurnoActionMock: vi.fn(),
+  cancelarTurnosSinVerificarActionMock: vi.fn(),
   listTurnosActionMock: vi.fn(),
   crearTurnoManualActionMock: vi.fn(),
   reprogramarTurnoActionMock: vi.fn(),
@@ -25,6 +27,7 @@ const {
 // solo las que usa TurnosTable directamente.
 vi.mock("@/app/actions/turnos", () => ({
   cancelarTurnoAction: cancelarTurnoActionMock,
+  cancelarTurnosSinVerificarAction: cancelarTurnosSinVerificarActionMock,
   listTurnosAction: listTurnosActionMock,
   crearTurnoManualAction: crearTurnoManualActionMock,
   reprogramarTurnoAction: reprogramarTurnoActionMock,
@@ -70,6 +73,7 @@ describe("TurnosTable", () => {
     listTurnosActionMock.mockResolvedValue([]);
     listPacientesActionMock.mockResolvedValue([]);
     listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
+    cancelarTurnosSinVerificarActionMock.mockResolvedValue({ cancelados: 0 });
   });
 
   it("muestra un mensaje cuando no hay turnos", () => {
@@ -87,6 +91,100 @@ describe("TurnosTable", () => {
     const ths = container.querySelectorAll("thead th");
     expect(ths.length).toBeGreaterThan(0);
     ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
+  });
+
+  // Corrección de seguridad (Fase 2.4.1): visibilidad para el profesional
+  // sobre turnos de pacientes que todavía no demostraron ser reales.
+  it("con pacienteVerificado en false, muestra la etiqueta 'Sin verificar'", () => {
+    render(<TurnosTable turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]} tiposConsulta={tiposConsulta} filtros={{}} />);
+    expect(screen.getByText("Sin verificar")).toBeInTheDocument();
+  });
+
+  it("con pacienteVerificado en true, no muestra la etiqueta 'Sin verificar'", () => {
+    render(<TurnosTable turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: true }]} tiposConsulta={tiposConsulta} filtros={{}} />);
+    expect(screen.queryByText("Sin verificar")).not.toBeInTheDocument();
+  });
+
+  // Corrección de seguridad (Fase 2.4.1): "cómo se hace para borrar todos
+  // los turnos sin verificar" — el botón solo aparece con ese filtro
+  // activo, pide confirmación en dos pasos antes de llamar a la acción.
+  describe("botón 'Cancelar todos los turnos sin verificar'", () => {
+    it("no aparece sin el filtro verificacion=sin_verificar", () => {
+      render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
+      expect(screen.queryByRole("button", { name: "Cancelar todos los turnos sin verificar" })).not.toBeInTheDocument();
+    });
+
+    it("con el filtro activo, pide confirmación antes de llamar a la acción", async () => {
+      const user = userEvent.setup();
+      render(
+        <TurnosTable
+          turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]}
+          tiposConsulta={tiposConsulta}
+          filtros={{ verificacion: "sin_verificar" }}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Cancelar todos los turnos sin verificar" }));
+      expect(cancelarTurnosSinVerificarActionMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("alert")).toHaveTextContent("no se puede deshacer");
+
+      await user.click(screen.getByRole("button", { name: "Sí, cancelar todos" }));
+      expect(cancelarTurnosSinVerificarActionMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("'Volver' cierra la confirmación sin llamar a la acción", async () => {
+      const user = userEvent.setup();
+      render(
+        <TurnosTable
+          turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]}
+          tiposConsulta={tiposConsulta}
+          filtros={{ verificacion: "sin_verificar" }}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Cancelar todos los turnos sin verificar" }));
+      await user.click(screen.getByRole("button", { name: "Volver" }));
+      expect(cancelarTurnosSinVerificarActionMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Cancelar todos los turnos sin verificar" })).toBeInTheDocument();
+    });
+
+    it("en éxito, muestra cuántos se cancelaron y recarga la lista", async () => {
+      cancelarTurnosSinVerificarActionMock.mockResolvedValue({ cancelados: 3 });
+      listTurnosActionMock.mockResolvedValue([]);
+      const user = userEvent.setup();
+      render(
+        <TurnosTable
+          turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]}
+          tiposConsulta={tiposConsulta}
+          filtros={{ verificacion: "sin_verificar" }}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Cancelar todos los turnos sin verificar" }));
+      await user.click(screen.getByRole("button", { name: "Sí, cancelar todos" }));
+
+      expect(await screen.findByText("Se cancelaron 3 turno(s) sin verificar.")).toBeInTheDocument();
+      // El mensaje sigue visible aunque la lista haya quedado vacía.
+      expect(screen.getByText("No hay turnos para este filtro.")).toBeInTheDocument();
+    });
+
+    it("en error, muestra el mensaje sin recargar la lista", async () => {
+      cancelarTurnosSinVerificarActionMock.mockResolvedValue({ error: "no se pudieron cancelar los turnos" });
+      const user = userEvent.setup();
+      render(
+        <TurnosTable
+          turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]}
+          tiposConsulta={tiposConsulta}
+          filtros={{ verificacion: "sin_verificar" }}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Cancelar todos los turnos sin verificar" }));
+      await user.click(screen.getByRole("button", { name: "Sí, cancelar todos" }));
+
+      expect(await screen.findByText("no se pudieron cancelar los turnos")).toBeInTheDocument();
+      expect(listTurnosActionMock).not.toHaveBeenCalled();
+    });
   });
 
   it("las acciones no están visibles hasta que se despliega la fila", () => {
@@ -200,61 +298,32 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
   });
 
-  // Paso 2b (pedido explícito del cliente, 2026-09-04): "los turnos
-  // resueltos ahora tienen la opción... de marcar asistidos o ausente...
-  // tanto en el calendario, como de la sección de turnos resueltos en la
-  // pestaña de turnos". Irreversible (corrección de QA, 2026-09-04,
-  // textual): "me debe aparecer un aviso que la elección es irreversible
-  // y confirmar esto" — tocar el botón solo pide confirmación, la Server
-  // Action recién se llama al confirmar.
-  describe("marcar asistencia en un turno resuelto (irreversible)", () => {
+  // Corrección de QA (rediseño del cartel de asistencia en tiempo real,
+  // `AsistenciaCartelGlobal`): "vamos a quitar todos los otros botones
+  // para poner ausente o presente fuera de esto, por ejemplo al tocar el
+  // turno resuelto en la sección de turnos resueltos en turnos" — esta
+  // fila deja de tener forma de marcar asistencia, solo muestra lo que el
+  // cartel ya marcó (o un aviso de que está pendiente ahí).
+  describe("asistencia en un turno resuelto (solo lectura, el cartel global es quien la marca)", () => {
     const resuelto = { ...turnoAgendado, horaFin: "2020-01-01T09:30:00Z" };
 
-    it("tocar 'Asistió' NO llama a la Server Action todavía — pide confirmación con el aviso de irreversibilidad", async () => {
+    it("un turno resuelto sin marcar avisa que está pendiente en el cartel, sin botones", async () => {
       const user = userEvent.setup();
       render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
       await desplegarFila(user, "Julián Ortiz");
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-
-      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
-      expect(screen.getByText(/Esta elección es irreversible/)).toBeInTheDocument();
+      expect(screen.getByText("Pendiente de confirmar en el cartel de asistencia.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ausente" })).not.toBeInTheDocument();
     });
 
-    it("'Cancelar' en la confirmación vuelve a los dos botones sin llamar a la acción", async () => {
-      const user = userEvent.setup();
-      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-      await desplegarFila(user, "Julián Ortiz");
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-      expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "Asistió" })).toBeInTheDocument();
-    });
-
-    it("'Confirmar' llama a marcarAsistenciaAction con el turno correcto y deja la marca fija", async () => {
-      const user = userEvent.setup();
-      marcarAsistenciaActionMock.mockResolvedValue({ turno: { ...resuelto, asistencia: "asistio" } });
-      listTurnosActionMock.mockResolvedValue([{ ...resuelto, asistencia: "asistio" }]);
-      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-      await desplegarFila(user, "Julián Ortiz");
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-      expect(marcarAsistenciaActionMock).toHaveBeenCalledWith(resuelto.id, "asistio");
-      expect(await screen.findByText("No se puede modificar.")).toBeInTheDocument();
-    });
-
-    it("un turno que ya llega marcado muestra la etiqueta fija, sin botones", async () => {
+    it("un turno ya marcado muestra la etiqueta fija, sin botones", async () => {
       const user = userEvent.setup();
       const yaMarcado = { ...resuelto, asistencia: "ausente" as const };
       render(<TurnosTable turnosIniciales={[yaMarcado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
       await desplegarFila(user, "Julián Ortiz");
-      expect(screen.getByText("Ausente")).toBeInTheDocument();
-      expect(screen.getByText("No se puede modificar.")).toBeInTheDocument();
+      expect(screen.getAllByText("Ausente").length).toBeGreaterThan(0);
       expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
     });
 
@@ -277,18 +346,6 @@ describe("TurnosTable", () => {
       expect(screen.getByText("Asistió")).toBeInTheDocument();
       await desplegarFila(user, "Julián Ortiz");
       expect(screen.getAllByText("Asistió")).toHaveLength(1);
-    });
-
-    it("muestra el error si falla al confirmar la asistencia", async () => {
-      const user = userEvent.setup();
-      marcarAsistenciaActionMock.mockResolvedValue({ error: "no se pudo guardar la asistencia" });
-      render(<TurnosTable turnosIniciales={[resuelto]} tiposConsulta={tiposConsulta} filtros={{}} />);
-
-      await desplegarFila(user, "Julián Ortiz");
-      await user.click(screen.getByRole("button", { name: "Asistió" }));
-      await user.click(screen.getByRole("button", { name: "Confirmar" }));
-
-      expect(await screen.findByRole("alert")).toHaveTextContent("no se pudo guardar la asistencia");
     });
   });
 

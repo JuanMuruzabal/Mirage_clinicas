@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { cancelarTurnoAction, listTurnosAction, marcarAsistenciaAction } from "@/app/actions/turnos";
+import { cancelarTurnoAction, cancelarTurnosSinVerificarAction, listTurnosAction } from "@/app/actions/turnos";
 import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
@@ -39,22 +39,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   const [expandidoId, setExpandidoId] = useState<string | null>(abrirId ?? null);
   const [editarTurno, setEditarTurno] = useState<Turno | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // asistenciaPendingId (pedido explícito del cliente, 2026-09-04): "los
-  // turnos resueltos ahora tienen la opción... de marcar asistidos o
-  // ausente... tanto en el calendario, como de la sección de turnos
-  // resueltos en la pestaña de turnos" — este es el lado "pestaña de
-  // turnos" de ese pedido (TurnoDetalle tiene el mismo flujo para el
-  // calendario). `pidiendoConfirmarAsistencia` guarda a la vez el turno Y
-  // el valor que espera el "sí, confirmar" del aviso de irreversibilidad
-  // (corrección de QA, 2026-09-04, textual: "me debe aparecer un aviso
-  // que la elección es irreversible y confirmar esto") — comparado contra
-  // el id de cada fila al renderizar, para no mezclar la confirmación
-  // pendiente de una fila con otra.
-  const [asistenciaPendingId, setAsistenciaPendingId] = useState<string | null>(null);
-  const [pidiendoConfirmarAsistencia, setPidiendoConfirmarAsistencia] = useState<{
-    turnoId: string;
-    valor: "asistio" | "ausente";
-  } | null>(null);
 
   // Bug reportado 2026-08-28: "si toco Ver turno... y este turno está muy
   // debajo de la tabla, tengo que bajar manualmente para ver el turno
@@ -81,25 +65,39 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   const [cancelarModalPending, setCancelarModalPending] = useState(false);
   const [cancelarModalError, setCancelarModalError] = useState<string | null>(null);
 
+  // Corrección de seguridad (Fase 2.4.1): "cómo se hace para borrar todos
+  // los turnos sin verificar" — el botón solo aparece con el filtro
+  // "Sin verificar" activo (page.tsx). Mismo criterio de confirmación
+  // explícita que CancelarTurnoModal, pero sin modal aparte (es un botón
+  // de acción de página, no de una fila puntual) — pedir confirmación en
+  // dos pasos alcanza para una acción destructiva de este tamaño.
+  const [confirmandoCancelarTodos, setConfirmandoCancelarTodos] = useState(false);
+  const [cancelandoTodos, setCancelandoTodos] = useState(false);
+  const [mensajeCancelacionMasiva, setMensajeCancelacionMasiva] = useState<string | null>(null);
+
+  async function cancelarTodosSinVerificar() {
+    setError(null);
+    setMensajeCancelacionMasiva(null);
+    setCancelandoTodos(true);
+    const result = await cancelarTurnosSinVerificarAction();
+    setCancelandoTodos(false);
+    setConfirmandoCancelarTodos(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    setMensajeCancelacionMasiva(
+      result.cancelados === 0 ? "No había turnos sin verificar para cancelar." : `Se cancelaron ${result.cancelados} turno(s) sin verificar.`,
+    );
+    recargar();
+  }
+
   function recargar() {
     listTurnosAction(filtros).then(setTurnos);
   }
 
   function alternarExpandido(id: string) {
     setExpandidoId((actual) => (actual === id ? null : id));
-  }
-
-  async function confirmarAsistencia(turno: Turno, valor: "asistio" | "ausente") {
-    setError(null);
-    setAsistenciaPendingId(turno.id);
-    const result = await marcarAsistenciaAction(turno.id, valor);
-    setAsistenciaPendingId(null);
-    setPidiendoConfirmarAsistencia(null);
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-    recargar();
   }
 
   function pedirCancelar(turno: Turno) {
@@ -121,11 +119,57 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
     recargar();
   }
 
+  // bulkCancelarSinVerificar — se arma antes del early-return de "no hay
+  // turnos" (más abajo) porque el mensaje de resultado ("se cancelaron N
+  // turnos") tiene que poder mostrarse incluso cuando la lista quedó
+  // vacía JUSTAMENTE por haberlos cancelado.
+  const bulkCancelarSinVerificar = filtros.verificacion === "sin_verificar" && (
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft">
+      {!confirmandoCancelarTodos ? (
+        <button
+          type="button"
+          onClick={() => setConfirmandoCancelarTodos(true)}
+          className="rounded-full border-[0.5px] border-terracota bg-marfil px-4 py-2 text-sm font-medium text-terracota-oscuro hover:bg-terracota-claro"
+        >
+          Cancelar todos los turnos sin verificar
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p role="alert" className="text-sm text-terracota-oscuro">
+            Esto cancela TODOS los turnos vigentes de pacientes sin verificar (no se puede deshacer). ¿Confirmás?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={cancelarTodosSinVerificar}
+              disabled={cancelandoTodos}
+              className="rounded-full bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+            >
+              {cancelandoTodos ? "Cancelando…" : "Sí, cancelar todos"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmandoCancelarTodos(false)}
+              disabled={cancelandoTodos}
+              className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+      )}
+      {mensajeCancelacionMasiva && <p className="text-sm text-salvia-oscuro">{mensajeCancelacionMasiva}</p>}
+    </div>
+  );
+
   if (turnos.length === 0) {
     return (
-      <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
-        No hay turnos para este filtro.
-      </p>
+      <>
+        {bulkCancelarSinVerificar}
+        <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+          No hay turnos para este filtro.
+        </p>
+      </>
     );
   }
 
@@ -160,12 +204,13 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   // mostrar según estado/resuelto con el JSX de la fila expandida.
   function renderAcciones(t: Turno, resuelto: boolean) {
     if (resuelto) {
-      // Irreversible (corrección de QA, 2026-09-04, textual): "me debe
-      // aparecer un aviso que la elección es irreversible y confirmar
-      // esto" — tocar "Asistió"/"Ausente" solo pide confirmación con ese
-      // aviso, recién al confirmar se llama a la Server Action. Ya
-      // marcada, se muestra como etiqueta fija, sin botones.
-      const confirmando = pidiendoConfirmarAsistencia?.turnoId === t.id ? pidiendoConfirmarAsistencia.valor : null;
+      // Corrección de QA (rediseño del cartel de asistencia en tiempo
+      // real, `AsistenciaCartelGlobal`): "vamos a quitar todos los otros
+      // botones para poner ausente o presente fuera de esto, por
+      // ejemplo al tocar el turno resuelto en la sección de turnos
+      // resueltos en turnos" — esta fila deja de tener forma de marcar
+      // asistencia, solo muestra lo que el cartel ya marcó (o un aviso
+      // de que está pendiente ahí).
       return (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-grafito/50">Turno ya resuelto — sin acciones de edición disponibles.</p>
@@ -179,50 +224,12 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
               >
                 {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
               </span>
-              <span className="text-xs text-grafito/50">No se puede modificar.</span>
             </p>
-          ) : confirmando ? (
-            <div className="flex flex-col gap-2">
-              <p role="alert" className="text-xs text-terracota-oscuro">
-                Esta elección es irreversible. ¿Confirmás que el paciente {confirmando === "asistio" ? "asistió" : "estuvo ausente"}?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => confirmarAsistencia(t, confirmando)}
-                  disabled={asistenciaPendingId === t.id}
-                  className="rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-                >
-                  {asistenciaPendingId === t.id ? "Guardando…" : "Confirmar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPidiendoConfirmarAsistencia(null)}
-                  disabled={asistenciaPendingId === t.id}
-                  className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-2">
+            <p className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-grafito/60">Asistencia:</span>
-              <button
-                type="button"
-                onClick={() => setPidiendoConfirmarAsistencia({ turnoId: t.id, valor: "asistio" })}
-                className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Asistió
-              </button>
-              <button
-                type="button"
-                onClick={() => setPidiendoConfirmarAsistencia({ turnoId: t.id, valor: "ausente" })}
-                className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
-              >
-                Ausente
-              </button>
-            </div>
+              <span className="text-xs text-grafito/50">Pendiente de confirmar en el cartel de asistencia.</span>
+            </p>
           )}
         </div>
       );
@@ -253,6 +260,8 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
 
   return (
     <>
+      {bulkCancelarSinVerificar}
+
       {error && (
         <p role="alert" className="mb-4 rounded-card border-[0.5px] border-terracota bg-terracota-claro px-4 py-3 text-sm text-terracota-oscuro">
           {error}
@@ -349,6 +358,16 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                             {t.nombreContacto} {t.apellidoContacto}
                           </p>
                           <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
+                          {/* Corrección de seguridad (Fase 2.4.1): visibilidad
+                              sobre turnos de pacientes que todavía no
+                              demostraron ser reales (ningún turno resuelto y
+                              asistido todavía) — para triage rápido sin abrir
+                              ficha por ficha. */}
+                          {!t.pacienteVerificado && (
+                            <span className="mt-0.5 inline-flex w-fit items-center rounded-full border-[0.5px] border-arena bg-hueso px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-grafito/60">
+                              Sin verificar
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>

@@ -122,5 +122,14 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// configurado Resend en Render; ver TR-051 en docs/tradeoffs.md).
 		// Se apaga solo apenas se cargue la env var.
 		AutoVerifyEmail: cfg.ResendAPIKey == "",
+		// Mismo criterio/señal que AutoVerifyEmail — pedido del cliente
+		// para ver el código de "Confirmanos que sos vos" sin mirar los
+		// logs mientras prueba el wizard público en local.
+		ExponerCodigoVerificacion: cfg.ResendAPIKey == "",
+		// Mismo criterio/señal que las dos de arriba — pedido textual del
+		// cliente: probar en local los detectores de abuso del formulario
+		// público sin comerse un bloqueo real (3 días de mail, turnos
+		// borrados) que hay que limpiar a mano para seguir iterando.
+		SimularBloqueosSeguridad: cfg.ResendAPIKey == "",
 	}
 }

@@ -142,6 +142,51 @@ describe("CalendarGrid", () => {
     expect(bloque.className).toContain("text-grafito/60");
   });
 
+  // Corrección de QA: "en el calendario a los turnos resueltos si son
+  // asistidos que tengan un contorno verde y los ausentes un contorno
+  // rojo".
+  it("un turno resuelto marcado 'asistio' tiene contorno verde", () => {
+    const diaPasado = new Date(2020, 0, 15);
+    const turnoPasado = {
+      ...turnos[0],
+      horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(),
+      horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
+      asistencia: "asistio" as const,
+    };
+    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    expect(bloque).toHaveClass("border-salvia-oscuro");
+  });
+
+  it("un turno resuelto marcado 'ausente' tiene contorno rojo", () => {
+    const diaPasado = new Date(2020, 0, 15);
+    const turnoPasado = {
+      ...turnos[0],
+      horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(),
+      horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
+      asistencia: "ausente" as const,
+    };
+    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    expect(bloque).toHaveClass("border-terracota-oscuro");
+  });
+
+  it("un turno resuelto sin marcar todavía se queda con el borde neutro de siempre", () => {
+    const diaPasado = new Date(2020, 0, 15);
+    const turnoPasado = {
+      ...turnos[0],
+      horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(),
+      horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
+    };
+    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    expect(bloque).toHaveClass("border-arena");
+    expect(bloque).not.toHaveClass("border-salvia-oscuro", "border-terracota-oscuro");
+  });
+
   // Autoreservado (nueva función, pedido textual del cliente,
   // 2026-09-08): "estos horarios auto reservados en el calendario se
   // deben ver con rayas" — mismo color del tipo de consulta, con una

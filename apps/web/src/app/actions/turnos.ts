@@ -3,14 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Turno } from "@dental-mirage/shared-types";
-import type { AutoreservarTurnosResponse } from "@dental-mirage/shared-types";
+import type { AutoreservarTurnosResponse, TurnosPendientesAsistenciaResponse } from "@dental-mirage/shared-types";
 import {
   apiAutoreservarTurnos,
   apiCancelarTurno,
+  apiCancelarTurnosSinVerificar,
   apiCrearTurnoManual,
   apiListTurnos,
   apiMarcarAsistencia,
   apiReprogramarTurno,
+  apiTurnosPendientesAsistencia,
   type CrearTurnoManualPayload,
   type ListarTurnosParams,
   type ReprogramarTurnoPayload,
@@ -68,6 +70,23 @@ export async function cancelarTurnoAction(turnoId: string): Promise<TurnoActionR
   return { turno: result.data };
 }
 
+// cancelarTurnosSinVerificarAction (corrección de seguridad, Fase 2.4.1)
+// — botón "Cancelar todos" del filtro "Sin verificar" en /panel/turnos.
+export async function cancelarTurnosSinVerificarAction(): Promise<TurnoActionResult | { cancelados: number }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiCancelarTurnosSinVerificar(token);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/panel");
+  revalidatePath("/panel/turnos");
+  revalidatePath("/panel/calendario");
+  return { cancelados: result.data.cancelados };
+}
+
 // marcarAsistenciaAction (pedido explícito del cliente, 2026-09-04): "los
 // turnos resueltos ahora tienen la opción al ser tocados de marcar
 // asistidos o ausente... opción marcable tanto en el calendario, como de
@@ -92,6 +111,21 @@ export async function marcarAsistenciaAction(
   revalidatePath("/panel/turnos");
   revalidatePath("/panel/calendario");
   return { turno: result.data };
+}
+
+// turnosPendientesAsistenciaAction — TR-107 (1.3ter): fuente de datos de
+// AsistenciaCartelGlobal. Nunca redirige a /ingresar sin sesión (a
+// diferencia del resto de las acciones de este archivo) — el cartel
+// sondea desde un componente montado en todo el panel; si por lo que sea
+// se llama sin token, devolver "nada pendiente" es más seguro que forzar
+// una navegación desde un efecto en segundo plano.
+export async function turnosPendientesAsistenciaAction(): Promise<TurnosPendientesAsistenciaResponse> {
+  const token = await getSessionToken();
+  if (!token) {
+    return { vencidos: [], proximoVencimiento: null };
+  }
+  const result = await apiTurnosPendientesAsistencia(token);
+  return result.ok ? result.data : { vencidos: [], proximoVencimiento: null };
 }
 
 // reprogramarTurnoAction — "Editar" de un turno ya confirmado (2026-08-23):

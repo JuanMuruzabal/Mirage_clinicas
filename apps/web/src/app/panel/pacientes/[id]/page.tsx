@@ -7,6 +7,7 @@ import { getSessionToken } from "@/lib/session";
 import { PacienteDatos } from "@/components/panel/paciente-datos";
 import { PacienteTurnosTable } from "@/components/panel/paciente-turnos-table";
 import { AvatarIniciales } from "@/components/panel/avatar-iniciales";
+import { EstadoVerificadoBadge } from "@/components/panel/estado-verificado-badge";
 
 export async function generateMetadata({ params }: PageProps<"/panel/pacientes/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -58,16 +59,26 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
           <Link href="/panel/pacientes" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
             ← Pacientes
           </Link>
-          <div className="mt-2 flex items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-3">
             <AvatarIniciales nombre={paciente.nombre} apellido={paciente.apellido} className="h-11 w-11 text-base" />
             <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
               {paciente.nombre} {paciente.apellido}
             </h1>
+            {/* Corrección de QA (2026-09-05), pedido textual del cliente:
+                mismo indicador que ya tenía la tabla de Pacientes
+                (EstadoVerificadoBadge, TR-?) — acá también, al lado del
+                nombre, para no tener que volver a la lista para saber si
+                esta ficha ya está verificada. */}
+            <EstadoVerificadoBadge verificado={paciente.verificado} />
           </div>
         </div>
       </div>
 
-      <PacienteDatos pacienteInicial={paciente} />
+      <PacienteDatos
+        pacienteInicial={paciente}
+        emailsAlternativos={paciente.emailsAlternativos}
+        telefonosAlternativos={paciente.telefonosAlternativos}
+      />
 
       {/* Historia clínica/Presupuesto reordenados antes de las tablas de
           turnos SOLO en mobile (pedido explícito del cliente, 2026-08-27:

@@ -91,3 +91,14 @@ export function IconPerfil({ className }: IconProps) {
     </svg>
   );
 }
+
+// Seguridad (corrección de seguridad, Fase 2.4.1) — escudo: mails/IPs
+// bloqueados por el formulario público y la auditoría de qué se borró.
+export function IconSeguridad({ className }: IconProps) {
+  return (
+    <svg {...commonProps} className={className}>
+      <path d="M10 2.5 16.5 5v5c0 4-2.8 7-6.5 8-3.7-1-6.5-4-6.5-8V5z" />
+      <path d="M7.3 9.7 9.2 11.6 12.8 8" />
+    </svg>
+  );
+}

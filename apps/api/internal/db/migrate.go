@@ -87,6 +87,15 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		&HorarioAtencion{}, &BloqueoHorario{},
 		// Extra 2.3.5 (E5.6): "Confirmanos que sos vos" en el wizard público.
 		&VerificacionTurnoPublico{},
+		// Fase 2.4.1 (F4.1.1): wizard público reestructurado — pacientes
+		// verificados, conflictos de pacientes, bloqueo de mail.
+		&PacienteEmailAlternativo{}, &ConflictoPaciente{}, &EmailBloqueadoTurnoPublico{},
+		// Fase 2.4.1, corrección de QA: teléfono alternativo (mismo
+		// criterio que el mail) sumado al resolver un conflicto.
+		&PacienteTelefonoAlternativo{},
+		// Fase 2.4.1, corrección de seguridad: bloqueo de IP (además del de
+		// mail) y auditoría de qué se bloqueó/borró y por qué.
+		&IPBloqueadaTurnoPublico{}, &AuditoriaBloqueoTurnoPublico{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -200,6 +209,23 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// cualquier turno que apuntara a una fila descartada hacia la que se
 		// conserva, y recién después borra las descartadas. Idempotente: sin
 		// duplicados, el loop no encuentra filas y no hace nada.
+		//
+		// Corrección de bug real (encontrado en QA en vivo, Fase 2.4.1):
+		// este bloque corre en CADA RunMigrations (cada deploy/reinicio del
+		// contenedor `migrate`), sin ningún guard de "una sola vez" — y
+		// hasta acá agrupaba TODAS las fichas por (profesional_id, dni) sin
+		// excluir `en_conflicto`. Eso significa que dos fichas separadas
+		// A PROPÓSITO por un conflicto sin resolver (crearPacientePublicoConDeteccionDeConflicto,
+		// paciente_conflicto_publico.go — la razón de ser de en_conflicto)
+		// quedaban agrupadas igual que un duplicado real, y la ficha
+		// en_conflicto=true se borraba y su turno se reasignaba a la otra
+		// EN CADA DEPLOY, sin pasar por ConflictoPaciente ni por
+		// migrarOCancelarTurnosDePerdedor — deshaciendo en silencio toda la
+		// detección de conflicto. `WHERE NOT en_conflicto` restringe el
+		// barrido a lo que este bloque siempre debió limpiar: fichas
+		// duplicadas de verdad que violan el índice parcial de abajo
+		// (idx_paciente_dni_unico, también `WHERE NOT en_conflicto`) —
+		// nunca una ficha en conflicto todavía sin resolver.
 		`DO $$
 		DECLARE
 		  duplicado RECORD;
@@ -210,6 +236,7 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		  FOR duplicado IN
 		    SELECT array_agg(id ORDER BY created_at, id) AS ids
 		    FROM pacientes
+		    WHERE NOT en_conflicto
 		    GROUP BY profesional_id, dni
 		    HAVING COUNT(*) > 1
 		  LOOP
@@ -230,8 +257,18 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// que evita que esto se dispare en el camino feliz — este índice es
 		// la red de seguridad a nivel de base, mismo criterio que
 		// idx_horario_atencion_general_unico de arriba.
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_paciente_dni_unico
-		   ON pacientes (profesional_id, dni)`,
+		//
+		// Fase 2.4.1: pasa a ser un índice PARCIAL (`WHERE NOT en_conflicto`)
+		// — un conflicto de pacientes (ver db.Paciente.EnConflicto, pedido
+		// textual del cliente) crea A PROPÓSITO una segunda ficha con el
+		// mismo DNI mientras el profesional no lo resuelve; el índice
+		// completo de antes lo hubiera rechazado de plano. DROP + CREATE
+		// (no el patrón `IF NOT EXISTS` de antes, que no re-crea un índice
+		// ya existente aunque cambie el predicado — mismo criterio que
+		// chk_turnos_estado en TR-104).
+		`DROP INDEX IF EXISTS idx_paciente_dni_unico`,
+		`CREATE UNIQUE INDEX idx_paciente_dni_unico
+		   ON pacientes (profesional_id, dni) WHERE NOT en_conflicto`,
 
 		// Extra 2.3.3 (TR-104): el estado `pendiente` se saca del todo — antes
 		// de estrechar el check constraint de abajo, borra cualquier turno
@@ -252,6 +289,37 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`ALTER TABLE turnos ADD CONSTRAINT chk_turnos_estado
 		   CHECK (estado IN ('agendado', 'cancelada'))`,
 		`ALTER TABLE turnos ALTER COLUMN estado SET DEFAULT 'agendado'`,
+
+		// Corrección de QA (bug real encontrado en producción/QA local):
+		// idx_paciente_email_alt/idx_paciente_telefono_alt nacieron como
+		// índice único sobre SOLO el mail/teléfono — eso los hacía únicos
+		// GLOBALMENTE, no por paciente. Un mismo dato de contacto (típico
+		// en pruebas con datos repetidos, pero también un caso real
+		// posible) que ya fuera alternativo de OTRO paciente hacía fallar
+		// con un 500 la resolución de un conflicto que no tenía nada que
+		// ver. DROP + CREATE (no el struct tag solo — GORM AutoMigrate no
+		// re-crea un índice ya existente aunque cambien sus columnas,
+		// mismo criterio que idx_paciente_dni_unico/chk_turnos_estado de
+		// arriba) para que la corrección aplique también sobre una base
+		// que ya haya creado el índice viejo.
+		`DROP INDEX IF EXISTS idx_paciente_email_alt`,
+		`CREATE UNIQUE INDEX idx_paciente_email_alt
+		   ON paciente_emails_alternativos (paciente_id, email)`,
+		`DROP INDEX IF EXISTS idx_paciente_telefono_alt`,
+		`CREATE UNIQUE INDEX idx_paciente_telefono_alt
+		   ON paciente_telefonos_alternativos (paciente_id, telefono)`,
+
+		// Corrección de seguridad (Fase 2.4.1, modo simulado): el check
+		// constraint de auditoria_bloqueos_turno_publico.motivo nació con
+		// solo 2 valores ('mail_muchos_dnis', 'ip_rotacion') — se agrega
+		// 'dni_tipo_tope' para el tercer detector (tope de turnos sin
+		// verificar por DNI+tipo). Mismo patrón DROP + ADD que
+		// chk_turnos_estado más arriba (duplicate_object no alcanza:
+		// una constraint ya creada con los valores viejos nunca se
+		// actualizaría sola).
+		`ALTER TABLE auditoria_bloqueos_turno_publico DROP CONSTRAINT IF EXISTS chk_auditoria_bloqueos_turno_publico_motivo`,
+		`ALTER TABLE auditoria_bloqueos_turno_publico ADD CONSTRAINT chk_auditoria_bloqueos_turno_publico_motivo
+		   CHECK (motivo IN ('mail_muchos_dnis', 'ip_rotacion', 'dni_tipo_tope'))`,
 	}
 
 	for _, stmt := range statements {

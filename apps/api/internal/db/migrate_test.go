@@ -81,6 +81,96 @@ func TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual(t *testin
 	}
 }
 
+// TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad — corrección de bug
+// real encontrado en QA en vivo (Fase 2.4.1, 2026-09-04): el bloque de
+// de-duplicación de pacientes (Extra 2.3.5/E5.1, más arriba en
+// runMigrationsLocked) corre en CADA RunMigrations — cada reinicio/deploy
+// del contenedor `migrate`, no una sola vez — y hasta esta corrección
+// agrupaba por (profesional_id, dni) sin excluir `en_conflicto`. Eso
+// borraba en silencio, en cada deploy, cualquier ficha creada A PROPÓSITO
+// por un conflicto de pacientes sin resolver (mismo DNI, mail distinto,
+// ver crearPacientePublicoConDeteccionDeConflicto en
+// internal/http/paciente_conflicto_publico.go) — reasignando su turno a
+// la otra ficha SIN pasar por ConflictoPaciente ni por
+// migrarOCancelarTurnosDePerdedor, deshaciendo toda la detección de
+// conflicto. Repite RunMigrations una segunda vez a propósito (simula un
+// redeploy) para probar exactamente ese escenario.
+//
+// Usa testdb.Shared, no testdb.New: RunMigrations toma un
+// pg_advisory_xact_lock (migrate.go) — llamarlo sobre una transacción de
+// test ya abierta (testdb.New) anida un SAVEPOINT dentro de ella, y ese
+// segundo intento de tomar el mismo lock mientras la transacción externa
+// sigue abierta puede autobloquearse contra otro paquete de test corriendo
+// en paralelo (deadlock real visto al escribir este test). Sobre
+// testdb.Shared, RunMigrations corre como una transacción de verdad,
+// igual que en el contenedor `migrate` de producción — limpieza manual al
+// final, con un DNI/profesional exclusivos de este test para no chocar
+// con nada más que corra en paralelo sobre la misma base compartida.
+func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
+	gdb := testdb.Shared(t)
+
+	dni := "459" + uuid.NewString()[:5]
+	profesional := db.Profesional{
+		Nombre: "Profesional de prueba", Email: uuid.NewString() + "@example.com",
+		PasswordHash: "hash-de-prueba", NombreClinica: "Clínica de prueba", Slug: uuid.NewString(),
+	}
+	if err := gdb.Create(&profesional).Error; err != nil {
+		t.Fatalf("no se pudo crear el profesional de prueba: %v", err)
+	}
+	t.Cleanup(func() {
+		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Turno{})
+		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Paciente{})
+		gdb.Unscoped().Delete(&profesional)
+	})
+
+	verificada := db.Paciente{
+		ProfesionalID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
+		DNI: dni, Telefono: "+5493511111111", Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&verificada).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha original de prueba: %v", err)
+	}
+	enConflicto := db.Paciente{
+		ProfesionalID: profesional.ID, Nombre: "Juan", Apellido: "M",
+		DNI: dni, Telefono: "+5493512222222", EnConflicto: true, Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&enConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
+	}
+
+	inicio := time.Now().Add(1 * time.Hour)
+	fin := inicio.Add(30 * time.Minute)
+	turno := db.Turno{
+		ProfesionalID: profesional.ID, PacienteID: &enConflicto.ID, Estado: "agendado",
+		HoraInicio: &inicio, HoraFin: &fin,
+		NombreContacto: "Juan", ApellidoContacto: "M", DNIContacto: dni,
+		TelefonoContacto: "+5493512222222", EmailContacto: "juan@example.com", Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno de prueba: %v", err)
+	}
+
+	// Simula un redeploy: correr RunMigrations de nuevo NO debe tocar
+	// ninguna de las dos fichas ni reasignar el turno.
+	if err := db.RunMigrations(gdb); err != nil {
+		t.Fatalf("RunMigrations (segunda corrida) error inesperado: %v", err)
+	}
+
+	var countEnConflicto int64
+	gdb.Model(&db.Paciente{}).Where("id = ?", enConflicto.ID).Count(&countEnConflicto)
+	if countEnConflicto != 1 {
+		t.Errorf("la ficha en conflicto debería seguir existiendo, count=%d", countEnConflicto)
+	}
+
+	var turnoActualizado db.Turno
+	if err := gdb.First(&turnoActualizado, "id = ?", turno.ID).Error; err != nil {
+		t.Fatalf("no se pudo releer el turno: %v", err)
+	}
+	if turnoActualizado.PacienteID == nil || *turnoActualizado.PacienteID != enConflicto.ID {
+		t.Errorf("el turno se reasignó a otra ficha, PacienteID = %v, esperaba %v", turnoActualizado.PacienteID, enConflicto.ID)
+	}
+}
+
 func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 	gdb := testdb.New(t)
 	profesionalID := crearProfesionalDePrueba(t, gdb)

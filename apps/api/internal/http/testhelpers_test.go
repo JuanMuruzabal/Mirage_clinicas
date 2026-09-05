@@ -189,17 +189,19 @@ func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
 // valor real y ejercitar el flujo de verificación/reset de punta a punta
 // sin mockear internal/security.
 type capturingMailSender struct {
-	mu               sync.Mutex
-	verifyCodes      map[string]string
-	resetURLs        map[string]string
-	turnoVerifyCodes map[string]string
+	mu                sync.Mutex
+	verifyCodes       map[string]string
+	resetURLs         map[string]string
+	turnoVerifyCodes  map[string]string
+	turnosConfirmados map[string]mail.TurnoConfirmadoInfo
 }
 
 func newCapturingMailSender() *capturingMailSender {
 	return &capturingMailSender{
-		verifyCodes:      map[string]string{},
-		resetURLs:        map[string]string{},
-		turnoVerifyCodes: map[string]string{},
+		verifyCodes:       map[string]string{},
+		resetURLs:         map[string]string{},
+		turnoVerifyCodes:  map[string]string{},
+		turnosConfirmados: map[string]mail.TurnoConfirmadoInfo{},
 	}
 }
 
@@ -227,6 +229,29 @@ func (c *capturingMailSender) SendTurnoVerificationEmail(_ context.Context, to, 
 	defer c.mu.Unlock()
 	c.turnoVerifyCodes[to] = code
 	return nil
+}
+
+// SendTurnoConfirmadoEmail — pedido textual del cliente: "cada vez que se
+// saque un turno, enviar una notificación por mail" — mismo patrón de
+// captura que el resto de este archivo, para que los tests puedan
+// confirmar que se mandó (y con qué datos) sin depender de Resend real.
+func (c *capturingMailSender) SendTurnoConfirmadoEmail(_ context.Context, to string, info mail.TurnoConfirmadoInfo) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.turnosConfirmados[to] = info
+	return nil
+}
+
+// turnoConfirmadoEnviadoA — nil si nunca se llamó a SendTurnoConfirmadoEmail
+// para ese mail.
+func (c *capturingMailSender) turnoConfirmadoEnviadoA(email string) *mail.TurnoConfirmadoInfo {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	info, ok := c.turnosConfirmados[email]
+	if !ok {
+		return nil
+	}
+	return &info
 }
 
 // codigoDeLaUltimaVerificacion — TR-055 en docs/tradeoffs.md: el mail de
@@ -276,6 +301,25 @@ func newTestRouterWithMail(t *testing.T) (http.Handler, *gorm.DB, *capturingMail
 	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb, sender
 }
 
+// newTestRouterWithMailYSimulacion — mismo router que newTestRouterWithMail,
+// pero con SimularBloqueosSeguridad activo (corrección de seguridad, Fase
+// 2.4.1: "estoy probando en localhost, no bloquearme realmente, sino
+// decirme que debería estar bloqueado"). Ver AuthDeps.SimularBloqueosSeguridad.
+func newTestRouterWithMailYSimulacion(t *testing.T) (http.Handler, *gorm.DB, *capturingMailSender) {
+	t.Helper()
+	gdb := testdb.New(t)
+	sender := newCapturingMailSender()
+	deps := AuthDeps{
+		Mail:                     sender,
+		AccountLimiter:           &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:                ratelimit.NewIPLimiter(),
+		AppBaseURL:               "http://localhost:3000",
+		StateSecret:              "un-secret-de-test",
+		SimularBloqueosSeguridad: true,
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb, sender
+}
+
 // routerOverDB arma un router "manual" (sin crear una base nueva) sobre
 // un *gorm.DB ya existente — para tests que necesitan dos routers con
 // AuthDeps distintos apuntando a la MISMA base (ej. TestMe_AutoVerifyEmail_*
@@ -293,6 +337,25 @@ func routerOverDB(gdb *gorm.DB, autoVerifyEmail bool) http.Handler {
 	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"})
 }
 
+// routerOverDBWithTurnstile — mismo criterio que routerOverDB: un router
+// "manual" sobre un *gorm.DB ya existente, acá para probar el CAPTCHA del
+// formulario público de turnos (corrección de seguridad, Fase 2.4.1) sin
+// que el registro del profesional de prueba (que también pasa por
+// Turnstile, ver checkCaptcha en auth.go) quede atrapado por el mismo
+// verifier — se arma la clínica con un router "ok", y se prueba el
+// rechazo con un segundo router "no ok" sobre la MISMA base.
+func routerOverDBWithTurnstile(gdb *gorm.DB, turnstileOK bool) http.Handler {
+	deps := AuthDeps{
+		Mail:           mail.LogSender{},
+		Turnstile:      fakeTurnstileVerifier{ok: turnstileOK},
+		AccountLimiter: &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:      ratelimit.NewIPLimiter(),
+		AppBaseURL:     "http://localhost:3000",
+		StateSecret:    "un-secret-de-test",
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"})
+}
+
 // newTestRouterWithAutoVerify arma un router con AutoVerifyEmail activo —
 // TR-051 en docs/tradeoffs.md: sin RESEND_API_KEY configurada, las
 // cuentas nativas nuevas quedan verificadas de entrada.
@@ -306,6 +369,25 @@ func newTestRouterWithAutoVerify(t *testing.T) (http.Handler, *gorm.DB) {
 		AppBaseURL:      "http://localhost:3000",
 		StateSecret:     "un-secret-de-test",
 		AutoVerifyEmail: true,
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb
+}
+
+// newTestRouterWithExponerCodigo — Fase 2.4.1: router con
+// ExponerCodigoVerificacion activo (mismo criterio que AutoVerifyEmail —
+// sin RESEND_API_KEY configurada, es decir, en local) para probar que
+// enviarVerificacionTurnoPublicoHandler devuelve el código de "Confirmanos
+// que sos vos" en la respuesta.
+func newTestRouterWithExponerCodigo(t *testing.T) (http.Handler, *gorm.DB) {
+	t.Helper()
+	gdb := testdb.New(t)
+	deps := AuthDeps{
+		Mail:                      mail.LogSender{},
+		AccountLimiter:            &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:                 ratelimit.NewIPLimiter(),
+		AppBaseURL:                "http://localhost:3000",
+		StateSecret:               "un-secret-de-test",
+		ExponerCodigoVerificacion: true,
 	}
 	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb
 }

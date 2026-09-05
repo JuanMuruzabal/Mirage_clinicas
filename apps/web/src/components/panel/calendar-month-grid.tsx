@@ -62,11 +62,21 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
                 // de consulta.
                 const resuelto = t.horaFin ? new Date(t.horaFin).getTime() < new Date().getTime() : false;
                 const tema = temaTipoConsulta(t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined);
+                // Contorno verde/rojo (corrección de QA, mismo criterio
+                // que CalendarGrid) — acá el "turno" es un punto de
+                // 1.5px, así que el contorno es un anillo alrededor en
+                // vez de un borde de tarjeta.
+                const anillo =
+                  t.asistencia === "asistio"
+                    ? "ring-2 ring-salvia-oscuro"
+                    : t.asistencia === "ausente"
+                      ? "ring-2 ring-terracota-oscuro"
+                      : "";
                 return (
                   <span
                     key={t.id}
                     aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full"
+                    className={`h-1.5 w-1.5 rounded-full ${anillo}`}
                     style={{ background: resuelto ? "var(--color-arena)" : tema.acento }}
                   />
                 );

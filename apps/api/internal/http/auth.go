@@ -91,6 +91,31 @@ type AuthDeps struct {
 	// aparte. No afecta Google (ya llega verificado por el provider) ni
 	// borra el flujo de verificación — solo lo salta para cuentas nuevas.
 	AutoVerifyEmail bool
+	// ExponerCodigoVerificacion — mismo criterio/señal que AutoVerifyEmail
+	// (RESEND_API_KEY vacía = sin proveedor de mail real, cmd/api/main.go):
+	// sin esto, ver el código de "Confirmanos que sos vos" del wizard
+	// público en local exige mirar los logs del backend (LogSender).
+	// Pedido del cliente para trabajar más cómodo en local — cuando está
+	// prendido, enviarVerificacionTurnoPublicoHandler devuelve el código
+	// en texto plano en la respuesta (CodigoDev) y el wizard lo muestra
+	// debajo del campo. Se apaga solo apenas se cargue RESEND_API_KEY —
+	// nunca puede quedar prendido en producción por accidente.
+	ExponerCodigoVerificacion bool
+	// SimularBloqueosSeguridad — corrección de seguridad (Fase 2.4.1),
+	// mismo criterio/señal que ExponerCodigoVerificacion de arriba (sin
+	// RESEND_API_KEY, es decir, en local): pedido textual del cliente,
+	// "estoy probando en localhost, no bloquearme realmente, sino
+	// decirme que debería estar bloqueado, así voy probando que
+	// funcionan realmente". Con esto prendido, los detectores de abuso
+	// del formulario público (turno_publico.go: tope DNI+tipo, mail con
+	// muchos DNIs, rotación por IP) NUNCA bloquean mail/IP ni borran
+	// turnos de verdad — el pedido sigue su curso normal, y lo único que
+	// pasa es que queda una fila en la auditoría (Simulado=true, visible
+	// en /panel/seguridad) diciendo qué se habría bloqueado. Se apaga
+	// solo apenas se cargue RESEND_API_KEY, igual que
+	// ExponerCodigoVerificacion — nunca puede quedar prendido en
+	// producción por accidente.
+	SimularBloqueosSeguridad bool
 }
 
 func registerAuthRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
@@ -143,10 +168,22 @@ func validPassword(password string) bool {
 // (dev sin secret configurada), el CAPTCHA queda deshabilitado y esto
 // siempre pasa, mismo criterio nil-disabled de internal/turnstile.
 func (h *authHandler) checkCaptcha(ctx context.Context, token, ip string) bool {
-	if h.deps.Turnstile == nil {
+	return checkCaptchaToken(ctx, h.deps.Turnstile, token, ip)
+}
+
+// checkCaptchaToken — misma validación de arriba, extraída a función de
+// paquete (corrección de seguridad, Fase 2.4.1: el formulario público de
+// turnos no tenía NINGÚN CAPTCHA — un atacante podía automatizar el
+// llenado del calendario con DNIs/mails inventados sin más costo que el
+// rate limit por IP/cuenta, fácil de esquivar rotando ambos. Mismo
+// Turnstile que ya protege registro/reset de contraseña, reusado acá —
+// ver enviarVerificacionTurnoPublicoHandler en verificacion_turno_publico.go)
+// para no atarla a un *authHandler que ese handler no tiene.
+func checkCaptchaToken(ctx context.Context, verifier turnstile.Verifier, token, ip string) bool {
+	if verifier == nil {
 		return true
 	}
-	ok, err := h.deps.Turnstile.Verify(ctx, token, ip)
+	ok, err := verifier.Verify(ctx, token, ip)
 	return err == nil && ok
 }
 

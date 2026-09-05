@@ -2,8 +2,10 @@ import "server-only";
 import type {
   AutoreservarTurnosResponse,
   BloqueoHorario,
+  BloqueosSeguridad,
   ClinicaPublica,
   ClinicaResultado,
+  ConflictoPaciente,
   Disponibilidad,
   Especialidad,
   HorarioAtencion,
@@ -20,6 +22,7 @@ import type {
   Paciente,
   PacienteDetalle,
   PaginaPublica,
+  PanelNotificacionesResponse,
   PerfilProfesional,
   ReenviarVerificacionPayload,
   RecuperarPasswordPayload,
@@ -30,6 +33,7 @@ import type {
   ResumenPanel,
   TipoConsulta,
   Turno,
+  TurnosPendientesAsistenciaResponse,
   VerificarEmailPayload,
   VerificarEmailResponse,
 } from "@dental-mirage/shared-types";
@@ -126,10 +130,14 @@ export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: strin
 }
 
 export interface SolicitarTurnoPublicoPayload {
-  nombreContacto: string;
-  apellidoContacto: string;
-  dniContacto: string;
-  telefonoContacto: string;
+  // nombreContacto/apellidoContacto/dniContacto/telefonoContacto —
+  // obligatorios en el camino "primera vez"; se omiten en el camino "ya he
+  // venido antes" (Fase 2.4.1, pacienteVerificadoId), donde se completan
+  // solos del lado del backend a partir de la ficha ya identificada.
+  nombreContacto?: string;
+  apellidoContacto?: string;
+  dniContacto?: string;
+  telefonoContacto?: string;
   emailContacto: string;
   motivo?: string;
   // tipoConsultaId/fecha/hora — Extra 2.3.5 (E5.2/E5.3): el wizard público
@@ -145,15 +153,38 @@ export interface SolicitarTurnoPublicoPayload {
   // de 6 dígitos mandado a emailContacto. Sin esto, el backend rechaza el
   // pedido de turno.
   verificacionToken: string;
+  // pacienteVerificadoId (Fase 2.4.1, camino "ya he venido antes") — id de
+  // la ficha que devolvió apiGetPacienteVerificadoPublico tras confirmar la
+  // "tarjeta clickeable". Si viene, el backend vincula el turno directo a
+  // esa ficha sin pasar por la detección de conflicto.
+  pacienteVerificadoId?: string;
+}
+
+export interface EnviarVerificacionTurnoPublicoResponse {
+  mensaje: string;
+  // codigoDev (Fase 2.4.1) — SOLO viene en local (sin RESEND_API_KEY
+  // configurada, ver AuthDeps.ExponerCodigoVerificacion en el backend);
+  // nunca en producción. Comodidad de desarrollo, pedida por el cliente,
+  // para no tener que mirar los logs del backend mientras se prueba el
+  // wizard público.
+  codigoDev?: string;
 }
 
 // EnviarVerificacionTurnoPublicoPayload/apiEnviarVerificacionTurnoPublico
 // (E5.6) — primer paso de "Confirmanos que sos vos": manda un código de 6
-// dígitos al mail que puso el paciente.
-export function apiEnviarVerificacionTurnoPublico(slug: string, email: string): Promise<ApiResult<{ mensaje: string }>> {
-  return request<{ mensaje: string }>(`/clinicas/${slug}/verificacion-email`, {
+// dígitos al mail que puso el paciente. `captchaToken` (corrección de
+// seguridad, Fase 2.4.1) es el resultado del widget de Turnstile — mismo
+// criterio que apiRegister: string vacía si el widget no se renderizó
+// (sin NEXT_PUBLIC_TURNSTILE_SITE_KEY), consistente con el backend
+// tratando un Turnstile no configurado como CAPTCHA deshabilitado.
+export function apiEnviarVerificacionTurnoPublico(
+  slug: string,
+  email: string,
+  captchaToken: string,
+): Promise<ApiResult<EnviarVerificacionTurnoPublicoResponse>> {
+  return request<EnviarVerificacionTurnoPublicoResponse>(`/clinicas/${slug}/verificacion-email`, {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, captchaToken }),
   });
 }
 
@@ -165,6 +196,32 @@ export function apiConfirmarVerificacionTurnoPublico(slug: string, email: string
     method: "POST",
     body: JSON.stringify({ email, codigo }),
   });
+}
+
+// PacienteVerificadoPublico — Fase 2.4.1, camino "ya he venido antes":
+// datos YA CENSURADOS por el backend (nunca se manda el dato crudo para
+// censurarlo acá) para la "tarjeta clickeable" que el paciente confirma
+// antes de saltar directo al paso de horario.
+export interface PacienteVerificadoPublico {
+  id: string;
+  nombre: string;
+  dni: string;
+}
+
+// apiGetPacienteVerificadoPublico (Fase 2.4.1) — exige un token de
+// "Confirmanos que sos vos" vigente y sin usar para el mail dado (se
+// valida, no se consume: el paciente lo va a necesitar de nuevo al mandar
+// el pedido final). 404 si no hay una ficha VERIFICADA que matchee DNI +
+// mail — el wizard interpreta eso como "no encontramos tu ficha, empezá
+// como paciente nuevo".
+export function apiGetPacienteVerificadoPublico(
+  slug: string,
+  dni: string,
+  email: string,
+  verificacionToken: string,
+): Promise<ApiResult<PacienteVerificadoPublico>> {
+  const query = new URLSearchParams({ dni, email, verificacionToken });
+  return request<PacienteVerificadoPublico>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
 }
 
 export interface SolicitarTurnoPublicoResponse {
@@ -184,6 +241,24 @@ export function apiSolicitarTurnoPublico(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export interface MisTurnoPublico {
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  tipoConsultaNombre: string;
+  nombreContacto: string;
+  apellidoContacto: string;
+}
+
+// apiMisTurnoPublico — botón "Mis turnos" de la página pública (pedido
+// textual del cliente): sin código de verificación de por medio (a
+// diferencia de "ya he venido antes") — DNI+mail directo, la mitigación
+// contra abuso es el rate limit por IP del lado del backend.
+export function apiMisTurnoPublico(slug: string, dni: string, email: string): Promise<ApiResult<MisTurnoPublico>> {
+  const query = new URLSearchParams({ dni, email });
+  return request<MisTurnoPublico>(`/clinicas/${slug}/mis-turnos?${query.toString()}`);
 }
 
 // --- Auth/onboarding (docs/feature-sumarte-login.md) ---
@@ -442,6 +517,9 @@ export interface ListarTurnosParams {
   // tipoConsultaId (corrección de QA, Extra 2.3.3: "faltó el filtro de
   // tipo de consulta" en la vista Turnos) — filtra por columna exacta.
   tipoConsultaId?: string;
+  // verificacion (corrección de seguridad, Fase 2.4.1) — "verificado" o
+  // "sin_verificar", según si el paciente vinculado ya demostró ser real.
+  verificacion?: "verificado" | "sin_verificar";
 }
 
 export function apiListTurnos(token: string, params: ListarTurnosParams = {}): Promise<ApiResult<Turno[]>> {
@@ -452,6 +530,7 @@ export function apiListTurnos(token: string, params: ListarTurnosParams = {}): P
   if (params.q) query.set("q", params.q);
   if (params.resuelto !== undefined) query.set("resuelto", String(params.resuelto));
   if (params.tipoConsultaId) query.set("tipoConsultaId", params.tipoConsultaId);
+  if (params.verificacion) query.set("verificacion", params.verificacion);
   const qs = query.toString();
   return request<Turno[]>(`/turnos${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
 }
@@ -517,6 +596,13 @@ export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>>
   return request<ResumenPanel>("/panel/resumen", { headers: { Authorization: `Bearer ${token}` } });
 }
 
+// apiPanelNotificaciones — TR-108 (docs/ArquitecturaPeticionesTurno.md):
+// fuente de datos del aviso global de conflictos (fuera de Pacientes/
+// Calendario) — ver NotificacionesConflictoGlobal.
+export function apiPanelNotificaciones(token: string): Promise<ApiResult<PanelNotificacionesResponse>> {
+  return request<PanelNotificacionesResponse>("/panel/notificaciones", { headers: { Authorization: `Bearer ${token}` } });
+}
+
 // --- Sprint 3: Turnos entrantes + Pacientes (spec §4.4, §4.5) ---
 
 // Cancelar (T3.3) es idempotente del lado del backend — llamarlo sobre un
@@ -524,6 +610,21 @@ export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>>
 export function apiCancelarTurno(token: string, turnoId: string): Promise<ApiResult<Turno>> {
   return request<Turno>(`/turnos/${turnoId}/cancelar`, {
     method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiCancelarTurnosSinVerificar (corrección de seguridad, Fase 2.4.1) —
+// "cómo se hace para borrar todos los turnos sin verificar": cancela de
+// una todos los turnos vigentes de pacientes que todavía no demostraron
+// ser reales, acción del filtro "Sin verificar" en /panel/turnos.
+export interface CancelarTurnosSinVerificarResponse {
+  cancelados: number;
+}
+
+export function apiCancelarTurnosSinVerificar(token: string): Promise<ApiResult<CancelarTurnosSinVerificarResponse>> {
+  return request<CancelarTurnosSinVerificarResponse>("/turnos/cancelar-sin-verificar", {
+    method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -542,6 +643,15 @@ export function apiMarcarAsistencia(
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ asistencia }),
+  });
+}
+
+// apiTurnosPendientesAsistencia — TR-107 (1.3ter): fuente de datos de
+// AsistenciaCartelGlobal. Sin ningún parámetro de fecha a propósito — ver
+// el comentario grande en turnosPendientesAsistenciaResponse (Go).
+export function apiTurnosPendientesAsistencia(token: string): Promise<ApiResult<TurnosPendientesAsistenciaResponse>> {
+  return request<TurnosPendientesAsistenciaResponse>("/turnos/pendientes-asistencia", {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
@@ -591,6 +701,55 @@ export function apiEditarPaciente(token: string, id: string, payload: EditarPaci
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
+  });
+}
+
+// apiListConflictosPaciente/apiResolverConflictoPaciente (Fase 2.4.1) —
+// pantalla de resolución de conflictos en /panel/pacientes: dos fichas
+// compitiendo por el mismo DNI porque el mail no coincidía con el de una
+// ficha ya VERIFICADA (ver crearPacientePublicoConDeteccionDeConflicto,
+// backend).
+export function apiListConflictosPaciente(token: string): Promise<ApiResult<ConflictoPaciente[]>> {
+  return request<ConflictoPaciente[]>("/pacientes/conflictos", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export interface ResolverConflictoPacientePayload {
+  // esVerificado — true: "el mail es de la persona verificada"; false:
+  // "el mail no es del paciente verificado". Ver resolverConflictoPacienteHandler.
+  esVerificado: boolean;
+}
+
+export function apiResolverConflictoPaciente(
+  token: string,
+  conflictoId: string,
+  payload: ResolverConflictoPacientePayload,
+): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/pacientes/conflictos/${conflictoId}/resolver`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+// apiListBloqueosSeguridad/apiDesbloquearMail/apiDesbloquearIP —
+// corrección de seguridad (Fase 2.4.1): "el apartado de auditoría de
+// turnos de bloqueos, donde muestre los mails bloqueados etc, por las
+// dudas de algún malentendido" — /panel/seguridad.
+export function apiListBloqueosSeguridad(token: string): Promise<ApiResult<BloqueosSeguridad>> {
+  return request<BloqueosSeguridad>("/pacientes/seguridad/bloqueos", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiDesbloquearMail(token: string, id: string): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/pacientes/seguridad/bloqueos-mail/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiDesbloquearIP(token: string, id: string): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/pacientes/seguridad/bloqueos-ip/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

@@ -764,6 +764,19 @@ export function CalendarGrid({
                   // color del tipo de consulta.
                   const colorBase = resuelto ? "var(--color-arena)" : tema.fondo;
                   const background = t.autoreservado ? fondoConRayas(colorBase) : colorBase;
+                  // Contorno verde/rojo (corrección de QA): "en el
+                  // calendario a los turnos resueltos si son asistidos
+                  // que tengan un contorno verde y los ausentes un
+                  // contorno rojo" — referencia visual inmediata sin
+                  // tener que abrir la tarjeta. Uno sin marcar todavía
+                  // (el cartel global se encarga de eso) se queda con el
+                  // borde neutro de siempre.
+                  const bordeResuelto =
+                    t.asistencia === "asistio"
+                      ? "border-2 border-salvia-oscuro"
+                      : t.asistencia === "ausente"
+                        ? "border-2 border-terracota-oscuro"
+                        : "border-arena";
                   return (
                     <div key={t.id}>
                       <button
@@ -772,7 +785,7 @@ export function CalendarGrid({
                         style={{ top, height: alto, background }}
                         className={`absolute inset-x-1 overflow-hidden border px-2 py-1 text-left text-xs hover:brightness-95 ${
                           hayPost ? "rounded-t-field" : "rounded-field"
-                        } ${resuelto ? "border-arena text-grafito/60" : "border-transparent"}`}
+                        } ${resuelto ? `${bordeResuelto} text-grafito/60` : "border-transparent"}`}
                       >
                         <span className="block truncate font-semibold" style={resuelto ? undefined : { color: tema.texto }}>
                           {t.nombreContacto} {t.apellidoContacto}
