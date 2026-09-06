@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { IconHelp } from "@/components/icons";
 import { ModalPortal } from "./modal-portal";
 
 // QueEsVerificadoBoton — pedido textual del cliente: "agregue en la
@@ -15,11 +16,15 @@ export function QueEsVerificadoBoton() {
 
   return (
     <>
+      {/* Corrección de estética (2026-09-06, fotos de referencia
+          "diseñoviejo.png"/"diseñonuevo.png"): texto suelto con ícono de
+          ayuda, sin el botón con borde/relleno de antes. */}
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-grafito hover:text-salvia-oscuro"
       >
+        <IconHelp className="h-4 w-4" />
         ¿Qué es un paciente verificado?
       </button>
       {abierto && (

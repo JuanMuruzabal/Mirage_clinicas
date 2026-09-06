@@ -56,6 +56,56 @@ export function IconFilter({ className }: IconProps) {
   );
 }
 
+// IconSearch — lupa (Feather Icons, MIT), mismo trazo que IconFilter —
+// pedido de estética nueva (2026-09-06, fotos de referencia del cliente):
+// buscadores de Turnos/Pacientes suman un ícono adentro del campo.
+export function IconSearch({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+// IconCheckBadge — círculo con tilde, mismo criterio de estética nueva —
+// reemplaza el badge de texto "VERIFICADO" por un ícono chico al lado
+// del nombre, mismo lenguaje visual que las fotos de referencia.
+export function IconCheckBadge({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 12.5 10.5 15 16 9" />
+    </svg>
+  );
+}
+
+// IconHelp — círculo con signo de pregunta (Feather Icons "help-circle",
+// MIT), mismo trazo que el resto del set — corrección de estética
+// (2026-09-06, fotos de referencia "diseñoviejo.png"/"diseñonuevo.png"):
+// "¿Qué es un paciente verificado?" pasa de botón con borde/relleno a
+// texto suelto con este ícono al lado, sin fondo.
+export function IconHelp({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+// IconChevronRight — flecha simple hacia la derecha, indicador de
+// navegación al final de una fila (fotos de referencia, tabla de
+// Pacientes).
+export function IconChevronRight({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  );
+}
+
 export function IconUser({ className }: IconProps) {
   return (
     <svg {...svgProps} className={className}>

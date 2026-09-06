@@ -14,14 +14,14 @@ describe("FiltrosSheet", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("el disparador siempre es verde, con un ícono de filtro", () => {
+  it("el disparador tiene fondo claro con un ícono de filtro", () => {
     render(
       <FiltrosSheet activo={false} aplicarLabel="Ver 5 turnos" onAplicar={vi.fn()}>
         <p>Contenido</p>
       </FiltrosSheet>,
     );
     const boton = screen.getByRole("button", { name: "Filtros" });
-    expect(boton).toHaveClass("bg-salvia-oscuro");
+    expect(boton).toHaveClass("bg-marfil");
     expect(boton.querySelector("svg")).toBeInTheDocument();
   });
 
@@ -31,7 +31,7 @@ describe("FiltrosSheet", () => {
         <p>Contenido</p>
       </FiltrosSheet>,
     );
-    expect(container.querySelector('span[aria-hidden="true"].bg-marfil')).toBeInTheDocument();
+    expect(container.querySelector('span[aria-hidden="true"].bg-salvia-oscuro')).toBeInTheDocument();
   });
 
   it("sin activo, no muestra el punto indicador", () => {
@@ -40,7 +40,7 @@ describe("FiltrosSheet", () => {
         <p>Contenido</p>
       </FiltrosSheet>,
     );
-    expect(container.querySelector('span[aria-hidden="true"].bg-marfil')).not.toBeInTheDocument();
+    expect(container.querySelector('span[aria-hidden="true"].bg-salvia-oscuro')).not.toBeInTheDocument();
   });
 
   it("al tocar el disparador, llama a onAbrir y abre la hoja con el contenido", async () => {

@@ -313,12 +313,6 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
       <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            {/* border-b (1px) en mobile — pedido explícito del cliente,
-                2026-08-27: "las tablas... no poseen separadores claros
-                como sí tiene la versión de escritorio". El `0.5px` de
-                escritorio se pierde en algunos anchos de píxel de
-                mobile (redondea a 0 según densidad de pantalla); acá se
-                fuerza a 1px completo, visible en cualquier dispositivo. */}
             <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
               <th className="panel-th-sticky px-4 py-3">Paciente</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Tipo de consulta</th>
