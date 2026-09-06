@@ -72,7 +72,7 @@ describe("CalendarView", () => {
 
   it("arranca en vista día (Hoy) — pedido explícito del cliente", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
-    expect(screen.getByRole("button", { name: "dia" })).toHaveClass("bg-salvia-oscuro");
+    expect(screen.getByRole("button", { name: "Día" })).toHaveClass("bg-salvia-oscuro");
   });
 
   // F2.3 extra ítem 1 (docs/implementation-plan.md §11.5) — deep-link
@@ -329,8 +329,8 @@ describe("CalendarView", () => {
 
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
-    const botones = screen.getAllByRole("button", { name: /^(dia|semana|mes)$/ });
-    expect(botones.map((b) => b.textContent)).toEqual(["dia", "semana", "mes"]);
+    const botones = screen.getAllByRole("button", { name: /^(Día|Semana|Mes)$/ });
+    expect(botones.map((b) => b.textContent)).toEqual(["Día", "Semana", "Mes"]);
   });
 
   it("cambiar a vista mes pide los turnos de nuevo (rango distinto)", async () => {
@@ -338,10 +338,10 @@ describe("CalendarView", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
     listTurnosActionMock.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "mes" }));
+    await user.click(screen.getByRole("button", { name: "Mes" }));
 
     await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalled());
-    expect(screen.getByRole("button", { name: "mes" })).toHaveClass("bg-salvia-oscuro");
+    expect(screen.getByRole("button", { name: "Mes" })).toHaveClass("bg-salvia-oscuro");
   });
 
   it("prev/next/Hoy navegan y vuelven a pedir datos", async () => {
@@ -373,9 +373,9 @@ describe("CalendarView", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
     await waitFor(() => expect(screen.queryByText("Cargando…")).not.toBeInTheDocument());
 
-    // "dia" ya es la vista activa de entrada (ver el primer test) —
+    // "Día" ya es la vista activa de entrada (ver el primer test) —
     // tocarla de nuevo no debería iniciar (ni trabar) ninguna carga.
-    await user.click(screen.getByRole("button", { name: "dia" }));
+    await user.click(screen.getByRole("button", { name: "Día" }));
 
     expect(screen.queryByText("Cargando…")).not.toBeInTheDocument();
   });
@@ -383,13 +383,13 @@ describe("CalendarView", () => {
   it("clickear un día en vista mes pasa a vista día", async () => {
     const user = userEvent.setup();
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
-    await user.click(screen.getByRole("button", { name: "mes" }));
+    await user.click(screen.getByRole("button", { name: "Mes" }));
     await waitFor(() => expect(screen.queryByText("Cargando…")).not.toBeInTheDocument());
 
     const hoy = new Date().getDate();
     await user.click(screen.getAllByText(String(hoy))[0]);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "dia" })).toHaveClass("bg-salvia-oscuro"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Día" })).toHaveClass("bg-salvia-oscuro"));
   });
 
   // F2.3 (docs/implementation-plan.md §11.3, corregido tras QA: "al
@@ -418,24 +418,26 @@ describe("CalendarView", () => {
   // Acceso rápido a reservar horario (pedido explícito del cliente,
   // 2026-09-04): "agregar un acceso rápido a reservar horario desde la
   // pantalla principal del calendario al lado de agregar turno".
-  describe("acceso rápido '+ Reservar horario'", () => {
-    // Corrección de QA (2026-09-04, textual): "el botón de reservar
-    // horario, debe aparecer verde como el de agregar turno" — antes era
-    // un botón secundario (borde, sin relleno).
-    it("tiene el mismo estilo verde que '+ Agregar turno'", () => {
+  describe("acceso rápido 'Reservar horario'", () => {
+    // Corrección de estética (2026-09-06, foto de referencia): vuelve a
+    // un estilo claro (borde, sin relleno), distinto de "+ Agregar
+    // turno" — reemplaza la corrección de QA anterior (2026-09-04) que
+    // lo había igualado en verde, pedido explícito del cliente esta vez.
+    it("tiene estilo claro, distinto del verde de '+ Agregar turno'", () => {
       render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
-      const reservar = screen.getByRole("button", { name: "+ Reservar horario" });
+      const reservar = screen.getByRole("button", { name: "Reservar horario" });
       const agregarTurno = screen.getByRole("button", { name: "+ Agregar turno" });
-      expect(reservar.className).toContain("bg-salvia-oscuro");
-      expect(reservar.className).toContain("text-marfil");
-      expect(reservar.className).toBe(agregarTurno.className);
+      expect(reservar.className).toContain("bg-marfil");
+      expect(reservar.className).toContain("border-arena");
+      expect(agregarTurno.className).toContain("bg-salvia-oscuro");
+      expect(reservar.className).not.toBe(agregarTurno.className);
     });
 
     it("el botón abre el acceso rápido con las 2 opciones", async () => {
       const user = userEvent.setup();
       render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
 
-      await user.click(screen.getByRole("button", { name: "+ Reservar horario" }));
+      await user.click(screen.getByRole("button", { name: "Reservar horario" }));
       expect(screen.getByRole("dialog", { name: "Reservar horario" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Agregar general" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Agregar específica" })).toBeInTheDocument();
@@ -450,7 +452,7 @@ describe("CalendarView", () => {
       await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
       listBloqueosActionMock.mockClear();
 
-      await user.click(screen.getByRole("button", { name: "+ Reservar horario" }));
+      await user.click(screen.getByRole("button", { name: "Reservar horario" }));
       await user.click(screen.getByRole("button", { name: "Agregar general" }));
       fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "07:00" } });
       fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "08:00" } });

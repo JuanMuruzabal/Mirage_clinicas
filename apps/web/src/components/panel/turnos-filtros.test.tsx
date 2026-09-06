@@ -86,7 +86,7 @@ describe("TurnosFiltros", () => {
   it("el botón 'Filtros' muestra el punto indicador cuando ya hay un filtro aplicado por props", () => {
     listTurnosActionMock.mockResolvedValue([]);
     const { container } = render(<TurnosFiltros tab="agendado" tiposConsulta={tiposConsulta} tipoConsultaId="tc-1" />);
-    expect(container.querySelector('span[aria-hidden="true"].bg-marfil')).toBeInTheDocument();
+    expect(container.querySelector('span[aria-hidden="true"].bg-salvia-oscuro')).toBeInTheDocument();
   });
 
   it("'Limpiar filtros' resetea el borrador sin navegar solo", async () => {

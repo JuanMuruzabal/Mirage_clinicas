@@ -94,6 +94,9 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
 
   const hayFiltrosActivos = tipoId !== "todos" || desde !== "" || hasta !== "";
   const hayBorradorActivo = draftTipoId !== "todos" || draftDesde !== "" || draftHasta !== "";
+  // activeCount — corrección de estética (2026-09-06): un rango de fecha
+  // cuenta como UN filtro, igual que el tipo de consulta.
+  const activeCount = (tipoId !== "todos" ? 1 : 0) + (desde || hasta ? 1 : 0);
 
   function abrirFiltros() {
     setDraftTipoId(tipoId);
@@ -142,6 +145,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
       <div>
         <FiltrosSheet
           activo={hayFiltrosActivos}
+          activeCount={activeCount}
           aplicarLabel={`Ver ${draftFiltrados.length} turno${draftFiltrados.length === 1 ? "" : "s"}`}
           onAplicar={aplicarFiltros}
           onLimpiar={hayBorradorActivo ? limpiarBorrador : undefined}

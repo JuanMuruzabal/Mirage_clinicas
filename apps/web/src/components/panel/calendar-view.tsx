@@ -84,6 +84,10 @@ interface CalendarViewProps {
   bloqueoAFocalizarId?: string;
 }
 
+// VISTA_LABEL — ver el comentario junto al toggle Día/Semana/Mes, más
+// abajo en el JSX.
+const VISTA_LABEL: Record<VistaCalendario, string> = { dia: "Día", semana: "Semana", mes: "Mes" };
+
 // T2.3: toolbar prev/next/Hoy + toggle Mes/Semana/Día + contenedor de
 // ALTURA FIJA con scroll interno propio (clave del pedido: "no estira la
 // página"). T2.4/T2.5 viven acá adentro: el modal de agregar turno y el
@@ -363,6 +367,14 @@ export function CalendarView({
 
   const dias = diasDeVista(fecha, vista);
   const titulo = vista === "mes" ? formatMesAnio(fecha) : vista === "semana" ? formatRangoSemana(fecha) : formatDiaLargo(fecha);
+  // turnosEnRangoVisible — corrección de estética (2026-09-06, foto de
+  // referencia "nueva estetica calendario.png"): pastilla "2 turnos" al
+  // lado de la fecha. En Día, cuenta solo ESE día (coincide con lo que
+  // el usuario ve en el grid); en Semana/Mes, `turnos` ya es exactamente
+  // el rango cargado (ver `recargar`/el efecto de carga más abajo), sin
+  // filtrar de nuevo.
+  const turnosEnRangoVisible =
+    vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)).length : turnos.length;
 
   // Banner de conflicto (F2.3 extra ítem 2, docs/implementation-plan.md
   // §11.5) — mismo cálculo de clusters que usa el click real sobre el
@@ -533,6 +545,13 @@ export function CalendarView({
                 texto visible) abre el modal y el botón vuelve solo a su
                 estado colapsado. */}
             <div ref={menuAjustesRef}>
+              {/* Corrección de estética (2026-09-06, foto de referencia
+                  "nueva estetica calendario.png"): en reposo, la tuerca es
+                  un ícono suelto sobre el fondo de la página, sin pastilla
+                  verde detrás — el fondo sólido aparece recién al
+                  desplegarse (necesario ahí para que el texto blanco se
+                  lea). Mismo mecanismo de dos toques de siempre, sin
+                  cambios. */}
               <button
                 type="button"
                 aria-expanded={menuAjustesAbierto}
@@ -545,7 +564,11 @@ export function CalendarView({
                     setMenuAjustesAbierto(true);
                   }
                 }}
-                className="flex h-9 items-center overflow-hidden rounded-full bg-salvia-oscuro text-marfil shadow-soft transition-colors hover:brightness-95"
+                className={`flex h-9 items-center overflow-hidden rounded-full transition-colors ${
+                  menuAjustesAbierto
+                    ? "bg-salvia-oscuro text-marfil shadow-soft hover:brightness-95"
+                    : "text-salvia-oscuro hover:bg-arena"
+                }`}
               >
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
                   <IconSettings className="h-5 w-5" />
@@ -561,18 +584,20 @@ export function CalendarView({
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            {/* Mismo verde que "+ Agregar turno" (corrección de QA,
-                2026-09-04: "el botón de reservar horario, debe aparecer
-                verde como el de agregar turno") — antes tenía un estilo
-                secundario (borde, sin relleno) que lo hacía ver menos
-                importante que el de agregar turno, cuando las dos son
-                acciones de alta igual de directas desde acá. */}
+            {/* Corrección de estética (2026-09-06, foto de referencia):
+                "Reservar horario" vuelve a un estilo claro (fondo marfil,
+                borde arena) — la foto lo muestra así, distinto de "+
+                Agregar turno" (verde sólido, la acción principal).
+                Reemplaza la corrección de QA anterior (2026-09-04) que
+                lo había igualado en verde — pedido explícito del cliente
+                esta vez: "ese diseño quiero aplicar, tal cual está en la
+                foto". */}
             <button
               type="button"
               onClick={() => setReservarHorarioAbierto(true)}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil shadow-soft hover:brightness-95 whitespace-nowrap"
+              className="rounded-full border-[0.5px] border-arena bg-marfil px-5 py-2.5 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro whitespace-nowrap"
             >
-              + Reservar horario
+              Reservar horario
             </button>
             <button
               type="button"
@@ -586,43 +611,65 @@ export function CalendarView({
 
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 shadow-soft">
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              aria-label="Anterior"
-              onClick={() => irA(navegar(fecha, vista, -1))}
-              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              onClick={irAHoy}
-              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Hoy
-            </button>
-            <button
-              type="button"
-              aria-label="Siguiente"
-              onClick={() => irA(navegar(fecha, vista, 1))}
-              className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              →
-            </button>
-            <span className="ml-2 font-[family-name:var(--font-mono)] text-sm text-grafito">{titulo}</span>
+            {/* Grupo "< | Hoy | >" — corrección de estética (2026-09-06,
+                foto de referencia): pasa de 3 botones con borde propio
+                (separados por `gap`) a UN solo grupo con borde, separado
+                por líneas finas internas (`divide-x`) — así se ve en la
+                foto, sin fondo propio por botón, solo texto/ícono. */}
+            <div className="flex items-center divide-x divide-arena rounded-full border-[0.5px] border-arena text-sm text-grafito">
+              <button
+                type="button"
+                aria-label="Anterior"
+                onClick={() => irA(navegar(fecha, vista, -1))}
+                className="rounded-l-full px-3 py-1.5 hover:bg-arena"
+              >
+                ←
+              </button>
+              <button type="button" onClick={irAHoy} className="px-3 py-1.5 font-medium hover:bg-arena">
+                Hoy
+              </button>
+              <button
+                type="button"
+                aria-label="Siguiente"
+                onClick={() => irA(navegar(fecha, vista, 1))}
+                className="rounded-r-full px-3 py-1.5 hover:bg-arena"
+              >
+                →
+              </button>
+            </div>
+            {/* Corrección de estética (2026-09-06): se saca la fuente
+                monoespaciada — la foto de referencia muestra la fecha en
+                la misma tipografía que el resto de la interfaz, no una
+                fuente de "reloj". */}
+            <span className="ml-2 text-sm font-medium text-grafito">{titulo}</span>
+            {/* Pastilla de cantidad (corrección de estética, 2026-09-06,
+                foto de referencia "nueva estetica calendario.png": "2
+                turnos" al lado de la fecha) — mismo tono que los chips de
+                filtro de Turnos (`bg-salvia-claro`/`text-salvia-oscuro`). */}
+            <span className="rounded-full bg-salvia-claro px-2.5 py-1 text-xs font-medium text-salvia-oscuro whitespace-nowrap">
+              {turnosEnRangoVisible} {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
+            </span>
           </div>
 
-          <div className="flex rounded-full border-[0.5px] border-arena text-sm">
+          {/* Selector Día/Semana/Mes — corrección de estética (2026-09-06):
+              mismo criterio que las pestañas de Turnos/Pacientes (barra
+              con `p-1` + pastilla activa flotando adentro, redondeada de
+              punta a punta) en vez del segmentado de bordes duros de
+              antes (cada opción solo redondeaba la punta exterior del
+              grupo). */}
+          <div className="flex rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm">
+            {/* VISTA_LABEL — corrección de estética (2026-09-06): antes el
+                texto salía de `capitalize` sobre el valor crudo de
+                `vista` ("dia" → "Dia", sin tilde) — la foto de referencia
+                muestra "Día" bien escrito. */}
             {(["dia", "semana", "mes"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => cambiarVista(v)}
-                className={`px-4 py-1.5 capitalize first:rounded-l-full last:rounded-r-full ${
-                  vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"
-                }`}
+                className={`rounded-full px-4 py-1.5 ${vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
-                {v}
+                {VISTA_LABEL[v]}
               </button>
             ))}
           </div>

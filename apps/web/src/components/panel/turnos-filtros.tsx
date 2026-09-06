@@ -68,6 +68,10 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
   }, [tab, q, draftDesde, draftHasta, draftTipoConsultaId, draftVerificacion]);
 
   const hayFiltrosActivos = Boolean(desde || hasta || tipoConsultaId || verificacion);
+  // activeCount — corrección de estética (2026-09-06): un rango de fecha
+  // (Desde y/o Hasta) cuenta como UN solo filtro ("Esta semana" es un
+  // solo chip en las fotos de referencia), igual que tipo/verificación.
+  const activeCount = (desde || hasta ? 1 : 0) + (tipoConsultaId ? 1 : 0) + (verificacion ? 1 : 0);
 
   function abrirFiltros() {
     setDraftDesde(desde ?? "");
@@ -96,7 +100,14 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
   const aplicarLabel = conteo === null ? "Ver turnos…" : `Ver ${conteo} turno${conteo === 1 ? "" : "s"}`;
 
   return (
-    <FiltrosSheet activo={hayFiltrosActivos} aplicarLabel={aplicarLabel} onAplicar={aplicarFiltros} onLimpiar={limpiarBorrador} onAbrir={abrirFiltros}>
+    <FiltrosSheet
+      activo={hayFiltrosActivos}
+      activeCount={activeCount}
+      aplicarLabel={aplicarLabel}
+      onAplicar={aplicarFiltros}
+      onLimpiar={limpiarBorrador}
+      onAbrir={abrirFiltros}
+    >
       {tiposConsulta.length > 0 && (
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-grafito">Tipo de consulta</span>

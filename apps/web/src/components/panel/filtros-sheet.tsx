@@ -10,6 +10,11 @@ interface FiltrosSheetProps {
   // para que se note de un vistazo que la lista está filtrada sin tener
   // que abrir la hoja.
   activo: boolean;
+  // activeCount — corrección de estética (2026-09-06, fotos de
+  // referencia del cliente): "Filtros" pasa a mostrar la CANTIDAD de
+  // filtros aplicados en vez de un punto genérico ("Filtros 2"). Opcional
+  // — sin esto (o en 0), sigue el punto simple de antes.
+  activeCount?: number;
   // aplicarLabel — pedido textual del cliente (2026-09-06): "en vez de
   // decir aplicar, aparezca 'ver X turnos'" — el conteo en vivo de
   // cuántos resultados matchean los filtros SIN CONFIRMAR todavía (el
@@ -48,30 +53,43 @@ interface FiltrosSheetProps {
 // propio string de conteo — así sirve igual para Turnos (conteo pedido al
 // backend, debounced) y para la ficha de paciente (conteo síncrono, ya
 // tiene todos los turnos en memoria).
-export function FiltrosSheet({ activo, aplicarLabel, onAplicar, onLimpiar, onAbrir, children, triggerLabel = "Filtros" }: FiltrosSheetProps) {
+export function FiltrosSheet({ activo, activeCount, aplicarLabel, onAplicar, onLimpiar, onAbrir, children, triggerLabel = "Filtros" }: FiltrosSheetProps) {
   const [abierto, setAbierto] = useState(false);
 
   return (
     <>
-      {/* Corrección de QA (2026-09-06), pedido textual del cliente: "al
-          botón de filtros ponerle un icono de filtros y que el botón se
-          vea verde" — antes era neutro (borde arena) salvo con un filtro
-          ya aplicado; ahora es siempre el mismo verde sólido que el resto
-          de las acciones primarias del panel (Buscar, Confirmar). El
-          indicador de "hay un filtro aplicado" pasa de un cambio de color
-          (que ya no puede notarse, el botón siempre es verde) a un punto
-          color marfil superpuesto, visible sobre el fondo verde. */}
+      {/* Corrección de estética (2026-09-06, foto de referencia
+          "diseño2turnos.png"): el botón vuelve a un fondo claro (mismo
+          tono que el buscador de al lado, `bg-marfil` + borde arena) en
+          vez del verde sólido de la corrección anterior — la foto lo
+          muestra así, texto/ícono en salvia oscuro, con la cantidad de
+          filtros aplicados en un círculo salvia oscuro con número
+          blanco ("Filtros 2"). El punto simple (sin cantidad) queda como
+          respaldo para un consumidor que marque `activo` sin pasar
+          `activeCount` — no pasa hoy (Turnos/ficha de paciente siempre
+          mandan los dos juntos), pero el componente es deliberadamente
+          "tonto" y no debería asumirlo. */}
       <button
         type="button"
         onClick={() => {
           onAbrir?.();
           setAbierto(true);
         }}
-        className="inline-flex items-center gap-2 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 whitespace-nowrap"
+        className="inline-flex items-center gap-2 rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-semibold text-salvia-oscuro hover:border-salvia whitespace-nowrap"
       >
         <IconFilter className="h-4 w-4" />
         {triggerLabel}
-        {activo && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-marfil" />}
+        {activo &&
+          (activeCount && activeCount > 0 ? (
+            <span
+              aria-hidden="true"
+              className="flex h-4 min-w-4 items-center justify-center rounded-full bg-salvia-oscuro px-1 text-[10px] font-bold text-marfil"
+            >
+              {activeCount}
+            </span>
+          ) : (
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-salvia-oscuro" />
+          ))}
       </button>
 
       {abierto && (
