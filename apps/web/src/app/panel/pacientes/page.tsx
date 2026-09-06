@@ -6,7 +6,7 @@ import { PacientesTable } from "@/components/panel/pacientes-table";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
 import { ConflictosPacienteBanner } from "@/components/panel/conflictos-paciente-banner";
 import { QueEsVerificadoBoton } from "@/components/panel/que-es-verificado-boton";
-import { IconSearch } from "@/components/icons";
+import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
 
 export const metadata: Metadata = { title: "Pacientes — Dental Mirage" };
 
@@ -48,6 +48,9 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const pacientesFiltrados =
     tab === "todos" ? pacientes : pacientes.filter((p) => (tab === "verificados" ? p.verificado : !p.verificado));
   const querySecundaria = q ? `&q=${encodeURIComponent(q)}` : "";
+  // hrefBaseSinQ — para BuscadorEnVivo (TR-115): mismo tab vigente, sin
+  // `q` (el componente lo agrega solo, con cada tecla).
+  const hrefBaseSinQ = tab === "todos" ? "/panel/pacientes" : `/panel/pacientes?estado=${tab}`;
 
   // Fase 2.4.1: conflictos de pacientes sin resolver (dos fichas
   // compitiendo por el mismo DNI, detectadas desde el formulario público)
@@ -84,34 +87,27 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           + "+ Agregar paciente" van juntos en su fila, pestañas
           Todos/Verificados/Sin verificar debajo — mismo orden y mismo
           criterio que el rediseño de Turnos (buscador+Filtros arriba,
-          pestañas abajo). El botón "Buscar" se saca del todo, igual que
-          en Turnos — el `<form>` sigue siendo un GET real, Enter alcanza.
-          Tabla sin cambios (mismo pedido explícito del cliente que en
-          Turnos: "las tablas dejelas como estaba, no toque eso"). */}
+          pestañas abajo). Tabla sin cambios (mismo pedido explícito del
+          cliente que en Turnos: "las tablas dejelas como estaba, no
+          toque eso"). */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <form action="/panel/pacientes" method="get" className="relative flex max-w-md flex-1 max-md:w-full max-md:max-w-none">
-            <IconSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-grafito/40" />
-            {tab !== "todos" && <input type="hidden" name="estado" value={tab} />}
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Nombre, apellido o DNI…"
-              className="w-full rounded-field border-[0.5px] border-arena bg-marfil py-2 pr-3 pl-9 text-sm text-grafito outline-none focus:border-salvia"
-            />
-          </form>
+        <div className="flex flex-wrap items-center gap-3 max-md:w-full">
+          {/* BuscadorEnVivo (TR-115, 2026-09-06) — reemplaza el `<form
+              method="get">` de antes, mismo pedido que en Turnos: "que me
+              vaya apareciendo resultados sin tocar enter". */}
+          <div className="max-w-md flex-1 max-md:w-full max-md:max-w-none">
+            <BuscadorEnVivo q={q} hrefBase={hrefBaseSinQ} placeholder="Nombre, apellido o DNI…" />
+          </div>
           <AgregarPacienteButton />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Corrección de estética (2026-09-06, foto de referencia
-              "nuevoestilopacientes.png"): fondo tenue sin borde (antes
-              `bg-marfil border-arena`, un recuadro con línea visible) —
-              la foto muestra una franja apenas más oscura que el fondo
-              de la página, sin borde marcado. */}
-          <nav aria-label="Filtrar por verificación" className="flex flex-wrap items-center gap-1 rounded-card bg-hueso p-1 text-sm md:rounded-full">
-
+              "referencia.png"): vuelve a la píldora blanca con borde
+              (`bg-marfil border-arena`), mismo criterio que las pestañas
+              de Turnos — el intento anterior (`bg-hueso`, sin borde) no
+              coincidía con la foto de referencia del cliente. */}
+          <nav aria-label="Filtrar por verificación" className="flex flex-wrap items-center gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:rounded-full">
             {(
               [
                 { tab: "todos" as const, label: "Todos" },

@@ -327,6 +327,44 @@ describe("CalendarView", () => {
     });
   });
 
+  // Corrección de QA (2026-09-06), pedido textual del cliente: "los 'x
+  // turnos' que aparecen en el calendario solo deben ser turnos activos,
+  // no resueltos" — la pastilla de cantidad (TR-114) descarta con
+  // `turnoResuelto` los que ya pasaron de hora, igual criterio que el
+  // resto del calendario (banner de conflicto, marca de asistencia).
+  it("la pastilla de cantidad cuenta solo turnos activos, no resueltos", async () => {
+    const ahora = Date.now();
+    const base = {
+      estado: "agendado" as const,
+      origen: "manual" as const,
+      tipoConsultaId: "tc-1",
+      apellidoContacto: "Games",
+      dniContacto: "1",
+      telefonoContacto: "1",
+      emailContacto: "",
+      motivo: "",
+      createdAt: new Date().toISOString(),
+    };
+    const activo = {
+      ...base,
+      id: "t-activo",
+      nombreContacto: "Activo",
+      horaInicio: new Date(ahora + 60 * 60 * 1000).toISOString(),
+      horaFin: new Date(ahora + 2 * 60 * 60 * 1000).toISOString(),
+    };
+    const resuelto = {
+      ...base,
+      id: "t-resuelto",
+      nombreContacto: "Resuelto",
+      horaInicio: new Date(ahora - 3 * 60 * 60 * 1000).toISOString(),
+      horaFin: new Date(ahora - 2 * 60 * 60 * 1000).toISOString(),
+    };
+
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[activo, resuelto]} />);
+
+    expect(await screen.findByText("1 turno")).toBeInTheDocument();
+  });
+
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
     const botones = screen.getAllByRole("button", { name: /^(Día|Semana|Mes)$/ });
