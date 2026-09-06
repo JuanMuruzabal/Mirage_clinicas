@@ -1110,6 +1110,162 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 	}
 }
 
+// TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado —
+// corrección de seguridad (2026-09-06), pedido textual del cliente: "esto
+// puede ser peligroso porque puede borrar turnos legítimos, ya que la IP
+// es compartida" — un paciente ya VERIFICADO (asistió a un turno antes)
+// no pierde el suyo solo por compartir IP con quien está rotando mail+DNI
+// ahora; mismo criterio "sin verificar, no sabemos con certeza quién es
+// el impostor" que ya usan los otros dos detectores de este archivo.
+func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
+	horas := []string{"08:00", "09:00", "10:00", "11:00"}
+	mails := []string{"verificado0@example.com", "rotadorb1@example.com", "rotadorb2@example.com", "rotadorb3@example.com"}
+	dnis := []string{"34000000", "34000001", "34000002", "34000003"}
+
+	for i := 0; i < 4; i++ {
+		if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+			db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+		}
+		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
+		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req.EmailContacto = mails[i]
+		req.DNIContacto = dnis[i]
+		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("pedido %d: status = %d, esperaba %d. body=%s", i+1, rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	}
+
+	// El paciente del primer pedido queda VERIFICADO (Origen "manual" es
+	// el atajo más simple para eso, ver pacienteEstaVerificado) — nada
+	// distinto de un paciente real que ya demostró ser quien dice ser.
+	if err := gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, dnis[0]).
+		Update("origen", "manual").Error; err != nil {
+		t.Fatalf("no se pudo verificar al paciente de prueba: %v", err)
+	}
+
+	// 5to pedido, mail+DNI nuevos: completa el patrón (4 mails y 4 DNIs
+	// distintos, incluyendo los 4 de arriba) y dispara el bloqueo.
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "rotadorb4@example.com")
+	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "12:00", token5)
+	req5.EmailContacto = "rotadorb4@example.com"
+	req5.DNIContacto = "34000004"
+	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
+	if rec5.Code != http.StatusForbidden {
+		t.Fatalf("5to pedido (rotación completa): status = %d, esperaba %d. body=%s", rec5.Code, http.StatusForbidden, rec5.Body.String())
+	}
+
+	// El turno del paciente verificado (dnis[0]) sobrevive; los otros 3
+	// (sin verificar) se borran.
+	var countVerificado int64
+	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, dnis[0]).Count(&countVerificado)
+	if countVerificado != 1 {
+		t.Errorf("turnos del paciente verificado = %d, esperaba 1 (no debería borrarse)", countVerificado)
+	}
+	var countResto int64
+	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[1:]).Count(&countResto)
+	if countResto != 0 {
+		t.Errorf("turnos de los pacientes sin verificar = %d, esperaba 0", countResto)
+	}
+
+	var auditoria db.AuditoriaBloqueoTurnoPublico
+	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+		t.Fatalf("esperaba una fila de auditoría de rotación: %v", err)
+	}
+	if auditoria.TurnosBorrados != 3 {
+		t.Errorf("TurnosBorrados = %d, esperaba 3 (el del paciente verificado no cuenta)", auditoria.TurnosBorrados)
+	}
+}
+
+// TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana —
+// corrección de seguridad (2026-09-06), mismo pedido que el test de
+// arriba: el borrado queda acotado a `ventanaRotacionPorIP` (30 min), no
+// a todo el historial de esa IP para el profesional — un turno viejo,
+// aislado, de la misma IP no debería desaparecer solo porque esa IP
+// mostró un patrón de rotación recién ahora.
+func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico27@example.com")
+
+	// Turno viejo, aislado, de la misma IP — se crea normal y después se
+	// le retrasa `created_at` a mano (la request de prueba no tiene forma
+	// de fijar la IP real del test client, así que se comparte la del
+	// resto del test: ver ipDePrueba más abajo, todas las requests de este
+	// archivo pegan desde la misma IP simulada del httptest).
+	tokenViejo := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "viejo@example.com")
+	reqViejo := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "13:00", tokenViejo)
+	reqViejo.EmailContacto = "viejo@example.com"
+	reqViejo.DNIContacto = "35000099"
+	recViejo := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", reqViejo)
+	if recViejo.Code != http.StatusCreated {
+		t.Fatalf("turno viejo: status = %d, esperaba %d. body=%s", recViejo.Code, http.StatusCreated, recViejo.Body.String())
+	}
+	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").
+		Update("created_at", time.Now().Add(-2*time.Hour)).Error; err != nil {
+		t.Fatalf("no se pudo retrasar el turno viejo de prueba: %v", err)
+	}
+
+	horas := []string{"08:00", "09:00", "10:00", "11:00", "12:00"}
+	mails := []string{"rotadorc0@example.com", "rotadorc1@example.com", "rotadorc2@example.com", "rotadorc3@example.com", "rotadorc4@example.com"}
+	dnis := []string{"35000000", "35000001", "35000002", "35000003", "35000004"}
+
+	for i := 0; i < 4; i++ {
+		if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+			db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+		}
+		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
+		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req.EmailContacto = mails[i]
+		req.DNIContacto = dnis[i]
+		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("pedido %d: status = %d, esperaba %d. body=%s", i+1, rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	}
+
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[4])
+	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[4], token5)
+	req5.EmailContacto = mails[4]
+	req5.DNIContacto = dnis[4]
+	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
+	if rec5.Code != http.StatusForbidden {
+		t.Fatalf("5to pedido (rotación completa): status = %d, esperaba %d. body=%s", rec5.Code, http.StatusForbidden, rec5.Body.String())
+	}
+
+	// El turno viejo (fuera de la ventana de detección) sobrevive.
+	var countViejo int64
+	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").Count(&countViejo)
+	if countViejo != 1 {
+		t.Errorf("turno viejo (fuera de ventana) = %d, esperaba 1 (no debería borrarse)", countViejo)
+	}
+	// Los 4 de la ventana de rotación sí se borran, como siempre.
+	var countVentana int64
+	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[:4]).Count(&countVentana)
+	if countVentana != 0 {
+		t.Errorf("turnos dentro de la ventana = %d, esperaba 0", countVentana)
+	}
+
+	var auditoria db.AuditoriaBloqueoTurnoPublico
+	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+		t.Fatalf("esperaba una fila de auditoría de rotación: %v", err)
+	}
+	if auditoria.TurnosBorrados != 4 {
+		t.Errorf("TurnosBorrados = %d, esperaba 4 (el viejo, fuera de ventana, no cuenta)", auditoria.TurnosBorrados)
+	}
+}
+
 // TestSolicitarTurnoPublico_RotacionSimulada — corrección de seguridad
 // (Fase 2.4.1). Corrección de QA sobre el diseño inicial del modo
 // simulado, mismo pedido que TestSolicitarTurnoPublico_MailConMuchosDNIsSimulado:

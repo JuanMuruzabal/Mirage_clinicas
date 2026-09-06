@@ -6,7 +6,7 @@ import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { filtrosDeTab, parseTab, parseVerificacion, type Tab } from "@/lib/turnos-filtros";
 import { TurnosTable } from "@/components/panel/turnos-table";
 import { TurnosFiltros } from "@/components/panel/turnos-filtros";
-import { IconSearch } from "@/components/icons";
+import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
 
 export const metadata: Metadata = { title: "Turnos — Dental Mirage" };
 
@@ -68,6 +68,13 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   const querySecundaria = `${q ? `&q=${encodeURIComponent(q)}` : ""}${tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""}${
     verificacion ? `&verificacion=${verificacion}` : ""
   }`;
+  // hrefBaseSinQ — mismos filtros vigentes que `querySecundaria`, pero SIN
+  // `q` (lo agrega BuscadorEnVivo solo, con cada tecla) y CON desde/hasta
+  // (que `querySecundaria` no lleva, se arma aparte en cada chip de fecha
+  // de más abajo).
+  const hrefBaseSinQ = `/panel/turnos?estado=${tab}${desde ? `&desde=${desde}` : ""}${hasta ? `&hasta=${hasta}` : ""}${
+    tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""
+  }${verificacion ? `&verificacion=${verificacion}` : ""}`;
 
   // Corrección de estética (2026-09-06, fotos de referencia del cliente):
   // cada pestaña muestra su propia cantidad ("Confirmadas 8", "Resueltos
@@ -148,40 +155,23 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           "diseño2turnos.png"): buscador + botón Filtros van juntos en su
           propia fila, ARRIBA de las pestañas de estado — la foto muestra
           ese orden (buscador/filtros, pestañas, chips), no el de antes
-          (pestañas y buscador lado a lado, filtros+chips debajo). El
-          botón "Buscar" se saca del todo (no está en la foto): el
-          `<form>` sigue siendo un GET real, Enter en el campo alcanza
-          para buscar sin necesitar un botón visible. Tabla sin cambios
-          (pedido explícito del cliente: "las tablas dejelas como
-          estaba, no toque eso" — este rediseño es solo la parte de
+          (pestañas y buscador lado a lado, filtros+chips debajo). Tabla
+          sin cambios (pedido explícito del cliente: "las tablas dejelas
+          como estaba, no toque eso" — este rediseño es solo la parte de
           arriba). */}
       <div className="flex flex-col gap-4">
-        <form action="/panel/turnos" method="get" className="flex flex-wrap items-center gap-2">
-          <input type="hidden" name="estado" value={tab} />
-          {desde && <input type="hidden" name="desde" value={desde} />}
-          {hasta && <input type="hidden" name="hasta" value={hasta} />}
-          {tipoConsultaId && <input type="hidden" name="tipoConsultaId" value={tipoConsultaId} />}
-          {verificacion && <input type="hidden" name="verificacion" value={verificacion} />}
-          {/* Ícono de lupa adentro del campo (corrección de estética,
-              2026-09-06, fotos de referencia) — input con padding
-              izquierdo extra para no tapar el texto. */}
-          <div className="relative flex-1 min-w-[12rem]">
-            <IconSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-grafito/40" />
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Nombre, apellido, DNI o email…"
-              className="w-full rounded-field border-[0.5px] border-arena bg-marfil py-2 pr-3 pl-9 text-sm text-grafito outline-none focus:border-salvia"
-            />
-          </div>
-          {/* TurnosFiltros vive DENTRO del form solo por posición visual
-              (foto: buscador y Filtros en la misma fila) — es un botón,
-              no dispara el submit del form. Corrección de QA
-              (2026-09-06), pedido textual del cliente: "los filtros de
-              búsqueda... pasan a aparecer cuando se toca un botón...
-              bottom sheet en mobile... en vez de decir aplicar, aparezca
-              'ver X turnos'". */}
+        {/* BuscadorEnVivo (TR-115, 2026-09-06) — reemplaza el `<form
+            method="get">` de antes: pedido textual del cliente, "que me
+            vaya apareciendo resultados sin tocar enter". Ya no hace falta
+            `<form>` ni inputs ocultos — el componente arma su propio href
+            con los filtros vigentes (`hrefBaseSinQ`) y navega solo, con
+            debounce. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <BuscadorEnVivo q={q} hrefBase={hrefBaseSinQ} placeholder="Nombre, apellido, DNI o email…" />
+          {/* Corrección de QA (2026-09-06), pedido textual del cliente:
+              "los filtros de búsqueda... pasan a aparecer cuando se toca
+              un botón... bottom sheet en mobile... en vez de decir
+              aplicar, aparezca 'ver X turnos'". */}
           <TurnosFiltros
             tab={tab}
             q={q}
@@ -191,7 +181,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             tipoConsultaId={tipoConsultaId}
             verificacion={verificacion}
           />
-        </form>
+        </div>
 
         <nav
           aria-label="Filtrar por estado"

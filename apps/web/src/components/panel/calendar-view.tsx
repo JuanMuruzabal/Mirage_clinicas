@@ -372,9 +372,16 @@ export function CalendarView({
   // lado de la fecha. En Día, cuenta solo ESE día (coincide con lo que
   // el usuario ve en el grid); en Semana/Mes, `turnos` ya es exactamente
   // el rango cargado (ver `recargar`/el efecto de carga más abajo), sin
-  // filtrar de nuevo.
-  const turnosEnRangoVisible =
-    vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)).length : turnos.length;
+  // filtrar de nuevo por fecha. Corrección de QA (2026-09-06, pedido
+  // textual del cliente): "los 'x turnos'... solo deben ser turnos
+  // activos, no resueltos" — `turnos` acá siempre trae `estado:
+  // 'agendado'` (cancelados no se piden), pero eso incluye los que ya
+  // pasaron de hora ("Resuelto" en el resto del panel, TR-074) — se
+  // descartan con el mismo `turnoResuelto` que usa el resto del
+  // calendario, no un cálculo nuevo.
+  const turnosEnRangoVisible = (
+    vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)) : turnos
+  ).filter((t) => !turnoResuelto(t)).length;
 
   // Banner de conflicto (F2.3 extra ítem 2, docs/implementation-plan.md
   // §11.5) — mismo cálculo de clusters que usa el click real sobre el

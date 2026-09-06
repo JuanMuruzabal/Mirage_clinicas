@@ -448,13 +448,30 @@ func contarDistintosPorIP(tx *gorm.DB, profesionalID uuid.UUID, ip string) (mail
 
 // bloquearIPPorRotacionYBorrarTurnos — ver el comentario grande de
 // limiteDistintosPorIPParaRotacion. Corrección de QA, pedido textual del
-// cliente: además de bloquear la IP, borra TODOS los turnos que esa IP
-// generó para este profesional (mismo criterio "se eliminan, no se
-// cancelan" que bloquearMailPorAbusoDeDNIsYBorrarTurnos) — el pedido
-// puntual que gatilló el límite ni llega a crear turno (se chequea ANTES,
-// ver el call site), pero los anteriores de la misma IP, aunque cada uno
-// aislado pareciera legítimo, en conjunto ya formaban parte del mismo
-// patrón de rotación — no tiene sentido dejarlos ocupando horarios.
+// cliente: además de bloquear la IP, borra los turnos que esa IP generó
+// para este profesional DENTRO DE LA VENTANA DE DETECCIÓN (mismo criterio
+// "se eliminan, no se cancelan" que bloquearMailPorAbusoDeDNIsYBorrarTurnos)
+// — el pedido puntual que gatilló el límite ni llega a crear turno (se
+// chequea ANTES, ver el call site), pero los anteriores de la misma IP
+// EN ESA MISMA VENTANA, aunque cada uno aislado pareciera legítimo, en
+// conjunto ya formaban parte del mismo patrón de rotación — no tiene
+// sentido dejarlos ocupando horarios.
+//
+// Corrección de seguridad (2026-09-06), pedido textual del cliente: "esto
+// puede ser peligroso porque puede borrar turnos legítimos, ya que la IP
+// es compartida" — dos ajustes sobre la versión original:
+//  1. El borrado queda acotado a `ventanaRotacionPorIP` (antes no tenía
+//     límite de fecha: borraba TODO el historial de esa IP para este
+//     profesional, sin importar cuándo se había creado). Una IP
+//     compartida real (oficina, edificio, wifi pública, CGNAT de una
+//     operadora) puede tener turnos legítimos de semanas atrás que nada
+//     tienen que ver con el patrón detectado ahora.
+//  2. Los turnos de un paciente ya VERIFICADO quedan afuera del borrado —
+//     mismo criterio que ya usan los otros dos detectores más arriba
+//     ("sin verificar, no sabemos con certeza quién es el impostor acá"):
+//     alguien que ya demostró ser real (asistió a un turno) no pierde el
+//     suyo solo por compartir IP con quien está rotando mail+DNI ahora.
+//
 // Corrección de QA sobre el modo simulado (Fase 2.4.1): acá también el
 // borrado de los turnos anteriores pasa de verdad con
 // `simularBloqueo=true` — solo se saltea el bloqueo persistente de la IP,
@@ -466,11 +483,34 @@ func bloquearIPPorRotacionYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUID, ip
 		}
 	}
 
-	var turnos []db.Turno
-	if err := tx.Where("profesional_id = ? AND ip_contacto = ?", profesionalID, ip).Find(&turnos).Error; err != nil {
+	var turnosEnVentana []db.Turno
+	if err := tx.Where("profesional_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP)).
+		Find(&turnosEnVentana).Error; err != nil {
 		return err
 	}
-	dnisBorrados, cantidad, err := borrarTurnosYPacientesOrfanados(tx, turnos)
+
+	turnosABorrar := make([]db.Turno, 0, len(turnosEnVentana))
+	for _, t := range turnosEnVentana {
+		if t.PacienteID != nil {
+			var paciente db.Paciente
+			err := tx.First(&paciente, "id = ?", *t.PacienteID).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err == nil {
+				verificado, err := pacienteEstaVerificado(tx, paciente)
+				if err != nil {
+					return err
+				}
+				if verificado {
+					continue
+				}
+			}
+		}
+		turnosABorrar = append(turnosABorrar, t)
+	}
+
+	dnisBorrados, cantidad, err := borrarTurnosYPacientesOrfanados(tx, turnosABorrar)
 	if err != nil {
 		return err
 	}
