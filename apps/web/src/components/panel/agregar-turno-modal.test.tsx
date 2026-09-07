@@ -12,14 +12,16 @@ function fijarFechaFutura() {
   fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2030-01-01" } });
 }
 
-const { crearTurnoManualActionMock, listPacientesActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
+const { crearTurnoManualActionMock, crearEnlaceTurnoActionMock, listPacientesActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
   crearTurnoManualActionMock: vi.fn(),
+  crearEnlaceTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/turnos", () => ({
   crearTurnoManualAction: crearTurnoManualActionMock,
+  crearEnlaceTurnoAction: crearEnlaceTurnoActionMock,
 }));
 vi.mock("@/app/actions/pacientes", () => ({
   listPacientesAction: listPacientesActionMock,
@@ -348,5 +350,34 @@ describe("AgregarTurnoModal", () => {
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     expect(screen.getByText(/nunca tuvo un turno con vos/)).toBeInTheDocument();
+  });
+
+  // Fase 2, ítem 5 ("compartir calendario") — tercera pestaña.
+  describe("pestaña 'Compartir link'", () => {
+    it("genera el link y lo muestra en el campo de texto", async () => {
+      crearEnlaceTurnoActionMock.mockResolvedValue({ url: "https://dentalmirage.com.ar/clinica-x?enlace=abc123", expiraEn: "2026-09-07T13:00:00Z" });
+      const user = userEvent.setup();
+      render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "Compartir link" }));
+      expect(screen.getByText(/sin pasar por el código de verificación/)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Generar link" }));
+
+      expect(await screen.findByDisplayValue("https://dentalmirage.com.ar/clinica-x?enlace=abc123")).toBeInTheDocument();
+      expect(crearEnlaceTurnoActionMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("un error al generar el link ofrece reintentar", async () => {
+      crearEnlaceTurnoActionMock.mockResolvedValue({ error: "no se pudo generar el link" });
+      const user = userEvent.setup();
+      render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: "Compartir link" }));
+      await user.click(screen.getByRole("button", { name: "Generar link" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/No se pudo generar/);
+      expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    });
   });
 });

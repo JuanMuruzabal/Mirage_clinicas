@@ -12,6 +12,12 @@ vi.mock("@/app/actions/pagina-publica", () => ({
   ocultarPaginaPublicaAction: ocultarPaginaPublicaActionMock,
   deployarPaginaPublicaAction: deployarPaginaPublicaActionMock,
 }));
+// La previsualización en vivo reusa ClinicaPublicaTemplate → PedirTurnoButton,
+// que usa useSearchParams para leer `?enlace=` (Fase 2, ítem 5) — sin
+// mock, jsdom no tiene ningún router real y el hook explota al montar.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => ({ get: () => null }),
+}));
 
 const { PaginaEditor } = await import("./pagina-editor");
 

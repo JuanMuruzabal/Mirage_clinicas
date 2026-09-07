@@ -105,6 +105,9 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// Fase 2.4.1, corrección de seguridad: bloqueo de IP (además del de
 		// mail) y auditoría de qué se bloqueó/borró y por qué.
 		&IPBloqueadaTurnoPublico{}, &AuditoriaBloqueoTurnoPublico{},
+		// Fase 2, ítem 5 ("compartir calendario"): link de 1h generado por
+		// el profesional, sin CAPTCHA/verificación de mail.
+		&EnlaceTurno{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}

@@ -596,6 +596,8 @@ func registerTurnoPublicoRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
 	r.Get("/clinicas/{slug}/tipos-consulta", listTiposConsultaPublicoHandler(gdb))
 	r.Get("/clinicas/{slug}/disponibilidad", listDisponibilidadPublicaHandler(gdb))
 	r.Get("/clinicas/{slug}/disponibilidad-mes", listDisponibilidadMesPublicaHandler(gdb))
+	// Fase 2, ítem 5 ("compartir calendario").
+	r.Get("/clinicas/{slug}/enlaces-turno/validar", validarEnlaceTurnoPublicoHandler(gdb))
 	r.Post("/clinicas/{slug}/verificacion-email", enviarVerificacionTurnoPublicoHandler(gdb, deps))
 	r.Post("/clinicas/{slug}/verificacion-email/confirmar", confirmarVerificacionTurnoPublicoHandler(gdb, deps))
 	// Fase 2.4.1: camino "ya he venido antes" del wizard público.
@@ -819,6 +821,13 @@ type solicitarTurnoPublicoRequest struct {
 	TutorNombre   string `json:"tutorNombre"`
 	TutorTelefono string `json:"tutorTelefono"`
 	TutorEmail    string `json:"tutorEmail"`
+	// EnlaceToken — Fase 2, ítem 5 ("compartir calendario"): alternativa a
+	// VerificacionToken cuando el wizard se abrió desde un link generado
+	// por el profesional (`?enlace=` en la página pública) — mutuamente
+	// excluyentes, el frontend nunca manda los dos. Ver el comentario
+	// grande de esta función para qué capas de seguridad se saltean en
+	// ese caso.
+	EnlaceToken string `json:"enlaceToken"`
 }
 
 type solicitarTurnoPublicoResponse struct {
@@ -847,6 +856,19 @@ type solicitarTurnoPublicoResponse struct {
 // a un atacante, y un atacante lo esquiva igual generando pedidos más
 // espaciados en el tiempo; las capas de arriba, basadas en identidad
 // repetida, son más precisas.
+//
+// Fase 2, ítem 5 ("compartir calendario", `req.EnlaceToken`): el
+// profesional ya habló con la persona antes de mandarle el link, así que
+// esas tres capas de arriba (pensadas para un visitante anónimo sin
+// ninguna identidad real detrás) se saltean del todo — pedido explícito
+// del cliente: "el link no tendrá atado todos los checks de seguridad...
+// porque el profesional habló con la persona posteriormente". Lo que NO
+// se saltea, porque son reglas de negocio y no anti-abuso: la detección
+// de conflictos de identidad (crearPacientePublicoConDeteccionDeConflicto)
+// y el tope universal de 1 turno activo por DNI (turnoActivoPorDNI). Los
+// bloqueos ya existentes de mail/IP (ipEstaBloqueada/emailEstaBloqueado)
+// tampoco se saltean — no son "detección" en curso, son la ejecución de
+// un bloqueo que ya se decidió en otro momento, por cualquier camino.
 func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := clientIP(r)
@@ -879,8 +901,10 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		req.TutorNombre = strings.TrimSpace(req.TutorNombre)
 		req.TutorTelefono = strings.TrimSpace(req.TutorTelefono)
 		req.TutorEmail = strings.TrimSpace(strings.ToLower(req.TutorEmail))
+		req.EnlaceToken = strings.TrimSpace(req.EnlaceToken)
 
-		if req.VerificacionToken == "" {
+		usaEnlace := req.EnlaceToken != ""
+		if !usaEnlace && req.VerificacionToken == "" {
 			writeError(w, http.StatusBadRequest, "verificá tu mail antes de pedir el turno")
 			return
 		}
@@ -1049,7 +1073,17 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// otro horario sin verificar de nuevo. `identidadEmail`: el
 			// mail del TUTOR en "para otro" (Fase 2.4.2) — es el que de
 			// verdad recibió el código, EmailContacto puede venir vacío.
-			if err := consumirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken); err != nil {
+			//
+			// Fase 2, ítem 5: con EnlaceToken, no hay ningún código que
+			// consumir (el profesional ya validó la identidad por su
+			// cuenta) — se consume el ENLACE en su lugar, mismo criterio
+			// de "dentro de la misma transacción" para que un fallo más
+			// adelante lo deje sin gastar.
+			if usaEnlace {
+				if err := consumirEnlaceTurno(tx, clinic.ID, req.EnlaceToken, req.ParaOtro); err != nil {
+					return err
+				}
+			} else if err := consumirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken); err != nil {
 				return err
 			}
 
@@ -1158,7 +1192,11 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// familia numerosa real. La rotación por IP (más abajo) sigue
 			// cubriendo el hueco que esto deja — un tutor legítimo REUSA
 			// el mismo mail, así que nunca la dispara.
-			if !usaPacienteVerificado && !req.ParaOtro {
+			//
+			// Fase 2, ítem 5: se saltea del todo con EnlaceToken — es
+			// exactamente una de las "detecciones de abuso" que el
+			// cliente pidió sacar para este camino.
+			if !usaEnlace && !usaPacienteVerificado && !req.ParaOtro {
 				dnisExistentes, err := dnisVigentesPorMail(tx, clinic.ID, turno.EmailContacto)
 				if err != nil {
 					return err
@@ -1298,7 +1336,12 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				if existente != nil {
 					return &errTurnoPublicoDuplicado{turno: *existente}
 				}
-			} else {
+			} else if !usaEnlace {
+				// Fase 2, ítem 5: TODO este bloque (tope DNI+tipo y rotación
+				// por IP) son las "detecciones de abuso" que el cliente pidió
+				// sacar para el camino de enlace — se salta entero con
+				// usaEnlace, ver el comentario grande de solicitarTurnoPublicoHandler.
+
 				// Corrección de seguridad (Fase 2.4.1): sin verificar, no se
 				// bloquea (ver el comentario de arriba) pero SÍ se topea —
 				// más de limiteTurnosSinVerificarPorDNIYTipo turnos vigentes
@@ -1377,6 +1420,10 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		if err != nil {
 			if errors.Is(err, errTurnoVerifPruebaInvalida) {
 				writeError(w, http.StatusForbidden, "verificá tu mail antes de pedir el turno")
+				return
+			}
+			if errors.Is(err, errEnlaceTurnoInvalido) {
+				writeError(w, http.StatusForbidden, errEnlaceTurnoInvalido.Error())
 				return
 			}
 			if errors.Is(err, errEmailBloqueadoTurnoPublico) {

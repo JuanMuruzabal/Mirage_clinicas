@@ -87,6 +87,8 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			registerHorarioAtencionRoutes(r, db)
 			registerBloqueoHorarioRoutes(r, db)
 			registerDisponibilidadRoutes(r, db)
+			// Fase 2, ítem 5 ("compartir calendario").
+			registerEnlaceTurnoRoutes(r, db, deps)
 		})
 	})
 

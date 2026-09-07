@@ -666,4 +666,96 @@ describe("PedirTurnoForm", () => {
       expect(screen.getByLabelText("Tu nombre completo")).toBeInTheDocument();
     });
   });
+
+  // Fase 2, ítem 5 ("compartir calendario") — con enlaceToken, el wizard
+  // saltea [2] y el código de verificación del todo: "primera vez" es el
+  // único camino posible (sin código no hay forma de identificar una
+  // ficha existente).
+  describe("con enlaceToken (Fase 2, ítem 5 — compartir calendario)", () => {
+    it("'Para mí' saltea la pregunta de si ya se atendió y va directo a los datos", async () => {
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null, enlaceToken: "enlace-1" });
+
+      await user.click(screen.getByText("Para mí"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+      expect(screen.queryByText("¿Ya te atendiste con nosotros?")).not.toBeInTheDocument();
+    });
+
+    it("no envía ningún código ni muestra el CAPTCHA — va directo al turno", async () => {
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null, enlaceToken: "enlace-2" });
+
+      await user.click(screen.getByText("Para mí"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.type(screen.getByLabelText("Nombre"), "Bruno");
+      await user.type(screen.getByLabelText("Apellido"), "Iglesias");
+      await user.type(screen.getByLabelText("DNI"), "30111222");
+      await user.type(screen.getByLabelText("Teléfono"), "93511234567");
+      await user.type(screen.getByLabelText("Email"), "bruno@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      expect(enviarVerificacionEmailActionMock).not.toHaveBeenCalled();
+      expect(await screen.findByText("Tipo de consulta")).toBeInTheDocument();
+      expect(screen.queryByText("Confirmanos que sos vos")).not.toBeInTheDocument();
+    });
+
+    it("el pedido final manda enlaceToken en vez de verificacionToken", async () => {
+      solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null, enlaceToken: "enlace-3" });
+
+      await user.click(screen.getByText("Para mí"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.type(screen.getByLabelText("Nombre"), "Bruno");
+      await user.type(screen.getByLabelText("Apellido"), "Iglesias");
+      await user.type(screen.getByLabelText("DNI"), "30111222");
+      await user.type(screen.getByLabelText("Teléfono"), "93511234567");
+      await user.type(screen.getByLabelText("Email"), "bruno@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await screen.findByText("Tipo de consulta");
+      await user.click(screen.getByRole("button", { name: "10:00" }));
+      await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+
+      expect(await screen.findByText(/¡Listo!/)).toBeInTheDocument();
+      const payload = solicitarTurnoPublicoActionMock.mock.calls[0][1];
+      expect(payload.enlaceToken).toBe("enlace-3");
+      expect(payload.verificacionToken).toBeUndefined();
+    });
+
+    it("'Para otra persona' saltea directo a los datos del tutor, sin código", async () => {
+      solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null, enlaceToken: "enlace-4" });
+
+      await user.click(screen.getByText("Para otra persona"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      expect(screen.getByText("Primero, tus datos")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
+      await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
+      await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      expect(enviarVerificacionEmailActionMock).not.toHaveBeenCalled();
+      expect(await screen.findByText("Datos de la persona que se atiende")).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Nombre"), "Juanito");
+      await user.type(screen.getByLabelText("Apellido"), "Pérez");
+      await user.type(screen.getByLabelText("DNI"), "40111222");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      expect(await screen.findByText("Tipo de consulta")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "10:00" }));
+      await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+      await screen.findByText(/¡Listo!/);
+
+      expect(solicitarTurnoPublicoActionMock).toHaveBeenCalledWith(
+        "clinica-x",
+        expect.objectContaining({ enlaceToken: "enlace-4", paraOtro: true, tutorEmail: "mama@example.com" }),
+      );
+    });
+  });
 });

@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ClinicaPublicaTemplate } from "./clinica-publica-template";
+
+// PedirTurnoButton (renderizado siempre por esta plantilla) usa
+// useSearchParams para leer `?enlace=` (Fase 2, ítem 5) — sin mock,
+// jsdom no tiene ningún router real y el hook explota al montar.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => ({ get: () => null }),
+}));
 
 const props = {
   slug: "clinica-sonrisas",
