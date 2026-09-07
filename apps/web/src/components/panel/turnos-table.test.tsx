@@ -93,15 +93,13 @@ describe("TurnosTable", () => {
     ths.forEach((th) => expect(th).toHaveClass("panel-th-sticky"));
   });
 
-  // Corrección de seguridad (Fase 2.4.1): visibilidad para el profesional
-  // sobre turnos de pacientes que todavía no demostraron ser reales.
-  it("con pacienteVerificado en false, muestra la etiqueta 'Sin verificar'", () => {
+  // Corrección de QA (segunda ronda, 2026-09-06): la etiqueta "Sin
+  // verificar" en la fila se saca del todo (pedido textual del cliente) —
+  // el filtro/pestaña "Sin verificar" de la página (turnos/page.tsx) y el
+  // botón "cancelar todos" de esa pestaña siguen sin cambios, esto era
+  // solo la etiqueta inline en la fila.
+  it("sin la etiqueta 'Sin verificar' en la fila, sea cual sea pacienteVerificado", () => {
     render(<TurnosTable turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: false }]} tiposConsulta={tiposConsulta} filtros={{}} />);
-    expect(screen.getByText("Sin verificar")).toBeInTheDocument();
-  });
-
-  it("con pacienteVerificado en true, no muestra la etiqueta 'Sin verificar'", () => {
-    render(<TurnosTable turnosIniciales={[{ ...turnoAgendado, pacienteVerificado: true }]} tiposConsulta={tiposConsulta} filtros={{}} />);
     expect(screen.queryByText("Sin verificar")).not.toBeInTheDocument();
   });
 
@@ -399,7 +397,7 @@ describe("TurnosTable", () => {
 
   // Corrección de QA: "dar un indicador visual en la tabla de turnos el
   // tipo de consulta, ya que está ausente" — punto de color + nombre
-  // (nunca el color solo, TR-013), con "Ver tipo →" para un nombre largo.
+  // (nunca el color solo, TR-013), con "Ver tipo" para un nombre largo.
   describe("corrección de QA: indicador de tipo de consulta", () => {
     it("muestra el nombre del tipo con su color configurado como punto indicador", () => {
       const turnoConTipo = { ...turnoAgendado, tipoConsultaId: "tc-1" };
@@ -415,13 +413,13 @@ describe("TurnosTable", () => {
       expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
     });
 
-    it("un nombre de tipo largo se oculta detrás de 'Ver tipo →', y lo muestra completo en un modal", async () => {
+    it("un nombre de tipo largo se oculta detrás de 'Ver tipo', y lo muestra completo en un modal", async () => {
       const tipoNombreLargo = [{ id: "tc-largo", nombre: "Consulta de ortodoncia y control post-tratamiento prolongado", color: "#E7D9BE" }];
       const turnoConTipoLargo = { ...turnoAgendado, tipoConsultaId: "tc-largo" };
       const user = userEvent.setup();
       render(<TurnosTable turnosIniciales={[turnoConTipoLargo]} tiposConsulta={tipoNombreLargo} filtros={{}} />);
 
-      const boton = screen.getByRole("button", { name: "Ver tipo →" });
+      const boton = screen.getByRole("button", { name: "Ver tipo" });
       expect(screen.queryByText(tipoNombreLargo[0].nombre)).not.toBeInTheDocument();
 
       await user.click(boton);
@@ -464,17 +462,17 @@ describe("TurnosTable", () => {
   });
 
   // Corrección de QA: mismo "Ver mail" de Pacientes (Extra 2.3.4/E4.1),
-  // pero acá en la columna Contacto, como link con flecha ("Ver email →",
+  // pero acá en la columna Contacto, como link con flecha ("Ver email",
   // sin la pastilla con borde de "Ver motivo" al lado) — pedido explícito
   // del cliente.
-  describe("corrección de QA: 'Ver email →' en la columna Contacto para un mail largo", () => {
+  describe("corrección de QA: 'Ver email' en la columna Contacto para un mail largo", () => {
     const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
     const turnoEmailLargo = { ...turnoAgendado, id: "agen-mail-largo", emailContacto: emailLargo };
 
-    it("un email largo se oculta detrás de 'Ver email →', sin la pastilla con borde", () => {
+    it("un email largo se oculta detrás de 'Ver email', sin la pastilla con borde", () => {
       render(<TurnosTable turnosIniciales={[turnoEmailLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
-      const link = screen.getByRole("button", { name: "Ver email →" });
+      const link = screen.getByRole("button", { name: "Ver email" });
       expect(link.className).not.toContain("rounded-full");
       expect(screen.queryByText(emailLargo)).not.toBeInTheDocument();
     });
@@ -483,18 +481,18 @@ describe("TurnosTable", () => {
       const user = userEvent.setup();
       render(<TurnosTable turnosIniciales={[turnoEmailLargo]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
-      await user.click(screen.getByRole("button", { name: "Ver email →" }));
+      await user.click(screen.getByRole("button", { name: "Ver email" }));
 
       const dialogo = await screen.findByRole("dialog", { name: "Email" });
       expect(within(dialogo).getByText(emailLargo)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     });
 
-    it("un email corto se sigue mostrando inline, sin el link 'Ver email →'", () => {
+    it("un email corto se sigue mostrando inline, sin el link 'Ver email'", () => {
       render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
       expect(screen.getByText("julian@example.com")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Ver email →" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver email" })).not.toBeInTheDocument();
     });
   });
 
@@ -507,7 +505,7 @@ describe("TurnosTable", () => {
       render(<TurnosTable turnosIniciales={[turnoConPaciente]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
       await desplegarFila(user, "Julián Ortiz");
-      const link = screen.getByRole("link", { name: "Ver paciente →" });
+      const link = screen.getByRole("link", { name: "Ver paciente" });
       expect(link).toHaveAttribute("href", "/panel/pacientes/pac-1");
     });
 
@@ -516,7 +514,7 @@ describe("TurnosTable", () => {
       render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
       await desplegarFila(user, "Julián Ortiz");
-      expect(screen.queryByRole("link", { name: "Ver paciente →" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Ver paciente" })).not.toBeInTheDocument();
     });
   });
 });

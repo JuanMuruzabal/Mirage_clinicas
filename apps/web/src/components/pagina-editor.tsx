@@ -75,7 +75,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             rel="noopener noreferrer"
             className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
           >
-            Ver página →
+            Ver página
           </Link>
           <button
             type="button"

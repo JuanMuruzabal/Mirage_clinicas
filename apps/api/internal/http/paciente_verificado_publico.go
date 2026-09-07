@@ -169,6 +169,40 @@ func pacienteRespondeAlMail(tx *gorm.DB, paciente db.Paciente, email string) (bo
 	return count > 0, err
 }
 
+// pacienteTieneTutorConMail — Fase 2.4.2 (camino "sacar turno para otro",
+// `docs/ArquitecturaPeticionesTurno.md` 3.4), reemplaza a la vieja
+// pacienteRespondeAlMailDeTutor en la ronda de correcciones del
+// 2026-09-06: misma pregunta ("¿esta ficha responde a este mail?"), pero
+// contra CUALQUIERA de los tutores YA CONOCIDOS del paciente (ver
+// PacienteTutor en models.go — ahora puede tener más de uno), no un único
+// campo `TutorEmail`. No mira `PacienteEmailAlternativo` — esa tabla nace
+// de fusionar dos fichas de PACIENTE (mail/teléfono propios,
+// migrarAlternativosDeContacto), nunca de un tutor.
+func pacienteTieneTutorConMail(tx *gorm.DB, pacienteID uuid.UUID, email string) (bool, error) {
+	var count int64
+	err := tx.Model(&db.PacienteTutor{}).
+		Where("paciente_id = ? AND LOWER(email) = LOWER(?)", pacienteID, email).
+		Limit(1).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// buscarTutorConMail — misma pregunta que pacienteTieneTutorConMail, pero
+// devuelve la fila (no solo si existe) — usada por
+// sincronizarTutorDesdeFichaVerificada (turno_publico.go) para copiar sus
+// datos completos al turno. nil sin error si no matchea ninguno.
+func buscarTutorConMail(tx *gorm.DB, pacienteID uuid.UUID, email string) (*db.PacienteTutor, error) {
+	var tutor db.PacienteTutor
+	err := tx.Where("paciente_id = ? AND LOWER(email) = LOWER(?)", pacienteID, email).First(&tutor).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &tutor, nil
+}
+
 // dniCensurado/nombreConIniciales — Fase 2.4.1: "datos medianamente
 // censurados para cumplir normas pero distinguibles para que el paciente
 // sepa que hace referencia a él" (la "tarjeta clickeable" del camino "ya
@@ -216,6 +250,18 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		var clinic db.Clinic
 		if err := gdb.Where("slug = ?", slug).First(&clinic).Error; err != nil {
 			writeError(w, http.StatusNotFound, "clínica no encontrada")
+			return
+		}
+
+		// Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md` 3.5) — segundo
+		// modo del mismo endpoint, sin `dni`: busca por MAIL DEL TUTOR en
+		// vez de por DNI del paciente, y puede devolver más de una
+		// tarjeta (un tutor puede tener más de un hijo verificado a su
+		// cargo). El modo de abajo (`dni`+`email`, una sola tarjeta) sigue
+		// exactamente igual.
+		if tutorEmail := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("tutorEmail"))); tutorEmail != "" {
+			token := strings.TrimSpace(r.URL.Query().Get("verificacionToken"))
+			listarPacientesVerificadosDeTutorHandler(w, gdb, clinic, tutorEmail, token)
 			return
 		}
 
@@ -281,4 +327,73 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			DNI:    dniCensurado(paciente.DNI),
 		})
 	}
+}
+
+// listarPacientesVerificadosDeTutorHandler — Fase 2.4.2, segundo modo de
+// pacienteVerificadoPublicoHandler (ver el comentario grande de arriba y
+// docs/ArquitecturaPeticionesTurno.md 3.5): a diferencia del modo por DNI
+// (una sola tarjeta), acá el match es por `Paciente.TutorEmail` y puede
+// devolver 0, 1 o más tarjetas — un tutor puede tener más de un hijo
+// verificado a su cargo. Mismo criterio de censura y de exigir el token
+// de "Confirmanos que sos vos" ya validado (sin consumir, ver
+// validarVerificacionTurnoPublico) que el modo por DNI.
+func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.DB, clinic db.Clinic, tutorEmail, token string) {
+	if _, err := mail.ParseAddress(tutorEmail); err != nil {
+		writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
+		return
+	}
+	if token == "" {
+		writeError(w, http.StatusBadRequest, "verificá tu mail antes de continuar")
+		return
+	}
+	if _, err := validarVerificacionTurnoPublico(gdb, clinic.ID.String(), tutorEmail, token); err != nil {
+		if errors.Is(err, errTurnoVerifPruebaInvalida) {
+			writeError(w, http.StatusForbidden, "verificá tu mail antes de continuar")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "no se pudo verificar el mail")
+		return
+	}
+
+	// `en_conflicto = false` — mismo criterio que el modo por DNI: una
+	// ficha temporaria de un conflicto sin resolver nunca es "la" ficha
+	// verificada de nadie todavía. Join contra `paciente_tutores` (Fase
+	// 2.4.2, ronda de correcciones 2026-09-06) — un paciente puede tener
+	// más de un tutor conocido, ya no un único campo `tutor_email` en
+	// `pacientes`; `LOWER(...)` porque el mail se guarda tal cual llega
+	// del wizard (ver solicitarTurnoPublicoHandler) — la comparación en
+	// sí es case-insensitive, igual que pacienteRespondeAlMail/
+	// pacienteTieneTutorConMail. `Distinct` — un paciente con MÁS de un
+	// tutor que compartan (raro, pero posible) el mismo mail no debe
+	// duplicar la tarjeta.
+	var candidatos []db.Paciente
+	if err := gdb.Joins("JOIN paciente_tutores ON paciente_tutores.paciente_id = pacientes.id").
+		Where("pacientes.profesional_id = ? AND pacientes.en_conflicto = false AND LOWER(paciente_tutores.email) = LOWER(?)", clinic.ID, tutorEmail).
+		Distinct().
+		Order("pacientes.created_at").Find(&candidatos).Error; err != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")
+		return
+	}
+
+	out := make([]pacienteVerificadoResponse, 0, len(candidatos))
+	for _, p := range candidatos {
+		verificado, err := pacienteEstaVerificado(gdb, p)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")
+			return
+		}
+		if !verificado {
+			continue
+		}
+		out = append(out, pacienteVerificadoResponse{
+			ID:     p.ID.String(),
+			Nombre: nombreConIniciales(p.Nombre, p.Apellido),
+			DNI:    dniCensurado(p.DNI),
+		})
+	}
+	if len(out) == 0 {
+		writeError(w, http.StatusNotFound, "no encontramos un paciente verificado con esos datos")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }

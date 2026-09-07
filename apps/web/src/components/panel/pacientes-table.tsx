@@ -13,6 +13,20 @@ interface PacientesTableProps {
   pacientes: Paciente[];
 }
 
+// todosLosContactos — corrección de QA (ronda de correcciones, 2026-09-06):
+// "en la tabla pacientes, si el paciente tiene más de un número o mail
+// (agregados por resolución de conflictos) poner un botón de ver mails,
+// ver teléfonos si posee más de uno" — mismo criterio que ya usa
+// paciente-datos.tsx en la ficha (el principal primero, seguido de los
+// alternativos migrados por una resolución de conflicto anterior), acá
+// factorizado para reusar en la columna y en el panel desplegable mobile.
+function todosLosContactos(p: Paciente): { mails: string[]; telefonos: string[] } {
+  return {
+    mails: [p.email, ...(p.emailsAlternativos ?? [])].filter((m): m is string => Boolean(m)),
+    telefonos: [p.telefono, ...(p.telefonosAlternativos ?? [])].filter((t): t is string => Boolean(t)),
+  };
+}
+
 // PacientesTable — extraída de pacientes/page.tsx (pedido explícito del
 // cliente, 2026-08-27: "el DNI se sigue viendo pequeño en los datos, debe
 // estar como dato desplegable no debajo del nombre"). Antes el DNI vivía
@@ -51,12 +65,17 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                 TurnosTable con Contacto/Motivo/Origen. */}
             <th className="panel-th-sticky max-md:hidden px-4 py-3">Teléfono</th>
             <th className="panel-th-sticky max-md:hidden px-4 py-3">Email</th>
+            {/* Tutor (Fase 2.4.2) — nombre de quien reservó en nombre del
+                paciente, solo cuando la ficha se cargó por "sacar turno
+                para otro"; "—" en cualquier otro caso. */}
+            <th className="panel-th-sticky max-md:hidden px-4 py-3">Tutor</th>
             <th className="panel-th-sticky px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           {pacientes.map((p) => {
             const expandido = expandidoId === p.id;
+            const { mails, telefonos } = todosLosContactos(p);
             return (
               <Fragment key={p.id}>
                 <ClickableTableRow
@@ -76,13 +95,55 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                     <EstadoVerificadoBadge verificado={p.verificado} />
                   </td>
                   <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.dni}</td>
-                  <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{p.telefono}</td>
+                  <td className="max-md:hidden px-4 py-3 text-grafito">
+                    {/* Corrección de QA (segunda ronda, 2026-09-06): sin
+                        flecha (el botón abre un modal, no navega — la
+                        flecha quedaba mal ahí) y sin heredar la fuente
+                        monoespaciada de esta columna (mismatch de
+                        tipografía con "Ver mails" al lado, que nunca
+                        estuvo en una celda mono) — el valor plano sigue
+                        en mono, el botón queda en la fuente normal. */}
+                    {telefonos.length > 1 ? (
+                      <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} />
+                    ) : (
+                      <span className="font-[family-name:var(--font-mono)]">{telefonos[0] || "—"}</span>
+                    )}
+                  </td>
                   <td className="max-md:hidden px-4 py-3 text-grafito/60">
                     {/* Extra 2.3.4 (E4.1): un email largo no se muestra
                         más inline — rompía el ancho de la fila. Reusa
                         VerTextoBoton (Extra 2.3.1/E1.7), el mismo
-                        componente de "Ver motivo" en Turnos. */}
-                    {textoEsLargo(p.email) ? <VerTextoBoton titulo="Email" texto={p.email} /> : p.email || "—"}
+                        componente de "Ver motivo" en Turnos. Corrección de
+                        QA (2026-09-06): con más de un mail (agregado por
+                        una resolución de conflicto), el criterio pasa a
+                        ser el mismo que "Ver teléfonos" — un solo botón
+                        con todos, en vez de mostrar solo el principal.
+                        Sin flecha (segunda ronda, 2026-09-06) — mismo
+                        motivo que Teléfonos, el botón abre un modal. */}
+                    {mails.length > 1 ? (
+                      <VerTextoBoton titulo="Mails" texto={mails.join("\n")} />
+                    ) : textoEsLargo(mails[0]) ? (
+                      <VerTextoBoton titulo="Email" texto={mails[0]!} />
+                    ) : (
+                      mails[0] || "—"
+                    )}
+                  </td>
+                  <td className="max-md:hidden px-4 py-3 text-grafito">
+                    {/* Ronda de correcciones (2026-09-06): un paciente
+                        puede tener MÁS de un tutor — con más de uno, un
+                        link "Ver tutores" lleva a la ficha (donde se ven
+                        todos como tarjetas, ver paciente-datos.tsx) en vez
+                        de mostrar un solo nombre que escondería a los
+                        demás. Sin flecha (tercera ronda de correcciones,
+                        2026-09-06, pedido textual: "sacar de todos los
+                        botones que contengan '->'"). */}
+                    {(p.tutores?.length ?? 0) > 1 ? (
+                      <Link href={`/panel/pacientes/${p.id}`} className="font-medium text-salvia-oscuro hover:text-grafito">
+                        Ver tutores
+                      </Link>
+                    ) : (
+                      p.tutores?.[0]?.nombre || "—"
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-3">
@@ -113,7 +174,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         href={`/panel/pacientes/${p.id}`}
                         className="max-md:hidden text-sm font-medium text-salvia-oscuro hover:text-grafito"
                       >
-                        Ver ficha →
+                        Ver ficha
                       </Link>
                     </div>
                   </td>
@@ -136,7 +197,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         `min-w-full` de adentro ocupa todo el ancho real
                         ya resuelto de la tabla — mismo truco que
                         TurnosTable. */}
-                    <td colSpan={6} className="w-px px-4 py-3">
+                    <td colSpan={7} className="w-px px-4 py-3">
                       <div className="min-w-full">
                       {/* grid-cols-[auto_minmax(0,1fr)] — corrección de QA
                           (2026-09-06): con `1fr` a secas, una celda con
@@ -167,11 +228,40 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">DNI</dt>
                         <dd className="min-w-0 text-grafito">{p.dni}</dd>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
-                        <dd className="min-w-0 text-grafito">{p.telefono}</dd>
+                        <dd className="min-w-0 text-grafito">
+                          {telefonos.length > 1 ? (
+                            <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} />
+                          ) : (
+                            telefonos[0] || "—"
+                          )}
+                        </dd>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
                         <dd className="min-w-0 break-all text-grafito">
-                          {textoEsLargo(p.email) ? <VerTextoBoton titulo="Email" texto={p.email} /> : p.email || "—"}
+                          {mails.length > 1 ? (
+                            <VerTextoBoton titulo="Mails" texto={mails.join("\n")} />
+                          ) : textoEsLargo(mails[0]) ? (
+                            <VerTextoBoton titulo="Email" texto={mails[0]!} />
+                          ) : (
+                            mails[0] || "—"
+                          )}
                         </dd>
+                        {/* Tutor (Fase 2.4.2) — la columna propia queda
+                            max-md:hidden, así que en mobile solo se ve
+                            acá, dentro del panel desplegado. */}
+                        {(p.tutores?.length ?? 0) > 0 && (
+                          <>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tutor</dt>
+                            <dd className="min-w-0 text-grafito">
+                              {(p.tutores?.length ?? 0) > 1 ? (
+                                <Link href={`/panel/pacientes/${p.id}`} className="font-medium text-salvia-oscuro hover:text-grafito">
+                                  Ver tutores
+                                </Link>
+                              ) : (
+                                p.tutores?.[0]?.nombre
+                              )}
+                            </dd>
+                          </>
+                        )}
                       </dl>
                       {/* Botón real (pedido textual del cliente: "poner un
                           botón en mobile para ver la ficha") — reemplaza
@@ -180,7 +270,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
                         href={`/panel/pacientes/${p.id}`}
                         className="mt-3 inline-block rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
                       >
-                        Ver ficha →
+                        Ver ficha
                       </Link>
                       </div>
                     </td>

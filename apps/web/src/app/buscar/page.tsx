@@ -60,7 +60,7 @@ export default async function BuscarPage({ searchParams }: PageProps<"/buscar">)
                     href={`/${clinica.slug}`}
                     className="mt-2 text-xs font-medium text-salvia-oscuro hover:text-grafito"
                   >
-                    Ver clínica →
+                    Ver clínica
                   </Link>
                 </li>
               </ScrollReveal>

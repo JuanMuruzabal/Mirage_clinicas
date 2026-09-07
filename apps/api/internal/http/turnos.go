@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"sort"
 	"strings"
 	"time"
@@ -66,6 +67,15 @@ type turnoResponse struct {
 	// todavía no demostraron ser reales, pedido explícito del cliente tras
 	// la charla de seguridad sobre el formulario público.
 	PacienteVerificado bool `json:"pacienteVerificado"`
+	// EsParaOtro/Tutor* (Fase 2.4.2) — presentes solo si el turno se
+	// originó por el camino "sacar turno para otro" del wizard público
+	// (ver models.go). El panel usa EsParaOtro para la columna "Sacado
+	// por otro" en Turnos.
+	EsParaOtro    bool    `json:"esParaOtro"`
+	TutorRelacion *string `json:"tutorRelacion,omitempty"`
+	TutorNombre   *string `json:"tutorNombre,omitempty"`
+	TutorTelefono *string `json:"tutorTelefono,omitempty"`
+	TutorEmail    *string `json:"tutorEmail,omitempty"`
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {
@@ -99,6 +109,11 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 	}
 	out.Asistencia = t.Asistencia
 	out.Autoreservado = t.Autoreservado
+	out.EsParaOtro = t.EsParaOtro
+	out.TutorRelacion = t.TutorRelacion
+	out.TutorNombre = t.TutorNombre
+	out.TutorTelefono = t.TutorTelefono
+	out.TutorEmail = t.TutorEmail
 	return out
 }
 
@@ -239,6 +254,19 @@ type crearTurnoManualRequest struct {
 	// precarga con los datos actuales del paciente elegido — y quedan
 	// guardados como el snapshot de contacto de este turno puntual.
 	PacienteID string `json:"pacienteId,omitempty"`
+	// ParaOtro/Tutor* (Fase 2.4.2) — mismo esquema y validación que
+	// solicitarTurnoPublicoRequest (turno_publico.go): "Agregar turno >
+	// paciente nuevo" es el otro camino de alta directa que necesita poder
+	// cargar un paciente sin datos de contacto propios (los tiene el
+	// tutor). Camino "paciente conocido" (PacienteID no vacío) no usa
+	// estos campos — la ficha existente ya trae los suyos.
+	// TutorDNI existió hasta la tercera ronda de correcciones (2026-09-06)
+	// — eliminado del todo, pedido textual del cliente.
+	ParaOtro      bool   `json:"paraOtro"`
+	TutorRelacion string `json:"tutorRelacion"`
+	TutorNombre   string `json:"tutorNombre"`
+	TutorTelefono string `json:"tutorTelefono"`
+	TutorEmail    string `json:"tutorEmail"`
 }
 
 // crearTurnoManualHandler — POST /turnos: caminos "paciente nuevo" y
@@ -257,14 +285,50 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
+		req.TutorRelacion = strings.TrimSpace(req.TutorRelacion)
+		req.TutorNombre = strings.TrimSpace(req.TutorNombre)
+		req.TutorTelefono = strings.TrimSpace(req.TutorTelefono)
+		req.TutorEmail = strings.TrimSpace(strings.ToLower(req.TutorEmail))
 
+		// Con tutor (Fase 2.4.2) solo aplica al camino "paciente nuevo" —
+		// "paciente conocido" (PacienteID no vacío) ya trae su propia
+		// ficha, con o sin tutor propio, sin que este alta puntual la
+		// toque (mismo criterio que "paciente conocido" no valida/pisa
+		// nombre/DNI tampoco).
+		if req.ParaOtro && req.PacienteID == "" {
+			if req.TutorRelacion != "familiar" && req.TutorRelacion != "amigo" && req.TutorRelacion != "otro" {
+				writeError(w, http.StatusBadRequest, "elegí una relación válida con el paciente")
+				return
+			}
+			if req.TutorNombre == "" {
+				writeError(w, http.StatusBadRequest, "el nombre del tutor es obligatorio")
+				return
+			}
+			if !telefonoRegex.MatchString(req.TutorTelefono) {
+				writeError(w, http.StatusBadRequest, "el teléfono del tutor no tiene un formato válido")
+				return
+			}
+			if _, err := mail.ParseAddress(req.TutorEmail); err != nil {
+				writeError(w, http.StatusBadRequest, "el email del tutor no tiene un formato válido")
+				return
+			}
+		}
+
+		paraOtro := req.ParaOtro && req.PacienteID == ""
 		turno, err := buildTurnoAgendado(profesionalID, req.NombreContacto, req.ApellidoContacto, req.DNIContacto,
-			req.TelefonoContacto, req.EmailContacto, req.Motivo, req.TipoConsultaID, req.HoraInicio, req.HoraFin)
+			req.TelefonoContacto, req.EmailContacto, req.Motivo, req.TipoConsultaID, req.HoraInicio, req.HoraFin, paraOtro)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		turno.Origen = "manual"
+		if paraOtro {
+			turno.EsParaOtro = true
+			turno.TutorRelacion = &req.TutorRelacion
+			turno.TutorNombre = &req.TutorNombre
+			turno.TutorTelefono = &req.TutorTelefono
+			turno.TutorEmail = &req.TutorEmail
+		}
 
 		var pacienteExistenteID *uuid.UUID
 		if req.PacienteID != "" {
@@ -831,12 +895,20 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // buildTurnoAgendado arma (sin tocar la base) un Turno ya validado a nivel
 // de negocio, para el camino "paciente nuevo" de crearTurnoManualHandler.
-func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string) (db.Turno, error) {
+func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string, paraOtro bool) (db.Turno, error) {
 	nombre = strings.TrimSpace(nombre)
 	apellido = strings.TrimSpace(apellido)
 	dni = strings.TrimSpace(dni)
 	telefono = strings.TrimSpace(telefono)
-	if nombre == "" || apellido == "" || dni == "" || telefono == "" {
+	if nombre == "" || apellido == "" || dni == "" {
+		return db.Turno{}, errors.New("nombre, apellido y DNI del paciente son obligatorios")
+	}
+	// Teléfono (Fase 2.4.2): obligatorio solo en "para mí" — en "para
+	// otro" el teléfono PROPIO del paciente queda opcional (lo tiene el
+	// tutor). Se mantiene el criterio histórico de esta función (solo
+	// "no vacío", sin regex de formato) para no romper el camino
+	// "paciente conocido" con datos ya guardados de antes.
+	if !paraOtro && telefono == "" {
 		return db.Turno{}, errors.New("nombre, apellido, DNI y teléfono del paciente son obligatorios")
 	}
 
@@ -958,7 +1030,26 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 	var existente db.Paciente
 	err := tx.Where("profesional_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
 	if err == nil {
+		// emailTipado/telefonoTipado — ronda de correcciones (2026-09-06):
+		// capturados ANTES de sincronizar (que pisa turno.EmailContacto/
+		// TelefonoContacto con los de la ficha, si ya tiene) — mismo
+		// criterio que crearPacientePublicoConDeteccionDeConflicto.
+		emailTipado := turno.EmailContacto
+		telefonoTipado := turno.TelefonoContacto
 		sincronizarContactoConPaciente(turno, existente)
+		if turno.EsParaOtro {
+			if err := agregarEmailAlternativoSiNuevo(tx, &existente, emailTipado); err != nil {
+				return db.Paciente{}, err
+			}
+			if err := agregarTelefonoAlternativoSiNuevo(tx, &existente, telefonoTipado); err != nil {
+				return db.Paciente{}, err
+			}
+			if turno.TutorEmail != nil {
+				if err := agregarTelefonoDeTutorSiNuevo(tx, existente.ID, *turno.TutorEmail, derefStr(turno.TutorTelefono)); err != nil {
+					return db.Paciente{}, err
+				}
+			}
+		}
 		return existente, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -970,7 +1061,6 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 		Nombre:        turno.NombreContacto,
 		Apellido:      turno.ApellidoContacto,
 		DNI:           turno.DNIContacto,
-		Telefono:      turno.TelefonoContacto,
 		// Origen "manual" (corrección de QA, Fase 2.4.1) — esta función
 		// solo la usa el panel del profesional ("Agregar turno" con
 		// paciente nuevo) — a diferencia del formulario público
@@ -978,6 +1068,12 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 		// persona en frente, así que la ficha queda VERIFICADA de
 		// entrada (ver pacienteEstaVerificado).
 		Origen: "manual",
+	}
+	// Telefono/Email — Fase 2.4.2: vacío pasa a nil, no puntero a string
+	// vacío — "para otro" deja el teléfono propio del paciente opcional
+	// (mismo criterio que crearFichaPacientePublico).
+	if turno.TelefonoContacto != "" {
+		paciente.Telefono = &turno.TelefonoContacto
 	}
 	if turno.EmailContacto != "" {
 		paciente.Email = &turno.EmailContacto
@@ -997,16 +1093,59 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 		}
 		return db.Paciente{}, err
 	}
+	// PacienteTutor — Fase 2.4.2, ronda de correcciones (2026-09-06): la
+	// ficha nace con el primero de posiblemente varios tutores a lo largo
+	// del tiempo (ver PacienteTutor en models.go) — se inserta como fila
+	// aparte, ya no como campos directos en `Paciente`.
+	if turno.EsParaOtro {
+		tutor := db.PacienteTutor{
+			PacienteID: paciente.ID,
+			Relacion:   derefStr(turno.TutorRelacion),
+			Nombre:     derefStr(turno.TutorNombre),
+			Telefono:   derefStr(turno.TutorTelefono),
+			Email:      derefStr(turno.TutorEmail),
+		}
+		if err := tx.Create(&tutor).Error; err != nil {
+			return db.Paciente{}, err
+		}
+	}
 	return paciente, nil
 }
 
-// sincronizarContactoConPaciente pisa el snapshot de contacto de un turno
-// con los datos reales de un Paciente ya existente — ver el comentario
-// grande de crearOBuscarPacientePorDNI arriba.
+// derefStr — atajo para volcar un *string potencialmente nil a los campos
+// NOT NULL de PacienteTutor (turno.Tutor* siempre viene completo cuando
+// EsParaOtro, este helper solo evita el deref manual repetido).
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// sincronizarContactoConPaciente pisa el snapshot de contacto (datos del
+// PACIENTE) de un turno con los datos reales de un Paciente ya existente —
+// ver el comentario grande de crearOBuscarPacientePorDNI arriba.
+//
+// Tutor* / EsParaOtro del turno — Fase 2.4.2, ronda de correcciones
+// (2026-09-06): esta función YA NO los toca. Los dos call sites que sí
+// necesitan `EsParaOtro`/`Tutor*` en el turno (crearOBuscarPacientePorDNI,
+// acá abajo, y crearPacientePublicoConDeteccionDeConflicto, camino
+// "responde") reciben esos datos siempre COMPLETOS y frescos en la propia
+// request (el wizard/panel pide el tutor de nuevo en cada pedido, incluso
+// reservando para un paciente ya conocido) — pisarlos con lo guardado ya
+// no tiene sentido ahora que un paciente puede tener MÁS de un tutor (ver
+// PacienteTutor en models.go): "cuál de los N tutores conocidos" dejó de
+// ser una pregunta con una única respuesta posible. El único camino que
+// SÍ necesita completar Tutor*/EsParaOtro a partir de una ficha ya
+// verificada — sin volver a pedir esos datos — es "ya he venido antes"
+// (turno_publico.go, usaPacienteVerificado), resuelto aparte con
+// sincronizarTutorDesdeFichaVerificada.
 func sincronizarContactoConPaciente(turno *db.Turno, paciente db.Paciente) {
 	turno.NombreContacto = paciente.Nombre
 	turno.ApellidoContacto = paciente.Apellido
-	turno.TelefonoContacto = paciente.Telefono
+	if paciente.Telefono != nil {
+		turno.TelefonoContacto = *paciente.Telefono
+	}
 	if paciente.Email != nil {
 		turno.EmailContacto = *paciente.Email
 	}

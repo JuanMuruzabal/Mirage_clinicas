@@ -56,7 +56,7 @@ export default function Home() {
               href="/buscar"
               className="mt-8 inline-block rounded-full bg-salvia-oscuro px-10 py-5 text-base font-bold uppercase tracking-wide text-marfil transition-colors hover:brightness-95"
             >
-              Buscar clínicas →
+              Buscar clínicas
             </Link>
           </ScrollReveal>
 
@@ -112,7 +112,7 @@ export default function Home() {
             Sumate gratis
           </Link>
           <a href="#como-funciona" className="text-sm font-medium text-porcelain/80 hover:text-porcelain">
-            Ver cómo funciona →
+            Ver cómo funciona
           </a>
         </div>
         <svg aria-hidden="true" viewBox="0 0 160 24" className="relative z-10 mt-4 h-6 w-40 text-porcelain/70">

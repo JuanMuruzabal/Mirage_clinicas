@@ -50,6 +50,22 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		emailsAlt, telsAlt, err := alternativosDeContactoPorPaciente(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
+			return
+		}
+		tutores, err := tutoresPorPaciente(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
+			return
+		}
+		tutorTelAlt, err := telefonosAlternativosPorTutor(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
+			return
+		}
+
 		out := make([]conflictoPacienteResponse, 0, len(conflictos))
 		for _, c := range conflictos {
 			var verificado, enConflicto db.Paciente
@@ -101,9 +117,13 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 
 			out = append(out, conflictoPacienteResponse{
-				ID:                       c.ID.String(),
-				PacienteVerificado:       toPacienteResponse(verificado, verificadoReal),
-				PacienteEnConflicto:      toPacienteResponse(enConflicto, enConflictoVerificado),
+				ID: c.ID.String(),
+				PacienteVerificado: toPacienteResponse(
+					verificado, verificadoReal, tutores[verificado.ID], emailsAlt[verificado.ID], telsAlt[verificado.ID], tutorTelAlt,
+				),
+				PacienteEnConflicto: toPacienteResponse(
+					enConflicto, enConflictoVerificado, tutores[enConflicto.ID], emailsAlt[enConflicto.ID], telsAlt[enConflicto.ID], tutorTelAlt,
+				),
 				Turno:                    toTurnoResponse(turno),
 				Motivo:                   c.Motivo,
 				CreatedAt:                c.CreatedAt.Format(time.RFC3339),
@@ -122,27 +142,65 @@ type resolverConflictoPacienteRequest struct {
 }
 
 // migrarAlternativosDeContacto — suma el mail/teléfono de `pierde` a
-// `prevalece` (PacienteEmailAlternativo/PacienteTelefonoAlternativo) —
-// "podrá usar cualquiera de los 2 mails... para volver a sacar turnos".
-// `ON CONFLICT DO NOTHING` (no isUniqueViolation + seguir con la MISMA
-// tx): bug real de QA — en Postgres, capturar una violación de índice y
-// seguir usando la misma transacción no alcanza, el statement que falla
-// deja la transacción entera "abortada" (25P02) para cualquier query
-// posterior, aunque el error se haya "ignorado" del lado de Go.
-func migrarAlternativosDeContacto(tx *gorm.DB, prevaleceID uuid.UUID, pierde db.Paciente) error {
+// `prevalece` — "podrá usar cualquiera de los 2 mails... para volver a
+// sacar turnos". Ronda de correcciones (2026-09-06), bug real reportado
+// por el cliente: "si el paciente que previamente le sacó turno alguien
+// ahora se va por el camino para mí, y no tenía ningún dato cargado, o si
+// tenía, agregar esos datos" — antes esta función SIEMPRE insertaba en
+// PacienteEmailAlternativo/PacienteTelefonoAlternativo sin importar si
+// `prevalece` todavía no tenía mail/teléfono propio, así que un dato
+// migrado quedaba escondido detrás de "Ver mails →" en vez de aparecer
+// como el dato principal de una ficha que antes no tenía ninguno. Reusa
+// agregarEmailAlternativoSiNuevo/agregarTelefonoAlternativoSiNuevo (mismo
+// criterio "si está vacío pasa a ser el principal, si no se suma como
+// alternativo" que ya vale para el camino público "para otro") — por eso
+// recibe `*prevalece`, no solo su ID: puede necesitar actualizarlo. Esas
+// dos funciones ya manejan el `ON CONFLICT DO NOTHING` (evita el bug real
+// de QA de dejar la transacción "abortada" en Postgres, 25P02, si se
+// capturara la violación de índice a mano).
+func migrarAlternativosDeContacto(tx *gorm.DB, prevalece *db.Paciente, pierde db.Paciente) error {
 	if pierde.Email != nil {
-		alt := db.PacienteEmailAlternativo{PacienteID: prevaleceID, Email: *pierde.Email}
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&alt).Error; err != nil {
+		if err := agregarEmailAlternativoSiNuevo(tx, prevalece, *pierde.Email); err != nil {
 			return err
 		}
 	}
-	if pierde.Telefono != "" {
-		alt := db.PacienteTelefonoAlternativo{PacienteID: prevaleceID, Telefono: pierde.Telefono}
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&alt).Error; err != nil {
+	if pierde.Telefono != nil && *pierde.Telefono != "" {
+		if err := agregarTelefonoAlternativoSiNuevo(tx, prevalece, *pierde.Telefono); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// migrarTutoresDeContacto — ronda de correcciones (2026-09-06), pedido
+// textual del cliente: cuando un conflicto "tutor nuevo vs. paciente ya
+// confirmado" se resuelve a favor de que es el mismo paciente, ese nuevo
+// tutor se SUMA a los que ya tenía — un paciente puede tener más de un
+// tutor confirmado a lo largo del tiempo (mamá, papá, una abuela...),
+// nunca se descarta al anterior. Mismo criterio anti-duplicado
+// (`ON CONFLICT DO NOTHING`) que migrarAlternativosDeContacto — y mismo
+// motivo (ver el comentario ahí): un statement que falla por violación de
+// índice deja la transacción entera abortada en Postgres si no se lo
+// evita explícitamente. Migra TODAS las filas de `pierde` (no solo la más
+// reciente) — así se preserva la cadena completa si esa ficha ya había
+// absorbido tutores de un conflicto anterior.
+func migrarTutoresDeContacto(tx *gorm.DB, prevaleceID uuid.UUID, pierdeID uuid.UUID) error {
+	var tutores []db.PacienteTutor
+	if err := tx.Where("paciente_id = ?", pierdeID).Find(&tutores).Error; err != nil {
+		return err
+	}
+	for _, t := range tutores {
+		nuevo := db.PacienteTutor{PacienteID: prevaleceID, Relacion: t.Relacion, Nombre: t.Nombre, Telefono: t.Telefono, Email: t.Email}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&nuevo).Error; err != nil {
+			return err
+		}
+	}
+	// Limpieza explícita — esta tabla no tiene FK con ON DELETE CASCADE
+	// (mismo esquema simple que PacienteEmailAlternativo/
+	// PacienteTelefonoAlternativo), así que las filas de `pierde` quedan
+	// huérfanas cuando esa ficha se borra más abajo si no se las borra acá
+	// primero (ya están duplicadas en `prevaleceID`, no se pierde nada).
+	return tx.Where("paciente_id = ?", pierdeID).Delete(&db.PacienteTutor{}).Error
 }
 
 // migrarOCancelarTurnosDePerdedor — Fase 2.4.1, corrección de QA, pedido
@@ -263,7 +321,10 @@ func resolverConflictoComoVerdadero(tx *gorm.DB, conflicto db.ConflictoPaciente,
 			return err
 		}
 	}
-	if err := migrarAlternativosDeContacto(tx, conflicto.PacienteVerificadoID, enConflicto); err != nil {
+	if err := migrarAlternativosDeContacto(tx, &prevalece, enConflicto); err != nil {
+		return err
+	}
+	if err := migrarTutoresDeContacto(tx, conflicto.PacienteVerificadoID, enConflicto.ID); err != nil {
 		return err
 	}
 	if err := migrarOCancelarTurnosDePerdedor(tx, prevalece, enConflicto.ID); err != nil {
@@ -311,22 +372,46 @@ func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, pro
 		return err
 	}
 
-	if bloquearMail && enConflicto.Email != nil {
-		bloqueo := db.EmailBloqueadoTurnoPublico{
-			ProfesionalID:  profesionalID,
-			Email:          *enConflicto.Email,
-			BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour),
+	// Fase 2.4.2: una ficha "para otro" casi nunca tiene mail PROPIO
+	// (Email) — la identidad real a bloquear ahí es la del tutor. Ronda
+	// de correcciones (2026-09-06): un paciente puede tener MÁS de un
+	// tutor conocido (ver PacienteTutor en models.go) — se bloquean TODOS
+	// los mails de tutor que tenga esta ficha, no solo uno.
+	if bloquearMail {
+		if enConflicto.Email != nil {
+			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{
+				ProfesionalID:  profesionalID,
+				Email:          *enConflicto.Email,
+				BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour),
+			}).Error; err != nil {
+				return err
+			}
 		}
-		if err := tx.Create(&bloqueo).Error; err != nil {
+		var tutores []db.PacienteTutor
+		if err := tx.Where("paciente_id = ?", enConflicto.ID).Find(&tutores).Error; err != nil {
 			return err
+		}
+		for _, t := range tutores {
+			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{
+				ProfesionalID:  profesionalID,
+				Email:          t.Email,
+				BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour),
+			}).Error; err != nil {
+				return err
+			}
 		}
 	}
 
 	// Red de seguridad: cualquier turno que por algún otro motivo siguiera
 	// apuntando a esta ficha (incluido el excluido del cancelado de
 	// arriba) queda desvinculado antes de borrarla — nunca dejar un
-	// paciente_id colgando hacia una fila que ya no existe.
+	// paciente_id colgando hacia una fila que ya no existe. Mismo criterio
+	// para sus filas de PacienteTutor (si las tenía) — ya se usaron arriba
+	// para bloquear los mails, esta ficha se descarta del todo.
 	if err := tx.Model(&db.Turno{}).Where("paciente_id = ?", enConflicto.ID).Update("paciente_id", nil).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("paciente_id = ?", enConflicto.ID).Delete(&db.PacienteTutor{}).Error; err != nil {
 		return err
 	}
 	if err := tx.Delete(&db.Paciente{}, "id = ?", enConflicto.ID).Error; err != nil {

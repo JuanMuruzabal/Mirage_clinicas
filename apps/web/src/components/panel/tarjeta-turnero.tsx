@@ -71,7 +71,7 @@ export function TarjetaConLista({
             {cabeceraCustom ??
               (hrefCabecera && labelCabecera && (
                 <Link href={hrefCabecera} className={`${LABEL_CABECERA_BASE} text-salvia-oscuro hover:text-grafito`}>
-                  {labelCabecera} →
+                  {labelCabecera}
                 </Link>
               ))}
           </div>
@@ -200,7 +200,7 @@ export function TarjetaSimple({ eyebrow, valor, href, titulo, acento = false, ic
       <div className="relative z-10 flex flex-col gap-2">
         <p className={EYEBROW_BASE}>{eyebrow}</p>
         <p className={`${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}>{valor}</p>
-        <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">{titulo} →</p>
+        <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">{titulo}</p>
       </div>
     </Link>
   );

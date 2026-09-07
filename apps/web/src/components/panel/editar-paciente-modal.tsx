@@ -23,7 +23,7 @@ const TELEFONO_REGEX = /^\+?\d{10,13}$/;
 // de un turno — nombre y apellido no son editables acá todavía.
 export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPacienteModalProps) {
   const [dni, setDni] = useState(paciente.dni);
-  const [telefono, setTelefono] = useState(paciente.telefono);
+  const [telefono, setTelefono] = useState(paciente.telefono ?? "");
   const [email, setEmail] = useState(paciente.email ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

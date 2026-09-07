@@ -49,7 +49,7 @@ describe("AbrirConfiguracionBoton", () => {
     const user = userEvent.setup();
     render(<AbrirConfiguracionBoton />);
 
-    await user.click(screen.getByRole("button", { name: "Ver horarios reservados →" }));
+    await user.click(screen.getByRole("button", { name: "Ver horarios reservados" }));
 
     expect(await screen.findByRole("dialog", { name: "Configuración de calendario" })).toBeInTheDocument();
   });
@@ -58,7 +58,7 @@ describe("AbrirConfiguracionBoton", () => {
     const user = userEvent.setup();
     render(<AbrirConfiguracionBoton />);
 
-    await user.click(screen.getByRole("button", { name: "Ver horarios reservados →" }));
+    await user.click(screen.getByRole("button", { name: "Ver horarios reservados" }));
     await screen.findByRole("dialog");
 
     await user.click(screen.getByRole("button", { name: "Cerrar" }));

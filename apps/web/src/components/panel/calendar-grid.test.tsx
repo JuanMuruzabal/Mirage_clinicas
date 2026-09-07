@@ -80,26 +80,26 @@ describe("CalendarGrid", () => {
     ];
     render(<CalendarGrid dias={dias} turnos={turnoUTC} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     const bloque = screen.getByRole("button", { name: /María Games/ });
-    // HORA_INICIO=8, PX_POR_HORA=64 (calendar-grid.tsx) — 09:00 Córdoba
-    // menos las 08:00 con las que arranca la grilla, por 64px/hora.
-    expect(bloque).toHaveStyle({ top: "64px" });
+    // HORA_INICIO=6, PX_POR_HORA=64 (calendar-grid.tsx) — 09:00 Córdoba
+    // menos las 06:00 con las que arranca la grilla, por 64px/hora.
+    expect(bloque).toHaveStyle({ top: "192px" });
   });
 
   it("muestra las horas del día en la columna izquierda", () => {
     render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
-    expect(screen.getByText("08:00")).toBeInTheDocument();
-    expect(screen.getByText("20:00")).toBeInTheDocument();
+    expect(screen.getByText("06:00")).toBeInTheDocument();
+    expect(screen.getByText("24:00")).toBeInTheDocument();
   });
 
   // Bug reportado 2026-08-29 (tanto mobile como escritorio), tras F2.1:
-  // "la primera hora (08:00) quedó casi tapada por la fila de días" — el
-  // `-translate-y-1/2` que centra cada hora sobre su línea de grilla
-  // hacía que la mitad de arriba de "08:00" cayera detrás de la esquina
-  // fija (ahora con fondo opaco, F2.1). El resto de las horas sigue
-  // centrado sobre su línea como siempre.
-  it("la hora 08:00 no lleva el translate que la esconde detrás de la esquina fija", () => {
+  // "la primera hora (06:00, antes 08:00) quedó casi tapada por la fila
+  // de días" — el `-translate-y-1/2` que centra cada hora sobre su línea
+  // de grilla hacía que la mitad de arriba de la primera hora cayera
+  // detrás de la esquina fija (ahora con fondo opaco, F2.1). El resto de
+  // las horas sigue centrado sobre su línea como siempre.
+  it("la primera hora (06:00) no lleva el translate que la esconde detrás de la esquina fija", () => {
     render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
-    expect(screen.getByText("08:00")).not.toHaveClass("-translate-y-1/2");
+    expect(screen.getByText("06:00")).not.toHaveClass("-translate-y-1/2");
     expect(screen.getByText("09:00")).toHaveClass("-translate-y-1/2");
   });
 
@@ -209,13 +209,14 @@ describe("CalendarGrid", () => {
 
   // Corrección de QA (F2.3): "el horario de atención que no modifique
   // cómo se ve el calendario" — el rango de horas del grid queda FIJO
-  // (08-20) sin importar lo que se configure en "Horario de atención";
-  // ese ajuste solo acota los selectores de hora al agendar un turno
-  // (ver agregar-turno-modal.tsx/editar-turno-modal.tsx), nunca el grid.
-  it("el rango de horas del grid es siempre fijo (08-20), CalendarGrid no recibe horario de atención", () => {
+  // (06-24, ampliado de 08-20 el 2026-09-06) sin importar lo que se
+  // configure en "Horario de atención"; ese ajuste solo acota los
+  // selectores de hora al agendar un turno (ver
+  // agregar-turno-modal.tsx/editar-turno-modal.tsx), nunca el grid.
+  it("el rango de horas del grid es siempre fijo (06-24), CalendarGrid no recibe horario de atención", () => {
     render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
-    expect(screen.getByText("08:00")).toBeInTheDocument();
-    expect(screen.getByText("20:00")).toBeInTheDocument();
+    expect(screen.getByText("06:00")).toBeInTheDocument();
+    expect(screen.getByText("24:00")).toBeInTheDocument();
   });
 
   // F2.3.8 — bloqueos horarios pintados en gris oscuro sobre el grid.
@@ -224,7 +225,7 @@ describe("CalendarGrid", () => {
   // tiene que ver así en general, para cualquier tipo de solapamiento" —
   // CUALQUIER cantidad de reglas que se solapen entre sí (directa o
   // transitivamente) forman un único CLUSTER, dibujado siempre igual: un
-  // mini-header fijo "Ver eventos →" en el borde de ARRIBA del cluster
+  // mini-header fijo "Ver eventos" en el borde de ARRIBA del cluster
   // entero (nunca en la intersección exacta de un par en particular, eso
   // hacía que su posición cambiara según qué regla empezara antes) más,
   // si sobra algo del cluster por debajo, una franja lisa sin texto (ver
@@ -277,7 +278,7 @@ describe("CalendarGrid", () => {
 
       const header = screen.getByLabelText("Horario bloqueado de 07:00 a 08:30");
       expect(header.className).toContain("bg-grafito/60");
-      expect(header).toHaveStyle({ top: "-64px", height: "24px" }); // arriba del cluster (07:00), altura fija
+      expect(header).toHaveStyle({ top: "64px", height: "24px" }); // arriba del cluster (07:00), altura fija
 
       expect(screen.queryByLabelText("Horario bloqueado de 07:30 a 08:00")).not.toBeInTheDocument();
       const restos = container.querySelectorAll('[aria-hidden="true"]');
@@ -300,7 +301,7 @@ describe("CalendarGrid", () => {
     // (el borde de arriba del cluster), sin importar cuál regla empieza
     // antes ni cuánto dure el solapamiento — y el resto del cluster (si
     // sobra) es un elemento HERMANO, nunca anidado dentro del botón.
-    it("el mini-header 'Ver eventos →' mide siempre lo mismo y nunca queda anidado dentro de otro bloque", () => {
+    it("el mini-header 'Ver eventos' mide siempre lo mismo y nunca queda anidado dentro de otro bloque", () => {
       // Solapamiento CORTO (15 min, 16px) — más chico que el mini-header
       // (24px): el header se recorta a la altura total del cluster, sin
       // franja de sobra.
@@ -373,7 +374,7 @@ describe("CalendarGrid", () => {
     // truncaba feo con motivos largos) — el motivo de cada regla se ve
     // recién en el modal que abre al hacer click (ver
     // bloqueo-detalle-modal.test.tsx).
-    it("el mini-header muestra 'Ver eventos →' en vez de los motivos, sin importar cuántas reglas se solapen", () => {
+    it("el mini-header muestra 'Ver eventos' en vez de los motivos, sin importar cuántas reglas se solapen", () => {
       const general = { ...bloqueoGeneral, motivo: "Limpieza" };
       const especifica = { ...bloqueoEspecifico, motivo: "Reunión" };
       render(
@@ -386,7 +387,7 @@ describe("CalendarGrid", () => {
           bloqueosEspecificas={[especifica]}
         />,
       );
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       expect(screen.queryByText("Limpieza")).not.toBeInTheDocument();
       expect(screen.queryByText("Reunión")).not.toBeInTheDocument();
       expect(screen.queryByText(/Limpieza.*Reunión/)).not.toBeInTheDocument();
@@ -454,7 +455,7 @@ describe("CalendarGrid", () => {
 
         const header = screen.getByLabelText("Horario bloqueado de 09:00 a 10:30");
         expect(header.className).toContain("bg-grafito/60");
-        expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+        expect(screen.getByText("Ver eventos")).toBeInTheDocument();
 
         expect(screen.queryByLabelText("Horario bloqueado de 09:00 a 10:00")).not.toBeInTheDocument();
         expect(screen.queryByLabelText("Horario bloqueado de 09:30 a 10:30")).not.toBeInTheDocument();
@@ -500,7 +501,7 @@ describe("CalendarGrid", () => {
 
         const header = screen.getByLabelText("Horario bloqueado de 13:00 a 14:30");
         expect(header.className).toContain("bg-grafito/60");
-        expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+        expect(screen.getByText("Ver eventos")).toBeInTheDocument();
 
         expect(screen.queryByLabelText("Horario bloqueado de 13:00 a 14:00")).not.toBeInTheDocument();
         expect(screen.queryByLabelText("Horario bloqueado de 13:30 a 14:30")).not.toBeInTheDocument();
@@ -562,7 +563,7 @@ describe("CalendarGrid", () => {
 
       const header = screen.getByLabelText("Horario bloqueado de 07:00 a 08:00");
       expect(header.className).toContain("bg-grafito/60");
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       // La pista del cuerpo cuenta las TRES reglas del cluster, no solo un par.
       expect(screen.getByText("3 horarios reservados")).toBeInTheDocument();
 
@@ -588,7 +589,7 @@ describe("CalendarGrid", () => {
       // El turno (09:00-09:30) no se solapa con el bloqueo (07:00-08:00)
       // — cada uno se dibuja por su cuenta, sin ninguna tarjeta combinada.
       expect(screen.getByText("María Games")).toBeInTheDocument();
-      expect(screen.queryByText("Ver eventos →")).not.toBeInTheDocument();
+      expect(screen.queryByText("Ver eventos")).not.toBeInTheDocument();
     });
 
     it("un turno que se solapa con un horario reservado se agrupa en la misma tarjeta 'Ver eventos', y el turno no se dibuja aparte", () => {
@@ -599,7 +600,7 @@ describe("CalendarGrid", () => {
 
       // Cluster 08:45 (bloqueo) a 09:30 (turno) — el turno no se dibuja
       // como botón propio con su nombre.
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       expect(screen.queryByText("María Games")).not.toBeInTheDocument();
 
       const header = screen.getByLabelText("Horario bloqueado de 08:45 a 09:30");
@@ -647,7 +648,7 @@ describe("CalendarGrid", () => {
         />,
       );
 
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       const restos = container.querySelectorAll('[aria-hidden="true"]');
       expect(restos.length).toBe(1);
       expect(within(restos[0] as HTMLElement).getByText("1 turno en conflicto")).toBeInTheDocument();
@@ -693,7 +694,7 @@ describe("CalendarGrid", () => {
       expect(turno.className).not.toContain("rounded-t-field");
     });
 
-    it("el mini-header 'Ver eventos →' CON resto redondea solo arriba, el resto solo abajo", () => {
+    it("el mini-header 'Ver eventos' CON resto redondea solo arriba, el resto solo abajo", () => {
       const bloqueoGeneral = {
         id: "bg-1", especifico: false, diaSemana: 0, alcance: "todos" as const, horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario",
       };
@@ -751,8 +752,8 @@ describe("CalendarGrid", () => {
         <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
       const tarjeta = screen.getByText("No trabajo en este período");
-      // Cubre de 08:00 (HORA_INICIO) a 20:00 (HORA_FIN) — 12 horas * 64px.
-      expect(tarjeta.closest("button")).toHaveStyle({ top: "0px", height: "768px" });
+      // Cubre de 06:00 (HORA_INICIO) a 24:00 (HORA_FIN) — 18 horas * 64px.
+      expect(tarjeta.closest("button")).toHaveStyle({ top: "0px", height: "1152px" });
     });
 
     // Corrección de QA, 2026-09-08: "al hacer click en la tarjeta me
@@ -787,9 +788,9 @@ describe("CalendarGrid", () => {
       );
       const tarjetas = screen.getAllByText("No trabajo en este período");
       expect(tarjetas).toHaveLength(2);
-      // 08:00-10:00 (2 horas) y 14:00-20:00 (6 horas).
+      // 06:00-10:00 (4 horas) y 14:00-24:00 (10 horas).
       const altos = tarjetas.map((t) => (t.closest("button") as HTMLElement).style.height).sort();
-      expect(altos).toEqual(["128px", "384px"]);
+      expect(altos).toEqual(["256px", "640px"]);
     });
 
     it("una excepción que no aplica ese día no dibuja nada", () => {
@@ -803,8 +804,11 @@ describe("CalendarGrid", () => {
     it("dos excepciones que se solapan entre sí (sin nada real) se juntan en UNA sola tarjeta, sin 'Ver eventos'", () => {
       // Mismo ejemplo textual del cliente: "10:00 a 11:00 y... 10:30 a
       // 12:00... se verá un no trabajo en este período de 10:00 a 12:00".
-      const primera = { id: "ha-4", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "20:00" };
-      const segunda = { id: "ha-5", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:30", horaHasta: "20:00" };
+      // horaHasta="24:00" (gridHasta) en las dos — así ninguna abre un
+      // segundo tramo "después" (que rompería el aislamiento del caso que
+      // este test quiere probar: el merge del lado de ANTES).
+      const primera = { id: "ha-4", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "24:00" };
+      const segunda = { id: "ha-5", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:30", horaHasta: "24:00" };
       render(
         <CalendarGrid
           dias={dias}
@@ -814,13 +818,13 @@ describe("CalendarGrid", () => {
           horariosAtencion={[primera, segunda]}
         />,
       );
-      // Cada excepción cierra 08:00-10:00 / 08:00-10:30 respectivamente —
-      // se solapan (ambas arrancan en 08:00) y se juntan en una sola
-      // tarjeta 08:00-10:30 (2.5 horas), no dos tarjetas ni "Ver eventos →".
+      // Cada excepción cierra 06:00-10:00 / 06:00-10:30 respectivamente —
+      // se solapan (ambas arrancan en 06:00) y se juntan en una sola
+      // tarjeta 06:00-10:30 (4.5 horas), no dos tarjetas ni "Ver eventos".
       expect(screen.getAllByText("No trabajo en este período")).toHaveLength(1);
-      expect(screen.queryByText("Ver eventos →")).not.toBeInTheDocument();
+      expect(screen.queryByText("Ver eventos")).not.toBeInTheDocument();
       const tarjeta = screen.getByText("No trabajo en este período").closest("button") as HTMLElement;
-      expect(tarjeta.style.height).toBe("160px"); // 2.5 horas * 64px
+      expect(tarjeta.style.height).toBe("288px"); // 4.5 horas * 64px
     });
 
     it("una excepción que se solapa con un horario reservado real se transforma en 'Ver eventos', con las dos pistas por separado", () => {
@@ -837,7 +841,7 @@ describe("CalendarGrid", () => {
           horariosAtencion={[excepcion]}
         />,
       );
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       expect(screen.getByText("1 horario reservado")).toBeInTheDocument();
       expect(screen.getByText("1 horario de no trabajo")).toBeInTheDocument();
     });
@@ -848,7 +852,7 @@ describe("CalendarGrid", () => {
       render(
         <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
-      expect(screen.getByText("Ver eventos →")).toBeInTheDocument();
+      expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       expect(screen.getByText("1 turno en conflicto")).toBeInTheDocument();
       expect(screen.getByText("1 horario de no trabajo")).toBeInTheDocument();
       expect(screen.queryByText("horario reservado")).not.toBeInTheDocument();

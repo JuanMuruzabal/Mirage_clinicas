@@ -120,6 +120,37 @@ describe("ResolverConflictoPacienteModal", () => {
     expect(screen.queryByText(/Ninguna de las dos fichas está verificada/)).not.toBeInTheDocument();
   });
 
+  // Ronda de correcciones (2026-09-06), pedido textual del cliente:
+  // "mostrar los datos del tutor viejo al nuevo" (escenario tutor vs.
+  // tutor) y "recomendar comunicarse con los datos de los tutores
+  // confirmados" (paciente que se presenta después de un tutor). Ambos
+  // pedidos se resuelven mostrando los tutores de CADA ficha, siempre que
+  // los tenga — la diferencia entre escenarios vive en el texto de
+  // `motivo`, no en un layout especial acá.
+  it("muestra los tutores de cada ficha cuando los tienen", () => {
+    const tutorViejo = { relacion: "familiar", nombre: "María Pérez", telefono: "+5493511111111", email: "mama@example.com" };
+    const tutorNuevo = { relacion: "otro", nombre: "Impostor", telefono: "+5493513333333", email: "impostor@example.com" };
+    const conflictoConTutores: ConflictoPaciente = {
+      ...conflicto,
+      motivo: "un nuevo tutor (Impostor) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
+      pacienteVerificado: { ...pacienteVerificado, tutores: [tutorViejo] },
+      pacienteEnConflicto: { ...pacienteEnConflicto, tutores: [tutorNuevo] },
+    };
+    render(<ResolverConflictoPacienteModal conflicto={conflictoConTutores} tiposConsulta={tiposConsulta} onClose={vi.fn()} onResuelto={vi.fn()} />);
+
+    expect(screen.getByText(/María Pérez/)).toBeInTheDocument();
+    // "Impostor" también aparece dentro del texto de `motivo` — alcanza
+    // con que aparezca al menos una vez más (la tarjeta de tutor).
+    expect(screen.getAllByText(/Impostor/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/hay otro tutor confirmado/)).toBeInTheDocument();
+  });
+
+  it("sin tutores en ninguna ficha, no muestra la sección de tutores", () => {
+    render(<ResolverConflictoPacienteModal conflicto={conflicto} tiposConsulta={tiposConsulta} onClose={vi.fn()} onResuelto={vi.fn()} />);
+    expect(screen.queryByText("Tutor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tutores")).not.toBeInTheDocument();
+  });
+
   it("cierra al tocar la X", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();

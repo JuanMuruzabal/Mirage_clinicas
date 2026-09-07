@@ -140,6 +140,37 @@ func TestGetPaciente_DevuelveDatosYHistorialDeTurnos(t *testing.T) {
 	}
 }
 
+// TestGetPaciente_ConTutoresDevuelveLaLista — ronda de correcciones
+// (2026-09-06): GET /pacientes/{id} devuelve la lista de tutores
+// conocidos de la ficha (ver PacienteTutor en models.go), no un único set
+// de campos.
+func TestGetPaciente_ConTutoresDevuelveLaLista(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "pac-tutores1@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Mila", ApellidoContacto: "Ortiz", DNIContacto: "40333222",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		HoraFin:        time.Date(2030, 9, 1, 10, 30, 0, 0, time.UTC).Format(time.RFC3339),
+		ParaOtro:       true, TutorRelacion: "familiar", TutorNombre: "Julián Ortiz",
+		TutorTelefono: "+5493511111111", TutorEmail: "julian@example.com",
+	})
+	var turnoCreado turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &turnoCreado)
+
+	recDetalle := doJSONAuth(t, router, http.MethodGet, "/pacientes/"+*turnoCreado.PacienteID, reg.Token, nil)
+	if recDetalle.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", recDetalle.Code, http.StatusOK, recDetalle.Body.String())
+	}
+	var got pacienteDetalleResponse
+	_ = json.Unmarshal(recDetalle.Body.Bytes(), &got)
+	if len(got.Tutores) != 1 || got.Tutores[0].Nombre != "Julián Ortiz" {
+		t.Errorf("Tutores = %+v, esperaba 1 tutor Julián Ortiz", got.Tutores)
+	}
+}
+
 // TestGetPaciente_VerificadoConTurnoResueltoYAsistido — Fase 2.4.1: la
 // ficha de un paciente con al menos un turno resuelto y asistido devuelve
 // Verificado=true en /pacientes/{id}.
@@ -193,8 +224,9 @@ func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
+	telNoVerificado := "+549"
 	noVerificado := db.Paciente{
-		ProfesionalID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: "+549", Origen: "pagina_publica",
+		ProfesionalID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: &telNoVerificado, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&noVerificado).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente no verificado de prueba: %v", err)
@@ -253,7 +285,7 @@ func TestEditarPaciente_Exitoso(t *testing.T) {
 	}
 	var got pacienteResponse
 	_ = json.Unmarshal(recEditar.Body.Bytes(), &got)
-	if got.DNI != "30222444" || got.Telefono != "+5493511234567" {
+	if got.DNI != "30222444" || got.Telefono == nil || *got.Telefono != "+5493511234567" {
 		t.Errorf("got = %+v, esperaba DNI/teléfono actualizados", got)
 	}
 	if got.Email == nil || *got.Email != "julian@example.com" {
@@ -432,6 +464,63 @@ func TestCrearPaciente_ValidacionesDeFormato(t *testing.T) {
 		rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, req)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status = %d, esperaba %d", nombre, rec.Code, http.StatusBadRequest)
+		}
+	}
+}
+
+// TestCrearPaciente_ConTutorExitoso — Fase 2.4.2, "+ Agregar paciente" >
+// "Con tutor": el teléfono propio del paciente queda opcional (nil si no
+// se manda) y la ficha nace con los datos del tutor.
+func TestCrearPaciente_ConTutorExitoso(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "crearpac-tutor1@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, crearPacienteRequest{
+		Nombre: "Mila", Apellido: "Ortiz", DNI: "40333444",
+		ConTutor:      true,
+		TutorRelacion: "familiar",
+		TutorNombre:   "Julián Ortiz",
+		TutorTelefono: "+5493511111111",
+		TutorEmail:    "julian@example.com",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var got pacienteResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.Telefono != nil {
+		t.Errorf("Telefono = %v, esperaba nil (sin teléfono propio)", *got.Telefono)
+	}
+	if len(got.Tutores) != 1 || got.Tutores[0].Nombre != "Julián Ortiz" {
+		t.Errorf("Tutores = %+v, esperaba 1 tutor Julián Ortiz", got.Tutores)
+	}
+}
+
+// TestCrearPaciente_ConTutorValidacionesDeFormato — mismo criterio que
+// TestCrearPaciente_ValidacionesDeFormato, para los 5 campos de tutor.
+func TestCrearPaciente_ConTutorValidacionesDeFormato(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "crearpac-tutor2@example.com")
+
+	base := crearPacienteRequest{
+		Nombre: "Mila", Apellido: "Ortiz", DNI: "40333555", ConTutor: true,
+		TutorRelacion: "familiar", TutorNombre: "Julián Ortiz",
+		TutorTelefono: "+5493511111111", TutorEmail: "julian@example.com",
+	}
+	casos := map[string]func(*crearPacienteRequest){
+		"relación inválida":          func(r *crearPacienteRequest) { r.TutorRelacion = "vecino" },
+		"sin nombre de tutor":        func(r *crearPacienteRequest) { r.TutorNombre = "" },
+		"teléfono de tutor inválido": func(r *crearPacienteRequest) { r.TutorTelefono = "123" },
+		"email de tutor inválido":    func(r *crearPacienteRequest) { r.TutorEmail = "no-es-un-email" },
+	}
+	for nombre, mutar := range casos {
+		req := base
+		mutar(&req)
+		rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, esperaba %d. body=%s", nombre, rec.Code, http.StatusBadRequest, rec.Body.String())
 		}
 	}
 }

@@ -74,15 +74,13 @@ describe("VerTextoBoton", () => {
     expect(botonLink.className).toContain("underline-offset-2");
   });
 
-  // Corrección de QA (Extra 2.3.3): la columna Contacto de TurnosTable
-  // pide "ver mail ->" con flecha, mismo estilo que "Ver paciente →" —
-  // sin la prop, ningún otro uso existente (tarjetas del dashboard,
-  // pastillas de tabla) suma la flecha por su cuenta.
-  it("flecha=true suma ' →' al final del texto del botón; sin la prop, no aparece", () => {
-    const { rerender } = render(<VerTextoBoton titulo="Email" texto="alguien@example.com" />);
+  // Tercera ronda de correcciones (2026-09-06), pedido textual del
+  // cliente: "sacar de todos los botones que contengan '->'" — el prop
+  // `flecha` que existía acá (Extra 2.3.3) se eliminó del todo, ver el
+  // comentario grande arriba del componente.
+  it("nunca suma una flecha al texto del botón", () => {
+    render(<VerTextoBoton titulo="Email" texto="alguien@example.com" />);
     expect(screen.getByRole("button", { name: "Ver email" })).toBeInTheDocument();
-
-    rerender(<VerTextoBoton titulo="Email" texto="alguien@example.com" flecha />);
-    expect(screen.getByRole("button", { name: "Ver email →" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /→/ })).not.toBeInTheDocument();
   });
 });

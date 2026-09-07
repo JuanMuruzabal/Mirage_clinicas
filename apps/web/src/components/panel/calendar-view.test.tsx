@@ -144,9 +144,9 @@ describe("CalendarView", () => {
       render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[turno]} turnoAPosicionar="t-1" />);
 
       expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
-      // Vertical: (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64,
-      // menos una hora de aire (ver scrollAHora) = (7 - 1) * 64 = 384.
-      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+      // Vertical: (15:00 en minutos/60 - HORA_INICIO=6) * PX_POR_HORA=64,
+      // menos una hora de aire (ver scrollAHora) = (9 - 1) * 64 = 512.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 512 }));
     } finally {
       scrollToSpy.mockRestore();
     }
@@ -207,9 +207,9 @@ describe("CalendarView", () => {
       );
 
       await screen.findByRole("dialog", { name: "Horario bloqueado" });
-      // (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64, menos una
-      // hora de aire (ver scrollAHora en calendar-view.tsx) = (7-1)*64 = 384.
-      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+      // (15:00 en minutos/60 - HORA_INICIO=6) * PX_POR_HORA=64, menos una
+      // hora de aire (ver scrollAHora en calendar-view.tsx) = (9-1)*64 = 512.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 512 }));
     } finally {
       scrollToSpy.mockRestore();
     }

@@ -300,6 +300,17 @@ export interface Turno {
   // criterio que Paciente.verificado: false si no hay paciente vinculado.
   // Opcional por lo mismo que autoreservado — no romper fixtures viejos.
   pacienteVerificado?: boolean;
+  // esParaOtro/tutor* (Fase 2.4.2) — presentes solo si el turno se
+  // originó por el camino "sacar turno para otro" del wizard público.
+  // esParaOtro alimenta la columna "Sacado por otro" de /panel/turnos.
+  esParaOtro?: boolean;
+  // Sin tutorDni (tercera ronda de correcciones, 2026-09-06, pedido
+  // textual del cliente: "no es tan útil y agrega complejidad") —
+  // eliminado del todo, tanto acá como en TutorInfo más abajo.
+  tutorRelacion?: string | null;
+  tutorNombre?: string | null;
+  tutorTelefono?: string | null;
+  tutorEmail?: string | null;
 }
 
 // AutoreservarResultadoItem/AutoreservarTurnosResponse — respuesta de
@@ -416,12 +427,32 @@ export interface PaginaPublica {
 }
 
 // Espejo de pacienteResponse (internal/http/pacientes.go).
+// TutorInfo — un tutor conocido/confirmado de un paciente (Fase 2.4.2,
+// ver PacienteTutor en apps/api/internal/db/models.go).
+export interface TutorInfo {
+  relacion: string;
+  nombre: string;
+  telefono: string;
+  email: string;
+  // telefonosAlternativos — cuarta ronda de correcciones (2026-09-06):
+  // "si un tutor vuelve a sacar turno con mismo mail, diferente
+  // teléfono, añadir ese teléfono al tutor del mail correspondiente" —
+  // se ACUMULA (mismo criterio que Paciente.telefonosAlternativos),
+  // nunca reemplaza al principal. Vacío en la enorme mayoría de los
+  // tutores.
+  telefonosAlternativos?: string[];
+}
+
 export interface Paciente {
   id: string;
   nombre: string;
   apellido: string;
   dni: string;
-  telefono: string;
+  // telefono (Fase 2.4.2) — pasa a opcional, mismo patrón que `email`: el
+  // camino "sacar turno para otro" deja el teléfono PROPIO del paciente
+  // sin cargar (opcional, a diferencia de "para mí" donde uno de los 2 ya
+  // es obligatorio).
+  telefono?: string | null;
   email?: string | null;
   createdAt: string;
   // verificado (Fase 2.4.1) — al menos 1 turno resuelto y asistido,
@@ -430,18 +461,26 @@ export interface Paciente {
   // fixtures de test existentes que no lo incluyen — ausente se trata
   // igual que `false`.
   verificado?: boolean;
+  // tutores (Fase 2.4.2, rediseñado en la ronda de correcciones del
+  // 2026-09-06): un paciente puede tener MÁS de un tutor a lo largo del
+  // tiempo (mamá, papá, una abuela...) — antes era un único set de
+  // campos singular, ahora una lista (vacía/ausente en la enorme mayoría
+  // de las fichas, que nunca se cargaron por "sacar turno para otro").
+  tutores?: TutorInfo[];
+  // emailsAlternativos/telefonosAlternativos (Fase 2.4.1, corrección de
+  // QA; sumado a la tabla de Pacientes —no solo la ficha— en la ronda de
+  // correcciones 2026-09-06) — mails/teléfonos sumados a esta ficha
+  // VERIFICADA al resolver un conflicto de pacientes con "el mail es de
+  // la persona verificada". Vacío/ausente en la enorme mayoría de los
+  // pacientes.
+  emailsAlternativos?: string[];
+  telefonosAlternativos?: string[];
 }
 
 // Espejo de pacienteDetalleResponse — datos personales + historial
 // completo de turnos (T3.6); el front separa "activos" de "historial".
 export interface PacienteDetalle extends Paciente {
   turnos: Turno[];
-  // emailsAlternativos/telefonosAlternativos (Fase 2.4.1, corrección de
-  // QA) — mails/teléfonos sumados a esta ficha VERIFICADA al resolver un
-  // conflicto de pacientes con "el mail es de la persona verificada".
-  // Vacío/ausente en la enorme mayoría de los pacientes.
-  emailsAlternativos?: string[];
-  telefonosAlternativos?: string[];
 }
 
 // Espejo de conflictoPacienteResponse (Fase 2.4.1,

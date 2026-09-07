@@ -12,13 +12,6 @@ interface VerTextoBotonProps {
   // de tabla. "link": texto simple subrayado al hover, para el cuerpo
   // semi-transparente de las tarjetas del dashboard (F2.3 extra ítem 1).
   variante?: "boton" | "link";
-  // flecha (Extra 2.3.3, corrección de QA) — suma "→" al final del
-  // texto, mismo estilo que "Ver paciente →"/"Ver ficha →" (links de
-  // navegación real). Pensado para la variante "link" en un lugar donde
-  // ya conviven otros links con flecha (ej. la columna Contacto de
-  // TurnosTable) — por defecto sin flecha, para no tocar los usos ya
-  // existentes (tarjetas del dashboard, pastillas de tabla).
-  flecha?: boolean;
   className?: string;
 }
 
@@ -30,7 +23,13 @@ interface VerTextoBotonProps {
 // construye ACÁ (tarjeta 3- del Turnero, la primera en usarlo) para que
 // los ítems 2.3.3 ("Ver motivo" en Turnos) y 2.3.4 ("Ver mail" en
 // Pacientes) lo reusen tal cual, sin duplicar el modal.
-export function VerTextoBoton({ titulo, texto, variante = "boton", flecha = false, className = "" }: VerTextoBotonProps) {
+//
+// Sin flecha (tercera ronda de correcciones, 2026-09-06, pedido textual
+// del cliente: "sacar de todos los botones que contengan '->'") — el prop
+// `flecha` que existía acá se eliminó del todo: SIEMPRE es un `<button>`
+// que abre un modal, nunca navega, así que la flecha no correspondía en
+// ninguno de sus usos.
+export function VerTextoBoton({ titulo, texto, variante = "boton", className = "" }: VerTextoBotonProps) {
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -48,7 +47,6 @@ export function VerTextoBoton({ titulo, texto, variante = "boton", flecha = fals
         }
       >
         Ver {titulo.toLowerCase()}
-        {flecha && " →"}
       </button>
 
       {abierto && (

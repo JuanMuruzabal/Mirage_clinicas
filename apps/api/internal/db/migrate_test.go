@@ -123,16 +123,18 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 		gdb.Unscoped().Delete(&profesional)
 	})
 
+	telVerificada := "+5493511111111"
 	verificada := db.Paciente{
 		ProfesionalID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
-		DNI: dni, Telefono: "+5493511111111", Origen: "pagina_publica",
+		DNI: dni, Telefono: &telVerificada, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&verificada).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha original de prueba: %v", err)
 	}
+	telEnConflicto := "+5493512222222"
 	enConflicto := db.Paciente{
 		ProfesionalID: profesional.ID, Nombre: "Juan", Apellido: "M",
-		DNI: dni, Telefono: "+5493512222222", EnConflicto: true, Origen: "pagina_publica",
+		DNI: dni, Telefono: &telEnConflicto, EnConflicto: true, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)

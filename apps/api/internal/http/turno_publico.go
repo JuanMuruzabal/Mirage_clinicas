@@ -86,6 +86,57 @@ func (e *errYaTieneUnTurnoActivo) Error() string {
 		". No podés sacar otro turno — por cualquier consulta o modificación, contactate con la clínica."
 }
 
+// identidadDeContactoDelTurno — Fase 2.4.2, corrección de QA (ronda de
+// correcciones, 2026-09-06): el mail que identifica a quien reconoce este
+// turno es el del TUTOR cuando `EsParaOtro` (el mail propio del paciente
+// casi siempre está vacío en ese camino) — usado en mensajes de error que
+// necesitan mostrarle a la persona "con qué mail sacaste este turno".
+func identidadDeContactoDelTurno(turno db.Turno) string {
+	if turno.EsParaOtro && turno.TutorEmail != nil {
+		return *turno.TutorEmail
+	}
+	return turno.EmailContacto
+}
+
+// sincronizarTutorDesdeFichaVerificada — camino "ya he venido antes"
+// (`usaPacienteVerificado`, ver el call site): a diferencia de "primera
+// vez", este camino no manda ningún dato de tutor en la request (el mismo
+// payload sirve para "para mí"/"para otro" verificados, ver
+// pedir-turno-form.tsx, `esVerificado`) — el único dato disponible es el
+// mail que se acaba de verificar (`turno.EmailContacto`, todavía sin
+// sincronizar). Acá se decide si ese mail es el PROPIO del paciente o el
+// de uno de sus tutores conocidos (ver PacienteTutor en models.go), y se
+// arma el turno en consecuencia.
+//
+// Bug real corregido en la ronda de correcciones (2026-09-06): antes,
+// cuando el mail verificado era el de un tutor y el paciente no tenía
+// mail propio, `turno.EmailContacto` terminaba quedándose con el mail del
+// TUTOR filtrado ahí — rompía el principio de todo el archivo ("Contacto
+// es siempre el paciente", ver el comentario grande en models.go). Ahora
+// se limpia explícitamente antes de sincronizar los datos del paciente.
+func sincronizarTutorDesdeFichaVerificada(tx *gorm.DB, turno *db.Turno, paciente db.Paciente) error {
+	emailVerificado := turno.EmailContacto
+	tutor, err := buscarTutorConMail(tx, paciente.ID, emailVerificado)
+	if err != nil {
+		return err
+	}
+	if tutor == nil {
+		// El mail verificado es el propio del paciente (o uno de sus
+		// alternativos) — camino "para mí" de siempre, sin tutor de por
+		// medio.
+		sincronizarContactoConPaciente(turno, paciente)
+		return nil
+	}
+	turno.EsParaOtro = true
+	turno.TutorRelacion = &tutor.Relacion
+	turno.TutorNombre = &tutor.Nombre
+	turno.TutorTelefono = &tutor.Telefono
+	turno.TutorEmail = &tutor.Email
+	turno.EmailContacto = "" // nunca el mail del tutor — ver el comentario grande de arriba.
+	sincronizarContactoConPaciente(turno, paciente)
+	return nil
+}
+
 // turnoActivoPorDNI — mismo criterio de "vigente" que el resto del
 // archivo (estado='agendado' AND hora_fin >= ahora), sin filtrar por
 // tipo de consulta ni por ficha: dos fichas separadas por un conflicto
@@ -431,12 +482,23 @@ const ventanaRotacionPorIP = 30 * time.Minute
 // no combinados) que llegaron desde esta IP en la ventana de arriba. Ver
 // el comentario grande de limiteDistintosPorIPParaRotacion sobre por qué
 // no alcanza con un conteo combinado.
+// identidadEmailSQL — Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md`
+// 3.6): la identidad que rota es la del TUTOR en un turno "para otro", no
+// la del paciente (que puede no tener mail propio, o directamente
+// compartirlo con otros hijos del mismo tutor a propósito) — un tutor
+// real reutiliza el mismo mail para varios hijos, por eso el conteo tiene
+// que mirar `tutor_email` en esas filas para que ese uso legítimo nunca
+// llegue a "mailsDistintos". `dni_contacto` sigue siendo SIEMPRE el DNI
+// real del paciente (nunca cambia de significado, ver el comentario
+// grande en models.go) — no necesita ningún CASE.
+const identidadEmailSQL = "CASE WHEN es_para_otro THEN tutor_email ELSE email_contacto END"
+
 func contarDistintosPorIP(tx *gorm.DB, profesionalID uuid.UUID, ip string) (mails int, dnis int, err error) {
 	base := tx.Model(&db.Turno{}).
 		Where("profesional_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP))
 
 	var emails []string
-	if err = base.Session(&gorm.Session{}).Distinct("email_contacto").Pluck("email_contacto", &emails).Error; err != nil {
+	if err = base.Session(&gorm.Session{}).Distinct(identidadEmailSQL).Pluck(identidadEmailSQL, &emails).Error; err != nil {
 		return 0, 0, err
 	}
 	var dnisList []string
@@ -448,13 +510,31 @@ func contarDistintosPorIP(tx *gorm.DB, profesionalID uuid.UUID, ip string) (mail
 
 // bloquearIPPorRotacionYBorrarTurnos — ver el comentario grande de
 // limiteDistintosPorIPParaRotacion. Corrección de QA, pedido textual del
-// cliente: además de bloquear la IP, borra TODOS los turnos que esa IP
-// generó para este profesional (mismo criterio "se eliminan, no se
-// cancelan" que bloquearMailPorAbusoDeDNIsYBorrarTurnos) — el pedido
-// puntual que gatilló el límite ni llega a crear turno (se chequea ANTES,
-// ver el call site), pero los anteriores de la misma IP, aunque cada uno
-// aislado pareciera legítimo, en conjunto ya formaban parte del mismo
-// patrón de rotación — no tiene sentido dejarlos ocupando horarios.
+// cliente: además de bloquear la IP, borra los turnos que esa IP generó
+// para este profesional DENTRO DE LA VENTANA DE DETECCIÓN (mismo criterio
+// "se eliminan, no se cancelan" que bloquearMailPorAbusoDeDNIsYBorrarTurnos)
+// — el pedido puntual que gatilló el límite ni llega a crear turno (se
+// chequea ANTES, ver el call site), pero los anteriores de la misma IP
+// EN ESA MISMA VENTANA, aunque cada uno aislado pareciera legítimo, en
+// conjunto ya formaban parte del mismo patrón de rotación — no tiene
+// sentido dejarlos ocupando horarios.
+//
+// Corrección de seguridad (TR-115, 2026-09-06), pedido textual del
+// cliente: "esto puede ser peligroso porque puede borrar turnos
+// legítimos, ya que la IP es compartida" — dos ajustes sobre la versión
+// original:
+//  1. El borrado queda acotado a `ventanaRotacionPorIP` (antes no tenía
+//     límite de fecha: borraba TODO el historial de esa IP para este
+//     profesional, sin importar cuándo se había creado). Una IP
+//     compartida real (oficina, edificio, wifi pública, CGNAT de una
+//     operadora) puede tener turnos legítimos de semanas atrás que nada
+//     tienen que ver con el patrón detectado ahora.
+//  2. Los turnos de un paciente ya VERIFICADO quedan afuera del borrado —
+//     mismo criterio que ya usan los otros dos detectores más arriba
+//     ("sin verificar, no sabemos con certeza quién es el impostor acá"):
+//     alguien que ya demostró ser real (asistió a un turno) no pierde el
+//     suyo solo por compartir IP con quien está rotando mail+DNI ahora.
+//
 // Corrección de QA sobre el modo simulado (Fase 2.4.1): acá también el
 // borrado de los turnos anteriores pasa de verdad con
 // `simularBloqueo=true` — solo se saltea el bloqueo persistente de la IP,
@@ -466,11 +546,34 @@ func bloquearIPPorRotacionYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUID, ip
 		}
 	}
 
-	var turnos []db.Turno
-	if err := tx.Where("profesional_id = ? AND ip_contacto = ?", profesionalID, ip).Find(&turnos).Error; err != nil {
+	var turnosEnVentana []db.Turno
+	if err := tx.Where("profesional_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP)).
+		Find(&turnosEnVentana).Error; err != nil {
 		return err
 	}
-	dnisBorrados, cantidad, err := borrarTurnosYPacientesOrfanados(tx, turnos)
+
+	turnosABorrar := make([]db.Turno, 0, len(turnosEnVentana))
+	for _, t := range turnosEnVentana {
+		if t.PacienteID != nil {
+			var paciente db.Paciente
+			err := tx.First(&paciente, "id = ?", *t.PacienteID).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err == nil {
+				verificado, err := pacienteEstaVerificado(tx, paciente)
+				if err != nil {
+					return err
+				}
+				if verificado {
+					continue
+				}
+			}
+		}
+		turnosABorrar = append(turnosABorrar, t)
+	}
+
+	dnisBorrados, cantidad, err := borrarTurnosYPacientesOrfanados(tx, turnosABorrar)
 	if err != nil {
 		return err
 	}
@@ -617,9 +720,31 @@ type solicitarTurnoPublicoRequest struct {
 	// vincula DIRECTO a esa ficha (ya se demostró control del mail/DNI),
 	// sin pasar por crearPacientePublicoConDeteccionDeConflicto ni exigir
 	// Nombre/Apellido/DNI/TelefonoContacto (se completan solos desde la
-	// ficha encontrada) — EmailContacto sigue siendo obligatorio: es el
-	// mail que se verificó, hace falta para consumir el token.
+	// ficha encontrada) — EmailContacto sigue siendo obligatorio para el
+	// camino "para mí": es el mail que se verificó, hace falta para
+	// consumir el token. Para "para otro" el mail que se verificó es
+	// TutorEmail, ver más abajo.
 	PacienteVerificadoID string `json:"pacienteVerificadoId"`
+	// ParaOtro/Tutor* — Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien
+	// especificada.docx`, camino "sacar turno para otro"). Con
+	// ParaOtro=true: NombreContacto/ApellidoContacto/DNIContacto siguen
+	// siendo del PACIENTE (sin cambio de significado, ver el comentario
+	// grande en models.go), pero TelefonoContacto/EmailContacto pasan a
+	// ser el teléfono/mail PROPIO del paciente — opcionales — y el mail
+	// que de verdad se verifica y se usa como identidad del pedido (para
+	// bloqueos/rotación/el mail de confirmación) es TutorEmail, no
+	// EmailContacto. TutorRelacion es un select acotado
+	// (familiar/amigo/otro, check constraint en migrate.go), no texto
+	// libre. Todos vacíos/false en el camino "para mí" — no rompe nada
+	// existente.
+	// TutorDNI existió hasta la tercera ronda de correcciones (2026-09-06)
+	// — eliminado del todo, pedido textual del cliente ("no es tan útil y
+	// agrega complejidad"). La identidad del tutor sigue siendo TutorEmail.
+	ParaOtro      bool   `json:"paraOtro"`
+	TutorRelacion string `json:"tutorRelacion"`
+	TutorNombre   string `json:"tutorNombre"`
+	TutorTelefono string `json:"tutorTelefono"`
+	TutorEmail    string `json:"tutorEmail"`
 }
 
 type solicitarTurnoPublicoResponse struct {
@@ -674,12 +799,28 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		req.Hora = strings.TrimSpace(req.Hora)
 		req.VerificacionToken = strings.TrimSpace(req.VerificacionToken)
 		req.PacienteVerificadoID = strings.TrimSpace(req.PacienteVerificadoID)
+		// Fase 2.4.2 — normalización de los campos de tutor, mismo criterio
+		// que los de contacto de arriba.
+		req.TutorRelacion = strings.TrimSpace(req.TutorRelacion)
+		req.TutorNombre = strings.TrimSpace(req.TutorNombre)
+		req.TutorTelefono = strings.TrimSpace(req.TutorTelefono)
+		req.TutorEmail = strings.TrimSpace(strings.ToLower(req.TutorEmail))
 
 		if req.VerificacionToken == "" {
 			writeError(w, http.StatusBadRequest, "verificá tu mail antes de pedir el turno")
 			return
 		}
-		if _, err := mail.ParseAddress(req.EmailContacto); err != nil {
+		// identidadEmail — Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md`
+		// 3.1/3.3): el mail que de verdad se verificó y que identifica el
+		// pedido es el del TUTOR cuando `paraOtro=true` — EmailContacto
+		// pasa a ser el mail PROPIO (opcional) del paciente en ese camino,
+		// no sirve para validar el formato acá ni para las capas de abajo
+		// (bloqueo de mail, consumir el token, mail de confirmación).
+		identidadEmail := req.EmailContacto
+		if req.ParaOtro {
+			identidadEmail = req.TutorEmail
+		}
+		if _, err := mail.ParseAddress(identidadEmail); err != nil {
 			writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
 			return
 		}
@@ -708,9 +849,38 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				writeError(w, http.StatusBadRequest, "el DNI debe tener 7 u 8 dígitos, sin puntos")
 				return
 			}
-			if !telefonoRegex.MatchString(req.TelefonoContacto) {
+			// TelefonoContacto (Fase 2.4.2): obligatorio solo en "para mí"
+			// — el `.docx` pide explícitamente que, en "para otro", el
+			// teléfono PROPIO del paciente quede opcional (si viene, igual
+			// se valida el formato).
+			if !req.ParaOtro && !telefonoRegex.MatchString(req.TelefonoContacto) {
 				writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
 				return
+			}
+			if req.ParaOtro && req.TelefonoContacto != "" && !telefonoRegex.MatchString(req.TelefonoContacto) {
+				writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
+				return
+			}
+			if req.ParaOtro {
+				// Datos del tutor (`.docx`, fase 2.4.2): relación acotada,
+				// nombre obligatorio, teléfono/mail del tutor obligatorios
+				// (el mail es justo el que se verificó). Sin DNI (tercera
+				// ronda de correcciones, 2026-09-06, pedido textual del
+				// cliente: "no es tan útil y agrega complejidad") — con él
+				// se cae también la validación "DNI tutor ≠ DNI paciente",
+				// que dependía de este dato.
+				if req.TutorRelacion != "familiar" && req.TutorRelacion != "amigo" && req.TutorRelacion != "otro" {
+					writeError(w, http.StatusBadRequest, "elegí una relación válida con el paciente")
+					return
+				}
+				if req.TutorNombre == "" {
+					writeError(w, http.StatusBadRequest, "el nombre de quien reserva el turno es obligatorio")
+					return
+				}
+				if !telefonoRegex.MatchString(req.TutorTelefono) {
+					writeError(w, http.StatusBadRequest, "el teléfono de quien reserva el turno no tiene un formato válido")
+					return
+				}
 			}
 		}
 		tipoConsultaID, err := uuid.Parse(req.TipoConsultaID)
@@ -755,6 +925,19 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			Motivo:           req.Motivo,
 			Origen:           "pagina_publica",
 			IPContacto:       &ip,
+			EsParaOtro:       req.ParaOtro,
+		}
+		// Tutor* — Fase 2.4.2: snapshot independiente del turno (mismo
+		// criterio que el resto de los campos de contacto), solo con
+		// "para otro". El camino "ya he venido antes" (usaPacienteVerificado)
+		// los completa solo desde la ficha encontrada más abajo
+		// (sincronizarContactoConPaciente) — acá alcanza con lo que vino
+		// en la request para el camino "primera vez".
+		if req.ParaOtro {
+			turno.TutorRelacion = &req.TutorRelacion
+			turno.TutorNombre = &req.TutorNombre
+			turno.TutorTelefono = &req.TutorTelefono
+			turno.TutorEmail = &req.TutorEmail
 		}
 
 		// mensajeBloqueoAbuso — ver el comentario grande dentro de la
@@ -777,7 +960,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// no puede pedir turno — por las dudas, además del chequeo que ya
 			// hace enviarVerificacionTurnoPublicoHandler: un token emitido
 			// ANTES del bloqueo podría seguir vigente hasta 30 min más.
-			if bloqueado, err := emailEstaBloqueado(tx, clinic.ID, req.EmailContacto); err != nil {
+			if bloqueado, err := emailEstaBloqueado(tx, clinic.ID, identidadEmail); err != nil {
 				return err
 			} else if bloqueado {
 				return errEmailBloqueadoTurnoPublico
@@ -789,8 +972,10 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// disponibilidad. Si el resto de la transacción falla más
 			// adelante (horario ya no disponible), todo se revierte
 			// junto, token incluido — el paciente puede reintentar con
-			// otro horario sin verificar de nuevo.
-			if err := consumirVerificacionTurnoPublico(tx, clinic.ID.String(), req.EmailContacto, req.VerificacionToken); err != nil {
+			// otro horario sin verificar de nuevo. `identidadEmail`: el
+			// mail del TUTOR en "para otro" (Fase 2.4.2) — es el que de
+			// verdad recibió el código, EmailContacto puede venir vacío.
+			if err := consumirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken); err != nil {
 				return err
 			}
 
@@ -828,7 +1013,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 					return err
 				}
 				if turnoActivo != nil {
-					return &errYaTieneUnTurnoActivo{email: turnoActivo.EmailContacto}
+					return &errYaTieneUnTurnoActivo{email: identidadDeContactoDelTurno(*turnoActivo)}
 				}
 			}
 
@@ -889,7 +1074,17 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// limiteDNIsDistintosPorMail DNIs distintos en archivo, el
 			// pedido que dispara el límite ni llega a crear nada — solo se
 			// borran los que ya existían.
-			if !usaPacienteVerificado {
+			//
+			// Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md` 3.6): se
+			// EXCEPTÚA DEL TODO para "para otro" — un tutor real con
+			// varios hijos (mismo mail, DNIs distintos) es EXACTAMENTE el
+			// patrón que este chequeo no debe tocar. No se redirige a
+			// TutorEmail ni se sube el número: cualquier tope fijo
+			// terminaría siendo laxo para abuso o estricto para una
+			// familia numerosa real. La rotación por IP (más abajo) sigue
+			// cubriendo el hueco que esto deja — un tutor legítimo REUSA
+			// el mismo mail, así que nunca la dispara.
+			if !usaPacienteVerificado && !req.ParaOtro {
 				dnisExistentes, err := dnisVigentesPorMail(tx, clinic.ID, turno.EmailContacto)
 				if err != nil {
 					return err
@@ -943,7 +1138,9 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				// request (la ficha ya se identificó del todo con la
 				// tarjeta), así que hay que copiarlo a mano.
 				turno.DNIContacto = paciente.DNI
-				sincronizarContactoConPaciente(&turno, paciente)
+				if err := sincronizarTutorDesdeFichaVerificada(tx, &turno, paciente); err != nil {
+					return err
+				}
 			} else {
 				resultado, err := crearPacientePublicoConDeteccionDeConflicto(tx, clinic.ID, &turno)
 				if err != nil {
@@ -966,7 +1163,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 					return err
 				}
 				if turnoActivo != nil {
-					return &errYaTieneUnTurnoActivo{email: turnoActivo.EmailContacto}
+					return &errYaTieneUnTurnoActivo{email: identidadDeContactoDelTurno(*turnoActivo)}
 				}
 			}
 
@@ -1128,7 +1325,14 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		// turno" — DESPUÉS de que la transacción ya comiteó (el turno
 		// existe de verdad), un mail que falla nunca tumba el request que
 		// lo dispara (mismo criterio que el resto de internal/mail).
-		_ = deps.Mail.SendTurnoConfirmadoEmail(r.Context(), turno.EmailContacto, dmmail.TurnoConfirmadoInfo{
+		// mailDeConfirmacion — Fase 2.4.2: el tutor es quien reservó y
+		// quien espera la confirmación en "para otro" — `turno.EmailContacto`
+		// (el mail PROPIO, opcional, del paciente) puede estar vacío.
+		mailDeConfirmacion := turno.EmailContacto
+		if turno.EsParaOtro && turno.TutorEmail != nil {
+			mailDeConfirmacion = *turno.TutorEmail
+		}
+		_ = deps.Mail.SendTurnoConfirmadoEmail(r.Context(), mailDeConfirmacion, dmmail.TurnoConfirmadoInfo{
 			NombreClinica:  clinic.Nombre,
 			NombrePaciente: strings.TrimSpace(turno.NombreContacto + " " + turno.ApellidoContacto),
 			Fecha:          formatFechaLargaEs(*turno.HoraInicio),

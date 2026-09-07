@@ -16,8 +16,16 @@ import { temaTipoConsulta } from "@/lib/turno-format";
 // misma geometría para calcular a qué scrollTop corresponde una hora
 // concreta, mismo criterio que GUTTER_PX/COL_PX ya exportadas para el
 // scroll horizontal).
-export const HORA_INICIO = 8;
-const HORA_FIN = 20;
+// Ampliado de 8-20 a 6-24 (pedido textual del cliente, 2026-09-06: "puede
+// aumentar la visibilidad del calendario de 6:00 am hasta las 12 de la
+// noche?") — HORA_FIN=24 es un límite (medianoche como fin del día, nunca
+// una fila de contenido propia), no una hora real de reloj: se usa solo
+// como texto ("24:00", la última etiqueta al pie de la columna de horas)
+// y en aritmética de minutos (horaAMinutos/gridHasta más abajo) — nunca
+// pasa por un `new Date(...)` con esa hora, así que no hay riesgo de que
+// JS lo interprete como un rollover al día siguiente (00:00).
+export const HORA_INICIO = 6;
+const HORA_FIN = 24;
 export const PX_POR_HORA = 64;
 
 // MINI_HEADER_PX — alto FIJO del mini-header "Ver eventos →" de un tramo
@@ -628,7 +636,7 @@ export function CalendarGrid({
                             altoResto > 0 ? "rounded-t-field" : "rounded-field"
                           }`}
                         >
-                          Ver eventos →
+                          Ver eventos
                         </button>
                         {/* Pista en el cuerpo (corrección de QA,
                             2026-09-03, ampliada para el paso 2 y para la

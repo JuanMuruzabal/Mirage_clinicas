@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"dental-mirage/api/internal/db"
 )
@@ -65,12 +66,61 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 		return resultadoPacientePublico{}, err
 	}
 
-	responde, err := pacienteRespondeAlMail(tx, existente, turno.EmailContacto)
-	if err != nil {
-		return resultadoPacientePublico{}, err
+	// Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md` 3.4, rediseñado en
+	// la ronda de correcciones del 2026-09-06): "¿esta ficha responde al
+	// mail entrante?" compara contra CUALQUIERA de los tutores YA
+	// CONOCIDOS de esta ficha cuando el turno es "para otro" — ahí la
+	// identidad que importa es la de quien reserva, no la del paciente
+	// (que puede no tener mail propio). Sin TutorEmail (no debería pasar,
+	// la validación de arriba en solicitarTurnoPublicoHandler ya lo exige
+	// para este camino) se trata como "no responde" — nunca reusar una
+	// ficha existente a ciegas.
+	var responde bool
+	if turno.EsParaOtro {
+		if turno.TutorEmail != nil {
+			responde, err = pacienteTieneTutorConMail(tx, existente.ID, *turno.TutorEmail)
+			if err != nil {
+				return resultadoPacientePublico{}, err
+			}
+		}
+	} else {
+		responde, err = pacienteRespondeAlMail(tx, existente, turno.EmailContacto)
+		if err != nil {
+			return resultadoPacientePublico{}, err
+		}
 	}
 	if responde {
+		// emailTipado/telefonoTipado — capturados ANTES de sincronizar:
+		// sincronizarContactoConPaciente pisa turno.EmailContacto/
+		// TelefonoContacto con los de la ficha (si ya tiene), así que
+		// compararlos DESPUÉS siempre daría "igual, no hace nada".
+		emailTipado := turno.EmailContacto
+		telefonoTipado := turno.TelefonoContacto
 		sincronizarContactoConPaciente(turno, existente)
+		if turno.EsParaOtro {
+			if err := agregarEmailAlternativoSiNuevo(tx, &existente, emailTipado); err != nil {
+				return resultadoPacientePublico{}, err
+			}
+			// Teléfono propio del paciente — ronda de correcciones
+			// (2026-09-06), bug real reportado por el cliente: "probé y
+			// solo se llenó el mail, pero no el teléfono" — mismo criterio
+			// que el mail, arriba.
+			if err := agregarTelefonoAlternativoSiNuevo(tx, &existente, telefonoTipado); err != nil {
+				return resultadoPacientePublico{}, err
+			}
+			// Teléfono del TUTOR — pedido textual del cliente (mid-turn,
+			// 2026-09-06): "si un tutor vuelve a sacar turno con mismo
+			// mail, diferente teléfono, añadir ese teléfono al tutor del
+			// mail correspondiente" — a diferencia del teléfono propio de
+			// arriba (que se acumula como alternativo), acá se ACTUALIZA
+			// la fila del tutor — su mail es su identidad, no tiene
+			// "teléfonos alternativos" propios.
+			if turno.TutorEmail != nil {
+				if err := agregarTelefonoDeTutorSiNuevo(tx, existente.ID, *turno.TutorEmail, derefStr(turno.TutorTelefono)); err != nil {
+					return resultadoPacientePublico{}, err
+				}
+			}
+		}
 		return resultadoPacientePublico{Paciente: existente}, nil
 	}
 
@@ -90,11 +140,129 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 		// (ver autoResolverConflictosAlVerificar).
 		return resultadoPacientePublico{Paciente: nueva}, nil
 	}
+
+	// motivoDeConflicto — 4 escenarios según si la ficha YA CONOCÍA algún
+	// tutor y si el pedido nuevo es "para otro" (ronda de correcciones,
+	// 2026-09-06, pedido textual del cliente con 4 casos concretos — ver
+	// TR-116 en docs/tradeoffs.md). Ninguno de los 4 cambia el mecanismo
+	// de conflicto en sí (misma tabla ConflictoPaciente, misma resolución
+	// manual) — solo el texto que le explica al profesional qué pasó.
+	existenteTieneTutores, err := existentePacienteTieneTutores(tx, existente.ID)
+	if err != nil {
+		return resultadoPacientePublico{}, err
+	}
+	var motivo string
+	switch {
+	case existenteTieneTutores && turno.EsParaOtro:
+		// Escenario A: un tutor nuevo (distinto de los ya conocidos)
+		// pide turno para el mismo paciente.
+		motivo = "un nuevo tutor (" + derefStr(turno.TutorNombre) + ") pide turno para este paciente — ya hay otro tutor confirmado con este DNI"
+	case existenteTieneTutores && !turno.EsParaOtro:
+		// Escenario B: el paciente se presenta "para mí", con su propio
+		// mail, aunque hasta ahora este DNI solo se conocía a través de
+		// un tutor.
+		motivo = "el paciente se presentó con su propio mail — este DNI está confirmado a través de un tutor. Recomendamos contactar al/los tutor(es) confirmado(s) si hace falta verificar."
+	case !existenteTieneTutores && turno.EsParaOtro:
+		// Escenario D (reverso de A): un tutor aparece para un paciente
+		// que ya se había confirmado por sí mismo.
+		motivo = "un tutor (" + derefStr(turno.TutorNombre) + ") pide turno para este paciente, ya confirmado por sí mismo"
+	default:
+		// Escenario "para mí" de siempre — sin cambios respecto de antes
+		// de esta ronda.
+		motivo = "se registró con un mail distinto al de la ficha ya verificada con este DNI"
+	}
 	return resultadoPacientePublico{
 		Paciente:               nueva,
 		ConflictoConVerificado: &existente,
-		Motivo:                 "se registró con un mail distinto al de la ficha ya verificada con este DNI",
+		Motivo:                 motivo,
 	}, nil
+}
+
+// existentePacienteTieneTutores — ¿esta ficha ya tiene al menos un tutor
+// confirmado? (ver PacienteTutor en models.go) — decide, junto con
+// `turno.EsParaOtro`, cuál de los 4 motivos de conflicto de arriba aplica.
+func existentePacienteTieneTutores(tx *gorm.DB, pacienteID uuid.UUID) (bool, error) {
+	var count int64
+	err := tx.Model(&db.PacienteTutor{}).Where("paciente_id = ?", pacienteID).Limit(1).Count(&count).Error
+	return count > 0, err
+}
+
+// agregarEmailAlternativoSiNuevo — ronda de correcciones (2026-09-06),
+// pedido textual del cliente: "si los tutores añaden diferentes mails
+// (opcionales al paciente) añadirlos a este cuando se complete el turno".
+// Solo aplica cuando se REUSA una ficha ya existente por el camino "para
+// otro" (el mail propio del paciente es opcional ahí, así que puede venir
+// vacío, ser nuevo, o repetir el que ya tiene) — si `emailTipado` viene
+// vacío, o ya es el principal, no hace nada. Si la ficha no tenía mail
+// propio todavía, este pasa a ser el principal (por eso recibe `*existente`
+// y lo actualiza); si ya tenía uno DISTINTO, se suma como alternativo
+// (mismo `ON CONFLICT DO NOTHING` que migrarAlternativosDeContacto).
+func agregarEmailAlternativoSiNuevo(tx *gorm.DB, existente *db.Paciente, emailTipado string) error {
+	if emailTipado == "" {
+		return nil
+	}
+	if existente.Email == nil {
+		if err := tx.Model(existente).Update("email", emailTipado).Error; err != nil {
+			return err
+		}
+		existente.Email = &emailTipado
+		return nil
+	}
+	if *existente.Email == emailTipado {
+		return nil
+	}
+	alt := db.PacienteEmailAlternativo{PacienteID: existente.ID, Email: emailTipado}
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&alt).Error
+}
+
+// agregarTelefonoAlternativoSiNuevo — mismo criterio que
+// agregarEmailAlternativoSiNuevo de arriba (ver ese comentario), para el
+// teléfono PROPIO del paciente. Ronda de correcciones (2026-09-06), bug
+// real reportado por el cliente: "probé y solo se llenó el mail, pero no
+// el teléfono" — esta función nunca se había escrito, a pesar de que el
+// criterio es idéntico al del mail.
+func agregarTelefonoAlternativoSiNuevo(tx *gorm.DB, existente *db.Paciente, telefonoTipado string) error {
+	if telefonoTipado == "" {
+		return nil
+	}
+	if existente.Telefono == nil {
+		if err := tx.Model(existente).Update("telefono", telefonoTipado).Error; err != nil {
+			return err
+		}
+		existente.Telefono = &telefonoTipado
+		return nil
+	}
+	if *existente.Telefono == telefonoTipado {
+		return nil
+	}
+	alt := db.PacienteTelefonoAlternativo{PacienteID: existente.ID, Telefono: telefonoTipado}
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&alt).Error
+}
+
+// agregarTelefonoDeTutorSiNuevo — pedido textual del cliente (ronda de
+// correcciones 2026-09-06): "si un tutor vuelve a sacar turno con mismo
+// mail, diferente teléfono, añadir ese teléfono al tutor del mail
+// correspondiente". Corrección sobre una primera implementación que
+// ACTUALIZABA la fila (reemplazaba el teléfono viejo por el nuevo) — el
+// cliente aclaró que "añadir" es literal: el teléfono nuevo se ACUMULA
+// (mismo criterio que agregarTelefonoAlternativoSiNuevo para el paciente,
+// vía PacienteTutorTelefonoAlternativo), nunca se pierde el anterior. El
+// mail sigue siendo la identidad del tutor (PacienteTutor.Email no
+// cambia); esta función solo decide si el teléfono tipado ya es el
+// principal, ya es un alternativo conocido, o hay que sumarlo.
+func agregarTelefonoDeTutorSiNuevo(tx *gorm.DB, pacienteID uuid.UUID, tutorEmail, tutorTelefono string) error {
+	if tutorTelefono == "" {
+		return nil
+	}
+	tutor, err := buscarTutorConMail(tx, pacienteID, tutorEmail)
+	if err != nil {
+		return err
+	}
+	if tutor == nil || tutor.Telefono == tutorTelefono {
+		return nil
+	}
+	alt := db.PacienteTutorTelefonoAlternativo{PacienteTutorID: tutor.ID, Telefono: tutorTelefono}
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&alt).Error
 }
 
 // generarConflictosRetroactivosPorDNI — corrección de QA, pedido textual
@@ -212,7 +380,6 @@ func crearFichaPacientePublico(tx *gorm.DB, profesionalID uuid.UUID, turno *db.T
 		Nombre:        turno.NombreContacto,
 		Apellido:      turno.ApellidoContacto,
 		DNI:           turno.DNIContacto,
-		Telefono:      turno.TelefonoContacto,
 		EnConflicto:   enConflicto,
 		// Origen explícito (coincide con el default de la columna, pero
 		// declarado a mano para que quede claro en el código que ESTA
@@ -220,11 +387,34 @@ func crearFichaPacientePublico(tx *gorm.DB, profesionalID uuid.UUID, turno *db.T
 		// creada a mano por el profesional, ver pacienteEstaVerificado.
 		Origen: "pagina_publica",
 	}
+	// Telefono/Email — Fase 2.4.2: vacío pasa a nil (antes Telefono era
+	// NOT NULL, siempre venía con algo) en vez de un string vacío — "para
+	// otro" deja el teléfono/mail PROPIO del paciente opcionales.
+	if turno.TelefonoContacto != "" {
+		paciente.Telefono = &turno.TelefonoContacto
+	}
 	if turno.EmailContacto != "" {
 		paciente.Email = &turno.EmailContacto
 	}
 	if err := tx.Create(&paciente).Error; err != nil {
 		return db.Paciente{}, err
+	}
+	// PacienteTutor — Fase 2.4.2, ronda de correcciones (2026-09-06): la
+	// ficha nace con el primero de posiblemente varios tutores a lo largo
+	// del tiempo (ver PacienteTutor en models.go) — copiado del snapshot
+	// ya validado en el Turno, ahora como fila aparte en vez de campos
+	// directos en `Paciente`. Nunca se crea en una ficha "para mí".
+	if turno.EsParaOtro {
+		tutor := db.PacienteTutor{
+			PacienteID: paciente.ID,
+			Relacion:   derefStr(turno.TutorRelacion),
+			Nombre:     derefStr(turno.TutorNombre),
+			Telefono:   derefStr(turno.TutorTelefono),
+			Email:      derefStr(turno.TutorEmail),
+		}
+		if err := tx.Create(&tutor).Error; err != nil {
+			return db.Paciente{}, err
+		}
 	}
 	return paciente, nil
 }

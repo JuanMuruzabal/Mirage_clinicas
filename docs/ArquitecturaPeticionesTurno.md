@@ -2,10 +2,24 @@
 
 **Objetivo de este documento:** dejar registrado, en un solo lugar, todo lo que se
 implementó en Fase 2.4.1 (verificación de pacientes, conflictos de identidad,
-seguridad/antiabuso) tal como quedó en el código — no como se recuerda de las
-idas y vueltas de la conversación — más una lista concreta de qué testear ahora,
-y el plan adaptado para el camino "para otro" (Fase 2.4.2, todavía sin
-implementar).
+seguridad/antiabuso) y en Fase 2.4.2 (camino "para otro", tutor/representante)
+tal como quedó en el código — no como se recuerda de las idas y vueltas de la
+conversación — más una lista concreta de qué testear.
+
+**Estado (2026-09-06):** Partes 1 y 3 implementadas, testeadas y aprobadas
+por el cliente (`feature/fase2-4-2-turno-para-otro`, TR-083). Ver TR-116 en
+`docs/tradeoffs.md` para el resumen de decisiones de la Parte 3, incluidas
+las 4 rondas de corrección posteriores a la primera entrega.
+
+**Ronda de correcciones (2026-09-06, mismo día, sobre la primera entrega de
+la Parte 3):** un paciente puede tener MÁS de un tutor a lo largo del
+tiempo — la Parte 3 de abajo describe el diseño original (un único set de
+campos `Tutor*` en `Paciente`), hoy reemplazado por la tabla
+`PacienteTutor` (uno-a-muchos). El texto de la Parte 3 se deja tal cual
+quedó redactado en su momento (documenta el razonamiento original, todavía
+válido para entender el "por qué" de cada mecanismo) — el detalle completo
+de qué cambió y por qué está en TR-116, punto 8 (`docs/tradeoffs.md`), no
+repetido acá para no duplicar dos fuentes de verdad.
 
 Fuente de verdad del código: `apps/api/internal/http/turno_publico.go`,
 `paciente_verificado_publico.go`, `paciente_conflicto_publico.go`,
@@ -21,7 +35,8 @@ puntuales, TR-036 en adelante) y del brief original,
 
 Todo lo de esta parte aplica **solo** al camino "para mí" del wizard público
 (sin `pacienteVerificadoId` de tutor, sin datos de tercero). El camino "para
-otro" está sin implementar — ver Parte 3.
+otro" está implementado — ver Parte 3 (marcada "implementado" desde
+2026-09-06).
 
 ### 1.1 — ¿Qué es un paciente "verificado"?
 
@@ -683,7 +698,8 @@ progreso entre dos slugs distintos, borra el progreso al confirmar con
 ## Parte 2 — Qué testear ahora
 
 Lista concreta, en orden sugerido. Todo esto es sobre el camino "para mí" —
-"para otro" todavía no existe (Parte 3).
+"para otro" ya está implementado y cubierto por tests automatizados (ver el
+cierre de la Parte 3, sección 3.8).
 
 **Identidad y conflictos**
 
@@ -852,12 +868,15 @@ hace falta repetirlos a mano — se dejan igual para referencia rápida.**
 
 ---
 
-## Parte 3 — Plan para el camino "para otro" (Fase 2.4.2, sin implementar)
+## Parte 3 — Camino "para otro" (Fase 2.4.2, implementado 2026-09-06)
 
 Parte del sketch original (`docs/FASE 2.4 - detallada y bien especificada.docx`,
 también resumido en el plan de sesión previo) adaptado con todo lo que se
-afinó en 2.4.1 desde entonces. **No se toca código todavía** — esto es
-diseño para revisar antes de arrancar.
+afinó en 2.4.1 desde entonces. Implementado tal cual quedó documentado acá
+abajo — ver TR-116 en `docs/tradeoffs.md` para el resumen de decisiones y
+qué se sacrificó. El texto de esta parte se dejó como quedó redactado en el
+plan original (verbo en presente/futuro de diseño); donde el código terminó
+difiriendo en algún detalle menor, queda aclarado inline.
 
 ### 3.1 — Qué cambia respecto de "para mí"
 
@@ -995,10 +1014,9 @@ lado del profesional, no solo el modelo de datos/backend de 3.1-3.7:
   particular con sus propios datos de contacto) por uno con los dos
   bloques de arriba — paciente + tutor — cuando se elige esa opción.
 
-Sin implementar todavía, igual que el resto de la Parte 3 — queda acá para
-no perderlo cuando se apruebe arrancar 2.4.2.
+Implementado tal cual — ver TR-116 en `docs/tradeoffs.md`.
 
-### 3.8 — Orden de implementación sugerido
+### 3.8 — Orden de implementación (seguido tal cual — ver TR-116)
 
 1. Columnas de tutor en `Paciente` + migración (aditiva, sin riesgo).
 2. `enviarVerificacionTurnoPublicoHandler`/confirmar: sin cambios de código,

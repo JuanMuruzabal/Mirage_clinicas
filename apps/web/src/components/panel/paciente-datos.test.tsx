@@ -51,15 +51,16 @@ describe("PacienteDatos", () => {
 
   // Fase 2.4.1, corrección de QA: mails/teléfonos migrados por una
   // resolución de conflicto ("el mail es de la persona verificada") se
-  // agrupan detrás de "Ver mails →"/"Ver teléfonos →" en vez de mostrar
-  // solo el principal.
+  // agrupan detrás de "Ver mails"/"Ver teléfonos" en vez de mostrar solo
+  // el principal. Sin flecha (segunda ronda de correcciones, 2026-09-06:
+  // "quitar de los botones el '->'" — no son navegación, abren un modal).
   describe("mails/teléfonos alternativos (Fase 2.4.1)", () => {
-    it("con un solo mail alternativo, agrupa detrás de 'Ver mails →'", async () => {
+    it("con un solo mail alternativo, agrupa detrás de 'Ver mails'", async () => {
       const user = userEvent.setup();
       render(<PacienteDatos pacienteInicial={paciente} emailsAlternativos={["bruno.alt@example.com"]} />);
 
       expect(screen.queryByText("bruno@example.com")).not.toBeInTheDocument();
-      const boton = screen.getByRole("button", { name: "Ver mails →" });
+      const boton = screen.getByRole("button", { name: "Ver mails" });
       await user.click(boton);
 
       const dialogo = await screen.findByRole("dialog", { name: "Mails" });
@@ -67,12 +68,12 @@ describe("PacienteDatos", () => {
       expect(dialogo).toHaveTextContent("bruno.alt@example.com");
     });
 
-    it("con un teléfono alternativo, agrupa detrás de 'Ver teléfonos →'", async () => {
+    it("con un teléfono alternativo, agrupa detrás de 'Ver teléfonos'", async () => {
       const user = userEvent.setup();
       render(<PacienteDatos pacienteInicial={paciente} telefonosAlternativos={["+5493519999999"]} />);
 
       expect(screen.queryByText("+5493511234567")).not.toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Ver teléfonos →" }));
+      await user.click(screen.getByRole("button", { name: "Ver teléfonos" }));
 
       const dialogo = await screen.findByRole("dialog", { name: "Teléfonos" });
       expect(dialogo).toHaveTextContent("+5493511234567");
@@ -88,7 +89,7 @@ describe("PacienteDatos", () => {
 
       expect(screen.getByText("migrado@example.com")).toBeInTheDocument();
       expect(screen.queryByText("—")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Ver mails →" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver mails" })).not.toBeInTheDocument();
     });
 
     it("con la ficha SIN mail propio y un mail alternativo largo, se oculta detrás de 'Ver email'", async () => {
@@ -104,10 +105,71 @@ describe("PacienteDatos", () => {
 
     it("sin alternativos, muestra el mail/teléfono principal como siempre", () => {
       render(<PacienteDatos pacienteInicial={paciente} />);
-      expect(screen.queryByRole("button", { name: "Ver mails →" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Ver teléfonos →" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver mails" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver teléfonos" })).not.toBeInTheDocument();
       expect(screen.getByText("bruno@example.com")).toBeInTheDocument();
       expect(screen.getByText("+5493511234567")).toBeInTheDocument();
+    });
+  });
+
+  // Fase 2.4.2, rediseñado en la ronda de correcciones (2026-09-06): un
+  // paciente puede tener MÁS de un tutor — cada uno aparece como su
+  // propia tarjeta dentro de "Datos de tutores" (antes era un único set
+  // de campos con un solo tutor).
+  describe("Datos de tutores (ronda de correcciones, 2026-09-06)", () => {
+    const tutor1 = { relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
+    const tutor2 = { relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
+
+    it("sin tutores, no muestra la sección", () => {
+      render(<PacienteDatos pacienteInicial={paciente} />);
+      expect(screen.queryByText("Datos de tutores")).not.toBeInTheDocument();
+    });
+
+    it("con un tutor, muestra la sección con sus datos (sin DNI)", () => {
+      render(<PacienteDatos pacienteInicial={{ ...paciente, tutores: [tutor1] }} />);
+      expect(screen.getByText("Datos de tutores")).toBeInTheDocument();
+      expect(screen.getByText("Julián Ortiz")).toBeInTheDocument();
+      expect(screen.getByText("Familiar")).toBeInTheDocument();
+      expect(screen.getByText("+5493511111111")).toBeInTheDocument();
+      expect(screen.getByText("julian@example.com")).toBeInTheDocument();
+      // Tercera ronda de correcciones (2026-09-06), pedido textual del
+      // cliente: "sacarlo del todo, no es tan útil y agrega complejidad"
+      // — TutorInfo ya no tiene el campo `dni` (ver shared-types); la
+      // sección de tutores no tiene ninguna etiqueta "DNI" (a diferencia
+      // de "Datos de contacto", que sí la tiene para el paciente).
+      const seccionTutores = screen.getByText("Datos de tutores").closest("section")!;
+      expect(within(seccionTutores).queryByText("DNI")).not.toBeInTheDocument();
+    });
+
+    it("con dos tutores, muestra una tarjeta por cada uno", () => {
+      render(<PacienteDatos pacienteInicial={{ ...paciente, tutores: [tutor1, tutor2] }} />);
+      expect(screen.getByText("Julián Ortiz")).toBeInTheDocument();
+      expect(screen.getByText("Abuela Rosa")).toBeInTheDocument();
+      expect(screen.getByText("Otro")).toBeInTheDocument();
+    });
+
+    // Cuarta ronda de correcciones (2026-09-06), bug real reportado por
+    // el cliente: "los números nuevos de los tutores no se agregan con
+    // los existentes, sino que se reemplaza el anterior con el nuevo" —
+    // corregido para que se ACUMULEN (mismo botón "Ver teléfonos" que ya
+    // usa el propio del paciente), nunca reemplazan al principal.
+    it("con un teléfono alternativo, el tutor agrupa detrás de 'Ver teléfonos del tutor'", async () => {
+      const user = userEvent.setup();
+      const tutorConAlternativo = { ...tutor1, telefonosAlternativos: ["+5493519999999"] };
+      render(<PacienteDatos pacienteInicial={{ ...paciente, tutores: [tutorConAlternativo] }} />);
+
+      expect(screen.queryByText("+5493511111111")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Ver teléfonos del tutor" }));
+
+      const dialogo = await screen.findByRole("dialog", { name: "Teléfonos del tutor" });
+      expect(dialogo).toHaveTextContent("+5493511111111");
+      expect(dialogo).toHaveTextContent("+5493519999999");
+    });
+
+    it("sin teléfonos alternativos, el tutor sigue mostrando el principal a secas", () => {
+      render(<PacienteDatos pacienteInicial={{ ...paciente, tutores: [tutor1] }} />);
+      expect(screen.getByText("+5493511111111")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver teléfonos del tutor" })).not.toBeInTheDocument();
     });
   });
 

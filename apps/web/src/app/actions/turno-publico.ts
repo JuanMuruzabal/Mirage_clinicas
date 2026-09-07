@@ -4,6 +4,7 @@ import {
   apiConfirmarVerificacionTurnoPublico,
   apiEnviarVerificacionTurnoPublico,
   apiGetPacienteVerificadoPublico,
+  apiGetPacientesVerificadosDeTutorPublico,
   apiListDisponibilidadPublica,
   apiListTiposConsultaPublico,
   apiMisTurnoPublico,
@@ -106,6 +107,29 @@ export async function pacienteVerificadoPublicoAction(
     return { error: result.error };
   }
   return { paciente: result.data };
+}
+
+export interface PacientesVerificadosDeTutorResult {
+  error?: string;
+  pacientes?: PacienteVerificadoPublico[];
+}
+
+// pacientesVerificadosDeTutorAction — Fase 2.4.2, camino "sacar turno
+// para otro" + "ya he venido antes": mismo criterio que
+// pacienteVerificadoPublicoAction, pero busca por MAIL DEL TUTOR y puede
+// devolver más de una tarjeta (un tutor puede tener más de un hijo
+// verificado a su cargo). Un 404 tampoco es un error de verdad acá —
+// "no encontramos ningún paciente verificado con ese mail de tutor".
+export async function pacientesVerificadosDeTutorAction(
+  slug: string,
+  tutorEmail: string,
+  verificacionToken: string,
+): Promise<PacientesVerificadosDeTutorResult> {
+  const result = await apiGetPacientesVerificadosDeTutorPublico(slug, tutorEmail, verificacionToken);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  return { pacientes: result.data };
 }
 
 // solicitarTurnoPublicoAction — formulario público de pedido de turno

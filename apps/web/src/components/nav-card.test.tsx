@@ -8,7 +8,7 @@ describe("NavCard", () => {
     const link = screen.getByRole("link", { name: /Buscá tu clínica/ });
     expect(link).toHaveAttribute("href", "/buscar");
     expect(screen.getByText("Descripción de prueba")).toBeInTheDocument();
-    expect(screen.getByText("Entrar →")).toBeInTheDocument();
+    expect(screen.getByText("Entrar")).toBeInTheDocument();
   });
 
   it("muestra el eyebrow solo si se pasa", () => {
@@ -20,8 +20,8 @@ describe("NavCard", () => {
   });
 
   it("acepta un cta y un size personalizados", () => {
-    render(<NavCard href="/x" titulo="Título" descripcion="Desc" cta="Ver listado →" size="large" />);
-    expect(screen.getByText("Ver listado →")).toBeInTheDocument();
+    render(<NavCard href="/x" titulo="Título" descripcion="Desc" cta="Ver listado" size="large" />);
+    expect(screen.getByText("Ver listado")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3 })).toHaveClass("text-3xl");
   });
 });

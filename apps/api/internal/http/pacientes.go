@@ -27,11 +27,13 @@ func registerPacienteRoutes(r chi.Router, gdb *gorm.DB) {
 }
 
 type pacienteResponse struct {
-	ID        string  `json:"id"`
-	Nombre    string  `json:"nombre"`
-	Apellido  string  `json:"apellido"`
-	DNI       string  `json:"dni"`
-	Telefono  string  `json:"telefono"`
+	ID       string `json:"id"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	DNI      string `json:"dni"`
+	// Telefono — Fase 2.4.2: pasa a opcional (mismo patrón que Email),
+	// "para otro" puede dejarlo sin cargar del lado del paciente.
+	Telefono  *string `json:"telefono,omitempty"`
 	Email     *string `json:"email,omitempty"`
 	CreatedAt string  `json:"createdAt"`
 	// Verificado (Fase 2.4.1, indicador visual pedido por el cliente para
@@ -41,19 +43,166 @@ type pacienteResponse struct {
 	// nunca una columna en la base — mismo criterio derivado que
 	// "resuelto" en Turnos (TR-074).
 	Verificado bool `json:"verificado"`
+	// Tutores — Fase 2.4.2, rediseñado en la ronda de correcciones del
+	// 2026-09-06: un paciente puede tener MÁS de un tutor a lo largo del
+	// tiempo (ver PacienteTutor en models.go) — antes era un único set de
+	// campos singular, ahora una lista (vacía en la enorme mayoría de las
+	// fichas, que nunca se cargaron por "sacar turno para otro").
+	Tutores []tutorResponse `json:"tutores,omitempty"`
+	// EmailsAlternativos/TelefonosAlternativos (Fase 2.4.1, corrección de
+	// QA de la ronda 2026-09-06) — mails/teléfonos sumados a esta ficha
+	// VERIFICADA al resolver un conflicto de pacientes con "el mail es de
+	// la persona verificada" (ver resolverConflictoPacienteHandler).
+	// Pasan de estar solo en el detalle (`pacienteDetalleResponse`) a
+	// vivir acá — pedido del cliente: "en la tabla pacientes, si el
+	// paciente tiene más de un número o mail poner un botón de ver
+	// mails/ver teléfonos", no solo en la ficha. Vacío en la enorme
+	// mayoría de los pacientes, que nunca tuvo un conflicto.
+	EmailsAlternativos    []string `json:"emailsAlternativos,omitempty"`
+	TelefonosAlternativos []string `json:"telefonosAlternativos,omitempty"`
 }
 
-func toPacienteResponse(p db.Paciente, verificado bool) pacienteResponse {
-	return pacienteResponse{
-		ID:         p.ID.String(),
-		Nombre:     p.Nombre,
-		Apellido:   p.Apellido,
-		DNI:        p.DNI,
-		Telefono:   p.Telefono,
-		Email:      p.Email,
-		CreatedAt:  p.CreatedAt.Format(time.RFC3339),
-		Verificado: verificado,
+// tutorResponse — un tutor conocido/confirmado de un paciente (ver
+// PacienteTutor en models.go). Sin DNI (tercera ronda de correcciones,
+// 2026-09-06, pedido textual del cliente: "no es tan útil y agrega
+// complejidad") — eliminado del todo de PacienteTutor.
+type tutorResponse struct {
+	Relacion string `json:"relacion"`
+	Nombre   string `json:"nombre"`
+	Telefono string `json:"telefono"`
+	Email    string `json:"email"`
+	// TelefonosAlternativos — cuarta ronda de correcciones (2026-09-06):
+	// "si un tutor vuelve a sacar turno con mismo mail, diferente
+	// teléfono, añadir ese teléfono al tutor del mail correspondiente" —
+	// se ACUMULA (ver PacienteTutorTelefonoAlternativo en models.go),
+	// nunca reemplaza al principal. Vacío en la enorme mayoría de los
+	// tutores, que nunca repitieron el turno con un teléfono distinto.
+	TelefonosAlternativos []string `json:"telefonosAlternativos,omitempty"`
+}
+
+func toTutorResponse(t db.PacienteTutor, telefonosAlt []string) tutorResponse {
+	return tutorResponse{Relacion: t.Relacion, Nombre: t.Nombre, Telefono: t.Telefono, Email: t.Email, TelefonosAlternativos: telefonosAlt}
+}
+
+func toPacienteResponse(p db.Paciente, verificado bool, tutores []db.PacienteTutor, emailsAlt, telefonosAlt []string, tutorTelAlt map[uuid.UUID][]string) pacienteResponse {
+	tutoresOut := make([]tutorResponse, len(tutores))
+	for i, t := range tutores {
+		tutoresOut[i] = toTutorResponse(t, tutorTelAlt[t.ID])
 	}
+	return pacienteResponse{
+		ID:                    p.ID.String(),
+		Nombre:                p.Nombre,
+		Apellido:              p.Apellido,
+		DNI:                   p.DNI,
+		Telefono:              p.Telefono,
+		Email:                 p.Email,
+		CreatedAt:             p.CreatedAt.Format(time.RFC3339),
+		Verificado:            verificado,
+		Tutores:               tutoresOut,
+		EmailsAlternativos:    emailsAlt,
+		TelefonosAlternativos: telefonosAlt,
+	}
+}
+
+// tutoresPorPaciente — mismo criterio que alternativosDeContactoPorPaciente
+// (una fila más abajo): 1 query para TODOS los pacientes de un profesional,
+// nunca una por fila.
+func tutoresPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUID][]db.PacienteTutor, error) {
+	var tutores []db.PacienteTutor
+	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_tutores.paciente_id").
+		Where("pacientes.profesional_id = ?", profesionalID).
+		Order("paciente_tutores.created_at").
+		Find(&tutores).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID][]db.PacienteTutor)
+	for _, t := range tutores {
+		out[t.PacienteID] = append(out[t.PacienteID], t)
+	}
+	return out, nil
+}
+
+// tutoresDePaciente — mismo query que tutoresPorPaciente pero para UN solo
+// paciente (getPacienteHandler, y cualquier lugar que ya tenga el
+// pacienteID a mano y no necesite el batch de toda la lista).
+func tutoresDePaciente(tx *gorm.DB, pacienteID uuid.UUID) ([]db.PacienteTutor, error) {
+	var tutores []db.PacienteTutor
+	if err := tx.Where("paciente_id = ?", pacienteID).Order("created_at").Find(&tutores).Error; err != nil {
+		return nil, err
+	}
+	return tutores, nil
+}
+
+// telefonosAlternativosPorTutor — mismo criterio que tutoresPorPaciente:
+// 1 query para TODOS los tutores de un profesional, nunca una por fila.
+// Agrupa por PacienteTutorID (no por PacienteID — un mismo paciente puede
+// tener varios tutores, cada uno con sus propios alternativos).
+func telefonosAlternativosPorTutor(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUID][]string, error) {
+	var alternativos []db.PacienteTutorTelefonoAlternativo
+	if err := tx.Joins("JOIN paciente_tutores ON paciente_tutores.id = paciente_tutor_telefonos_alternativos.paciente_tutor_id").
+		Joins("JOIN pacientes ON pacientes.id = paciente_tutores.paciente_id").
+		Where("pacientes.profesional_id = ?", profesionalID).
+		Order("paciente_tutor_telefonos_alternativos.created_at").
+		Find(&alternativos).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID][]string)
+	for _, a := range alternativos {
+		out[a.PacienteTutorID] = append(out[a.PacienteTutorID], a.Telefono)
+	}
+	return out, nil
+}
+
+// telefonosAlternativosDeTutoresDePaciente — mismo query que
+// telefonosAlternativosPorTutor pero acotado a UN paciente (mismo criterio
+// que tutoresDePaciente frente a tutoresPorPaciente).
+func telefonosAlternativosDeTutoresDePaciente(tx *gorm.DB, pacienteID uuid.UUID) (map[uuid.UUID][]string, error) {
+	var alternativos []db.PacienteTutorTelefonoAlternativo
+	if err := tx.Joins("JOIN paciente_tutores ON paciente_tutores.id = paciente_tutor_telefonos_alternativos.paciente_tutor_id").
+		Where("paciente_tutores.paciente_id = ?", pacienteID).
+		Order("paciente_tutor_telefonos_alternativos.created_at").
+		Find(&alternativos).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID][]string)
+	for _, a := range alternativos {
+		out[a.PacienteTutorID] = append(out[a.PacienteTutorID], a.Telefono)
+	}
+	return out, nil
+}
+
+// alternativosDeContactoPorPaciente — mismo criterio que
+// pacientesVerificadosIDs (paciente_verificado_publico.go): 2 queries para
+// TODOS los pacientes de un profesional, nunca una por fila — la tabla de
+// Pacientes (listPacientesHandler) necesita saber si cada fila tiene más
+// de un mail/teléfono para decidir si muestra "Ver mails →"/"Ver
+// teléfonos →".
+func alternativosDeContactoPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUID][]string, map[uuid.UUID][]string, error) {
+	var emails []db.PacienteEmailAlternativo
+	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_emails_alternativos.paciente_id").
+		Where("pacientes.profesional_id = ?", profesionalID).
+		Order("paciente_emails_alternativos.created_at").
+		Find(&emails).Error; err != nil {
+		return nil, nil, err
+	}
+	emailsPorPaciente := make(map[uuid.UUID][]string)
+	for _, e := range emails {
+		emailsPorPaciente[e.PacienteID] = append(emailsPorPaciente[e.PacienteID], e.Email)
+	}
+
+	var telefonos []db.PacienteTelefonoAlternativo
+	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_telefonos_alternativos.paciente_id").
+		Where("pacientes.profesional_id = ?", profesionalID).
+		Order("paciente_telefonos_alternativos.created_at").
+		Find(&telefonos).Error; err != nil {
+		return nil, nil, err
+	}
+	telefonosPorPaciente := make(map[uuid.UUID][]string)
+	for _, t := range telefonos {
+		telefonosPorPaciente[t.PacienteID] = append(telefonosPorPaciente[t.PacienteID], t.Telefono)
+	}
+
+	return emailsPorPaciente, telefonosPorPaciente, nil
 }
 
 // listPacientesHandler — GET /pacientes?q= (T3.5): tabla de pacientes,
@@ -84,10 +233,25 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
 			return
 		}
+		emailsAlt, telsAlt, err := alternativosDeContactoPorPaciente(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+			return
+		}
+		tutores, err := tutoresPorPaciente(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+			return
+		}
+		tutorTelAlt, err := telefonosAlternativosPorTutor(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+			return
+		}
 
 		out := make([]pacienteResponse, len(pacientes))
 		for i, p := range pacientes {
-			out[i] = toPacienteResponse(p, verificados[p.ID])
+			out[i] = toPacienteResponse(p, verificados[p.ID], tutores[p.ID], emailsAlt[p.ID], telsAlt[p.ID], tutorTelAlt)
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -95,16 +259,10 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 
 type pacienteDetalleResponse struct {
 	pacienteResponse
+	// EmailsAlternativos/TelefonosAlternativos ahora viven en
+	// pacienteResponse (ver el comentario grande ahí) — este struct ya no
+	// necesita declararlos aparte, los hereda del embed.
 	Turnos []turnoResponse `json:"turnos"`
-	// EmailsAlternativos/TelefonosAlternativos (Fase 2.4.1, corrección de
-	// QA) — mails/teléfonos sumados a esta ficha VERIFICADA al resolver
-	// un conflicto de pacientes con "el mail es de la persona verificada"
-	// (ver resolverConflictoPacienteHandler). El frontend muestra "Ver
-	// mails →"/"Ver teléfonos →" en Datos de contacto cuando hay más de
-	// uno — vacío en la enorme mayoría de los pacientes, que nunca tuvo
-	// un conflicto.
-	EmailsAlternativos    []string `json:"emailsAlternativos,omitempty"`
-	TelefonosAlternativos []string `json:"telefonosAlternativos,omitempty"`
 }
 
 // getPacienteHandler — GET /pacientes/{id} (T3.6): datos personales +
@@ -166,11 +324,20 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			telsOut[i] = t.Telefono
 		}
 
+		tutores, err := tutoresDePaciente(gdb, pacienteID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+		tutorTelAlt, err := telefonosAlternativosDeTutoresDePaciente(gdb, pacienteID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+
 		writeJSON(w, http.StatusOK, pacienteDetalleResponse{
-			pacienteResponse:      toPacienteResponse(paciente, verificado),
-			Turnos:                turnosOut,
-			EmailsAlternativos:    emailsOut,
-			TelefonosAlternativos: telsOut,
+			pacienteResponse: toPacienteResponse(paciente, verificado, tutores, emailsOut, telsOut, tutorTelAlt),
+			Turnos:           turnosOut,
 		})
 	}
 }
@@ -231,7 +398,7 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		paciente.DNI = req.DNI
-		paciente.Telefono = req.Telefono
+		paciente.Telefono = &req.Telefono
 		if req.Email != "" {
 			paciente.Email = &req.Email
 		} else {
@@ -257,7 +424,20 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
 			return
 		}
-		writeJSON(w, http.StatusOK, toPacienteResponse(paciente, verificado))
+		// tutoresDePaciente — "Editar datos" nunca toca el tutor, pero la
+		// respuesta tiene que seguir mostrando los que ya tenía (si los
+		// tiene) en vez de perderlos de la vista hasta el próximo refresh.
+		tutores, err := tutoresDePaciente(gdb, paciente.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			return
+		}
+		tutorTelAlt, err := telefonosAlternativosDeTutoresDePaciente(gdb, paciente.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			return
+		}
+		writeJSON(w, http.StatusOK, toPacienteResponse(paciente, verificado, tutores, nil, nil, tutorTelAlt))
 	}
 }
 
@@ -267,6 +447,18 @@ type crearPacienteRequest struct {
 	DNI      string `json:"dni"`
 	Telefono string `json:"telefono"`
 	Email    string `json:"email"`
+	// ConTutor/Tutor* (Fase 2.4.2) — opción "Con tutor" del alta directa
+	// desde el panel (`docs/ArquitecturaPeticionesTurno.md` 3.7bis): con
+	// ConTutor=true, Telefono/Email pasan a ser opcionales (son del
+	// PACIENTE, igual criterio que el wizard público) y los 5 campos de
+	// tutor son obligatorios.
+	// TutorDNI existió hasta la tercera ronda de correcciones (2026-09-06)
+	// — eliminado del todo, pedido textual del cliente.
+	ConTutor      bool   `json:"conTutor"`
+	TutorRelacion string `json:"tutorRelacion"`
+	TutorNombre   string `json:"tutorNombre"`
+	TutorTelefono string `json:"tutorTelefono"`
+	TutorEmail    string `json:"tutorEmail"`
 }
 
 // crearPacienteHandler — POST /pacientes (Extra 2.3.5, E5.5): alta directa
@@ -294,6 +486,10 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		req.DNI = strings.TrimSpace(req.DNI)
 		req.Telefono = strings.TrimSpace(req.Telefono)
 		req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+		req.TutorRelacion = strings.TrimSpace(req.TutorRelacion)
+		req.TutorNombre = strings.TrimSpace(req.TutorNombre)
+		req.TutorTelefono = strings.TrimSpace(req.TutorTelefono)
+		req.TutorEmail = strings.TrimSpace(strings.ToLower(req.TutorEmail))
 
 		if req.Nombre == "" || req.Apellido == "" {
 			writeError(w, http.StatusBadRequest, "nombre y apellido son obligatorios")
@@ -303,13 +499,39 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "el DNI debe tener 7 u 8 dígitos, sin puntos")
 			return
 		}
-		if !telefonoRegex.MatchString(req.Telefono) {
+		// Teléfono/email del paciente — obligatorio el teléfono solo sin
+		// tutor (Fase 2.4.2, mismo criterio que el wizard público: "para
+		// otro" los deja opcionales, son del paciente, no de quien lo
+		// trae).
+		if !req.ConTutor && !telefonoRegex.MatchString(req.Telefono) {
+			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
+			return
+		}
+		if req.ConTutor && req.Telefono != "" && !telefonoRegex.MatchString(req.Telefono) {
 			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
 			return
 		}
 		if req.Email != "" {
 			if _, err := mail.ParseAddress(req.Email); err != nil {
 				writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
+				return
+			}
+		}
+		if req.ConTutor {
+			if req.TutorRelacion != "familiar" && req.TutorRelacion != "amigo" && req.TutorRelacion != "otro" {
+				writeError(w, http.StatusBadRequest, "elegí una relación válida con el paciente")
+				return
+			}
+			if req.TutorNombre == "" {
+				writeError(w, http.StatusBadRequest, "el nombre del tutor es obligatorio")
+				return
+			}
+			if !telefonoRegex.MatchString(req.TutorTelefono) {
+				writeError(w, http.StatusBadRequest, "el teléfono del tutor no tiene un formato válido")
+				return
+			}
+			if _, err := mail.ParseAddress(req.TutorEmail); err != nil {
+				writeError(w, http.StatusBadRequest, "el email del tutor no tiene un formato válido")
 				return
 			}
 		}
@@ -325,16 +547,39 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			Nombre:        req.Nombre,
 			Apellido:      req.Apellido,
 			DNI:           req.DNI,
-			Telefono:      req.Telefono,
 			// Origen "manual" (corrección de QA, Fase 2.4.1) — alta directa
 			// por el profesional, que ya tiene a la persona en frente:
 			// queda VERIFICADA de entrada (ver pacienteEstaVerificado).
 			Origen: "manual",
 		}
+		if req.Telefono != "" {
+			paciente.Telefono = &req.Telefono
+		}
 		if req.Email != "" {
 			paciente.Email = &req.Email
 		}
-		if err := gdb.Create(&paciente).Error; err != nil {
+
+		var tutores []db.PacienteTutor
+		err := gdb.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&paciente).Error; err != nil {
+				return err
+			}
+			if req.ConTutor {
+				tutor := db.PacienteTutor{
+					PacienteID: paciente.ID,
+					Relacion:   req.TutorRelacion,
+					Nombre:     req.TutorNombre,
+					Telefono:   req.TutorTelefono,
+					Email:      req.TutorEmail,
+				}
+				if err := tx.Create(&tutor).Error; err != nil {
+					return err
+				}
+				tutores = []db.PacienteTutor{tutor}
+			}
+			return nil
+		})
+		if err != nil {
 			if isUniqueViolation(err) {
 				writeError(w, http.StatusConflict, "ya existe un paciente con ese DNI")
 				return
@@ -348,6 +593,6 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el paciente")
 			return
 		}
-		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente, verificado))
+		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente, verificado, tutores, nil, nil, nil))
 	}
 }
