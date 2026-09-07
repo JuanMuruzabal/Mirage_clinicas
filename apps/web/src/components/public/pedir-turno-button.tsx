@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ModalPortal } from "@/components/panel/modal-portal";
 import { PedirTurnoForm } from "./pedir-turno-form";
 
@@ -9,6 +9,8 @@ interface PedirTurnoButtonProps {
   nombreClinica: string;
   telefonoClinica?: string | null;
 }
+
+const SELECTOR_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // PedirTurnoButton — Fase 2.4.1, pedido explícito del cliente (corrección
 // de QA sobre la primera entrega de F4.1.6): "en la página de la clínica
@@ -22,6 +24,58 @@ interface PedirTurnoButtonProps {
 // cierre al tocar afuera).
 export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: PedirTurnoButtonProps) {
   const [abierto, setAbierto] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const focoAnteriorRef = useRef<HTMLElement | null>(null);
+
+  // Bloquear el scroll del body mientras el modal está abierto (docs/
+  // prompt-claude-code-fecha-horario.md, punto 3: "bloqueá el scroll del
+  // body de la página mientras el modal está abierto, y mantené el foco
+  // atrapado dentro del modal") + foco atrapado — ninguno de los dos
+  // estaba implementado (era un pendiente ya señalado, sin resolver, del
+  // propio §6 de docs/rediseno-flujo-turnos.md).
+  useEffect(() => {
+    if (!abierto) return;
+
+    focoAnteriorRef.current = document.activeElement as HTMLElement | null;
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    dialogRef.current?.querySelector<HTMLElement>(SELECTOR_FOCUSABLE)?.focus();
+
+    function manejarTecla(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setAbierto(false);
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      // Se recalcula en cada Tab (no una vez al abrir): el contenido
+      // real cambia de paso a paso dentro del wizard, así que el primer/
+      // último elemento tocable de "ahora" puede no ser el de cuando se
+      // abrió el modal.
+      const focosables = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(SELECTOR_FOCUSABLE));
+      if (focosables.length === 0) return;
+      const primero = focosables[0];
+      const ultimo = focosables[focosables.length - 1];
+      if (e.shiftKey && document.activeElement === primero) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && document.activeElement === ultimo) {
+        e.preventDefault();
+        primero.focus();
+      }
+    }
+
+    document.addEventListener("keydown", manejarTecla);
+    return () => {
+      document.removeEventListener("keydown", manejarTecla);
+      document.body.style.overflow = overflowPrevio;
+      // El foco vuelve al botón que abrió el modal (§6) — no a donde sea
+      // que haya quedado el `document.activeElement` tras desmontar el
+      // wizard (normalmente `<body>`).
+      focoAnteriorRef.current?.focus();
+    };
+  }, [abierto]);
 
   return (
     <>
@@ -36,6 +90,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
       {abierto && (
         <ModalPortal>
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label="Pedir turno"
@@ -44,17 +99,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
               if (e.target === e.currentTarget) setAbierto(false);
             }}
           >
-            <div className="relative w-full max-w-lg">
-              <button
-                type="button"
-                onClick={() => setAbierto(false)}
-                aria-label="Cerrar"
-                className="absolute -top-3 -right-3 flex h-9 w-9 items-center justify-center rounded-full bg-marfil text-xl leading-none text-grafito/60 shadow-soft hover:text-grafito"
-              >
-                ×
-              </button>
-              <PedirTurnoForm slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefonoClinica} />
-            </div>
+            <PedirTurnoForm slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefonoClinica} onClose={() => setAbierto(false)} />
           </div>
         </ModalPortal>
       )}

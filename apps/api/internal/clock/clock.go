@@ -65,3 +65,11 @@ func In(t time.Time) time.Time {
 func ParseDate(value string) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02", value, location)
 }
+
+// ParseMonth interpreta un string "YYYY-MM" como el primer día de ese mes
+// a medianoche en Argentina — mismo criterio que ParseDate (usado por el
+// panel de calendario mensual del wizard público, docs/rediseno-flujo-
+// turnos.md §3.8: "¿qué días de este mes tienen turnos disponibles?").
+func ParseMonth(value string) (time.Time, error) {
+	return time.ParseInLocation("2006-01", value, location)
+}

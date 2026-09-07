@@ -837,6 +837,63 @@ func TestListDisponibilidadPublica_TipoConsultaInexistente(t *testing.T) {
 	}
 }
 
+// TestListDisponibilidadMesPublica_Exitoso — docs/rediseno-flujo-turnos.md
+// §3.8 (panel de calendario mensual): sin horario de atención configurado
+// (cae al default 08:00-18:00, sin bloqueos ni turnos), los 30 días de
+// junio 2030 tienen que salir todos con disponibilidad.
+func TestListDisponibilidadMesPublica_Exitoso(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publicodispmes1@example.com")
+
+	rec := doJSON(t, router, http.MethodGet,
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipoConsultaId="+tipoID+"&mes=2030-06", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got disponibilidadMesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if len(got.Dias) != 30 {
+		t.Fatalf("dias = %v, esperaba 30 días (junio 2030 completo)", got.Dias)
+	}
+	if got.Dias[0] != "2030-06-01" || got.Dias[29] != "2030-06-30" {
+		t.Errorf("dias = primero=%s último=%s, esperaba 2030-06-01 .. 2030-06-30", got.Dias[0], got.Dias[29])
+	}
+}
+
+func TestListDisponibilidadMesPublica_TipoConsultaInexistente(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicodispmes2@example.com")
+
+	rec := doJSON(t, router, http.MethodGet,
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipoConsultaId=00000000-0000-0000-0000-000000000000&mes=2030-06", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestListDisponibilidadMesPublica_MesMalFormado(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publicodispmes3@example.com")
+
+	rec := doJSON(t, router, http.MethodGet,
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipoConsultaId="+tipoID+"&mes=2030-6", nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestListDisponibilidadMesPublica_ClinicaInexistente(t *testing.T) {
+	router, _, _ := newTestRouterWithMail(t)
+
+	rec := doJSON(t, router, http.MethodGet,
+		"/clinicas/no-existe/disponibilidad-mes?tipoConsultaId=00000000-0000-0000-0000-000000000000&mes=2030-06", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+}
+
 func TestSolicitarTurnoPublico_CreaTurnoAgendadoConHorarioReal(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico1@example.com")

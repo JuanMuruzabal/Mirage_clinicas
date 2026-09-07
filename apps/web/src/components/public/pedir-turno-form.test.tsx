@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act, type ComponentProps } from "react";
 
 const {
   solicitarTurnoPublicoActionMock,
@@ -33,17 +34,29 @@ const { PedirTurnoForm } = await import("./pedir-turno-form");
 
 const tiposConsulta = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30 }];
 
-// avanzarAPrimeraVez/avanzarAYaVine — Fase 2.4.1: el wizard ahora arranca
-// con "¿Para quién es el turno?" / "¿Ya te has atendido con nosotros?"
-// antes de llegar a los pasos que ya existían.
+// renderForm — todo test necesita `onClose` (rediseño §3.1: la [×] ahora
+// vive adentro de cada pantalla, ver pedir-turno-form.tsx) — se provee un
+// no-op por default para no repetirlo en cada `render(...)`.
+function renderForm(props: Omit<ComponentProps<typeof PedirTurnoForm>, "onClose"> & { onClose?: () => void }) {
+  return render(<PedirTurnoForm onClose={() => {}} {...props} />);
+}
+
+// avanzarAPrimeraVez/avanzarAYaVine — el wizard arranca con "¿Para quién
+// es el turno?" / "¿Ya te atendiste con nosotros?" antes de llegar a los
+// pasos de datos. Rediseño (docs/rediseno-flujo-turnos.md §3.5): elegir
+// una tarjeta ya no avanza sola — hace falta tocar "Continuar" aparte.
 async function avanzarAPrimeraVez(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "Para mí" }));
-  await user.click(screen.getByRole("button", { name: "Es mi primera vez" }));
+  await user.click(screen.getByText("Para mí"));
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  await user.click(screen.getByText("Es mi primera vez"));
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
 }
 
 async function avanzarAYaVine(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "Para mí" }));
-  await user.click(screen.getByRole("button", { name: "Ya he venido anteriormente" }));
+  await user.click(screen.getByText("Para mí"));
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  await user.click(screen.getByText("Ya vine antes"));
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
 }
 
 async function completarContacto(user: ReturnType<typeof userEvent.setup>) {
@@ -51,20 +64,31 @@ async function completarContacto(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Nombre"), "Bruno");
   await user.type(screen.getByLabelText("Apellido"), "Iglesias");
   await user.type(screen.getByLabelText("DNI"), "30111222");
-  await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+  // Campo de teléfono compuesto (país + número local, §5 [3a]): el país
+  // por default es AR (+54) — el número local completa el mismo valor
+  // final ("+5493511234567") que antes se tipeaba de un tirón.
+  await user.type(screen.getByLabelText("Teléfono"), "93511234567");
   await user.type(screen.getByLabelText("Email"), "bruno@example.com");
   await user.click(screen.getByRole("button", { name: "Continuar" }));
 }
 
-async function completarVerificacion(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText("Código de verificación"), "123456");
-  await user.click(screen.getByRole("button", { name: "Confirmar código" }));
+// completarVerificacion — [4] pasa de un campo único a 6 casillas
+// separadas (§5 [4]) con aria-label "Dígito N" cada una.
+async function completarVerificacion(user: ReturnType<typeof userEvent.setup>, codigo = "123456") {
+  for (let i = 0; i < codigo.length; i++) {
+    await user.type(screen.getByLabelText(`Dígito ${i + 1}`), codigo[i]);
+  }
+  await user.click(screen.getByRole("button", { name: "Confirmar" }));
 }
 
 async function avanzarHastaTurno(user: ReturnType<typeof userEvent.setup>) {
   await completarContacto(user);
   await completarVerificacion(user);
   await screen.findByText("Tipo de consulta");
+  // Rediseño (§5 [6]): el horario ya no viene preseleccionado — son
+  // fichas tocables con estado "seleccionada" visible, hace falta tocar
+  // una para habilitar "Confirmar turno".
+  await user.click(screen.getByRole("button", { name: "10:00" }));
 }
 
 describe("PedirTurnoForm", () => {
@@ -83,33 +107,43 @@ describe("PedirTurnoForm", () => {
     pacientesVerificadosDeTutorActionMock.mockResolvedValue({ error: "no encontramos un paciente verificado con esos datos" });
   });
 
-  it("arranca preguntando para quién es el turno", () => {
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica="+5493511234567" />);
-
-    expect(screen.getByText("¿Para quién es el turno?")).toBeInTheDocument();
-    // Fase 2.4.2 — "Para otro" pasa de deshabilitado a un camino real,
-    // ver el describe "camino 'para otro'" más abajo.
-    expect(screen.getByRole("button", { name: "Para otro" })).not.toBeDisabled();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("'Para mí' lleva a la pregunta de si ya se atendió antes", async () => {
+  it("arranca preguntando para quién es el turno", () => {
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: "+5493511234567" });
+
+    expect(screen.getByText("¿Para quién es el turno?")).toBeInTheDocument();
+    expect(screen.getByText("Para mí")).toBeInTheDocument();
+    expect(screen.getByText("Para otra persona")).toBeInTheDocument();
+  });
+
+  it("'Para mí' + Continuar lleva a la pregunta de si ya se atendió antes", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
-    await user.click(screen.getByRole("button", { name: "Para mí" }));
+    await user.click(screen.getByText("Para mí"));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-    expect(screen.getByText("¿Ya te has atendido con nosotros?")).toBeInTheDocument();
+    expect(screen.getByText("¿Ya te atendiste con nosotros?")).toBeInTheDocument();
+  });
+
+  it("'Continuar' en [1] queda deshabilitado hasta elegir una tarjeta", () => {
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
+
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
   });
 
   it("valida el DNI antes de pasar a verificación", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica="+5493511234567" />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: "+5493511234567" });
 
     await avanzarAPrimeraVez(user);
     await user.type(screen.getByLabelText("Nombre"), "Bruno");
     await user.type(screen.getByLabelText("Apellido"), "Iglesias");
     await user.type(screen.getByLabelText("DNI"), "123");
-    await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+    await user.type(screen.getByLabelText("Teléfono"), "93511234567");
     await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
@@ -120,7 +154,7 @@ describe("PedirTurnoForm", () => {
 
   it("al continuar con datos válidos, manda el código y muestra 'Confirmanos que sos vos'", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
 
@@ -132,7 +166,7 @@ describe("PedirTurnoForm", () => {
   it("código incorrecto: muestra el error y no avanza a tipo de consulta", async () => {
     confirmarVerificacionEmailActionMock.mockResolvedValue({ error: "el código es incorrecto o ya venció" });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
     await completarVerificacion(user);
@@ -141,40 +175,55 @@ describe("PedirTurnoForm", () => {
     expect(screen.queryByText("Tipo de consulta")).not.toBeInTheDocument();
   });
 
-  it("en local (codigoDev en la respuesta), muestra el código debajo del campo", async () => {
+  it("en local (codigoDev en la respuesta), muestra el código en el bloque 'solo dev'", async () => {
     enviarVerificacionEmailActionMock.mockResolvedValue({ ok: true, codigoDev: "482913" });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
 
     expect(await screen.findByText("482913")).toBeInTheDocument();
-    expect(screen.getByText(/Modo desarrollo/)).toBeInTheDocument();
+    expect(screen.getByText("solo dev")).toBeInTheDocument();
   });
 
-  it("sin codigoDev en la respuesta (producción), no muestra el aviso de desarrollo", async () => {
+  it("sin codigoDev en la respuesta (producción), no muestra el bloque de desarrollo", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
+    await screen.findByText("Confirmanos que sos vos");
 
-    expect(screen.queryByText(/Modo desarrollo/)).not.toBeInTheDocument();
+    expect(screen.queryByText("solo dev")).not.toBeInTheDocument();
   });
 
-  it("'Reenviar código' vuelve a pedir el código y avisa", async () => {
-    const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+  it("'Reenviar código', tras la cuenta regresiva, vuelve a pedir el código", async () => {
+    // `shouldAdvanceTime` deja correr el reloj real de fondo (para que
+    // las esperas asíncronas de Testing Library/userEvent no se
+    // cuelguen) mientras `advanceTimersByTime` de abajo salta el
+    // `setInterval` de la cuenta regresiva sin esperar 30 segundos
+    // reales — necesita instalarse ANTES de montar (el intervalo del
+    // componente se crea con la referencia de timer vigente al montar).
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
-    await user.click(await screen.findByRole("button", { name: "Reenviar código" }));
+    await screen.findByText("Confirmanos que sos vos");
+
+    // "Reenviar código en 0:30" arranca deshabilitado (§5 [4]).
+    expect(screen.queryByRole("button", { name: "Reenviar código" })).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Reenviar código" }));
 
     expect(enviarVerificacionEmailActionMock).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText("Te mandamos un código nuevo.")).toBeInTheDocument();
   });
 
   it("'Atrás' desde verificación vuelve al paso de contacto sin perder los datos tipeados", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
     await screen.findByText("Confirmanos que sos vos");
@@ -187,7 +236,7 @@ describe("PedirTurnoForm", () => {
   it("en éxito con teléfono de clínica, muestra confirmación y el link de WhatsApp", async () => {
     solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica="+549 351 123-4567" />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: "+549 351 123-4567" });
 
     await avanzarHastaTurno(user);
     // Paso "turno": tipo y hora ya vienen auto-elegidos (primer tipo/slot).
@@ -215,7 +264,7 @@ describe("PedirTurnoForm", () => {
   it("en éxito sin teléfono de clínica, muestra confirmación sin link de WhatsApp", async () => {
     solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await avanzarHastaTurno(user);
     await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
@@ -227,7 +276,7 @@ describe("PedirTurnoForm", () => {
   it("muestra el error que devuelve la acción (p. ej. horario ya no disponible)", async () => {
     solicitarTurnoPublicoActionMock.mockResolvedValue({ error: "ese horario ya no está disponible, elegí otro" });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await avanzarHastaTurno(user);
     await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
@@ -245,7 +294,7 @@ describe("PedirTurnoForm", () => {
       error: "ya tenés un turno pendiente, con mail muru...@gmail.com. No podés sacar otro turno — por cualquier consulta o modificación, contactate con la clínica.",
     });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica="+549 351 123-4567" />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: "+549 351 123-4567" });
 
     await avanzarHastaTurno(user);
     await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
@@ -260,7 +309,7 @@ describe("PedirTurnoForm", () => {
       error: "ya tenés un turno pendiente, con mail muru...@gmail.com. No podés sacar otro turno — por cualquier consulta o modificación, contactate con la clínica.",
     });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await avanzarHastaTurno(user);
     await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
@@ -271,7 +320,7 @@ describe("PedirTurnoForm", () => {
 
   it("'Atrás' desde turno vuelve al paso de verificación", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await avanzarHastaTurno(user);
     await user.click(screen.getByRole("button", { name: "Atrás" }));
@@ -281,7 +330,7 @@ describe("PedirTurnoForm", () => {
 
   it("pide los tipos de consulta y la disponibilidad al llegar al paso de turno", async () => {
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await avanzarHastaTurno(user);
 
@@ -296,7 +345,7 @@ describe("PedirTurnoForm", () => {
   it("primera vez con DNI/mail de una ficha ya verificada, redirige a la tarjeta en vez de seguir a turno", async () => {
     pacienteVerificadoPublicoActionMock.mockResolvedValue({ paciente: { id: "pac-1", nombre: "Bruno I.", dni: "30***222" } });
     const user = userEvent.setup();
-    render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
     await completarContacto(user);
     await completarVerificacion(user);
@@ -311,13 +360,13 @@ describe("PedirTurnoForm", () => {
       await avanzarAYaVine(user);
       await user.type(screen.getByLabelText("DNI"), "30111222");
       await user.type(screen.getByLabelText("Email"), "bruno@example.com");
-      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(screen.getByRole("button", { name: "Enviar código" }));
     }
 
     it("pide DNI + mail, manda el código y confirma la tarjeta del paciente encontrado", async () => {
       pacienteVerificadoPublicoActionMock.mockResolvedValue({ paciente: { id: "pac-1", nombre: "Bruno I.", dni: "30***222" } });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await completarYaVineDatos(user);
       expect(enviarVerificacionEmailActionMock).toHaveBeenCalledWith("clinica-x", "bruno@example.com", "");
@@ -334,13 +383,14 @@ describe("PedirTurnoForm", () => {
       pacienteVerificadoPublicoActionMock.mockResolvedValue({ paciente: { id: "pac-1", nombre: "Bruno I.", dni: "30***222" } });
       solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await completarYaVineDatos(user);
       await completarVerificacion(user);
-      await user.click(await screen.findByRole("button", { name: "Sí, soy yo — continuar" }));
+      await user.click(await screen.findByRole("button", { name: "Sí, soy yo" }));
 
       await screen.findByText("Tipo de consulta");
+      await user.click(screen.getByRole("button", { name: "10:00" }));
       await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
 
       expect(await screen.findByText(/¡Listo!/)).toBeInTheDocument();
@@ -361,7 +411,7 @@ describe("PedirTurnoForm", () => {
     it("sin ficha verificada, ofrece empezar como paciente nuevo", async () => {
       pacienteVerificadoPublicoActionMock.mockResolvedValue({ error: "no encontramos un paciente verificado con esos datos" });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await completarYaVineDatos(user);
       await completarVerificacion(user);
@@ -376,14 +426,14 @@ describe("PedirTurnoForm", () => {
     it("'No soy yo' vuelve al paso de datos", async () => {
       pacienteVerificadoPublicoActionMock.mockResolvedValue({ paciente: { id: "pac-1", nombre: "Bruno I.", dni: "30***222" } });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await completarYaVineDatos(user);
       await completarVerificacion(user);
       await screen.findByText("¿Sos vos?");
       await user.click(screen.getByRole("button", { name: "No soy yo" }));
 
-      expect(screen.getByText("Contanos con qué datos te registraste")).toBeInTheDocument();
+      expect(screen.getByText("Buscamos tu ficha")).toBeInTheDocument();
     });
   });
 
@@ -395,7 +445,7 @@ describe("PedirTurnoForm", () => {
   describe("persistencia del progreso (localStorage)", () => {
     it("al cerrarse y volver a montar, retoma el paso 'Confirmanos que sos vos' con el mail ya cargado", async () => {
       const user = userEvent.setup();
-      const { unmount } = render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      const { unmount } = renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await completarContacto(user);
       await screen.findByText("Confirmanos que sos vos");
@@ -404,7 +454,7 @@ describe("PedirTurnoForm", () => {
       // el modal (accidental o no) — se simula acá desmontando y montando
       // una instancia nueva, exactamente lo que pasa al reabrir.
       unmount();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       expect(screen.getByText("Confirmanos que sos vos")).toBeInTheDocument();
       expect(screen.getByText("bruno@example.com")).toBeInTheDocument();
@@ -412,13 +462,13 @@ describe("PedirTurnoForm", () => {
 
     it("retoma el paso 'turno' con el tipo de consulta y la fecha ya elegidos", async () => {
       const user = userEvent.setup();
-      const { unmount } = render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      const { unmount } = renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarHastaTurno(user);
       await screen.findByRole("button", { name: "Confirmar turno" });
 
       unmount();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       expect(await screen.findByText("Tipo de consulta")).toBeInTheDocument();
       expect(listDisponibilidadPublicaActionMock).toHaveBeenCalledWith("clinica-x", "tc-1", expect.any(String));
@@ -426,12 +476,12 @@ describe("PedirTurnoForm", () => {
 
     it("con progreso guardado de OTRA clínica (otro slug), no lo mezcla — arranca de cero", async () => {
       const user = userEvent.setup();
-      const { unmount } = render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      const { unmount } = renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
       await completarContacto(user);
       await screen.findByText("Confirmanos que sos vos");
       unmount();
 
-      render(<PedirTurnoForm slug="clinica-y" nombreClinica="Clínica Y" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-y", nombreClinica: "Clínica Y", telefonoClinica: null });
 
       expect(screen.getByText("¿Para quién es el turno?")).toBeInTheDocument();
     });
@@ -439,7 +489,7 @@ describe("PedirTurnoForm", () => {
     it("al confirmar el turno con éxito, borra el progreso guardado", async () => {
       solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarHastaTurno(user);
       await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
@@ -467,7 +517,7 @@ describe("PedirTurnoForm", () => {
         }),
       );
 
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       expect(screen.getByText("¿Para quién es el turno?")).toBeInTheDocument();
     });
@@ -475,7 +525,7 @@ describe("PedirTurnoForm", () => {
     it("con datos corruptos en localStorage, no rompe y arranca de cero", () => {
       localStorage.setItem("dental-mirage:pedir-turno:clinica-x", "esto no es JSON válido{{{");
 
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       expect(screen.getByText("¿Para quién es el turno?")).toBeInTheDocument();
     });
@@ -486,45 +536,49 @@ describe("PedirTurnoForm", () => {
   // de pasos saltar desde ahí, ver pedir-turno-form.tsx).
   describe("camino 'para otro' (Fase 2.4.2)", () => {
     async function avanzarAOtroPrimeraVez(user: ReturnType<typeof userEvent.setup>) {
-      await user.click(screen.getByRole("button", { name: "Para otro" }));
-      await user.click(screen.getByRole("button", { name: "Es mi primera vez" }));
+      await user.click(screen.getByText("Para otra persona"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(screen.getByText("Es mi primera vez"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
     }
 
     async function avanzarAOtroYaVine(user: ReturnType<typeof userEvent.setup>) {
-      await user.click(screen.getByRole("button", { name: "Para otro" }));
-      await user.click(screen.getByRole("button", { name: "Ya he venido anteriormente" }));
+      await user.click(screen.getByText("Para otra persona"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(screen.getByText("Ya vine antes"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
     }
 
-    it("'Para otro' ya no está deshabilitado y lleva a la misma pregunta de siempre", async () => {
+    it("'Para otra persona' lleva a la misma pregunta de siempre", async () => {
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
-      await user.click(screen.getByRole("button", { name: "Para otro" }));
-      expect(screen.getByText("¿Ya te has atendido con nosotros?")).toBeInTheDocument();
+      await user.click(screen.getByText("Para otra persona"));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      expect(screen.getByText("¿Ya te atendiste con nosotros?")).toBeInTheDocument();
     });
 
     it("primera vez: pide datos del tutor y LUEGO del paciente (2 pasos), verifica el mail del tutor y llega a turno", async () => {
       solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarAOtroPrimeraVez(user);
 
       // Paso 1: solo datos del tutor — todavía no se ven campos del
-      // paciente (corrección de QA, 2026-09-06: "el apartado 'para otro'
-      // es muy grande, primero que se pidan datos del tutor y luego los
-      // del paciente").
-      expect(screen.getByText("Tus datos")).toBeInTheDocument();
+      // paciente.
+      expect(screen.getByText("Primero, tus datos")).toBeInTheDocument();
       expect(screen.queryByLabelText("Nombre")).not.toBeInTheDocument();
-      await user.selectOptions(screen.getByLabelText("Tu relación con el paciente"), "familiar");
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
       await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
-      await user.type(screen.getByLabelText("Tu teléfono"), "+5493511111111");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
       await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       expect(enviarVerificacionEmailActionMock).not.toHaveBeenCalled();
 
       // Paso 2: datos del paciente — recién acá se manda el código.
-      expect(await screen.findByText("Datos del paciente")).toBeInTheDocument();
+      expect(await screen.findByText("Datos de la persona que se atiende")).toBeInTheDocument();
       expect(screen.queryByLabelText("Tu nombre completo")).not.toBeInTheDocument();
       await user.type(screen.getByLabelText("Nombre"), "Juanito");
       await user.type(screen.getByLabelText("Apellido"), "Pérez");
@@ -535,6 +589,7 @@ describe("PedirTurnoForm", () => {
 
       await completarVerificacion(user);
       await screen.findByText("Tipo de consulta");
+      await user.click(screen.getByRole("button", { name: "10:00" }));
 
       await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
       await screen.findByText(/¡Listo!/);
@@ -553,25 +608,25 @@ describe("PedirTurnoForm", () => {
       );
     });
 
-    it("primera vez: 'Atrás' desde 'Datos del paciente' vuelve a 'Tus datos' sin perder lo tipeado", async () => {
+    it("primera vez: 'Atrás' desde 'Datos de la persona que se atiende' vuelve a 'Primero, tus datos' sin perder lo tipeado", async () => {
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarAOtroPrimeraVez(user);
-      await user.selectOptions(screen.getByLabelText("Tu relación con el paciente"), "familiar");
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
       await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
-      await user.type(screen.getByLabelText("Tu teléfono"), "+5493511111111");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
       await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
       await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-      await screen.findByText("Datos del paciente");
+      await screen.findByText("Datos de la persona que se atiende");
       await user.click(screen.getByRole("button", { name: "Atrás" }));
 
-      expect(await screen.findByText("Tus datos")).toBeInTheDocument();
+      expect(await screen.findByText("Primero, tus datos")).toBeInTheDocument();
       expect(screen.getByLabelText("Tu nombre completo")).toHaveValue("María Pérez");
     });
 
-    it("ya he venido antes: busca por mail del tutor y muestra una LISTA de tarjetas", async () => {
+    it("ya he venido antes: busca por mail del tutor y muestra una LISTA de fichas", async () => {
       pacientesVerificadosDeTutorActionMock.mockResolvedValue({
         pacientes: [
           { id: "pac-1", nombre: "Juanito P.", dni: "40***222" },
@@ -579,29 +634,32 @@ describe("PedirTurnoForm", () => {
         ],
       });
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarAOtroYaVine(user);
       await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
-      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(screen.getByRole("button", { name: "Enviar código" }));
       await completarVerificacion(user);
 
       expect(pacientesVerificadosDeTutorActionMock).toHaveBeenCalledWith("clinica-x", "mama@example.com", "token-de-prueba");
-      expect(await screen.findByText("¿Para cuál de tus pacientes es el turno?")).toBeInTheDocument();
+      expect(await screen.findByText("¿Para quién es el turno?")).toBeInTheDocument();
       expect(screen.getByText("Juanito P.")).toBeInTheDocument();
       expect(screen.getByText("Anita P.")).toBeInTheDocument();
 
+      // Rediseño (§5 [5b]): ninguna ficha viene preseleccionada — elegir
+      // una fila no alcanza, hace falta "Continuar" aparte.
       await user.click(screen.getByText("Juanito P."));
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
       await screen.findByText("Tipo de consulta");
     });
 
     it("ya he venido antes, sin match: ofrece empezar como paciente nuevo (vuelve al formulario completo)", async () => {
       const user = userEvent.setup();
-      render(<PedirTurnoForm slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       await avanzarAOtroYaVine(user);
       await user.type(screen.getByLabelText("Tu email"), "papa@example.com");
-      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await user.click(screen.getByRole("button", { name: "Enviar código" }));
       await completarVerificacion(user);
 
       await user.click(await screen.findByRole("button", { name: "Empezar como paciente nuevo" }));

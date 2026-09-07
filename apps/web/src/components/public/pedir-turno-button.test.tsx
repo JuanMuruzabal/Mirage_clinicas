@@ -67,4 +67,40 @@ describe("PedirTurnoButton", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  // docs/prompt-claude-code-fecha-horario.md, punto 3: "bloqueá el scroll
+  // del body... y mantené el foco atrapado dentro del modal" — pendiente
+  // sin resolver desde el propio §6 de docs/rediseno-flujo-turnos.md.
+  it("bloquea el scroll del body mientras está abierto y lo restaura al cerrar", async () => {
+    const user = userEvent.setup();
+    render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+
+    expect(document.body.style.overflow).not.toBe("hidden");
+    await user.click(screen.getByRole("button", { name: "Pedir turno" }));
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
+
+  it("Escape cierra el modal", async () => {
+    const user = userEvent.setup();
+    render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Pedir turno" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("al cerrar, el foco vuelve al botón 'Pedir turno'", async () => {
+    const user = userEvent.setup();
+    render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
+
+    const boton = screen.getByRole("button", { name: "Pedir turno" });
+    await user.click(boton);
+    await user.keyboard("{Escape}");
+
+    expect(boton).toHaveFocus();
+  });
 });
