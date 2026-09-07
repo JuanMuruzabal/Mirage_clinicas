@@ -28,6 +28,8 @@ export function PantallaBuscarFicha({
   total,
   enviando,
   extra,
+  accionLabel = "Enviar código",
+  accionLabelEnviando = "Enviando código…",
 }: {
   dni: string;
   email: string;
@@ -41,6 +43,14 @@ export function PantallaBuscarFicha({
   enviando?: boolean;
   /** Este paso dispara el envío del código — necesita su Turnstile. */
   extra?: ReactNode;
+  /**
+   * Fase 2, ítem 5 ("compartir calendario"): con enlace no se manda
+   * ningún código — este paso busca la ficha directo, así que el botón
+   * dice "Buscar"/"Buscando…" en vez de "Enviar código"/"Enviando
+   * código…" (§7: "los botones nombran la acción concreta").
+   */
+  accionLabel?: string;
+  accionLabelEnviando?: string;
 }) {
   return (
     <ModalShell
@@ -52,7 +62,7 @@ export function PantallaBuscarFicha({
         <ModalFooter
           paso={paso}
           total={total}
-          actionLabel={enviando ? "Enviando código…" : "Enviar código"}
+          actionLabel={enviando ? accionLabelEnviando : accionLabel}
           onBack={onBack}
           actionType="submit"
           formId="form-buscar-ficha"
@@ -100,6 +110,8 @@ export function PantallaBuscarPorMail({
   total,
   enviando,
   extra,
+  accionLabel = "Enviar código",
+  accionLabelEnviando = "Enviando código…",
 }: {
   email: string;
   onChangeEmail: (v: string) => void;
@@ -110,6 +122,8 @@ export function PantallaBuscarPorMail({
   total: number;
   enviando?: boolean;
   extra?: ReactNode;
+  accionLabel?: string;
+  accionLabelEnviando?: string;
 }) {
   return (
     <ModalShell
@@ -121,7 +135,7 @@ export function PantallaBuscarPorMail({
         <ModalFooter
           paso={paso}
           total={total}
-          actionLabel={enviando ? "Enviando código…" : "Enviar código"}
+          actionLabel={enviando ? accionLabelEnviando : accionLabel}
           onBack={onBack}
           actionType="submit"
           formId="form-buscar-mail"

@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/security"
 )
 
 // crearPacienteVerificadoDePrueba — Fase 2.4.1: crea un `Paciente` con un
@@ -151,6 +152,25 @@ func pacienteVerificadoURL(slug, dni, email, token string) string {
 	q.Set("dni", dni)
 	q.Set("email", email)
 	q.Set("verificacionToken", token)
+	return "/clinicas/" + slug + "/pacientes/verificado?" + q.Encode()
+}
+
+// pacienteVerificadoConEnlaceURL/pacienteVerificadoTutorConEnlaceURL —
+// Fase 2, ítem 5: mismas 2 URLs de arriba, pero con `enlaceToken` en vez
+// de `verificacionToken` — la alternativa de identidad que no depende de
+// ningún código de mail (ver validarIdentidadPublicaOEnlace).
+func pacienteVerificadoConEnlaceURL(slug, dni, email, enlaceToken string) string {
+	q := url.Values{}
+	q.Set("dni", dni)
+	q.Set("email", email)
+	q.Set("enlaceToken", enlaceToken)
+	return "/clinicas/" + slug + "/pacientes/verificado?" + q.Encode()
+}
+
+func pacienteVerificadoTutorConEnlaceURL(slug, tutorEmail, enlaceToken string) string {
+	q := url.Values{}
+	q.Set("tutorEmail", tutorEmail)
+	q.Set("enlaceToken", enlaceToken)
 	return "/clinicas/" + slug + "/pacientes/verificado?" + q.Encode()
 }
 
@@ -362,5 +382,108 @@ func TestPacienteVerificadoPublico_TutorEmailFormatoInvalidoFalla(t *testing.T) 
 	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorURL(reg.Profesional.Slug, "no-es-un-mail", "token"), nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// Fase 2, ítem 5 ("compartir calendario") — mismo endpoint, ahora con
+// `enlaceToken` en vez de `verificacionToken`: el pedido textual del
+// cliente ("el usuario por el link tendria que tambien tener la opcion si
+// ya vino antes, mostrando su tarjeta") depende de que este camino
+// funcione igual que con código.
+
+func TestPacienteVerificadoPublico_ConEnlaceTokenExitoso(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace1@example.com")
+	email := "bruno@example.com"
+	paciente := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", email)
+	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30111222", email, enlaceToken), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got pacienteVerificadoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.ID != paciente.ID.String() {
+		t.Errorf("ID = %q, esperaba %q", got.ID, paciente.ID.String())
+	}
+}
+
+func TestPacienteVerificadoPublico_ConEnlaceTokenInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace2@example.com")
+	crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30111222", "bruno@example.com", "un-token-inexistente"), nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}
+
+func TestPacienteVerificadoPublico_ConEnlaceTokenVencidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace3@example.com")
+	crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
+	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+	if err := gdb.Model(&db.EnlaceTurno{}).
+		Where("token_hash = ?", security.HashToken(enlaceToken)).
+		Update("expira_en", time.Now().Add(-1*time.Minute)).Error; err != nil {
+		t.Fatalf("no se pudo vencer el enlace de prueba: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30111222", "bruno@example.com", enlaceToken), nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+}
+
+// TestPacienteVerificadoPublico_ConEnlaceTokenSinMatchFalla — mismo 404
+// "primera vez" que con código: el enlace es válido, pero el DNI+mail no
+// pertenecen a ninguna ficha verificada.
+func TestPacienteVerificadoPublico_ConEnlaceTokenSinMatchFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace4@example.com")
+	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30999888", "nadie@example.com", enlaceToken), nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenListaHijosVerificados(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor-enlace1@example.com")
+	tutorEmail := "mama-enlace@example.com"
+	hijo1 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000011", "Mila", tutorEmail, 0)
+	hijo2 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000012", "Nico", tutorEmail, time.Hour)
+	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorConEnlaceURL(reg.Profesional.Slug, tutorEmail, enlaceToken), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got []pacienteVerificadoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, esperaba 2", len(got))
+	}
+	ids := map[string]bool{got[0].ID: true, got[1].ID: true}
+	if !ids[hijo1.ID.String()] || !ids[hijo2.ID.String()] {
+		t.Errorf("ids = %v, esperaba los dos hijos (%s, %s)", ids, hijo1.ID, hijo2.ID)
+	}
+}
+
+func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor-enlace2@example.com")
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorConEnlaceURL(reg.Profesional.Slug, "mama@example.com", "un-token-inexistente"), nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
 	}
 }

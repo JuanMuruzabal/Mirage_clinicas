@@ -278,13 +278,19 @@ export interface PacienteVerificadoPublico {
 // el pedido final). 404 si no hay una ficha VERIFICADA que matchee DNI +
 // mail — el wizard interpreta eso como "no encontramos tu ficha, empezá
 // como paciente nuevo".
+//
+// enlaceToken (Fase 2, ítem 5) — alternativa a verificacionToken cuando el
+// wizard se abrió desde un link compartido: mismo criterio "validar sin
+// consumir", mutuamente excluyente con verificacionToken (nunca los dos
+// juntos). El wizard entero se replica igual con enlace, código por
+// código — este es el único punto donde cambia qué credencial se manda.
 export function apiGetPacienteVerificadoPublico(
   slug: string,
   dni: string,
   email: string,
-  verificacionToken: string,
+  credencial: { verificacionToken: string } | { enlaceToken: string },
 ): Promise<ApiResult<PacienteVerificadoPublico>> {
-  const query = new URLSearchParams({ dni, email, verificacionToken });
+  const query = new URLSearchParams({ dni, email, ...credencial });
   return request<PacienteVerificadoPublico>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
 }
 
@@ -293,13 +299,14 @@ export function apiGetPacienteVerificadoPublico(
 // endpoint de arriba: busca por MAIL DEL TUTOR en vez de por DNI del
 // paciente y puede devolver más de una tarjeta (un tutor puede tener más
 // de un hijo verificado a su cargo). Mismo criterio de "exige token
-// vigente y sin usar" que el modo por DNI.
+// vigente y sin usar" que el modo por DNI, y misma alternativa
+// verificacionToken/enlaceToken que arriba.
 export function apiGetPacientesVerificadosDeTutorPublico(
   slug: string,
   tutorEmail: string,
-  verificacionToken: string,
+  credencial: { verificacionToken: string } | { enlaceToken: string },
 ): Promise<ApiResult<PacienteVerificadoPublico[]>> {
-  const query = new URLSearchParams({ tutorEmail, verificacionToken });
+  const query = new URLSearchParams({ tutorEmail, ...credencial });
   return request<PacienteVerificadoPublico[]>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
 }
 
