@@ -1204,6 +1204,39 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 					}
 					return err
 				}
+
+				// Corrección de seguridad: pacienteVerificadoPublicoHandler/
+				// listarPacientesVerificadosDeTutorHandler (GET, el endpoint
+				// que EMITE este ID) exigen que identidadEmail responda al
+				// paciente o a alguno de sus tutores antes de devolverlo —
+				// pero ese chequeo nunca se repetía al CONSUMIRLO acá. Sin
+				// esto, cualquier mail verificado (uno cualquiera, sin
+				// relación con este paciente) alcanzaba para reservar a
+				// nombre de CUALQUIER paciente ya verificado de la clínica
+				// del que se conociera el ID — el ID en sí es un UUID
+				// v4 (no adivinable), pero queda persistido en localStorage
+				// del navegador hasta 30 minutos (resumen del wizard), así
+				// que un dispositivo compartido sí podía filtrarlo. Mismas
+				// dos funciones que ya usa el GET — se vuelven a correr acá
+				// porque esa demostración de control tiene que valer para
+				// ESTE pedido, no para "en algún momento, quien sea".
+				respondeComoPaciente, err := pacienteRespondeAlMail(tx, paciente, identidadEmail)
+				if err != nil {
+					return err
+				}
+				if !respondeComoPaciente {
+					tieneTutor, err := pacienteTieneTutorConMail(tx, paciente.ID, identidadEmail)
+					if err != nil {
+						return err
+					}
+					if !tieneTutor {
+						// Mismo error que "el ID no existe" — no hay que
+						// distinguir entre "no existe" y "existe pero no es
+						// tuyo", sería filtrar información de más.
+						return errPacienteVerificadoNoEncontrado
+					}
+				}
+
 				// sincronizarContactoConPaciente (turnos.go) no toca el DNI —
 				// asume que el turno YA tiene el DNI correcto, porque
 				// siempre se llama después de haber encontrado la ficha
