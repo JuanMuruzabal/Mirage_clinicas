@@ -2208,6 +2208,81 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdInexistenteRechaza(t *testing
 	}
 }
 
+// TestSolicitarTurnoPublico_PacienteVerificadoIdConMailAjenoRechaza —
+// corrección de seguridad: el mail que se verifica ANTES de mandar
+// pacienteVerificadoId tiene que ser de verdad el propio del paciente (o
+// el de alguno de sus tutores) — nunca alcanzó con "cualquier mail
+// verificado, el que sea" + conocer el UUID de otra ficha ya verificada.
+// Antes de este fix, alguien con SU PROPIO mail (sin ninguna relación con
+// el paciente elegido) podía reservarle un turno a nombre de esa ficha con
+// solo conocer su ID.
+func TestSolicitarTurnoPublico_PacienteVerificadoIdConMailAjenoRechaza(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico27@example.com")
+	victima := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "victima@example.com")
+
+	// El atacante verifica SU PROPIO mail — un mail real, pero sin
+	// ninguna relación con la ficha de la víctima — y lo usa junto con
+	// el pacienteVerificadoId de la víctima (conocido, ej. por una fuga
+	// del lado del cliente).
+	tokenAtacante := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "atacante@example.com")
+	req := solicitarTurnoPublicoRequest{
+		EmailContacto:        "atacante@example.com",
+		TipoConsultaID:       tipoID,
+		Fecha:                fechaDePruebaDisponibilidad,
+		Hora:                 "08:00",
+		VerificacionToken:    tokenAtacante,
+		PacienteVerificadoID: victima.ID.String(),
+	}
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d (mismo error que ID inexistente). body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+
+	var cantidad int64
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ? AND asistencia IS NULL", victima.ID).Count(&cantidad).Error; err != nil {
+		t.Fatalf("no se pudo contar los turnos de la víctima: %v", err)
+	}
+	if cantidad != 0 {
+		t.Errorf("se creó un turno para la víctima con el mail del atacante — cantidad=%d, esperaba 0", cantidad)
+	}
+}
+
+// TestSolicitarTurnoPublico_PacienteVerificadoIdParaOtroConMailAjenoRechaza
+// — mismo ataque que el test de arriba, pero contra el camino "para
+// otro": el mail verificado tiene que ser de verdad uno de los tutores
+// YA CONOCIDOS de esa ficha, no cualquier mail (ni siquiera uno que la
+// request marque como "tutor" en el payload).
+func TestSolicitarTurnoPublico_PacienteVerificadoIdParaOtroConMailAjenoRechaza(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico28@example.com")
+	victima := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40111222", "Juanito", "mama-real@example.com", 0)
+
+	tokenAtacante := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "atacante@example.com")
+	req := solicitarTurnoPublicoRequest{
+		EmailContacto:        "atacante@example.com",
+		TipoConsultaID:       tipoID,
+		Fecha:                fechaDePruebaDisponibilidad,
+		Hora:                 "08:00",
+		VerificacionToken:    tokenAtacante,
+		PacienteVerificadoID: victima.ID.String(),
+		ParaOtro:             true,
+		TutorEmail:           "atacante@example.com",
+	}
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d (mismo error que ID inexistente). body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+
+	var cantidad int64
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ? AND asistencia IS NULL", victima.ID).Count(&cantidad).Error; err != nil {
+		t.Fatalf("no se pudo contar los turnos de la víctima: %v", err)
+	}
+	if cantidad != 0 {
+		t.Errorf("se creó un turno para la víctima con el mail del atacante — cantidad=%d, esperaba 0", cantidad)
+	}
+}
+
 // TestSolicitarTurnoPublico_DNIExistenteVerificadoConMailDistintoCreaConflicto
 // — Fase 2.4.1 (F4.1.3): el documento pide dejar pasar el turno (nunca
 // bloquear a alguien real) pero avisar — se crea una ficha nueva Y un
