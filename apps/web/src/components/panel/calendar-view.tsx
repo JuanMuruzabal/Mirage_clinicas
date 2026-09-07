@@ -373,6 +373,15 @@ export function CalendarView({
   // el usuario ve en el grid); en Semana/Mes, `turnos` ya es exactamente
   // el rango cargado (ver `recargar`/el efecto de carga más abajo), sin
   // filtrar de nuevo.
+  //
+  // TR-115 había sumado acá un filtro para descartar turnos resueltos
+  // ("los 'x turnos'... solo deben ser turnos activos, no resueltos").
+  // En la ronda de correcciones de Fase 2.4.2 (TR-116, cuarta ronda) el
+  // cliente aclaró explícitamente lo contrario para esta rama: "esto no
+  // lo toqué, está bien como está ahora" — pedido textual que prevalece.
+  // Al mergear TR-115 (`dev`) acá, ese filtro volvió a colarse en un
+  // auto-merge silencioso (ninguna de las dos ramas tocaba la MISMA
+  // línea, así que Git no marcó conflicto) — se saca de nuevo a mano.
   const turnosEnRangoVisible =
     vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)).length : turnos.length;
 
