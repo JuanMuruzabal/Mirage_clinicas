@@ -129,6 +129,19 @@ export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: strin
   return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
 }
 
+// DisponibilidadMes — docs/rediseno-flujo-turnos.md §3.8 (panel de
+// calendario mensual del wizard público): qué días de un mes tienen algún
+// horario disponible, para pintar el punto "con turnos" ANTES de que el
+// paciente toque ningún día.
+export interface DisponibilidadMes {
+  dias: string[];
+}
+
+export function apiListDisponibilidadMesPublica(slug: string, tipoConsultaId: string, mes: string): Promise<ApiResult<DisponibilidadMes>> {
+  const query = new URLSearchParams({ tipoConsultaId, mes });
+  return request<DisponibilidadMes>(`/clinicas/${slug}/disponibilidad-mes?${query.toString()}`);
+}
+
 export interface SolicitarTurnoPublicoPayload {
   // nombreContacto/apellidoContacto/dniContacto/telefonoContacto —
   // obligatorios en el camino "primera vez"; se omiten en el camino "ya he

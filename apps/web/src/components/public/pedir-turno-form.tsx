@@ -5,6 +5,7 @@ import type { TipoConsultaPublico, PacienteVerificadoPublico, SolicitarTurnoPubl
 import {
   confirmarVerificacionEmailAction,
   enviarVerificacionEmailAction,
+  listDisponibilidadMesPublicaAction,
   listDisponibilidadPublicaAction,
   listTiposConsultaPublicoAction,
   pacienteVerificadoPublicoAction,
@@ -12,13 +13,21 @@ import {
   solicitarTurnoPublicoAction,
 } from "@/app/actions/turno-publico";
 import { fechaISOLocal } from "@/lib/calendar-utils";
-import { HoraPicker } from "@/components/panel/hora-picker";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { PAIS_TELEFONO_DEFAULT, telefonoConPais } from "./pedir-turno/campo-telefono";
+import { PantallaParaQuien, PantallaYaAtendiste, type ParaQuien, type YaAtendiste } from "./pedir-turno/pantallas-eleccion";
+import { PantallaTusDatos, PantallaTusDatosTutor, PantallaDatosPaciente } from "./pedir-turno/pantalla-tus-datos";
+import { PantallaBuscarFicha, PantallaBuscarPorMail } from "./pedir-turno/pantalla-buscar-ficha";
+import { PantallaCodigo } from "./pedir-turno/pantalla-codigo";
+import { PantallaSosVos, PantallaParaQuienLista } from "./pedir-turno/pantalla-resultado";
+import { PantallaDiaHora } from "./pedir-turno/pantalla-dia-hora";
 
 interface PedirTurnoFormProps {
   slug: string;
   nombreClinica: string;
   telefonoClinica?: string | null;
+  /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/rediseno-flujo-turnos.md §3.1). */
+  onClose: () => void;
 }
 
 // TR-002 en docs/tradeoffs.md: mismas reglas que valida el backend
@@ -67,11 +76,13 @@ const TUTOR_CAMPOS_INICIALES = {
 //   - "otro-tutor" → "otro-paciente": pide primero los datos de quien
 //     reserva (el tutor) y recién en una pantalla aparte los del paciente
 //     (sin nombre/apellido/DNI/teléfono del paciente asumidos del contacto
-//     que completa el formulario — son 2 personas distintas). Corrección
-//     de QA (2026-09-06): antes era un solo paso con las 2 tandas de
-//     campos juntas — "el apartado 'para otro' es muy grande" — se separó
-//     en 2 pantallas, tutor primero. Verifica el mail del TUTOR recién al
-//     terminar "otro-paciente" (otro-verificacion).
+//     que completa el formulario — son 2 personas distintas). El código de
+//     verificación se manda recién al terminar "otro-paciente" (a
+//     diferencia del mapa de pantallas de docs/rediseno-flujo-turnos.md
+//     §4, que lo pone entre tutor y paciente) — se mantiene el orden real
+//     ya construido en vez de reordenar CUÁNDO se dispara el envío del
+//     código, solo se ajustó la numeración de "paso N de M" para reflejar
+//     el orden real (tutor=3, paciente=4, código=5).
 //   - "otro-ya-vine-datos": pide solo el mail del tutor, verifica
 //     (otro-ya-vine-codigo) y muestra una LISTA de tarjetas
 //     (otro-tarjeta-paciente) — un tutor puede tener más de un hijo
@@ -147,6 +158,7 @@ interface EstadoGuardado {
   paso: Paso;
   flujo: Flujo;
   campos: typeof CAMPOS_INICIALES;
+  paisTelefono: string;
   yaVineDni: string;
   emailEnVerificacion: string;
   verificacionToken: string;
@@ -159,6 +171,7 @@ interface EstadoGuardado {
   // progreso del camino "para otro" si el modal se cierra sin querer.
   esOtro: boolean;
   tutorCampos: typeof TUTOR_CAMPOS_INICIALES;
+  paisTelefonoTutor: string;
   pacientesVerificadosTutor: PacienteVerificadoPublico[];
 }
 
@@ -210,14 +223,16 @@ function borrarEstadoGuardado(slug: string) {
 }
 
 // PedirTurnoForm — Extra 2.3.5 (E5.3) + Fase 2.4.1 (rework de punta a
-// punta, docs/implementation-plan.md §11.6): antes era un wizard de 3
-// pasos fijo (contacto → verificacion → turno). Ahora arranca preguntando
-// para quién es el turno y si el paciente ya se atendió antes — quien dice
-// que sí puede saltarse los datos de contacto por completo si tiene una
-// ficha VERIFICADA (al menos un turno resuelto y asistido) que matchee su
-// DNI + mail. El turno sigue naciendo `agendado`, con horario fijo, de
-// punta a punta.
-export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTurnoFormProps) {
+// punta, docs/implementation-plan.md §11.6) + rediseño visual completo
+// (docs/rediseno-flujo-turnos.md, "2.4.2.1"): la lógica de estado y las
+// llamadas al backend no cambiaron con el rediseño — lo que cambió es
+// qué componente de pantalla renderiza cada `paso` (antes JSX inline acá
+// mismo, ahora los componentes de `./pedir-turno/*`) y, puntualmente, la
+// pareja `paisTelefono`/`paisTelefonoTutor` nueva (el campo de teléfono
+// del doc separa país y número local — antes era un solo input de texto
+// libre). El turno sigue naciendo `agendado`, con horario fijo, de punta
+// a punta.
+export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose }: PedirTurnoFormProps) {
   // estadoInicial — se lee UNA sola vez (useState solo evalúa el
   // inicializador en el primer render), ver el comentario grande de
   // leerEstadoGuardado/PEDIR_TURNO_VENTANA_RESUMEN_MS arriba.
@@ -226,22 +241,31 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   const [paso, setPaso] = useState<Paso>(() => estadoInicial?.paso ?? "para-quien");
   const [flujo, setFlujo] = useState<Flujo>(() => estadoInicial?.flujo ?? "primera-vez");
   const [campos, setCampos] = useState(() => estadoInicial?.campos ?? CAMPOS_INICIALES);
+  const [paisTelefono, setPaisTelefono] = useState(() => estadoInicial?.paisTelefono ?? PAIS_TELEFONO_DEFAULT);
   // esOtro (Fase 2.4.2) — se fija en el paso "para-quien" ("Para mí" vs
-  // "Para otro") y decide, en el paso "ya-te-atendiste" (LA MISMA
+  // "Para otra persona") y decide, en el paso "ya-te-atendiste" (LA MISMA
   // pregunta para los 2 caminos), a cuál de los 2 grupos de pasos saltar.
   const [esOtro, setEsOtro] = useState(() => estadoInicial?.esOtro ?? false);
   const [tutorCampos, setTutorCampos] = useState(() => estadoInicial?.tutorCampos ?? TUTOR_CAMPOS_INICIALES);
+  const [paisTelefonoTutor, setPaisTelefonoTutor] = useState(() => estadoInicial?.paisTelefonoTutor ?? PAIS_TELEFONO_DEFAULT);
+
+  // paraQuienSel/yaAtendisteSel — selección TRANSITORIA de las pantallas
+  // [1]/[2] antes de tocar "Continuar" (docs/rediseno-flujo-turnos.md
+  // §3.5: tarjeta de opción, elegir ≠ avanzar). No se persisten: si se
+  // resume el wizard justo en uno de estos 2 pasos, todavía no hay nada
+  // elegido para ESE paso puntual (si ya se había elegido, `paso` ya
+  // habría avanzado más allá).
+  const [paraQuienSel, setParaQuienSel] = useState<ParaQuien | null>(null);
+  const [yaAtendisteSel, setYaAtendisteSel] = useState<YaAtendiste | null>(null);
 
   // Verificación de mail ("Confirmanos que sos vos") — reusada por los DOS
   // caminos ("primera vez" y "ya he venido antes"): emailEnVerificacion
   // guarda a qué mail le corresponde el código que se está tipeando,
   // independiente de en qué paso del wizard se originó.
-  const [codigo, setCodigo] = useState("");
   const [emailEnVerificacion, setEmailEnVerificacion] = useState(() => estadoInicial?.emailEnVerificacion ?? "");
   const [verificacionToken, setVerificacionToken] = useState(() => estadoInicial?.verificacionToken ?? "");
   const [enviandoCodigo, setEnviandoCodigo] = useState(false);
   const [verificando, setVerificando] = useState(false);
-  const [avisoReenvio, setAvisoReenvio] = useState<string | null>(null);
   // codigoDev (Fase 2.4.1, pedido del cliente) — SOLO viene en local (sin
   // RESEND_API_KEY configurada, ver AuthDeps.ExponerCodigoVerificacion en
   // el backend), nunca en producción: se muestra debajo del campo para no
@@ -249,11 +273,10 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   // wizard en desarrollo.
   const [codigoDev, setCodigoDev] = useState<string | null>(null);
   // captchaToken (corrección de seguridad, Fase 2.4.1) — el widget de
-  // Turnstile vive en los dos pasos que disparan
-  // enviarVerificacionEmailAction ("contacto" de "primera vez" y
-  // "ya-vine-datos" de "ya he venido antes"), compartiendo un solo
-  // estado — sin NEXT_PUBLIC_TURNSTILE_SITE_KEY el widget no se renderiza
-  // y esto queda en "" (mismo criterio que crear-cuenta-form.tsx).
+  // Turnstile vive en todos los pasos que disparan
+  // enviarVerificacionEmailAction, compartiendo un solo estado — sin
+  // NEXT_PUBLIC_TURNSTILE_SITE_KEY el widget no se renderiza y esto queda
+  // en "" (mismo criterio que crear-cuenta-form.tsx).
   const [captchaToken, setCaptchaToken] = useState("");
 
   // Camino "ya he venido antes" (Fase 2.4.1).
@@ -270,11 +293,11 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   const [pacientesVerificadosTutor, setPacientesVerificadosTutor] = useState<PacienteVerificadoPublico[]>(
     () => estadoInicial?.pacientesVerificadosTutor ?? [],
   );
+  const [pacienteListaSeleccionado, setPacienteListaSeleccionado] = useState<string | null>(null);
   const [buscandoPaciente, setBuscandoPaciente] = useState(false);
   const [pacienteNoEncontrado, setPacienteNoEncontrado] = useState(false);
 
   const [tipos, setTipos] = useState<TipoConsultaPublico[]>([]);
-  const [cargandoTipos, setCargandoTipos] = useState(true);
   const [tipoConsultaId, setTipoConsultaId] = useState(() => estadoInicial?.tipoConsultaId ?? "");
 
   const hoyISO = fechaISOLocal();
@@ -289,6 +312,24 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   // POSTERIORES de tipo/fecha sí lo prenden, pero desde los onChange que
   // los disparan, mismo criterio que agregar-turno-modal.tsx.
   const [cargandoSlots, setCargandoSlots] = useState(true);
+
+  // Calendario mensual (3.8, docs/prompt-claude-code-fecha-horario.md) —
+  // `mesVisible` es del PANEL, no necesariamente el mes de `fecha`: se
+  // puede navegar mes a mes sin mover la selección. Arranca en el mes de
+  // `fecha` porque es el valor sensato la primera vez que se abre.
+  const [mesVisible, setMesVisible] = useState(() => (estadoInicial?.fecha ?? hoyISO).slice(0, 7));
+  const [diasConTurnos, setDiasConTurnos] = useState<string[]>([]);
+  const [cargandoMes, setCargandoMes] = useState(false);
+
+  function cambiarMesVisible(mes: string) {
+    setMesVisible(mes);
+    if (!tipoConsultaId) return;
+    setCargandoMes(true);
+    listDisponibilidadMesPublicaAction(slug, tipoConsultaId, mes).then((dias) => {
+      setDiasConTurnos(dias);
+      setCargandoMes(false);
+    });
+  }
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -315,6 +356,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       paso,
       flujo,
       campos,
+      paisTelefono,
       yaVineDni,
       emailEnVerificacion,
       verificacionToken,
@@ -324,6 +366,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       hora,
       esOtro,
       tutorCampos,
+      paisTelefonoTutor,
       pacientesVerificadosTutor,
     });
   }, [
@@ -332,6 +375,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
     paso,
     flujo,
     campos,
+    paisTelefono,
     yaVineDni,
     emailEnVerificacion,
     verificacionToken,
@@ -341,6 +385,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
     hora,
     esOtro,
     tutorCampos,
+    paisTelefonoTutor,
     pacientesVerificadosTutor,
   ]);
 
@@ -350,7 +395,6 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
     listTiposConsultaPublicoAction(slug).then((lista) => {
       if (!activo) return;
       setTipos(lista);
-      setCargandoTipos(false);
       // Corrección de QA (resumen del wizard, TR-111): `actual` puede venir
       // de un tipo de consulta guardado en localStorage que el profesional
       // borró mientras tanto — si ya no está en la lista fresca, se
@@ -371,21 +415,20 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       if (!activo) return;
       setSlots(disponibilidad.slots);
       setCargandoSlots(false);
-      setHora((actual) => (disponibilidad.slots.includes(actual) ? actual : (disponibilidad.slots[0] ?? "")));
+      setHora((actual) => (disponibilidad.slots.includes(actual) ? actual : ""));
     });
     return () => {
       activo = false;
     };
   }, [slug, tipoConsultaId, fecha]);
 
-  async function continuar(e: React.FormEvent) {
-    e.preventDefault();
+  async function continuar() {
     setError(null);
 
     const nombreContacto = campos.nombreContacto.trim();
     const apellidoContacto = campos.apellidoContacto.trim();
     const dniContacto = campos.dniContacto.trim();
-    const telefonoContacto = campos.telefonoContacto.trim();
+    const telefonoContacto = telefonoConPais(paisTelefono, campos.telefonoContacto);
     const emailContacto = campos.emailContacto.trim().toLowerCase();
 
     if (!nombreContacto || !apellidoContacto) {
@@ -397,7 +440,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       return;
     }
     if (!TELEFONO_REGEX.test(telefonoContacto)) {
-      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      setError("El teléfono no tiene un formato válido.");
       return;
     }
     if (!EMAIL_REGEX.test(emailContacto)) {
@@ -423,19 +466,12 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
 
   // continuarOtroTutor — Fase 2.4.2, camino "para otro" + "primera vez",
   // PRIMER paso: solo los datos de quien reserva (el tutor — relación/
-  // nombre/DNI/teléfono/mail, todos obligatorios). Corrección de QA
-  // (2026-09-06, "el apartado 'para otro' es muy grande, primero que se
-  // pidan datos del tutor y luego los del paciente"): antes esto vivía en
-  // el mismo paso que los datos del paciente — se separó en 2 pantallas,
-  // sin enviar el código de verificación todavía (recién se manda al
-  // terminar "otro-paciente", una vez que se tienen los dos juegos de
-  // datos completos).
-  function continuarOtroTutor(e: React.FormEvent) {
-    e.preventDefault();
+  // nombre/teléfono/mail, todos obligatorios).
+  function continuarOtroTutor() {
     setError(null);
 
     const tutorNombre = tutorCampos.nombre.trim();
-    const tutorTelefono = tutorCampos.telefono.trim();
+    const tutorTelefono = telefonoConPais(paisTelefonoTutor, tutorCampos.telefono);
     const tutorEmail = tutorCampos.email.trim().toLowerCase();
 
     if (!tutorCampos.relacion) {
@@ -447,7 +483,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       return;
     }
     if (!TELEFONO_REGEX.test(tutorTelefono)) {
-      setError("Tu teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      setError("Tu teléfono no tiene un formato válido.");
       return;
     }
     if (!EMAIL_REGEX.test(tutorEmail)) {
@@ -455,17 +491,16 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       return;
     }
 
-    setTutorCampos((c) => ({ ...c, nombre: tutorNombre, telefono: tutorTelefono, email: tutorEmail }));
+    setTutorCampos((c) => ({ ...c, nombre: tutorNombre, email: tutorEmail }));
     setPaso("otro-paciente");
   }
 
   // continuarOtroPaciente — Fase 2.4.2, camino "para otro" + "primera
   // vez", SEGUNDO paso: datos del PACIENTE (nombre/apellido/DNI
-  // obligatorios, teléfono/mail propios opcionales — el `.docx` lo pide
-  // así). Recién acá se manda el código de verificación — al mail del
-  // TUTOR (ya validado en el paso anterior), no al del paciente.
-  async function continuarOtroPaciente(e: React.FormEvent) {
-    e.preventDefault();
+  // obligatorios, teléfono/mail propios opcionales). Recién acá se manda
+  // el código de verificación — al mail del TUTOR (ya validado en el paso
+  // anterior), no al del paciente.
+  async function continuarOtroPaciente() {
     setError(null);
 
     const nombreContacto = campos.nombreContacto.trim();
@@ -483,7 +518,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       return;
     }
     if (telefonoContacto && !TELEFONO_REGEX.test(telefonoContacto)) {
-      setError("El teléfono del paciente no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      setError("El teléfono del paciente no tiene un formato válido.");
       return;
     }
     if (emailContacto && !EMAIL_REGEX.test(emailContacto)) {
@@ -510,8 +545,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
 
   // continuarYaVine — Fase 2.4.1, camino "ya he venido antes": pide DNI +
   // mail y dispara la misma verificación de "Confirmanos que sos vos".
-  async function continuarYaVine(e: React.FormEvent) {
-    e.preventDefault();
+  async function continuarYaVine() {
     setError(null);
 
     const dni = yaVineDni.trim();
@@ -545,8 +579,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   // acá el match es por MAIL DEL TUTOR — puede devolver más de una
   // tarjeta (ver otro-tarjeta-paciente), así que no hace falta pedir el
   // DNI del paciente en este paso.
-  async function continuarOtroYaVine(e: React.FormEvent) {
-    e.preventDefault();
+  async function continuarOtroYaVine() {
     setError(null);
 
     const tutorEmail = tutorCampos.email.trim().toLowerCase();
@@ -586,23 +619,17 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
   // "otro-verificacion" (para otro, primera vez): sin este chequeo
   // retroactivo — a diferencia de "para mí", acá el mail que se verifica
   // es el del TUTOR, no el del paciente, así que "¿el DNI+mail ya
-  // pertenecen a una ficha verificada?" no tiene el mismo sentido
-  // (asunción de este alcance, el documento no lo pide explícito para
-  // este camino) — sigue de largo al paso de turno.
+  // pertenecen a una ficha verificada?" no tiene el mismo sentido —
+  // sigue de largo al paso de turno.
   //
   // "otro-ya-vine-codigo" (para otro, ya he venido antes): busca por
   // MAIL DEL TUTOR (pacientesVerificadosDeTutorAction) — puede devolver
   // una LISTA (otro-tarjeta-paciente) en vez de una sola tarjeta.
-  async function confirmarCodigo(e: React.FormEvent) {
-    e.preventDefault();
+  async function confirmarCodigo(codigo: string) {
     setError(null);
-    if (!codigo.trim()) {
-      setError("Ingresá el código que te mandamos por mail.");
-      return;
-    }
 
     setVerificando(true);
-    const result = await confirmarVerificacionEmailAction(slug, emailEnVerificacion, codigo.trim());
+    const result = await confirmarVerificacionEmailAction(slug, emailEnVerificacion, codigo);
     setVerificando(false);
     if (result.error || !result.token) {
       setError(result.error ?? "No se pudo verificar el código.");
@@ -653,7 +680,6 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
 
   async function reenviarCodigo() {
     setError(null);
-    setAvisoReenvio(null);
     setEnviandoCodigo(true);
     const result = await enviarVerificacionEmailAction(slug, emailEnVerificacion, captchaToken);
     setEnviandoCodigo(false);
@@ -662,7 +688,6 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
       return;
     }
     setCodigoDev(result.codigoDev ?? null);
-    setAvisoReenvio("Te mandamos un código nuevo.");
   }
 
   function confirmarTarjetaPaciente() {
@@ -672,8 +697,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
 
   // elegirPacienteVerificadoTutor — Fase 2.4.2: variante de
   // confirmarTarjetaPaciente para la LISTA de "otro-tarjeta-paciente" —
-  // el tutor toca directo la tarjeta que le corresponde (no hace falta un
-  // "¿sos vos?" de confirmación aparte, ya eligió entre varias).
+  // el tutor elige entre varias fichas antes de continuar.
   function elegirPacienteVerificadoTutor(elegido: PacienteVerificadoPublico) {
     setPacienteVerificado(elegido);
     setFlujo("otro-verificado");
@@ -696,8 +720,28 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
     setPaso("otro-tutor");
   }
 
-  async function confirmar(e: React.FormEvent) {
-    e.preventDefault();
+  // irAlProximoDisponible — [6], estado vacío ("No hay turnos este día."):
+  // avanza día a día (tope defensivo de 60, ~2 meses) hasta encontrar el
+  // primer día con slots para el tipo de consulta elegido.
+  async function irAlProximoDisponible() {
+    if (!tipoConsultaId) return;
+    setCargandoSlots(true);
+    let cursor = fecha;
+    for (let i = 0; i < 60; i++) {
+      cursor = fechaISOLocal(new Date(new Date(cursor + "T00:00:00").getTime() + 86_400_000));
+      const disponibilidad = await listDisponibilidadPublicaAction(slug, tipoConsultaId, cursor);
+      if (disponibilidad.slots.length > 0) {
+        setFecha(cursor);
+        setSlots(disponibilidad.slots);
+        setCargandoSlots(false);
+        setHora("");
+        return;
+      }
+    }
+    setCargandoSlots(false);
+  }
+
+  async function confirmar() {
     setError(null);
     if (!tipoConsultaId) {
       setError("Elegí un tipo de consulta.");
@@ -746,7 +790,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
         paraOtro: true,
         tutorRelacion: tutorCampos.relacion,
         tutorNombre: tutorCampos.nombre.trim(),
-        tutorTelefono: tutorCampos.telefono.trim(),
+        tutorTelefono: telefonoConPais(paisTelefonoTutor, tutorCampos.telefono),
         tutorEmail: emailEnVerificacion,
       };
     } else {
@@ -754,7 +798,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
         nombreContacto: campos.nombreContacto.trim(),
         apellidoContacto: campos.apellidoContacto.trim(),
         dniContacto: campos.dniContacto.trim(),
-        telefonoContacto: campos.telefonoContacto.trim(),
+        telefonoContacto: telefonoConPais(paisTelefono, campos.telefonoContacto),
         emailContacto: campos.emailContacto.trim().toLowerCase(),
         motivo: motivo || undefined,
         tipoConsultaId,
@@ -799,11 +843,9 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
 
   if (confirmado) {
     return (
-      <div className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 text-center shadow-soft">
-        <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
-          ¡Listo! Tu turno en {nombreClinica} quedó confirmado
-        </p>
-        <p className="text-sm text-grafito/60">
+      <div className="relative w-full max-w-[480px] rounded-card bg-marfil p-6 text-center">
+        <p className="font-display text-[22px] font-semibold text-grafito">¡Listo! Tu turno en {nombreClinica} quedó confirmado</p>
+        <p className="mt-2 text-sm text-grafito/70">
           {confirmado.fecha} a las {confirmado.hora}hs.
         </p>
         {linkWhatsapp && (
@@ -811,7 +853,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
             href={linkWhatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="mx-auto inline-block rounded-full bg-salvia-oscuro px-6 py-3 text-sm font-semibold text-marfil hover:brightness-95"
+            className="mx-auto mt-5 inline-block rounded-lg bg-salvia-oscuro px-6 py-3 text-sm font-semibold text-marfil hover:brightness-95"
           >
             Escribir también por WhatsApp
           </a>
@@ -820,675 +862,313 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica }: PedirTu
     );
   }
 
-  return (
-    <div className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
-      {paso === "para-quien" && (
-        <div className="flex flex-col gap-4">
-          <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">¿Para quién es el turno?</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <OpcionGrande
-              icon={<IconoPersona />}
-              onClick={() => {
-                setEsOtro(false);
-                setPaso("ya-te-atendiste");
-              }}
-            >
-              Para mí
-            </OpcionGrande>
-            {/* Fase 2.4.2 — antes deshabilitado ("Muy pronto..."). Reusa
-                la MISMA pregunta "ya-te-atendiste" que "para mí" (ver
-                esOtro más abajo, que decide a cuál de los 2 grupos de
-                pasos saltar desde ahí). */}
-            <OpcionGrande
-              icon={<IconoPersonaConCorazon />}
-              onClick={() => {
-                setEsOtro(true);
-                setPaso("ya-te-atendiste");
-              }}
-            >
-              Para otro
-            </OpcionGrande>
-          </div>
-        </div>
-      )}
+  const relacionActual = RELACION_LABEL_INTERNA[tutorCampos.relacion] ?? tutorCampos.relacion;
 
-      {paso === "ya-te-atendiste" && (
-        <div className="flex flex-col gap-4">
-          <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">¿Ya te has atendido con nosotros?</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <OpcionGrande icon={<IconoDestellos />} onClick={() => setPaso(esOtro ? "otro-tutor" : "contacto")}>
-              Es mi primera vez
-            </OpcionGrande>
-            <OpcionGrande icon={<IconoHistorial />} onClick={() => setPaso(esOtro ? "otro-ya-vine-datos" : "ya-vine-datos")}>
-              Ya he venido anteriormente
-            </OpcionGrande>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPaso("para-quien")}
-            className="self-start rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-          >
-            Atrás
-          </button>
-        </div>
-      )}
+  switch (paso) {
+    case "para-quien":
+      return (
+        <PantallaParaQuien
+          value={paraQuienSel ?? (estadoInicial ? (esOtro ? "otro" : "mi") : null)}
+          onChange={setParaQuienSel}
+          onContinuar={() => {
+            const elegido = paraQuienSel ?? (esOtro ? "otro" : "mi");
+            setEsOtro(elegido === "otro");
+            setPaso("ya-te-atendiste");
+          }}
+          onClose={onClose}
+        />
+      );
 
-      {paso === "contacto" && (
-        <form onSubmit={continuar} className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="Nombre">
-              <input value={campos.nombreContacto} onChange={(e) => actualizar("nombreContacto", e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Apellido">
-              <input
-                value={campos.apellidoContacto}
-                onChange={(e) => actualizar("apellidoContacto", e.target.value)}
-                className={inputClass}
-              />
-            </Campo>
-            <Campo label="DNI">
-              <input value={campos.dniContacto} onChange={(e) => actualizar("dniContacto", e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Teléfono">
-              <input
-                value={campos.telefonoContacto}
-                onChange={(e) => actualizar("telefonoContacto", e.target.value)}
-                placeholder="+54 9 351…"
-                className={inputClass}
-              />
-            </Campo>
-          </div>
-          <Campo label="Email">
-            <input
-              type="email"
-              value={campos.emailContacto}
-              onChange={(e) => actualizar("emailContacto", e.target.value)}
-              className={inputClass}
-            />
-          </Campo>
-          <Campo label="Motivo de consulta (opcional)">
-            <input value={campos.motivo} onChange={(e) => actualizar("motivo", e.target.value)} className={inputClass} />
-          </Campo>
+    case "ya-te-atendiste":
+      return (
+        <PantallaYaAtendiste
+          paraQuien={esOtro ? "otro" : "mi"}
+          value={yaAtendisteSel}
+          onChange={setYaAtendisteSel}
+          onBack={() => setPaso("para-quien")}
+          onContinuar={() => {
+            if (!yaAtendisteSel) return;
+            if (yaAtendisteSel === "primera-vez") setPaso(esOtro ? "otro-tutor" : "contacto");
+            else setPaso(esOtro ? "otro-ya-vine-datos" : "ya-vine-datos");
+          }}
+          onClose={onClose}
+          onCambiarParaQuien={() => {
+            setParaQuienSel(esOtro ? "otro" : "mi");
+            setPaso("para-quien");
+          }}
+        />
+      );
 
-          <TurnstileWidget onToken={setCaptchaToken} />
+    case "contacto":
+      return (
+        <PantallaTusDatos
+          values={{
+            nombre: campos.nombreContacto,
+            apellido: campos.apellidoContacto,
+            dni: campos.dniContacto,
+            paisTelefono,
+            telefono: campos.telefonoContacto,
+            email: campos.emailContacto,
+            motivo: campos.motivo,
+          }}
+          onChange={(field, value) => {
+            if (field === "paisTelefono") setPaisTelefono(value);
+            else if (field === "nombre") actualizar("nombreContacto", value);
+            else if (field === "apellido") actualizar("apellidoContacto", value);
+            else if (field === "dni") actualizar("dniContacto", value);
+            else if (field === "telefono") actualizar("telefonoContacto", value);
+            else if (field === "email") actualizar("emailContacto", value);
+            else if (field === "motivo") actualizar("motivo", value);
+          }}
+          onSubmit={continuar}
+          onBack={() => setPaso("ya-te-atendiste")}
+          onClose={onClose}
+          paso={3}
+          total={4}
+          submitDisabled={enviandoCodigo}
+          extra={
+            <>
+              <TurnstileWidget onToken={setCaptchaToken} />
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+            </>
+          }
+        />
+      );
 
-          {error && <ErrorMsg>{error}</ErrorMsg>}
+    case "ya-vine-datos":
+      return (
+        <PantallaBuscarFicha
+          dni={yaVineDni}
+          email={campos.emailContacto}
+          onChangeDni={setYaVineDni}
+          onChangeEmail={(v) => actualizar("emailContacto", v)}
+          onSubmit={continuarYaVine}
+          onBack={() => setPaso("ya-te-atendiste")}
+          onClose={onClose}
+          paso={3}
+          total={5}
+          enviando={enviandoCodigo}
+          extra={
+            <>
+              <TurnstileWidget onToken={setCaptchaToken} />
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+            </>
+          }
+        />
+      );
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setPaso("ya-te-atendiste")}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={enviandoCodigo}
-              className="rounded-full bg-salvia-oscuro px-8 py-3 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {enviandoCodigo ? "Enviando código…" : "Continuar"}
-            </button>
-          </div>
-        </form>
-      )}
+    case "otro-tutor":
+      return (
+        <PantallaTusDatosTutor
+          values={{
+            nombre: tutorCampos.nombre,
+            relacion: tutorCampos.relacion,
+            paisTelefono: paisTelefonoTutor,
+            telefono: tutorCampos.telefono,
+            email: tutorCampos.email,
+          }}
+          onChange={(field, value) => {
+            if (field === "paisTelefono") setPaisTelefonoTutor(value);
+            else actualizarTutor(field, value);
+          }}
+          onSubmit={continuarOtroTutor}
+          onBack={() => setPaso("ya-te-atendiste")}
+          onClose={onClose}
+          onCambiarParaQuien={() => {
+            setParaQuienSel("mi");
+            setPaso("para-quien");
+          }}
+          paso={3}
+          total={5}
+          submitDisabled={false}
+        />
+      );
 
-      {paso === "ya-vine-datos" && (
-        <form onSubmit={continuarYaVine} className="flex flex-col gap-4">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Contanos con qué datos te registraste</p>
-            <p className="text-sm text-grafito/60">Buscamos tu ficha por DNI y confirmamos que sos vos con un código a tu mail.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="DNI">
-              <input value={yaVineDni} onChange={(e) => setYaVineDni(e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Email">
-              <input
-                type="email"
-                value={campos.emailContacto}
-                onChange={(e) => actualizar("emailContacto", e.target.value)}
-                className={inputClass}
-              />
-            </Campo>
-          </div>
+    case "otro-paciente":
+      return (
+        <PantallaDatosPaciente
+          values={{
+            nombre: campos.nombreContacto,
+            apellido: campos.apellidoContacto,
+            dni: campos.dniContacto,
+            telefono: campos.telefonoContacto,
+            email: campos.emailContacto,
+          }}
+          onChange={(field, value) => actualizar(field === "nombre" ? "nombreContacto" : field === "apellido" ? "apellidoContacto" : field === "dni" ? "dniContacto" : field === "telefono" ? "telefonoContacto" : "emailContacto", value)}
+          onSubmit={continuarOtroPaciente}
+          onBack={() => setPaso("otro-tutor")}
+          onClose={onClose}
+          onEditarTutor={() => setPaso("otro-tutor")}
+          tutorNombre={tutorCampos.nombre}
+          tutorRelacion={relacionActual}
+          paso={4}
+          total={5}
+          submitDisabled={enviandoCodigo}
+          extra={
+            <>
+              <TurnstileWidget onToken={setCaptchaToken} />
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+            </>
+          }
+        />
+      );
 
-          <TurnstileWidget onToken={setCaptchaToken} />
+    case "otro-ya-vine-datos":
+      return (
+        <PantallaBuscarPorMail
+          email={tutorCampos.email}
+          onChangeEmail={(v) => actualizarTutor("email", v)}
+          onSubmit={continuarOtroYaVine}
+          onBack={() => setPaso("ya-te-atendiste")}
+          onClose={onClose}
+          paso={3}
+          total={5}
+          enviando={enviandoCodigo}
+          extra={
+            <>
+              <TurnstileWidget onToken={setCaptchaToken} />
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+            </>
+          }
+        />
+      );
 
-          {error && <ErrorMsg>{error}</ErrorMsg>}
+    case "verificacion":
+    case "ya-vine-codigo":
+    case "otro-verificacion":
+    case "otro-ya-vine-codigo": {
+      const backTarget: Paso =
+        paso === "ya-vine-codigo" ? "ya-vine-datos" : paso === "otro-verificacion" ? "otro-paciente" : paso === "otro-ya-vine-codigo" ? "otro-ya-vine-datos" : "contacto";
+      const pasoActual = paso === "verificacion" ? 4 : paso === "otro-verificacion" ? 5 : 4;
+      const totalActual = paso === "verificacion" ? 4 : 5;
+      return (
+        <PantallaCodigo
+          email={emailEnVerificacion}
+          onCambiarEmail={() => setPaso(backTarget)}
+          onBack={() => setPaso(backTarget)}
+          onClose={onClose}
+          paso={pasoActual}
+          total={totalActual}
+          verificando={verificando || buscandoPaciente}
+          error={error}
+          onSubmit={confirmarCodigo}
+          onReenviar={reenviarCodigo}
+          codigoDev={codigoDev ?? undefined}
+          pacienteNoEncontrado={pacienteNoEncontrado}
+          onEmpezarComoNuevo={esOtro ? empezarComoNuevoOtro : empezarComoNuevo}
+          extra={<TurnstileWidget onToken={setCaptchaToken} />}
+        />
+      );
+    }
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setPaso("ya-te-atendiste")}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={enviandoCodigo}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {enviandoCodigo ? "Enviando código…" : "Continuar"}
-            </button>
-          </div>
-        </form>
-      )}
+    case "tarjeta-paciente":
+      if (!pacienteVerificado) return null;
+      return (
+        <PantallaSosVos
+          paciente={pacienteVerificado}
+          onNoSoyYo={() => {
+            setPacienteVerificado(null);
+            setPaso("ya-vine-datos");
+          }}
+          onConfirmar={confirmarTarjetaPaciente}
+          onClose={onClose}
+          paso={5}
+          total={5}
+        />
+      );
 
-      {/* Fase 2.4.2, camino "para otro" + "primera vez", PASO 1 de 2: solo
-          los datos de quien reserva (el tutor, todos obligatorios) —
-          separado de los datos del paciente (corrección de QA,
-          2026-09-06: "el apartado 'para otro' es muy grande"). */}
-      {paso === "otro-tutor" && (
-        <form onSubmit={continuarOtroTutor} className="flex flex-col gap-5">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Tus datos</p>
-            <p className="text-sm text-grafito/60">Los de la persona que reserva el turno.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="Tu relación con el paciente">
-              <select
-                value={tutorCampos.relacion}
-                onChange={(e) => actualizarTutor("relacion", e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Elegí una opción</option>
-                <option value="familiar">Familiar</option>
-                <option value="amigo">Amigo/a</option>
-                <option value="otro">Otro</option>
-              </select>
-            </Campo>
-            <Campo label="Tu nombre completo">
-              <input value={tutorCampos.nombre} onChange={(e) => actualizarTutor("nombre", e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Tu teléfono">
-              <input
-                value={tutorCampos.telefono}
-                onChange={(e) => actualizarTutor("telefono", e.target.value)}
-                placeholder="+54 9 351…"
-                className={inputClass}
-              />
-            </Campo>
-          </div>
-          <Campo label="Tu email">
-            <input type="email" value={tutorCampos.email} onChange={(e) => actualizarTutor("email", e.target.value)} className={inputClass} />
-          </Campo>
+    case "otro-tarjeta-paciente":
+      if (pacientesVerificadosTutor.length === 0) return null;
+      return (
+        <PantallaParaQuienLista
+          pacientes={pacientesVerificadosTutor}
+          seleccionado={pacienteListaSeleccionado}
+          onSeleccionar={setPacienteListaSeleccionado}
+          onBack={() => {
+            setPacientesVerificadosTutor([]);
+            setPaso("otro-ya-vine-datos");
+          }}
+          onClose={onClose}
+          onContinuar={() => {
+            const elegido = pacientesVerificadosTutor.find((p) => p.id === pacienteListaSeleccionado);
+            if (elegido) elegirPacienteVerificadoTutor(elegido);
+          }}
+          paso={5}
+          total={5}
+        />
+      );
 
-          {error && <ErrorMsg>{error}</ErrorMsg>}
+    case "turno":
+      return (
+        <PantallaDiaHora
+          tipos={tipos}
+          tipoConsultaId={tipoConsultaId}
+          onTipoConsultaChange={(id) => {
+            setTipoConsultaId(id);
+            setCargandoSlots(true);
+          }}
+          fecha={fecha}
+          onFechaChange={(f) => {
+            setFecha(f);
+            setCargandoSlots(true);
+          }}
+          slots={slots}
+          cargandoSlots={cargandoSlots}
+          hora={hora}
+          onHoraChange={setHora}
+          error={error}
+          confirmando={pending}
+          onConfirmar={confirmar}
+          onIrProximoDisponible={irAlProximoDisponible}
+          onBack={() => {
+            if (flujo === "verificado") setPaso("tarjeta-paciente");
+            else if (flujo === "otro-verificado") setPaso("otro-tarjeta-paciente");
+            else if (flujo === "otro-primera-vez") setPaso("otro-verificacion");
+            else setPaso("verificacion");
+          }}
+          onClose={onClose}
+          mesVisible={mesVisible}
+          diasConTurnos={diasConTurnos}
+          cargandoMes={cargandoMes}
+          onMesChange={cambiarMesVisible}
+          extra={
+            // Corrección de QA sobre TR-107 (regla universal: "sea
+            // paciente verificado o no verificado solo puede tener un
+            // turno activo con el mismo dni"): el error de turno activo
+            // suma un contacto directo por WhatsApp — el paciente no
+            // puede resolverlo solo desde acá.
+            error && error.startsWith("ya tenés un turno pendiente") && telefonoClinica ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-grafito/70">
+                <span>Por cualquier inconveniente o modificación, contactate a:</span>
+                <a
+                  href={`https://wa.me/${telefonoClinica.replace(/[^\d]/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
+                >
+                  Escribir por WhatsApp
+                </a>
+              </div>
+            ) : undefined
+          }
+        />
+      );
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setPaso("ya-te-atendiste")}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              className="rounded-full bg-salvia-oscuro px-8 py-3 text-sm font-semibold text-marfil hover:brightness-95"
-            >
-              Continuar
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Fase 2.4.2, camino "para otro" + "primera vez", PASO 2 de 2:
-          datos del PACIENTE (teléfono/mail propios opcionales) — recién
-          acá se manda el código de verificación al mail del tutor. */}
-      {paso === "otro-paciente" && (
-        <form onSubmit={continuarOtroPaciente} className="flex flex-col gap-5">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Datos del paciente</p>
-            <p className="text-sm text-grafito/60">Ahora sí, los de quien se va a atender.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="Nombre">
-              <input value={campos.nombreContacto} onChange={(e) => actualizar("nombreContacto", e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Apellido">
-              <input
-                value={campos.apellidoContacto}
-                onChange={(e) => actualizar("apellidoContacto", e.target.value)}
-                className={inputClass}
-              />
-            </Campo>
-            <Campo label="DNI">
-              <input value={campos.dniContacto} onChange={(e) => actualizar("dniContacto", e.target.value)} className={inputClass} />
-            </Campo>
-            <Campo label="Teléfono (opcional)">
-              <input
-                value={campos.telefonoContacto}
-                onChange={(e) => actualizar("telefonoContacto", e.target.value)}
-                placeholder="+54 9 351…"
-                className={inputClass}
-              />
-            </Campo>
-          </div>
-          <Campo label="Email (opcional)">
-            <input
-              type="email"
-              value={campos.emailContacto}
-              onChange={(e) => actualizar("emailContacto", e.target.value)}
-              className={inputClass}
-            />
-          </Campo>
-          <Campo label="Motivo de consulta (opcional)">
-            <input value={campos.motivo} onChange={(e) => actualizar("motivo", e.target.value)} className={inputClass} />
-          </Campo>
-
-          <TurnstileWidget onToken={setCaptchaToken} />
-
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setPaso("otro-tutor")}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={enviandoCodigo}
-              className="rounded-full bg-salvia-oscuro px-8 py-3 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {enviandoCodigo ? "Enviando código…" : "Continuar"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Fase 2.4.2, camino "para otro" + "ya he venido antes": solo el
-          mail del tutor — el match es por ese mail (no por DNI del
-          paciente), puede devolver más de una tarjeta. */}
-      {paso === "otro-ya-vine-datos" && (
-        <form onSubmit={continuarOtroYaVine} className="flex flex-col gap-4">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">¿Con qué mail reservaste antes?</p>
-            <p className="text-sm text-grafito/60">Confirmamos que sos vos con un código a ese mail.</p>
-          </div>
-          <Campo label="Tu email">
-            <input type="email" value={tutorCampos.email} onChange={(e) => actualizarTutor("email", e.target.value)} className={inputClass} />
-          </Campo>
-
-          <TurnstileWidget onToken={setCaptchaToken} />
-
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setPaso("ya-te-atendiste")}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={enviandoCodigo}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {enviandoCodigo ? "Enviando código…" : "Continuar"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {(paso === "verificacion" || paso === "ya-vine-codigo" || paso === "otro-verificacion" || paso === "otro-ya-vine-codigo") && (
-        <form onSubmit={confirmarCodigo} className="flex flex-col gap-4">
-          <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Confirmanos que sos vos</p>
-            <p className="text-sm text-grafito/60">
-              Te mandamos un código de 6 dígitos a <span className="font-medium text-grafito">{emailEnVerificacion}</span>. Ingresalo acá
-              para seguir con tu turno.
-            </p>
-          </div>
-
-          <Campo label="Código de verificación">
-            <input
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="000000"
-              className={`${inputClass} text-center font-[family-name:var(--font-mono)] text-lg tracking-[0.3em]`}
-            />
-          </Campo>
-
-          {/* codigoDev (Fase 2.4.1) — SOLO en local: el backend nunca
-              manda este campo con RESEND_API_KEY configurada, así que
-              este aviso no puede aparecer en producción. */}
-          {codigoDev && (
-            <p className="rounded-field border-[0.5px] border-dashed border-arena bg-hueso px-3 py-2 text-xs text-grafito/60">
-              Modo desarrollo — código: <span className="font-[family-name:var(--font-mono)] font-semibold text-grafito">{codigoDev}</span>
-            </p>
-          )}
-
-          {pacienteNoEncontrado && (
-            <div className="flex flex-col gap-2 rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm text-grafito/70">
-              <p>No encontramos una ficha verificada con esos datos.</p>
-              <button
-                type="button"
-                onClick={esOtro ? empezarComoNuevoOtro : empezarComoNuevo}
-                className="self-start font-medium text-salvia-oscuro hover:text-grafito"
-              >
-                Empezar como paciente nuevo
-              </button>
-            </div>
-          )}
-
-          {avisoReenvio && <p className="text-sm text-salvia-oscuro">{avisoReenvio}</p>}
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-
-          {/* Turnstile es de un solo uso — el token del paso anterior ya
-              se consumió en el envío inicial, así que "Reenviar código"
-              necesita el suyo propio (mismo estado captchaToken). */}
-          <TurnstileWidget onToken={setCaptchaToken} />
-
-          <button
-            type="button"
-            onClick={reenviarCodigo}
-            disabled={enviandoCodigo}
-            className="self-start text-sm font-medium text-salvia-oscuro hover:text-grafito disabled:opacity-60"
-          >
-            {enviandoCodigo ? "Reenviando…" : "Reenviar código"}
-          </button>
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (paso === "ya-vine-codigo") setPaso("ya-vine-datos");
-                else if (paso === "otro-verificacion") setPaso("otro-paciente");
-                else if (paso === "otro-ya-vine-codigo") setPaso("otro-ya-vine-datos");
-                else setPaso("contacto");
-              }}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={verificando || buscandoPaciente}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {verificando ? "Verificando…" : buscandoPaciente ? "Buscando tu ficha…" : "Confirmar código"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {paso === "tarjeta-paciente" && pacienteVerificado && (
-        <div className="flex flex-col gap-4">
-          <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">¿Sos vos?</p>
-          <button
-            type="button"
-            onClick={confirmarTarjetaPaciente}
-            className="flex flex-col gap-1 rounded-field border-[0.5px] border-salvia bg-hueso p-4 text-left hover:border-salvia-oscuro"
-          >
-            <span className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">{pacienteVerificado.nombre}</span>
-            <span className="text-sm text-grafito/60">DNI {pacienteVerificado.dni}</span>
-          </button>
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setPacienteVerificado(null);
-                setPaso("ya-vine-datos");
-              }}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              No soy yo
-            </button>
-            <button
-              type="button"
-              onClick={confirmarTarjetaPaciente}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-            >
-              Sí, soy yo — continuar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Fase 2.4.2, camino "para otro" + "ya he venido antes": LISTA de
-          tarjetas (a diferencia de "tarjeta-paciente", que siempre es una
-          sola) — un tutor puede tener más de un hijo verificado a su
-          cargo. Tocar una tarjeta la elige directo, sin un "¿sos vos?"
-          de confirmación aparte (ya está eligiendo entre varias). */}
-      {paso === "otro-tarjeta-paciente" && pacientesVerificadosTutor.length > 0 && (
-        <div className="flex flex-col gap-4">
-          <p className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">¿Para cuál de tus pacientes es el turno?</p>
-          <div className="flex flex-col gap-2">
-            {pacientesVerificadosTutor.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => elegirPacienteVerificadoTutor(p)}
-                className="flex flex-col gap-1 rounded-field border-[0.5px] border-salvia bg-hueso p-4 text-left hover:border-salvia-oscuro"
-              >
-                <span className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">{p.nombre}</span>
-                <span className="text-sm text-grafito/60">DNI {p.dni}</span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setPacientesVerificadosTutor([]);
-              setPaso("otro-ya-vine-datos");
-            }}
-            className="self-start rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-          >
-            Ninguno de estos
-          </button>
-        </div>
-      )}
-
-      {paso === "turno" && (
-        // noValidate: el `min` de la fecha es solo una ayuda del selector
-        // nativo — la validación real (con el mismo mensaje en español que
-        // el resto del form) la hace el backend contra la fecha/hora
-        // elegidas (mismo criterio que agregar-turno-modal.tsx).
-        <form onSubmit={confirmar} noValidate className="flex flex-col gap-5">
-          <Campo label="Tipo de consulta">
-            <select
-              value={tipoConsultaId}
-              onChange={(e) => {
-                setTipoConsultaId(e.target.value);
-                setCargandoSlots(true);
-              }}
-              disabled={cargandoTipos || tipos.length === 0}
-              className={inputClass}
-            >
-              {tipos.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                </option>
-              ))}
-            </select>
-          </Campo>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="Fecha">
-              <input
-                type="date"
-                value={fecha}
-                min={hoyISO}
-                onChange={(e) => {
-                  setFecha(e.target.value);
-                  setCargandoSlots(true);
-                }}
-                className={inputClass}
-              />
-            </Campo>
-            {/* Sin <Campo> a propósito, mismo motivo que
-                agregar-turno-modal.tsx: un <label> le pega su texto como
-                nombre accesible a cualquier elemento etiquetable que
-                contenga, y cada opción del HoraPicker terminaría
-                anunciándose como "Hora" en vez de "09:00". */}
-            <div className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-grafito">Hora</span>
-              <HoraPicker slots={slots} value={hora} onChange={setHora} cargando={cargandoSlots} />
-            </div>
-          </div>
-
-          {/* Los caminos "ya he venido antes" ("verificado"/"otro-verificado")
-              nunca pasan por un paso con este campo (ni "contacto" ni
-              "otro-paciente") — se ofrece acá para no perder la
-              posibilidad de aclarar el motivo. */}
-          {(flujo === "verificado" || flujo === "otro-verificado") && (
-            <Campo label="Motivo de consulta (opcional)">
-              <input value={campos.motivo} onChange={(e) => actualizar("motivo", e.target.value)} className={inputClass} />
-            </Campo>
-          )}
-
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-
-          {/* Corrección de QA: "ya tenés un turno pendiente..." (DNI con
-              un turno activo, sea cual sea el tipo o si está verificado
-              — la regla universal) suma un contacto directo — el
-              paciente no puede resolverlo solo desde acá. */}
-          {error && error.startsWith("ya tenés un turno pendiente") && telefonoClinica && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-grafito/70">
-              <span>Por cualquier inconveniente o modificación, contactate a:</span>
-              <a
-                href={`https://wa.me/${telefonoClinica.replace(/[^\d]/g, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
-              >
-                Escribir por WhatsApp
-              </a>
-            </div>
-          )}
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (flujo === "verificado") setPaso("tarjeta-paciente");
-                else if (flujo === "otro-verificado") setPaso("otro-tarjeta-paciente");
-                else if (flujo === "otro-primera-vez") setPaso("otro-verificacion");
-                else setPaso("verificacion");
-              }}
-              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            >
-              Atrás
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {pending ? "Confirmando…" : "Confirmar turno"}
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
-  );
+    default:
+      return null;
+  }
 }
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2.5 text-grafito outline-none focus:border-salvia";
-
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium text-grafito">{label}</span>
-      {children}
-    </label>
-  );
-}
+const RELACION_LABEL_INTERNA: Record<string, string> = {
+  familiar: "familiar",
+  amigo: "amigo/a",
+  otro: "vínculo distinto",
+};
 
 function ErrorMsg({ children }: { children: React.ReactNode }) {
   return (
     <p role="alert" className="text-sm text-terracota-oscuro">
       {children}
     </p>
-  );
-}
-
-// OpcionGrande — botón grande clickeable para las dos preguntas nuevas de
-// Fase 2.4.1 ("¿Para quién es el turno?" / "¿Ya te has atendido con
-// nosotros?"). Corrección de QA ("fíjese las fotos diseño1 y diseño2 para
-// darle más personalidad a las tarjetas"): ícono propio arriba de cada
-// etiqueta + fondo cálido al pasar el mouse (mismo tono que el resto del
-// wizard usa para avisos/acentos, `terracota-claro`), en vez del botón
-// liso de antes.
-function OpcionGrande({
-  children,
-  icon,
-  onClick,
-  disabled,
-  title,
-}: {
-  children: React.ReactNode;
-  icon: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  title?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className="flex flex-col items-center gap-3 rounded-field border-[0.5px] border-arena bg-hueso px-5 py-5 text-center text-sm font-semibold text-grafito transition-colors hover:border-terracota hover:bg-terracota-claro disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-arena disabled:hover:bg-hueso"
-    >
-      <span className="text-salvia-oscuro" aria-hidden="true">
-        {icon}
-      </span>
-      {children}
-    </button>
-  );
-}
-
-// Iconos — Fase 2.4.1, corrección de QA: mismo trazo fino (stroke,
-// currentColor) para las 4 opciones grandes del wizard, ver diseño1.png/
-// diseño2.png. SVG inline en vez de un ícono importado: sin dependencias
-// nuevas para 4 formas chicas y fijas.
-function IconoPersona() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" />
-    </svg>
-  );
-}
-
-function IconoPersonaConCorazon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="9.5" cy="8" r="3.5" />
-      <path d="M3 20c0-4.1 2.9-6.5 6.5-6.5" />
-      <path d="M17.5 12.8c-1.4 0-2.5 1-2.5 2.3 0 1.7 1.6 2.9 2.5 3.7.9-.8 2.5-2 2.5-3.7 0-1.3-1.1-2.3-2.5-2.3Z" />
-    </svg>
-  );
-}
-
-function IconoDestellos() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 3 12.3 8.7 18 10l-5.7 1.3L11 17l-1.3-5.7L4 10l5.7-1.3L11 3Z" />
-      <path d="M18.5 14.5 19 17l2.5.5L19 18l-.5 2.5L18 18l-2.5-.5L18 17l.5-2.5Z" />
-    </svg>
-  );
-}
-
-function IconoHistorial() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4.6 9A8 8 0 1 1 4 13" />
-      <path d="M4 5v4h4" />
-      <path d="M12 8v4l3 2" />
-    </svg>
   );
 }

@@ -5,6 +5,7 @@ import {
   apiEnviarVerificacionTurnoPublico,
   apiGetPacienteVerificadoPublico,
   apiGetPacientesVerificadosDeTutorPublico,
+  apiListDisponibilidadMesPublica,
   apiListDisponibilidadPublica,
   apiListTiposConsultaPublico,
   apiMisTurnoPublico,
@@ -42,6 +43,13 @@ export async function listDisponibilidadPublicaAction(
 ): Promise<Disponibilidad> {
   const result = await apiListDisponibilidadPublica(slug, tipoConsultaId, fecha);
   return result.ok ? result.data : { slots: [] };
+}
+
+// listDisponibilidadMesPublicaAction — panel de calendario mensual (§3.8):
+// qué días del mes visible tienen algún turno disponible.
+export async function listDisponibilidadMesPublicaAction(slug: string, tipoConsultaId: string, mes: string): Promise<string[]> {
+  const result = await apiListDisponibilidadMesPublica(slug, tipoConsultaId, mes);
+  return result.ok ? result.data.dias : [];
 }
 
 export interface EnviarVerificacionEmailResult {

@@ -186,11 +186,99 @@ export function IconMenu({ className }: IconProps) {
 }
 
 // IconX — reemplaza a IconMenu mientras el drawer del sidebar está
-// abierto (ver el comentario de IconMenu de arriba).
+// abierto (ver el comentario de IconMenu de arriba). Reutilizado también
+// como la [×] del rediseño del wizard público de turnos (docs/rediseno-
+// flujo-turnos.md §3.1) — la misma equis de siempre, ahora adentro del
+// modal en vez de en el círculo flotante que tenía antes.
 export function IconX({ className }: IconProps) {
   return (
     <svg {...svgProps} className={className}>
       <path d="M4.5 4.5l11 11M15.5 4.5l-11 11" />
+    </svg>
+  );
+}
+
+// Set de íconos del rediseño del wizard "Pedir turno" (docs/rediseno-
+// flujo-turnos.md §5) — mismo trazo/convención que el resto de este
+// archivo (`svgProps`: viewBox 20×20, stroke 1.6, currentColor). El doc
+// original los referencia con nombres de Tabler Icons (`ti-*`) como
+// atajo de la spec;酸 acá se redibujan a mano para no sumar una
+// dependencia nueva solo por 7 glyphs chicos y fijos; el doc los llama
+// "ti-*" (Tabler Icons) solo como referencia visual.
+
+// IconUsers — "Para otra persona" en [1]: dos siluetas superpuestas,
+// para que se distinga de un vistazo de IconUser (una sola silueta) —
+// el problema puntual que el doc señala de los dos íconos actuales
+// ("silueta vs. silueta con pin", casi iguales).
+export function IconUsers({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <circle cx="7.2" cy="6.8" r="2.7" />
+      <path d="M2 17c.7-2.9 2.6-4.4 5.2-4.4s4.5 1.5 5.2 4.4" />
+      <circle cx="13.6" cy="7.4" r="2.2" />
+      <path d="M12.7 12.8c2-.1 3.6 1.2 4.3 4.2" />
+    </svg>
+  );
+}
+
+// IconUserPlus — "Es mi primera vez" en [2].
+export function IconUserPlus({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <circle cx="8.5" cy="6.8" r="3.1" />
+      <path d="M2.8 17c.8-3.1 3.2-4.8 5.7-4.8s4.9 1.7 5.7 4.8" />
+      <path d="M15.5 4.5v5M13 7h5" />
+    </svg>
+  );
+}
+
+// IconUserCheck — "Ya vine antes" en [2].
+export function IconUserCheck({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <circle cx="8.5" cy="6.8" r="3.1" />
+      <path d="M2.8 17c.8-3.1 3.2-4.8 5.7-4.8s4.9 1.7 5.7 4.8" />
+      <path d="M12.8 8.2 14.5 10l3.2-3.6" />
+    </svg>
+  );
+}
+
+// IconChevronDown — chevron del `<select>` propio (3.4), distinto de
+// IconChevronRight (navegación de fila, no de campo).
+export function IconChevronDown({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <polyline points="5 7.5 10 12.5 15 7.5" />
+    </svg>
+  );
+}
+
+// IconCalendar — botón de texto "Elegir fecha" en [6].
+export function IconCalendar({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <rect x="2.5" y="3.5" width="15" height="14" rx="1.6" />
+      <path d="M2.5 8h15M6 2v3M14 2v3" />
+    </svg>
+  );
+}
+
+// IconArrowRight — flecha fina horizontal ("Después te pedimos..." en
+// [3c]), distinta de IconChevronRight (más corta, de navegación).
+export function IconArrowRight({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <line x1="2.5" y1="10" x2="16" y2="10" />
+      <polyline points="11.5 5.5 16 10 11.5 14.5" />
+    </svg>
+  );
+}
+
+// IconPlus — fila "Otra persona" al final de la lista de fichas en [5b].
+export function IconPlus({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M10 3.5v13M3.5 10h13" />
     </svg>
   );
 }

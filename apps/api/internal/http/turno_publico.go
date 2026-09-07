@@ -595,6 +595,7 @@ func bloquearIPPorRotacionYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUID, ip
 func registerTurnoPublicoRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
 	r.Get("/clinicas/{slug}/tipos-consulta", listTiposConsultaPublicoHandler(gdb))
 	r.Get("/clinicas/{slug}/disponibilidad", listDisponibilidadPublicaHandler(gdb))
+	r.Get("/clinicas/{slug}/disponibilidad-mes", listDisponibilidadMesPublicaHandler(gdb))
 	r.Post("/clinicas/{slug}/verificacion-email", enviarVerificacionTurnoPublicoHandler(gdb, deps))
 	r.Post("/clinicas/{slug}/verificacion-email/confirmar", confirmarVerificacionTurnoPublicoHandler(gdb, deps))
 	// Fase 2.4.1: camino "ya he venido antes" del wizard público.
@@ -689,6 +690,79 @@ func listDisponibilidadPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, disponibilidadResponse{Slots: slots})
+	}
+}
+
+type disponibilidadMesResponse struct {
+	Dias []string `json:"dias"`
+}
+
+// listDisponibilidadMesPublicaHandler — GET
+// /clinicas/{slug}/disponibilidad-mes (docs/rediseno-flujo-turnos.md
+// §3.8, "panel de calendario mensual"): a diferencia de
+// listDisponibilidadPublicaHandler (un día concreto, la tira de
+// horarios), acá se pide UN MES entero para poder pintar qué días tienen
+// turnos disponibles ANTES de que el paciente toque ninguno — "con
+// turnos" vs. "sin turnos" en la grilla del calendario.
+//
+// Sin goroutines, mismo criterio que calcularDisponibilidad (ver el
+// comentario grande en disponibilidad.go): como mucho 31 días, cada uno
+// una consulta trivial — repartir esto en paralelo no gana nada medible.
+// Los días anteriores a hoy se saltean del todo (nunca son reservables,
+// así que calcularDisponibilidad podría devolver slots "libres" para un
+// día ya pasado sin que eso signifique nada — el frontend los deshabilita
+// de todos modos comparando fechas, esto solo evita el cálculo inútil).
+func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := chi.URLParam(r, "slug")
+		var clinic db.Clinic
+		if err := gdb.Where("slug = ?", slug).First(&clinic).Error; err != nil {
+			writeError(w, http.StatusNotFound, "clínica no encontrada")
+			return
+		}
+
+		tipoConsultaIDStr := strings.TrimSpace(r.URL.Query().Get("tipoConsultaId"))
+		mesStr := strings.TrimSpace(r.URL.Query().Get("mes"))
+		if tipoConsultaIDStr == "" || mesStr == "" {
+			writeError(w, http.StatusBadRequest, "tipoConsultaId y mes son obligatorios")
+			return
+		}
+		tipoConsultaID, err := uuid.Parse(tipoConsultaIDStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "tipoConsultaId inválido")
+			return
+		}
+		primerDia, err := clock.ParseMonth(mesStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "el mes debe tener el formato YYYY-MM")
+			return
+		}
+
+		var tipo db.TipoConsulta
+		if err := gdb.Where("id = ? AND profesional_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
+			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
+			return
+		}
+
+		hoy := clock.Today()
+		ultimoDiaDelMes := primerDia.AddDate(0, 1, -1).Day()
+		dias := make([]string, 0)
+		for d := 1; d <= ultimoDiaDelMes; d++ {
+			fecha := time.Date(primerDia.Year(), primerDia.Month(), d, 0, 0, 0, 0, primerDia.Location())
+			if fecha.Before(hoy) {
+				continue
+			}
+			slots, err := calcularDisponibilidad(gdb, clinic.ID, tipo, fecha, nil)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
+				return
+			}
+			if len(slots) > 0 {
+				dias = append(dias, fecha.Format("2006-01-02"))
+			}
+		}
+
+		writeJSON(w, http.StatusOK, disponibilidadMesResponse{Dias: dias})
 	}
 }
 
