@@ -10,6 +10,7 @@ import {
   apiListTiposConsultaPublico,
   apiMisTurnoPublico,
   apiSolicitarTurnoPublico,
+  apiValidarEnlaceTurnoPublico,
   type MisTurnoPublico,
   type PacienteVerificadoPublico,
   type SolicitarTurnoPublicoPayload,
@@ -50,6 +51,15 @@ export async function listDisponibilidadPublicaAction(
 export async function listDisponibilidadMesPublicaAction(slug: string, tipoConsultaId: string, mes: string): Promise<string[]> {
   const result = await apiListDisponibilidadMesPublica(slug, tipoConsultaId, mes);
   return result.ok ? result.data.dias : [];
+}
+
+// validarEnlaceTurnoPublicoAction (Fase 2, ítem 5) — chequeo de UX apenas
+// se abre el wizard por un link compartido; `false` ante cualquier error
+// de red trata el link como no válido en vez de dejar completar todo el
+// formulario para recién ahí fallar.
+export async function validarEnlaceTurnoPublicoAction(slug: string, token: string): Promise<boolean> {
+  const result = await apiValidarEnlaceTurnoPublico(slug, token);
+  return result.ok ? result.data.valido : false;
 }
 
 export interface EnviarVerificacionEmailResult {

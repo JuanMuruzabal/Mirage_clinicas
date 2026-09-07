@@ -8,6 +8,7 @@ import {
   apiAutoreservarTurnos,
   apiCancelarTurno,
   apiCancelarTurnosSinVerificar,
+  apiCrearEnlaceTurno,
   apiCrearTurnoManual,
   apiListTurnos,
   apiMarcarAsistencia,
@@ -51,6 +52,21 @@ export async function crearTurnoManualAction(payload: CrearTurnoManualPayload): 
   revalidatePath("/panel");
   revalidatePath("/panel/calendario");
   return { turno: result.data };
+}
+
+// crearEnlaceTurnoAction — modal "+ Agregar turno" → "Compartir link de
+// turnero" (Fase 2, ítem 5): genera el link de 1h. Sin revalidatePath —
+// generar un link no cambia ningún dato visible en el panel.
+export async function crearEnlaceTurnoAction(): Promise<TurnoActionResult | { url: string; expiraEn: string }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiCrearEnlaceTurno(token);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  return result.data;
 }
 
 // cancelarTurnoAction — vista Turnos (T3.3), acción "Cancelar". Idempotente

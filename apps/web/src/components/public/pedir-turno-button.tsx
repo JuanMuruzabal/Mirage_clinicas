@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ModalPortal } from "@/components/panel/modal-portal";
+import { validarEnlaceTurnoPublicoAction } from "@/app/actions/turno-publico";
 import { PedirTurnoForm } from "./pedir-turno-form";
 
 interface PedirTurnoButtonProps {
@@ -23,9 +25,34 @@ const SELECTOR_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]
 // patrón que los modales del panel (ModalPortal + `backdrop-blur-sm`,
 // cierre al tocar afuera).
 export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: PedirTurnoButtonProps) {
+  const searchParams = useSearchParams();
+  const enlaceToken = searchParams.get("enlace") ?? undefined;
+
   const [abierto, setAbierto] = useState(false);
+  // estadoEnlace — Fase 2, ítem 5 ("compartir calendario"): con
+  // `?enlace=` en la URL, el modal se abre solo apenas la página carga
+  // (el profesional ya mandó el link, no hace falta que la persona
+  // busque un botón). "validando" evita mostrar el wizard completo un
+  // instante antes de saber si el link sigue vigente.
+  const [estadoEnlace, setEstadoEnlace] = useState<"validando" | "valido" | "invalido" | null>(enlaceToken ? "validando" : null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const focoAnteriorRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!enlaceToken) return;
+    let activo = true;
+    validarEnlaceTurnoPublicoAction(slug, enlaceToken).then((valido) => {
+      if (!activo) return;
+      setEstadoEnlace(valido ? "valido" : "invalido");
+      if (valido) setAbierto(true);
+    });
+    return () => {
+      activo = false;
+    };
+    // Solo al montar — el token viene de la URL con la que se abrió la
+    // página, no cambia durante la sesión.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Bloquear el scroll del body mientras el modal está abierto (docs/
   // prompt-claude-code-fecha-horario.md, punto 3: "bloqueá el scroll del
@@ -87,6 +114,17 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
         Pedir turno
       </button>
 
+      {/* Link inválido/vencido (Fase 2, ítem 5) — la persona llegó acá
+          desde un link compartido que ya no sirve; se le avisa en vez de
+          dejarla completar todo el wizard para recién ahí fallar, y se
+          le ofrece el camino normal (sin enlace) como salida. */}
+      {estadoEnlace === "invalido" && (
+        <p role="alert" className="mt-3 text-sm text-terracota-oscuro">
+          Este link ya no es válido — puede haber vencido o ya haberse usado. Tocá &quot;Pedir turno&quot; para
+          reservar por el camino habitual.
+        </p>
+      )}
+
       {abierto && (
         <ModalPortal>
           <div
@@ -99,7 +137,13 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
               if (e.target === e.currentTarget) setAbierto(false);
             }}
           >
-            <PedirTurnoForm slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefonoClinica} onClose={() => setAbierto(false)} />
+            <PedirTurnoForm
+              slug={slug}
+              nombreClinica={nombreClinica}
+              telefonoClinica={telefonoClinica}
+              onClose={() => setAbierto(false)}
+              enlaceToken={estadoEnlace === "valido" ? enlaceToken : undefined}
+            />
           </div>
         </ModalPortal>
       )}

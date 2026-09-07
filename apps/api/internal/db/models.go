@@ -426,6 +426,62 @@ type VerificacionTurnoPublico struct {
 
 func (VerificacionTurnoPublico) TableName() string { return "verificaciones_turno_publico" }
 
+// EnlaceTurno — Fase 2, ítem 5 ("compartir calendario"): el profesional ya
+// habló con el paciente por teléfono/en persona y solo necesita mandarle un
+// link para que termine de elegir día y horario — sin pasar por CAPTCHA ni
+// "Confirmanos que sos vos" (el profesional ya demostró esa identidad por
+// otro medio), pero SIN perder la detección de conflictos de identidad ni
+// el tope universal de 1 turno activo por DNI (esos son reglas de negocio,
+// no anti-abuso — siguen aplicando igual). Generado desde "+ Agregar
+// turno" → "Compartir link de turnero" (panel, autenticado); consumido
+// desde el wizard público de siempre, que se abre directo en el paso de
+// datos salteando por completo la pantalla de código.
+//
+// Vencimiento — dos mecanismos independientes, el que llegue primero:
+//  1. ExpiraEn: 1 hora desde que se generó, sin importar cuántos turnos se
+//     hayan sacado con él todavía.
+//  2. Límite de usos, dinámico según lo que la propia persona elija en la
+//     pantalla "¿Para quién es el turno?" del wizard en cada intento (el
+//     profesional no lo fija al generar el link — pedido explícito del
+//     cliente): UsadoParaMi pasa a `true` en cuanto se saca UN turno "para
+//     mí" con este link, y a partir de ahí el link queda muerto para
+//     cualquier uso posterior (de cualquier tipo) — un link "para mí" es
+//     para una sola persona. UsosParaOtro cuenta cuántos turnos "para
+//     otro" ya se sacaron, tope `EnlaceTurnoLimiteUsosParaOtro` (5) — un
+//     tutor real puede tener varios hijos para anotar con el mismo link.
+type EnlaceTurno struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	// ProfesionalID — mismo nombre histórico que Turno.ProfesionalID/
+	// TipoConsulta.ProfesionalID en todo este archivo: en realidad
+	// referencia Clinic.ID, nunca cambiado por no romper el resto del
+	// esquema ya en producción.
+	ProfesionalID uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
+	TokenHash     string    `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
+	ExpiraEn      time.Time `gorm:"column:expira_en;not null"`
+	UsadoParaMi   bool      `gorm:"column:usado_para_mi;not null;default:false"`
+	UsosParaOtro  int       `gorm:"column:usos_para_otro;not null;default:0"`
+	CreatedAt     time.Time
+}
+
+func (EnlaceTurno) TableName() string { return "enlaces_turno" }
+
+// EnlaceTurnoLimiteUsosParaOtro — ver el comentario grande de EnlaceTurno.
+const EnlaceTurnoLimiteUsosParaOtro = 5
+
+// EnlaceTurnoVigente — true mientras quede AL MENOS un camino posible
+// (no venció por tiempo, y "para mí" o "para otro" todavía tienen cupo) —
+// usado tanto por el chequeo previo del wizard (¿vale la pena mostrar el
+// formulario?) como, indirectamente, por la validación real al confirmar
+// el turno.
+func (e EnlaceTurno) Vigente(ahora time.Time) bool {
+	if ahora.After(e.ExpiraEn) {
+		return false
+	}
+	paraMiDisponible := !e.UsadoParaMi
+	paraOtroDisponible := e.UsosParaOtro < EnlaceTurnoLimiteUsosParaOtro
+	return paraMiDisponible || paraOtroDisponible
+}
+
 // Turno es la pieza central del esquema (spec §4.3/§4.4). El estado
 // `pendiente` (turno del formulario público sin horario fijo todavía,
 // TR-006) existió hasta Extra 2.3.5 — el formulario público ahora asigna

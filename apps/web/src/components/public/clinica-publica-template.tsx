@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { QuadrantMark } from "@/components/quadrant-mark";
 import { PedirTurnoButton } from "./pedir-turno-button";
 import { MisTurnosButton } from "./mis-turnos-button";
@@ -82,7 +83,14 @@ export function ClinicaPublicaTemplate({
       <section id="turno" className="mx-auto flex w-full max-w-xl scroll-mt-6 flex-col items-center gap-4 text-center">
         <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Pedí tu turno</h2>
         <p className="text-sm text-grafito/70">Elegí el horario que más te convenga en simples pasos.</p>
-        <PedirTurnoButton slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefono} />
+        {/* Suspense (Fase 2, ítem 5): PedirTurnoButton lee `?enlace=` con
+            useSearchParams — Next.js exige un límite de Suspense
+            alrededor de cualquier Client Component que lo use, si no la
+            build falla. El fallback replica el tamaño del botón real
+            para no saltar de layout mientras se hidrata. */}
+        <Suspense fallback={<span className="inline-block h-[52px] w-[168px] animate-pulse rounded-full bg-marfil/60" aria-hidden="true" />}>
+          <PedirTurnoButton slug={slug} nombreClinica={nombreClinica} telefonoClinica={telefono} />
+        </Suspense>
         {/* Pedido textual del cliente: botón "MIS TURNOS" debajo de
             "Pedir turno" — DNI+mail directo, muestra el turno activo
             como tarjeta si coincide. */}

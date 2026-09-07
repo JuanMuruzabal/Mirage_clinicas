@@ -8,6 +8,7 @@ import { listDisponibilidadAction } from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
 import { ModalPortal } from "./modal-portal";
+import { CompartirLinkTurno } from "./compartir-link-turno";
 
 interface AgregarTurnoModalProps {
   tiposConsulta: TipoConsulta[];
@@ -16,7 +17,11 @@ interface AgregarTurnoModalProps {
 }
 
 type Paso = "paciente" | "detalle";
-type Origen = "conocido" | "nuevo";
+// "compartir" (Fase 2, ítem 5) — a diferencia de "conocido"/"nuevo", esta
+// pestaña nunca avanza a `paso: "detalle"`: generar y compartir el link
+// ES la acción completa, la persona del otro lado elige tipo de
+// consulta/fecha/hora por su cuenta al abrirlo.
+type Origen = "conocido" | "nuevo" | "compartir";
 
 // NUEVO_PACIENTE_INICIAL — Extra 2.3.5 (E5.4, fix de bug): estado vacío del
 // formulario "paciente nuevo", factorizado para poder resetearlo al volver
@@ -53,6 +58,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DESCRIPCION_ORIGEN: Record<Origen, string> = {
   conocido: "Elegí de tu lista de Pacientes ya cargados — no hace falta volver a tipear sus datos.",
   nuevo: "Para alguien que nunca tuvo un turno con vos: se crea su ficha de paciente en este mismo paso.",
+  // "compartir" (Fase 2, ítem 5): pensado para cuando ya hablaste con la
+  // persona (por teléfono, en el consultorio) y solo necesita elegir día
+  // y horario por su cuenta — sin repetir el código de verificación.
+  compartir: "Mandale un link de 1 hora para que elija día y horario ella misma — ya hablaste con esa persona.",
 };
 
 // Modal "+ Agregar turno" (spec §4.3, renombrado de "+ Nueva sesión") — dos
@@ -386,8 +395,17 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
               >
                 Paciente nuevo
               </button>
+              <button
+                type="button"
+                onClick={() => setOrigen("compartir")}
+                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "compartir" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+              >
+                Compartir link
+              </button>
             </div>
             <p className="text-xs text-grafito/60">{DESCRIPCION_ORIGEN[origen]}</p>
+
+            {origen === "compartir" && <CompartirLinkTurno />}
 
             {origen === "conocido" && (
               <div className="flex flex-col gap-3">

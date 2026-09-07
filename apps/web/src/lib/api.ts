@@ -142,6 +142,32 @@ export function apiListDisponibilidadMesPublica(slug: string, tipoConsultaId: st
   return request<DisponibilidadMes>(`/clinicas/${slug}/disponibilidad-mes?${query.toString()}`);
 }
 
+// EnlaceTurno — Fase 2, ítem 5 ("compartir calendario"): link de 1h que
+// el profesional genera desde "+ Agregar turno" → "Compartir link de
+// turnero", sin CAPTCHA ni "Confirmanos que sos vos" del lado de quien lo
+// recibe (ver el comentario grande de solicitarTurnoPublicoHandler en el
+// backend para qué controles se mantienen igual).
+export interface EnlaceTurno {
+  url: string;
+  expiraEn: string;
+}
+
+// apiCrearEnlaceTurno (autenticado, panel) — la clínica se resuelve por
+// sesión, no hace falta pasar el slug.
+export function apiCrearEnlaceTurno(token: string): Promise<ApiResult<EnlaceTurno>> {
+  return request<EnlaceTurno>("/enlaces-turno", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+}
+
+// apiValidarEnlaceTurnoPublico (público, sin sesión) — chequeo de solo
+// lectura que el wizard corre apenas se abre por un link compartido, para
+// avisar "este link ya no es válido" antes de completar todo el
+// formulario. La validación real (la que de verdad cuenta) vuelve a
+// correr del lado del backend al confirmar el turno.
+export function apiValidarEnlaceTurnoPublico(slug: string, token: string): Promise<ApiResult<{ valido: boolean }>> {
+  const query = new URLSearchParams({ token });
+  return request<{ valido: boolean }>(`/clinicas/${slug}/enlaces-turno/validar?${query.toString()}`);
+}
+
 export interface SolicitarTurnoPublicoPayload {
   // nombreContacto/apellidoContacto/dniContacto/telefonoContacto —
   // obligatorios en el camino "primera vez"; se omiten en el camino "ya he
@@ -169,9 +195,11 @@ export interface SolicitarTurnoPublicoPayload {
   hora: string;
   // verificacionToken (E5.6, "Confirmanos que sos vos") — token opaco que
   // devuelve apiConfirmarVerificacionTurnoPublico tras validar el código
-  // de 6 dígitos mandado a emailContacto. Sin esto, el backend rechaza el
-  // pedido de turno.
-  verificacionToken: string;
+  // de 6 dígitos mandado a emailContacto. Opcional acá (a diferencia del
+  // backend, que exige EXACTAMENTE uno de los dos) porque el camino de
+  // enlaceToken (Fase 2, ítem 5) lo reemplaza del todo — sin ninguno de
+  // los dos, el backend rechaza el pedido de turno igual.
+  verificacionToken?: string;
   // pacienteVerificadoId (Fase 2.4.1, camino "ya he venido antes") — id de
   // la ficha que devolvió apiGetPacienteVerificadoPublico tras confirmar la
   // "tarjeta clickeable". Si viene, el backend vincula el turno directo a
@@ -188,6 +216,12 @@ export interface SolicitarTurnoPublicoPayload {
   tutorNombre?: string;
   tutorTelefono?: string;
   tutorEmail?: string;
+  // enlaceToken (Fase 2, ítem 5 — "compartir calendario") — alternativa a
+  // verificacionToken cuando el wizard se abrió desde un link generado
+  // por el profesional (`?enlace=` en la página pública): mutuamente
+  // excluyentes, nunca se mandan los dos juntos. Ver
+  // apiCrearEnlaceTurno/apiValidarEnlaceTurnoPublico más abajo.
+  enlaceToken?: string;
 }
 
 export interface EnviarVerificacionTurnoPublicoResponse {
