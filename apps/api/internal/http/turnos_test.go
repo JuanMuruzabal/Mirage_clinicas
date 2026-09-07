@@ -475,6 +475,166 @@ func TestCrearTurnoManual_CamposObligatoriosFaltantes(t *testing.T) {
 	}
 }
 
+// TestCrearTurnoManual_ParaOtroExitoso — Fase 2.4.2: "Agregar turno" con
+// "paciente nuevo" + "Con tutor". El paciente propio queda sin teléfono
+// (lo tiene el tutor) y la ficha creada de rebote hereda los datos del
+// tutor, mismo criterio que crearFichaPacientePublico.
+func TestCrearTurnoManual_ParaOtroExitoso(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual-para-otro@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Mila", ApellidoContacto: "Ortiz", DNIContacto: "40222333",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     inicio.Format(time.RFC3339),
+		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+		ParaOtro:       true,
+		TutorRelacion:  "familiar",
+		TutorNombre:    "Julián Ortiz",
+		TutorTelefono:  "+5493511111111",
+		TutorEmail:     "julian@example.com",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var got turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if !got.EsParaOtro {
+		t.Error("esParaOtro = false, esperaba true")
+	}
+	if got.TutorNombre == nil || *got.TutorNombre != "Julián Ortiz" {
+		t.Errorf("tutorNombre = %v, esperaba Julián Ortiz", got.TutorNombre)
+	}
+
+	var paciente db.Paciente
+	if err := gdb.Where("dni = ?", "40222333").First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró el paciente creado: %v", err)
+	}
+	if paciente.Telefono != nil {
+		t.Errorf("paciente.Telefono = %v, esperaba nil (sin teléfono propio)", *paciente.Telefono)
+	}
+	var tutor db.PacienteTutor
+	if err := gdb.Where("paciente_id = ?", paciente.ID).First(&tutor).Error; err != nil {
+		t.Fatalf("no se pudo releer el tutor: %v", err)
+	}
+	if tutor.Nombre != "Julián Ortiz" {
+		t.Errorf("tutor.Nombre = %q, esperaba Julián Ortiz", tutor.Nombre)
+	}
+}
+
+// TestCrearTurnoManual_ParaOtroReusaFichaYaExistentePorDNI — ronda de
+// correcciones (2026-09-06): "paciente nuevo" con un DNI que ya existe
+// (mismo tutor, mail propio del paciente NUEVO en el 2do pedido) reusa la
+// ficha en vez de duplicarla (crearOBuscarPacientePorDNI, rama "existe") y
+// suma el mail propio nuevo como alternativo si el paciente todavía no
+// tenía uno.
+func TestCrearTurnoManual_ParaOtroReusaFichaYaExistentePorDNI(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual-para-otro-reuso@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	base := crearTurnoManualRequest{
+		NombreContacto: "Mila", ApellidoContacto: "Ortiz", DNIContacto: "40222444",
+		TipoConsultaID: tipoConsultaID,
+		ParaOtro:       true,
+		TutorRelacion:  "familiar",
+		TutorNombre:    "Julián Ortiz",
+		TutorTelefono:  "+5493511111111",
+		TutorEmail:     "julian@example.com",
+	}
+	req1 := base
+	req1.HoraInicio = inicio.Format(time.RFC3339)
+	req1.HoraFin = inicio.Add(30 * time.Minute).Format(time.RFC3339)
+	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+
+	req2 := base
+	req2.EmailContacto = "mila@example.com" // mail PROPIO nuevo del paciente
+	otraHora := inicio.Add(time.Hour)
+	req2.HoraInicio = otraHora.Format(time.RFC3339)
+	req2.HoraFin = otraHora.Add(30 * time.Minute).Format(time.RFC3339)
+	rec2 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	var count int64
+	gdb.Model(&db.Paciente{}).Where("dni = ?", "40222444").Count(&count)
+	if count != 1 {
+		t.Errorf("count de pacientes con ese DNI = %d, esperaba 1 (reusado, no duplicado)", count)
+	}
+	var paciente db.Paciente
+	if err := gdb.Where("dni = ?", "40222444").First(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Email == nil || *paciente.Email != "mila@example.com" {
+		t.Errorf("Email = %v, esperaba mila@example.com (pasa a ser el principal)", paciente.Email)
+	}
+}
+
+// TestCrearTurnoManual_ParaOtroSinDatosDeTutorFalla — mismo criterio de
+// validación que solicitarTurnoPublicoRequest: con paraOtro=true y
+// "paciente nuevo", los datos del tutor son obligatorios.
+func TestCrearTurnoManual_ParaOtroSinDatosDeTutorFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual-para-otro-sin-tutor@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Mila", ApellidoContacto: "Ortiz", DNIContacto: "40222444",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     inicio.Format(time.RFC3339),
+		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+		ParaOtro:       true,
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestCrearTurnoManual_ParaOtroConPacienteConocidoIgnoraFaltaDeTutor —
+// "paciente conocido" ya tiene su propia ficha (con o sin tutor); un
+// `paraOtro` colado en la request sin datos de tutor no debe bloquear el
+// alta — no aplica a este camino.
+func TestCrearTurnoManual_ParaOtroConPacienteConocidoIgnoraFaltaDeTutor(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "manual-para-otro-conocido@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	primero := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "40222555", TelefonoContacto: "+5493511111111",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     inicio.Format(time.RFC3339),
+		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	var creado turnoResponse
+	_ = json.Unmarshal(primero.Body.Bytes(), &creado)
+	if creado.PacienteID == nil {
+		t.Fatal("esperaba que el primer turno tuviera un PacienteID")
+	}
+
+	otroInicio := inicio.Add(time.Hour)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "40222555", TelefonoContacto: "+5493511111111",
+		TipoConsultaID: tipoConsultaID,
+		HoraInicio:     otroInicio.Format(time.RFC3339),
+		HoraFin:        otroInicio.Add(30 * time.Minute).Format(time.RFC3339),
+		PacienteID:     *creado.PacienteID,
+		ParaOtro:       true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
 func TestCrearTurnoManual_TipoConsultaInvalido(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
@@ -1023,6 +1183,19 @@ func TestCancelarTurno_DeOtroProfesionalFalla(t *testing.T) {
 	}
 }
 
+// TestCancelarTurno_IdMalFormadoFalla — un id que ni parsea como UUID da
+// 400 antes de tocar la base.
+func TestCancelarTurno_IdMalFormadoFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar-malformado@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/no-es-un-uuid/cancelar", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 // TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes —
 // corrección de seguridad (Fase 2.4.1): "cómo se hace para borrar todos
 // los turnos sin verificar" — un turno de un paciente VERIFICADO nunca se
@@ -1057,7 +1230,8 @@ func TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes(t *test
 	if err != nil {
 		t.Fatalf("tipoConsultaID inválido: %v", err)
 	}
-	pacienteResuelto := db.Paciente{ProfesionalID: pid, Nombre: "Otro", Apellido: "Resuelto", DNI: "30111333", Telefono: "+5493512222222"}
+	telResuelto := "+5493512222222"
+	pacienteResuelto := db.Paciente{ProfesionalID: pid, Nombre: "Otro", Apellido: "Resuelto", DNI: "30111333", Telefono: &telResuelto}
 	if err := gdb.Create(&pacienteResuelto).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente resuelto de prueba: %v", err)
 	}
@@ -1067,7 +1241,7 @@ func TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes(t *test
 		ProfesionalID: pid, PacienteID: &pacienteResuelto.ID, Estado: "agendado", TipoConsultaID: &tid,
 		HoraInicio: &horaPasada, HoraFin: &finPasado,
 		NombreContacto: pacienteResuelto.Nombre, ApellidoContacto: pacienteResuelto.Apellido,
-		DNIContacto: pacienteResuelto.DNI, TelefonoContacto: pacienteResuelto.Telefono, Origen: "pagina_publica",
+		DNIContacto: pacienteResuelto.DNI, TelefonoContacto: telResuelto, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&turnoResueltoSinVerificar).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno resuelto de prueba: %v", err)
@@ -1485,7 +1659,8 @@ func crearTurnoAgendadoConPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesion
 	if err != nil {
 		t.Fatalf("tipoConsultaID inválido: %v", err)
 	}
-	paciente := db.Paciente{ProfesionalID: pid, Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Telefono: "+5493511234567"}
+	telPaciente := "+5493511234567"
+	paciente := db.Paciente{ProfesionalID: pid, Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Telefono: &telPaciente}
 	if err := gdb.Create(&paciente).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
 	}
@@ -1501,7 +1676,7 @@ func crearTurnoAgendadoConPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesion
 		NombreContacto:   paciente.Nombre,
 		ApellidoContacto: paciente.Apellido,
 		DNIContacto:      paciente.DNI,
-		TelefonoContacto: paciente.Telefono,
+		TelefonoContacto: telPaciente,
 		Origen:           "manual",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
@@ -1530,7 +1705,8 @@ func crearFichaEnConflictoConTurnoDePrueba(t *testing.T, gdb *gorm.DB, profesion
 	if err != nil {
 		t.Fatalf("tipoConsultaID inválido: %v", err)
 	}
-	hermana := db.Paciente{ProfesionalID: pid, Nombre: "Otro", Apellido: "Apellido", DNI: dni, Telefono: "+5493519999999", EnConflicto: true}
+	telHermana := "+5493519999999"
+	hermana := db.Paciente{ProfesionalID: pid, Nombre: "Otro", Apellido: "Apellido", DNI: dni, Telefono: &telHermana, EnConflicto: true}
 	if err := gdb.Create(&hermana).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
 	}
@@ -1546,7 +1722,7 @@ func crearFichaEnConflictoConTurnoDePrueba(t *testing.T, gdb *gorm.DB, profesion
 		NombreContacto:   hermana.Nombre,
 		ApellidoContacto: hermana.Apellido,
 		DNIContacto:      hermana.DNI,
-		TelefonoContacto: hermana.Telefono,
+		TelefonoContacto: telHermana,
 		Origen:           "pagina_publica",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {

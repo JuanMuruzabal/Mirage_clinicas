@@ -14,7 +14,7 @@ interface NavCardProps {
 // /seleccionar-servicio (la pantalla post-login) — por eso lleva la
 // identidad cálida del panel (TR-013 en docs/tradeoffs.md), no la del
 // Sistema Cascarón de la home marketing/pública, que no la usa.
-export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar →", size = "default" }: NavCardProps) {
+export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar", size = "default" }: NavCardProps) {
   const big = size === "large";
   return (
     <Link

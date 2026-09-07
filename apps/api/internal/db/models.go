@@ -110,8 +110,16 @@ type Paciente struct {
 	Nombre        string    `gorm:"type:varchar(150);not null"`
 	Apellido      string    `gorm:"type:varchar(150);not null"`
 	DNI           string    `gorm:"type:varchar(20);not null"`
-	Telefono      string    `gorm:"type:varchar(30);not null"`
-	Email         *string   `gorm:"type:varchar(255)"`
+	// Telefono — Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien
+	// especificada.docx`, sección "para otro"): pasa de NOT NULL a
+	// nullable — el documento pide explícitamente que, cuando el turno lo
+	// saca un tutor para otra persona, el teléfono (y el mail) DEL
+	// PACIENTE queden opcionales (a diferencia de "para mí", donde uno de
+	// los 2 ya es obligatorio). La migración solo relaja el constraint
+	// (`ALTER COLUMN ... DROP NOT NULL`, migrate.go) — ningún dato
+	// existente se pierde, todas las filas ya tenían un valor no vacío.
+	Telefono *string `gorm:"type:varchar(30)"`
+	Email    *string `gorm:"type:varchar(255)"`
 	// Sexo/Edad — Fase 2.4.1 (`docs/FASE 2.4 - detallada y bien
 	// especificada.docx`): datos que pide el wizard público en el camino
 	// "para mí, primera vez" — el documento los menciona sin marcarlos
@@ -151,6 +159,80 @@ type Paciente struct {
 }
 
 func (Paciente) TableName() string { return "pacientes" }
+
+// PacienteTutor — Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien
+// especificada.docx`, camino "sacar turno para otro"), rediseñado en la
+// ronda de correcciones del 2026-09-06: un paciente puede tener MÁS DE UN
+// tutor a lo largo del tiempo (mamá reservó primero, después papá, después
+// una abuela...) — antes esto vivía como 5 columnas nullable directo en
+// `Paciente` (un único tutor), reemplazadas por esta tabla uno-a-muchos,
+// mismo patrón que `PacienteEmailAlternativo`/`PacienteTelefonoAlternativo`.
+// Cada fila es un tutor CONOCIDO/confirmado para ese paciente — se crea al
+// dar de alta la ficha por este camino (crearFichaPacientePublico,
+// crearOBuscarPacientePorDNI) y se suma una fila más cuando un conflicto
+// "tutor nuevo vs. tutor(es) ya confirmado(s)" se resuelve a favor de que
+// es el mismo paciente (resolverConflictoComoVerdadero) — nunca se
+// descarta un tutor anterior al sumar uno nuevo.
+//
+// `Turno.Tutor*` (más abajo, sin cambios) sigue siendo el snapshot de
+// quién reservó ESE turno puntual — eso nunca fue plural, cada turno tiene
+// exactamente un tutor que lo sacó.
+//
+// Sin DNI (tercera ronda de correcciones, 2026-09-06, pedido textual del
+// cliente: "sigue pidiendo DNI 'para otro'... sacarlo del todo, no es tan
+// útil y agrega complejidad") — la columna existió hasta esta ronda, pero
+// se eliminó del todo junto con la validación "el DNI del tutor no puede
+// ser igual al del paciente" (que dependía de ella) en los 3 lugares que
+// pedían este dato: wizard público, "+ Agregar paciente" y "Agregar
+// turno" del calendario. La identidad del tutor para detección de
+// conflicto/reuso sigue siendo el Email (ver más abajo) — nunca dependió
+// del DNI.
+type PacienteTutor struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	// PacienteID — índice único COMPUESTO (paciente_id, email), mismo
+	// motivo que PacienteEmailAlternativo: el mismo mail de tutor puede
+	// repetirse legítimamente entre pacientes distintos (hermanos con el
+	// mismo profesional, cada uno su propia ficha) sin chocar.
+	PacienteID uuid.UUID `gorm:"column:paciente_id;type:uuid;not null;uniqueIndex:idx_paciente_tutor"`
+	// Relacion — select acotado (`familiar`/`amigo`/`otro`, check
+	// constraint en migrate.go), no texto libre — así lo pide el
+	// documento original.
+	Relacion string `gorm:"type:varchar(20);not null"`
+	Nombre   string `gorm:"type:varchar(150);not null"`
+	Telefono string `gorm:"type:varchar(30);not null"`
+	// Email — el campo que identifica a ESTE tutor para la detección de
+	// conflicto y el camino "ya he venido antes" (ver
+	// pacienteTieneTutorConMail, paciente_verificado_publico.go) — nunca
+	// se compara contra `Paciente.Email` (el mail propio del paciente,
+	// casi siempre vacío en este camino).
+	Email     string `gorm:"type:varchar(255);not null;uniqueIndex:idx_paciente_tutor"`
+	CreatedAt time.Time
+}
+
+func (PacienteTutor) TableName() string { return "paciente_tutores" }
+
+// PacienteTutorTelefonoAlternativo — cuarta ronda de correcciones
+// (2026-09-06), pedido textual del cliente: "si un tutor vuelve a sacar
+// turno con mismo mail, diferente teléfono, añadir ese teléfono al tutor
+// del mail correspondiente" — corregido acá: "añadir" es literal, se
+// ACUMULA (mismo criterio que `PacienteTelefonoAlternativo` del paciente),
+// no se reemplaza el teléfono principal del tutor. El mail sigue siendo
+// la identidad del tutor (columna `Telefono` de `PacienteTutor` no
+// cambia, sigue siendo el primero/principal); esta tabla solo suma los
+// que aparecen después.
+type PacienteTutorTelefonoAlternativo struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	// PacienteTutorID — índice único compuesto (paciente_tutor_id,
+	// telefono), mismo motivo que PacienteTelefonoAlternativo: no
+	// duplicar el mismo alternativo para el mismo tutor.
+	PacienteTutorID uuid.UUID `gorm:"column:paciente_tutor_id;type:uuid;not null;uniqueIndex:idx_paciente_tutor_telefono_alt"`
+	Telefono        string    `gorm:"type:varchar(30);not null;uniqueIndex:idx_paciente_tutor_telefono_alt"`
+	CreatedAt       time.Time
+}
+
+func (PacienteTutorTelefonoAlternativo) TableName() string {
+	return "paciente_tutor_telefonos_alternativos"
+}
 
 // PacienteEmailAlternativo — Fase 2.4.1: un mail migrado a un Paciente ya
 // VERIFICADO al resolver un conflicto de pacientes con el botón "el mail
@@ -417,6 +499,26 @@ type Turno struct {
 	// clientIP en auth.go): es una señal más, débil y compartida
 	// (CGNAT/wifi), no una huella confiable.
 	IPContacto *string `gorm:"column:ip_contacto;type:varchar(64);index:idx_turno_prof_ip,priority:2"`
+
+	// EsParaOtro/Tutor* — Fase 2.4.2, camino "sacar turno para otro": a
+	// diferencia de los campos Contacto de arriba (que SIGUEN siendo el
+	// paciente, sin cambio de significado — ver el comentario grande en
+	// docs/ArquitecturaPeticionesTurno.md Parte 3 sobre por qué), este es
+	// un set PARALELO con el snapshot de quien reservó en nombre del
+	// paciente. Mismo criterio que NombreContacto/ApellidoContacto: un
+	// snapshot propio de Turno, no un join en vivo contra Paciente (ver
+	// migrarOCancelarTurnosDePerdedor en pacientes_conflicto_panel.go).
+	// `EsParaOtro` evita tener que inferir "¿tiene tutor?" de "¿algún
+	// campo Tutor no es nulo?" en cada query — entre otros usos, alimenta
+	// la columna "Sacado por otro" de /panel/turnos.
+	// TutorDNI existió hasta la tercera ronda de correcciones (2026-09-06)
+	// — eliminado del todo, ver el comentario grande sobre PacienteTutor
+	// más arriba en este archivo.
+	EsParaOtro    bool    `gorm:"column:es_para_otro;not null;default:false"`
+	TutorRelacion *string `gorm:"column:tutor_relacion;type:varchar(20)"`
+	TutorNombre   *string `gorm:"column:tutor_nombre;type:varchar(150)"`
+	TutorTelefono *string `gorm:"column:tutor_telefono;type:varchar(30)"`
+	TutorEmail    *string `gorm:"column:tutor_email;type:varchar(255)"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

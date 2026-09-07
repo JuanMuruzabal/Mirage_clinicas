@@ -358,3 +358,17 @@ func TestEliminarHorarioAtencion_NoPermiteEliminarLaGeneral(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d (la general no se puede eliminar). body=%s", delRec.Code, http.StatusBadRequest, delRec.Body.String())
 	}
 }
+
+// TestEliminarHorarioAtencion_IdMalFormadoFalla — un id que ni parsea
+// como UUID da 400 antes de tocar la base.
+func TestEliminarHorarioAtencion_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ana", Email: "horario-eliminar-malformado@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	delRec := doJSONAuth(t, router, http.MethodDelete, "/horario-atencion/no-es-un-uuid", reg.Token, nil)
+	if delRec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", delRec.Code, http.StatusBadRequest, delRec.Body.String())
+	}
+}

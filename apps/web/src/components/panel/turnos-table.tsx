@@ -17,10 +17,23 @@ interface TurnosTableProps {
   turnosIniciales: Turno[];
   tiposConsulta: TipoConsulta[];
   filtros: ListarTurnosParams;
-  // Deep-link desde TurnoDetalle ("Ver turno →", 2026-08-23): esa fila
+  // Deep-link desde TurnoDetalle ("Ver turno", 2026-08-23): esa fila
   // arranca desplegada en vez de que el profesional tenga que buscarla y
   // tocarla de nuevo.
   abrirId?: string;
+}
+
+// contactoDeTurno — corrección de QA (ronda de correcciones, Fase 2.4.2,
+// 2026-09-06): la columna Contacto mostraba el teléfono/mail PROPIOS del
+// paciente aunque el turno sea "para otro" — ahí esos campos casi siempre
+// están vacíos (son opcionales), el dato útil para contactarse es el del
+// TUTOR que sacó el turno. La columna "Sacado por otro" ya identifica el
+// caso, así que acá no hace falta ninguna etiqueta extra.
+function contactoDeTurno(t: Turno): { telefono: string; email: string } {
+  if (t.esParaOtro) {
+    return { telefono: t.tutorTelefono ?? "", email: t.tutorEmail ?? "" };
+  }
+  return { telefono: t.telefonoContacto, email: t.emailContacto };
 }
 
 // TurnosTable (T3.3) — tabla de la vista Turnos: filtros de tab/búsqueda ya
@@ -177,16 +190,18 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
   // tabla de turnos el tipo de consulta, ya que está ausente" — mismo
   // criterio de dos señales a la vez (color + nombre, nunca el color
   // solo, TR-013) que paciente-turnos-table.tsx. Un nombre largo pasa a
-  // "Ver tipo →" en vez de romper el ancho de la columna (mismo
-  // componente que "Ver motivo"/"Ver paciente" de al lado) — el umbral es
-  // el específico de tipoConsultaNombreEsLargo (más largo que "Consulta
-  // general"), no el genérico de 30 caracteres de textoEsLargo. Extraída
-  // para no duplicar la lógica entre la columna de escritorio y el
-  // bloque de mobile (mismo criterio que renderAcciones, más abajo).
+  // "Ver tipo" en vez de romper el ancho de la columna (mismo componente
+  // que "Ver motivo"/"Ver paciente" de al lado; sin flecha, tercera ronda
+  // de correcciones, 2026-09-06 — ver el comentario grande en
+  // ver-texto-boton.tsx) — el umbral es el específico de
+  // tipoConsultaNombreEsLargo (más largo que "Consulta general"), no el
+  // genérico de 30 caracteres de textoEsLargo. Extraída para no duplicar
+  // la lógica entre la columna de escritorio y el bloque de mobile (mismo
+  // criterio que renderAcciones, más abajo).
   function renderTipoConsulta(tipo: TipoConsulta | undefined) {
     if (!tipo) return "—";
     if (tipoConsultaNombreEsLargo(tipo.nombre)) {
-      return <VerTextoBoton titulo="Tipo" texto={tipo.nombre} flecha />;
+      return <VerTextoBoton titulo="Tipo" texto={tipo.nombre} />;
     }
     return (
       <span className="inline-flex items-center gap-1.5">
@@ -328,6 +343,11 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
               </th>
               <th className="panel-th-sticky px-4 py-3">Estado</th>
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Origen</th>
+              {/* Sacado por otro (Fase 2.4.2) — Sí cuando el turno se
+                  originó por el camino "sacar turno para otro" del
+                  wizard público (Turno.EsParaOtro), No en cualquier otro
+                  caso (incluido "para mí" y alta manual del panel). */}
+              <th className="panel-th-sticky max-md:hidden px-4 py-3">Sacado por otro</th>
               <th className="panel-th-sticky w-10 px-4 py-3" aria-hidden="true" />
             </tr>
           </thead>
@@ -359,31 +379,22 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                             {t.nombreContacto} {t.apellidoContacto}
                           </p>
                           <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
-                          {/* Corrección de seguridad (Fase 2.4.1): visibilidad
-                              sobre turnos de pacientes que todavía no
-                              demostraron ser reales (ningún turno resuelto y
-                              asistido todavía) — para triage rápido sin abrir
-                              ficha por ficha. */}
-                          {!t.pacienteVerificado && (
-                            <span className="mt-0.5 inline-flex w-fit items-center rounded-full border-[0.5px] border-arena bg-hueso px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-grafito/60">
-                              Sin verificar
-                            </span>
-                          )}
                         </div>
                       </div>
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-sm text-grafito">{renderTipoConsulta(tipo)}</td>
                     <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito">
-                      <div>{t.telefonoContacto}</div>
+                      <div>{contactoDeTurno(t).telefono}</div>
                       {/* Corrección de QA: un mail largo en la columna de
-                          Contacto pasa a "Ver email →", solo texto (sin
-                          la pastilla con borde que usa "Ver motivo" al
-                          lado) — variante "link" de VerTextoBoton. */}
-                      {t.emailContacto &&
-                        (textoEsLargo(t.emailContacto) ? (
-                          <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
+                          Contacto pasa a "Ver email", solo texto (sin la
+                          pastilla con borde que usa "Ver motivo" al lado)
+                          — variante "link" de VerTextoBoton. Sin flecha
+                          (tercera ronda de correcciones, 2026-09-06). */}
+                      {contactoDeTurno(t).email &&
+                        (textoEsLargo(contactoDeTurno(t).email) ? (
+                          <VerTextoBoton titulo="Email" texto={contactoDeTurno(t).email} variante="link" />
                         ) : (
-                          <div className="text-grafito/50">{t.emailContacto}</div>
+                          <div className="text-grafito/50">{contactoDeTurno(t).email}</div>
                         ))}
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-grafito">
@@ -421,6 +432,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                       )}
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
+                    <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{t.esParaOtro ? "Sí" : "No"}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -460,7 +472,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                           todo el ancho real ya resuelto de la tabla —
                           truco estándar de CSS para este problema
                           puntual, no afecta el resto de las columnas. */}
-                      <td colSpan={8} className="w-px px-4 py-3">
+                      <td colSpan={9} className="w-px px-4 py-3">
                         <div className="min-w-full">
                         {/* Contacto/Motivo/Origen — ocultos como columna en
                             mobile (arriba), reaparecen ACÁ al desplegar la
@@ -521,15 +533,15 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tipo de consulta</dt>
                           <dd className="min-w-0 text-grafito">{renderTipoConsulta(tipo)}</dd>
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
-                          <dd className="min-w-0 text-grafito">{t.telefonoContacto}</dd>
-                          {t.emailContacto && (
+                          <dd className="min-w-0 text-grafito">{contactoDeTurno(t).telefono}</dd>
+                          {contactoDeTurno(t).email && (
                             <>
                               <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
                               <dd className="min-w-0 text-grafito">
-                                {textoEsLargo(t.emailContacto) ? (
-                                  <VerTextoBoton titulo="Email" texto={t.emailContacto} variante="link" flecha />
+                                {textoEsLargo(contactoDeTurno(t).email) ? (
+                                  <VerTextoBoton titulo="Email" texto={contactoDeTurno(t).email} variante="link" />
                                 ) : (
-                                  <span className="break-all">{t.emailContacto}</span>
+                                  <span className="break-all">{contactoDeTurno(t).email}</span>
                                 )}
                               </dd>
                             </>
@@ -544,6 +556,16 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                           )}
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Origen</dt>
                           <dd className="min-w-0 text-grafito">{ORIGEN_LABEL[t.origen]}</dd>
+                          {/* Sacado por otro (Fase 2.4.2) — la columna
+                              propia queda max-md:hidden, así que en
+                              mobile solo se ve acá, dentro del panel
+                              desplegado. */}
+                          {t.esParaOtro && (
+                            <>
+                              <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">A cargo de</dt>
+                              <dd className="min-w-0 text-grafito">{t.tutorNombre || "—"}</dd>
+                            </>
+                          )}
                         </dl>
                         <div className="flex flex-wrap gap-2">
                           {renderAcciones(t, resuelto)}
@@ -559,7 +581,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
                               href={`/panel/pacientes/${t.pacienteId}`}
                               className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
                             >
-                              Ver paciente →
+                              Ver paciente
                             </Link>
                           )}
                         </div>

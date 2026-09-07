@@ -56,7 +56,7 @@ describe("TurnoDetalle", () => {
 
   it("'Ver turno' enlaza a la vista Turnos filtrada por estado y DNI, con este turno para desplegar (deep-link)", () => {
     render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-    expect(screen.getByRole("link", { name: "Ver turno →" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ver turno" })).toHaveAttribute(
       "href",
       "/panel/turnos?estado=agendado&q=1&turno=t-1",
     );
@@ -64,12 +64,12 @@ describe("TurnoDetalle", () => {
 
   it("con pacienteId, muestra 'Ver paciente' hacia su ficha", () => {
     render(<TurnoDetalle turno={{ ...turno, pacienteId: "pac-1" }} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-    expect(screen.getByRole("link", { name: "Ver paciente →" })).toHaveAttribute("href", "/panel/pacientes/pac-1");
+    expect(screen.getByRole("link", { name: "Ver paciente" })).toHaveAttribute("href", "/panel/pacientes/pac-1");
   });
 
   it("sin pacienteId, no muestra 'Ver paciente'", () => {
     render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-    expect(screen.queryByRole("link", { name: "Ver paciente →" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ver paciente" })).not.toBeInTheDocument();
   });
 
   it("un turno con hora de fin pasada muestra la etiqueta 'Resuelto'", () => {
@@ -90,7 +90,7 @@ describe("TurnoDetalle", () => {
   it("un turno resuelto: 'Ver turno' enlaza con estado=resuelto, no agendado", () => {
     const turnoResuelto = { ...turno, horaInicio: "2020-01-01T09:00:00Z", horaFin: "2020-01-01T09:30:00Z" };
     render(<TurnoDetalle turno={turnoResuelto} tiposConsulta={tiposConsulta} onClose={vi.fn()} />);
-    expect(screen.getByRole("link", { name: "Ver turno →" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ver turno" })).toHaveAttribute(
       "href",
       "/panel/turnos?estado=resuelto&q=1&turno=t-1",
     );

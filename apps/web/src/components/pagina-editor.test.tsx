@@ -39,7 +39,7 @@ describe("PaginaEditor", () => {
 
   it("el link 'Ver página' apunta al slug de la clínica, en una pestaña nueva", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={{ oculta: false, deployadaEn: null }} />);
-    const link = screen.getByRole("link", { name: "Ver página →" });
+    const link = screen.getByRole("link", { name: "Ver página" });
     expect(link).toHaveAttribute("href", "/clinica-sonrisas");
     expect(link).toHaveAttribute("target", "_blank");
   });

@@ -65,7 +65,7 @@ describe("PacienteTurnosTable", () => {
   // que TurnosTable (tipoConsultaNombreEsLargo: más largo que "Consulta
   // general", 16 caracteres). El punto de color sigue viendo siempre,
   // sea cual sea el nombre.
-  it("un nombre de tipo largo se oculta detrás de 'Ver tipo →', sin tapar el punto de color", async () => {
+  it("un nombre de tipo largo se oculta detrás de 'Ver tipo', sin tapar el punto de color", async () => {
     const tipoLargo = [{ id: "tc-largo", nombre: "Consulta de ortodoncia y control", color: "#D6563A" }];
     const turnoConTipoLargo = { ...turno, tipoConsultaId: "tc-largo" };
     const user = userEvent.setup();
@@ -78,7 +78,7 @@ describe("PacienteTurnosTable", () => {
     const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
     expect(punto).toHaveStyle({ background: "rgb(214, 86, 58)" });
 
-    await user.click(screen.getByRole("button", { name: "Ver tipo →" }));
+    await user.click(screen.getByRole("button", { name: "Ver tipo" }));
     const dialogo = await screen.findByRole("dialog", { name: "Tipo" });
     expect(dialogo).toHaveTextContent(tipoLargo[0].nombre);
   });

@@ -144,9 +144,9 @@ describe("CalendarView", () => {
       render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[turno]} turnoAPosicionar="t-1" />);
 
       expect(screen.queryByRole("dialog", { name: "Detalle del turno" })).not.toBeInTheDocument();
-      // Vertical: (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64,
-      // menos una hora de aire (ver scrollAHora) = (7 - 1) * 64 = 384.
-      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+      // Vertical: (15:00 en minutos/60 - HORA_INICIO=6) * PX_POR_HORA=64,
+      // menos una hora de aire (ver scrollAHora) = (9 - 1) * 64 = 512.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 512 }));
     } finally {
       scrollToSpy.mockRestore();
     }
@@ -207,9 +207,9 @@ describe("CalendarView", () => {
       );
 
       await screen.findByRole("dialog", { name: "Horario bloqueado" });
-      // (15:00 en minutos/60 - HORA_INICIO=8) * PX_POR_HORA=64, menos una
-      // hora de aire (ver scrollAHora en calendar-view.tsx) = (7-1)*64 = 384.
-      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 384 }));
+      // (15:00 en minutos/60 - HORA_INICIO=6) * PX_POR_HORA=64, menos una
+      // hora de aire (ver scrollAHora en calendar-view.tsx) = (9-1)*64 = 512.
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 512 }));
     } finally {
       scrollToSpy.mockRestore();
     }
@@ -327,13 +327,25 @@ describe("CalendarView", () => {
     });
   });
 
-  // Corrección de QA (2026-09-06), pedido textual del cliente: "los 'x
-  // turnos' que aparecen en el calendario solo deben ser turnos activos,
-  // no resueltos" — la pastilla de cantidad (TR-114) descarta con
-  // `turnoResuelto` los que ya pasaron de hora, igual criterio que el
-  // resto del calendario (banner de conflicto, marca de asistencia).
-  it("la pastilla de cantidad cuenta solo turnos activos, no resueltos", async () => {
-    const ahora = Date.now();
+  // TR-115 había pedido que esta pastilla descartara los turnos
+  // resueltos ("los 'x turnos'... solo deben ser turnos activos, no
+  // resueltos"). En la ronda de correcciones de Fase 2.4.2 (TR-116,
+  // cuarta ronda) el cliente aclaró explícitamente lo contrario para
+  // esta rama: "esto no lo toqué, está bien como está ahora" — pedido
+  // textual que prevalece sobre TR-115 acá. La pastilla vuelve a contar
+  // TODOS los turnos `agendado` del rango, resueltos incluidos.
+  it("la pastilla de cantidad cuenta todos los turnos agendados, incluidos los resueltos", async () => {
+    // mediodiaDeHoy — ancla fija al mediodía LOCAL de hoy, no `Date.now()`
+    // +/- horas: un offset relativo a "ahora" puede cruzar la medianoche
+    // según a qué hora corra el test (bug real encontrado acá — el turno
+    // "resuelto", pensado para caer HOY hace 3hs, terminaba cayendo AYER
+    // si el test corría de madrugada, y el filtro por día lo excluía sin
+    // que tuviera nada que ver con `turnoResuelto`). Mediodía deja 12hs
+    // de margen para cualquier offset chico de este test en cualquiera
+    // de las dos direcciones.
+    const mediodiaDeHoy = new Date();
+    mediodiaDeHoy.setHours(12, 0, 0, 0);
+    const ahora = mediodiaDeHoy.getTime();
     const base = {
       estado: "agendado" as const,
       origen: "manual" as const,
@@ -360,9 +372,14 @@ describe("CalendarView", () => {
       horaFin: new Date(ahora - 2 * 60 * 60 * 1000).toISOString(),
     };
 
+    // listTurnosActionMock (sin esto, el fetch-on-mount de CalendarView
+    // resuelve al `[]` default de beforeEach y pisa `turnosIniciales`
+    // antes de que la aserción llegue a leerlo — carrera real entre el
+    // primer render y el efecto, no algo para depender del timing).
+    listTurnosActionMock.mockResolvedValue([activo, resuelto]);
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[activo, resuelto]} />);
 
-    expect(await screen.findByText("1 turno")).toBeInTheDocument();
+    expect(await screen.findByText("2 turnos")).toBeInTheDocument();
   });
 
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {

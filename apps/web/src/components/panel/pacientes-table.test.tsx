@@ -70,7 +70,7 @@ describe("PacientesTable", () => {
 
   it("el link 'Ver ficha' apunta a la ficha del paciente", () => {
     render(<PacientesTable pacientes={[paciente]} />);
-    expect(screen.getByRole("link", { name: "Ver ficha →" })).toHaveAttribute("href", "/panel/pacientes/p-1");
+    expect(screen.getByRole("link", { name: "Ver ficha" })).toHaveAttribute("href", "/panel/pacientes/p-1");
   });
 
   // Extra 2.3.4 (E4.1): un email largo ya no se muestra inline (rompía el
@@ -110,6 +110,68 @@ describe("PacientesTable", () => {
 
       expect(screen.getByRole("cell", { name: "bruno@example.com" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Ver email" })).not.toBeInTheDocument();
+    });
+  });
+
+  // Corrección de QA (ronda de correcciones, 2026-09-06): "en la tabla
+  // pacientes, si el paciente tiene más de un número o mail poner un
+  // botón de ver mails, ver teléfonos si posee más de uno" — antes solo
+  // la ficha de detalle mostraba los alternativos, la tabla se quedaba
+  // con el principal a secas.
+  describe("Ver mails/Ver teléfonos con alternativos (ronda de correcciones, 2026-09-06)", () => {
+    it("con un mail alternativo, agrupa detrás de 'Ver mails' en vez de mostrar solo el principal", async () => {
+      const user = userEvent.setup();
+      render(<PacientesTable pacientes={[{ ...paciente, emailsAlternativos: ["bruno.alt@example.com"] }]} />);
+
+      expect(screen.queryByText("bruno@example.com")).not.toBeInTheDocument();
+      // Segunda ronda de correcciones (2026-09-06): "quitar de los
+      // botones el '->'" — estos dos ya no llevan flecha (no son
+      // navegación, abren un modal).
+      const boton = screen.getByRole("button", { name: "Ver mails" });
+      await user.click(boton);
+      const dialogo = await screen.findByRole("dialog", { name: "Mails" });
+      expect(dialogo).toHaveTextContent("bruno@example.com");
+      expect(dialogo).toHaveTextContent("bruno.alt@example.com");
+    });
+
+    it("con un teléfono alternativo, agrupa detrás de 'Ver teléfonos'", () => {
+      render(<PacientesTable pacientes={[{ ...paciente, telefonosAlternativos: ["3519999999"] }]} />);
+
+      expect(screen.queryByRole("cell", { name: "3511234567" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Ver teléfonos" })).toBeInTheDocument();
+    });
+
+    it("sin alternativos, sigue mostrando el principal sin botón", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+      expect(screen.queryByRole("button", { name: "Ver mails" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ver teléfonos" })).not.toBeInTheDocument();
+    });
+  });
+
+  // Fase 2.4.2, rediseñado en la ronda de correcciones (2026-09-06): un
+  // paciente puede tener MÁS de un tutor — con más de uno, la columna
+  // pasa a un botón "Ver tutores" que lleva a la ficha (donde se ven
+  // todos), en vez de un solo nombre que escondería a los demás.
+  describe("columna Tutor (ronda de correcciones, 2026-09-06)", () => {
+    const tutor1 = { relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
+    const tutor2 = { relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
+
+    it("sin tutores, muestra —", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+      expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("con un tutor, muestra su nombre", () => {
+      render(<PacientesTable pacientes={[{ ...paciente, tutores: [tutor1] }]} />);
+      expect(screen.getByText("Julián Ortiz")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Ver tutores" })).not.toBeInTheDocument();
+    });
+
+    it("con más de un tutor, muestra un link 'Ver tutores' hacia la ficha", () => {
+      render(<PacientesTable pacientes={[{ ...paciente, tutores: [tutor1, tutor2] }]} />);
+      expect(screen.queryByText("Julián Ortiz")).not.toBeInTheDocument();
+      const link = screen.getByRole("link", { name: "Ver tutores" });
+      expect(link).toHaveAttribute("href", `/panel/pacientes/${paciente.id}`);
     });
   });
 
@@ -187,10 +249,10 @@ describe("PacientesTable", () => {
 
         await user.click(screen.getByText("Bruno Iglesias"));
 
-        // Dos links "Ver ficha →" en el DOM a la vez (el de siempre,
+        // Dos links "Ver ficha" en el DOM a la vez (el de siempre,
         // max-md:hidden vía CSS, y el nuevo del panel) — ambos con el
         // mismo href, ninguno depende de JS para funcionar.
-        const links = screen.getAllByRole("link", { name: "Ver ficha →" });
+        const links = screen.getAllByRole("link", { name: "Ver ficha" });
         expect(links.length).toBe(2);
         links.forEach((link) => expect(link).toHaveAttribute("href", "/panel/pacientes/p-1"));
       } finally {

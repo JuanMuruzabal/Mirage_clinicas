@@ -30,6 +30,20 @@ const NUEVO_PACIENTE_INICIAL = {
   motivo: "",
 };
 
+// TUTOR_INICIAL (Fase 2.4.2) — estado vacío del bloque "Con tutor", mismo
+// criterio que NUEVO_PACIENTE_INICIAL: factorizado para poder resetearlo
+// al volver de "paciente conocido" (ver abrirPestañaNuevo más abajo).
+const TUTOR_INICIAL = {
+  conTutor: false,
+  tutorRelacion: "",
+  tutorNombre: "",
+  tutorTelefono: "",
+  tutorEmail: "",
+};
+
+const TELEFONO_REGEX = /^\+?\d{10,13}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Un renglón por origen: qué es y de dónde sale (pedido explícito del
 // cliente, 2026-08-23 — "dar información a qué hace referencia cada
 // sección y de dónde estoy cargando los pacientes"). El origen "pendiente"
@@ -60,6 +74,8 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   const [pacienteElegidoId, setPacienteElegidoId] = useState<string | null>(null);
 
   const [nuevoPaciente, setNuevoPaciente] = useState(NUEVO_PACIENTE_INICIAL);
+  // tutor (Fase 2.4.2) — bloque "Con tutor" del camino "Paciente nuevo".
+  const [tutor, setTutor] = useState(TUTOR_INICIAL);
   // duplicadoDni/verificandoDni — corrección de bug (ver continuarConNuevo
   // más abajo): paciente encontrado por DNI exacto al intentar avanzar
   // desde "Paciente nuevo", para poder ofrecer "Usar este paciente" sin
@@ -165,6 +181,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   function abrirPestañaNuevo() {
     if (pacienteElegidoId !== null) {
       setNuevoPaciente(NUEVO_PACIENTE_INICIAL);
+      setTutor(TUTOR_INICIAL);
       setPacienteElegidoId(null);
     }
     setDuplicadoDni(null);
@@ -189,10 +206,14 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
       nombreContacto: p.nombre,
       apellidoContacto: p.apellido,
       dniContacto: p.dni,
-      telefonoContacto: p.telefono,
+      telefonoContacto: p.telefono ?? "",
       emailContacto: p.email ?? "",
       motivo: "",
     });
+    // "Con tutor" es exclusivo del camino "Paciente nuevo" — la ficha
+    // elegida ya trae (o no) su propio tutor guardado, sin que este modal
+    // pueda tocarlo acá.
+    setTutor(TUTOR_INICIAL);
     setMotivoDetalle("");
     setPaso("detalle");
   }
@@ -216,9 +237,36 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     setError(null);
     setDuplicadoDni(null);
     const dni = nuevoPaciente.dniContacto.trim();
-    if (!nuevoPaciente.nombreContacto.trim() || !nuevoPaciente.apellidoContacto.trim() || !dni || !nuevoPaciente.telefonoContacto.trim()) {
-      setError("Nombre, apellido, DNI y teléfono son obligatorios.");
+    const telefono = nuevoPaciente.telefonoContacto.trim();
+    if (!nuevoPaciente.nombreContacto.trim() || !nuevoPaciente.apellidoContacto.trim() || !dni) {
+      setError("Nombre, apellido y DNI son obligatorios.");
       return;
+    }
+    if (!tutor.conTutor && !TELEFONO_REGEX.test(telefono)) {
+      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      return;
+    }
+    if (tutor.conTutor && telefono && !TELEFONO_REGEX.test(telefono)) {
+      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      return;
+    }
+    if (tutor.conTutor) {
+      if (!tutor.tutorRelacion) {
+        setError("Elegí la relación del tutor con el paciente.");
+        return;
+      }
+      if (!tutor.tutorNombre.trim()) {
+        setError("El nombre del tutor es obligatorio.");
+        return;
+      }
+      if (!TELEFONO_REGEX.test(tutor.tutorTelefono.trim())) {
+        setError("El teléfono del tutor no tiene un formato válido.");
+        return;
+      }
+      if (!EMAIL_REGEX.test(tutor.tutorEmail.trim())) {
+        setError("El email del tutor no tiene un formato válido.");
+        return;
+      }
     }
 
     setVerificandoDni(true);
@@ -267,14 +315,29 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
       return;
     }
 
+    // "Con tutor" solo aplica al camino "Paciente nuevo" (pacienteElegidoId
+    // nulo) — con un paciente conocido, `tutor` ya quedó reseteado a
+    // TUTOR_INICIAL en elegirConocido.
+    const esParaOtro = pacienteElegidoId === null && tutor.conTutor;
+
     setPending(true);
     const result = await crearTurnoManualAction({
       ...nuevoPaciente,
+      telefonoContacto: nuevoPaciente.telefonoContacto.trim() || undefined,
       motivo: motivoDetalle,
       tipoConsultaId,
       horaInicio: horaInicio.toISOString(),
       horaFin: horaFin.toISOString(),
       pacienteId: pacienteElegidoId ?? undefined,
+      ...(esParaOtro
+        ? {
+            paraOtro: true,
+            tutorRelacion: tutor.tutorRelacion,
+            tutorNombre: tutor.tutorNombre.trim(),
+            tutorTelefono: tutor.tutorTelefono.trim(),
+            tutorEmail: tutor.tutorEmail.trim(),
+          }
+        : {}),
     });
 
     setPending(false);
@@ -392,7 +455,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
                     className={inputClass}
                   />
                 </Campo>
-                <Campo label="Teléfono">
+                <Campo label={tutor.conTutor ? "Teléfono (opcional)" : "Teléfono"}>
                   <input
                     value={nuevoPaciente.telefonoContacto}
                     onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefonoContacto: e.target.value }))}
@@ -414,6 +477,47 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
                     className={inputClass}
                   />
                 </Campo>
+
+                {/* Con tutor (Fase 2.4.2) — mismo criterio que
+                    AgregarPacienteModal/pedir-turno-form.tsx: el turno lo
+                    gestiona otra persona (ej. madre/padre de un paciente
+                    menor). */}
+                <label className="flex items-center gap-2 text-sm font-medium text-grafito">
+                  <input
+                    type="checkbox"
+                    checked={tutor.conTutor}
+                    onChange={(e) => setTutor((t) => ({ ...t, conTutor: e.target.checked }))}
+                    className="h-4 w-4 rounded border-arena accent-salvia-oscuro"
+                  />
+                  Con tutor (el turno lo gestiona otra persona, ej. madre/padre)
+                </label>
+
+                {tutor.conTutor && (
+                  <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Datos del tutor</p>
+                    <Campo label="Relación con el paciente">
+                      <select
+                        value={tutor.tutorRelacion}
+                        onChange={(e) => setTutor((t) => ({ ...t, tutorRelacion: e.target.value }))}
+                        className={inputClass}
+                      >
+                        <option value="">Elegir…</option>
+                        <option value="familiar">Familiar</option>
+                        <option value="amigo">Amigo/a</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </Campo>
+                    <Campo label="Nombre completo">
+                      <input value={tutor.tutorNombre} onChange={(e) => setTutor((t) => ({ ...t, tutorNombre: e.target.value }))} className={inputClass} />
+                    </Campo>
+                    <Campo label="Teléfono">
+                      <input value={tutor.tutorTelefono} onChange={(e) => setTutor((t) => ({ ...t, tutorTelefono: e.target.value }))} className={inputClass} />
+                    </Campo>
+                    <Campo label="Email">
+                      <input type="email" value={tutor.tutorEmail} onChange={(e) => setTutor((t) => ({ ...t, tutorEmail: e.target.value }))} className={inputClass} />
+                    </Campo>
+                  </div>
+                )}
 
                 {error && <ErrorMsg>{error}</ErrorMsg>}
 

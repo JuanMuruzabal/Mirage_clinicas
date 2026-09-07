@@ -155,8 +155,35 @@ function FichaPaciente({ titulo, paciente }: { titulo: string; paciente: Pacient
         {paciente.nombre} {paciente.apellido}
       </p>
       <p className="text-grafito/70">DNI {paciente.dni}</p>
-      <p className="text-grafito/70">{paciente.telefono}</p>
+      {/* Teléfono (Fase 2.4.2): pasa a opcional, mismo criterio que Email
+          en la línea de abajo — se oculta del todo si la ficha no lo
+          tiene, en vez de mostrar un "—" que no aporta nada en esta
+          tarjeta compacta. */}
+      {paciente.telefono && <p className="text-grafito/70">{paciente.telefono}</p>}
       {paciente.email && <p className="text-grafito/70">{paciente.email}</p>}
+      {/* Tutores (ronda de correcciones, 2026-09-06): pedido textual del
+          cliente — "mostrar los datos del tutor viejo al nuevo" cuando un
+          conflicto nace entre tutores, y "recomendar comunicarse con los
+          datos de los tutores confirmados" cuando el propio paciente se
+          presenta después de haber sido cargado por un tutor. Mostrar los
+          tutores de CUALQUIERA de las 2 fichas, siempre que los tenga,
+          cubre los 2 pedidos de una — el texto de `motivo` (arriba en el
+          modal) ya distingue de qué escenario se trata. Solo nombre y
+          mail (segunda ronda, pedido textual: "así no se hace tan grande
+          esta pantalla") — ni relación ni teléfono, esta pantalla ya es
+          compacta a propósito. */}
+      {paciente.tutores && paciente.tutores.length > 0 && (
+        <div className="mt-1 flex flex-col gap-1 border-t-[0.5px] border-arena pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">
+            {paciente.tutores.length > 1 ? "Tutores" : "Tutor"}
+          </p>
+          {paciente.tutores.map((tutor, i) => (
+            <p key={`${tutor.email}-${i}`} className="text-grafito/70">
+              {tutor.nombre} — {tutor.email}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

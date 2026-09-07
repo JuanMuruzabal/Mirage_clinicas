@@ -153,14 +153,14 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
                 href={hrefVerTurno}
                 className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
               >
-                Ver turno →
+                Ver turno
               </Link>
               {turno.pacienteId && (
                 <Link
                   href={`/panel/pacientes/${turno.pacienteId}`}
                   className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
                 >
-                  Ver paciente →
+                  Ver paciente
                 </Link>
               )}
             </div>

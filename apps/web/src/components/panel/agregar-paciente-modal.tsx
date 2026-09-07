@@ -14,6 +14,7 @@ interface AgregarPacienteModalProps {
 // inmediato acá, el backend (crearPacienteHandler) es la fuente de verdad.
 const DNI_REGEX = /^\d{7,8}$/;
 const TELEFONO_REGEX = /^\+?\d{10,13}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // AgregarPacienteModal — Extra 2.3.5 (E5.5): "+ Agregar paciente" en la
 // sección Pacientes, alta directa sin pasar por un turno. Mismo look que
@@ -26,6 +27,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   const [dni, setDni] = useState("");
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
+  // conTutor (Fase 2.4.2) — "Con tutor" reemplaza el formulario de un
+  // bloque por el de dos bloques (paciente + tutor) — ver
+  // docs/ArquitecturaPeticionesTurno.md 3.7bis.
+  const [conTutor, setConTutor] = useState(false);
+  const [tutorRelacion, setTutorRelacion] = useState("");
+  const [tutorNombre, setTutorNombre] = useState("");
+  const [tutorTelefono, setTutorTelefono] = useState("");
+  const [tutorEmail, setTutorEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -46,9 +55,40 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
       setError("El DNI debe tener 7 u 8 dígitos, sin puntos.");
       return;
     }
-    if (!TELEFONO_REGEX.test(telefonoTrim)) {
+    if (!conTutor && !TELEFONO_REGEX.test(telefonoTrim)) {
       setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
       return;
+    }
+    if (conTutor && telefonoTrim && !TELEFONO_REGEX.test(telefonoTrim)) {
+      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      return;
+    }
+
+    let tutorRelacionTrim = "";
+    let tutorNombreTrim = "";
+    let tutorTelefonoTrim = "";
+    let tutorEmailTrim = "";
+    if (conTutor) {
+      tutorRelacionTrim = tutorRelacion;
+      tutorNombreTrim = tutorNombre.trim();
+      tutorTelefonoTrim = tutorTelefono.trim();
+      tutorEmailTrim = tutorEmail.trim();
+      if (!tutorRelacionTrim) {
+        setError("Elegí la relación del tutor con el paciente.");
+        return;
+      }
+      if (!tutorNombreTrim) {
+        setError("El nombre del tutor es obligatorio.");
+        return;
+      }
+      if (!TELEFONO_REGEX.test(tutorTelefonoTrim)) {
+        setError("El teléfono del tutor no tiene un formato válido.");
+        return;
+      }
+      if (!EMAIL_REGEX.test(tutorEmailTrim)) {
+        setError("El email del tutor no tiene un formato válido.");
+        return;
+      }
     }
 
     setPending(true);
@@ -56,8 +96,17 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
       nombre: nombreTrim,
       apellido: apellidoTrim,
       dni: dniTrim,
-      telefono: telefonoTrim,
+      telefono: telefonoTrim || undefined,
       email: emailTrim || undefined,
+      ...(conTutor
+        ? {
+            conTutor: true,
+            tutorRelacion: tutorRelacionTrim,
+            tutorNombre: tutorNombreTrim,
+            tutorTelefono: tutorTelefonoTrim,
+            tutorEmail: tutorEmailTrim,
+          }
+        : {}),
     });
     setPending(false);
 
@@ -79,7 +128,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="w-full max-w-md max-md:max-w-[90vw] max-md:max-h-[90vh] max-md:overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+        {/* Corrección de QA (segunda ronda, 2026-09-06): "debe ser igual
+            al del calendario con turno para paciente nuevo, que aparezca
+            la pantalla con scroll, porque sino se hace muy grande" — el
+            scroll (`max-h-[90vh] overflow-y-auto`) antes solo aplicaba en
+            mobile (`max-md:`); con la opción "Con tutor" (~5 campos más)
+            el modal también se pasa de alto en escritorio. Mismas clases
+            que AgregarTurnoModal, sin el prefijo `max-md:`. */}
+        <div className="flex max-h-[90vh] w-full max-w-md max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
           <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
             <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Agregar paciente</h2>
             <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
@@ -97,12 +153,45 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
             <Campo label="DNI">
               <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClass} />
             </Campo>
-            <Campo label="Teléfono">
+            <Campo label={conTutor ? "Teléfono (opcional)" : "Teléfono"}>
               <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
             </Campo>
             <Campo label="Email (opcional)">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
             </Campo>
+
+            {/* Con tutor (Fase 2.4.2) — mismo criterio que el wizard
+                público (pedir-turno-form.tsx, camino "otro-primera-vez"):
+                al tildar, el paciente pasa a poder cargarse sin teléfono
+                propio (lo tiene el tutor) y se suma el bloque de datos del
+                tutor, obligatorio completo si se tilda. */}
+            <label className="flex items-center gap-2 text-sm font-medium text-grafito">
+              <input type="checkbox" checked={conTutor} onChange={(e) => setConTutor(e.target.checked)} className="h-4 w-4 rounded border-arena accent-salvia-oscuro" />
+              Con tutor (el turno lo gestiona otra persona, ej. madre/padre)
+            </label>
+
+            {conTutor && (
+              <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Datos del tutor</p>
+                <Campo label="Relación con el paciente">
+                  <select value={tutorRelacion} onChange={(e) => setTutorRelacion(e.target.value)} className={inputClass}>
+                    <option value="">Elegir…</option>
+                    <option value="familiar">Familiar</option>
+                    <option value="amigo">Amigo/a</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </Campo>
+                <Campo label="Nombre completo">
+                  <input value={tutorNombre} onChange={(e) => setTutorNombre(e.target.value)} className={inputClass} />
+                </Campo>
+                <Campo label="Teléfono">
+                  <input value={tutorTelefono} onChange={(e) => setTutorTelefono(e.target.value)} className={inputClass} />
+                </Campo>
+                <Campo label="Email">
+                  <input type="email" value={tutorEmail} onChange={(e) => setTutorEmail(e.target.value)} className={inputClass} />
+                </Campo>
+              </div>
+            )}
 
             {error && (
               <p role="alert" className="text-sm text-terracota-oscuro">

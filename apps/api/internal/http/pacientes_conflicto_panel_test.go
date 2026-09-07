@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,12 +35,13 @@ func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, t
 
 	verificado := crearPacienteVerificadoDePrueba(t, gdb, profesionalID, tipoConsultaID, dni, mailVerificado)
 
+	telEnConflicto := "+5493511230000"
 	enConflicto := db.Paciente{
 		ProfesionalID: pid,
 		Nombre:        verificado.Nombre,
 		Apellido:      verificado.Apellido,
 		DNI:           dni,
-		Telefono:      "+5493511230000",
+		Telefono:      &telEnConflicto,
 		Email:         &mailEnConflicto,
 		EnConflicto:   true,
 	}
@@ -58,7 +61,7 @@ func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, t
 		NombreContacto:   enConflicto.Nombre,
 		ApellidoContacto: enConflicto.Apellido,
 		DNIContacto:      enConflicto.DNI,
-		TelefonoContacto: enConflicto.Telefono,
+		TelefonoContacto: telEnConflicto,
 		EmailContacto:    mailEnConflicto,
 		Origen:           "pagina_publica",
 	}
@@ -127,6 +130,10 @@ func crearTurnoVigenteDePruebaParaPaciente(t *testing.T, gdb *gorm.DB, paciente 
 	if paciente.Email != nil {
 		email = *paciente.Email
 	}
+	telefono := ""
+	if paciente.Telefono != nil {
+		telefono = *paciente.Telefono
+	}
 	turno := db.Turno{
 		ProfesionalID:    paciente.ProfesionalID,
 		PacienteID:       &paciente.ID,
@@ -137,7 +144,7 @@ func crearTurnoVigenteDePruebaParaPaciente(t *testing.T, gdb *gorm.DB, paciente 
 		NombreContacto:   paciente.Nombre,
 		ApellidoContacto: paciente.Apellido,
 		DNIContacto:      paciente.DNI,
-		TelefonoContacto: paciente.Telefono,
+		TelefonoContacto: telefono,
 		EmailContacto:    email,
 		Origen:           "manual",
 	}
@@ -249,7 +256,7 @@ func TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoF
 	if err := gdb.Create(&db.PacienteEmailAlternativo{PacienteID: verificado.ID, Email: *enConflicto.Email}).Error; err != nil {
 		t.Fatalf("no se pudo crear el email alternativo previo de prueba: %v", err)
 	}
-	if err := gdb.Create(&db.PacienteTelefonoAlternativo{PacienteID: verificado.ID, Telefono: enConflicto.Telefono}).Error; err != nil {
+	if err := gdb.Create(&db.PacienteTelefonoAlternativo{PacienteID: verificado.ID, Telefono: *enConflicto.Telefono}).Error; err != nil {
 		t.Fatalf("no se pudo crear el teléfono alternativo previo de prueba: %v", err)
 	}
 
@@ -271,7 +278,7 @@ func TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoF
 	if cantidadEmails != 1 {
 		t.Errorf("cantidad de PacienteEmailAlternativo = %d, esperaba 1 (sin duplicar)", cantidadEmails)
 	}
-	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ? AND telefono = ?", verificado.ID, enConflicto.Telefono).Count(&cantidadTelefonos)
+	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ? AND telefono = ?", verificado.ID, *enConflicto.Telefono).Count(&cantidadTelefonos)
 	if cantidadTelefonos != 1 {
 		t.Errorf("cantidad de PacienteTelefonoAlternativo = %d, esperaba 1 (sin duplicar)", cantidadTelefonos)
 	}
@@ -317,6 +324,122 @@ func TestResolverConflictoPaciente_MismoDatoDeContactoParaDosPacientesDistintosN
 	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ?", verificado2.ID).Count(&cantidadTel2)
 	if cantidadTel1 != 1 || cantidadTel2 != 1 {
 		t.Errorf("cada paciente debería tener su propio PacienteTelefonoAlternativo (mismo teléfono, distinto dueño), got %d y %d", cantidadTel1, cantidadTel2)
+	}
+}
+
+// TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipal
+// — ronda de correcciones (2026-09-06), bug real reportado por el
+// cliente: "si el paciente que previamente le sacó turno alguien ahora se
+// va por el camino para mí, y no tenía ningún dato cargado... agregar
+// esos datos" — antes migrarAlternativosDeContacto SIEMPRE insertaba en
+// PacienteEmailAlternativo/PacienteTelefonoAlternativo, así que una ficha
+// verificada SIN mail/teléfono propio terminaba con el dato migrado
+// escondido detrás de "Ver mails →" en vez de como principal.
+func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipal(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-sindatos1@example.com")
+
+	pid, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	tid, err := uuid.Parse(tipoID)
+	if err != nil {
+		t.Fatalf("tipoConsultaID inválido: %v", err)
+	}
+
+	// Ficha verificada SIN mail/teléfono propio — verificada por un turno
+	// resuelto y asistido que llegó sin esos datos (ej. "para otro" con el
+	// teléfono/mail propio del paciente vacíos).
+	verificado := db.Paciente{ProfesionalID: pid, Nombre: "Mila", Apellido: "Pérez", DNI: "30111333"}
+	if err := gdb.Create(&verificado).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente verificado de prueba: %v", err)
+	}
+	inicioPasado := time.Now().Add(-72 * time.Hour).Truncate(time.Second)
+	finPasado := inicioPasado.Add(30 * time.Minute)
+	asistio := "asistio"
+	turnoVerificador := db.Turno{
+		ProfesionalID:    pid,
+		PacienteID:       &verificado.ID,
+		Estado:           "agendado",
+		TipoConsultaID:   &tid,
+		HoraInicio:       &inicioPasado,
+		HoraFin:          &finPasado,
+		NombreContacto:   verificado.Nombre,
+		ApellidoContacto: verificado.Apellido,
+		DNIContacto:      verificado.DNI,
+		Origen:           "pagina_publica",
+		Asistencia:       &asistio,
+	}
+	if err := gdb.Create(&turnoVerificador).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno verificador de prueba: %v", err)
+	}
+
+	telEnConflicto := "+5493511230099"
+	mailEnConflicto := "sin-datos@example.com"
+	enConflicto := db.Paciente{
+		ProfesionalID: pid,
+		Nombre:        verificado.Nombre,
+		Apellido:      verificado.Apellido,
+		DNI:           verificado.DNI,
+		Telefono:      &telEnConflicto,
+		Email:         &mailEnConflicto,
+		EnConflicto:   true,
+	}
+	if err := gdb.Create(&enConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
+	}
+	inicioFuturo := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+	finFuturo := inicioFuturo.Add(30 * time.Minute)
+	turnoConflicto := db.Turno{
+		ProfesionalID:    pid,
+		PacienteID:       &enConflicto.ID,
+		Estado:           "agendado",
+		TipoConsultaID:   &tid,
+		HoraInicio:       &inicioFuturo,
+		HoraFin:          &finFuturo,
+		NombreContacto:   enConflicto.Nombre,
+		ApellidoContacto: enConflicto.Apellido,
+		DNIContacto:      enConflicto.DNI,
+		TelefonoContacto: telEnConflicto,
+		EmailContacto:    mailEnConflicto,
+		Origen:           "pagina_publica",
+	}
+	if err := gdb.Create(&turnoConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno en conflicto de prueba: %v", err)
+	}
+	conflicto := db.ConflictoPaciente{
+		ProfesionalID:         pid,
+		PacienteVerificadoID:  verificado.ID,
+		PacienteEnConflictoID: enConflicto.ID,
+		TurnoEnConflictoID:    turnoConflicto.ID,
+		Motivo:                "se registró con otro mail",
+	}
+	if err := gdb.Create(&conflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear el conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var verificadoActualizado db.Paciente
+	if err := gdb.First(&verificadoActualizado, "id = ?", verificado.ID).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente verificado: %v", err)
+	}
+	if verificadoActualizado.Email == nil || *verificadoActualizado.Email != mailEnConflicto {
+		t.Errorf("Email = %v, esperaba %q como PRINCIPAL (no tenía ninguno propio)", verificadoActualizado.Email, mailEnConflicto)
+	}
+	if verificadoActualizado.Telefono == nil || *verificadoActualizado.Telefono != telEnConflicto {
+		t.Errorf("Telefono = %v, esperaba %q como PRINCIPAL (no tenía ninguno propio)", verificadoActualizado.Telefono, telEnConflicto)
+	}
+
+	var cantidadAlt int64
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ?", verificado.ID).Count(&cantidadAlt)
+	if cantidadAlt != 0 {
+		t.Errorf("cantidad de PacienteEmailAlternativo = %d, esperaba 0 (pasó a ser el principal, no un alternativo)", cantidadAlt)
 	}
 }
 
@@ -402,6 +525,201 @@ func TestResolverConflictoPaciente_EsVerificado(t *testing.T) {
 	}
 }
 
+// TestResolverConflictoPaciente_EsVerificadoMigraTutores — ronda de
+// correcciones (2026-09-06), escenario A (tutor nuevo vs. tutor ya
+// confirmado): al resolver "es la misma persona", el tutor de la ficha que
+// pierde se SUMA a los de la ficha que prevalece — nunca se descarta al
+// tutor anterior. Un paciente puede terminar con varios tutores
+// confirmados a lo largo del tiempo (ver PacienteTutor en models.go).
+func TestResolverConflictoPaciente_EsVerificadoMigraTutores(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-tutores1@example.com")
+
+	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40555666", "Mila", "mama@example.com", 0)
+
+	pid, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	enConflicto := db.Paciente{
+		ProfesionalID: pid,
+		Nombre:        verificado.Nombre,
+		Apellido:      verificado.Apellido,
+		DNI:           verificado.DNI,
+		EnConflicto:   true,
+	}
+	if err := gdb.Create(&enConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
+	}
+	tutorNuevo := db.PacienteTutor{
+		PacienteID: enConflicto.ID, Relacion: "familiar", Nombre: "Papá de Mila", Telefono: "+5493512222222", Email: "papa@example.com",
+	}
+	if err := gdb.Create(&tutorNuevo).Error; err != nil {
+		t.Fatalf("no se pudo crear el tutor nuevo de prueba: %v", err)
+	}
+
+	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
+	tid, _ := uuid.Parse(tipoID)
+	turno := db.Turno{
+		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
+		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno en conflicto de prueba: %v", err)
+	}
+	conflicto := db.ConflictoPaciente{
+		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		Motivo: "un nuevo tutor (Papá de Mila) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
+	}
+	if err := gdb.Create(&conflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear el conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var tutoresFinales []db.PacienteTutor
+	if err := gdb.Where("paciente_id = ?", verificado.ID).Order("email").Find(&tutoresFinales).Error; err != nil {
+		t.Fatalf("no se pudo releer los tutores: %v", err)
+	}
+	if len(tutoresFinales) != 2 {
+		t.Fatalf("len(tutoresFinales) = %d, esperaba 2 (mamá + papá)", len(tutoresFinales))
+	}
+	emails := []string{tutoresFinales[0].Email, tutoresFinales[1].Email}
+	if emails[0] != "mama@example.com" || emails[1] != "papa@example.com" {
+		t.Errorf("emails = %v, esperaba [mama@example.com papa@example.com]", emails)
+	}
+
+	var huerfanos int64
+	gdb.Model(&db.PacienteTutor{}).Where("paciente_id = ?", enConflicto.ID).Count(&huerfanos)
+	if huerfanos != 0 {
+		t.Errorf("count de tutores huérfanos de la ficha borrada = %d, esperaba 0", huerfanos)
+	}
+}
+
+// TestResolverConflictoPaciente_EsVerificadoConTutorYaConocidoNoDuplica —
+// mismo criterio que TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoFalla,
+// para tutores: si por coincidencia la ficha que pierde tiene un tutor con
+// el MISMO mail que uno que la ficha que prevalece ya tenía, la migración
+// no duplica la fila (ON CONFLICT DO NOTHING) ni falla.
+func TestResolverConflictoPaciente_EsVerificadoConTutorYaConocidoNoDuplica(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-tutores3@example.com")
+
+	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40222555", "Tomás", "mama-repetida@example.com", 0)
+
+	pid, _ := uuid.Parse(reg.Profesional.ID)
+	enConflicto := db.Paciente{ProfesionalID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
+	if err := gdb.Create(&enConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha en conflicto: %v", err)
+	}
+	// Mismo mail de tutor que ya tiene `verificado` — coincidencia real
+	// (dato de prueba repetido, o el mismo tutor pidió un turno nuevo en
+	// vez de usar "ya he venido antes").
+	tutorRepetido := db.PacienteTutor{
+		PacienteID: enConflicto.ID, Relacion: "familiar", Nombre: "Tutor de Tomás", Telefono: "+5493511111111", Email: "mama-repetida@example.com",
+	}
+	if err := gdb.Create(&tutorRepetido).Error; err != nil {
+		t.Fatalf("no se pudo crear el tutor de prueba: %v", err)
+	}
+
+	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
+	tid, _ := uuid.Parse(tipoID)
+	turno := db.Turno{
+		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
+		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno en conflicto: %v", err)
+	}
+	conflicto := db.ConflictoPaciente{
+		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		Motivo: "un nuevo tutor pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
+	}
+	if err := gdb.Create(&conflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear el conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var cantidad int64
+	gdb.Model(&db.PacienteTutor{}).Where("paciente_id = ? AND email = ?", verificado.ID, "mama-repetida@example.com").Count(&cantidad)
+	if cantidad != 1 {
+		t.Errorf("cantidad de PacienteTutor con ese mail = %d, esperaba 1 (sin duplicar)", cantidad)
+	}
+}
+
+// TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor — ronda
+// de correcciones (2026-09-06): "no es la misma persona" bloquea el mail
+// del TUTOR de la ficha en conflicto (no un campo simple `TutorEmail` que
+// ya no existe — ver PacienteTutor en models.go), igual que ya hacía con
+// el mail propio de una ficha "para mí".
+func TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-tutores2@example.com")
+
+	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40111333", "Nico", "mama-nico@example.com", 0)
+
+	pid, _ := uuid.Parse(reg.Profesional.ID)
+	enConflicto := db.Paciente{ProfesionalID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
+	if err := gdb.Create(&enConflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha en conflicto: %v", err)
+	}
+	tutorImpostor := db.PacienteTutor{
+		PacienteID: enConflicto.ID, Relacion: "otro", Nombre: "Impostor", Telefono: "+5493513333333", Email: "impostor@example.com",
+	}
+	if err := gdb.Create(&tutorImpostor).Error; err != nil {
+		t.Fatalf("no se pudo crear el tutor de prueba: %v", err)
+	}
+
+	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
+	tid, _ := uuid.Parse(tipoID)
+	turno := db.Turno{
+		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
+		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno en conflicto: %v", err)
+	}
+	conflicto := db.ConflictoPaciente{
+		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		Motivo: "un nuevo tutor (Impostor) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
+	}
+	if err := gdb.Create(&conflicto).Error; err != nil {
+		t.Fatalf("no se pudo crear el conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: false})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var bloqueo db.EmailBloqueadoTurnoPublico
+	if err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, "impostor@example.com").First(&bloqueo).Error; err != nil {
+		t.Fatalf("esperaba un EmailBloqueadoTurnoPublico con el mail del tutor: %v", err)
+	}
+
+	var tutoresDelVerificado int64
+	gdb.Model(&db.PacienteTutor{}).Where("paciente_id = ?", verificado.ID).Count(&tutoresDelVerificado)
+	if tutoresDelVerificado != 1 {
+		t.Errorf("count de tutores del verificado = %d, esperaba 1 (el impostor NO se migra en 'no es')", tutoresDelVerificado)
+	}
+}
+
 // TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico — corrección
 // de bug real, pedido textual del cliente (2026-09-05): "Bruno Iglesias"
 // (verificado) saca otro turno como "Bruno IGNACIO Iglesias" (mismo DNI,
@@ -426,12 +744,13 @@ func TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico(t *testing.T) {
 	verificado := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
 
 	mailEnConflicto := "otro@example.com"
+	telEnConflicto := "+5493511230000"
 	enConflicto := db.Paciente{
 		ProfesionalID: pid,
 		Nombre:        "Bruno IGNACIO",
 		Apellido:      "Iglesias",
 		DNI:           "30111222",
-		Telefono:      "+5493511230000",
+		Telefono:      &telEnConflicto,
 		Email:         &mailEnConflicto,
 		EnConflicto:   true,
 	}
@@ -451,7 +770,7 @@ func TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico(t *testing.T) {
 		NombreContacto:   enConflicto.Nombre,
 		ApellidoContacto: enConflicto.Apellido,
 		DNIContacto:      enConflicto.DNI,
-		TelefonoContacto: enConflicto.Telefono,
+		TelefonoContacto: telEnConflicto,
 		EmailContacto:    mailEnConflicto,
 		Origen:           "pagina_publica",
 	}
@@ -645,5 +964,51 @@ func TestResolverConflictoPaciente_IdMalFormadoFalla(t *testing.T) {
 	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/no-es-un-uuid/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestResolverConflictoPaciente_CuerpoInvalidoFalla — JSON mal formado en
+// el body (a diferencia de los tests de arriba, que mandan un struct Go
+// válido vía doJSONAuth): decodeJSON tiene que rechazarlo con 400 antes de
+// llegar a buscar el conflicto en la base.
+func TestResolverConflictoPaciente_CuerpoInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf10@example.com")
+	_, _, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	req := httptest.NewRequest(http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", strings.NewReader("{esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+reg.Token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla — si la
+// ficha en conflicto se borró por otro lado (carrera real: dos pedidos de
+// resolución simultáneos, o borrada a mano) entre que se creó el ticket y
+// que el profesional lo resuelve, la transacción de resolverConflictoComoVerdadero
+// falla al no encontrarla (`tx.First`) — el handler responde 500 legible
+// en vez de dejar que el panic/error crudo suba.
+func TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf11@example.com")
+	_, enConflicto, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	// Desvincula el turno y borra la ficha en conflicto a mano, simulando
+	// que ya desapareció antes de que el profesional resuelva el ticket.
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ?", enConflicto.ID).Update("paciente_id", nil).Error; err != nil {
+		t.Fatalf("no se pudo desvincular el turno de prueba: %v", err)
+	}
+	if err := gdb.Delete(&db.Paciente{}, "id = ?", enConflicto.ID).Error; err != nil {
+		t.Fatalf("no se pudo borrar la ficha en conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusInternalServerError, rec.Body.String())
 	}
 }

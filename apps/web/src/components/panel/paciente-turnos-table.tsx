@@ -287,7 +287,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                           más largo que "Consulta general"). El punto de
                           color de la columna de al lado se sigue viendo
                           siempre, sea cual sea el nombre. */}
-                      {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} flecha /> : (tipo?.nombre ?? "—")}
+                      {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} /> : (tipo?.nombre ?? "—")}
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">

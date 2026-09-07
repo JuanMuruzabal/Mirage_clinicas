@@ -137,8 +137,14 @@ export interface SolicitarTurnoPublicoPayload {
   nombreContacto?: string;
   apellidoContacto?: string;
   dniContacto?: string;
+  // telefonoContacto/emailContacto — obligatorios en "para mí, primera
+  // vez" (el propio formulario los valida antes de mandar el payload);
+  // opcionales en "ya he venido antes" (se completan solos del lado del
+  // backend) y en "para otro" (Fase 2.4.2: el teléfono/mail PROPIO del
+  // paciente quedan opcionales ahí — la identidad verificada es
+  // tutorEmail, no emailContacto).
   telefonoContacto?: string;
-  emailContacto: string;
+  emailContacto?: string;
   motivo?: string;
   // tipoConsultaId/fecha/hora — Extra 2.3.5 (E5.2/E5.3): el wizard público
   // ahora elige tipo de consulta, fecha y horario disponible antes de
@@ -158,6 +164,17 @@ export interface SolicitarTurnoPublicoPayload {
   // "tarjeta clickeable". Si viene, el backend vincula el turno directo a
   // esa ficha sin pasar por la detección de conflicto.
   pacienteVerificadoId?: string;
+  // paraOtro/tutor* (Fase 2.4.2, camino "sacar turno para otro") —
+  // nombreContacto/apellidoContacto/dniContacto de arriba siguen siendo
+  // del PACIENTE (sin cambio de significado); telefonoContacto/
+  // emailContacto pasan a ser el teléfono/mail PROPIO del paciente,
+  // opcionales en este camino. El mail que de verdad se verifica es
+  // tutorEmail.
+  paraOtro?: boolean;
+  tutorRelacion?: string;
+  tutorNombre?: string;
+  tutorTelefono?: string;
+  tutorEmail?: string;
 }
 
 export interface EnviarVerificacionTurnoPublicoResponse {
@@ -222,6 +239,21 @@ export function apiGetPacienteVerificadoPublico(
 ): Promise<ApiResult<PacienteVerificadoPublico>> {
   const query = new URLSearchParams({ dni, email, verificacionToken });
   return request<PacienteVerificadoPublico>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
+}
+
+// apiGetPacientesVerificadosDeTutorPublico (Fase 2.4.2, camino "sacar
+// turno para otro" + "ya he venido antes") — segundo modo del mismo
+// endpoint de arriba: busca por MAIL DEL TUTOR en vez de por DNI del
+// paciente y puede devolver más de una tarjeta (un tutor puede tener más
+// de un hijo verificado a su cargo). Mismo criterio de "exige token
+// vigente y sin usar" que el modo por DNI.
+export function apiGetPacientesVerificadosDeTutorPublico(
+  slug: string,
+  tutorEmail: string,
+  verificacionToken: string,
+): Promise<ApiResult<PacienteVerificadoPublico[]>> {
+  const query = new URLSearchParams({ tutorEmail, verificacionToken });
+  return request<PacienteVerificadoPublico[]>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
 }
 
 export interface SolicitarTurnoPublicoResponse {
@@ -539,7 +571,10 @@ export interface CrearTurnoManualPayload {
   nombreContacto: string;
   apellidoContacto: string;
   dniContacto: string;
-  telefonoContacto: string;
+  // telefonoContacto — obligatorio sin tutor; opcional con tutor (Fase
+  // 2.4.2, mismo criterio que el wizard público: en "para otro" el
+  // teléfono es del paciente, no de quien lo trae, y puede no tenerlo).
+  telefonoContacto?: string;
   emailContacto?: string;
   motivo?: string;
   tipoConsultaId: string;
@@ -548,6 +583,14 @@ export interface CrearTurnoManualPayload {
   // Camino "paciente conocido" (2026-08-23): vincula el turno nuevo a un
   // paciente que ya existe en vez de crear una ficha duplicada.
   pacienteId?: string;
+  // paraOtro/tutor* (Fase 2.4.2) — opción "Con tutor" del alta de
+  // "paciente nuevo" en "+ Agregar turno". Sin efecto si pacienteId viene
+  // seteado (camino "paciente conocido").
+  paraOtro?: boolean;
+  tutorRelacion?: string;
+  tutorNombre?: string;
+  tutorTelefono?: string;
+  tutorEmail?: string;
 }
 
 // Camino "paciente nuevo" del modal "+ Agregar turno" (spec §4.3).
@@ -665,8 +708,18 @@ export interface CrearPacientePayload {
   nombre: string;
   apellido: string;
   dni: string;
-  telefono: string;
+  // telefono — obligatorio sin tutor; opcional con tutor (Fase 2.4.2,
+  // mismo criterio que el wizard público: "para otro" lo deja opcional,
+  // es del paciente, no de quien lo trae).
+  telefono?: string;
   email?: string;
+  // conTutor/tutor* (Fase 2.4.2) — opción "Con tutor" del alta directa
+  // desde el panel.
+  conTutor?: boolean;
+  tutorRelacion?: string;
+  tutorNombre?: string;
+  tutorTelefono?: string;
+  tutorEmail?: string;
 }
 
 // "+ Agregar paciente" (Extra 2.3.5, E5.5): alta directa sin pasar por un

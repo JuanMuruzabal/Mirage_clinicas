@@ -55,7 +55,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   // verificacion (corrección de seguridad, Fase 2.4.1) — ver
   // parseVerificacion más arriba.
   const verificacion = parseVerificacion(firstParam(resolved.verificacion));
-  // Deep-link desde TurnoDetalle ("Ver turno →", 2026-08-23): esa fila
+  // Deep-link desde TurnoDetalle ("Ver turno", 2026-08-23): esa fila
   // arranca ya desplegada, ver TurnosTable/abrirId.
   const abrirId = firstParam(resolved.turno);
 

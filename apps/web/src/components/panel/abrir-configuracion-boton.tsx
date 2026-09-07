@@ -20,7 +20,7 @@ export function AbrirConfiguracionBoton() {
         onClick={() => setAbierta(true)}
         className="text-sm font-medium whitespace-nowrap text-salvia-oscuro hover:text-grafito"
       >
-        Ver horarios reservados →
+        Ver horarios reservados
       </button>
       {abierta && <ConfiguracionCalendarioModal onClose={() => setAbierta(false)} />}
     </>

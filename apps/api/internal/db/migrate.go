@@ -93,6 +93,15 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// Fase 2.4.1, corrección de QA: teléfono alternativo (mismo
 		// criterio que el mail) sumado al resolver un conflicto.
 		&PacienteTelefonoAlternativo{},
+		// Fase 2.4.2, ronda de correcciones (2026-09-06): un paciente
+		// puede tener más de un tutor — reemplaza las 5 columnas Tutor*
+		// que tenía `Paciente` (ver el DROP COLUMN más abajo y el
+		// comentario grande de PacienteTutor en models.go).
+		&PacienteTutor{},
+		// Cuarta ronda de correcciones (2026-09-06): teléfono alternativo
+		// del TUTOR (mismo criterio que PacienteTelefonoAlternativo del
+		// paciente) — se acumula, nunca reemplaza al principal.
+		&PacienteTutorTelefonoAlternativo{},
 		// Fase 2.4.1, corrección de seguridad: bloqueo de IP (además del de
 		// mail) y auditoría de qué se bloqueó/borró y por qué.
 		&IPBloqueadaTurnoPublico{}, &AuditoriaBloqueoTurnoPublico{},
@@ -320,6 +329,58 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`ALTER TABLE auditoria_bloqueos_turno_publico DROP CONSTRAINT IF EXISTS chk_auditoria_bloqueos_turno_publico_motivo`,
 		`ALTER TABLE auditoria_bloqueos_turno_publico ADD CONSTRAINT chk_auditoria_bloqueos_turno_publico_motivo
 		   CHECK (motivo IN ('mail_muchos_dnis', 'ip_rotacion', 'dni_tipo_tope'))`,
+
+		// Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien especificada.docx`,
+		// camino "sacar turno para otro"): teléfono del PACIENTE pasa a
+		// opcional — antes NOT NULL, obligatorio en todos los casos. GORM
+		// AutoMigrate no relaja un constraint existente al cambiar el tipo
+		// Go de `string` a `*string` (solo agrega columnas/índices nuevos),
+		// así que hace falta a mano. Ningún dato existente se pierde ni
+		// puede fallar: `DROP NOT NULL` es una operación segura sobre filas
+		// que ya tienen un valor (nunca NULL).
+		`ALTER TABLE pacientes ALTER COLUMN telefono DROP NOT NULL`,
+
+		// Tutor* de `turnos` (Fase 2.4.2) — snapshot paralelo, sin cambios
+		// en esta ronda (ver el comentario grande en models.go sobre por
+		// qué `Turno` tiene su propio set, independiente de PacienteTutor).
+		// Nullable: la enorme mayoría de los turnos nunca tiene tutor, el
+		// constraint solo restringe el valor CUANDO está presente.
+		`DO $$ BEGIN
+		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_tutor_relacion
+		     CHECK (tutor_relacion IS NULL OR tutor_relacion IN ('familiar','amigo','otro'));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// Ronda de correcciones (2026-09-06): un paciente puede tener más
+		// de un tutor — las 5 columnas Tutor* de `pacientes` (un único
+		// tutor) se reemplazan por la tabla `paciente_tutores`
+		// (PacienteTutor, uno-a-muchos, ver models.go). Se borran acá
+		// porque GORM AutoMigrate nunca borra columnas — solo agrega. Sin
+		// pérdida de datos real: esta rama no está deployada todavía
+		// (Fase 2.4.2 sigue en QA, TR-116/TR-083 en docs/tradeoffs.md).
+		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_relacion`,
+		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_nombre`,
+		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_dni`,
+		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_telefono`,
+		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_email`,
+
+		// `paciente_tutores.relacion` — a diferencia de `pacientes`/`turnos`
+		// de arriba, acá NUNCA es null (cada fila ES un tutor, por
+		// definición) — el check queda sin el "IS NULL OR" que sí hace
+		// falta en las otras dos tablas.
+		`DO $$ BEGIN
+		   ALTER TABLE paciente_tutores ADD CONSTRAINT chk_paciente_tutor_relacion
+		     CHECK (relacion IN ('familiar','amigo','otro'));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// Tercera ronda de correcciones (2026-09-06), pedido textual del
+		// cliente: "sigue pidiendo DNI 'para otro'... sacarlo del todo, no
+		// es tan útil y agrega complejidad" — el DNI del tutor se elimina
+		// del todo, en `paciente_tutores` (donde vivía como columna
+		// NOT NULL) y en `turnos` (snapshot paralelo, nullable). Mismo
+		// motivo que las columnas Tutor* de `pacientes` más arriba: GORM
+		// AutoMigrate nunca borra columnas, solo agrega.
+		`ALTER TABLE paciente_tutores DROP COLUMN IF EXISTS dni`,
+		`ALTER TABLE turnos DROP COLUMN IF EXISTS tutor_dni`,
 	}
 
 	for _, stmt := range statements {

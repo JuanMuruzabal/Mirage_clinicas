@@ -102,11 +102,13 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Corrección de estética (2026-09-06, foto de referencia
-              "referencia.png"): vuelve a la píldora blanca con borde
-              (`bg-marfil border-arena`), mismo criterio que las pestañas
-              de Turnos — el intento anterior (`bg-hueso`, sin borde) no
-              coincidía con la foto de referencia del cliente. */}
+          {/* Corrección de QA (segunda ronda, 2026-09-06, fotos
+              "arreglar.png"/"referencia.png"): esta pestaña había vuelto
+              a verse como el diseño viejo (fondo tenue sin borde,
+              `bg-hueso` sin borde) — mismo criterio que Turnos
+              (turnos/page.tsx): "pastilla" blanca (`bg-marfil` +
+              `border-arena`) que envuelve las 3 pestañas, flotando sobre
+              el fondo de la página. */}
           <nav aria-label="Filtrar por verificación" className="flex flex-wrap items-center gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:rounded-full">
             {(
               [

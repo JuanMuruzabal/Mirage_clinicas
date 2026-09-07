@@ -31,12 +31,13 @@ func crearPacienteVerificadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, 
 		t.Fatalf("tipoConsultaID inválido: %v", err)
 	}
 
+	telefono := "+5493511234567"
 	paciente := db.Paciente{
 		ProfesionalID: pid,
 		Nombre:        "Bruno",
 		Apellido:      "Iglesias",
 		DNI:           dni,
-		Telefono:      "+5493511234567",
+		Telefono:      &telefono,
 		Email:         &email,
 	}
 	if err := gdb.Create(&paciente).Error; err != nil {
@@ -56,7 +57,7 @@ func crearPacienteVerificadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, 
 		NombreContacto:   paciente.Nombre,
 		ApellidoContacto: paciente.Apellido,
 		DNIContacto:      paciente.DNI,
-		TelefonoContacto: paciente.Telefono,
+		TelefonoContacto: telefono,
 		EmailContacto:    email,
 		Origen:           "manual",
 		Asistencia:       &asistio,
@@ -65,6 +66,84 @@ func crearPacienteVerificadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, 
 		t.Fatalf("no se pudo crear el turno resuelto/asistido de prueba: %v", err)
 	}
 	return paciente
+}
+
+// crearPacienteVerificadoConTutorDePrueba — Fase 2.4.2: misma idea que
+// crearPacienteVerificadoDePrueba, pero la ficha nace "para otro" (sin
+// mail/teléfono propio, con TutorEmail) — la identidad que responde por
+// esta ficha es la del tutor, no la del paciente. `separacion` corre el
+// turno resuelto en el tiempo (además de los -72h base) para que dos
+// hijos del mismo tutor, creados en el mismo test, no choquen contra el
+// exclusion constraint de horario (mismo profesional, mismo tipo de
+// consulta, tiempos casi idénticos si `time.Now()` no alcanza a variar).
+func crearPacienteVerificadoConTutorDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, tipoConsultaID, dni, nombre, tutorEmail string, separacion time.Duration) db.Paciente {
+	t.Helper()
+	pid, err := uuid.Parse(profesionalID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	tid, err := uuid.Parse(tipoConsultaID)
+	if err != nil {
+		t.Fatalf("tipoConsultaID inválido: %v", err)
+	}
+
+	tutorRelacion := "familiar"
+	tutorNombre := "Tutor de " + nombre
+	tutorTelefono := "+5493511111111"
+	paciente := db.Paciente{
+		ProfesionalID: pid,
+		Nombre:        nombre,
+		Apellido:      "Iglesias",
+		DNI:           dni,
+	}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
+	}
+	// PacienteTutor — Fase 2.4.2, ronda de correcciones (2026-09-06): ya
+	// no son campos directos de Paciente, ver models.go.
+	tutor := db.PacienteTutor{
+		PacienteID: paciente.ID,
+		Relacion:   tutorRelacion,
+		Nombre:     tutorNombre,
+		Telefono:   tutorTelefono,
+		Email:      tutorEmail,
+	}
+	if err := gdb.Create(&tutor).Error; err != nil {
+		t.Fatalf("no se pudo crear el tutor de prueba: %v", err)
+	}
+
+	inicio := time.Now().Add(-72*time.Hour + separacion).Truncate(time.Second)
+	fin := inicio.Add(30 * time.Minute)
+	asistio := "asistio"
+	turno := db.Turno{
+		ProfesionalID:    pid,
+		PacienteID:       &paciente.ID,
+		Estado:           "agendado",
+		TipoConsultaID:   &tid,
+		HoraInicio:       &inicio,
+		HoraFin:          &fin,
+		NombreContacto:   paciente.Nombre,
+		ApellidoContacto: paciente.Apellido,
+		DNIContacto:      paciente.DNI,
+		Origen:           "manual",
+		Asistencia:       &asistio,
+		EsParaOtro:       true,
+		TutorRelacion:    &tutorRelacion,
+		TutorNombre:      &tutorNombre,
+		TutorTelefono:    &tutorTelefono,
+		TutorEmail:       &tutorEmail,
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno resuelto/asistido de prueba: %v", err)
+	}
+	return paciente
+}
+
+func pacienteVerificadoTutorURL(slug, tutorEmail, token string) string {
+	q := url.Values{}
+	q.Set("tutorEmail", tutorEmail)
+	q.Set("verificacionToken", token)
+	return "/clinicas/" + slug + "/pacientes/verificado?" + q.Encode()
 }
 
 func pacienteVerificadoURL(slug, dni, email, token string) string {
@@ -213,6 +292,74 @@ func TestPacienteVerificadoPublico_EmailInvalidoFalla(t *testing.T) {
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif9@example.com")
 
 	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoURL(reg.Profesional.Slug, "30111222", "no-es-un-mail", "token"), nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestPacienteVerificadoPublico_TutorEmailListaHijosVerificados — Fase
+// 2.4.2, segundo modo del endpoint (`?tutorEmail=`): un tutor con más de
+// un hijo verificado recibe una tarjeta por cada uno.
+func TestPacienteVerificadoPublico_TutorEmailListaHijosVerificados(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor1@example.com")
+	tutorEmail := "mama-dos-hijos@example.com"
+	hijo1 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000001", "Mila", tutorEmail, 0)
+	hijo2 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000002", "Nico", tutorEmail, time.Hour)
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorURL(reg.Profesional.Slug, tutorEmail, token), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got []pacienteVerificadoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, esperaba 2", len(got))
+	}
+	ids := map[string]bool{got[0].ID: true, got[1].ID: true}
+	if !ids[hijo1.ID.String()] || !ids[hijo2.ID.String()] {
+		t.Errorf("ids = %v, esperaba los dos hijos (%s, %s)", ids, hijo1.ID, hijo2.ID)
+	}
+}
+
+// TestPacienteVerificadoPublico_TutorEmailSinCoincidenciasFalla — ningún
+// paciente responde a ese TutorEmail (o ninguno está verificado todavía):
+// mismo 404 "primera vez" que el modo por DNI.
+func TestPacienteVerificadoPublico_TutorEmailSinCoincidenciasFalla(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor2@example.com")
+	tutorEmail := "tutor-sin-hijos@example.com"
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorURL(reg.Profesional.Slug, tutorEmail, token), nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestPacienteVerificadoPublico_TutorEmailSinTokenFalla — mismo criterio
+// que el modo por DNI: sin verificar el mail del tutor, no hay tarjeta.
+func TestPacienteVerificadoPublico_TutorEmailSinTokenFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor3@example.com")
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorURL(reg.Profesional.Slug, "mama@example.com", ""), nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// TestPacienteVerificadoPublico_TutorEmailFormatoInvalidoFalla — mismo
+// criterio que el modo por DNI: un mail mal formado nunca llega a buscar
+// nada en la base.
+func TestPacienteVerificadoPublico_TutorEmailFormatoInvalidoFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-tutor4@example.com")
+
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorURL(reg.Profesional.Slug, "no-es-un-mail", "token"), nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
 	}

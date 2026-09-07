@@ -13,7 +13,7 @@ function renderFila(href: string) {
         <ClickableTableRow href={href}>
           <td>Bruno Iglesias</td>
           <td>
-            <button type="button">Ver ficha →</button>
+            <button type="button">Ver ficha</button>
           </td>
         </ClickableTableRow>
       </tbody>
@@ -38,7 +38,7 @@ describe("ClickableTableRow", () => {
     const user = userEvent.setup();
     renderFila("/panel/pacientes/pac-1");
 
-    await user.click(screen.getByRole("button", { name: "Ver ficha →" }));
+    await user.click(screen.getByRole("button", { name: "Ver ficha" }));
     expect(pushMock).not.toHaveBeenCalled();
   });
 

@@ -16,7 +16,7 @@ describe("TarjetaConLista", () => {
     );
     expect(screen.getByText("Turnos de hoy")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Ver calendario →" });
+    const link = screen.getByRole("link", { name: "Ver calendario" });
     expect(link).toHaveAttribute("href", "/panel/calendario?vista=dia");
   });
 
@@ -51,10 +51,10 @@ describe("TarjetaConLista", () => {
         valor={1}
         vacioMensaje="Todavía no cargaste ningún horario reservado."
         filas={[]}
-        cabeceraCustom={<button type="button">Ver horarios reservados →</button>}
+        cabeceraCustom={<button type="button">Ver horarios reservados</button>}
       />,
     );
-    expect(screen.getByRole("button", { name: "Ver horarios reservados →" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver horarios reservados" })).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
@@ -83,7 +83,7 @@ describe("TarjetaSimple", () => {
     expect(link).toHaveAttribute("href", "/panel/turnos?estado=agendado");
     expect(link).toHaveTextContent("Turnos confirmados");
     expect(link).toHaveTextContent("7");
-    expect(link).toHaveTextContent("Ver turnos →");
+    expect(link).toHaveTextContent("Ver turnos");
   });
 
   it("renderiza el ícono decorativo de cabecera cuando se pasa uno", () => {

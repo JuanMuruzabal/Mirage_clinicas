@@ -86,6 +86,692 @@ func solicitudDePrueba(tipoConsultaID, fecha, hora, verificacionToken string) so
 	}
 }
 
+// solicitudParaOtroDePrueba — Fase 2.4.2: mismo helper que
+// solicitudDePrueba, pero para el camino "sacar turno para otro" —
+// TelefonoContacto/EmailContacto (del paciente) quedan vacíos a propósito
+// (opcionales en este camino, ver turno_publico.go), la identidad
+// verificada es TutorEmail.
+func solicitudParaOtroDePrueba(tipoConsultaID, fecha, hora, tutorEmail, verificacionToken string) solicitarTurnoPublicoRequest {
+	return solicitarTurnoPublicoRequest{
+		ParaOtro:          true,
+		NombreContacto:    "Juanito",
+		ApellidoContacto:  "Pérez",
+		DNIContacto:       "40111222",
+		Motivo:            "Control de rutina",
+		TipoConsultaID:    tipoConsultaID,
+		Fecha:             fecha,
+		Hora:              hora,
+		VerificacionToken: verificacionToken,
+		TutorRelacion:     "familiar",
+		TutorNombre:       "María Pérez",
+		TutorTelefono:     "+5493511111111",
+		TutorEmail:        tutorEmail,
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroPrimeraVezExitoso — Fase 2.4.2, camino
+// "sacar turno para otro" + "primera vez" (docs/FASE 2.4 - detallada y
+// bien especificada.docx, sección fase 2.4.2): el turno queda vinculado a
+// una ficha de PACIENTE (no del tutor) — Nombre/Apellido/DNI del turno
+// siguen siendo del paciente (sin cambio de significado); Telefono queda
+// nil (opcional, no se mandó); los datos de tutor viajan en TurnoTutor*/
+// PacienteTutor*; EsParaOtro queda true.
+func TestSolicitarTurnoPublico_ParaOtroPrimeraVezExitoso(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro1@example.com")
+
+	tutorEmail := "mama-paraotro1@example.com"
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+
+	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var turno db.Turno
+	if err := gdb.Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "40111222").First(&turno).Error; err != nil {
+		t.Fatalf("no se pudo releer el turno: %v", err)
+	}
+	if !turno.EsParaOtro {
+		t.Error("EsParaOtro = false, esperaba true")
+	}
+	if turno.TutorEmail == nil || *turno.TutorEmail != tutorEmail {
+		t.Errorf("TutorEmail = %v, esperaba %q", turno.TutorEmail, tutorEmail)
+	}
+	if turno.TutorNombre == nil || *turno.TutorNombre != "María Pérez" {
+		t.Errorf("TutorNombre = %v, esperaba María Pérez", turno.TutorNombre)
+	}
+	if turno.NombreContacto != "Juanito" || turno.ApellidoContacto != "Pérez" {
+		t.Errorf("NombreContacto/ApellidoContacto = %s/%s, esperaba los del paciente (Juanito Pérez), no el tutor", turno.NombreContacto, turno.ApellidoContacto)
+	}
+	if turno.EmailContacto != "" {
+		t.Errorf("EmailContacto = %q, esperaba vacío (mail propio del paciente, no se mandó)", turno.EmailContacto)
+	}
+	if turno.PacienteID == nil {
+		t.Fatal("PacienteID = nil, esperaba una ficha creada")
+	}
+
+	var paciente db.Paciente
+	if err := gdb.First(&paciente, "id = ?", *turno.PacienteID).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Telefono != nil {
+		t.Errorf("Telefono = %v, esperaba nil (opcional, no se mandó)", paciente.Telefono)
+	}
+	var tutor db.PacienteTutor
+	if err := gdb.Where("paciente_id = ?", paciente.ID).First(&tutor).Error; err != nil {
+		t.Fatalf("no se pudo releer el tutor: %v", err)
+	}
+	if tutor.Nombre != "María Pérez" {
+		t.Errorf("tutor.Nombre = %q, esperaba María Pérez", tutor.Nombre)
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroSinTutorEmailFalla — validación: sin
+// TutorEmail, ni el formato ni la verificación tienen contra qué chequear
+// — nunca debería llegar a crear nada.
+func TestSolicitarTurnoPublico_ParaOtroSinTutorEmailFalla(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro2@example.com")
+
+	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", "", "token-cualquiera")
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs —
+// Fase 2.4.2 (docs/ArquitecturaPeticionesTurno.md 3.6): un tutor real con
+// varios hijos (mismo mail, DNIs distintos) es exactamente el patrón que
+// el detector de "mail con muchos DNIs" (1.5) no debe tocar — se pide un
+// 3er hijo (el límite de la sección 1.5 es 2) y debe pasar sin bloquear
+// nada.
+func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro3@example.com")
+	tutorEmail := "papa-numeroso@example.com"
+	dnis := []string{"41000001", "41000002", "41000003"}
+	horas := []string{"08:00", "09:00", "10:00"}
+
+	for i, dni := range dnis {
+		if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+			db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+		}
+		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+		req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], tutorEmail, token)
+		req.DNIContacto = dni
+		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("hijo %d (dni %s): status = %d, esperaba %d. body=%s", i+1, dni, rec.Code, http.StatusCreated, rec.Body.String())
+		}
+	}
+
+	var bloqueo db.EmailBloqueadoTurnoPublico
+	err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, tutorEmail).First(&bloqueo).Error
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Errorf("no esperaba que el mail del tutor quedara bloqueado (err=%v)", err)
+	}
+	var count int64
+	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND tutor_email = ?", reg.Profesional.ID, tutorEmail).Count(&count)
+	if count != 3 {
+		t.Errorf("count = %d, esperaba 3 (los 3 hijos, ninguno borrado)", count)
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto —
+// caso cruzado de conflicto (`docs/ArquitecturaPeticionesTurno.md` 3.4),
+// versión "para otro" de
+// TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOriginalYaVerificada:
+// mismo DNI de paciente, pero el SEGUNDO tutor no responde al TutorEmail de
+// la ficha original ya verificada — debe crear una ficha separada con
+// ConflictoPaciente visible (la original ya demostró ser real) y el motivo
+// específico de tutor, no el genérico de "para mí".
+func TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro4@example.com")
+
+	// Primer pedido "para otro": el paciente termina verificado (turno
+	// resuelto y asistido) antes de que llegue el segundo pedido.
+	tutorEmail1 := "mama-original@example.com"
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
+		solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail1, token1))
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+
+	var original db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "40111222").First(&original).Error; err != nil {
+		t.Fatalf("no se pudo consultar la ficha original: %v", err)
+	}
+	pasado := time.Now().Add(-72 * time.Hour)
+	asistio := "asistio"
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ?", original.ID).
+		Updates(map[string]interface{}{"hora_inicio": pasado, "hora_fin": pasado.Add(30 * time.Minute), "asistencia": asistio}).Error; err != nil {
+		t.Fatalf("no se pudo marcar el turno original como asistido: %v", err)
+	}
+
+	// Segundo pedido: mismo DNI de paciente, tutor (mail) DISTINTO.
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	tutorEmail2 := "otro-tutor@example.com"
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail2)
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
+		solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail2, token2))
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	var nueva db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "40111222", original.ID).First(&nueva).Error; err != nil {
+		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
+	}
+
+	var conflicto db.ConflictoPaciente
+	if err := gdb.Where("paciente_en_conflicto_id = ?", nueva.ID).First(&conflicto).Error; err != nil {
+		t.Fatalf("esperaba un ConflictoPaciente visible porque la ficha original ya estaba verificada: %v", err)
+	}
+	if conflicto.PacienteVerificadoID != original.ID {
+		t.Errorf("PacienteVerificadoID = %q, esperaba %q (la ficha original)", conflicto.PacienteVerificadoID, original.ID)
+	}
+	// Escenario A (ronda de correcciones, 2026-09-06): tutor nuevo vs.
+	// tutor(es) ya confirmado(s) — motivo específico, distinto de los
+	// otros 3 escenarios (ver crearPacientePublicoConDeteccionDeConflicto).
+	motivoEsperado := "un nuevo tutor (María Pérez) pide turno para este paciente — ya hay otro tutor confirmado con este DNI"
+	if conflicto.Motivo != motivoEsperado {
+		t.Errorf("Motivo = %q, esperaba %q", conflicto.Motivo, motivoEsperado)
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaMiConTutorConfirmadoRecomiendaTutor —
+// escenario B de la ronda de correcciones (2026-09-06): el paciente en sí
+// (no un tutor) se presenta "para mí" con su propio mail nuevo, pero este
+// DNI hasta ahora solo se conocía a través de un tutor. El conflicto se
+// enmarca con los datos del PACIENTE (no de los tutores) — pedido textual
+// del cliente — pero recomienda contactar al tutor confirmado.
+func TestSolicitarTurnoPublico_ParaMiConTutorConfirmadoRecomiendaTutor(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "escenariob1@example.com")
+
+	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40777888", "Mila", "mama@example.com", 0)
+
+	propioEmail := "mila.propia@example.com"
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, propioEmail)
+	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req.DNIContacto = verificado.DNI
+	req.NombreContacto = verificado.Nombre
+	req.ApellidoContacto = verificado.Apellido
+	req.EmailContacto = propioEmail
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var nueva db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
+		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
+	}
+	var conflicto db.ConflictoPaciente
+	if err := gdb.Where("paciente_en_conflicto_id = ?", nueva.ID).First(&conflicto).Error; err != nil {
+		t.Fatalf("esperaba un ConflictoPaciente: %v", err)
+	}
+	motivoEsperado := "el paciente se presentó con su propio mail — este DNI está confirmado a través de un tutor. Recomendamos contactar al/los tutor(es) confirmado(s) si hace falta verificar."
+	if conflicto.Motivo != motivoEsperado {
+		t.Errorf("Motivo = %q, esperaba %q", conflicto.Motivo, motivoEsperado)
+	}
+}
+
+// TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo —
+// escenario D (reverso del A) de la ronda de correcciones (2026-09-06):
+// un tutor pide turno para un paciente que ya se había confirmado por sí
+// mismo (sin ningún tutor conocido todavía) — motivo específico que
+// avisa "alguien quiere sacarle turno a un paciente ya confirmado".
+func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "escenariod1@example.com")
+
+	verificado := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40888999", "bruno@example.com")
+
+	tutorEmail := "tio@example.com"
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	req.DNIContacto = verificado.DNI
+	req.NombreContacto = verificado.Nombre
+	req.ApellidoContacto = verificado.Apellido
+	req.TutorNombre = "Tío de Bruno"
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var nueva db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
+		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
+	}
+	var conflicto db.ConflictoPaciente
+	if err := gdb.Where("paciente_en_conflicto_id = ?", nueva.ID).First(&conflicto).Error; err != nil {
+		t.Fatalf("esperaba un ConflictoPaciente: %v", err)
+	}
+	motivoEsperado := "un tutor (Tío de Bruno) pide turno para este paciente, ya confirmado por sí mismo"
+	if conflicto.Motivo != motivoEsperado {
+		t.Errorf("Motivo = %q, esperaba %q", conflicto.Motivo, motivoEsperado)
+	}
+}
+
+// TestSolicitarTurnoPublico_YaTieneTurnoActivoParaOtroMuestraMailDelTutor
+// — ronda de correcciones (2026-09-06): el mensaje de "ya tenés un turno
+// pendiente" mostraba el mail PROPIO del paciente (casi siempre vacío en
+// "para otro") en vez del mail del tutor, que es el que la persona
+// reconoce.
+func TestSolicitarTurnoPublico_YaTieneTurnoActivoParaOtroMuestraMailDelTutor(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "activotutor1@example.com")
+
+	tutorEmail := "mama-activa@example.com"
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
+	}
+	if !strings.Contains(rec2.Body.String(), "mama") {
+		t.Errorf("body = %q, esperaba que mencione el mail del TUTOR (mama...), no el del paciente (vacío)", rec2.Body.String())
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAlternativo
+// — ronda de correcciones (2026-09-06), pedido textual del cliente: "si
+// los tutores añaden diferentes mails (opcionales al paciente) añadirlos
+// a este cuando se complete el turno". El mismo tutor reserva 2 veces más
+// para el mismo paciente, cada vez con un mail PROPIO del paciente
+// distinto: la primera vez (paciente sin mail todavía) pasa a ser el
+// principal; la segunda (ya tiene uno distinto) se suma como alternativo.
+func TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAlternativo(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mailopcional1@example.com")
+	tutorEmail := "mama-mailopcional@example.com"
+
+	limpiarRateLimitDePrueba := func() {
+		if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+			db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+		}
+	}
+	// moverTurnoAlPasado — mueve solo los turnos VIGENTES de este DNI (no
+	// TODOS los que comparten dni_contacto, que después del 2do turno ya
+	// son más de uno) — cada llamada a un rango horario propio, para no
+	// chocar contra el exclusion constraint entre sí.
+	pasadoOffset := 0
+	moverTurnoAlPasado := func(dni string) {
+		pasadoOffset++
+		pasado := time.Now().Add(-time.Duration(pasadoOffset) * time.Hour)
+		if err := gdb.Model(&db.Turno{}).Where("dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", dni).
+			Updates(map[string]interface{}{"hora_inicio": pasado, "hora_fin": pasado.Add(30 * time.Minute)}).Error; err != nil {
+			t.Fatalf("no se pudo mover el turno al pasado: %v", err)
+		}
+	}
+
+	// 1er turno: sin mail propio del paciente.
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+	moverTurnoAlPasado(req1.DNIContacto)
+
+	var paciente db.Paciente
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró el paciente: %v", err)
+	}
+	if paciente.Email != nil {
+		t.Fatalf("Email = %v, esperaba nil antes del 2do turno", *paciente.Email)
+	}
+
+	// 2do turno: mismo tutor (ficha conocida, reuso sin conflicto), mail
+	// PROPIO del paciente nuevo — pasa a ser el principal.
+	limpiarRateLimitDePrueba()
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	req2.EmailContacto = "kid@example.com"
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+	moverTurnoAlPasado(req1.DNIContacto)
+
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Email == nil || *paciente.Email != "kid@example.com" {
+		t.Errorf("Email = %v, esperaba kid@example.com (pasa a ser el principal)", paciente.Email)
+	}
+
+	// 3er turno: mismo tutor, mail propio del paciente DISTINTO del
+	// principal que ya tiene — se suma como alternativo, sin pisar el
+	// principal.
+	limpiarRateLimitDePrueba()
+	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req3 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
+	req3.EmailContacto = "kid2@example.com"
+	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
+	if rec3.Code != http.StatusCreated {
+		t.Fatalf("3er turno: status = %d, esperaba %d. body=%s", rec3.Code, http.StatusCreated, rec3.Body.String())
+	}
+
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Email == nil || *paciente.Email != "kid@example.com" {
+		t.Errorf("Email = %v, esperaba que siga siendo kid@example.com (no se pisa un principal ya existente)", paciente.Email)
+	}
+	var alternativo db.PacienteEmailAlternativo
+	if err := gdb.Where("paciente_id = ? AND email = ?", paciente.ID, "kid2@example.com").First(&alternativo).Error; err != nil {
+		t.Errorf("esperaba un PacienteEmailAlternativo con kid2@example.com: %v", err)
+	}
+}
+
+// TestSolicitarTurnoPublico_OtroYaHeVenidoAntesArmaTutorSinFiltrarMail —
+// camino "para otro" + "ya he venido antes" (usaPacienteVerificado): el
+// request no manda ningún dato de tutor (solo pacienteVerificadoId +
+// el mail que se verificó) — sincronizarTutorDesdeFichaVerificada tiene
+// que reconocer que ese mail es el de un tutor conocido, armar
+// EsParaOtro/Tutor* solo, y (bug real corregido en la ronda de
+// correcciones, 2026-09-06) dejar EmailContacto vacío, nunca con el mail
+// del tutor filtrado ahí.
+func TestSolicitarTurnoPublico_OtroYaHeVenidoAntesArmaTutorSinFiltrarMail(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "otroyavine1@example.com")
+	tutorEmail := "mama-yavine@example.com"
+	paciente := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40999000", "Mila", tutorEmail, 0)
+
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req := solicitarTurnoPublicoRequest{
+		EmailContacto: tutorEmail, TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		VerificacionToken: token, PacienteVerificadoID: paciente.ID.String(),
+	}
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	var turno db.Turno
+	if err := gdb.Where("paciente_id = ? AND estado = 'agendado'", paciente.ID).Order("created_at DESC").First(&turno).Error; err != nil {
+		t.Fatalf("no se pudo releer el turno: %v", err)
+	}
+	if !turno.EsParaOtro {
+		t.Error("EsParaOtro = false, esperaba true")
+	}
+	if turno.TutorEmail == nil || *turno.TutorEmail != tutorEmail {
+		t.Errorf("TutorEmail = %v, esperaba %q", turno.TutorEmail, tutorEmail)
+	}
+	if turno.TutorNombre == nil || *turno.TutorNombre != "Tutor de Mila" {
+		t.Errorf("TutorNombre = %v, esperaba 'Tutor de Mila'", turno.TutorNombre)
+	}
+	if turno.EmailContacto != "" {
+		t.Errorf("EmailContacto = %q, esperaba vacío — nunca el mail del tutor (bug real corregido)", turno.EmailContacto)
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroMailOpcionalRepetidoNoAgregaAlternativo
+// — complementa el test de arriba: si el mail propio tipeado es EXACTO
+// al que el paciente ya tiene como principal, agregarEmailAlternativoSiNuevo
+// no hace nada (sin fila nueva en PacienteEmailAlternativo).
+func TestSolicitarTurnoPublico_ParaOtroMailOpcionalRepetidoNoAgregaAlternativo(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mailrepetido1@example.com")
+	tutorEmail := "mama-mailrepetido@example.com"
+
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1.EmailContacto = "kid@example.com"
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+	pasado := time.Now().Add(-time.Hour)
+	if err := gdb.Model(&db.Turno{}).Where("dni_contacto = ?", req1.DNIContacto).
+		Updates(map[string]interface{}{"hora_inicio": pasado, "hora_fin": pasado.Add(30 * time.Minute)}).Error; err != nil {
+		t.Fatalf("no se pudo mover el turno al pasado: %v", err)
+	}
+
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	req2.EmailContacto = "kid@example.com" // mismo mail que ya tiene
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	var count int64
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("email = ?", "kid@example.com").Count(&count)
+	if count != 0 {
+		t.Errorf("count de PacienteEmailAlternativo = %d, esperaba 0 (mismo mail que el principal, no es un alternativo)", count)
+	}
+}
+
+// TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAlternativo
+// — ronda de correcciones (2026-09-06), bug real reportado por el
+// cliente: "probé y solo se llenó el mail, pero no el teléfono" —
+// agregarTelefonoAlternativoSiNuevo replica exactamente
+// agregarEmailAlternativoSiNuevo (ver el test de mail de arriba, mismo
+// criterio: la 1era vez sin teléfono pasa a ser el principal, la 2da con
+// uno distinto se suma como alternativo).
+func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAlternativo(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "telopcional1@example.com")
+	tutorEmail := "mama-telopcional@example.com"
+
+	limpiarRateLimitDePrueba := func() {
+		if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+			db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+		}
+	}
+	// moverTurnoAlPasado — mismo motivo que en el test de mail equivalente
+	// (turnoActivoPorDNI bloquearía un 2do turno vigente con el mismo DNI).
+	pasadoOffset := 0
+	moverTurnoAlPasado := func(dni string) {
+		pasadoOffset++
+		pasado := time.Now().Add(-time.Duration(pasadoOffset) * time.Hour)
+		if err := gdb.Model(&db.Turno{}).Where("dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", dni).
+			Updates(map[string]interface{}{"hora_inicio": pasado, "hora_fin": pasado.Add(30 * time.Minute)}).Error; err != nil {
+			t.Fatalf("no se pudo mover el turno al pasado: %v", err)
+		}
+	}
+
+	// 1er turno: sin teléfono propio del paciente.
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+	moverTurnoAlPasado(req1.DNIContacto)
+
+	var paciente db.Paciente
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró el paciente: %v", err)
+	}
+	if paciente.Telefono != nil {
+		t.Fatalf("Telefono = %v, esperaba nil antes del 2do turno", *paciente.Telefono)
+	}
+
+	// 2do turno: mismo tutor (ficha conocida, reuso sin conflicto),
+	// teléfono PROPIO del paciente nuevo — pasa a ser el principal.
+	limpiarRateLimitDePrueba()
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	req2.TelefonoContacto = "+5493511230001"
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+	moverTurnoAlPasado(req1.DNIContacto)
+
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Telefono == nil || *paciente.Telefono != "+5493511230001" {
+		t.Errorf("Telefono = %v, esperaba +5493511230001 (pasa a ser el principal)", paciente.Telefono)
+	}
+
+	// 3er turno: mismo tutor, teléfono propio del paciente DISTINTO del
+	// principal que ya tiene — se suma como alternativo, sin pisar el
+	// principal (antes de este fix, no pasaba nada en absoluto).
+	limpiarRateLimitDePrueba()
+	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req3 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
+	req3.TelefonoContacto = "+5493511230002"
+	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
+	if rec3.Code != http.StatusCreated {
+		t.Fatalf("3er turno: status = %d, esperaba %d. body=%s", rec3.Code, http.StatusCreated, rec3.Body.String())
+	}
+
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo releer el paciente: %v", err)
+	}
+	if paciente.Telefono == nil || *paciente.Telefono != "+5493511230001" {
+		t.Errorf("Telefono = %v, esperaba que siga siendo +5493511230001 (no se pisa un principal ya existente)", paciente.Telefono)
+	}
+	var alternativo db.PacienteTelefonoAlternativo
+	if err := gdb.Where("paciente_id = ? AND telefono = ?", paciente.ID, "+5493511230002").First(&alternativo).Error; err != nil {
+		t.Errorf("esperaba un PacienteTelefonoAlternativo con +5493511230002: %v", err)
+	}
+}
+
+// TestSolicitarTurnoPublico_TutorRepiteMailConOtroTelefonoLoAcumula —
+// pedido textual del cliente (ronda de correcciones 2026-09-06): "si un
+// tutor vuelve a sacar turno con mismo mail, diferente teléfono, añadir
+// ese teléfono al tutor del mail correspondiente" — corrección sobre una
+// primera implementación que REEMPLAZABA el teléfono del tutor: el
+// cliente aclaró que "los números nuevos de los tutores no se agregan
+// con los existentes, sino que se reemplaza el anterior con el nuevo" es
+// justo el bug a evitar — el teléfono nuevo se ACUMULA (mismo criterio
+// que el teléfono PROPIO del paciente, vía
+// PacienteTutorTelefonoAlternativo), nunca se pierde el principal.
+func TestSolicitarTurnoPublico_TutorRepiteMailConOtroTelefonoLoAcumula(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "tutortel1@example.com")
+	tutorEmail := "mama-tutortel@example.com"
+
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+	// moverTurnoAlPasado — turnoActivoPorDNI bloquearía un 2do turno
+	// vigente con el mismo DNI si no se libera el primero.
+	if err := gdb.Model(&db.Turno{}).Where("dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", req1.DNIContacto).
+		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-time.Hour), "hora_fin": time.Now().Add(-30 * time.Minute)}).Error; err != nil {
+		t.Fatalf("no se pudo mover el turno al pasado: %v", err)
+	}
+
+	var paciente db.Paciente
+	if err := gdb.Where("dni = ?", req1.DNIContacto).First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró el paciente: %v", err)
+	}
+	var tutor db.PacienteTutor
+	if err := gdb.Where("paciente_id = ? AND email = ?", paciente.ID, tutorEmail).First(&tutor).Error; err != nil {
+		t.Fatalf("no se encontró el tutor: %v", err)
+	}
+	if tutor.Telefono != req1.TutorTelefono {
+		t.Fatalf("Telefono del tutor = %q, esperaba %q (el del 1er turno)", tutor.Telefono, req1.TutorTelefono)
+	}
+
+	// 2do turno: mismo tutor (mismo mail), teléfono DISTINTO — se suma
+	// como alternativo, sin pisar el principal ni duplicar la fila.
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	req2.TutorTelefono = "+5493511119999"
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	var tutoresDelPaciente []db.PacienteTutor
+	if err := gdb.Where("paciente_id = ? AND email = ?", paciente.ID, tutorEmail).Find(&tutoresDelPaciente).Error; err != nil {
+		t.Fatalf("no se pudo releer los tutores: %v", err)
+	}
+	if len(tutoresDelPaciente) != 1 {
+		t.Fatalf("cantidad de PacienteTutor con este mail = %d, esperaba 1 (nunca se duplica la fila del tutor)", len(tutoresDelPaciente))
+	}
+	if tutoresDelPaciente[0].Telefono != req1.TutorTelefono {
+		t.Errorf("Telefono del tutor = %q, esperaba que siga siendo %q (el principal no se pisa)", tutoresDelPaciente[0].Telefono, req1.TutorTelefono)
+	}
+	var alternativo db.PacienteTutorTelefonoAlternativo
+	if err := gdb.Where("paciente_tutor_id = ? AND telefono = ?", tutoresDelPaciente[0].ID, "+5493511119999").First(&alternativo).Error; err != nil {
+		t.Errorf("esperaba un PacienteTutorTelefonoAlternativo con +5493511119999: %v", err)
+	}
+}
+
+// TestSolicitarTurnoPublico_TutorRepiteMailConMismoTelefonoNoAgregaAlternativo
+// — complementa el test de arriba: si el teléfono tipado es EXACTO al
+// principal que el tutor ya tiene, no hace nada (sin fila nueva en
+// PacienteTutorTelefonoAlternativo).
+func TestSolicitarTurnoPublico_TutorRepiteMailConMismoTelefonoNoAgregaAlternativo(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "tutortel2@example.com")
+	tutorEmail := "mama-tutortel2@example.com"
+
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+	if err := gdb.Model(&db.Turno{}).Where("dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", req1.DNIContacto).
+		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-time.Hour), "hora_fin": time.Now().Add(-30 * time.Minute)}).Error; err != nil {
+		t.Fatalf("no se pudo mover el turno al pasado: %v", err)
+	}
+
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown", db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	req2.TutorTelefono = req1.TutorTelefono // mismo teléfono que ya tiene
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("2do turno: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	var count int64
+	gdb.Model(&db.PacienteTutorTelefonoAlternativo{}).Count(&count)
+	if count != 0 {
+		t.Errorf("count de PacienteTutorTelefonoAlternativo = %d, esperaba 0 (mismo teléfono que el principal)", count)
+	}
+}
+
 func TestListTiposConsultaPublico_Exitoso(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicotipos1@example.com")
@@ -476,7 +1162,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 	if original.EnConflicto {
 		t.Error("la ficha original quedó marcada en_conflicto, esperaba que quedara intacta")
 	}
-	if original.Nombre != "Bruno" || original.Apellido != "Iglesias" || original.Telefono != "+5493511234567" {
+	if original.Nombre != "Bruno" || original.Apellido != "Iglesias" || original.Telefono == nil || *original.Telefono != "+5493511234567" {
 		t.Errorf("la ficha original cambió: %+v, esperaba los datos reales de Bruno sin tocar", original)
 	}
 	if !nueva.EnConflicto {
@@ -1111,12 +1797,13 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 }
 
 // TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado —
-// corrección de seguridad (2026-09-06), pedido textual del cliente: "esto
-// puede ser peligroso porque puede borrar turnos legítimos, ya que la IP
-// es compartida" — un paciente ya VERIFICADO (asistió a un turno antes)
-// no pierde el suyo solo por compartir IP con quien está rotando mail+DNI
-// ahora; mismo criterio "sin verificar, no sabemos con certeza quién es
-// el impostor" que ya usan los otros dos detectores de este archivo.
+// corrección de seguridad (TR-115, 2026-09-06), pedido textual del
+// cliente: "esto puede ser peligroso porque puede borrar turnos
+// legítimos, ya que la IP es compartida" — un paciente ya VERIFICADO
+// (asistió a un turno antes) no pierde el suyo solo por compartir IP con
+// quien está rotando mail+DNI ahora; mismo criterio "sin verificar, no
+// sabemos con certeza quién es el impostor" que ya usan los otros dos
+// detectores de este archivo.
 func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
@@ -1185,9 +1872,9 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 }
 
 // TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana —
-// corrección de seguridad (2026-09-06), mismo pedido que el test de
-// arriba: el borrado queda acotado a `ventanaRotacionPorIP` (30 min), no
-// a todo el historial de esa IP para el profesional — un turno viejo,
+// corrección de seguridad (TR-115, 2026-09-06), mismo pedido que el test
+// de arriba: el borrado queda acotado a `ventanaRotacionPorIP` (30 min),
+// no a todo el historial de esa IP para el profesional — un turno viejo,
 // aislado, de la misma IP no debería desaparecer solo porque esa IP
 // mostró un patrón de rotación recién ahora.
 func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *testing.T) {
