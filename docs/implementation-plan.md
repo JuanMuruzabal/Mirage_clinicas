@@ -496,7 +496,7 @@ Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief 
 |---|---|---|---|---|
 | ~~F2.2.1~~ | ~~Botón "ver más grande" en `/panel/calendario`~~ — **descartada (TR-085)**, revertida tras fallar en dispositivo real dos veces seguidas | — | — | — |
 
-#### F2.3 — Ajustes de calendario (brief ítem 3) — bloquea F2.4 y F2.5 — **implementado, en QA con el cliente (rama `feature/fase2-03-ajustes-calendario`, sin mergear a `dev` todavía por TR-083)**
+#### F2.3 — Ajustes de calendario (brief ítem 3) — bloquea F2.4 y F2.5 — **implementado, aprobado y mergeado a `dev` (PR #4)**
 
 Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/UX y reglas de negocio, más específica que el brief original — ver TR-084 en `docs/tradeoffs.md` (reemplaza el esbozo que tenía esta tabla antes, incluida la fila `F2.3.6` de previsualización en vivo, descartada explícitamente por el cliente).
 
@@ -526,7 +526,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 
 **Descartado explícitamente (2026-08-29):** previsualización en vivo del calendario con los ajustes sin guardar — el cliente pidió priorizar velocidad de uso ("hacemos que el ajuste sea rápido y eficiente") en vez de esa pieza, coincidiendo con el riesgo ya anotado en R2F-5 más abajo.
 
-#### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4)
+#### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver Extra 2.3.5/TR-100 a TR-103 en §11.5 y `docs/tradeoffs.md`, PR #7)
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -538,7 +538,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 | F2.4.4 | Paso 3 (paciente nuevo): tipo de consulta → vista semanal del profesional → vista día con horarios libres (crea la `ReservaTemporal` al elegir, F2.4.1b) → formulario de datos → envío (consume el token de la reserva, TR-080) | F2.4.1, F2.4.1b, F2.4.3 | 5-6d | El turno se crea `pendiente` con `HoraInicio`/`HoraFin` ya cargados solo si el token de reserva sigue vigente; token vencido → error controlado pidiendo elegir horario de nuevo, nunca un 500; en mobile, "ver agenda" como acción separada que se puede cerrar sin perder el progreso del formulario |
 | F2.4.5 | Camino paciente ya registrado — mismo flujo de F2.4.4, matcheando por DNI (spec §4.3 ya contempla cargar el turno al paciente existente si el DNI coincide) | F2.4.4 | 1-2d | DNI ya registrado carga el turno al paciente existente, sin duplicar `Paciente` |
 
-#### F2.5 — Compartir calendario (brief ítem 5)
+#### F2.5 — Compartir calendario (brief ítem 5) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver TR-120 en `docs/tradeoffs.md`, PR #15 + corrección de QA en PR #16)
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -610,7 +610,7 @@ completó su QA antes de arrancar 2.3.3, ver TR-104 en `docs/tradeoffs.md`.
 
 Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle en TR-099 de `docs/tradeoffs.md`, ya incorporadas al código): "Turnos próximos" se acota a solo mañana (antes no tenía techo superior); "Ver calendario →" de cabecera pasa a solo POSICIONAR el calendario en el turno/horario más próximo (nunca abre la tarjeta de detalle — corrección sobre una primera implementación equivocada); "Ver horarios reservados →" y las filas de esa tarjeta también posicionan el calendario, no solo abren el modal.
 
-#### Extra 2.3.2 — Banner de conflicto en el calendario — **implementado, en QA con el cliente**
+#### Extra 2.3.2 — Banner de conflicto en el calendario — **implementado, aprobado y mergeado a `dev` (PR #6)**
 
 **E2.1 a E2.3 completas**, y el ítem creció bastante más allá del brief original: durante la misma ronda de QA el cliente pidió tres funciones nuevas no listadas en el brief post-QA (Autoreservar turnos, Excepciones de horario de atención visualizadas en el calendario, Preferencia de atención por tipo de consulta) — se implementaron todas en esta misma rama (`feature/fase2-3-2-banner-conflicto`) en vez de abrir una rama por función, dado que surgieron como una sola conversación de QA continua sobre el calendario. Detalle completo de cada una en `docs/tradeoffs.md` TR-095 a TR-099.
 
@@ -628,7 +628,7 @@ Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle
 | E2.5 | Excepciones de horario de atención visualizadas en el calendario, mismo mecanismo de cluster/"Ver eventos" que horarios reservados; excepción pura → tarjeta suave "No trabajo en este período", clickeable, navega a Configuración (TR-097) | E1.7 | 2-3d | Una excepción que se solapa con un horario reservado o un turno pasa a "Ver eventos →"; una excepción sola nunca lo hace |
 | E2.6 | Preferencia de atención por tipo de consulta: ventana horaria opcional que acota (nunca ensancha) la disponibilidad real de ese tipo (TR-098) | F2.3 (`GET /disponibilidad`, ya implementado) | 2d | Un tipo con preferencia 8:00-12:00 nunca ofrece un horario fuera de esa franja, aunque el horario de atención general sea más amplio |
 
-#### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido — **implementado, aprobado por el cliente**
+#### Extra 2.3.3 — Turnos: sacar `pendiente`, "Ver paciente"/"Ver motivo", filtro rápido — **implementado, aprobado y mergeado a `dev` (PR #8, junto con 2.3.4)**
 
 **E3.1 a E3.5 completas**, más varias rondas de corrección de QA sobre la
 primera entrega (ya incorporadas al código, no son tareas nuevas) —
@@ -663,13 +663,13 @@ al implementar:
 | E3.4 | Botón "Ver paciente" en la fila de turno (misma navegación que el botón homónimo del calendario) | — | 0.5d | Lleva a la ficha del paciente correcto |
 | E3.5 | Filtro rápido HOY/SEMANA/MES antes de "Desde/Hasta", en Turnos y en "Turnos activos" de la ficha de paciente (mismos filtros que ya tiene Pacientes, imitando la captura del brief) | — | 1-2d | Elegir "Hoy" filtra a los turnos de la fecha actual sin tocar Desde/Hasta a mano |
 
-#### Extra 2.3.4 — Pacientes: "Ver mail" para direcciones largas — **implementado, aprobado por el cliente**
+#### Extra 2.3.4 — Pacientes: "Ver mail" para direcciones largas — **implementado, aprobado y mergeado a `dev` (PR #8, junto con 2.3.3)**
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
 | E4.1 | Mail de más de 30 caracteres se reemplaza por el botón "Ver mail" (mismo componente de Extra 2.3.1/E1.7) en la tabla de Pacientes | E1.7 | 0.5d | Un mail corto se sigue mostrando inline, sin el botón |
 
-#### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug — **implementado, en QA con el cliente**
+#### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug — **implementado, aprobado y mergeado a `dev` (PR #7)**
 
 **E5.1 a E5.5 completas**, más una función más pedida por el cliente durante esta misma QA, fuera del brief post-QA original — "Confirmanos que sos vos" (E5.6), un paso de verificación de mail por código de 6 dígitos que se sumó al wizard público antes de que se pueda pedir el turno de verdad. Detalle completo de cada decisión en `docs/tradeoffs.md` TR-100 a TR-103.
 
@@ -690,6 +690,16 @@ al implementar:
 Corrección de QA encontrada sobre E5.1: un profesional podía tipear en "Agregar turno > Paciente nuevo" un DNI ya cargado con datos distintos a los reales — el turno quedaba vinculado a la ficha existente pero sin ningún aviso, mostrando el nombre recién tipeado. Se resolvió en dos capas (TR-101): verificación explícita en el panel (no avanza, ofrece "Usar este paciente") + sincronización de datos en el backend (el snapshot de contacto del turno siempre refleja los datos reales del paciente encontrado, sin importar qué haya tipeado el formulario — aplica también al formulario público, donde bloquear no es una opción razonable).
 
 Probado y descartado en esta misma ronda: hacer sticky (flotante) el título+toolbar de Turnos/Calendario/Pacientes al scrollear — implementado y revertido antes de commitear, el cliente no lo encontró bien visualmente ("no quedan bien"). Sin rastro en el código.
+
+### 11.6 Fase 2.4 y cierre de la Fase 2
+
+Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el cliente pidió estos ítems durante el QA de Extra 2.3.5, sin brief previo — se documentan directamente en `docs/tradeoffs.md` a medida que se implementaron, no acá.
+
+- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
+- **Fase 2.4.2 — "sacar turno para otro" (tutor/representante):** un tutor puede reservar el turno de otra persona verificándose él mismo por mail; un paciente puede tener más de un tutor a lo largo del tiempo (`PacienteTutor`, uno-a-muchos). TR-116. **Implementado, aprobado y mergeado a `dev`** (PR #12, #13, #14).
+- **Ítem 5 del brief original — "compartir calendario":** ver arriba, F2.5/TR-120. **Implementado y mergeado a `dev`** (PR #15), con una corrección de QA post-merge — la pantalla "¿Ya te atendiste?" se saltaba entera con enlace, se restauró para recorrer el wizard completo (PR #16).
+
+**Con esto, los 5 ítems del brief original de Fase 2, los 5 ítems extra de F2.3, y los dos ítems extra de F2.4 quedan implementados, aprobados y mergeados a `dev` (2026-09-07)** — Fase 2 completa, lista para pasar a `main`.
 
 ---
 

@@ -389,3 +389,19 @@ armada — Dockerfiles, `render.yaml`, deploy automático por rama; falta
 aplicar el blueprint en el dashboard de Render y cargar los secrets (ver
 "Deploy" arriba). El resto de Sprint 5 (mobile-first, QA end-to-end) sigue
 pendiente.
+
+**Fase 2 completa (2026-09-07):** calendario avanzado y autogestión de
+turnos — detalle fase por fase en `docs/implementation-plan.md` §11,
+decisiones de arquitectura en `docs/tradeoffs.md` TR-078 a TR-120,
+resumen funcional en `docs/dental-mirage-spec.md` §11. Los 5 ítems del
+brief original (calendario mobile con scroll fijo; ajustes de horario de
+atención/tipos de consulta/horarios reservados; selección de horario por
+el paciente; compartir calendario por link efímero — la vista "pantalla
+grande" del ítem 2 se descartó por completo tras fallar en dispositivo
+real, TR-085), los 5 ítems extra pedidos post-QA (dashboard rediseñado,
+banner de conflicto + autoreservar turnos, formulario público reescrito
+con verificación por código, DNI único por clínica, filtros rápidos de
+fecha) y los ítems extra de identidad/seguridad (paciente verificado "ya
+he venido antes", detección de conflictos, 3 detectores anti-abuso,
+"sacar turno para otro" con tutor) quedan implementados, aprobados por el
+cliente y mergeados a `dev`.
