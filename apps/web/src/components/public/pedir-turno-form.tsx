@@ -31,12 +31,20 @@ interface PedirTurnoFormProps {
   /**
    * Fase 2, ítem 5 ("compartir calendario") — presente cuando el wizard
    * se abrió desde un link generado por el profesional (`?enlace=` en la
-   * página pública, ver PedirTurnoButton). Cambia el flujo en 3 puntos:
-   * se saltea la pantalla [2] "¿Ya te atendiste?" (el camino "ya he
-   * venido antes" depende del código de verificación, que este modo no
-   * tiene — directo a "primera vez"), no se manda ningún código de
-   * verificación ni se muestra el CAPTCHA, y el pedido final manda
-   * `enlaceToken` en vez de `verificacionToken`.
+   * página pública, ver PedirTurnoButton). El wizard se recorre COMPLETO,
+   * paso por paso, igual que sin enlace — incluida la pantalla [2] "¿Ya
+   * te atendiste?", con sus dos caminos ("primera vez"/"ya he venido
+   * antes"). Lo único que cambia son las 3 "trabas" de seguridad que el
+   * profesional decidió que no hacen falta acá (ya habló con la
+   * persona): no se manda ningún código de verificación por mail, no se
+   * muestra el CAPTCHA, y el pedido final manda `enlaceToken` en vez de
+   * `verificacionToken`. Como no hay código, "ya he venido antes" resuelve
+   * la identidad directo contra el enlace (mismo criterio "validar sin
+   * consumir" que el código, ver validarIdentidadPublicaOEnlace en el
+   * backend) — y "primera vez" hace el mismo chequeo retroactivo que ya
+   * existía para el camino con código: si el DNI+mail tipeados ya
+   * pertenecen a una ficha verificada, se muestra esa tarjeta en vez de
+   * seguir de largo (ver continuar()).
    */
   enlaceToken?: string;
 }
@@ -460,18 +468,29 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     }
 
     setCampos((c) => ({ ...c, emailContacto }));
+    setEmailEnVerificacion(emailContacto);
 
-    // Fase 2, ítem 5: con enlace no hay ningún código que mandar — directo
-    // al paso de turno, el pedido final va a mandar enlaceToken en vez de
-    // verificacionToken (ver confirmar()).
+    // Fase 2, ítem 5: con enlace no hay código que mandar, pero el mismo
+    // chequeo retroactivo de confirmarCodigo() aplica igual — si este
+    // DNI+mail ya pertenecen a una ficha verificada, se muestra esa
+    // tarjeta en vez de seguir de largo como paciente nuevo.
     if (enlaceToken) {
+      setBuscandoPaciente(true);
+      const resultado = await pacienteVerificadoPublicoAction(slug, dniContacto, emailContacto, "", enlaceToken);
+      setBuscandoPaciente(false);
+      if (resultado.paciente) {
+        setPacienteVerificado(resultado.paciente);
+        setFlujo("verificado");
+        setPaso("tarjeta-paciente");
+        return;
+      }
+      setFlujo("primera-vez");
       setPaso("turno");
       return;
     }
 
     // "Confirmanos que sos vos": antes de pasar al tipo de consulta/fecha/
     // horario, se manda el código de verificación al mail recién validado.
-    setEmailEnVerificacion(emailContacto);
     setEnviandoCodigo(true);
     const result = await enviarVerificacionEmailAction(slug, emailContacto, captchaToken);
     setEnviandoCodigo(false);
@@ -547,9 +566,13 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
 
     setCampos((c) => ({ ...c, emailContacto }));
 
-    // Fase 2, ítem 5: con enlace, directo al paso de turno (ver
-    // continuar(), mismo criterio).
+    // Fase 2, ítem 5: con enlace, directo al paso de turno — mismo
+    // criterio que "otro-verificacion" (confirmarCodigo()): sin chequeo
+    // retroactivo acá, el mail que se verificaría es el del TUTOR, no el
+    // del paciente, así que "¿ya pertenece a una ficha verificada?" no
+    // tiene el mismo sentido que en el camino "para mí".
     if (enlaceToken) {
+      setFlujo("otro-primera-vez");
       setPaso("turno");
       return;
     }
@@ -589,6 +612,24 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     setCampos((c) => ({ ...c, emailContacto: email }));
     setEmailEnVerificacion(email);
     setPacienteNoEncontrado(false);
+
+    // Fase 2, ítem 5: sin código que mandar — la identidad se resuelve
+    // directo contra el enlace (mismo criterio "validar sin consumir" que
+    // el código de verificación). Encontrada o no la ficha, esta pantalla
+    // reemplaza a "ya-vine-codigo" del todo para este camino.
+    if (enlaceToken) {
+      setBuscandoPaciente(true);
+      const resultado = await pacienteVerificadoPublicoAction(slug, dni, email, "", enlaceToken);
+      setBuscandoPaciente(false);
+      if (resultado.paciente) {
+        setPacienteVerificado(resultado.paciente);
+        setPaso("tarjeta-paciente");
+        return;
+      }
+      setPacienteNoEncontrado(true);
+      return;
+    }
+
     setEnviandoCodigo(true);
     const result = await enviarVerificacionEmailAction(slug, email, captchaToken);
     setEnviandoCodigo(false);
@@ -617,6 +658,22 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     setTutorCampos((c) => ({ ...c, email: tutorEmail }));
     setEmailEnVerificacion(tutorEmail);
     setPacienteNoEncontrado(false);
+
+    // Fase 2, ítem 5: mismo criterio que continuarYaVine — sin código,
+    // resuelve directo contra el enlace.
+    if (enlaceToken) {
+      setBuscandoPaciente(true);
+      const resultado = await pacientesVerificadosDeTutorAction(slug, tutorEmail, "", enlaceToken);
+      setBuscandoPaciente(false);
+      if (resultado.pacientes && resultado.pacientes.length > 0) {
+        setPacientesVerificadosTutor(resultado.pacientes);
+        setPaso("otro-tarjeta-paciente");
+        return;
+      }
+      setPacienteNoEncontrado(true);
+      return;
+    }
+
     setEnviandoCodigo(true);
     const result = await enviarVerificacionEmailAction(slug, tutorEmail, captchaToken);
     setEnviandoCodigo(false);
@@ -788,13 +845,17 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
 
     let payload: SolicitarTurnoPublicoPayload;
     if (esVerificado) {
+      // "Ya he venido antes" confirmado, con código o con enlace (Fase 2,
+      // ítem 5) — mismo criterio que las otras 2 ramas de este if: la
+      // credencial que se manda depende de por cuál de los dos caminos
+      // llegó, nunca las dos juntas.
       payload = {
         emailContacto: emailEnVerificacion,
         motivo: motivo || undefined,
         tipoConsultaId,
         fecha,
         hora,
-        verificacionToken,
+        ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
         pacienteVerificadoId: pacienteVerificado.id,
         ...(esOtroFlujo ? { paraOtro: true, tutorEmail: emailEnVerificacion } : {}),
       };
@@ -902,15 +963,11 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onContinuar={() => {
             const elegido = paraQuienSel ?? (esOtro ? "otro" : "mi");
             setEsOtro(elegido === "otro");
-            // Con enlace (Fase 2, ítem 5) se saltea [2] del todo — "ya he
-            // venido antes" depende del código de verificación, que este
-            // modo no tiene, así que directo a "primera vez".
-            if (enlaceToken) {
-              setFlujo(elegido === "otro" ? "otro-primera-vez" : "primera-vez");
-              setPaso(elegido === "otro" ? "otro-tutor" : "contacto");
-            } else {
-              setPaso("ya-te-atendiste");
-            }
+            // Con enlace (Fase 2, ítem 5) el wizard sigue igual: [2] "¿Ya
+            // te atendiste?" se muestra siempre — lo único que cambia son
+            // las 3 "trabas" de seguridad (captcha, código, detección de
+            // abuso), no los pasos del wizard.
+            setPaso("ya-te-atendiste");
           }}
           onClose={onClose}
         />
@@ -958,7 +1015,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
             else if (field === "motivo") actualizar("motivo", value);
           }}
           onSubmit={continuar}
-          onBack={() => setPaso(enlaceToken ? "para-quien" : "ya-te-atendiste")}
+          onBack={() => setPaso("ya-te-atendiste")}
           onClose={onClose}
           paso={3}
           total={4}
@@ -984,12 +1041,21 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onClose={onClose}
           paso={3}
           total={5}
-          enviando={enviandoCodigo}
+          enviando={enviandoCodigo || buscandoPaciente}
+          accionLabel={enlaceToken ? "Buscar" : undefined}
+          accionLabelEnviando={enlaceToken ? "Buscando…" : undefined}
           extra={
-            <>
-              <TurnstileWidget onToken={setCaptchaToken} />
-              {error && <ErrorMsg>{error}</ErrorMsg>}
-            </>
+            enlaceToken ? (
+              <>
+                {pacienteNoEncontrado && <NoEncontradoAviso onEmpezarComoNuevo={empezarComoNuevo} />}
+                {error && <ErrorMsg>{error}</ErrorMsg>}
+              </>
+            ) : (
+              <>
+                <TurnstileWidget onToken={setCaptchaToken} />
+                {error && <ErrorMsg>{error}</ErrorMsg>}
+              </>
+            )
           }
         />
       );
@@ -1009,7 +1075,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
             else actualizarTutor(field, value);
           }}
           onSubmit={continuarOtroTutor}
-          onBack={() => setPaso(enlaceToken ? "para-quien" : "ya-te-atendiste")}
+          onBack={() => setPaso("ya-te-atendiste")}
           onClose={onClose}
           onCambiarParaQuien={() => {
             setParaQuienSel("mi");
@@ -1060,12 +1126,21 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onClose={onClose}
           paso={3}
           total={5}
-          enviando={enviandoCodigo}
+          enviando={enviandoCodigo || buscandoPaciente}
+          accionLabel={enlaceToken ? "Buscar" : undefined}
+          accionLabelEnviando={enlaceToken ? "Buscando…" : undefined}
           extra={
-            <>
-              <TurnstileWidget onToken={setCaptchaToken} />
-              {error && <ErrorMsg>{error}</ErrorMsg>}
-            </>
+            enlaceToken ? (
+              <>
+                {pacienteNoEncontrado && <NoEncontradoAviso onEmpezarComoNuevo={empezarComoNuevoOtro} />}
+                {error && <ErrorMsg>{error}</ErrorMsg>}
+              </>
+            ) : (
+              <>
+                <TurnstileWidget onToken={setCaptchaToken} />
+                {error && <ErrorMsg>{error}</ErrorMsg>}
+              </>
+            )
           }
         />
       );
@@ -1158,17 +1233,15 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onConfirmar={confirmar}
           onIrProximoDisponible={irAlProximoDisponible}
           onBack={() => {
-            // Fase 2, ítem 5: con enlace nunca se pasó por ningún paso de
-            // código — "Atrás" vuelve directo a la última pantalla de
-            // datos real.
-            if (enlaceToken) {
-              setPaso(flujo === "otro-primera-vez" ? "otro-paciente" : "contacto");
-              return;
-            }
+            // "verificado"/"otro-verificado" (tarjeta ya confirmada, con
+            // código o con enlace — Fase 2, ítem 5) siempre vuelven a esa
+            // tarjeta. "primera-vez"/"otro-primera-vez" vuelven al paso de
+            // código, salvo con enlace: ahí ese paso nunca existió, así
+            // que "Atrás" va directo a la última pantalla de datos real.
             if (flujo === "verificado") setPaso("tarjeta-paciente");
             else if (flujo === "otro-verificado") setPaso("otro-tarjeta-paciente");
-            else if (flujo === "otro-primera-vez") setPaso("otro-verificacion");
-            else setPaso("verificacion");
+            else if (flujo === "otro-primera-vez") setPaso(enlaceToken ? "otro-paciente" : "otro-verificacion");
+            else setPaso(enlaceToken ? "contacto" : "verificacion");
           }}
           onClose={onClose}
           mesVisible={mesVisible}
@@ -1214,5 +1287,20 @@ function ErrorMsg({ children }: { children: React.ReactNode }) {
     <p role="alert" className="text-sm text-terracota-oscuro">
       {children}
     </p>
+  );
+}
+
+// NoEncontradoAviso — Fase 2, ítem 5: mismo bloque/copy que el estado
+// "pacienteNoEncontrado" de PantallaCodigo, reusado acá porque con enlace
+// no hay pantalla de código donde mostrarlo — la búsqueda ocurre en el
+// mismo paso "ya-vine-datos"/"otro-ya-vine-datos".
+function NoEncontradoAviso({ onEmpezarComoNuevo }: { onEmpezarComoNuevo: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-field bg-hueso p-3 text-sm text-grafito/70">
+      <p>No encontramos una ficha verificada con esos datos.</p>
+      <button type="button" onClick={onEmpezarComoNuevo} className="self-start font-medium text-salvia-oscuro hover:underline">
+        Empezar como paciente nuevo
+      </button>
+    </div>
   );
 }

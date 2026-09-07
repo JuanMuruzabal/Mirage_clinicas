@@ -114,13 +114,20 @@ export interface PacienteVerificadoPublicoResult {
 // datos", y el wizard lo interpreta como una invitación a empezar como
 // paciente nuevo, así que se devuelve como `error` para que el
 // componente decida qué mostrar.
+//
+// enlaceToken (Fase 2, ítem 5) — alternativa a verificacionToken cuando el
+// wizard se abrió desde un link compartido: el mismo paso "ya he venido
+// antes" se replica igual, solo cambia la credencial que valida la
+// identidad (mutuamente excluyente con verificacionToken).
 export async function pacienteVerificadoPublicoAction(
   slug: string,
   dni: string,
   email: string,
   verificacionToken: string,
+  enlaceToken?: string,
 ): Promise<PacienteVerificadoPublicoResult> {
-  const result = await apiGetPacienteVerificadoPublico(slug, dni, email, verificacionToken);
+  const credencial = enlaceToken ? { enlaceToken } : { verificacionToken };
+  const result = await apiGetPacienteVerificadoPublico(slug, dni, email, credencial);
   if (!result.ok) {
     return { error: result.error };
   }
@@ -138,12 +145,15 @@ export interface PacientesVerificadosDeTutorResult {
 // devolver más de una tarjeta (un tutor puede tener más de un hijo
 // verificado a su cargo). Un 404 tampoco es un error de verdad acá —
 // "no encontramos ningún paciente verificado con ese mail de tutor".
+// enlaceToken — misma alternativa que en pacienteVerificadoPublicoAction.
 export async function pacientesVerificadosDeTutorAction(
   slug: string,
   tutorEmail: string,
   verificacionToken: string,
+  enlaceToken?: string,
 ): Promise<PacientesVerificadosDeTutorResult> {
-  const result = await apiGetPacientesVerificadosDeTutorPublico(slug, tutorEmail, verificacionToken);
+  const credencial = enlaceToken ? { enlaceToken } : { verificacionToken };
+  const result = await apiGetPacientesVerificadosDeTutorPublico(slug, tutorEmail, credencial);
   if (!result.ok) {
     return { error: result.error };
   }

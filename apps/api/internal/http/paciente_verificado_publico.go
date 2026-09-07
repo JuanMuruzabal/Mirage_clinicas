@@ -232,6 +232,31 @@ type pacienteVerificadoResponse struct {
 	DNI    string `json:"dni"`
 }
 
+// validarIdentidadPublicaOEnlace — Fase 2, ítem 5 ("compartir
+// calendario"): las dos pantallas de "ya he venido antes" (por DNI y por
+// mail de tutor) aceptan CUALQUIERA de dos pruebas de identidad —
+// `verificacionToken` (el código de 6 dígitos de siempre) o
+// `enlaceToken` (el profesional ya garantizó la identidad al mandar el
+// link, sin código de por medio) — mutuamente excluyentes, nunca los dos
+// vacíos (ya validado por el caller antes de llegar acá). Ninguna de las
+// dos consume nada: el token de verificación se gasta recién al mandar
+// el pedido final (consumirVerificacionTurnoPublico) y el enlace igual
+// (consumirEnlaceTurno) — acá solo se comprueba que siga vigente.
+func validarIdentidadPublicaOEnlace(gdb *gorm.DB, clinicID uuid.UUID, email, verificacionToken, enlaceToken string) error {
+	if enlaceToken != "" {
+		enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken)
+		if err != nil {
+			return err
+		}
+		if !enlace.Vigente(time.Now()) {
+			return errEnlaceTurnoInvalido
+		}
+		return nil
+	}
+	_, err := validarVerificacionTurnoPublico(gdb, clinicID.String(), email, verificacionToken)
+	return err
+}
+
 // pacienteVerificadoPublicoHandler — GET
 // /clinicas/{slug}/pacientes/verificado?dni=&email=&verificacionToken=
 // (Fase 2.4.1, camino "ya he venido antes" del wizard público): exige un
@@ -259,9 +284,15 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// tarjeta (un tutor puede tener más de un hijo verificado a su
 		// cargo). El modo de abajo (`dni`+`email`, una sola tarjeta) sigue
 		// exactamente igual.
+		// enlaceToken (Fase 2, ítem 5 — "compartir calendario"): alternativa
+		// a verificacionToken cuando la identidad ya la garantizó el
+		// profesional al mandar el link, no un código de mail — ver el
+		// comentario grande de validarIdentidadPublicaOToken más abajo.
+		enlaceToken := strings.TrimSpace(r.URL.Query().Get("enlaceToken"))
+
 		if tutorEmail := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("tutorEmail"))); tutorEmail != "" {
 			token := strings.TrimSpace(r.URL.Query().Get("verificacionToken"))
-			listarPacientesVerificadosDeTutorHandler(w, gdb, clinic, tutorEmail, token)
+			listarPacientesVerificadosDeTutorHandler(w, gdb, clinic, tutorEmail, token, enlaceToken)
 			return
 		}
 
@@ -276,14 +307,18 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
 			return
 		}
-		if token == "" {
+		if token == "" && enlaceToken == "" {
 			writeError(w, http.StatusBadRequest, "verificá tu mail antes de continuar")
 			return
 		}
 
-		if _, err := validarVerificacionTurnoPublico(gdb, clinic.ID.String(), email, token); err != nil {
+		if err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, email, token, enlaceToken); err != nil {
 			if errors.Is(err, errTurnoVerifPruebaInvalida) {
 				writeError(w, http.StatusForbidden, "verificá tu mail antes de continuar")
+				return
+			}
+			if errors.Is(err, errEnlaceTurnoInvalido) {
+				writeError(w, http.StatusForbidden, errEnlaceTurnoInvalido.Error())
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "no se pudo verificar el mail")
@@ -337,18 +372,22 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 // verificado a su cargo. Mismo criterio de censura y de exigir el token
 // de "Confirmanos que sos vos" ya validado (sin consumir, ver
 // validarVerificacionTurnoPublico) que el modo por DNI.
-func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.DB, clinic db.Clinic, tutorEmail, token string) {
+func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.DB, clinic db.Clinic, tutorEmail, token, enlaceToken string) {
 	if _, err := mail.ParseAddress(tutorEmail); err != nil {
 		writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
 		return
 	}
-	if token == "" {
+	if token == "" && enlaceToken == "" {
 		writeError(w, http.StatusBadRequest, "verificá tu mail antes de continuar")
 		return
 	}
-	if _, err := validarVerificacionTurnoPublico(gdb, clinic.ID.String(), tutorEmail, token); err != nil {
+	if err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, tutorEmail, token, enlaceToken); err != nil {
 		if errors.Is(err, errTurnoVerifPruebaInvalida) {
 			writeError(w, http.StatusForbidden, "verificá tu mail antes de continuar")
+			return
+		}
+		if errors.Is(err, errEnlaceTurnoInvalido) {
+			writeError(w, http.StatusForbidden, errEnlaceTurnoInvalido.Error())
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "no se pudo verificar el mail")
