@@ -1183,6 +1183,19 @@ func TestCancelarTurno_DeOtroProfesionalFalla(t *testing.T) {
 	}
 }
 
+// TestCancelarTurno_IdMalFormadoFalla — un id que ni parsea como UUID da
+// 400 antes de tocar la base.
+func TestCancelarTurno_IdMalFormadoFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "cancelar-malformado@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/no-es-un-uuid/cancelar", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 // TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes —
 // corrección de seguridad (Fase 2.4.1): "cómo se hace para borrar todos
 // los turnos sin verificar" — un turno de un paciente VERIFICADO nunca se

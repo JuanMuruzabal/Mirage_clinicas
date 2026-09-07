@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -262,6 +263,21 @@ func TestGetPaciente_NoExisteFalla(t *testing.T) {
 	}
 }
 
+// TestGetPaciente_IdMalFormadoFalla — un id que ni siquiera parsea como
+// UUID (ej. un slug/ID de otro sistema pegado por error) tiene que dar
+// 400, no llegar a golpear la base con un id inválido.
+func TestGetPaciente_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "pac5b@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/no-es-un-uuid", reg.Token, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 // TestEditarPaciente_Exitoso — pedido 2026-08-23: corregir DNI/teléfono/
 // email de la ficha si hubo un error o una actualización de datos.
 func TestEditarPaciente_Exitoso(t *testing.T) {
@@ -357,6 +373,46 @@ func TestEditarPaciente_NoExisteFalla(t *testing.T) {
 	})
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// TestEditarPaciente_IdMalFormadoFalla — mismo criterio que
+// TestGetPaciente_IdMalFormadoFalla: un id que ni parsea como UUID da 400
+// antes de tocar la base.
+func TestEditarPaciente_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "editapac3b@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/pacientes/no-es-un-uuid", reg.Token, editarPacienteRequest{
+		DNI: "30111222", Telefono: "+5493511234567",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestEditarPaciente_CuerpoInvalidoFalla — JSON mal formado en el body,
+// mismo criterio que TestResolverConflictoPaciente_CuerpoInvalidoFalla:
+// decodeJSON rechaza con 400 antes de tocar la base.
+func TestEditarPaciente_CuerpoInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "María Games", Email: "editapac3c@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+	paciente := db.Paciente{ProfesionalID: uuid.MustParse(reg.Profesional.ID), Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Origen: "manual"}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPatch, "/pacientes/"+paciente.ID.String(), strings.NewReader("{esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+reg.Token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 }
 

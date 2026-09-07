@@ -305,3 +305,17 @@ func TestEliminarTipoConsulta_Inexistente(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d", delRec.Code, http.StatusNotFound)
 	}
 }
+
+// TestEliminarTipoConsulta_IdMalFormadoFalla — un id que ni parsea como
+// UUID da 400 antes de tocar la base.
+func TestEliminarTipoConsulta_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ana", Email: "eliminar-tipo4@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	delRec := doJSONAuth(t, router, http.MethodDelete, "/tipos-consulta/no-es-un-uuid", reg.Token, nil)
+	if delRec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", delRec.Code, http.StatusBadRequest, delRec.Body.String())
+	}
+}

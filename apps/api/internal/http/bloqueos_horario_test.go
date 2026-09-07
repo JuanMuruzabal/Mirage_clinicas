@@ -475,6 +475,20 @@ func TestEliminarBloqueo_DeOtraClinicaDevuelve404(t *testing.T) {
 	}
 }
 
+// TestEliminarBloqueo_IdMalFormadoFalla — un id que ni parsea como UUID
+// da 400 antes de tocar la base.
+func TestEliminarBloqueo_IdMalFormadoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Uno", Email: "bloqueo-malformado@example.com", Password: "password123456", NombreClinica: "Clínica",
+	})
+
+	delRec := doJSONAuth(t, router, http.MethodDelete, "/bloqueos/no-es-un-uuid", reg.Token, nil)
+	if delRec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", delRec.Code, http.StatusBadRequest, delRec.Body.String())
+	}
+}
+
 func TestBloqueos_RequiereAutenticacion(t *testing.T) {
 	router, _ := newTestRouter(t)
 

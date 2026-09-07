@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -962,5 +964,51 @@ func TestResolverConflictoPaciente_IdMalFormadoFalla(t *testing.T) {
 	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/no-es-un-uuid/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestResolverConflictoPaciente_CuerpoInvalidoFalla — JSON mal formado en
+// el body (a diferencia de los tests de arriba, que mandan un struct Go
+// válido vía doJSONAuth): decodeJSON tiene que rechazarlo con 400 antes de
+// llegar a buscar el conflicto en la base.
+func TestResolverConflictoPaciente_CuerpoInvalidoFalla(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf10@example.com")
+	_, _, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	req := httptest.NewRequest(http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", strings.NewReader("{esto no es json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+reg.Token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla — si la
+// ficha en conflicto se borró por otro lado (carrera real: dos pedidos de
+// resolución simultáneos, o borrada a mano) entre que se creó el ticket y
+// que el profesional lo resuelve, la transacción de resolverConflictoComoVerdadero
+// falla al no encontrarla (`tx.First`) — el handler responde 500 legible
+// en vez de dejar que el panic/error crudo suba.
+func TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf11@example.com")
+	_, enConflicto, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	// Desvincula el turno y borra la ficha en conflicto a mano, simulando
+	// que ya desapareció antes de que el profesional resuelva el ticket.
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ?", enConflicto.ID).Update("paciente_id", nil).Error; err != nil {
+		t.Fatalf("no se pudo desvincular el turno de prueba: %v", err)
+	}
+	if err := gdb.Delete(&db.Paciente{}, "id = ?", enConflicto.ID).Error; err != nil {
+		t.Fatalf("no se pudo borrar la ficha en conflicto de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusInternalServerError, rec.Body.String())
 	}
 }
