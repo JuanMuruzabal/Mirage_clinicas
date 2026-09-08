@@ -222,4 +222,56 @@ Reordenado desde la v1: el hallazgo crítico ahora encabeza la Fase A.
 
 ---
 
-*Método: lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. No reemplaza un pentest ni una herramienta de SAST automatizada.*
+## 12. Segunda pasada (2026-09-08) — módulos que la primera no cubrió
+
+Repaso dirigido específicamente a lo que la primera pasada **no** miró: Server Actions del frontend (los verdaderos puntos de entrada desde el navegador), CI/CD, gestión de dependencias, y los endpoints públicos restantes. Además, esta vez se corrieron herramientas reales de análisis, no solo lectura.
+
+### 🔴 Hallazgo #2 — "Mis turnos" roto para el camino "para otro"
+
+`misTurnosPublicoHandler` comparaba **siempre** contra `turno.EmailContacto`. En el camino "para otro" (Fase 2.4.2) ese campo es el mail **propio del paciente** — opcional, y explícitamente vaciado por `sincronizarTurnoDesdeFichaVerificada` — porque el mail que se verifica y que identifica el pedido es `TutorEmail`.
+
+**Consecuencia: un tutor que sacaba turno para su hijo nunca podía encontrarlo con "Mis turnos".** La feature quedaba rota entera para ese camino, en silencio (devuelve el mismo 404 genérico que "no existe", así que nadie lo reporta como error).
+
+Lo revelador: el helper que resuelve exactamente esta pregunta (`identidadDeContactoDelTurno`, `turno_publico.go`) **ya existía desde Fase 2.4.2** y se usa en 2 lugares — este handler simplemente nunca se actualizó cuando se sumó el camino del tutor. Es el patrón de bug más difícil de ver leyendo un archivo aislado: cada pieza es correcta por separado, la inconsistencia solo aparece cruzando módulos.
+
+> `apps/api/internal/http/mis_turnos_publico.go` — corregido, con 2 tests nuevos (el primero se escribió **antes** del fix y falló con 404 contra el código viejo: bug demostrado, no supuesto)
+
+### 🟠 CVEs latentes en `golang.org/x/crypto` — el arreglo exige subir el toolchain
+
+`govulncheck` reporta 4 vulnerabilidades conocidas en `golang.org/x/crypto@v0.54.0` — la librería que implementa **argon2 y bcrypt**, o sea el hashing de contraseñas. El análisis de símbolos confirma que **ninguna es alcanzable** desde este código (los símbolos afectados no se llaman).
+
+Lo importante para planificar: la primera versión que las corrige (`v0.56.0`) **requiere Go 1.26**, mientras `apps/api/Dockerfile` pinnea `golang:1.25-alpine`. Actualizar la dependencia sin más **rompe el build de producción** — se verificó en la práctica al intentarlo. Arreglarlo requiere un cambio coordinado en 3 archivos (`go.mod` + `Dockerfile` + el CI que lee `go-version-file`), no un `go get`.
+
+Prioridad realista: media-baja mientras no sean alcanzables, pero conviene no dejarlo envejecer indefinidamente — es la dependencia más sensible del sistema.
+
+| CVE | Corregida en |
+|---|---|
+| GO-2026-6355 | x/crypto v0.56.0 |
+| GO-2026-6354 | x/crypto v0.56.0 |
+| GO-2026-6303 | x/crypto v0.55.0 |
+| GO-2026-5932 | sin fix disponible |
+
+### ✅ Lo que se verificó y está bien
+
+| Área | Resultado |
+|---|---|
+| **`govulncheck`** (CVEs realmente alcanzables) | **0 vulnerabilidades** en código que se ejecuta |
+| Secretos en git | `.env` correctamente ignorado; solo los `.env.example` trackeados |
+| Server Actions (entrada real del navegador) | Ninguna de las 56 acepta un `profesionalId`/`clinicId` del cliente — el tenant **siempre** se resuelve desde la sesión, sin superficie de IDOR |
+| CI/CD | Race detector activo (`-race`), gate de cobertura 80% en ambos stacks, base de test separada y validada (`internal/testdb` rechaza cualquier URL que no termine en `_test`) |
+| Comparación del código de 6 dígitos | Se hashea y se compara en el `WHERE` de SQL (lookup por índice), no byte a byte en Go — sin superficie de timing práctica |
+| Endpoint público de clínicas | Solo expone datos deliberadamente públicos (slug, nombre, teléfono, especialidades) — ningún dato personal de más |
+| Storage local | `filepath.Base()` antes de escribir — sin path traversal |
+
+### 🔧 Corregido de paso
+
+- **`golang-jwt/jwt/v5` era una dependencia muerta**: seguía declarada en `go.mod` desde antes de TR-037 (que reemplazó los JWT por sesiones server-side), sin un solo uso real en el código — solo menciones en comentarios. Eliminada con `go mod tidy`, que confirmó que no arrastra nada más.
+- **11 referencias de ruta desactualizadas** en `ci.yml`, `render.yaml` y los dos `package.json`, que el reemplazo masivo de la reorganización de `docs/` no había cubierto (solo alcanzaba `.go`/`.ts`/`.tsx`/`.md`).
+
+### Qué queda pendiente de esta segunda pasada
+
+Ninguna de las áreas nuevas abrió hallazgos altos más allá de los dos de arriba. Lo que **no** se revisó en profundidad y queda para una tercera ronda si se quiere ir más lejos: el detalle de cada componente grande del frontend (se revisaron por muestreo, no completos), y un análisis de concurrencia dirigido sobre los caminos con transacción larga (`solicitarTurnoPublicoHandler`, resolución de conflictos) — el `-race` de CI cubre lo básico, pero no reemplaza razonar los invariantes bajo carga real.
+
+---
+
+*Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*

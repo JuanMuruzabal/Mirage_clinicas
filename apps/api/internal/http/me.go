@@ -131,7 +131,7 @@ func updateMeHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req updateMeRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

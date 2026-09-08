@@ -2,8 +2,10 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -35,6 +37,20 @@ func main() {
 
 	cfg := config.Load()
 
+	// Corrección de seguridad (auditoría 2026-09-08, docs/Seguridad y
+	// optimizacion/radiografia-tecnica_1.md): JWT_SECRET cae a un valor
+	// hardcodeado y público en el repo si la env var no está seteada
+	// (config.go) — pensado para que `development` nunca se rompa por
+	// falta de configuración local. Fuera de `development`, ese mismo
+	// comportamiento es peligroso: un typo en el nombre de la variable en
+	// el dashboard de deploy haría arrancar el proceso en silencio
+	// firmando el `state` de OAuth con un secreto que cualquiera puede
+	// leer en GitHub. Un secreto crítico tiene que frenar el arranque si
+	// falta, nunca degradar solo.
+	if err := requireExplicitSecretsOutsideDev(cfg); err != nil {
+		log.Fatalf("configuración insegura: %v", err)
+	}
+
 	gormDB, err := db.Connect(cfg.DBUrl)
 	if err != nil {
 		log.Fatalf("error conectando a la base de datos: %v", err)
@@ -45,10 +61,41 @@ func main() {
 
 	go runPurgeLoop(gormDB)
 
+	// http.Server explícito, no http.ListenAndServe directo — corrección
+	// de seguridad (misma auditoría de arriba): sin ReadHeaderTimeout, una
+	// conexión que manda los headers de la request muy lentamente (patrón
+	// Slowloris) queda abierta indefinidamente, agotando goroutines/
+	// conexiones de a poco. middleware.Timeout (router.go) ya corta el
+	// PROCESAMIENTO a los 30s, pero corre recién después de que el
+	// handler arrancó — no cubre esta fase anterior, de lectura de la
+	// conexión en sí.
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
 	log.Printf("dental-mirage api escuchando en :%s (env=%s)", cfg.Port, cfg.Env)
-	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("error arrancando el servidor: %v", err)
 	}
+}
+
+// requireExplicitSecretsOutsideDev — ver el comentario grande en main()
+// sobre por qué. Extraída como función pura (recibe el resultado de
+// os.LookupEnv en vez de leerlo ella misma) para poder testearla sin
+// mutar variables de entorno globales del proceso de test.
+func requireExplicitSecretsOutsideDev(cfg config.Config) error {
+	if cfg.Env == "development" {
+		return nil
+	}
+	if _, ok := os.LookupEnv("JWT_SECRET"); !ok {
+		return errors.New("JWT_SECRET es obligatorio fuera de development — no se puede arrancar con el secreto de ejemplo del repo")
+	}
+	return nil
 }
 
 // runPurgeLoop — TR-063 en docs/Arquitectura y base/tradeoffs.md: corre db.PurgeAuthGarbage de

@@ -127,8 +127,22 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-// decodeJSON decodifica el body JSON de un request en v.
-func decodeJSON(r *http.Request, v any) error {
+// maxJSONBodyBytes — corrección de seguridad (auditoría 2026-09-08,
+// docs/Seguridad y optimizacion/radiografia-tecnica_1.md): ningún payload
+// legítimo de este backend (formularios de texto, nunca subida de
+// archivos — eso pasa por internal/storage, no por acá) se acerca a este
+// tamaño. Sin este límite, decodeJSON aceptaba un body de cualquier
+// tamaño y lo cargaba entero en memoria ANTES de validar nada — un DoS
+// trivial contra cualquier endpoint POST/PATCH, incluidos los públicos
+// sin sesión (turno_publico.go).
+const maxJSONBodyBytes = 1 << 20 // 1 MiB
+
+// decodeJSON decodifica el body JSON de un request en v — acotado a
+// maxJSONBodyBytes vía http.MaxBytesReader, que además de cortar la
+// lectura cierra la conexión si el cliente sigue mandando de más (no
+// alcanza con truncar el Decode solo).
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	defer func() { _ = r.Body.Close() }()
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	return json.NewDecoder(r.Body).Decode(v)
 }

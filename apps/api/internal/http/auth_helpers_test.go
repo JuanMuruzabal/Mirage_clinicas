@@ -67,13 +67,42 @@ func TestIsUniqueViolation(t *testing.T) {
 	}
 }
 
-func TestClientIP_UsaXForwardedForCuandoEstaPresente(t *testing.T) {
+// TestClientIP_UsaElUltimoValorDeXForwardedFor — corrección de seguridad
+// (auditoría 2026-09-08, radiografia-tecnica_1.md hallazgo #1): con un
+// único proxy de confianza delante (Render), ese proxy AGREGA su propia
+// IP observada al final de lo que haya en la request — el último valor es
+// el confiable, cualquiera de los anteriores puede haberlo escrito el
+// cliente mismo.
+func TestClientIP_UsaElUltimoValorDeXForwardedFor(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("X-Forwarded-For", "203.0.113.9, 10.0.0.1")
 	req.RemoteAddr = "192.0.2.1:1234"
 
-	if got := clientIP(req); got != "203.0.113.9" {
-		t.Errorf("clientIP = %q, esperaba %q (primer valor de X-Forwarded-For)", got, "203.0.113.9")
+	if got := clientIP(req); got != "10.0.0.1" {
+		t.Errorf("clientIP = %q, esperaba %q (último valor de X-Forwarded-For, el que agregó el proxy de confianza)", got, "10.0.0.1")
+	}
+}
+
+// TestClientIP_NoSeDejaFalsificarElPrimerValor — reproduce el escenario de
+// ataque que motivó el fix: un cliente que manda su propio
+// X-Forwarded-For pretendiendo ser otra IP. El proxy de confianza (Render)
+// AGREGA la IP real observada al final sin tocar lo que vino antes —
+// clientIP tiene que devolver esa IP real, nunca el valor que el cliente
+// intentó imponer.
+func TestClientIP_NoSeDejaFalsificarElPrimerValor(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	// El cliente manda esto pretendiendo ser la IP de otra persona —
+	// "203.0.113.9" es la IP falsa que el atacante quiere que el sistema
+	// crea, "198.51.100.7" es la IP real del atacante, agregada por el
+	// proxy al reenviar la request.
+	req.Header.Set("X-Forwarded-For", "203.0.113.9, 198.51.100.7")
+	req.RemoteAddr = "10.0.0.1:1234"
+
+	if got := clientIP(req); got == "203.0.113.9" {
+		t.Fatalf("clientIP = %q — devolvió la IP falsificada por el cliente en vez de la real", got)
+	}
+	if got := clientIP(req); got != "198.51.100.7" {
+		t.Errorf("clientIP = %q, esperaba %q (la IP real que agregó el proxy)", got, "198.51.100.7")
 	}
 }
 

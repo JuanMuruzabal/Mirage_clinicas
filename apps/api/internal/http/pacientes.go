@@ -368,7 +368,7 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req editarPacienteRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -477,7 +477,7 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req crearPacienteRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

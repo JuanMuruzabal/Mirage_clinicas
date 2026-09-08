@@ -281,7 +281,7 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req crearTurnoManualRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -489,7 +489,7 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req reprogramarTurnoRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -588,7 +588,7 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req autoreservarTurnosRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -751,7 +751,7 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req marcarAsistenciaRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
