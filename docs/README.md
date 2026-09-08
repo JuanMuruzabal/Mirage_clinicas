@@ -1,30 +1,36 @@
 # Índice de `docs/`
 
-Mapa rápido de qué es cada documento y si sigue vigente. `CLAUDE.md` (raíz del repo) sigue siendo el punto de entrada real para trabajar en el proyecto — esto es solo para no perderse dentro de `docs/`.
+Mapa rápido de qué es cada documento y dónde vive, y si sigue vigente. `CLAUDE.md` (raíz del repo) sigue siendo el punto de entrada real para trabajar en el proyecto — esto es solo para no perderse dentro de `docs/`.
 
-## Documentos vivos — se actualizan a medida que el proyecto avanza
+## `Arquitectura y base/` — documentos vivos, se actualizan a medida que el proyecto avanza
 
 | Archivo | Qué es |
 |---|---|
-| [`dental-mirage-spec.md`](dental-mirage-spec.md) | Especificación funcional completa del producto. |
-| [`implementation-plan.md`](implementation-plan.md) | Plan de implementación fase por fase, sprint por sprint, con criterios de aceptación. |
-| [`tradeoffs.md`](tradeoffs.md) | Decisión por decisión: qué se eligió, qué alternativas se descartaron y por qué (TR-001 en adelante). El documento más largo y el que hay que leer para entender el "por qué" de cualquier cosa no obvia en el código. |
-| [`ArquitecturaPeticionesTurno.md`](ArquitecturaPeticionesTurno.md) | Detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público — qué hace cada detector, qué testear. |
-| [`rediseno-flujo-turnos.md`](rediseno-flujo-turnos.md) | Especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.). |
-| [`radiografia-tecnica.md`](radiografia-tecnica.md) | Auditoría de ingeniería (complejidad, seguridad, rendimiento) — 2026-09-08. Se puede volver a correr y actualizar cuando haga falta un nuevo chequeo. |
+| [`dental-mirage-spec.md`](<Arquitectura y base/dental-mirage-spec.md>) | Especificación funcional completa del producto. |
+| [`implementation-plan.md`](<Arquitectura y base/implementation-plan.md>) | Plan de implementación fase por fase, sprint por sprint, con criterios de aceptación. |
+| [`tradeoffs.md`](<Arquitectura y base/tradeoffs.md>) | Decisión por decisión: qué se eligió, qué alternativas se descartaron y por qué (TR-001 en adelante). El documento más largo y el que hay que leer para entender el "por qué" de cualquier cosa no obvia en el código. |
 
-## Briefs originales del cliente — fuente primaria, no se editan
+## `Fase 2/` — briefs originales del cliente y su especificación técnica
 
-Transcripciones o entregas directas del cliente. Se mantienen tal cual llegaron, como referencia histórica de qué se pidió — las decisiones que se tomaron a partir de ellos están en `tradeoffs.md`, no acá.
+Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas directas del cliente) — se mantienen tal cual llegaron, sin editar. Las decisiones tomadas a partir de ellos están en `tradeoffs.md`, no acá.
 
-- [`fase2-dental-mirage.md`](fase2-dental-mirage.md) — brief original de Fase 2 (calendario avanzado).
-- [`fase2.3-extra-dental-mirage.md`](fase2.3-extra-dental-mirage.md) — brief de los 5 ítems extra post-QA de F2.3.
-- [`FASE 2.4 - detallada y bien especificada.docx`](<FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
+- [`fase2-dental-mirage.md`](<Fase 2/fase2-dental-mirage.md>) — brief original de Fase 2 (calendario avanzado).
+- [`fase2.3-extra-dental-mirage.md`](<Fase 2/fase2.3-extra-dental-mirage.md>) — brief de los 5 ítems extra post-QA de F2.3.
+- [`FASE 2.4 - detallada y bien especificada.docx`](<Fase 2/FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
 
-## Auth/onboarding — caso particular
+**`Fase 2/turnero_pagina/`** — documentos vivos de arquitectura/UX del wizard público, no briefs del cliente:
 
-- [`feature-sumarte-login.md`](feature-sumarte-login.md) — nació como el prompt original de esa feature, pero en la práctica **41 archivos de código Go la citan activamente por número de sección** (`§7`, `§2`, etc.) como si fuera la especificación viva de todo el módulo de auth. No se movió ni se tocó por eso — a pesar de lo que dice `CLAUDE.md` ("puede quedar desactualizado"), tratarla como histórica rompería esas referencias.
-- [`feature-sumarte-login-resumen.md`](feature-sumarte-login-resumen.md) — el resumen de cierre de esa feature (qué se implementó, variables de entorno, repaso de seguridad). Este sí es el documento vivo de referencia para "qué quedó hecho".
+- [`ArquitecturaPeticionesTurno.md`](<Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md>) — detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público.
+- [`rediseno-flujo-turnos.md`](<Fase 2/turnero_pagina/rediseno-flujo-turnos.md>) — especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.).
+
+## `Login/` — auth/onboarding, caso particular
+
+- [`feature-sumarte-login.md`](<Login/feature-sumarte-login.md>) — nació como el prompt original de esa feature, pero en la práctica **41 archivos de código Go la citan activamente por número de sección** (`§7`, `§2`, etc.) como si fuera la especificación viva de todo el módulo de auth. A pesar de lo que dice `CLAUDE.md` ("puede quedar desactualizado"), tratarla como histórica rompería esas referencias — se movió de carpeta, pero no se tocó ni se fusionó su contenido.
+- [`feature-sumarte-login-resumen.md`](<Login/feature-sumarte-login-resumen.md>) — el resumen de cierre de esa feature (qué se implementó, variables de entorno, repaso de seguridad). Este sí es el documento vivo de referencia para "qué quedó hecho".
+
+## `Seguridad y optimizacion/`
+
+- [`radiografia-tecnica.md`](<Seguridad y optimizacion/radiografia-tecnica.md>) — auditoría de ingeniería (complejidad, seguridad, rendimiento) — 2026-09-08. Se puede volver a correr y actualizar cuando haga falta un nuevo chequeo.
 
 ## `mockups/` — capturas de referencia visual del cliente
 
@@ -40,3 +46,7 @@ Documentos de un solo uso: instrucciones puntuales que ya se implementaron y que
 ## No versionados / de trabajo
 
 `.claude/` es configuración local de Claude Code, no documentación del proyecto.
+
+---
+
+**Nota sobre las rutas citadas en el código:** cientos de comentarios en `apps/api` y `apps/web` citan estos documentos por su ruta completa (ej. `docs/Arquitectura y base/tradeoffs.md TR-050`). Si volvés a mover o renombrar algo acá, esas referencias quedan desactualizadas — no rompen la compilación (son solo texto en comentarios), pero conviene actualizarlas en el mismo cambio para que la documentación no "mienta" sobre dónde están las cosas.
