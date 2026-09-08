@@ -6,7 +6,14 @@
 # render.yaml, dockerContext: apps/api) — es un módulo Go independiente,
 # no necesita nada del resto del monorepo. Mismo patrón que Marcuzzi_Madryn.
 
-FROM golang:1.25-alpine AS build
+# Go 1.26 (subido desde 1.25 el 2026-09-08, auditoría de seguridad — ver
+# docs/Seguridad y optimizacion/): golang.org/x/crypto v0.56.0+, que
+# corrige 3 CVEs conocidas de la librería que implementa argon2/bcrypt
+# (el hashing de contraseñas), exige go >= 1.26. Esta línea, la directiva
+# `go` de go.mod y el `go-version-file` del CI se mueven JUNTAS — con el
+# Dockerfile pinneado en 1.25 y go.mod pidiendo 1.26, el build de
+# producción falla (verificado en la práctica antes de este cambio).
+FROM golang:1.26-alpine AS build
 WORKDIR /src
 
 # Cachea `go mod download` en su propia capa: solo se re-ejecuta si
