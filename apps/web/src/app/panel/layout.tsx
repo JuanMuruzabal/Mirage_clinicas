@@ -41,7 +41,7 @@ import { NotificacionesConflictoGlobal } from "@/components/panel/notificaciones
 //     aislado — el título/toolbar de cada página, sin ese scroll propio,
 //     quedaban afuera y se comprimían con `flex-wrap`. Ahora título +
 //     toolbar + widget son una sola unidad de scroll (mismo criterio que
-//     `.contenido-scroll` en docs/referencia-para-claude-code.html, la
+//     `.contenido-scroll` en docs/archivo/referencia-para-claude-code.html, la
 //     referencia que pasó el cliente): cada uno aporta su propio
 //     `min-width` (ver calendar-view.tsx/turnos/page.tsx/etc.) y
 //     `<main>` es el único que de verdad tiene `overflow`.

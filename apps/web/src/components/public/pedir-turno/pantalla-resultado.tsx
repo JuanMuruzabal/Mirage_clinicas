@@ -47,7 +47,7 @@ export function PantallaSosVos({
 // datos que hacen falta para dar de alta un paciente nuevo bajo ese
 // tutor; sumarlos a [3e] queda pendiente de una decisión aparte). Sin
 // scroll propio (a diferencia de la primera entrega): el CUERPO del
-// modal ya scrollea solo (docs/prompt-claude-code-fecha-horario.md,
+// modal ya scrollea solo (docs/archivo/prompt-claude-code-fecha-horario.md,
 // punto 3) — un segundo scroll acá adentro sería scroll anidado.
 export function PantallaParaQuienLista({
   pacientes,

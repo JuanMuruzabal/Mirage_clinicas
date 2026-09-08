@@ -1,7 +1,7 @@
 # Dental Mirage — Especificación de Producto (MVP)
 
 > Documento organizado a partir del brief original, para ser analizado con `/proyect-planning` y `/frontend-design`.
-> Imágenes de referencia en la misma carpeta (`01-home.png` a `05-editor-pagina.png`).
+> Imágenes de referencia en `mockups/` (`01-home.png` a `05-editor-pagina.png`).
 > Stack técnico y modo de trabajo: ver `playbook-clinica-dental.md` (mismo directorio) y el resumen aplicado en la sección 9.
 
 ---

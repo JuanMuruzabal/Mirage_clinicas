@@ -108,7 +108,7 @@ Implementar una vez y reutilizar en todas las pantallas.
 - **La [×] va adentro del modal**, arriba a la derecha, `28×28`, ícono 18px, color `--t-ink-mute`, fondo transparente. Hoy está flotando afuera en un círculo blanco: quitar ese círculo.
 - El título y el subtítulo son un bloque; la [×] se alinea a la primera línea del título.
 
-#### Estructura de 3 zonas (`docs/prompt-claude-code-fecha-horario.md`, punto 3)
+#### Estructura de 3 zonas (`docs/archivo/prompt-claude-code-fecha-horario.md`, punto 3)
 
 Con el calendario mensual (3.8) abierto, o con la lista larga de fichas de [5b], el contenido puede superar viewports chicos — si el modal entero scrollea de un tirón, el pie ("Confirmar turno") puede quedarse fuera de pantalla sin forma de llegar a él. El modal se parte en 3 zonas verticales, nunca en una sola:
 
@@ -388,11 +388,11 @@ Rama "para otro / ya vine antes". La búsqueda es **solo por email**, porque una
 
 #### Scroll de la lista
 
-**Superado por la estructura de 3 zonas de 3.1** (`docs/prompt-claude-code-fecha-horario.md`, punto 3 — esta lista larga fue justo el caso que motivó extender el scroll a los 3 zonas de TODOS los modales, no solo este). La lista ya no tiene su propio `max-height`/scroll interno: es contenido normal dentro de `.modal__body`, que scrollea solo. Un segundo scroll acá adentro sería scroll anidado — lo que esta sección originalmente pedía evitar, ahora resuelto un nivel más arriba.
+**Superado por la estructura de 3 zonas de 3.1** (`docs/archivo/prompt-claude-code-fecha-horario.md`, punto 3 — esta lista larga fue justo el caso que motivó extender el scroll a los 3 zonas de TODOS los modales, no solo este). La lista ya no tiene su propio `max-height`/scroll interno: es contenido normal dentro de `.modal__body`, que scrollea solo. Un segundo scroll acá adentro sería scroll anidado — lo que esta sección originalmente pedía evitar, ahora resuelto un nivel más arriba.
 
 ### [6] Día y horario
 
-La pantalla más importante del flujo. Reemplaza el `<input type="date">` + `<select>` de horarios — y, desde la segunda vuelta (`docs/prompt-claude-code-fecha-horario.md`), el propio `<input type="date">` del selector de fecha por un calendario mensual propio (3.8), más los horarios agrupados por franja para los días con muchos turnos.
+La pantalla más importante del flujo. Reemplaza el `<input type="date">` + `<select>` de horarios — y, desde la segunda vuelta (`docs/archivo/prompt-claude-code-fecha-horario.md`), el propio `<input type="date">` del selector de fecha por un calendario mensual propio (3.8), más los horarios agrupados por franja para los días con muchos turnos.
 
 ```
 ┌─────────────────────────────────────────┐

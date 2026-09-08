@@ -332,7 +332,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // los disparan, mismo criterio que agregar-turno-modal.tsx.
   const [cargandoSlots, setCargandoSlots] = useState(true);
 
-  // Calendario mensual (3.8, docs/prompt-claude-code-fecha-horario.md) —
+  // Calendario mensual (3.8, docs/archivo/prompt-claude-code-fecha-horario.md) —
   // `mesVisible` es del PANEL, no necesariamente el mes de `fecha`: se
   // puede navegar mes a mes sin mover la selección. Arranca en el mes de
   // `fecha` porque es el valor sensato la primera vez que se abre.
