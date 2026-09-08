@@ -30,7 +30,10 @@ Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas direct
 
 ## `Seguridad y optimizacion/`
 
-- [`radiografia-tecnica.md`](<Seguridad y optimizacion/radiografia-tecnica.md>) — auditoría de ingeniería (complejidad, seguridad, rendimiento) — 2026-09-08. Se puede volver a correr y actualizar cuando haga falta un nuevo chequeo.
+Auditoría periódica de ingeniería (complejidad, seguridad, rendimiento) — cada ronda queda como su propio archivo, numerado, en vez de sobreescribir la anterior:
+
+- [`radiografia-tecnica_1.md`](<Seguridad y optimizacion/radiografia-tecnica_1.md>) — primer diagnóstico completo, 2026-09-08. Hallazgos crudos, antes de arreglar nada.
+- `snapshot-YYYY-MM-DD.md` (a agregar cuando se cierre la ronda de arreglos sobre `_1`) — foto final de qué quedó resuelto, qué quedó pendiente a propósito y por qué, y el estado real de seguridad/optimización a esa fecha. Es el documento que hay que leer para saber "cómo estamos hoy" sin tener que releer el diagnóstico crudo completo.
 
 ## `mockups/` — capturas de referencia visual del cliente
 
