@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Modelos del nuevo sistema de auth/onboarding (docs/feature-sumarte-login.md).
+// Modelos del nuevo sistema de auth/onboarding (docs/Login/feature-sumarte-login.md).
 // Reemplazan a Profesional como dueño de la identidad — Profesional pasa a
 // ser eliminado una vez que internal/http/auth.go se reescribe sobre estos
 // modelos (ver el plan de implementación, decisión #2: cada Clinic tipo
@@ -49,7 +49,7 @@ type User struct {
 	UpdatedAt time.Time
 	// DeletedAt: soft delete — mecanismo "previsto" para el borrado de
 	// cuenta que pide Ley 25.326 (spec §7); no hay todavía un flujo
-	// self-service de borrado, ver docs/tradeoffs.md.
+	// self-service de borrado, ver docs/Arquitectura y base/tradeoffs.md.
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
@@ -105,7 +105,7 @@ const (
 
 // ProfessionalProfile es 1:1 con User (PK=FK) — los datos propios del
 // odontólogo (spec §4, Paso 2). Especialidades sigue siendo many2many
-// contra el catálogo global Especialidad (TR-004 en docs/tradeoffs.md, sin
+// contra el catálogo global Especialidad (TR-004 en docs/Arquitectura y base/tradeoffs.md, sin
 // cambios) — solo cambia la tabla puente, de profesional_especialidades a
 // professional_especialidades, con FK a user_id en vez de profesional_id.
 type ProfessionalProfile struct {
@@ -248,7 +248,7 @@ const (
 	RateLimitScopeResendVerify  = "resend_verify"
 	RateLimitScopePasswordReset = "password_reset"
 	// RateLimitScopeConfirmCode — intentos de POST /auth/verificar-email
-	// (TR-055 en docs/tradeoffs.md). Antes ese endpoint compartía el scope
+	// (TR-055 en docs/Arquitectura y base/tradeoffs.md). Antes ese endpoint compartía el scope
 	// "login" para su límite por IP, algo que quedó de una copia sin
 	// ajustar — con un código de 6 dígitos (mucha menos entropía que el
 	// token de 32 bytes anterior) hace falta su propio scope, con límite

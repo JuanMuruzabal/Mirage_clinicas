@@ -1,5 +1,5 @@
 // Package turnstile verifica tokens de Cloudflare Turnstile (CAPTCHA en
-// registro y reset de contraseña, spec §7 de docs/feature-sumarte-login.md).
+// registro y reset de contraseña, spec §7 de docs/Login/feature-sumarte-login.md).
 package turnstile
 
 import (

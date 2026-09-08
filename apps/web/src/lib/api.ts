@@ -88,7 +88,7 @@ export interface BuscarClinicasParams {
 }
 
 // Buscador público de clínicas (spec §6, FR-10) — adelantado desde Sprint 4
-// (T4.5), ver TR-012 en docs/tradeoffs.md.
+// (T4.5), ver TR-012 en docs/Arquitectura y base/tradeoffs.md.
 export function apiBuscarClinicas(params: BuscarClinicasParams): Promise<ApiResult<ClinicaResultado[]>> {
   const query = new URLSearchParams();
   if (params.q) query.set("q", params.q);
@@ -129,7 +129,7 @@ export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: strin
   return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
 }
 
-// DisponibilidadMes — docs/rediseno-flujo-turnos.md §3.8 (panel de
+// DisponibilidadMes — docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.8 (panel de
 // calendario mensual del wizard público): qué días de un mes tienen algún
 // horario disponible, para pintar el punto "con turnos" ANTES de que el
 // paciente toque ningún día.
@@ -347,7 +347,7 @@ export function apiMisTurnoPublico(slug: string, dni: string, email: string): Pr
   return request<MisTurnoPublico>(`/clinicas/${slug}/mis-turnos?${query.toString()}`);
 }
 
-// --- Auth/onboarding (docs/feature-sumarte-login.md) ---
+// --- Auth/onboarding (docs/Login/feature-sumarte-login.md) ---
 // Ninguna de estas manda la cookie de sesión — reciben el token como
 // argumento explícito (server-only, la cookie la lee/escribe lib/session.ts)
 // y lo reenvían como Authorization: Bearer, igual que el resto de la API.
@@ -426,7 +426,7 @@ export function apiListTiposConsulta(token: string): Promise<ApiResult<TipoConsu
   return request<TipoConsulta[]>("/tipos-consulta", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-// --- F2.3: ajustes de calendario (docs/implementation-plan.md §11.3) ---
+// --- F2.3: ajustes de calendario (docs/Arquitectura y base/implementation-plan.md §11.3) ---
 
 export interface TipoConsultaPayload {
   nombre: string;
@@ -687,13 +687,13 @@ export function apiAutoreservarTurnos(token: string, turnoIds: string[]): Promis
   });
 }
 
-// T2.2 (F2.3 extra ítem 1 lo reescribe de punta a punta, docs/implementation-plan.md
+// T2.2 (F2.3 extra ítem 1 lo reescribe de punta a punta, docs/Arquitectura y base/implementation-plan.md
 // §11.5): datos de las 5 tarjetas del dashboard "Turnero".
 export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>> {
   return request<ResumenPanel>("/panel/resumen", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-// apiPanelNotificaciones — TR-108 (docs/ArquitecturaPeticionesTurno.md):
+// apiPanelNotificaciones — TR-108 (docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
 // fuente de datos del aviso global de conflictos (fuera de Pacientes/
 // Calendario) — ver NotificacionesConflictoGlobal.
 export function apiPanelNotificaciones(token: string): Promise<ApiResult<PanelNotificacionesResponse>> {

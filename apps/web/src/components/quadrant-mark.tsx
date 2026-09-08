@@ -4,7 +4,7 @@ export type EstadoTurno = "agendado" | "cancelada";
 interface QuadrantMarkProps {
   className?: string;
   // T3.3: variante que encodea el estado real de un turno en una tabla
-  // (docs/tradeoffs.md TR-010) — 4 llenos = agendado, tachado diagonal =
+  // (docs/Arquitectura y base/tradeoffs.md TR-010) — 4 llenos = agendado, tachado diagonal =
   // cancelada. Sin `estado`, es la forma puramente decorativa/estructural
   // (reemplaza al border-radius en la esquina de un panel).
   estado?: EstadoTurno;
@@ -20,7 +20,7 @@ const CUADRANTES_LLENOS: Record<EstadoTurno, number> = {
 };
 
 // Marca de cuadrante — elemento firma del Sistema Cascarón (spec §9.7,
-// docs/tradeoffs.md TR-010). Grilla 2×2 de borde duro que replica la
+// docs/Arquitectura y base/tradeoffs.md TR-010). Grilla 2×2 de borde duro que replica la
 // estructura de un odontograma real.
 export function QuadrantMark({ className = "", estado }: QuadrantMarkProps) {
   const llenos = estado ? CUADRANTES_LLENOS[estado] : 0;

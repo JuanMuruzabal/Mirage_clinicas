@@ -10,7 +10,7 @@ interface InfoCardProps {
 // explícito) — sin <Link>, sin hover de "clic acá". Semiopaca con blur
 // ("vidrio") a propósito: vive encima de una foto de fondo, no de un
 // color plano — sin el blur, el detalle de la foto por debajo compite con
-// el texto y se lee peor. Identidad cálida (TR-015 en docs/tradeoffs.md,
+// el texto y se lee peor. Identidad cálida (TR-015 en docs/Arquitectura y base/tradeoffs.md,
 // pedido explícito del cliente: "el home solo cambiar las tarjetas y
 // botones") — `marfil` en vez de `porcelain`, mismo tono casi blanco
 // (#FFFDF9 vs #F4F6F5), sigue legible sobre la foto sin romper el vidrio.

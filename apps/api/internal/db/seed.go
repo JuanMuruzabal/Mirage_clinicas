@@ -8,7 +8,7 @@ import (
 )
 
 // CatalogoEspecialidades es la lista cerrada predefinida por Mirage
-// (TR-004 en docs/tradeoffs.md) — el profesional selecciona de acá al
+// (TR-004 en docs/Arquitectura y base/tradeoffs.md) — el profesional selecciona de acá al
 // registrarse (spec §3), no crea especialidades libres. El catálogo entero
 // se siembra siempre; cuáles quedan VISIBLES hoy lo decide
 // EspecialidadesVisibles, más abajo (TR-011).

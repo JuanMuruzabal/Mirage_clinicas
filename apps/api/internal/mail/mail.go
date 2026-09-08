@@ -1,6 +1,6 @@
 // Package mail centraliza el envío de correo transaccional (verificación
 // de cuenta, recuperación de contraseña, bienvenida al completar el
-// onboarding — spec §6 de docs/feature-sumarte-login.md). Mismo patrón
+// onboarding — spec §6 de docs/Login/feature-sumarte-login.md). Mismo patrón
 // dev/prod que el resto de dependencias externas del proyecto (CLAUDE.md):
 // interfaz Sender + LogSender no-op para dev + ResendSender real para
 // prod, inyectada desde cmd/api/main.go. Un envío que falla nunca debe
@@ -25,7 +25,7 @@ import (
 // — nunca llaman directo a Resend ni a ningún proveedor.
 //
 // SendVerificationEmail manda un CÓDIGO de 6 dígitos, no un link (pedido
-// explícito del cliente, 2026-08-26, TR-055 en docs/tradeoffs.md — antes
+// explícito del cliente, 2026-08-26, TR-055 en docs/Arquitectura y base/tradeoffs.md — antes
 // era un link a /verificar-mail?token=...). El resto de los mails no
 // cambió.
 type Sender interface {

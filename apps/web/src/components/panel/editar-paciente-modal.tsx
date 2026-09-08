@@ -11,7 +11,7 @@ interface EditarPacienteModalProps {
   onSuccess: (paciente: Paciente) => void;
 }
 
-// Mismas reglas de formato que TR-002 (docs/tradeoffs.md) — feedback
+// Mismas reglas de formato que TR-002 (docs/Arquitectura y base/tradeoffs.md) — feedback
 // inmediato acá, el backend (editarPacienteHandler) es la fuente de verdad.
 const DNI_REGEX = /^\d{7,8}$/;
 const TELEFONO_REGEX = /^\+?\d{10,13}$/;

@@ -31,13 +31,13 @@ function mockMe(data: { emailVerificado?: boolean; onboardingCompletado?: boolea
   apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", email: "a@example.com", ...data } });
 }
 
-// usePanelSidebar() (TR-075 en docs/tradeoffs.md) tira si no hay
+// usePanelSidebar() (TR-075 en docs/Arquitectura y base/tradeoffs.md) tira si no hay
 // PanelSidebarProvider en el árbol — mismo wrapper que app/layout.tsx.
 function renderConProvider(ui: ReactNode) {
   return render(<PanelSidebarProvider>{ui}</PanelSidebarProvider>);
 }
 
-// TR-058/TR-060 en docs/tradeoffs.md: el header tiene 3 estados de
+// TR-058/TR-060 en docs/Arquitectura y base/tradeoffs.md: el header tiene 3 estados de
 // sesión, y su apariencia además depende de si la pantalla actual es una
 // "de herramienta" (`isHerramientaRoute`) o no.
 describe("SiteHeader", () => {
@@ -69,7 +69,7 @@ describe("SiteHeader", () => {
 
   it("el logo siempre lleva a / — con o sin sesión, con onboarding completo o no (fuera de una pantalla de herramienta)", async () => {
     mockMe({ emailVerificado: true, onboardingCompletado: true });
-    // Distinto de /panel a propósito: desde TR-075 en docs/tradeoffs.md,
+    // Distinto de /panel a propósito: desde TR-075 en docs/Arquitectura y base/tradeoffs.md,
     // el logo YA NO se muestra en /panel/**, /perfil ni
     // /personalizar-pagina (ver site-header-chrome.test.tsx para esos
     // casos) — acá se prueba el caso general, sin esa excepción.
@@ -167,7 +167,7 @@ describe("SiteHeader", () => {
       expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
     });
 
-    // TR-061 en docs/tradeoffs.md (pedido explícito del cliente,
+    // TR-061 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
     // 2026-08-26): "Volver al inicio" se sacó del header — con el logo
     // ya yendo siempre a "/", era redundante.
     it("en /seleccionar-servicio, el único link es el logo — sin 'Volver al inicio'", async () => {

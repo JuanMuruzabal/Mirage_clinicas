@@ -28,7 +28,7 @@ export function LoginForm() {
     // Si loginAction tuvo éxito, ya redirigió y esta línea no se alcanza.
     if (result && "mensaje" in result) {
       // Estado especial admitido por la spec (§7): credenciales correctas,
-      // mail sin verificar todavía — TR-055 en docs/tradeoffs.md: se
+      // mail sin verificar todavía — TR-055 en docs/Arquitectura y base/tradeoffs.md: se
       // muestra el mismo formulario de código que en /sumarse, en vez de
       // solo un botón de reenvío sin forma de terminar de confirmar acá.
       setMailNoVerificado(true);

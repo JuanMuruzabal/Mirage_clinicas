@@ -20,7 +20,7 @@ import (
 )
 
 // purgeInterval — cada cuánto corre el barrido de basura de auth (TR-063
-// en docs/tradeoffs.md). Una vez por hora alcanza de sobra: la TTL más
+// en docs/Arquitectura y base/tradeoffs.md). Una vez por hora alcanza de sobra: la TTL más
 // corta involucrada (verificationCodeTTL, 15min) es barata de dejar
 // vencida un rato más; lo que importa es que la de 24h (cuentas
 // abandonadas) no crezca sin límite entre corridas.
@@ -51,7 +51,7 @@ func main() {
 	}
 }
 
-// runPurgeLoop — TR-063 en docs/tradeoffs.md: corre db.PurgeAuthGarbage de
+// runPurgeLoop — TR-063 en docs/Arquitectura y base/tradeoffs.md: corre db.PurgeAuthGarbage de
 // entrada (para que un restart no espere una hora entera antes de la
 // primera limpieza) y después cada purgeInterval, hasta que el proceso
 // termine. Nunca hace panic ni tira abajo el servidor por un error acá
@@ -119,7 +119,7 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// Sin RESEND_API_KEY no hay forma de que un usuario reciba el link
 		// de verificación — auto-verificar en vez de dejarlo bloqueado
 		// (pedido explícito del cliente, 2026-08-26, mientras no esté
-		// configurado Resend en Render; ver TR-051 en docs/tradeoffs.md).
+		// configurado Resend en Render; ver TR-051 en docs/Arquitectura y base/tradeoffs.md).
 		// Se apaga solo apenas se cargue la env var.
 		AutoVerifyEmail: cfg.ResendAPIKey == "",
 		// Mismo criterio/señal que AutoVerifyEmail — pedido del cliente

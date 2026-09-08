@@ -25,7 +25,7 @@ import {
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
-// Server Actions de "Configuración de calendario" (F2.3, docs/implementation-plan.md
+// Server Actions de "Configuración de calendario" (F2.3, docs/Arquitectura y base/implementation-plan.md
 // §11.3) — todas siguen el mismo patrón que actions/pacientes.ts y
 // actions/turnos.ts: token de la cookie, redirect a /ingresar si no hay
 // sesión, y un shape `{ error }` en el camino de falla para que el

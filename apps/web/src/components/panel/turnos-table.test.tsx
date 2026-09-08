@@ -297,7 +297,7 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
   });
 
-  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): un turno
+  // TR-074 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente): un turno
   // agendado con horaFin ya pasado ("resuelto") debe mostrar "Resuelto",
   // no "Confirmado", y no debe poder confirmarse/editarse/cancelarse —
   // solo lectura.

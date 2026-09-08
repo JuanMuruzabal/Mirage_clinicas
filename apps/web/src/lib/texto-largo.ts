@@ -1,4 +1,4 @@
-// textoEsLargo (F2.3 extra ítem 1, docs/implementation-plan.md §11.5) —
+// textoEsLargo (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md §11.5) —
 // separada de ver-texto-boton.tsx a propósito: ese archivo tiene "use
 // client" (VerTextoBoton usa useState), lo que convierte CUALQUIER export
 // suyo en una referencia de cliente — llamar a textoEsLargo directo desde

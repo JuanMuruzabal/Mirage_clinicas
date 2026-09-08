@@ -1,10 +1,10 @@
 // Package ratelimit aplica límites por-IP y por-cuenta en los endpoints de
 // auth (login, registro, reenvío de verificación, reset de contraseña,
-// confirmación de token) — spec §7 de docs/feature-sumarte-login.md.
+// confirmación de token) — spec §7 de docs/Login/feature-sumarte-login.md.
 //
 // Por-cuenta: fila-contador en Postgres (db.AuthRateCounter), persiste
 // entre restarts. Por-IP: en memoria (sync.Map) — tradeoff de MVP de
-// instancia única, documentado en docs/tradeoffs.md: escalar horizontal
+// instancia única, documentado en docs/Arquitectura y base/tradeoffs.md: escalar horizontal
 // rompería este límite (cada instancia tendría su propio contador). Ambos
 // usan el mismo algoritmo de ventana fija con backoff progresivo.
 package ratelimit
@@ -44,7 +44,7 @@ var (
 	LimitPasswordResetPerIP      = Limit{Max: 10, Window: time.Hour}
 	LimitPasswordResetPerAccount = Limit{Max: 5, Window: time.Hour}
 	LimitTokenConfirmPerIP       = Limit{Max: 30, Window: time.Hour}
-	// LimitConfirmCodePerAccount — TR-055 en docs/tradeoffs.md: un código
+	// LimitConfirmCodePerAccount — TR-055 en docs/Arquitectura y base/tradeoffs.md: un código
 	// de 6 dígitos tiene 10^6 combinaciones, muchísima menos entropía que
 	// el token de 32 bytes que reemplaza — LimitTokenConfirmPerIP (por IP)
 	// no alcanza solo, porque un atacante puede rotar de IP; este límite

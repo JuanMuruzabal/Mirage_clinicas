@@ -103,7 +103,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
 
     {/* Datos de tutores (Fase 2.4.2) — tarjeta APARTE, nunca mezclada con
         "Datos de contacto" de arriba (que son del PACIENTE): pedido de
-        diseño explícito, `docs/ArquitecturaPeticionesTurno.md` 3.7bis —
+        diseño explícito, `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis —
         "para que quede claro a simple vista cuál dato es de quién".
         Ausente del todo si la ficha se cargó "para mí" (sin tutor).
         Rediseñado en la ronda de correcciones (2026-09-06): un paciente
@@ -115,7 +115,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
         de antes. Sin DNI (pedido textual del cliente: "no es tan útil y
         agrega complejidad") y sin acciones de agregar/editar tutor — ese
         alcance sigue siendo exclusivo del flujo público de conflictos
-        (ver TR-116 en docs/tradeoffs.md), esta sección es de solo
+        (ver TR-116 en docs/Arquitectura y base/tradeoffs.md), esta sección es de solo
         lectura. */}
     {paciente.tutores && paciente.tutores.length > 0 && (
       <section className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">

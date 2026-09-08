@@ -4,11 +4,11 @@ import { RecuperarPasswordForm } from "./recuperar-password-form";
 
 export const metadata: Metadata = { title: "Recuperar contraseña — Dental Mirage" };
 
-// Identidad cálida (TR-015 en docs/tradeoffs.md). Sin guard de sesión — es
+// Identidad cálida (TR-015 en docs/Arquitectura y base/tradeoffs.md). Sin guard de sesión — es
 // una pantalla pública, para alguien que probablemente no puede loguearse.
 export default function RecuperarPasswordPage() {
   return (
-    // panel-texture (TR-076 en docs/tradeoffs.md, 2026-08-27, pedido
+    // panel-texture (TR-076 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
     // explícito del cliente: "recuperar contraseña... no posee el fondo
     // texturizado del login y el sumarte") — mismo criterio que TR-073
     // en /ingresar y /sumarse, se había quedado afuera de ese cambio.

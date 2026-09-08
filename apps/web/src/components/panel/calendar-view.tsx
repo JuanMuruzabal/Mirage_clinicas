@@ -43,7 +43,7 @@ interface CalendarViewProps {
   // (pedido explícito del cliente, 2026-08-27) — sin esto, "Hoy" (día)
   // sigue siendo el default de siempre (2026-08-23).
   vistaInicial?: VistaCalendario;
-  // fechaInicialStr/turnoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // fechaInicialStr/turnoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — deep-link desde una fila de tarjeta del dashboard "Turnero":
   // fechaInicialStr ancla la semana/día que se ve al entrar a la fecha
   // REAL del turno en vez de siempre "hoy"/la semana actual;
@@ -129,7 +129,7 @@ export function CalendarView({
   // (cargarConfigCalendario, más abajo) para que se vea en el grid al
   // toque, sin esperar a abrir/cerrar Configuración de calendario.
   const [reservarHorarioAbierto, setReservarHorarioAbierto] = useState(false);
-  // turnoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // turnoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
   // §11.5): en vez de un useEffect que llame a setTurnoSeleccionado al
   // montar (react-hooks/set-state-in-effect: "avoid calling setState
   // directly within an effect"), se resuelve una sola vez acá mismo, en
@@ -201,7 +201,7 @@ export function CalendarView({
         setBloqueosGenerales(generales);
         setBloqueosEspecificas(especificas);
         setHorariosAtencion(horarios);
-        // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+        // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
         // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
         // Horarios reservados], también llevarme a la tarjeta de ese
         // elemento... si forma parte de un solapamiento, también abrirme
@@ -385,7 +385,7 @@ export function CalendarView({
   const turnosEnRangoVisible =
     vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)).length : turnos.length;
 
-  // Banner de conflicto (F2.3 extra ítem 2, docs/implementation-plan.md
+  // Banner de conflicto (F2.3 extra ítem 2, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — mismo cálculo de clusters que usa el click real sobre el
   // grid (segmentosParaVisualizar), agregado sobre TODOS los días
   // visibles en la vista actual (día/semana/mes), no uno nuevo aparte.
@@ -501,7 +501,7 @@ export function CalendarView({
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
-    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // corrección 2026-08-24 — ver TR-029 en docs/Arquitectura y base/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll... quitá
     // el padding-top sobrante"). El padding lateral/inferior sigue en
     // clamp() (TR-026: "escalá... con clamp() usando vw"); el superior

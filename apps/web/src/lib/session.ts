@@ -5,8 +5,8 @@ import type { Especialidad, ClinicRole, ClinicTipo, Me, MatriculaTipo } from "@d
 import { apiMe } from "./api";
 
 // Token de sesión opaco en cookie httpOnly de primera parte — nunca en
-// localStorage (spec §9.3/§7). Ya no es un JWT (docs/feature-sumarte-login.md,
-// TR-037 en docs/tradeoffs.md): apps/api valida contra internal/auth.Session
+// localStorage (spec §9.3/§7). Ya no es un JWT (docs/Login/feature-sumarte-login.md,
+// TR-037 en docs/Arquitectura y base/tradeoffs.md): apps/api valida contra internal/auth.Session
 // (Postgres), esta cookie solo transporta el token, nunca lo interpreta acá
 // — la única fuente de verdad sobre validez/expiración es la API.
 // TTL absoluto 30 días (mismo valor que SessionAbsoluteTTL en session.go).
@@ -42,7 +42,7 @@ export async function clearSessionCookie(): Promise<void> {
 //
 // Importante: NO limpia la cookie acá aunque el token ya no sirva — bug
 // real en producción (2026-08-26, digest E1180, ver TR-049 en
-// docs/tradeoffs.md): Next.js prohíbe mutar cookies durante el render de
+// docs/Arquitectura y base/tradeoffs.md): Next.js prohíbe mutar cookies durante el render de
 // una página ("Cookies can only be modified in a Server Action or Route
 // Handler"), tira 500 en cualquier página que llame a getMe() con una
 // cookie de sesión inválida (ej. una cookie vieja de antes de esta
@@ -142,7 +142,7 @@ export async function requireOnboardingComplete(): Promise<SesionCompleta> {
 }
 
 // redirectSiEmailVerificado — usado por /sumarse y /ingresar. Desde la
-// reestructuración del 2026-08-26 (docs/tradeoffs.md TR-057), /sumarse
+// reestructuración del 2026-08-26 (docs/Arquitectura y base/tradeoffs.md TR-057), /sumarse
 // solo cubre crear cuenta + verificar el código — apenas el mail está
 // verificado (ya no hace falta esperar a que perfil/clínica también estén
 // completos, eso ahora se resuelve en /seleccionar-servicio) se redirige
@@ -158,7 +158,7 @@ export async function redirectSiEmailVerificado(me: Me | null): Promise<void> {
 // requireEmailVerificado — guard de /seleccionar-servicio: exige sesión Y
 // mail verificado, pero NO onboarding completo (a diferencia de
 // requireOnboardingComplete, que sigue exigiéndolo para /panel/perfil/
-// personalizar-pagina) — TR-057 en docs/tradeoffs.md: esta pantalla ahora
+// personalizar-pagina) — TR-057 en docs/Arquitectura y base/tradeoffs.md: esta pantalla ahora
 // muestra el modal de "bienvenida" (perfil + clínica) por encima de sí
 // misma cuando el onboarding todavía no terminó, en vez de redirigir a
 // otro lado. Sin sesión → /ingresar. Con sesión pero mail sin verificar →

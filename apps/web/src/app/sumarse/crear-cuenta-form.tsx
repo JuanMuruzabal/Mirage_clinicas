@@ -32,7 +32,7 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
     defaultValues: { aceptaTerminos: false, captchaToken: "" },
   });
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
-  // TR-062 en docs/tradeoffs.md: pedido explícito del cliente — si el
+  // TR-062 en docs/Arquitectura y base/tradeoffs.md: pedido explícito del cliente — si el
   // mail ya tiene una cuenta verificada, se lo decimos derecho en vez de
   // mandarlo al paso de código (que generaba confusión real, "no es el
   // estándar").

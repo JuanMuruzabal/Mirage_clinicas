@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 // se construyó. Sumada a "privacidad" en RUTAS_PROPIAS_DE_UN_SEGMENTO
 // (lib/site-routes.ts) para que conserve el header/footer del sitio en
 // vez del modo "página pública de clínica" (ver TR-050 en
-// docs/tradeoffs.md).
+// docs/Arquitectura y base/tradeoffs.md).
 //
 // Contenido: plantilla base a revisar por el cliente/asesoría legal antes
 // de un lanzamiento real — no reemplaza una revisión legal.

@@ -7,7 +7,7 @@ import (
 )
 
 // Modelos de F2.3 ("ajustes de calendario", Fase 2) — ver TR-078 y TR-084
-// en docs/tradeoffs.md, y docs/implementation-plan.md §11.3. Ambas tablas
+// en docs/Arquitectura y base/tradeoffs.md, y docs/Arquitectura y base/implementation-plan.md §11.3. Ambas tablas
 // van por ClinicID, no por el ProfesionalID legacy (mismo criterio que el
 // resto del esquema post-auth: cada Clinic "individual" nace con el mismo
 // UUID que tenía su Profesional de origen, así que ProfesionalID en

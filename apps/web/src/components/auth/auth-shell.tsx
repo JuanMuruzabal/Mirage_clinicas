@@ -7,7 +7,7 @@ import Link from "next/link";
 // de error), pero sobre los tokens YA EXISTENTES de Dental Mirage
 // (hueso/marfil/salvia/terracota/grafito/arena, rounded-card/rounded-field,
 // shadow-soft — nunca los tokens de Madryn ink/coral/tide, ver
-// docs/tradeoffs.md TR-013/015). Reemplaza el `Campo`/`inputClass` que
+// docs/Arquitectura y base/tradeoffs.md TR-013/015). Reemplaza el `Campo`/`inputClass` que
 // hoy vive copy-pasteado en sumarse-wizard.tsx y varios modales del panel.
 export const authFieldWrapClass = "flex flex-col gap-1.5 text-sm";
 export const authLabelClass = "font-medium text-grafito";
@@ -100,7 +100,7 @@ interface AuthShellProps {
   ancho?: "md" | "xl";
   /** Limita la altura de la tarjeta al viewport y scrollea su contenido
    * puertas adentro, en vez de dejar que crezca sin límite — bug real
-   * reportado por el cliente (2026-08-26, TR-059 en docs/tradeoffs.md):
+   * reportado por el cliente (2026-08-26, TR-059 en docs/Arquitectura y base/tradeoffs.md):
    * los formularios de perfil/clínica son largos y "se salían de la
    * página" dentro del modal de bienvenida. Centrar (`items-center`) un
    * contenedor más alto que el viewport recorta el principio del

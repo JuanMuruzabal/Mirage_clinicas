@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PacientesTable } from "./pacientes-table";
 
-// Cada fila es un ClickableTableRow (TR-023 en docs/tradeoffs.md), que usa
+// Cada fila es un ClickableTableRow (TR-023 en docs/Arquitectura y base/tradeoffs.md), que usa
 // useRouter() internamente — mismo mock que clickable-table-row.test.tsx.
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));

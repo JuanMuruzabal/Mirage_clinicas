@@ -134,7 +134,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
-    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // corrección 2026-08-24 — ver TR-029 en docs/Arquitectura y base/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll... quitá
     // el padding-top sobrante"). El de arriba de todo ya lo da
     // `pt-[var(--header-height)]` en app/panel/layout.tsx (ese no se

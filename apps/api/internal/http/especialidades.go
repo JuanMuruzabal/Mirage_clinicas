@@ -19,7 +19,7 @@ func toEspecialidadResponse(e db.Especialidad) especialidadResponse {
 }
 
 // registerEspecialidadRoutes monta GET /especialidades — catálogo cerrado
-// público (TR-004 en docs/tradeoffs.md), sin autenticación: el flujo de
+// público (TR-004 en docs/Arquitectura y base/tradeoffs.md), sin autenticación: el flujo de
 // alta (spec §3) todavía no tiene sesión cuando lo necesita.
 func registerEspecialidadRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/especialidades", listEspecialidadesHandler(gdb))

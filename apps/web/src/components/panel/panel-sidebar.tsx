@@ -19,7 +19,7 @@ const NAV_ITEMS = [
 // con su propia altura de viewport, así el contenido de cada sección
 // scrollea por separado sin arrastrar el sidebar.
 //
-// Reestructurado a drawer en mobile (TR-075 en docs/tradeoffs.md,
+// Reestructurado a drawer en mobile (TR-075 en docs/Arquitectura y base/tradeoffs.md,
 // 2026-08-27, pedido explícito del cliente: "restructurar como se ve el
 // apartado gestión de clínica [en mobile], el sidebar debe ser
 // desplegable desde el header... esto dará más espacio en la pantalla").
@@ -75,7 +75,7 @@ export function PanelSidebar() {
         />
       )}
 
-      {/* .panel-sidebar-h (TR-029 en docs/tradeoffs.md): declara el
+      {/* .panel-sidebar-h (TR-029 en docs/Arquitectura y base/tradeoffs.md): declara el
           mismo alto dos veces (`vh` de base, `dvh` encima bajo
           `@supports`) para el caso de escritorio (`sticky`, alto =
           viewport menos el header) — se mantiene sin cambios ahí.
@@ -114,7 +114,7 @@ export function PanelSidebar() {
           </span>
         </button>
 
-        {/* "Panel" → /seleccionar-servicio (TR-075 en docs/tradeoffs.md,
+        {/* "Panel" → /seleccionar-servicio (TR-075 en docs/Arquitectura y base/tradeoffs.md,
             pedido explícito del cliente: "agregar la opción para volver
             a seleccionar servicio, con un botón que diga panel") — el
             mismo ícono (QuadrantMark) que usaba el logo que se sacó del
@@ -123,7 +123,7 @@ export function PanelSidebar() {
             resto de la navegación con su propio borde: no es una sección
             de ESTA clínica, es "salir" a elegir otro servicio.
 
-            Solo mobile (TR-077 en docs/tradeoffs.md, 2026-08-27, pedido
+            Solo mobile (TR-077 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
             explícito del cliente: "en la versión de escritorio no
             debería ver la opción de Panel en el sidebar") — en
             escritorio ese mismo destino ya está en el header (el botón

@@ -12,7 +12,7 @@ interface SumarseWizardProps {
 }
 
 // Reestructuración del 2026-08-26 (pedido explícito del cliente, ver
-// docs/tradeoffs.md TR-057): /sumarse pasa a tener SOLO 2 pasos — crear
+// docs/Arquitectura y base/tradeoffs.md TR-057): /sumarse pasa a tener SOLO 2 pasos — crear
 // cuenta y confirmar el código. Perfil profesional y clínica ya no viven
 // acá: una vez verificado el mail, se redirige a /seleccionar-servicio,
 // que muestra esos dos pasos como un modal de "bienvenida" sobre esa

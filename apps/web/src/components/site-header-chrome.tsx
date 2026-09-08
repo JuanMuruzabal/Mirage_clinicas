@@ -26,9 +26,9 @@ import { usePanelSidebar } from "@/lib/panel-sidebar-context";
  * Buscar clínicas/Servicios/Ingresar/Sumate, desbordan una pantalla
  * angosta en una sola fila) — los otros dos estados son un único botón
  * compacto que nunca desborda, así que se muestran igual en mobile y
- * desktop sin necesitar el dropdown (TR-060 en docs/tradeoffs.md).
+ * desktop sin necesitar el dropdown (TR-060 en docs/Arquitectura y base/tradeoffs.md).
  *
- * `estado` — TR-058/TR-060 en docs/tradeoffs.md (pedido explícito del
+ * `estado` — TR-058/TR-060 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del
  * cliente, 2026-08-26): con sesión y mail verificado pero onboarding
  * incompleto ("cuentaSinTerminar") o completo ("completo"), el header
  * muestra:
@@ -47,7 +47,7 @@ import { usePanelSidebar } from "@/lib/panel-sidebar-context";
  *     no hay excepción de ruta para el estado sin terminar.
  *
  * "Volver al inicio" (el link que vivía acá, solo en /seleccionar-
- * servicio) se sacó del todo — TR-061 en docs/tradeoffs.md, pedido
+ * servicio) se sacó del todo — TR-061 en docs/Arquitectura y base/tradeoffs.md, pedido
  * explícito del cliente, 2026-08-26: con el logo ya yendo siempre a "/"
  * (ver más abajo), era redundante. `volver-al-inicio-link.tsx` queda sin
  * usar y se borró junto con esto.
@@ -78,7 +78,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const mostrarMiClinica = estado !== "anonimo" && !esHerramienta;
   const mostrarAccesosAnonimos = estado === "anonimo";
 
-  // TR-075 en docs/tradeoffs.md (2026-08-27, pedido explícito del
+  // TR-075 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido explícito del
   // cliente: "quitar de aquí el logo de Dental Mirage que te lleva a la
   // home... solo en la página de /seleccionar-servicio debe ser visible
   // el ícono para volver al home"). De las 4 pantallas de herramienta
@@ -116,7 +116,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pillLinkClass =
     "rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95";
 
-  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-065 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): "en desktop hay un gap en la esquina superior derecha,
   // el header... no llega hasta el borde derecho del área de
   // contenido". Causa real: la fila del header centra su contenido en

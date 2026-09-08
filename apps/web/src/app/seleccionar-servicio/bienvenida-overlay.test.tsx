@@ -45,7 +45,7 @@ const meClinica: Me = {
   },
 };
 
-// TR-057 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// TR-057 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
 // este modal reemplaza a los Paso 2/3 que antes vivían en /sumarse — se
 // muestra por encima de /seleccionar-servicio mientras el perfil y/o la
 // clínica no estén completos todavía.

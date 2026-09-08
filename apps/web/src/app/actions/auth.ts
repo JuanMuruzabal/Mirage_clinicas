@@ -44,7 +44,7 @@ export interface MensajeResult {
   mensaje: string;
 }
 
-// TR-062 en docs/tradeoffs.md: único caso donde register() revela que el
+// TR-062 en docs/Arquitectura y base/tradeoffs.md: único caso donde register() revela que el
 // mail ya tiene cuenta (verificada) — el wizard usa esto para mostrar
 // "iniciá sesión"/"recuperar contraseña" en vez de avanzar al paso de
 // código, que generaba confusión real (pedido explícito del cliente).
@@ -61,13 +61,13 @@ export interface CuentaExistenteResult {
 // cuenta queda sin verificar y la pantalla de "revisá tu correo" la
 // muestra el propio wizard con este resultado, no una navegación aparte.
 //
-// Excepción #1 (TR-051 en docs/tradeoffs.md): si el backend ya marcó la
+// Excepción #1 (TR-051 en docs/Arquitectura y base/tradeoffs.md): si el backend ya marcó la
 // cuenta como verificada (AutoVerifyEmail, mientras Resend no esté
 // configurado), no tiene sentido mostrar "revisá tu correo" para un mail
 // que nunca se mandó — se comporta como loginAction, seteando la cookie y
 // mandando directo a /sumarse, que ya va a reflejar el Paso 2.
 //
-// Excepción #2 (TR-062 en docs/tradeoffs.md): si el mail ya tiene una
+// Excepción #2 (TR-062 en docs/Arquitectura y base/tradeoffs.md): si el mail ya tiene una
 // cuenta VERIFICADA, el backend lo dice explícitamente (revierte
 // parcialmente el anti-enumeración de spec §7, pedido explícito del
 // cliente) — acá se devuelve CuentaExistenteResult en vez de
@@ -89,7 +89,7 @@ export async function registerAction(
     await setSessionCookie(result.data.token);
     // Invalida el layout raíz (header global incluido) — bug real
     // reportado por el cliente (2026-08-26, ver TR-059 en
-    // docs/tradeoffs.md): sin esto, el Router Cache de Next.js puede
+    // docs/Arquitectura y base/tradeoffs.md): sin esto, el Router Cache de Next.js puede
     // seguir sirviendo el header con la sesión vieja (o sin sesión)
     // después de este redirect, hasta un refresh manual.
     revalidatePath("/", "layout");
@@ -150,7 +150,7 @@ export async function googleStateAction(): Promise<{ state: string } | ActionRes
   return { state: result.data.state };
 }
 
-// verificarEmailAction — TR-055 en docs/tradeoffs.md: valida el código de
+// verificarEmailAction — TR-055 en docs/Arquitectura y base/tradeoffs.md: valida el código de
 // 6 dígitos que llegó por mail (antes era un link con un botón — el
 // código se escribe a mano en la misma pantalla, no hace falta la
 // protección contra escáneres de seguridad de email que sí justificaba el
@@ -168,7 +168,7 @@ export async function verificarEmailAction(payload: VerificarEmailPayload): Prom
   }
   await setSessionCookie(result.data.token);
   // Bug real reportado por el cliente (2026-08-26, TR-059 en
-  // docs/tradeoffs.md): sin revalidar, /seleccionar-servicio (destino
+  // docs/Arquitectura y base/tradeoffs.md): sin revalidar, /seleccionar-servicio (destino
   // final de este redirect, vía /sumarse) podía mostrar el header
   // cacheado de ANTES de verificar (look de visitante anónimo) hasta un
   // refresh manual — el Router Cache de Next.js no sabía que el layout
@@ -212,7 +212,7 @@ export async function resetPasswordAction(payload: ResetPasswordActionInput): Pr
   if (!result.ok) {
     return { error: result.error };
   }
-  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-065 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): "cuando le doy cambiar contraseña y la cambio me inicia
   // sesión, y eso está mal, me debería llevar al ingreso para ingresar
   // de ahí" — antes se guardaba la cookie de la sesión nueva que devuelve
@@ -234,7 +234,7 @@ export async function logoutAction(): Promise<void> {
 }
 
 // onboardingPerfilAction — Paso 1 del modal de bienvenida (spec §4) —
-// TR-057 en docs/tradeoffs.md: antes redirigía de vuelta a /sumarse (que
+// TR-057 en docs/Arquitectura y base/tradeoffs.md: antes redirigía de vuelta a /sumarse (que
 // mostraba el paso siguiente); ahora este paso vive en el modal sobre
 // /seleccionar-servicio, así que redirige ahí — la próxima carga de esa
 // página ya refleja `onboardingStep: "clinica"` y muestra el paso 2 del

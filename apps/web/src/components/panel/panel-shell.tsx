@@ -7,7 +7,7 @@ import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
 /**
  * Envuelve la raíz de gestión de clínica (sidebar + `<main>`) — rama
  * fix/mobile, octava corrección 2026-08-24 (ver TR-031 en
- * docs/tradeoffs.md, pedido explícito del cliente: "sigue sin responder
+ * docs/Arquitectura y base/tradeoffs.md, pedido explícito del cliente: "sigue sin responder
  * el movimiento vertical en el apartado de calendario... se arregla
  * momentáneamente cuando cambio de dia a semana... mismo problema
  * cuando toco la ficha de un paciente").

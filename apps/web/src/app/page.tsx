@@ -13,7 +13,7 @@ import { ScrollReveal } from "@/components/scroll-reveal";
 const PHOTO_OVERLAY = "linear-gradient(180deg, rgba(18,25,27,0.82) 0%, rgba(18,25,27,0.62) 45%, rgba(18,25,27,0.85) 100%)";
 
 // Home pública (01-home.png, T1.1). Copy adaptado del brief original al
-// Sistema Cascarón (docs/tradeoffs.md TR-010) — paneles de borde duro,
+// Sistema Cascarón (docs/Arquitectura y base/tradeoffs.md TR-010) — paneles de borde duro,
 // tipografía condensada, sin el acento verde/dorado del mock original
 // (ese usaba una paleta de referencia, no la definitiva). Identidad cálida
 // (TR-015): pedido explícito del cliente, "el home solo cambiar las

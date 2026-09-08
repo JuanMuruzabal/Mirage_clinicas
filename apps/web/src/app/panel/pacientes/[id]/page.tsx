@@ -45,13 +45,13 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
   // deben aparecer turnos cancelados"); revertido en la ronda de
   // correcciones del 2026-09-06, pedido textual del cliente: "ahora los
   // turnos cancelados sí aparecen en el historial de turnos" (ver TR-116
-  // en docs/tradeoffs.md, addendum de reversión). Vuelve a ser "todo lo
+  // en docs/Arquitectura y base/tradeoffs.md, addendum de reversión). Vuelve a ser "todo lo
   // que no está activo", cancelados incluidos.
   const historial = paciente.turnos.filter((t) => !esActivo(t));
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
-    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // corrección 2026-08-24 — ver TR-029 en docs/Arquitectura y base/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll").
     <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <div className="flex flex-wrap items-start justify-between gap-4">

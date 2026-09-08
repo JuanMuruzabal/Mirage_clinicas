@@ -5,11 +5,11 @@ Plataforma para odontólogos de Córdoba que combina gestión de clínica
 pacientes piden turno, más un buscador público de clínicas.
 
 La especificación completa vive en
-[`docs/dental-mirage-spec.md`](docs/dental-mirage-spec.md), el plan de
+[`docs/Arquitectura y base/dental-mirage-spec.md`](docs/Arquitectura y base/dental-mirage-spec.md), el plan de
 implementación fase por fase en
-[`docs/implementation-plan.md`](docs/implementation-plan.md), y las
+[`docs/Arquitectura y base/implementation-plan.md`](docs/Arquitectura y base/implementation-plan.md), y las
 decisiones de arquitectura/alcance (con sus alternativas descartadas) en
-[`docs/tradeoffs.md`](docs/tradeoffs.md). Antes de tocar un módulo nuevo,
+[`docs/Arquitectura y base/tradeoffs.md`](docs/Arquitectura y base/tradeoffs.md). Antes de tocar un módulo nuevo,
 esos tres son la fuente de verdad — este README es solo la puerta de
 entrada. `CLAUDE.md` (raíz del repo) tiene el mapa rápido de convenciones
 para trabajar acá con ayuda de un agente de IA.
@@ -28,7 +28,7 @@ repo es el ejemplo de cómo aplicarlo.
 | Base de datos | PostgreSQL 16, extensión `btree_gist` + exclusion constraints              |
 | Monorepo      | pnpm workspaces (`apps/web`, `packages/shared-types`) + módulo Go independiente (`apps/api`) |
 
-Decisiones y alternativas descartadas de cada elección: `docs/tradeoffs.md`
+Decisiones y alternativas descartadas de cada elección: `docs/Arquitectura y base/tradeoffs.md`
 (TR-001 a TR-012 responden las preguntas abiertas de la spec — tipos de
 consulta, validaciones, WhatsApp, especialidades, auth, coverage, CAPTCHA,
 alcance de organización, identidad visual; TR-013 en adelante son ajustes
@@ -38,7 +38,7 @@ El requisito no obvio más importante del proyecto: dos turnos de un mismo
 profesional **no** se validan solo en la aplicación — `turno.rango_horario`
 tiene un `EXCLUDE USING gist` a nivel de Postgres que impide solapamientos
 incluso ante bugs de concurrencia en el backend, acotado a turnos en estado
-`agendado` (ver TR-006 en `docs/tradeoffs.md`). Ver `apps/api/internal/db`
+`agendado` (ver TR-006 en `docs/Arquitectura y base/tradeoffs.md`). Ver `apps/api/internal/db`
 y la sección homónima en `CLAUDE.md`.
 
 ## Estructura del repo
@@ -120,7 +120,7 @@ si hace falta con `GOTOOLCHAIN=auto`, el default), Node ≥ 20, pnpm ≥ 9.
    existen y hacen falta si algo corre en un puerto/host distinto.
 
    `apps/api/.env.example` incluye además las variables del módulo de
-   auth/onboarding (`docs/feature-sumarte-login.md`): Resend (mails),
+   auth/onboarding (`docs/Login/feature-sumarte-login.md`): Resend (mails),
    Google OAuth, Cloudflare Turnstile (CAPTCHA), HaveIBeenPwned y storage
    de foto de perfil. Ninguna es obligatoria en dev — sin configurar,
    cada dependencia queda deshabilitada (mails van al log, sin Google, sin
@@ -163,7 +163,7 @@ Lint de Go (no tiene atajo en `package.json`, correr dentro de
 
 Suite de tests unitarios para ambos lados, con un piso de **80% de code
 coverage** que CI hace cumplir desde el primer PR de código de negocio,
-no agregado como iniciativa tardía (TR-007 en `docs/tradeoffs.md`) — ver
+no agregado como iniciativa tardía (TR-007 en `docs/Arquitectura y base/tradeoffs.md`) — ver
 "Integración continua" más abajo.
 
 ### Backend (Go)
@@ -203,7 +203,7 @@ pnpm run test:coverage:web    # + coverage (falla si algún indicador < 80%)
 
 El gate de coverage excluye `src/app/**/page.tsx` (Server Components
 async, no unit-testeables vía Testing Library/jsdom) — quedan cubiertos
-por QA end-to-end manual (`docs/implementation-plan.md`, T5.4), no por
+por QA end-to-end manual (`docs/Arquitectura y base/implementation-plan.md`, T5.4), no por
 esta suite.
 
 Para iterar rápido en un archivo puntual: `pnpm --filter @dental-mirage/web
@@ -249,7 +249,7 @@ paralela). Toda la topología vive versionada en
 raíz del repo.
 
 **Un solo entorno, tres recursos** (corrección 2026-08-24, ver TR-021 en
-`docs/tradeoffs.md`): la idea original era prod + dev separados, cada uno
+`docs/Arquitectura y base/tradeoffs.md`): la idea original era prod + dev separados, cada uno
 con su propia base — el plan free de Render solo permite **una** base
 Postgres por cuenta, así que por ahora queda un solo trío:
 
@@ -292,7 +292,7 @@ blueprint cuando se construya. A diferencia de `Marcuzzi_Madryn` (una
 sola aplicación, un dueño), acá va a haber **N profesionales**, cada uno
 con sus propias fotos — la convención de key pensada para eso, namespaced
 por profesional en vez de un bucket plano: `paginas/{profesionalId}/{filename}`
-y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
+y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/Arquitectura y base/tradeoffs.md`.
 
 ### Antes de desplegar por primera vez
 
@@ -309,7 +309,7 @@ y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/tradeoffs.md`.
      `TURNSTILE_SECRET_KEY` (CAPTCHA). Todas nil-safe: sin cargarlas, esa
      dependencia puntual queda deshabilitada (mails solo se loguean, sin
      botón de Google, sin CAPTCHA) — nunca un 500, ver
-     `docs/feature-sumarte-login-resumen.md`.
+     `docs/Login/feature-sumarte-login-resumen.md`.
    - `dental-mirage-web`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/
      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (mismo Google Client ID de arriba,
      y la site key pública de Turnstile) — sin esto, el botón de Google y
@@ -343,7 +343,7 @@ El código ya está completo (`internal/mail.ResendSender`, plantillas HTML
 en `internal/mail/templates/`) — mientras `RESEND_API_KEY` no esté
 cargada, las cuentas nativas nuevas quedan verificadas de entrada en vez
 de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
-`docs/tradeoffs.md`). Para activarlo de verdad:
+`docs/Arquitectura y base/tradeoffs.md`). Para activarlo de verdad:
 
 1. Crear una cuenta en [resend.com](https://resend.com) (si todavía no
    existe).
@@ -383,7 +383,7 @@ de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
 Sprints 0 a 4 completados y verificados (onboarding, gestión de clínica,
 turnos entrantes + pacientes + formulario público, página pública + deploy
 + búsqueda) — detalle sprint por sprint, con las verificaciones de cada
-uno, en `docs/implementation-plan.md`. De Sprint 5 (pulido, QA end-to-end,
+uno, en `docs/Arquitectura y base/implementation-plan.md`. De Sprint 5 (pulido, QA end-to-end,
 salida a producción), la infraestructura de CI/deploy (T5.5) ya está
 armada — Dockerfiles, `render.yaml`, deploy automático por rama; falta
 aplicar el blueprint en el dashboard de Render y cargar los secrets (ver
@@ -391,9 +391,9 @@ aplicar el blueprint en el dashboard de Render y cargar los secrets (ver
 pendiente.
 
 **Fase 2 completa (2026-09-07):** calendario avanzado y autogestión de
-turnos — detalle fase por fase en `docs/implementation-plan.md` §11,
-decisiones de arquitectura en `docs/tradeoffs.md` TR-078 a TR-120,
-resumen funcional en `docs/dental-mirage-spec.md` §11. Los 5 ítems del
+turnos — detalle fase por fase en `docs/Arquitectura y base/implementation-plan.md` §11,
+decisiones de arquitectura en `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-120,
+resumen funcional en `docs/Arquitectura y base/dental-mirage-spec.md` §11. Los 5 ítems del
 brief original (calendario mobile con scroll fijo; ajustes de horario de
 atención/tipos de consulta/horarios reservados; selección de horario por
 el paciente; compartir calendario por link efímero — la vista "pantalla

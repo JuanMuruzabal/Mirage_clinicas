@@ -1,7 +1,7 @@
 // Command migrate-usuarios corre, una sola vez, la migración de datos que
 // traslada cada Profesional existente (esquema viejo) a User +
 // ProfessionalProfile + Clinic + ClinicMember (esquema nuevo,
-// docs/feature-sumarte-login.md). A propósito NO es parte de `go run
+// docs/Login/feature-sumarte-login.md). A propósito NO es parte de `go run
 // ./cmd/migrate` (que aplica AutoMigrate y es idempotente/automático en
 // cada deploy) — esto es una migración de datos explícita, se corre a
 // mano una vez. Es seguro reintentarla: internal/db.MigrateProfesionalesToUsers

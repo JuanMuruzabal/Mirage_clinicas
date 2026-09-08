@@ -211,7 +211,7 @@ describe("navegar", () => {
   });
 });
 
-// TR-074 en docs/tradeoffs.md — reemplazan `d.toISOString().slice(...)`
+// TR-074 en docs/Arquitectura y base/tradeoffs.md — reemplazan `d.toISOString().slice(...)`
 // (fecha/hora en UTC) en agregar-turno-modal.tsx/editar-turno-modal.tsx:
 // esa versión se adelantaba un día en Argentina (UTC-3) durante las
 // últimas horas del día local, dejando que se ingresaran horas ya
@@ -230,11 +230,11 @@ describe("horaISOLocal", () => {
   });
 });
 
-// F2.3 extra ítem 1 (docs/implementation-plan.md §11.5) — inverso de
+// F2.3 extra ítem 1 (docs/Arquitectura y base/implementation-plan.md §11.5) — inverso de
 // fechaISOLocal, para reconstruir la fecha de un deep-link (?fecha=) sin
 // el bug de `new Date("YYYY-MM-DD")` (ISO-parsea como UTC medianoche,
 // corre un día para atrás en timezones negativos).
-// Extra 2.3.3 (E3.5, docs/implementation-plan.md §11.5) — filtro rápido
+// Extra 2.3.3 (E3.5, docs/Arquitectura y base/implementation-plan.md §11.5) — filtro rápido
 // HOY/SEMANA/MES de Turnos y "Turnos activos" de la ficha de paciente.
 // Anclado a "ahora" (hoyEnCordoba()), así que los tests comparan contra
 // el mismo cálculo hecho con los otros helpers ya probados arriba, en

@@ -73,7 +73,7 @@ function reglaEspecificaPasada(regla: BloqueoHorario): boolean {
   return regla.horaHasta <= horaISOLocal(ahora);
 }
 
-// BloqueoDetalleModal — F2.3.8 (docs/implementation-plan.md §11.3, pedido
+// BloqueoDetalleModal — F2.3.8 (docs/Arquitectura y base/implementation-plan.md §11.3, pedido
 // explícito del cliente): al tocar un tramo bloqueado del calendario,
 // "muestre horario bloqueado de tal hora a tal hora... y abajo un
 // botoncito que diga ver regla, que te lleva directamente a esta". Mismo

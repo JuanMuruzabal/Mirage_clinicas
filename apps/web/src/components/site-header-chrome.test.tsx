@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 const { SiteHeaderChrome } = await import("./site-header-chrome");
 type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-// usePanelSidebar() (TR-075 en docs/tradeoffs.md) tira si no hay
+// usePanelSidebar() (TR-075 en docs/Arquitectura y base/tradeoffs.md) tira si no hay
 // PanelSidebarProvider en el árbol — mismo wrapper que app/layout.tsx.
 function renderHeader(estado: EstadoHeaderSesion) {
   return render(
@@ -31,7 +31,7 @@ function rerenderHeader(rerender: (ui: ReactElement) => void, estado: EstadoHead
 // header cuando se acumulan componentes se ve espantoso [en mobile]...
 // aplicar la misma solucion que alojamientos madryn... una barra
 // desplegable"). Este archivo cubre el toggle mobile del estado anónimo
-// (único que lo necesita) y — TR-058/TR-060 en docs/tradeoffs.md — qué
+// (único que lo necesita) y — TR-058/TR-060 en docs/Arquitectura y base/tradeoffs.md — qué
 // aparece en el header en cada combinación de `estado` × ruta.
 describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
   it("arranca cerrado: el botón de menú existe pero el dropdown no está en el DOM", () => {
@@ -131,7 +131,7 @@ describe("SiteHeaderChrome — logo", () => {
   });
 });
 
-// TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// TR-060 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
 // en una pantalla de herramienta con onboarding completo, el botón de
 // configuración reemplaza a los tres links sueltos de antes.
 describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
@@ -162,7 +162,7 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
     },
   );
 
-  // TR-061 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-061 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): "Volver al inicio" se sacó del header — con el logo ya
   // yendo siempre a "/", era redundante.
   it("en /seleccionar-servicio con estado completo, ya NO muestra 'Volver al inicio'", () => {
@@ -178,7 +178,7 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
   });
 });
 
-// TR-075 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
+// TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
 // "quitar de aquí el logo de Dental Mirage... solo en la página de
 // /seleccionar-servicio debe ser visible el ícono para volver al home".
 // De las 4 pantallas de herramienta, solo /seleccionar-servicio conserva
@@ -285,7 +285,7 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
   });
 });
 
-// TR-065 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26:
+// TR-065 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-26:
 // "en desktop hay un gap en la esquina superior derecha... no llega
 // hasta el borde derecho del área de contenido") — /panel es el único
 // layout con sidebar, así que el header ahí deja de centrarse en

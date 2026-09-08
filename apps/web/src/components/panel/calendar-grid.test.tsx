@@ -103,7 +103,7 @@ describe("CalendarGrid", () => {
     expect(screen.getByText("09:00")).toHaveClass("-translate-y-1/2");
   });
 
-  // F2.1 (docs/implementation-plan.md §11, pedido explícito del
+  // F2.1 (docs/Arquitectura y base/implementation-plan.md §11, pedido explícito del
   // cliente): "si me muevo horizontalmente, al costado los horarios me
   // van siguiendo, y verticalmente los días" — cada uno fijo en un solo
   // eje (no en los dos), salvo la esquina compartida.

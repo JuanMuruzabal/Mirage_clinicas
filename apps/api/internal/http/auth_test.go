@@ -44,7 +44,7 @@ func TestRegister_Exitoso(t *testing.T) {
 // — la garantía de seguridad real detrás de TR-056 sigue intacta (una
 // cuenta YA VERIFICADA nunca se sobreescribe ni emite un token al volver
 // a "registrarse" con ese mail — a diferencia de una cuenta sin verificar,
-// ver los tests de abajo), pero TR-062 en docs/tradeoffs.md revierte
+// ver los tests de abajo), pero TR-062 en docs/Arquitectura y base/tradeoffs.md revierte
 // parcialmente el anti-enumeración de la spec §7: pedido explícito del
 // cliente, acá SÍ se dice que la cuenta ya existe en vez de la respuesta
 // genérica de siempre (generaba confusión real).
@@ -84,7 +84,7 @@ func TestRegister_CuentaVerificadaExistente_DiceQueYaExisteSinTokenNiSobreescrit
 }
 
 // TestRegister_CuentaSinVerificarExistente_SeSobreescribeConNuevaContraseña
-// — TR-056 en docs/tradeoffs.md, pedido explícito del cliente: "si me
+// — TR-056 en docs/Arquitectura y base/tradeoffs.md, pedido explícito del cliente: "si me
 // confundí de mail" o "quiero reintentar con otra contraseña" no puede
 // terminar en un softlock — a diferencia de una cuenta ya verificada
 // (arriba), una sin verificar es segura de sobreescribir: ningún dato de
@@ -218,7 +218,7 @@ func TestResetPassword_PasswordFiltradaRechaza(t *testing.T) {
 }
 
 // TestRegister_AutoVerifyEmail_CuentaQuedaVerificadaYPasaAPerfil — TR-051
-// en docs/tradeoffs.md: sin RESEND_API_KEY configurada (Render, hoy), no
+// en docs/Arquitectura y base/tradeoffs.md: sin RESEND_API_KEY configurada (Render, hoy), no
 // hay forma de que un usuario reciba el link de verificación — la cuenta
 // nativa nueva queda verificada de entrada, igual que Google.
 func TestRegister_AutoVerifyEmail_CuentaQuedaVerificadaYPasaAPerfil(t *testing.T) {
@@ -460,7 +460,7 @@ func TestVerificarEmail_Exitoso(t *testing.T) {
 }
 
 // TestVerificarEmail_CuentaYaVerificadaRechazaAunqueElCodigoSeaValido —
-// TR-061 en docs/tradeoffs.md: cinturón y tirantes, independiente de que
+// TR-061 en docs/Arquitectura y base/tradeoffs.md: cinturón y tirantes, independiente de que
 // register() ya no genere un código nuevo para una cuenta verificada
 // (TR-056) — este endpoint nunca debería re-procesar ni rotar la sesión
 // de una cuenta ya verificada, ni siquiera con un código real y sin usar.

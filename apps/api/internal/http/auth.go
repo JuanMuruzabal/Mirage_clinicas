@@ -32,7 +32,7 @@ const (
 )
 
 // verificationCodeTTL — vencimiento del código de 6 dígitos que se manda
-// por mail al registrarse (TR-055 en docs/tradeoffs.md: reemplaza al link
+// por mail al registrarse (TR-055 en docs/Arquitectura y base/tradeoffs.md: reemplaza al link
 // de un solo clic, spec §7 original de "24 h verificación"). Bastante más
 // corto que el link que reemplaza — es el criterio estándar para un
 // código que la persona escribe a mano mientras sigue mirando la pantalla
@@ -40,7 +40,7 @@ const (
 const verificationCodeTTL = 15 * time.Minute
 
 // CuentaAbandonadaTTL — umbral de "cuenta nativa sin verificar, dada por
-// abandonada" en meHandler (TR-052 en docs/tradeoffs.md) y en el barrido
+// abandonada" en meHandler (TR-052 en docs/Arquitectura y base/tradeoffs.md) y en el barrido
 // activo de internal/db.PurgeAuthGarbage (TR-063, wireado desde
 // cmd/api/main.go — de ahí que esté exportada). Deliberadamente más largo
 // que verificationCodeTTL: un código vencido a los 15 minutos no
@@ -55,7 +55,7 @@ const CuentaAbandonadaTTL = 24 * time.Hour
 const mensajeGenericoVerificacionPendiente = "si el mail no estaba registrado, creamos tu cuenta y te enviamos un código de confirmación — revisá tu correo"
 const mensajeGenericoRecuperarPassword = "si el mail está registrado, te enviamos las instrucciones"
 
-// mensajeCuentaYaExiste — TR-062 en docs/tradeoffs.md: a diferencia del
+// mensajeCuentaYaExiste — TR-062 en docs/Arquitectura y base/tradeoffs.md: a diferencia del
 // resto de los mensajes de esta sección, este SÍ revela que la cuenta
 // existe (pedido explícito del cliente, revierte parcialmente el
 // anti-enumeración de la spec §7 solo para register() con una cuenta ya
@@ -63,7 +63,7 @@ const mensajeGenericoRecuperarPassword = "si el mail está registrado, te enviam
 const mensajeCuentaYaExiste = "ese mail ya tiene una cuenta — iniciá sesión o recuperá tu contraseña si la olvidaste"
 
 // mensajeCuentaCreadaAutoVerificada — respuesta cuando AuthDeps.AutoVerifyEmail
-// está activo (TR-051 en docs/tradeoffs.md): no hay verificación pendiente
+// está activo (TR-051 en docs/Arquitectura y base/tradeoffs.md): no hay verificación pendiente
 // que "revisar", así que no tiene sentido decir que se mandó un mail.
 const mensajeCuentaCreadaAutoVerificada = "cuenta creada"
 
@@ -86,7 +86,7 @@ type AuthDeps struct {
 	// nueva queda marcada como verificada de entrada, en vez de dejarla
 	// bloqueada esperando un mail que nunca va a llegar (pedido explícito
 	// del cliente, 2026-08-26, mientras no esté configurado Resend en
-	// Render — ver TR-051 en docs/tradeoffs.md). Se apaga solo apenas se
+	// Render — ver TR-051 en docs/Arquitectura y base/tradeoffs.md). Se apaga solo apenas se
 	// cargue RESEND_API_KEY: no hace falta acordarse de revertir un flag
 	// aparte. No afecta Google (ya llega verificado por el provider) ni
 	// borra el flujo de verificación — solo lo salta para cuentas nuevas.
@@ -221,7 +221,7 @@ type registerResponse struct {
 	// abrir un distinguidor nuevo (spec §7).
 	EmailVerificado bool   `json:"emailVerificado"`
 	OnboardingStep  string `json:"onboardingStep,omitempty"`
-	// CuentaExistente — TR-062 en docs/tradeoffs.md: true únicamente
+	// CuentaExistente — TR-062 en docs/Arquitectura y base/tradeoffs.md: true únicamente
 	// cuando el mail ya tiene una cuenta VERIFICADA (el único caso donde
 	// se decide revelarlo, a propósito). El frontend lo usa para mostrar
 	// "iniciá sesión"/"recuperar contraseña" en vez de avanzar al paso de
@@ -286,7 +286,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !nueva && existing.EmailVerifiedAt != nil {
-		// TR-062 en docs/tradeoffs.md: revierte parcialmente el
+		// TR-062 en docs/Arquitectura y base/tradeoffs.md: revierte parcialmente el
 		// anti-enumeración de la spec §7 — pedido explícito del cliente
 		// (2026-08-26): acá SÍ se dice que la cuenta ya existe, en vez de
 		// mandar siempre al paso de código (generaba confusión real, "no
@@ -306,7 +306,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	if nueva {
 		user = db.User{Email: email, OnboardingStep: db.OnboardingStepCuenta}
 	}
-	// TR-056 en docs/tradeoffs.md: una cuenta existente pero SIN VERIFICAR
+	// TR-056 en docs/Arquitectura y base/tradeoffs.md: una cuenta existente pero SIN VERIFICAR
 	// se sobreescribe en vez de tratarse como "ya existe" — pedido
 	// explícito del cliente: "si me confundí de mail" o "quiero volver a
 	// intentar con otra contraseña" no puede terminar en un softlock. Es
@@ -366,7 +366,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 // createAndSendVerificationToken genera el código de 6 dígitos (TR-055 en
-// docs/tradeoffs.md) y lo manda por mail — ya no arma un link, así que no
+// docs/Arquitectura y base/tradeoffs.md) y lo manda por mail — ya no arma un link, así que no
 // necesita la AppBaseURL que sí siguen usando los mails de reset de
 // password.
 func createAndSendVerificationToken(ctx context.Context, tx *gorm.DB, sender dmmail.Sender, user db.User) error {
@@ -690,7 +690,7 @@ func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TR-061 en docs/tradeoffs.md: cinturón y tirantes — una cuenta ya
+	// TR-061 en docs/Arquitectura y base/tradeoffs.md: cinturón y tirantes — una cuenta ya
 	// verificada nunca debería tener un VerificationToken de tipo
 	// EmailVerify sin usar (register() no genera uno nuevo para una
 	// cuenta verificada, TR-056), pero un guard explícito acá evita
@@ -702,7 +702,7 @@ func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TR-055 en docs/tradeoffs.md: un código de 6 dígitos tiene mucha
+	// TR-055 en docs/Arquitectura y base/tradeoffs.md: un código de 6 dígitos tiene mucha
 	// menos entropía que el token de 32 bytes anterior — el límite por IP
 	// de arriba no alcanza solo (un atacante puede rotar de IP), así que
 	// se suma un límite por CUENTA a los intentos, sin importar qué código

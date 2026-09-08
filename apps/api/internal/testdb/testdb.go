@@ -1,6 +1,6 @@
 // Package testdb da a los tests de apps/api una base de Postgres real y
 // aislada, en vez de mockear la capa de datos (TR-007 en
-// docs/tradeoffs.md: el gate de coverage 80% está activo desde Sprint 0, y
+// docs/Arquitectura y base/tradeoffs.md: el gate de coverage 80% está activo desde Sprint 0, y
 // el exclusion constraint de turnos no se puede simular con sentido de
 // otra forma que contra Postgres real — mismo criterio que TR-038 de
 // Marcuzzi_Madryn).

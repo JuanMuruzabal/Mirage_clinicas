@@ -108,7 +108,7 @@ describe("registerAction", () => {
     expect(result).toEqual({ mensaje: "ok" });
     expect(setSessionCookieMock).toHaveBeenCalledWith("sesion-1");
     expect(redirectMock).not.toHaveBeenCalled();
-    // TR-059 en docs/tradeoffs.md: sin esto, el header global (layout
+    // TR-059 en docs/Arquitectura y base/tradeoffs.md: sin esto, el header global (layout
     // raíz) podía quedar mostrando la sesión vieja hasta un refresh
     // manual — bug real reportado por el cliente, 2026-08-26.
     expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
@@ -131,7 +131,7 @@ describe("registerAction", () => {
     expect(result).toEqual({ error: "no se pudo crear la cuenta" });
   });
 
-  // TR-051 en docs/tradeoffs.md: sin Resend configurado, el backend marca
+  // TR-051 en docs/Arquitectura y base/tradeoffs.md: sin Resend configurado, el backend marca
   // la cuenta como ya verificada — no tiene sentido mostrar "revisá tu
   // correo" para un mail que nunca se mandó.
   it("con emailVerificado=true, guarda la cookie y redirige a /sumarse en vez de mostrar 'revisá tu correo'", async () => {
@@ -251,7 +251,7 @@ describe("resetPasswordAction", () => {
     expect(apiResetPasswordMock).not.toHaveBeenCalled();
   });
 
-  // TR-065 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-065 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): cambiar la contraseña ya NO inicia sesión sola — manda
   // a /ingresar para que la persona confirme la contraseña nueva a mano,
   // en vez de auto-loguearla con la sesión que devuelve el backend.

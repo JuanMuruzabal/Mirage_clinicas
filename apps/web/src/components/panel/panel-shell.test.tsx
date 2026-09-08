@@ -10,7 +10,7 @@ const { PanelShell } = await import("./panel-shell");
 // cliente: "sigue sin responder el movimiento vertical en el apartado de
 // calendario... se arregla momentáneamente cuando cambio de dia a
 // semana... mismo problema cuando toco la ficha de un paciente" — ver
-// TR-031 en docs/tradeoffs.md). No se puede probar el bug de iOS Safari
+// TR-031 en docs/Arquitectura y base/tradeoffs.md). No se puede probar el bug de iOS Safari
 // en sí desde jsdom (no simula reflow real) — este test confirma lo que
 // sí se puede verificar: que el wrapper renderiza sus hijos sin romper
 // nada, y que el toggle de `display` termina restaurado (no deja el

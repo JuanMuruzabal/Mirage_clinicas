@@ -1,7 +1,7 @@
 // Package auth gestiona las sesiones de usuario — reemplaza al JWT
 // stateless (jwt.go, eliminado) por sesiones server-side en Postgres
 // (db.Session), necesario para cumplir la spec de seguridad de
-// docs/feature-sumarte-login.md §7: logout que invalida server-side,
+// docs/Login/feature-sumarte-login.md §7: logout que invalida server-side,
 // invalidar-todas-las-demás-sesiones en cambio de contraseña, y rotación
 // del ID de sesión en login/verificación de mail — nada de esto es posible
 // con un JWT puro sin terminar reinventando una tabla equivalente de

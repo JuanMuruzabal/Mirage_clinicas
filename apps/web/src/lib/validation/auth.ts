@@ -4,7 +4,7 @@ import { z } from "zod";
 // inmediato) y las Server Actions (revalidación server-side, defensa en
 // profundidad) — apps/api sigue siendo la fuente de verdad final, estos
 // schemas solo evitan un viaje de ida y vuelta con un error que ya se podía
-// detectar acá (docs/feature-sumarte-login.md §8).
+// detectar acá (docs/Login/feature-sumarte-login.md §8).
 //
 // Contraseña — spec §7: "mínimo 12 caracteres, sin reglas de composición
 // arbitrarias, sin límite máximo bajo (aceptar hasta 128)". Mismos números
@@ -53,7 +53,7 @@ export const recuperarPasswordSchema = z.object({
 });
 export type RecuperarPasswordFormValues = z.infer<typeof recuperarPasswordSchema>;
 
-// verificarEmailSchema — TR-055 en docs/tradeoffs.md: código de 6 dígitos
+// verificarEmailSchema — TR-055 en docs/Arquitectura y base/tradeoffs.md: código de 6 dígitos
 // que se escribe a mano (antes era un token de link, sin validación de
 // forma acá porque cualquier string era válido). El backend sigue siendo
 // la fuente de verdad final (compara contra el hash guardado), esto es

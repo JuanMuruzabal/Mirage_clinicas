@@ -2,7 +2,7 @@
 
 > Basado en `dental-mirage-spec.md`. Cubre desde el arranque del proyecto (repo vacío) hasta el cierre del MVP (spec §2), con la Fase 2 (lo explícitamente fuera de alcance de §2) resumida como backlog.
 >
-> Reutiliza el modo de trabajo y stack ya validados en `Marcuzzi_Madryn` (spec §9, "resuelto, no a evaluar"). Este documento no vuelve a discutir Go/chi/GORM/Next.js/Postgres/BFF/monorepo pnpm — eso ya está decidido. Lo que sí resuelve acá es lo que la spec deja abierto en su sección 7, necesario para poder planificar sin bloquearse; esas posturas están registradas como supuestos en `docs/tradeoffs.md` y deben confirmarse con el cliente antes de blindar el Sprint 2 (calendario) y el Sprint 3 (formulario público).
+> Reutiliza el modo de trabajo y stack ya validados en `Marcuzzi_Madryn` (spec §9, "resuelto, no a evaluar"). Este documento no vuelve a discutir Go/chi/GORM/Next.js/Postgres/BFF/monorepo pnpm — eso ya está decidido. Lo que sí resuelve acá es lo que la spec deja abierto en su sección 7, necesario para poder planificar sin bloquearse; esas posturas están registradas como supuestos en `docs/Arquitectura y base/tradeoffs.md` y deben confirmarse con el cliente antes de blindar el Sprint 2 (calendario) y el Sprint 3 (formulario público).
 
 ---
 
@@ -205,7 +205,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - Ficha de paciente: "Turnos activos" e "Historial de turnos" pasan de una lista simple a una tabla (mismo formato que Turnos/Pacientes) — nuevo componente `PacienteTurnosTable`, reutilizado en ambas secciones. Diferencia el tipo de consulta de dos formas a la vez, como se pidió explícitamente: un punto de color al principio de cada fila (mismo color que usa el calendario para ese tipo) + una columna de texto con el nombre — nunca solo el color, para que sea legible incluso sin distinguir tonos. `ESTADO_LABEL`/`ESTADO_CLASS`/`ORIGEN_LABEL`/`formatFechaHora` se extrajeron de `turnos-table.tsx` a `lib/turno-format.ts` para no duplicarlos entre las dos tablas.
 - Verificación: backend `gofmt`/`build`/`vet` limpios, `golangci-lint` 0 issues, tests → **82.1%** cobertura total (suma `TestCrearTurnoManual_FechaPasadaFalla`, `TestAgendarTurno_FechaPasadaFalla`, `TestReprogramarTurno_MoverAFechaPasadaFalla`, `TestReprogramarTurno_MotivoDeUnResueltoSinCambiarHorario`). Frontend typecheck + lint limpios, **228 tests → 92.35%** cobertura, build OK. Probado end-to-end contra los dos servidores corriendo: crear un turno con horario 2020 falla 400; reprogramar un turno futuro real a un horario 2020 falla 400; la ficha de un paciente con un turno confirmado muestra la tabla con el punto de color en el hex real del tipo de consulta sembrado (`#E7D9BE`) + columna "Tipo de consulta" + "Confirmado", y la sección sin turnos muestra el mensaje vacío en vez de una tabla vacía.
 
-**Restyle cálido del panel de gestión (2026-08-23), pedido explícito del cliente antes de arrancar Sprint 4, ✅ implementado y verificado — ver TR-013 en `docs/tradeoffs.md` para la paleta completa, los valores de radius/sombra y el razonamiento de contraste:**
+**Restyle cálido del panel de gestión (2026-08-23), pedido explícito del cliente antes de arrancar Sprint 4, ✅ implementado y verificado — ver TR-013 en `docs/Arquitectura y base/tradeoffs.md` para la paleta completa, los valores de radius/sombra y el razonamiento de contraste:**
 - Cambio de piel puro (color/forma/sombra), sin tocar layout, estructura de componentes ni copys — alcance acotado a `app/panel/**` y `components/panel/**` (General, Calendario, Turnos, Pacientes, sidebar, topbar dentro de `/panel`). La home pública, el onboarding y el resto del Sistema Cascarón (TR-010) quedan sin tocar — verificado archivo por archivo, no solo de palabra.
 - Paleta nueva (hueso/marfil/salvia/terracota/grafito/arena, cada acento con variante `-claro`/`-oscuro`) agregada como tokens nuevos en `globals.css`, sin reemplazar los de TR-010. Radius subido (`rounded-card` 18px, `rounded-field` 12px, `rounded-full` en botones/chips/avatares) y bordes duros reemplazados por `border-[0.5px] border-arena` + `shadow-soft`. Textura de fondo (SVG de cruces suaves) solo en `app/panel/layout.tsx`, nunca dentro de una card.
 - Verificación: pipeline completo (`typecheck:web` + `lint:web` + `test:coverage:web` + `build:web`) limpio, **238 tests → 92.43%** cobertura. Contraste AA revisado a mano (fórmula WCAG) para cada combinación fondo/texto nueva — encontró y corrigió un problema real durante la verificación: el tono medio de salvia/terracota como relleno sólido con texto marfil encima daba ~3.1–3.6:1 (no llega a 4.5:1), corregido a la variante `-oscuro` en los ~14 botones/pills afectados antes de cerrar. Probado end-to-end contra los dos servidores: la piel nueva aparece en las cuatro pantallas de `/panel` (incluidos avatares con iniciales y el chip de tipo de consulta), y está ausente en la home pública y en `/buscar` (mismo `HeaderFrame`, acotado por pathname).
@@ -219,7 +219,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - `/seleccionar-servicio` (pantalla post-login) migrada a la identidad cálida del panel (TR-013) — no la tenía, seguía con el Sistema Cascarón (TR-010). El componente compartido `NavCard` (uso real: solo esta pantalla, pese a un comentario desactualizado que lo daba por compartido con el Home) se restyleó directo. `HeaderFrame` suma `/seleccionar-servicio` a su chequeo `enPanel` para que el topbar sea consistente. Sin la textura de fondo (esa sigue acotada a las 4 pantallas de gestión de verdad, ver `panel/layout.tsx`).
 - Verificación: backend `gofmt`/`build`/`vet` limpios, `golangci-lint` 0 issues, tests verdes (incluida `TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados`, nueva). Frontend `typecheck`/`lint` limpios, **247 tests → 92.26%** cobertura, `build` OK. Probado end-to-end contra los dos servidores corriendo: `POST /auth/register` + `POST /turnos` (agendado a futuro) + `GET /panel/resumen` confirma `turnosConfirmados: 1`; `GET /turnos?estado=agendado&resuelto=true` da `[]` (nada resuelto todavía, coherente); `/panel/turnos?turno=...`, `/seleccionar-servicio` y `/panel/pacientes/does-not-exist` devuelven 307 (redirect a `/ingresar` sin sesión) en vez de 500, confirmando que ninguna ruta tocada rompe en el servidor.
 
-**Identidad cálida extendida a todo el sitio (2026-08-23), pedido explícito del cliente antes de arrancar Sprint 4, ✅ implementado y verificado — ver TR-015 en `docs/tradeoffs.md` para el detalle completo de alcance y las decisiones de contraste:**
+**Identidad cálida extendida a todo el sitio (2026-08-23), pedido explícito del cliente antes de arrancar Sprint 4, ✅ implementado y verificado — ver TR-015 en `docs/Arquitectura y base/tradeoffs.md` para el detalle completo de alcance y las decisiones de contraste:**
 - La piel cálida de TR-013 (antes acotada a `/panel/**`) pasa a ser el default de todo el sitio: `/buscar`, `/ingresar`, `/sumarse`, `/perfil`, `/[slug]` restyleados por completo (mismo criterio que TR-013 — tokens, radius, bordes, sombra). `HeaderFrame` simplifica su condición de piel a `!hasHero` (antes una lista de rutas) para que cualquier ruta nueva la herede sin tener que acordarse de sumarla. `SiteFooter` pasa de `ink`/`porcelain` a `grafito`/`marfil`. El botón "Sumate" del header (único botón real ahí) pasa a pill `salvia-oscuro`, en toda página.
 - Home pública, alcance acotado por pedido explícito ("el home solo cambiar las tarjetas y botones"): las dos secciones con foto de fondo y toda su tipografía quedan sin tocar; solo cambian `InfoCard`, `ExpandableCard` y los dos botones reales de la página.
 - Verificación: frontend `typecheck`/`lint` limpios, **247 tests → 92.26%** cobertura, `build` OK. Contraste AA revisado a mano para cada combinación nueva — encontró y corrigió un problema real: el hover de los links del footer nuevo (`salvia` tono medio sobre `grafito`) daba ~3.6:1, corregido a `salvia-claro` (~10.6:1) antes de cerrar, mismo criterio de TR-013 ("el tono medio nunca lleva texto"). Probado end-to-end contra los dos servidores corriendo: `/`, `/buscar`, `/ingresar`, `/sumarse` devuelven 200; `/perfil` sin sesión devuelve 307; la clínica pública de prueba (`/clinica-e2e-1787527557`, creada en la ronda anterior) devuelve 200 con las clases nuevas (`bg-salvia-oscuro`, `rounded-full`, `rounded-field`) presentes en el HTML servido; confirmado con curl que la home sigue sirviendo `text-porcelain` en sus dos secciones con foto mientras sus tarjetas y botones ya sirven `bg-marfil`/`bg-salvia-oscuro`.
@@ -234,7 +234,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 | T4.2 | ✅ Barra superior de acciones: Ver página / Guardar cambios / Ocultar / Deployar (solo visible la primera vez) | FR-7, FR-8 | T4.1, T0.3 | 2d | "Ocultar" pone `pagina_publica.oculta = true`; "Deployar" setea `deployada_en` la primera vez y desaparece de la barra después |
 | T4.3 | ✅ Plantilla pública base en `/[slug]`: sección de turno (formulario de T3.1/T3.2), "Sobre nosotros" (placeholder), especialidades (desde el profesional) | FR-8 | T0.3, T1.3 | 2.5d | Página renderiza las 3 secciones fijas; slug único derivado del nombre de clínica |
 | T4.4 | ✅ Modo mantenimiento cuando `oculta = true` | FR-8 | T4.3, T4.2 | 0.5d | Visitante ve una pantalla de "en mantenimiento" en vez del contenido |
-| T4.5 | ✅ Cerrado — filtro `deployada_en` no nulo sumado (era el único resto desde el adelanto a Sprint 1, 2026-08-22) | FR-10 | T4.2, T4.3 | 2.5d → 0.5d restante | `GET /clinicas` + `/buscar` + sección de búsqueda en el Home ya funcionan de verdad (búsqueda real contra la base) — ver TR-012 en docs/tradeoffs.md. `WHERE` vía `JOIN paginas_publicas ... AND deployada_en IS NOT NULL` en `buscarClinicasHandler` |
+| T4.5 | ✅ Cerrado — filtro `deployada_en` no nulo sumado (era el único resto desde el adelanto a Sprint 1, 2026-08-22) | FR-10 | T4.2, T4.3 | 2.5d → 0.5d restante | `GET /clinicas` + `/buscar` + sección de búsqueda en el Home ya funcionan de verdad (búsqueda real contra la base) — ver TR-012 en docs/Arquitectura y base/tradeoffs.md. `WHERE` vía `JOIN paginas_publicas ... AND deployada_en IS NOT NULL` en `buscarClinicasHandler` |
 
 **Decisiones tomadas durante la ejecución (aplicación directa de la spec y del alcance ya acotado en `CLAUDE.md`, no alternativas nuevas):**
 - `PaginaPublica` (1:1 con `Profesional`, existe desde T0.3) no se crea al registrarse — se crea perezosamente (get-or-create) la primera vez que hace falta, en `GET/PATCH /panel/pagina/*`, para no tocar el flujo de registro por una feature que llega dos sprints después. Una página pública sin fila todavía se comporta como "no oculta" (el default de la columna).
@@ -242,9 +242,9 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - "Guardar cambios" (barra de T4.2) y los campos del panel de edición (T4.1) están deshabilitados a propósito, sin backend detrás — la personalización real de contenido/diseño es trabajo posterior explícito (spec §5.1) y está fuera de alcance del MVP salvo pedido explícito (`CLAUDE.md`). El panel refleja de solo lectura los datos que ya existen en "Tu perfil" (nombre de clínica, teléfono, especialidades) más un textarea placeholder de "Sobre nosotros".
 - La previsualización en vivo del editor y la página pública real comparten un único componente (`ClinicaPublicaTemplate`) — nunca se desincronizan a propósito, en vez de mantener dos plantillas por separado.
 
-**Corrección post-entrega (2026-08-23), pedido explícito del cliente, ✅ implementada y verificada — ver TR-017 en `docs/tradeoffs.md`:** la primera versión de T4.1 montó el editor en `/panel/pagina`, dentro del layout de gestión de clínica (heredaba su sidebar de navegación y su textura de fondo). Se corrige: el editor pasa a `/personalizar-pagina`, una ruta de nivel superior hermana de `/panel`, no una sub-ruta — con guard de sesión propio, sin el sidebar de clínica, más ancho disponible (panel de edición `w-72`→`w-80`, previsualización `min-h-[600px]`→`min-h-[640px]`). "Tu página" (sidebar de `/panel`) y la tarjeta "Personalizá tu página" (`/seleccionar-servicio`) apuntan a la nueva ruta. `PaginaEditor` se mudó de `components/panel/` a `components/`. Verificación: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, **270 tests → 92.48%** cobertura (sin cambios de cantidad, los tests se movieron con sus componentes). Probado end-to-end: `/personalizar-pagina` sin sesión redirige 307; la vieja `/panel/pagina` ya no existe (404); `/seleccionar-servicio` sigue sirviendo.
+**Corrección post-entrega (2026-08-23), pedido explícito del cliente, ✅ implementada y verificada — ver TR-017 en `docs/Arquitectura y base/tradeoffs.md`:** la primera versión de T4.1 montó el editor en `/panel/pagina`, dentro del layout de gestión de clínica (heredaba su sidebar de navegación y su textura de fondo). Se corrige: el editor pasa a `/personalizar-pagina`, una ruta de nivel superior hermana de `/panel`, no una sub-ruta — con guard de sesión propio, sin el sidebar de clínica, más ancho disponible (panel de edición `w-72`→`w-80`, previsualización `min-h-[600px]`→`min-h-[640px]`). "Tu página" (sidebar de `/panel`) y la tarjeta "Personalizá tu página" (`/seleccionar-servicio`) apuntan a la nueva ruta. `PaginaEditor` se mudó de `components/panel/` a `components/`. Verificación: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, **270 tests → 92.48%** cobertura (sin cambios de cantidad, los tests se movieron con sus componentes). Probado end-to-end: `/personalizar-pagina` sin sesión redirige 307; la vieja `/panel/pagina` ya no existe (404); `/seleccionar-servicio` sigue sirviendo.
 
-**Segunda ronda de correcciones post-entrega (2026-08-23), pedido explícito del cliente, ✅ implementada y verificada — ver TR-018 y TR-019 en `docs/tradeoffs.md`:**
+**Segunda ronda de correcciones post-entrega (2026-08-23), pedido explícito del cliente, ✅ implementada y verificada — ver TR-018 y TR-019 en `docs/Arquitectura y base/tradeoffs.md`:**
 - `ClinicaPublicaTemplate` (T4.3) suma un fondo celeste propio (`#e7f2f7`, distinto de la identidad cálida del resto del producto) y su propio "header básico" con anclas a cada sección (Pedí tu turno/Sobre nosotros/Especialidades) — la misma previsualización en vivo del editor ya lo muestra, comparten componente.
 - La página pública de una clínica (`/{slug}`) deja de mostrar el header/footer globales de Mirage — nuevo `isClinicaPublicaRoute` en `lib/site-routes.ts` + `SiteHeaderVisibility` (mismo patrón que `SiteFooterVisibility` ya existente). Primer paso hacia el subdominio propio que ya preveía la spec §5 (Fase 2, no implementado todavía — esto es la aproximación visual sin anticipar la infraestructura real).
 - `/buscar` pasa de una lista vertical de tarjetas a una grilla de tarjetas cuadradas horizontal (`grid-cols-2 sm:grid-cols-3 md:grid-cols-4`, `aspect-square`).
@@ -255,65 +255,65 @@ Todas las tareas de la sección 5 referencian estos IDs.
 
 | ID | Tarea | FR | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|---|
-| T5.1 | ✅ Pase de diseño frontend deliberado (paleta hex, tipografía display/body/utilitaria, elemento firma) vía `/frontend-design` — **adelantado a fase de planificación** (TR-010), no esperado hasta Sprint 5, para que Sprint 1 ya arranque con tokens reales en vez de placeholders. Esta tarea en Sprint 5 pasa a ser *aplicar/pulir* el sistema ya definido sobre las pantallas construidas, no definirlo desde cero | FR-11 | T1.1–T4.5 | 1d (reducido de 2d — el sistema ya existe) | Paleta y tipografía documentadas y aplicadas consistentemente en todas las pantallas; lenguaje estructural tipo bungie.net traducido a tono clínico (spec §9.7), no look "gamer" literal — ver TR-010 en `docs/tradeoffs.md` |
+| T5.1 | ✅ Pase de diseño frontend deliberado (paleta hex, tipografía display/body/utilitaria, elemento firma) vía `/frontend-design` — **adelantado a fase de planificación** (TR-010), no esperado hasta Sprint 5, para que Sprint 1 ya arranque con tokens reales en vez de placeholders. Esta tarea en Sprint 5 pasa a ser *aplicar/pulir* el sistema ya definido sobre las pantallas construidas, no definirlo desde cero | FR-11 | T1.1–T4.5 | 1d (reducido de 2d — el sistema ya existe) | Paleta y tipografía documentadas y aplicadas consistentemente en todas las pantallas; lenguaje estructural tipo bungie.net traducido a tono clínico (spec §9.7), no look "gamer" literal — ver TR-010 en `docs/Arquitectura y base/tradeoffs.md` |
 | T5.2 | Pase mobile-first + accesibilidad (contraste, alt text, navegación por teclado) + header fijo con altura dinámica si hay banners | FR-11 | T5.1 | 2d | Auditoría axe/Lighthouse sin errores críticos en mobile |
 | T5.3 | Verificación final de coverage ≥ 80% ambos lados (ya gateado desde T0.4, esto es cierre, no descubrimiento) | FR-11 | Sprints 0–4 | 0.5d | `go tool cover` y el reporte de Vitest reportan ≥ 80% |
 | T5.4 | QA end-to-end: onboarding → agenda → turno público → WhatsApp → confirmación → deploy → búsqueda | FR-1–FR-10 | Sprints 1–4 | 2d | Checklist de flujos críticos pasa sin bugs bloqueantes, incluida la prueba manual de dos turnos agendados solapados (debe fallar controladamente) |
 | T5.5 | ✅ Infraestructura de CI/deploy lista (Dockerfiles, `render.yaml`, deploy automático en push a `dev`) — **adelantada fuera de orden** (pedido explícito del cliente, 2026-08-24, antes de T5.2-T5.4); blueprint aplicado en Render y secrets cargados, job `deploy` activo | FR-11 | T5.4 | 1.5d | Sitio accesible en dominio final; healthcheck de `apps/api`/`apps/web` verde |
 
-**Ronda de CI/deploy (2026-08-24), rama `feature/ci-deployment`, pedido explícito del cliente, ✅ implementada y verificada — ver TR-020 en `docs/tradeoffs.md`:**
+**Ronda de CI/deploy (2026-08-24), rama `feature/ci-deployment`, pedido explícito del cliente, ✅ implementada y verificada — ver TR-020 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Seis recursos en `render.yaml` (antes tres en Marcuzzi_Madryn): `dental-mirage-db`/`-api`/`-web` (prod, rama `main`) y sus tres equivalentes `-dev` (rama `dev`), cada trío con su propia base de datos, nunca compartida.
 - `apps/api/Dockerfile` y `apps/web/Dockerfile` nuevos (build en dos etapas, mismo patrón que Marcuzzi_Madryn pero sin el manejo de `NEXT_PUBLIC_*`/uploads que Dental Mirage no tiene) — `.dockerignore` en la raíz y en `apps/api/`. `docker-compose.yml` extendido con `migrate`/`api`/`web` (antes solo Postgres).
 - `.github/workflows/ci.yml`: corre también en push directo a `dev` (antes solo `main`); el job `deploy` se separa en `deploy-prod`/`deploy-dev`, cada uno disparando su propio par de Deploy Hooks (`RENDER_DEPLOY_HOOK_API`/`_WEB` vs. `_API_DEV`/`_WEB_DEV`) según la rama.
 - Storage de fotos (perfil de profesional, fotos de página pública — todavía sin construir): env vars de R2 reservados en `render.yaml` (`sync: false`) con la convención de key multi-tenant ya decidida (`paginas/{profesionalId}/...`, `perfiles/{profesionalId}/...`) para cuando la feature exista.
 - Verificación: los dos Dockerfiles se buildearon de verdad (`docker build`) y se corrió el stack completo (`docker compose up --build`) contra el código real — health check de la API, página `/buscar` sirviendo vía SSR contra el `api` interno por la red de Docker, y un registro real (`POST /auth/register`) contra el Postgres containerizado, los tres verdes. YAML de los tres archivos (`render.yaml`, `docker-compose.yml`, `ci.yml`) validado con un parser real (`js-yaml`), no solo a ojo.
 
-**Corrección post-entrega, mismo día (2026-08-24), pedido explícito del cliente — ver TR-021 en `docs/tradeoffs.md`:** el plan free de Render solo permite una base Postgres por cuenta — los 6 recursos de arriba no eran viables sin pagar. `render.yaml` vuelve a 3 recursos (`dental-mirage-db`/`-api`/`-web`, sin sufijo); `ci.yml` colapsa `deploy-prod`/`deploy-dev` a un solo job `deploy`, disparado por push a **`dev`** (no `main` — `main` sigue corriendo tests/build en cada push, sin disparar redeploy). El patrón de dos entornos separados queda documentado (comentario en `render.yaml` + TR-020/TR-021) para retomarlo cuando haya presupuesto para una segunda base.
+**Corrección post-entrega, mismo día (2026-08-24), pedido explícito del cliente — ver TR-021 en `docs/Arquitectura y base/tradeoffs.md`:** el plan free de Render solo permite una base Postgres por cuenta — los 6 recursos de arriba no eran viables sin pagar. `render.yaml` vuelve a 3 recursos (`dental-mirage-db`/`-api`/`-web`, sin sufijo); `ci.yml` colapsa `deploy-prod`/`deploy-dev` a un solo job `deploy`, disparado por push a **`dev`** (no `main` — `main` sigue corriendo tests/build en cada push, sin disparar redeploy). El patrón de dos entornos separados queda documentado (comentario en `render.yaml` + TR-020/TR-021) para retomarlo cuando haya presupuesto para una segunda base.
 
-**Segunda corrección post-entrega, mismo día (2026-08-24), pedido explícito del cliente — ver TR-022 en `docs/tradeoffs.md`:** el blueprint (`render.yaml`) todavía no está aplicado en Render — no existen `RENDER_DEPLOY_HOOK_API`/`_WEB` como secrets del repo, así que el job `deploy` fallaba en rojo en cada push a `dev` sin que hubiera nada roto en el código. El job se saca por completo de `ci.yml` (no solo se retarget) hasta terminar de configurar Render; queda un comentario en su lugar explicando qué falta y el texto del job recuperable del historial de git.
+**Segunda corrección post-entrega, mismo día (2026-08-24), pedido explícito del cliente — ver TR-022 en `docs/Arquitectura y base/tradeoffs.md`:** el blueprint (`render.yaml`) todavía no está aplicado en Render — no existen `RENDER_DEPLOY_HOOK_API`/`_WEB` como secrets del repo, así que el job `deploy` fallaba en rojo en cada push a `dev` sin que hubiera nada roto en el código. El job se saca por completo de `ci.yml` (no solo se retarget) hasta terminar de configurar Render; queda un comentario en su lugar explicando qué falta y el texto del job recuperable del historial de git.
 
-**Job `deploy` repuesto, mismo día (2026-08-24), pedido explícito del cliente ("ya configuré render, con los deploy keys en secrets en actions, reponé el job deploy") — ver TR-022 en `docs/tradeoffs.md`:** blueprint aplicado en el dashboard de Render, `RENDER_DEPLOY_HOOK_API`/`RENDER_DEPLOY_HOOK_WEB` cargados como secrets del repo. `ci.yml` recupera el job `deploy` (texto idéntico al que tenía antes de sacarse, apuntando a `dev`, gateado por los cuatro jobs de test/build). Verificado con `js-yaml`: 5 jobs (`web`/`api`/`test-api`/`test-web`/`deploy`), condición `if` y `needs` del job `deploy` correctos. T5.5 cierra ✅.
+**Job `deploy` repuesto, mismo día (2026-08-24), pedido explícito del cliente ("ya configuré render, con los deploy keys en secrets en actions, reponé el job deploy") — ver TR-022 en `docs/Arquitectura y base/tradeoffs.md`:** blueprint aplicado en el dashboard de Render, `RENDER_DEPLOY_HOOK_API`/`RENDER_DEPLOY_HOOK_WEB` cargados como secrets del repo. `ci.yml` recupera el job `deploy` (texto idéntico al que tenía antes de sacarse, apuntando a `dev`, gateado por los cuatro jobs de test/build). Verificado con `js-yaml`: 5 jobs (`web`/`api`/`test-api`/`test-web`/`deploy`), condición `if` y `needs` del job `deploy` correctos. T5.5 cierra ✅.
 
-**Corrección mobile post-deploy (2026-08-24), pedido explícito del cliente ("el forntend se ve horrible en mobile"... "aplicar la misma solucion que alojamientos madryn... con una barra desplegable"... "los modulos se ven contraidos contra la pagina... deslizar con el dedo") — adelanta parte de T5.2, ver TR-023 en `docs/tradeoffs.md`:**
+**Corrección mobile post-deploy (2026-08-24), pedido explícito del cliente ("el forntend se ve horrible en mobile"... "aplicar la misma solucion que alojamientos madryn... con una barra desplegable"... "los modulos se ven contraidos contra la pagina... deslizar con el dedo") — adelanta parte de T5.2, ver TR-023 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Header: nuevo `site-header-chrome.tsx` (Client Component) — debajo de `md`, la fila superior queda solo con el logo + botón de hamburguesa; el resto de la navegación se mueve a un `<nav>` desplegable, mismo patrón que `site-header.tsx` de Alojamientos Madryn. `HeaderFrame` suma `forceSolid` para que el dropdown se lea bien sobre la foto transparente del Home.
 - Sidebar de `/panel`: riel de íconos angosto (`w-16`) siempre debajo de `md`, sin importar el toggle manual — antes `w-60` fijo se comía la mayor parte de un viewport angosto.
 - Calendario: contenedor con `overflow-auto` (antes solo `-y`); columnas de la vista Semana/Día con piso de `140px` (antes `minmax(0, 1fr)`, se aplastaban a nada); vista Mes con `min-w-[490px]`.
 - Editor de página (`/personalizar-pagina`): previsualización + panel de edición pasan de una fila fija a `flex-col lg:flex-row` — se apilan en mobile en vez de competir por el mismo ancho angosto.
 - Verificación: pipeline completo (`typecheck`/`lint`/`test:coverage`/`build`) limpio, **307 tests → 92.7%** cobertura (test nuevo `site-header-chrome.test.tsx` + un caso nuevo en `header-frame.test.tsx` para `forceSolid`).
 
-**Corrección de criterio, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("no quiero que las tablas ni el calendario se compriman... quiero que mantengan su layout original de escritorio... scroll horizontal", acotado a "el apartado de gestión de clínica... no toques el resto de la app por ahora") — ver TR-024 en `docs/tradeoffs.md`:** primera vez que el proyecto usa una rama dedicada por área para trabajo mobile en vez de commitear directo a `dev` — el cliente pidió que todo ajuste mobile futuro pase por `fix/mobile` y se mergee a `dev` desde ahí.
+**Corrección de criterio, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("no quiero que las tablas ni el calendario se compriman... quiero que mantengan su layout original de escritorio... scroll horizontal", acotado a "el apartado de gestión de clínica... no toques el resto de la app por ahora") — ver TR-024 en `docs/Arquitectura y base/tradeoffs.md`:** primera vez que el proyecto usa una rama dedicada por área para trabajo mobile en vez de commitear directo a `dev` — el cliente pidió que todo ajuste mobile futuro pase por `fix/mobile` y se mergee a `dev` desde ahí.
 - Alcance estrictamente `/panel/**` — sidebar (riel de íconos) y header (menú desplegable) de TR-023 quedan intactos, confirmados explícitamente por el cliente. `/personalizar-pagina` tampoco se toca (es un área separada desde TR-017).
 - `calendar-grid.tsx`: el `minmax(140px, 1fr)` incondicional de TR-023 (que técnicamente podía alterar desktop en un viewport angosto, ~1366px) se corrige con una variable CSS (`--panel-dia-min-w`, `globals.css`, solo activa debajo de 768px) — arriba de eso es matemáticamente idéntico al original `minmax(0, 1fr)`, cero cambio de escritorio a ningún ancho.
 - Tablas (`TurnosTable`, Pacientes, `PacienteTurnosTable`): sin cambios de layout — ya tenían `overflow-auto` + `min-w` fijo desde que se construyeron, exactamente el patrón pedido. Se les suma `WebkitOverflowScrolling: "touch"` (igual que al calendario) para el gesto táctil en iOS.
 - Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos, cambios puros de CSS/estilo inline).
 
-**Segunda vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente tras probar el deploy real ("el sidebar... sigue sin poder desplegarse con la flechita", "el calendario sigue estando apelmazado... quiero el mismo layout de escritorio") — ver TR-025 en `docs/tradeoffs.md`:**
+**Segunda vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente tras probar el deploy real ("el sidebar... sigue sin poder desplegarse con la flechita", "el calendario sigue estando apelmazado... quiero el mismo layout de escritorio") — ver TR-025 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Sidebar: revertido íntegro a su comportamiento pre-TR-023 (toggle único vía `collapsed`, sin variante `md:`, botón siempre visible) — el cliente prefiere el control manual de siempre sobre el riel forzado angosto en mobile.
 - `calendar-grid.tsx`: el piso de ancho pasa de columna-por-columna (no hacía nada en vista Día, la que se ve por defecto) a una vez por contenedor completo (`--panel-calendar-min-w`, 720px para Día / 200px×N para Semana), consumido solo debajo de 768px.
 - Verificación: pipeline completo limpio, 307 tests → 92.73% cobertura (sin tests nuevos).
 
-**Tercera vuelta, rama `fix/mobile` (2026-08-24), pedido explícito y detallado del cliente (estructura fija header/sidebar/página, un área de contenido con su propio scroll, `min-width` + `clamp()`/`vw` en vez de un ancho fijo enorme, sin tocar el meta viewport) — ver TR-026 en `docs/tradeoffs.md`:**
+**Tercera vuelta, rama `fix/mobile` (2026-08-24), pedido explícito y detallado del cliente (estructura fija header/sidebar/página, un área de contenido con su propio scroll, `min-width` + `clamp()`/`vw` en vez de un ancho fijo enorme, sin tocar el meta viewport) — ver TR-026 en `docs/Arquitectura y base/tradeoffs.md`:**
 - `app/panel/layout.tsx`: raíz a `100dvh` + `overflow-hidden` (mobile-only); `<main>` pasa a ser el único elemento que scrollea verticalmente. El sidebar, al quedar fuera de esa área, queda visualmente fijo.
 - `calendar-view.tsx`/`turnos-table.tsx`/`pacientes/page.tsx`/`paciente-turnos-table.tsx`: pierden su recorte/scroll vertical propio en mobile (ese scroll ahora lo da `<main>`), conservan su scroll horizontal sin cambios.
 - `calendar-grid.tsx`: vuelve al piso de ancho por columna (no por todo el contenedor, como en la segunda vuelta) — con `clamp()`+`vw` en vez de un px fijo. La vista Día ahora llena el 100% del ancho sin piso, que es lo pedido ("que se estire y llene la pantalla").
 - Los cinco `h1` y el padding raíz de cada página de `/panel` pasan a `clamp()`+`vw` en mobile.
 - Verificación: pipeline completo limpio, 307 tests → 92.7% cobertura (sin tests nuevos); CSS de producción inspeccionado para confirmar que Tailwind generó el bloque `max-md:` esperado.
 
-**Cuarta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el scroll... mueve todo junto... el header y el sidebar están DENTRO del contenedor que scrollea"), con instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-027 en `docs/tradeoffs.md`:**
+**Cuarta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el scroll... mueve todo junto... el header y el sidebar están DENTRO del contenedor que scrollea"), con instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-027 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Diagnóstico previo (antes de tocar código): se reconstruyó la jerarquía real del DOM leyendo el código — header/sidebar **ya eran hermanos** del área que scrollea, no descendientes. Causa real: el "rebote elástico" de mobile Safari, que puede filtrarse desde un scroll anidado hacia el documento y arrastrar visualmente a los elementos `position: fixed`.
 - Nuevo `components/panel-scroll-lock.tsx`: agrega/saca `.panel-locked` en `<html>` según la ruta (`usePathname`), montado en `app/layout.tsx`.
 - `globals.css`: `html.panel-locked, html.panel-locked body { overflow: hidden; overscroll-behavior: contain; }`, solo debajo de 768px.
 - `overscroll-contain` (Tailwind) sumado a los 4 contenedores con scroll de `/panel` (main, calendario, 2 tablas).
 - Verificación: pipeline completo limpio, 311 tests → 92.76% cobertura (4 tests nuevos para `PanelScrollLock`); CSS de producción inspeccionado.
 
-**Quinta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el calendario se sigue adaptando... queda compactado, lo mismo el cuadro de arriba"), con `docs/referencia-para-claude-code.html` (un HTML de referencia ejecutable) e instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-028 en `docs/tradeoffs.md`:**
+**Quinta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el calendario se sigue adaptando... queda compactado, lo mismo el cuadro de arriba"), con `docs/archivo/referencia-para-claude-code.html` (un HTML de referencia ejecutable) e instrucción explícita de mostrar la jerarquía y confirmar antes de codear — ver TR-028 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Diagnóstico: header/sidebar seguían correctos (tercera confirmación). El bug real: el scroll horizontal estaba un nivel más adentro de lo debido — solo el calendario/tablas scrolleaban horizontal, aislados del título/toolbar de arriba (sin `min-width`, comprimidos con `flex-wrap`).
 - `<main>` pasa a scrollear en las dos direcciones (antes solo vertical) — se vuelve el único `overflow:auto` real, igual que `.contenido-scroll` de la referencia.
 - Calendario/tablas dejan su scroll propio; título/toolbar/tabs pasan a `flex-nowrap` + `min-w-[40rem]` (640px, mismo número que la referencia) — todo comparte el scroll de `<main>`.
 - El ancho mínimo del calendario pasa de "por columna" a "por card entera" (`--panel-cal-min-w`, calculado según la vista), mismo criterio que `.cal { min-width: 900px }` de la referencia.
 - Verificación: pipeline completo limpio, 311 tests → 92.77% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
-**Sexta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente (5 bugs puntuales tras probar TR-028: scroll vertical roto — prioridad, anchos inconsistentes entre filas, gap bajo el header, sidebar colapsado más chico, íconos faltantes en "Tu página"/"Tu perfil") — ver TR-029 en `docs/tradeoffs.md`:**
+**Sexta vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente (5 bugs puntuales tras probar TR-028: scroll vertical roto — prioridad, anchos inconsistentes entre filas, gap bajo el header, sidebar colapsado más chico, íconos faltantes en "Tu página"/"Tu perfil") — ver TR-029 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Bug real encontrado: el fallback `height: 100vh; height: 100dvh;` (dos declaraciones en una regla) se perdía en el minificador de Tailwind v4 (Lightning CSS descarta la primera como código muerto) — confirmado inspeccionando el CSS de producción. Corregido partiendo el fallback en `.panel-shell-h`/`.panel-sidebar-h` (base `vh`) + un bloque `@supports (height: 100dvh)` aparte (que un minificador no puede evaluar en build time, así que preserva). Se suma `min-height: 0` a la raíz de `/panel` (antes solo en `<main>`).
 - Anchos inconsistentes: título/toolbar/calendario (y filtros/tabla en Turnos/Pacientes) pasan de tener cada uno su propio `min-width` a compartir UNO SOLO vía un wrapper único.
 - Gap bajo el header: el padding-top de cada página pasa de `clamp()` a un valor chico fijo (`pt-3`), el compensador real del header (`pt-[var(--header-height)]`) no se toca.
@@ -321,31 +321,31 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - El archivo `referencia-v6.html` que mencionó el cliente no se encontró en el repo — se avisó y se procedió con la lista de bugs, suficientemente precisa.
 - Verificación: pipeline completo limpio, 313 tests → 92.79% cobertura (2 tests nuevos); CSS de producción inspeccionado dos veces (antes y después del fix de `@supports`).
 
-**Séptima vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el sidebar está superpuesto sobre el contenido" — video mostrando texto cortado en modales/buscador/calendario, scroll roto, modales fuera de límites, gap header/contenido, tablas desalineadas, y el mismo tratamiento para General) — ver TR-030 en `docs/tradeoffs.md`:**
+**Séptima vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("el sidebar está superpuesto sobre el contenido" — video mostrando texto cortado en modales/buscador/calendario, scroll roto, modales fuera de límites, gap header/contenido, tablas desalineadas, y el mismo tratamiento para General) — ver TR-030 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Diagnóstico: el sidebar sigue siendo `sticky`, no `fixed` (tercera confirmación). Causa real: los 5 modales de `/panel` son `position:fixed` pero seguían siendo descendientes de `<main>` (`overflow-auto` desde TR-026) — un ancestro con overflow recorta a sus descendientes `fixed` al pintar, aunque su posición se calcule relativa al viewport. El borde izquierdo del modal caía en la franja que `<main>` no incluye (la del sidebar).
 - Nuevo `components/panel/modal-portal.tsx` (`ModalPortal`, `createPortal` a `document.body`) — aplicado a los 5 modales (`AgregarTurnoModal`, `EditarTurnoModal`, `CancelarTurnoModal`, `EditarPacienteModal`, `TurnoDetalle`), más `max-md:max-w-[90vw]` sumado a cada caja.
 - `paciente-turnos-table.tsx`: mismo fix de ancho consistente que TR-029 (filtros+tabla comparten un solo `min-width`, 560px).
 - General y ficha del paciente: revisados, ya cumplían (comparten `<main>` y el `pt-3` de TR-029) — sin cambios estructurales necesarios.
 - Verificación: pipeline completo limpio, 313 tests → 92.8% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
-**Octava vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("sigue sin responder el movimiento vertical en el apartado de calendario... se arregla momentaneamente cuando cambio de dia a semana... mismo problema cuando toco la ficha de un paciente") — ver TR-031 en `docs/tradeoffs.md`:**
+**Octava vuelta, rama `fix/mobile` (2026-08-24), pedido explícito del cliente ("sigue sin responder el movimiento vertical en el apartado de calendario... se arregla momentaneamente cuando cambio de dia a semana... mismo problema cuando toco la ficha de un paciente") — ver TR-031 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Diagnóstico: bug conocido de iOS Safari — un contenedor `overflow:auto` (`<main>`) a veces no reconoce contenido nuevo/recién montado hasta que algo dispara un reflow externo. El clic en Día/Semana/Mes "arregla" el scroll por accidente (cambia el DOM, dispara el reflow que debería haber pasado solo). `app/panel/layout.tsx` es compartido por todo `/panel/**` (no se remonta al navegar), así que el único disparador real necesario es el cambio de ruta.
 - Nuevo `components/panel/panel-shell.tsx` (`PanelShell`): fuerza un reflow real (`useLayoutEffect` + toggle de `display` + lectura de `offsetHeight`) en cada cambio de `usePathname()`. Se saca `WebkitOverflowScrolling: "touch"` de `<main>` (vestigial en iOS moderno, posible causa adicional).
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (3 tests nuevos); build de producción verificado.
 
-**Novena vuelta, rama `fix/mobile` (2026-08-24), TR-031 no resolvió el problema; diagnóstico dirigido con el cliente vía preguntas puntuales — ver TR-032 en `docs/tradeoffs.md`:**
+**Novena vuelta, rama `fix/mobile` (2026-08-24), TR-031 no resolvió el problema; diagnóstico dirigido con el cliente vía preguntas puntuales — ver TR-032 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Datos clave del diagnóstico: scroll no responde NADA, solo en Calendario y ficha de paciente (no en Turnos/Pacientes/General), scroll horizontal sí funciona en esas mismas pantallas, independiente del navegador (descarta el diagnóstico de WebKit de TR-031), y el contenido "se corta de golpe, sin blanco" — firma de `overflow:hidden` recortando, no de scroll inerte.
 - Causa real: `<main>` nunca tuvo alto propio explícito, dependía de `align-items:stretch` heredado del `flex` row padre — ese stretch no se resolvía de forma confiable con contenido simultáneamente muy ancho y muy alto (exactamente Calendario/ficha de paciente).
 - Nueva clase `.panel-main-h` (mismo patrón `vh`+`@supports` que `.panel-sidebar-h`) le da a `<main>` un alto explícito, sin depender de ningún stretch heredado.
 - El video que envió el cliente no se pudo reproducir en este entorno (sin `ffmpeg`/visor); diagnóstico hecho con preguntas dirigidas en su lugar.
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
-**Décima vuelta, rama `fix/mobile` (2026-08-24), capturas de pantalla del cliente mostrando el gap del sidebar — ver TR-033 en `docs/tradeoffs.md`:**
+**Décima vuelta, rama `fix/mobile` (2026-08-24), capturas de pantalla del cliente mostrando el gap del sidebar — ver TR-033 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Causa real: `PanelSidebar` (`sticky top-[var(--header-height)]`) — ese offset, pensado para cuando el documento scrolleaba (escritorio), quedaba sumándose una segunda vez sobre el `padding-top` que ya reserva ese espacio en la raíz de `/panel` (mobile, desde TR-026) — el sidebar aparecía un tramo de header-height más abajo de lo debido.
 - Fix: `max-md:top-0` en el sidebar — solo mobile, escritorio sin cambios.
 - Verificación: pipeline completo limpio, 316 tests → 92.79% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
-**Undécima vuelta, rama `fix/mobile` (2026-08-24), cinco ajustes tras confirmar el fix de scroll/gap — ver TR-034 en `docs/tradeoffs.md`:**
+**Undécima vuelta, rama `fix/mobile` (2026-08-24), cinco ajustes tras confirmar el fix de scroll/gap — ver TR-034 en `docs/Arquitectura y base/tradeoffs.md`:**
 - General (`panel/page.tsx`): grilla de 2 tarjetas pasa a `grid-cols-2 max-md:min-w-[40rem]` (antes se aplastaba con el sidebar expandido).
 - Calendario (`calendar-view.tsx`): `max-md:justify-start` en la fila de título — el botón "+ Agregar turno" queda al lado de "Calendario" en vez de al borde derecho de una fila de 640px+.
 - Turnos (`turnos-table.tsx`): sumaba `max-md:w-full` que faltaba en la caja de la tabla — quedaba desalineada de la fila de filtros de arriba.
@@ -353,17 +353,17 @@ Todas las tareas de la sección 5 referencian estos IDs.
 - `globals.css`: `scrollbar-gutter: stable` en `html` — corrige que el header se corriera unos px entre páginas de escritorio con distinta altura de contenido (scrollbar apareciendo/desapareciendo).
 - Verificación: pipeline completo limpio, 318 tests → 92.82% cobertura (2 tests nuevos); CSS de producción inspeccionado.
 
-**Duodécima vuelta, rama `fix/mobile` (2026-08-24), cierre del día — ver TR-035 en `docs/tradeoffs.md`:**
+**Duodécima vuelta, rama `fix/mobile` (2026-08-24), cierre del día — ver TR-035 en `docs/Arquitectura y base/tradeoffs.md`:**
 - General (`panel/page.tsx`): pedido explícito del cliente ("que los cuadros de general esten uno abajo del otro") — `grid-cols-2` incondicional pasa a `max-md:grid-cols-1` (apiladas en mobile), manteniendo `max-md:min-w-[18rem]` (piso pensado para una sola tarjeta) para no reintroducir el aplastamiento que TR-034 ya había resuelto.
 - Verificación: pipeline completo limpio, 318 tests → 92.82% cobertura (sin tests nuevos); CSS de producción inspeccionado.
 
 **Cierre de Fase 1 = MVP según spec §2 ("Incluido en esta fase").**
 
-**Reescritura de sumarse/login, rama `feature/sumarte-login` (2026-08-25), pedido explícito del cliente — reemplaza T0.5/T1.2 de la tabla de Sprint 0/1 de arriba, ver TR-036 a TR-047 en `docs/tradeoffs.md` y el detalle completo en `docs/feature-sumarte-login-resumen.md`:**
+**Reescritura de sumarse/login, rama `feature/sumarte-login` (2026-08-25), pedido explícito del cliente — reemplaza T0.5/T1.2 de la tabla de Sprint 0/1 de arriba, ver TR-036 a TR-047 en `docs/Arquitectura y base/tradeoffs.md` y el detalle completo en `docs/Login/feature-sumarte-login-resumen.md`:**
 - T0.5 (auth backend: JWT + bcrypt) y T1.2 (registro/login frontend) quedan **superadas**, no vigentes tal como están descritas arriba: la autenticación se reescribió por completo sobre Google OAuth (popup + Authorization Code) + cuenta nativa con verificación de mail (Resend), sesiones server-side en Postgres (`internal/auth/session.go`, ya no JWT stateless — TR-037) y argon2id (TR-005 superseded, ver sección 9).
 - Wizard de onboarding de 3 pasos (Cuenta → Perfil profesional → Clínica) con persistencia por paso, reemplaza el alta de un solo paso original — ver spec §3 actualizada.
 - Modelo de datos nuevo: `User`/`Account`/`ProfessionalProfile`/`Clinic`/`ClinicMember`/`ClinicInvitation`/`Session`/`AuthRateCounter`/`AuditEvent` (`internal/db/models_auth.go`), reemplaza a `Profesional` como fuente de verdad (`Profesional` se mantiene sin borrar hasta confirmar la migración de datos en producción, TR-039).
-- Checklist completo de seguridad no negociable (spec §7 de la feature): rate limiting por IP y cuenta, CAPTCHA (Turnstile), HaveIBeenPwned, anti-enumeración, rotación de sesión, log de auditoría (TR-047) — repaso punto por punto en `docs/feature-sumarte-login-resumen.md`.
+- Checklist completo de seguridad no negociable (spec §7 de la feature): rate limiting por IP y cuenta, CAPTCHA (Turnstile), HaveIBeenPwned, anti-enumeración, rotación de sesión, log de auditoría (TR-047) — repaso punto por punto en `docs/Login/feature-sumarte-login-resumen.md`.
 - Cuentas de tipo "organización" dejan de estar fuera de alcance a nivel de modelo de datos (TR-009 superseded, TR-044) — ver sección 2 de la spec.
 - Verificación: `go build/vet/test ./...` (incluido `-race`) y `golangci-lint run ./...` limpios contra Postgres real; cobertura backend 74.9% → 81.5% (gate 80%); `pnpm audit` sin vulnerabilidades conocidas. Gaps documentados sin silenciar: subida de foto de perfil (TR-046), CSRF por tokens dedicados (mitigado por SameSite+BFF en su lugar).
 
@@ -403,7 +403,7 @@ Setup y auth (Sprint 0–1) bloquean todo lo demás. La cadena `esquema+constrai
 | # | Riesgo | Impacto | Mitigación |
 |---|---|---|---|
 | R1 | Doble agenda de un mismo profesional por condición de carrera | Alto — el mismo requisito "no negociable" de la spec §4.3 | Exclusion constraint a nivel DB (T0.3) validada con un insert solapado real antes de construir el modal sobre ella (T2.5) |
-| R2 | Decisiones de spec §7 sin confirmar (tipos de consulta, validaciones, alcance de WhatsApp, especialidades, auth) frenan o revierten trabajo ya hecho | Medio-Alto | Posturas asumidas registradas en `docs/tradeoffs.md` (TR-001 a TR-009) antes de Sprint 1; cualquier respuesta distinta del cliente dispara una revisión de este plan, no un parche a mitad de sprint |
+| R2 | Decisiones de spec §7 sin confirmar (tipos de consulta, validaciones, alcance de WhatsApp, especialidades, auth) frenan o revierten trabajo ya hecho | Medio-Alto | Posturas asumidas registradas en `docs/Arquitectura y base/tradeoffs.md` (TR-001 a TR-009) antes de Sprint 1; cualquier respuesta distinta del cliente dispara una revisión de este plan, no un parche a mitad de sprint |
 | R3 | Formulario público de turno (T3.1) sin CAPTCHA (TR-008) recibe spam, generando `turno`s pendientes falsos que ensucian el panel del profesional | Medio | Backlog: sumar `turnstile.Verifier` con el mismo patrón dev/prod de spec §9.4 en cuanto se confirme que es un problema real; mientras tanto, Turnos (T3.3) permite cancelar en lote |
 | R4 | `wa.me` (TR-003) depende de que el visitante tenga WhatsApp instalado/accesible; no hay confirmación de entrega ni reintento | Medio | El registro del `turno` pendiente (T3.2) no depende de que el link de WhatsApp se abra con éxito — persiste igual en el panel, así que el profesional nunca pierde el pedido aunque el link falle en el dispositivo del visitante |
 | R5 | Un solo desarrollador full-stack es punto único de fallo, agravado por manejar dos lenguajes (TS + Go) | Medio-Alto | Mismo mitigante que Marcuzzi_Madryn: backend Go detrás de paquetes por dominio (`turnos`, `pacientes`, `paginas`), frontend en Next.js estándar — más barato sumar una segunda persona a mitad de proyecto |
@@ -415,13 +415,13 @@ Setup y auth (Sprint 0–1) bloquean todo lo demás. La cadena `esquema+constrai
 
 ## 9. Decisiones asumidas para poder planificar
 
-Este plan no espera confirmación del cliente para tener una fecha de referencia, pero toma postura sobre las preguntas abiertas de la spec §7. El detalle de cada una (alternativas descartadas, qué se sacrifica) está en `docs/tradeoffs.md`:
+Este plan no espera confirmación del cliente para tener una fecha de referencia, pero toma postura sobre las preguntas abiertas de la spec §7. El detalle de cada una (alternativas descartadas, qué se sacrifica) está en `docs/Arquitectura y base/tradeoffs.md`:
 
 - TR-001: Tipos de consulta como catálogo fijo por profesional (seed: Consulta general / Urgencia), no tags libres — responde spec §7.1.
 - TR-002: Validaciones concretas de DNI/teléfono/mail en el formulario público — responde spec §7.2.
 - TR-003: Envío del formulario público vía link `wa.me` (no WhatsApp Business API) — responde spec §7.3.
 - TR-004: Especialidades como catálogo cerrado predefinido por Mirage, no tags libres — responde spec §7.4.
-- TR-005: Autenticación email+password propia (JWT), sin login social en el MVP — responde spec §7.5. **Superseded 2026-08-25** por la feature de sumarse/login (`docs/feature-sumarte-login-resumen.md`): sesiones server-side en vez de JWT stateless (TR-037) y login con Google sumado (TR-036).
+- TR-005: Autenticación email+password propia (JWT), sin login social en el MVP — responde spec §7.5. **Superseded 2026-08-25** por la feature de sumarse/login (`docs/Login/feature-sumarte-login-resumen.md`): sesiones server-side en vez de JWT stateless (TR-037) y login con Google sumado (TR-036).
 - TR-006: El exclusion constraint de turnos aplica solo a `estado='agendado'`; los `pendiente` no tienen `rango_horario` fijo todavía.
 - TR-007: Gate de coverage 80% activo desde Sprint 0 (CI), no agregado como iniciativa tardía — lección aplicada de la experiencia de Marcuzzi_Madryn.
 - TR-008: Sin CAPTCHA/Turnstile en el formulario público del MVP — riesgo aceptado y registrado (R3).
@@ -451,7 +451,7 @@ Si el cliente responde distinto a alguna de estas, el sprint afectado (ver colum
 
 ## 11. Fase 2 — Calendario avanzado y autogestión de turnos
 
-Brief original del cliente: `docs/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
+Brief original del cliente: `docs/Fase 2/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
 
 ### 11.1 Qué cambia respecto al esquema de la Fase 1
 
@@ -490,7 +490,7 @@ Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief 
 
 #### F2.2 — Vista horizontal/pantalla grande del calendario en mobile (brief ítem 2) — **descartada por completo (2026-08-29)**
 
-**Descartada, no implementada.** Se llegó a construir F2.2.1 (fixed+transform, después una segunda vuelta con `window.visualViewport`), pero falló en el iPhone real del cliente en las dos vueltas — ver TR-085 en `docs/tradeoffs.md`. El cliente cortó por lo sano: "Sabe que haga revert a todo esto, descartemos la lógica de mirada horizontal en mobile". Revertido con `git revert --no-edit`, verificado byte a byte contra el estado previo. No bloquea el resto de la Fase 2 (F2.3 a F2.5 son independientes).
+**Descartada, no implementada.** Se llegó a construir F2.2.1 (fixed+transform, después una segunda vuelta con `window.visualViewport`), pero falló en el iPhone real del cliente en las dos vueltas — ver TR-085 en `docs/Arquitectura y base/tradeoffs.md`. El cliente cortó por lo sano: "Sabe que haga revert a todo esto, descartemos la lógica de mirada horizontal en mobile". Revertido con `git revert --no-edit`, verificado byte a byte contra el estado previo. No bloquea el resto de la Fase 2 (F2.3 a F2.5 son independientes).
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -498,7 +498,7 @@ Numeración `F2.<ítem>.<tarea>` — coincide con el número de ítem del brief 
 
 #### F2.3 — Ajustes de calendario (brief ítem 3) — bloquea F2.4 y F2.5 — **implementado, aprobado y mergeado a `dev` (PR #4)**
 
-Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/UX y reglas de negocio, más específica que el brief original — ver TR-084 en `docs/tradeoffs.md` (reemplaza el esbozo que tenía esta tabla antes, incluida la fila `F2.3.6` de previsualización en vivo, descartada explícitamente por el cliente).
+Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/UX y reglas de negocio, más específica que el brief original — ver TR-084 en `docs/Arquitectura y base/tradeoffs.md` (reemplaza el esbozo que tenía esta tabla antes, incluida la fila `F2.3.6` de previsualización en vivo, descartada explícitamente por el cliente).
 
 **F2.3.1 a F2.3.8 completas** (esquema, horario de atención, reglas generales/específicas, CRUD de tipos de consulta, modal de configuración, sub-modal de alta/edición, visualización de bloqueos en el grid). Sobre esa primera entrega, varias rondas de corrección de QA con el cliente probando contra datos reales, ya incorporadas al código de la misma rama (no son tareas nuevas, son ajustes sobre las de arriba):
 
@@ -526,7 +526,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 
 **Descartado explícitamente (2026-08-29):** previsualización en vivo del calendario con los ajustes sin guardar — el cliente pidió priorizar velocidad de uso ("hacemos que el ajuste sea rápido y eficiente") en vez de esa pieza, coincidiendo con el riesgo ya anotado en R2F-5 más abajo.
 
-#### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver Extra 2.3.5/TR-100 a TR-103 en §11.5 y `docs/tradeoffs.md`, PR #7)
+#### F2.4 — Selección de horario por el paciente, formulario público (brief ítem 4) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver Extra 2.3.5/TR-100 a TR-103 en §11.5 y `docs/Arquitectura y base/tradeoffs.md`, PR #7)
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -538,7 +538,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 | F2.4.4 | Paso 3 (paciente nuevo): tipo de consulta → vista semanal del profesional → vista día con horarios libres (crea la `ReservaTemporal` al elegir, F2.4.1b) → formulario de datos → envío (consume el token de la reserva, TR-080) | F2.4.1, F2.4.1b, F2.4.3 | 5-6d | El turno se crea `pendiente` con `HoraInicio`/`HoraFin` ya cargados solo si el token de reserva sigue vigente; token vencido → error controlado pidiendo elegir horario de nuevo, nunca un 500; en mobile, "ver agenda" como acción separada que se puede cerrar sin perder el progreso del formulario |
 | F2.4.5 | Camino paciente ya registrado — mismo flujo de F2.4.4, matcheando por DNI (spec §4.3 ya contempla cargar el turno al paciente existente si el DNI coincide) | F2.4.4 | 1-2d | DNI ya registrado carga el turno al paciente existente, sin duplicar `Paciente` |
 
-#### F2.5 — Compartir calendario (brief ítem 5) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver TR-120 en `docs/tradeoffs.md`, PR #15 + corrección de QA en PR #16)
+#### F2.5 — Compartir calendario (brief ítem 5) — **implementado y mergeado a `dev`** (reescrito respecto a esta tabla original — ver TR-120 en `docs/Arquitectura y base/tradeoffs.md`, PR #15 + corrección de QA en PR #16)
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -558,7 +558,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 ### 11.5 Ítems extra de F2.3 (brief post-QA del cliente)
 
 Brief completo (transcripción del `.docx` original que dejó el cliente):
-`docs/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
+`docs/Fase 2/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
 "perdí cómo era la numeración que teníamos" — la segmentación de abajo
 quedó confirmada por el cliente (2026-09-06), con un orden de
 implementación propio, distinto del orden en que aparecen en el brief:
@@ -566,7 +566,7 @@ implementación propio, distinto del orden en que aparecen en el brief:
 dependencia dura de más abajo, arrancando por 2.3.5 antes que 2.3.3).
 Mismo proceso TR-083: una rama por ítem, QA antes de commit, PR con
 "2.3.N" en el título una vez aprobado. Ninguno de estos ítems tiene TR
-asignado todavía — se documentan en `docs/tradeoffs.md` a medida que cada
+asignado todavía — se documentan en `docs/Arquitectura y base/tradeoffs.md` a medida que cada
 uno se implementa y las decisiones quedan tomadas de verdad, mismo
 criterio que TR-084 en adelante para el F2.3 original.
 
@@ -586,11 +586,11 @@ válido donde vivir. Implementar en el orden que el cliente pidió (3 antes
 que 5) igual, pero el ítem 3 no se puede dar por completo/mergeable a
 `dev` hasta que el 5 esté aprobado — misma lógica que la advertencia de
 §11.2 para F2.4/F2.5 sobre F2.3. **Resuelta** (2026-09-02): Extra 2.3.5
-completó su QA antes de arrancar 2.3.3, ver TR-104 en `docs/tradeoffs.md`.
+completó su QA antes de arrancar 2.3.3, ver TR-104 en `docs/Arquitectura y base/tradeoffs.md`.
 
 #### Extra 2.3.1 — Rediseño del Turnero (tarjetas del dashboard) — **implementado, mergeado a `dev` (PR #5)**
 
-**E1.1 a E1.7 completas**, más varias rondas de corrección de QA sobre la primera entrega (ya incorporadas al código, no son tareas nuevas) — detalle completo en TR-094 de `docs/tradeoffs.md`:
+**E1.1 a E1.7 completas**, más varias rondas de corrección de QA sobre la primera entrega (ya incorporadas al código, no son tareas nuevas) — detalle completo en TR-094 de `docs/Arquitectura y base/tradeoffs.md`:
 
 - Se sumó una 6ª tarjeta, "Estadística" (turnos asistidos/ausentes, acumulado histórico), al lado de "Turnos confirmados" — no estaba en el plan original de E1.1-E1.7.
 - Deep-link real a una fecha/turno/bloqueo específico (no solo "cae en la semana actual") — corrigió un bug real de RSC (un `Date` cruzando de Server a Client Component se rompía según el timezone de quien mira la pantalla).
@@ -608,11 +608,11 @@ completó su QA antes de arrancar 2.3.3, ver TR-104 en `docs/tradeoffs.md`.
 | E1.6 | Tarjetas 4 (total confirmados) y 5 (resueltos, sin asistió/ausente): solo número + lista simple fecha/hora/nombre para la de resueltos | E1.1 | 1d | Resueltos no muestra ningún estado de asistencia (eso es otro flujo, ya implementado en Turnos/calendario) |
 | E1.7 | Componente reusable "Ver texto" (botón + modal con blur) para motivo largo en el cuerpo de la tarjeta 3- — se construye ACÁ, no en Extra 2.3.3: E3.3/E4.1 (más adelante en el orden confirmado) lo reusan tal cual en vez de duplicarlo | E1.5 | 1d | Motivo largo nunca desborda la fila de la tarjeta; el mismo componente sirve sin cambios para "Ver motivo"/"Ver mail" cuando lleguen los ítems 3.3/3.4 |
 
-Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle en TR-099 de `docs/tradeoffs.md`, ya incorporadas al código): "Turnos próximos" se acota a solo mañana (antes no tenía techo superior); "Ver calendario →" de cabecera pasa a solo POSICIONAR el calendario en el turno/horario más próximo (nunca abre la tarjeta de detalle — corrección sobre una primera implementación equivocada); "Ver horarios reservados →" y las filas de esa tarjeta también posicionan el calendario, no solo abren el modal.
+Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle en TR-099 de `docs/Arquitectura y base/tradeoffs.md`, ya incorporadas al código): "Turnos próximos" se acota a solo mañana (antes no tenía techo superior); "Ver calendario →" de cabecera pasa a solo POSICIONAR el calendario en el turno/horario más próximo (nunca abre la tarjeta de detalle — corrección sobre una primera implementación equivocada); "Ver horarios reservados →" y las filas de esa tarjeta también posicionan el calendario, no solo abren el modal.
 
 #### Extra 2.3.2 — Banner de conflicto en el calendario — **implementado, aprobado y mergeado a `dev` (PR #6)**
 
-**E2.1 a E2.3 completas**, y el ítem creció bastante más allá del brief original: durante la misma ronda de QA el cliente pidió tres funciones nuevas no listadas en el brief post-QA (Autoreservar turnos, Excepciones de horario de atención visualizadas en el calendario, Preferencia de atención por tipo de consulta) — se implementaron todas en esta misma rama (`feature/fase2-3-2-banner-conflicto`) en vez de abrir una rama por función, dado que surgieron como una sola conversación de QA continua sobre el calendario. Detalle completo de cada una en `docs/tradeoffs.md` TR-095 a TR-099.
+**E2.1 a E2.3 completas**, y el ítem creció bastante más allá del brief original: durante la misma ronda de QA el cliente pidió tres funciones nuevas no listadas en el brief post-QA (Autoreservar turnos, Excepciones de horario de atención visualizadas en el calendario, Preferencia de atención por tipo de consulta) — se implementaron todas en esta misma rama (`feature/fase2-3-2-banner-conflicto`) en vez de abrir una rama por función, dado que surgieron como una sola conversación de QA continua sobre el calendario. Detalle completo de cada una en `docs/Arquitectura y base/tradeoffs.md` TR-095 a TR-099.
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -632,7 +632,7 @@ Correcciones de QA adicionales encontradas durante la QA de Extra 2.3.2 (detalle
 
 **E3.1 a E3.5 completas**, más varias rondas de corrección de QA sobre la
 primera entrega (ya incorporadas al código, no son tareas nuevas) —
-detalle completo en TR-104 de `docs/tradeoffs.md`: bug real de los
+detalle completo en TR-104 de `docs/Arquitectura y base/tradeoffs.md`: bug real de los
 filtros de fecha (`GET /turnos?desde=&hasta=` exige RFC3339, no
 "YYYY-MM-DD"), color verde sólido en los botones nuevos, "Ver motivo"/
 "Ver mail" sumados también a "Turnos activos"/"Historial"/"Datos de
@@ -671,7 +671,7 @@ al implementar:
 
 #### Extra 2.3.5 — Formulario público reescrito + DNI único + fix de bug — **implementado, aprobado y mergeado a `dev` (PR #7)**
 
-**E5.1 a E5.5 completas**, más una función más pedida por el cliente durante esta misma QA, fuera del brief post-QA original — "Confirmanos que sos vos" (E5.6), un paso de verificación de mail por código de 6 dígitos que se sumó al wizard público antes de que se pueda pedir el turno de verdad. Detalle completo de cada decisión en `docs/tradeoffs.md` TR-100 a TR-103.
+**E5.1 a E5.5 completas**, más una función más pedida por el cliente durante esta misma QA, fuera del brief post-QA original — "Confirmanos que sos vos" (E5.6), un paso de verificación de mail por código de 6 dígitos que se sumó al wizard público antes de que se pueda pedir el turno de verdad. Detalle completo de cada decisión en `docs/Arquitectura y base/tradeoffs.md` TR-100 a TR-103.
 
 | ID | Tarea | Depende de | Esfuerzo | Criterio de aceptación |
 |---|---|---|---|---|
@@ -693,9 +693,9 @@ Probado y descartado en esta misma ronda: hacer sticky (flotante) el título+too
 
 ### 11.6 Fase 2.4 y cierre de la Fase 2
 
-Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el cliente pidió estos ítems durante el QA de Extra 2.3.5, sin brief previo — se documentan directamente en `docs/tradeoffs.md` a medida que se implementaron, no acá.
+Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el cliente pidió estos ítems durante el QA de Extra 2.3.5, sin brief previo — se documentan directamente en `docs/Arquitectura y base/tradeoffs.md` a medida que se implementaron, no acá.
 
-- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
+- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
 - **Fase 2.4.2 — "sacar turno para otro" (tutor/representante):** un tutor puede reservar el turno de otra persona verificándose él mismo por mail; un paciente puede tener más de un tutor a lo largo del tiempo (`PacienteTutor`, uno-a-muchos). TR-116. **Implementado, aprobado y mergeado a `dev`** (PR #12, #13, #14).
 - **Ítem 5 del brief original — "compartir calendario":** ver arriba, F2.5/TR-120. **Implementado y mergeado a `dev`** (PR #15), con una corrección de QA post-merge — la pantalla "¿Ya te atendiste?" se saltaba entera con enlace, se restauró para recorrer el wizard completo (PR #16).
 

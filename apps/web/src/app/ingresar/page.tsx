@@ -5,16 +5,16 @@ import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Ingresar — Dental Mirage" };
 
-// Identidad cálida (TR-015 en docs/tradeoffs.md). Con sesión y mail ya
+// Identidad cálida (TR-015 en docs/Arquitectura y base/tradeoffs.md). Con sesión y mail ya
 // verificado, no tiene sentido mostrar el form de login — se manda
-// directo a /seleccionar-servicio (TR-057 en docs/tradeoffs.md: ya no
+// directo a /seleccionar-servicio (TR-057 en docs/Arquitectura y base/tradeoffs.md: ya no
 // hace falta esperar a que el onboarding esté completo del todo).
 export default async function IngresarPage() {
   const me = await getMe();
   await redirectSiEmailVerificado(me);
 
   return (
-    // panel-texture (TR-073 en docs/tradeoffs.md, 2026-08-27, pedido
+    // panel-texture (TR-073 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
     // explícito del cliente): mismo fondo texturizado que /panel — antes
     // reservado solo a gestión de clínica (TR-013), ahora también en
     // ingresar/sumarse.

@@ -49,7 +49,7 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
   const inicio = turno.horaInicio ? new Date(turno.horaInicio) : null;
   const fin = turno.horaFin ? new Date(turno.horaFin) : null;
   const resuelto = fin !== null && fin.getTime() < new Date().getTime();
-  // TR-076 en docs/tradeoffs.md (2026-08-27, pedido explícito del
+  // TR-076 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido explícito del
   // cliente: "tocar un turno resuelto... lleva a la pestaña de
   // Confirmadas, no Resueltas"). turnos/page.tsx trata "resuelto" como
   // un pseudo-valor propio de `estado` en la URL (`?estado=resuelto`,

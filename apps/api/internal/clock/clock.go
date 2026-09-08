@@ -6,7 +6,7 @@
 // cualquier regla futura de "turno vigente": comparar horarios con la hora
 // local del servidor sin fijar zona horaria puede correr una consulta de
 // hora sin que el profesional lo note (riesgo R6 en
-// docs/implementation-plan.md). Todo el código que necesite "ahora"/"hoy"
+// docs/Arquitectura y base/implementation-plan.md). Todo el código que necesite "ahora"/"hoy"
 // para ese tipo de comparación debe usar este paquete en vez de
 // time.Now() directo.
 package clock

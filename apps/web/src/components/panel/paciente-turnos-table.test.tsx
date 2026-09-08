@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { PacienteTurnosTable } from "./paciente-turnos-table";
 
-// Cada fila ahora es un ClickableTableRow (TR-074 en docs/tradeoffs.md —
+// Cada fila ahora es un ClickableTableRow (TR-074 en docs/Arquitectura y base/tradeoffs.md —
 // "tocando el turno... me debería redirigir al turno en el apartado de
 // turnos"), que usa useRouter() internamente — mismo mock que
 // clickable-table-row.test.tsx.
@@ -89,7 +89,7 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByText("Dolor de muela")).toBeInTheDocument();
   });
 
-  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): un turno
+  // TR-074 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente): un turno
   // agendado con horaFin ya pasado debe mostrar "Resuelto", no
   // "Confirmado" — mismo criterio derivado que TurnosTable/TurnoDetalle.
   it("un turno agendado con horaFin pasado muestra Resuelto, no Confirmado", () => {
@@ -122,7 +122,7 @@ describe("PacienteTurnosTable", () => {
     expect(screen.queryByText("Ausente")).not.toBeInTheDocument();
   });
 
-  // TR-076 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-076 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): tocar un turno resuelto tiene que abrir la pestaña
   // "Resueltos", no "Confirmadas" (?estado=resuelto, no el estado real
   // "agendado").
@@ -136,7 +136,7 @@ describe("PacienteTurnosTable", () => {
     expect(pushMock).toHaveBeenCalledWith("/panel/turnos?estado=resuelto&q=1&turno=t-1");
   });
 
-  // TR-074 en docs/tradeoffs.md (pedido explícito del cliente): tocar la
+  // TR-074 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente): tocar la
   // fila manda a la vista Turnos con esa fila ya desplegada, mismo
   // patrón que "Ver turno →" en TurnoDetalle.
   it("tocar una fila navega a /panel/turnos con el turno ya desplegado", async () => {

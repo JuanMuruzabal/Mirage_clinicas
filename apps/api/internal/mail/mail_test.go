@@ -34,7 +34,7 @@ func TestLogSender_NuncaFalla(t *testing.T) {
 }
 
 // TestResendSender_SendTurnoVerificationEmail_MandaElCodigoYLaClinica —
-// TR-103 en docs/tradeoffs.md: "Confirmanos que sos vos" del formulario
+// TR-103 en docs/Arquitectura y base/tradeoffs.md: "Confirmanos que sos vos" del formulario
 // público reusa el mismo mecanismo de código de 6 dígitos, con su propia
 // plantilla que además nombra a la clínica.
 func TestResendSender_SendTurnoVerificationEmail_MandaElCodigoYLaClinica(t *testing.T) {
@@ -125,7 +125,7 @@ func TestResendSender_SendTurnoConfirmadoEmail_ErrorDeRedNoTumbaElRequest(t *tes
 }
 
 // TestResendSender_SendVerificationEmail_MandaElCodigoYElFrom — TR-055 en
-// docs/tradeoffs.md: el mail de verificación manda un código de 6 dígitos
+// docs/Arquitectura y base/tradeoffs.md: el mail de verificación manda un código de 6 dígitos
 // para escribir a mano, no un link para clickear.
 func TestResendSender_SendVerificationEmail_MandaElCodigoYElFrom(t *testing.T) {
 	var capturedAuth string

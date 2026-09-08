@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AuthShell } from "./auth-shell";
 
-// TR-059 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// TR-059 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
 // los formularios de perfil/clínica dentro del modal de bienvenida son
 // largos y "se salían de la página" — `ancho="xl"` les da más lugar
 // horizontal y `scrollInterno` limita la altura de la tarjeta al viewport

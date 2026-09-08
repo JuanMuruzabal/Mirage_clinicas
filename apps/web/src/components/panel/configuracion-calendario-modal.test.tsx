@@ -359,7 +359,7 @@ describe("ConfiguracionCalendarioModal", () => {
     await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
-  // F2.3.7 (docs/implementation-plan.md §11.3) — gestión de tipos de
+  // F2.3.7 (docs/Arquitectura y base/implementation-plan.md §11.3) — gestión de tipos de
   // consulta dentro del modal de configuración.
   describe("Tipos de consulta", () => {
     it("lista los tipos de consulta existentes", async () => {

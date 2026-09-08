@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 // Ver el comentario de app/terminos/page.tsx — mismo bug (TR-050 en
-// docs/tradeoffs.md), mismo fix. Contenido alineado a lo que la
+// docs/Arquitectura y base/tradeoffs.md), mismo fix. Contenido alineado a lo que la
 // plataforma REALMENTE recolecta hoy (spec §7, Ley 25.326) — no es una
 // plantilla genérica de internet, pero tampoco reemplaza una revisión
 // legal antes de un lanzamiento real.

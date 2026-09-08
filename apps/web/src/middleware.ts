@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Headers de seguridad globales (docs/feature-sumarte-login.md §7): CSP
+// Headers de seguridad globales (docs/Login/feature-sumarte-login.md §7): CSP
 // sin `unsafe-inline` donde es viable, HSTS, X-Content-Type-Options,
 // Referrer-Policy, frame-ancestors — se aplican acá, a nivel de
 // middleware, porque cubren TODA la app (marketing, buscador, panel,

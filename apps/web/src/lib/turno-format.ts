@@ -9,7 +9,7 @@ export const ESTADO_LABEL: Record<Turno["estado"], string> = {
   cancelada: "Cancelada",
 };
 
-// Nunca cascarón/urgencia acá — TR-010 en docs/tradeoffs.md los reserva
+// Nunca cascarón/urgencia acá — TR-010 en docs/Arquitectura y base/tradeoffs.md los reserva
 // exclusivamente para el bloque de tipo_consulta del calendario. Salvia
 // (TR-013, piel cálida del panel) se usa para el estado del turno con
 // significado explícito — confirmado = "ok" = salvia — además de la marca

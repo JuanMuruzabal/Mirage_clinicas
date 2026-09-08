@@ -8,7 +8,7 @@ import { isPanelRoute } from "@/lib/site-routes";
  * Bloquea el scroll del documento (`html`/`body`) mientras se está dentro
  * de gestión de clínica (`/panel/**`), solo en mobile (ver `globals.css`,
  * `.panel-locked` debajo de 768px) — rama fix/mobile, corrección
- * 2026-08-24 sobre TR-026 (ver TR-027 en docs/tradeoffs.md).
+ * 2026-08-24 sobre TR-026 (ver TR-027 en docs/Arquitectura y base/tradeoffs.md).
  *
  * Por qué hace falta esto además de la "estructura fija" ya armada
  * (header `fixed`, sidebar hermano de `<main>`, `<main>` como único

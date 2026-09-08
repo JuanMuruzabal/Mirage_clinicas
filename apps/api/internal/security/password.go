@@ -1,6 +1,6 @@
 // Package security centraliza hashing de contraseñas, chequeo contra
 // contraseñas filtradas (HaveIBeenPwned) y comparaciones en tiempo
-// constante — spec §7 de docs/feature-sumarte-login.md ("módulo central",
+// constante — spec §7 de docs/Login/feature-sumarte-login.md ("módulo central",
 // "no librerías de auth/cripto artesanales").
 package security
 
@@ -19,7 +19,7 @@ import (
 
 // Parámetros de argon2id. Default conservador (OWASP "segunda opción":
 // m=19MiB, t=2, p=1) — pensado para no ser pesado en un dyno/instancia
-// chica; ajustar según el tier de hosting real (ver docs/tradeoffs.md,
+// chica; ajustar según el tier de hosting real (ver docs/Arquitectura y base/tradeoffs.md,
 // punto abierto marcado en el plan). Configurables para poder subirlos sin
 // tocar el algoritmo de encode/decode.
 type Argon2Params struct {

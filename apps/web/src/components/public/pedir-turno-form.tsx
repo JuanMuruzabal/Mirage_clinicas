@@ -26,7 +26,7 @@ interface PedirTurnoFormProps {
   slug: string;
   nombreClinica: string;
   telefonoClinica?: string | null;
-  /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/rediseno-flujo-turnos.md §3.1). */
+  /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.1). */
   onClose: () => void;
   /**
    * Fase 2, ítem 5 ("compartir calendario") — presente cuando el wizard
@@ -49,7 +49,7 @@ interface PedirTurnoFormProps {
   enlaceToken?: string;
 }
 
-// TR-002 en docs/tradeoffs.md: mismas reglas que valida el backend
+// TR-002 en docs/Arquitectura y base/tradeoffs.md: mismas reglas que valida el backend
 // (turno_publico.go) — el frontend las repite acá para dar feedback
 // inmediato, pero el backend es la fuente de verdad (nunca confiar solo en
 // esta validación).
@@ -97,7 +97,7 @@ const TUTOR_CAMPOS_INICIALES = {
 //     (sin nombre/apellido/DNI/teléfono del paciente asumidos del contacto
 //     que completa el formulario — son 2 personas distintas). El código de
 //     verificación se manda recién al terminar "otro-paciente" (a
-//     diferencia del mapa de pantallas de docs/rediseno-flujo-turnos.md
+//     diferencia del mapa de pantallas de docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
 //     §4, que lo pone entre tutor y paciente) — se mantiene el orden real
 //     ya construido en vez de reordenar CUÁNDO se dispara el envío del
 //     código, solo se ajustó la numeración de "paso N de M" para reflejar
@@ -242,8 +242,8 @@ function borrarEstadoGuardado(slug: string) {
 }
 
 // PedirTurnoForm — Extra 2.3.5 (E5.3) + Fase 2.4.1 (rework de punta a
-// punta, docs/implementation-plan.md §11.6) + rediseño visual completo
-// (docs/rediseno-flujo-turnos.md, "2.4.2.1"): la lógica de estado y las
+// punta, docs/Arquitectura y base/implementation-plan.md §11.6) + rediseño visual completo
+// (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md, "2.4.2.1"): la lógica de estado y las
 // llamadas al backend no cambiaron con el rediseño — lo que cambió es
 // qué componente de pantalla renderiza cada `paso` (antes JSX inline acá
 // mismo, ahora los componentes de `./pedir-turno/*`) y, puntualmente, la
@@ -269,7 +269,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [paisTelefonoTutor, setPaisTelefonoTutor] = useState(() => estadoInicial?.paisTelefonoTutor ?? PAIS_TELEFONO_DEFAULT);
 
   // paraQuienSel/yaAtendisteSel — selección TRANSITORIA de las pantallas
-  // [1]/[2] antes de tocar "Continuar" (docs/rediseno-flujo-turnos.md
+  // [1]/[2] antes de tocar "Continuar" (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
   // §3.5: tarjeta de opción, elegir ≠ avanzar). No se persisten: si se
   // resume el wizard justo en uno de estos 2 pasos, todavía no hay nada
   // elegido para ESE paso puntual (si ya se había elegido, `paso` ya
@@ -332,7 +332,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // los disparan, mismo criterio que agregar-turno-modal.tsx.
   const [cargandoSlots, setCargandoSlots] = useState(true);
 
-  // Calendario mensual (3.8, docs/prompt-claude-code-fecha-horario.md) —
+  // Calendario mensual (3.8, docs/archivo/prompt-claude-code-fecha-horario.md) —
   // `mesVisible` es del PANEL, no necesariamente el mes de `fecha`: se
   // puede navegar mes a mes sin mover la selección. Arranca en el mes de
   // `fecha` porque es el valor sensato la primera vez que se abre.

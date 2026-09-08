@@ -78,7 +78,7 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
   const duracionActual = Math.max(Math.round((finActual.getTime() - inicioActual.getTime()) / 60_000), 15);
   const duracion = tiposConsulta.find((t) => t.id === turno.tipoConsultaId)?.duracionMinutos ?? duracionActual;
 
-  // fechaISOLocal (TR-074 en docs/tradeoffs.md, 2026-08-27, reemplaza
+  // fechaISOLocal (TR-074 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, reemplaza
   // `inicioActual.toISOString().slice(0, 10)`): esa versión daba la
   // fecha en UTC — un turno a las 22:00 hora local (Argentina, UTC-3)
   // mostraba por error el día SIGUIENTE al abrir este modal. Como `hora`

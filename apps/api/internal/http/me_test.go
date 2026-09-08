@@ -192,7 +192,7 @@ func TestMe_TokenVacioEsRechazado(t *testing.T) {
 }
 
 // TestMe_AutoVerifyEmail_CuentaSinVerificarQuedaVerificadaAlConsultar —
-// TR-052 en docs/tradeoffs.md: una cuenta que quedó sin verificar ANTES de
+// TR-052 en docs/Arquitectura y base/tradeoffs.md: una cuenta que quedó sin verificar ANTES de
 // que existiera AutoVerifyEmail (o desde otro router sin el modo activo)
 // no se queda soft-lockeada — el primer GET /me autenticado con el modo ya
 // activo la verifica ahí mismo, sin que el usuario tenga que rehacer nada.
@@ -235,7 +235,7 @@ func TestMe_AutoVerifyEmail_CuentaSinVerificarQuedaVerificadaAlConsultar(t *test
 }
 
 // TestMe_CuentaAbandonadaSinVerificarSeBorraAlConsultarDespuesDelTTL —
-// TR-052 en docs/tradeoffs.md, pregunta explícita del cliente: "si vuelvo
+// TR-052 en docs/Arquitectura y base/tradeoffs.md, pregunta explícita del cliente: "si vuelvo
 // después de un tiempo y no hay cuenta que confirmar, ¿me tira
 // automáticamente al paso anterior?" — Sí: sin AutoVerifyEmail (el estado
 // normal una vez que Resend esté configurado), una cuenta sin verificar

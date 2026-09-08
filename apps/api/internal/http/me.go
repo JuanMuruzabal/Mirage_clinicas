@@ -47,7 +47,7 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 			return
 		}
 
-		// TR-052 en docs/tradeoffs.md: cuenta abandonada sin verificar más
+		// TR-052 en docs/Arquitectura y base/tradeoffs.md: cuenta abandonada sin verificar más
 		// allá del TTL del link (24h) — sin esto, alguien que vuelve
 		// después de un tiempo se queda mirando "revisá tu correo" para
 		// siempre, aunque ese link ya haya vencido y nunca vaya a llegar
@@ -63,7 +63,7 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 			return
 		}
 
-		// TR-052 en docs/tradeoffs.md: si AutoVerifyEmail está activo
+		// TR-052 en docs/Arquitectura y base/tradeoffs.md: si AutoVerifyEmail está activo
 		// (Resend sin configurar) y esta cuenta quedó creada ANTES de que
 		// existiera ese modo — o de un registro que no llegó a pasar por
 		// register() con el flag ya activo —, no se queda soft-lockeada

@@ -24,7 +24,7 @@ import (
 const disponibilidadPasoMinutos = 15
 
 // registerDisponibilidadRoutes monta GET /disponibilidad — corrección de
-// QA sobre F2.3 (docs/implementation-plan.md §11.3, adelanta parte de
+// QA sobre F2.3 (docs/Arquitectura y base/implementation-plan.md §11.3, adelanta parte de
 // F2.4.1/TR-079): "solo me tiene que salir seleccionables los horarios
 // que entran en mi agenda, teniendo en cuenta horarios de otros
 // usuarios, los bloqueos de horarios, y el tiempo total del turno". A
@@ -226,7 +226,7 @@ func bloqueosDelDia(fecha time.Time, generales, especificas []db.BloqueoHorario)
 // turnos/bloqueos de ESE día para UNA clínica — repartir esto en
 // goroutines sumaría sincronización (mutex o channels para juntar
 // resultados) sin ninguna ganancia medible, el mismo criterio que
-// TR-079 en docs/tradeoffs.md ya dejó asentado para esta cuenta.
+// TR-079 en docs/Arquitectura y base/tradeoffs.md ya dejó asentado para esta cuenta.
 func calcularDisponibilidad(
 	gdb *gorm.DB,
 	clinicID uuid.UUID,

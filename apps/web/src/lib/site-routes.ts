@@ -84,7 +84,7 @@ export function isClinicaPublicaRoute(pathname: string): boolean {
 
 /**
  * Gestión de clínica (`/panel/**`) — usado por `PanelScrollLock` (rama
- * fix/mobile, TR-027 en docs/tradeoffs.md) para saber cuándo bloquear el
+ * fix/mobile, TR-027 en docs/Arquitectura y base/tradeoffs.md) para saber cuándo bloquear el
  * scroll del documento en mobile.
  */
 export function isPanelRoute(pathname: string): boolean {
@@ -93,7 +93,7 @@ export function isPanelRoute(pathname: string): boolean {
 
 /**
  * Las 4 pantallas "de herramienta" con sesión ya completa (seleccionar
- * servicio + las 3 que ese menú lista) — TR-060 en docs/tradeoffs.md,
+ * servicio + las 3 que ese menú lista) — TR-060 en docs/Arquitectura y base/tradeoffs.md,
  * pedido explícito del cliente, 2026-08-26: acá el header muestra el
  * botón de configuración (acceso rápido a Perfil/Gestionar tu clínica/
  * Personalizar tu página) en vez del botón único "Mi clínica" que se ve

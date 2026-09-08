@@ -120,7 +120,7 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 		especialidad := strings.TrimSpace(r.URL.Query().Get("especialidad"))
 
 		// Solo clínicas deployadas (spec §5.2, T4.5 — ver TR-012 en
-		// docs/tradeoffs.md): join 1:1 con paginas_publicas, sin fila o con
+		// docs/Arquitectura y base/tradeoffs.md): join 1:1 con paginas_publicas, sin fila o con
 		// `deployada_en` nulo, no aparece en el buscador.
 		query := gdb.Model(&db.Clinic{}).
 			Joins("JOIN paginas_publicas pp ON pp.profesional_id = clinics.id AND pp.deployada_en IS NOT NULL").

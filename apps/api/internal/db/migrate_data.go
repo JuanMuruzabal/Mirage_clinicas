@@ -10,7 +10,7 @@ import (
 
 // MigrateProfesionalesToUsers traslada cada Profesional existente (esquema
 // viejo) a User + ProfessionalProfile + Clinic + ClinicMember (esquema
-// nuevo, docs/feature-sumarte-login.md) — corrida de una sola vez, invocada
+// nuevo, docs/Login/feature-sumarte-login.md) — corrida de una sola vez, invocada
 // explícitamente desde cmd/migrate-usuarios, NO desde RunMigrations. Es
 // idempotente por email: si ya existe un User con el mismo email, esa fila
 // se saltea (permite reintentar tras un corte a mitad de camino sin
@@ -29,7 +29,7 @@ import (
 //   - Campos nuevos que no existían (MatriculaTipo/Numero, Apellido si no
 //     separable, TermsAcceptedAt, dirección de la Clinic) quedan vacíos —
 //     el guard de /panel no los bloquea, pero /perfil los invita a
-//     completarlos (ver docs/tradeoffs.md).
+//     completarlos (ver docs/Arquitectura y base/tradeoffs.md).
 func MigrateProfesionalesToUsers(gdb *gorm.DB) (migrated int, skipped int, err error) {
 	var profesionales []Profesional
 	if err := gdb.Preload("Especialidades").Find(&profesionales).Error; err != nil {

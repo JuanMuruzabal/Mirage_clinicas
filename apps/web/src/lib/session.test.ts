@@ -113,7 +113,7 @@ describe("lib/session", () => {
     // No debe llamar a store.delete: mutar cookies durante el render de
     // una página (getMe corre en Server Components, no en Server
     // Actions/Route Handlers) tira un 500 real en Next.js — ver TR-049 en
-    // docs/tradeoffs.md.
+    // docs/Arquitectura y base/tradeoffs.md.
     const store = fakeCookieStore("un-token-vencido");
     apiMeMock.mockResolvedValue({ ok: false, status: 401, error: "token inválido o expirado" });
 

@@ -12,12 +12,12 @@ import (
 // sirve, solo tiene que ser siempre el mismo número.
 const lockKeyMigraciones = 483920175
 
-// RunMigrations aplica el esquema inicial (docs/implementation-plan.md
+// RunMigrations aplica el esquema inicial (docs/Arquitectura y base/implementation-plan.md
 // §2.1): AutoMigrate de GORM para las tablas base, y a continuación el SQL
 // crudo que GORM no puede expresar — la extensión btree_gist, la columna
 // generada `rango_horario` (tstzrange) y el exclusion constraint que
 // evita turnos solapados (spec §4.3, regla de negocio no negociable; ver
-// TR-006 en docs/tradeoffs.md). Es idempotente: se puede correr muchas
+// TR-006 en docs/Arquitectura y base/tradeoffs.md). Es idempotente: se puede correr muchas
 // veces sin error.
 //
 // Advisory lock (bug real de CI, 2026-09-06, PR #4 fase2-03-ajustes-
@@ -77,7 +77,7 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 
 	if err := gdb.AutoMigrate(
 		&Profesional{}, &Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
-		// Esquema nuevo de auth/onboarding (docs/feature-sumarte-login.md) —
+		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
 		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
@@ -260,7 +260,7 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		  END LOOP;
 		END $$`,
 
-		// Extra 2.3.5 (docs/implementation-plan.md §11.5, E5.1): un mismo DNI
+		// Extra 2.3.5 (docs/Arquitectura y base/implementation-plan.md §11.5, E5.1): un mismo DNI
 		// no puede tener dos fichas de Paciente dentro de la misma clínica —
 		// antes de esto, cualquier camino de alta (formulario público,
 		// "Agregar turno" con paciente nuevo) creaba un Paciente nuevo sin
@@ -359,7 +359,7 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// (PacienteTutor, uno-a-muchos, ver models.go). Se borran acá
 		// porque GORM AutoMigrate nunca borra columnas — solo agrega. Sin
 		// pérdida de datos real: esta rama no está deployada todavía
-		// (Fase 2.4.2 sigue en QA, TR-116/TR-083 en docs/tradeoffs.md).
+		// (Fase 2.4.2 sigue en QA, TR-116/TR-083 en docs/Arquitectura y base/tradeoffs.md).
 		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_relacion`,
 		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_nombre`,
 		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_dni`,
@@ -403,7 +403,7 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 }
 
 // SeedTiposConsultaDefault crea los dos tipos de consulta por defecto de un
-// profesional recién registrado (TR-001 en docs/tradeoffs.md: catálogo por
+// profesional recién registrado (TR-001 en docs/Arquitectura y base/tradeoffs.md: catálogo por
 // profesional, no global) — llamado una sola vez desde el handler de
 // registro (internal/http/auth.go), no desde RunMigrations, porque
 // necesita un profesionalID que todavía no existe al migrar el esquema.

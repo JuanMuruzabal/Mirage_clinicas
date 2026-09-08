@@ -155,7 +155,7 @@ export function IconPersonalize({ className }: IconProps) {
   );
 }
 
-// IconLogout — puerta con flecha de salida (TR-075 en docs/tradeoffs.md,
+// IconLogout — puerta con flecha de salida (TR-075 en docs/Arquitectura y base/tradeoffs.md,
 // 2026-08-27, pedido explícito del cliente: "Cerrar sesión" pasa a vivir
 // en el menú de la tuerquita, antes solo estaba en /perfil).
 export function IconLogout({ className }: IconProps) {
@@ -169,7 +169,7 @@ export function IconLogout({ className }: IconProps) {
 }
 
 // IconMenu — 3 rayitas horizontales, para abrir el sidebar de gestión de
-// clínica en mobile (TR-075 en docs/tradeoffs.md, 2026-08-27, pedido
+// clínica en mobile (TR-075 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
 // explícito del cliente: "poner el icono de las 3 rayitas para
 // desplegar el sidebar"). Corrección de QA (2026-09-05, textual):
 // "cuando tengo desplegado el sidebar cambiar las tres rayitas con una

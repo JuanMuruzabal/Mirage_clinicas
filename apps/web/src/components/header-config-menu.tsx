@@ -8,9 +8,9 @@ import { IconLogout, IconSettings, IconUser } from "./icons";
 const itemClass =
   "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
 
-// HeaderConfigMenu — TR-060 en docs/tradeoffs.md (versión original: Tu
+// HeaderConfigMenu — TR-060 en docs/Arquitectura y base/tradeoffs.md (versión original: Tu
 // perfil/Gestionar tu clínica/Personalizar tu página). Reducido a Tu
-// perfil + Cerrar sesión (TR-075 en docs/tradeoffs.md, 2026-08-27,
+// perfil + Cerrar sesión (TR-075 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27,
 // pedido explícito del cliente) — "Gestionar tu clínica" y "Personalizar
 // tu página" quedaron redundantes con el nuevo botón "Panel" del sidebar
 // (que ahora es alcanzable también en mobile vía el ícono de hamburguesa
