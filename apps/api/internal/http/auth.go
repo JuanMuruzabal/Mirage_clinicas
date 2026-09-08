@@ -144,10 +144,32 @@ type authHandler struct {
 
 // clientIP resuelve la IP del caller para rate limiting — X-Forwarded-For
 // primero (detrás de un proxy/CDN en producción), RemoteAddr si no hay.
+//
+// Corrección de seguridad (auditoría 2026-09-08, docs/Seguridad y
+// optimizacion/radiografia-tecnica_1.md, hallazgo #1): esta función tomaba
+// el PRIMER valor de la cadena de X-Forwarded-For — pero ese header es
+// justamente el que el propio CLIENTE puede escribir en su request, nunca
+// exclusivo del proxy. Con un único proxy de confianza delante (el load
+// balancer de Render en producción, el único salto real entre el mundo
+// exterior y este backend), la convención estándar (RFC 7239 la formaliza
+// para Forwarded, X-Forwarded-For la hereda de facto) es que cada proxy
+// AGREGA su propia IP observada al FINAL de lo que venía en la request —
+// nunca reemplaza ni reordena lo anterior. Eso significa que el ÚLTIMO
+// valor de la lista es el que puso ESE proxy de confianza (no adivinable
+// ni falsificable por el cliente, que solo controla lo que viene ANTES);
+// el primero puede ser cualquier string que el cliente haya decidido
+// mandar. De acá dependen el rate-limiter por IP y los 3 detectores de
+// abuso del formulario público (turno_publico.go) — tomar el valor
+// equivocado los deja evadibles con un solo header falso.
+//
+// Si en algún momento se suma un segundo proxy real delante de Render
+// (un CDN, por ejemplo), esta lógica deja de alcanzar — hace falta lista
+// explícita de proxies de confianza y contar desde el final cuántos
+// saltos confiables hay, no asumir siempre "el último".
 func clientIP(r *http.Request) string {
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
 		parts := strings.Split(fwd, ",")
-		return strings.TrimSpace(parts[0])
+		return strings.TrimSpace(parts[len(parts)-1])
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -239,7 +261,7 @@ type registerResponse struct {
 // límites de reenvío) en vez de crear un duplicado.
 func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -433,7 +455,7 @@ const mensajeCredencialesInvalidas = "email o contraseña incorrectos"
 
 func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -554,7 +576,7 @@ func (h *authHandler) google(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req googleRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -671,7 +693,7 @@ const mensajeCodigoInvalido = "código incorrecto o vencido"
 
 func (h *authHandler) verificarEmail(w http.ResponseWriter, r *http.Request) {
 	var req verificarEmailRequest
-	if err := decodeJSON(r, &req); err != nil || req.Codigo == "" {
+	if err := decodeJSON(w, r, &req); err != nil || req.Codigo == "" {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -782,7 +804,7 @@ type reenviarVerificacionRequest struct {
 
 func (h *authHandler) reenviarVerificacion(w http.ResponseWriter, r *http.Request) {
 	var req reenviarVerificacionRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -824,7 +846,7 @@ type recuperarPasswordRequest struct {
 
 func (h *authHandler) recuperarPassword(w http.ResponseWriter, r *http.Request) {
 	var req recuperarPasswordRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
@@ -892,7 +914,7 @@ type resetPasswordResponse struct {
 
 func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	var req resetPasswordRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 		return
 	}
