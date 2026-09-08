@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * PanelSidebarProvider — TR-075 en docs/tradeoffs.md (2026-08-27, pedido
+ * PanelSidebarProvider — TR-075 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido
  * explícito del cliente: "el sidebar debe ser desplegable desde el
  * header... en mobile"). El ícono que abre el sidebar vive en
  * `SiteHeaderChrome` (montado una sola vez en el layout raíz, fuera de

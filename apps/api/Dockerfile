@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 go build -o /out/migrate ./cmd/migrate
 FROM alpine:3.20 AS runtime
 # ca-certificates: necesario si en el futuro el backend hace requests
 # salientes por HTTPS (p. ej. un storage/email real, ver
-# docs/tradeoffs.md sobre las interfaces dev/prod pendientes).
+# docs/Arquitectura y base/tradeoffs.md sobre las interfaces dev/prod pendientes).
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 

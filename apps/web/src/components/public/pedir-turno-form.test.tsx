@@ -43,7 +43,7 @@ function renderForm(props: Omit<ComponentProps<typeof PedirTurnoForm>, "onClose"
 
 // avanzarAPrimeraVez/avanzarAYaVine — el wizard arranca con "¿Para quién
 // es el turno?" / "¿Ya te atendiste con nosotros?" antes de llegar a los
-// pasos de datos. Rediseño (docs/rediseno-flujo-turnos.md §3.5): elegir
+// pasos de datos. Rediseño (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.5): elegir
 // una tarjeta ya no avanza sola — hace falta tocar "Continuar" aparte.
 async function avanzarAPrimeraVez(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByText("Para mí"));

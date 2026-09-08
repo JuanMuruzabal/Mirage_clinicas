@@ -2,9 +2,9 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-// T0.4 (docs/implementation-plan.md): gate de coverage 80% activo desde
+// T0.4 (docs/Arquitectura y base/implementation-plan.md): gate de coverage 80% activo desde
 // Sprint 0, no agregado como iniciativa tardía — ver TR-007 en
-// docs/tradeoffs.md. El alias @/* replica el de tsconfig.json (paths)
+// docs/Arquitectura y base/tradeoffs.md. El alias @/* replica el de tsconfig.json (paths)
 // porque Vitest no lo lee solo.
 //
 // Extensión .mts (no .ts): apps/web/package.json no tiene "type": "module"

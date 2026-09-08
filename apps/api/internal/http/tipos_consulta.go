@@ -60,10 +60,10 @@ func toTipoConsultaResponse(t db.TipoConsulta) tipoConsultaResponse {
 }
 
 // registerTipoConsultaRoutes monta el catálogo de tipos de consulta —
-// POR PROFESIONAL (TR-001 en docs/tradeoffs.md, distinto del catálogo
+// POR PROFESIONAL (TR-001 en docs/Arquitectura y base/tradeoffs.md, distinto del catálogo
 // global de especialidades). GET ya existía (usado por "+ Agregar turno"
 // y el calendario para pintar cada turno con su color); POST/PATCH/DELETE
-// son F2.3.4 (docs/implementation-plan.md §11.3) — hasta ahora el
+// son F2.3.4 (docs/Arquitectura y base/implementation-plan.md §11.3) — hasta ahora el
 // catálogo solo se armaba con los 2 tipos sembrados al registrarse
 // (SeedTiposConsultaDefault), sin forma de gestionarlo desde la UI.
 func registerTipoConsultaRoutes(r chi.Router, gdb *gorm.DB) {
@@ -234,7 +234,7 @@ func editarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-// eliminarTipoConsultaHandler — R2F-4 en docs/implementation-plan.md §11.4
+// eliminarTipoConsultaHandler — R2F-4 en docs/Arquitectura y base/implementation-plan.md §11.4
 // dejó pendiente esta regla: no se puede borrar un tipo de consulta que ya
 // tiene turnos asociados (agendados, pendientes o cancelados) — un delete
 // duro dejaría esos turnos con un tipo_consulta_id huérfano (sin FK real

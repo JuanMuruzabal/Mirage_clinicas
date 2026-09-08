@@ -1487,7 +1487,7 @@ func etiquetaHorarioGeneral(b db.BloqueoHorario, hoy time.Time) *string {
 // compartido por todos los handlers de este archivo (y por
 // pagina_publica.go), todos requieren auth y siempre operan sobre la
 // clínica del caller. El nombre quedó igual que antes de
-// docs/feature-sumarte-login.md (cuando "profesional" y "clínica" eran la
+// docs/Login/feature-sumarte-login.md (cuando "profesional" y "clínica" eran la
 // misma fila) a propósito: así estos handlers, y los de pacientes.go/
 // tipos_consulta.go/pagina_publica.go, no cambiaron una sola línea de
 // lógica de negocio con la reescritura — solo cambió de dónde sale el ID

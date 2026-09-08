@@ -45,7 +45,7 @@ const ALCANCE_LABEL: Record<string, string> = {
   todos: "Este año",
 };
 
-// ConfiguracionCalendarioModal — F2.3.5-F2.3.7 (docs/implementation-plan.md
+// ConfiguracionCalendarioModal — F2.3.5-F2.3.7 (docs/Arquitectura y base/implementation-plan.md
 // §11.3), abierta desde el ícono de tuerca junto al título "Calendario"
 // (ver calendar-view.tsx). Mismo patrón visual que "Agregar turno"
 // (ModalPortal, backdrop con blur) — pedido explícito del cliente: "este
@@ -298,7 +298,7 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 cliente, 2026-08-30 — antes "Reglas globales") — aplican a
                 un rango amplio (esta semana, este mes, todos los meses);
                 pierden contra un horario reservado específico que se
-                solape (TR-084 en docs/tradeoffs.md). */}
+                solape (TR-084 en docs/Arquitectura y base/tradeoffs.md). */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-grafito">Horarios reservados generales</h3>

@@ -20,7 +20,7 @@ describe("isFooterHidden", () => {
     expect(isFooterHidden(pathname)).toBe(false);
   });
 
-  // Bug real, 2026-08-26 (ver TR-050 en docs/tradeoffs.md): sin estar acá,
+  // Bug real, 2026-08-26 (ver TR-050 en docs/Arquitectura y base/tradeoffs.md): sin estar acá,
   // /terminos y /privacidad caían en la ruta dinámica de página pública de
   // clínica (isClinicaPublicaRoute las trataba como un slug de clínica) —
   // 404 real, no solo un footer/header equivocado.
@@ -68,7 +68,7 @@ describe("isAuthFlowRoute", () => {
   );
 });
 
-// TR-060 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
+// TR-060 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-26):
 // estas 4 pantallas muestran el botón de configuración en el header en
 // vez del botón único "Mi clínica".
 describe("isHerramientaRoute", () => {

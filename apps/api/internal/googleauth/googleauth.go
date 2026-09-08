@@ -1,10 +1,10 @@
 // Package googleauth intercambia un Authorization Code de Google (flujo
 // popup + Authorization Code, decisión #1 del plan aprobado —
-// docs/feature-sumarte-login.md) contra la identidad del usuario. El
+// docs/Login/feature-sumarte-login.md) contra la identidad del usuario. El
 // client secret vive solo acá, server-side — nunca llega al navegador.
 // PKCE no aplica: es un client confidencial (el secret nunca sale del
 // backend), PKCE existe para proteger clients públicos que no pueden
-// guardar un secret (ver docs/tradeoffs.md).
+// guardar un secret (ver docs/Arquitectura y base/tradeoffs.md).
 package googleauth
 
 import (
@@ -25,7 +25,7 @@ const (
 
 // UserInfo es lo único que este paquete conserva de la respuesta de
 // Google — no se persisten tokens de acceso/refresco (minimización de
-// datos, ver docs/tradeoffs.md y el plan aprobado).
+// datos, ver docs/Arquitectura y base/tradeoffs.md y el plan aprobado).
 type UserInfo struct {
 	Sub           string // id de cuenta de Google, estable — esto es lo que se guarda en Account.ProviderAccountID
 	Email         string

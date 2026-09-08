@@ -8,7 +8,7 @@ conversación — más una lista concreta de qué testear.
 
 **Estado (2026-09-06):** Partes 1 y 3 implementadas, testeadas y aprobadas
 por el cliente (`feature/fase2-4-2-turno-para-otro`, TR-083). Ver TR-116 en
-`docs/tradeoffs.md` para el resumen de decisiones de la Parte 3, incluidas
+`docs/Arquitectura y base/tradeoffs.md` para el resumen de decisiones de la Parte 3, incluidas
 las 4 rondas de corrección posteriores a la primera entrega.
 
 **Ronda de correcciones (2026-09-06, mismo día, sobre la primera entrega de
@@ -18,14 +18,14 @@ campos `Tutor*` en `Paciente`), hoy reemplazado por la tabla
 `PacienteTutor` (uno-a-muchos). El texto de la Parte 3 se deja tal cual
 quedó redactado en su momento (documenta el razonamiento original, todavía
 válido para entender el "por qué" de cada mecanismo) — el detalle completo
-de qué cambió y por qué está en TR-116, punto 8 (`docs/tradeoffs.md`), no
+de qué cambió y por qué está en TR-116, punto 8 (`docs/Arquitectura y base/tradeoffs.md`), no
 repetido acá para no duplicar dos fuentes de verdad.
 
 Fuente de verdad del código: `apps/api/internal/http/turno_publico.go`,
 `paciente_verificado_publico.go`, `paciente_conflicto_publico.go`,
 `pacientes_conflicto_panel.go`, `verificacion_turno_publico.go`, `turnos.go`
 (`marcarAsistenciaHandler`), `internal/ratelimit/ratelimit.go` (topes de
-intentos). Documento hermano de `docs/tradeoffs.md` (decisiones
+intentos). Documento hermano de `docs/Arquitectura y base/tradeoffs.md` (decisiones
 puntuales, TR-036 en adelante) y del brief original,
 `docs/FASE 2.4 - detallada y bien especificada.docx`.
 
@@ -602,7 +602,7 @@ Una migración de arrastre (`runMigrationsLocked`, de antes de que existiera
 `en_conflicto`) fusionaba en silencio, **en cada reinicio/deploy del
 contenedor**, cualquier par de fichas separadas a propósito por un conflicto
 sin resolver — deshaciendo todo el mecanismo de 1.2. Corregido acotando esa
-migración a `WHERE NOT en_conflicto`. Ver TR-105 en `docs/tradeoffs.md` para
+migración a `WHERE NOT en_conflicto`. Ver TR-105 en `docs/Arquitectura y base/tradeoffs.md` para
 el registro completo — **cualquier migración nueva con SQL crudo que mute datos** (no solo
 esquema) tiene que revisarse cada vez que cambie un invariante del modelo,
 porque corre para siempre, no una sola vez.
@@ -873,7 +873,7 @@ hace falta repetirlos a mano — se dejan igual para referencia rápida.**
 Parte del sketch original (`docs/FASE 2.4 - detallada y bien especificada.docx`,
 también resumido en el plan de sesión previo) adaptado con todo lo que se
 afinó en 2.4.1 desde entonces. Implementado tal cual quedó documentado acá
-abajo — ver TR-116 en `docs/tradeoffs.md` para el resumen de decisiones y
+abajo — ver TR-116 en `docs/Arquitectura y base/tradeoffs.md` para el resumen de decisiones y
 qué se sacrificó. El texto de esta parte se dejó como quedó redactado en el
 plan original (verbo en presente/futuro de diseño); donde el código terminó
 difiriendo en algún detalle menor, queda aclarado inline.
@@ -1014,7 +1014,7 @@ lado del profesional, no solo el modelo de datos/backend de 3.1-3.7:
   particular con sus propios datos de contacto) por uno con los dos
   bloques de arriba — paciente + tutor — cuando se elige esa opción.
 
-Implementado tal cual — ver TR-116 en `docs/tradeoffs.md`.
+Implementado tal cual — ver TR-116 en `docs/Arquitectura y base/tradeoffs.md`.
 
 ### 3.8 — Orden de implementación (seguido tal cual — ver TR-116)
 

@@ -25,7 +25,7 @@ const meCuentaSinVerificar: Me = {
   onboardingCompletado: false,
 };
 
-// Reestructuración del 2026-08-26 (docs/tradeoffs.md TR-057): /sumarse
+// Reestructuración del 2026-08-26 (docs/Arquitectura y base/tradeoffs.md TR-057): /sumarse
 // pasa a tener SOLO 2 pasos (crear cuenta, confirmar código) — perfil y
 // clínica se mudaron a bienvenida-overlay.test.tsx, sobre
 // /seleccionar-servicio.
@@ -106,7 +106,7 @@ describe("SumarseWizard", () => {
     expect(await screen.findByText(/otro@example.com/)).toBeInTheDocument();
   });
 
-  // TR-062 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-062 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): si el mail ya tiene cuenta verificada, se lo dice
   // derecho en vez de mandar al paso de código — "no es el estándar".
   it("con un mail que ya tiene cuenta verificada, muestra el aviso con links a ingresar/recuperar contraseña, sin avanzar al paso de código", async () => {

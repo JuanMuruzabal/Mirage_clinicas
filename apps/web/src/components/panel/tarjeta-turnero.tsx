@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 // TarjetaTurnero* (F2.3 extra ítem 1 — rediseño del dashboard "Turnero",
-// docs/implementation-plan.md §11.5, docs/fase2.3-extra-dental-mirage.md)
+// docs/Arquitectura y base/implementation-plan.md §11.5, docs/Fase 2/fase2.3-extra-dental-mirage.md)
 // — reemplaza el `ResumenCard` viejo (que envolvía toda la tarjeta en un
 // único <Link>): con un cuerpo de filas cada una clickeable por su
 // cuenta, anidar un <a> dentro de otro <a> no es válido HTML, así que la

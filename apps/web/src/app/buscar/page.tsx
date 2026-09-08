@@ -15,7 +15,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 
 // Buscador público de clínicas (spec §6, FR-10) — sin sesión, para
 // pacientes. Adelantado desde Sprint 4 (T4.5), ver TR-012 en
-// docs/tradeoffs.md: todavía no filtra por página "deployada", porque ese
+// docs/Arquitectura y base/tradeoffs.md: todavía no filtra por página "deployada", porque ese
 // flujo (Sprint 4) no existe aún. Identidad cálida (TR-015).
 export default async function BuscarPage({ searchParams }: PageProps<"/buscar">) {
   const resolvedParams = await searchParams;

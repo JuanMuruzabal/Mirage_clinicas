@@ -29,7 +29,7 @@ func NewToken() (rawToken, tokenHash string, err error) {
 
 // NewNumericCode genera un código numérico de `digits` cifras (con ceros a
 // la izquierda si hace falta) usando crypto/rand — pedido explícito del
-// cliente (2026-08-26, TR-055 en docs/tradeoffs.md): un código corto que
+// cliente (2026-08-26, TR-055 en docs/Arquitectura y base/tradeoffs.md): un código corto que
 // se escribe a mano en vez de un link que se clickea. Un código de 6
 // cifras tiene mucha menos entropía que NewToken (10^6 vs. 2^256) — nunca
 // usar esto para sesiones ni nada que no tenga, además, un límite de

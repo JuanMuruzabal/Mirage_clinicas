@@ -96,7 +96,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   const [tipoConsultaId, setTipoConsultaId] = useState(tipoGeneral?.id ?? "");
   // No se puede agendar un turno en el pasado (2026-08-23) — `min` es solo
   // una ayuda nativa del date picker, la validación real pasa en confirmar().
-  // `fechaISOLocal` (TR-074 en docs/tradeoffs.md, 2026-08-27, reemplaza
+  // `fechaISOLocal` (TR-074 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, reemplaza
   // `new Date().toISOString().slice(0, 10)`): esa versión daba la fecha
   // en UTC, que en Argentina (UTC-3) se adelanta al día siguiente entre
   // las ~21:00 y medianoche local — el campo de fecha arrancaba en

@@ -34,7 +34,7 @@ func existeUsuario(gdb *gorm.DB, id uuid.UUID) bool {
 }
 
 // TestPurgeAuthGarbage_BorraCuentaAbandonadaYSusFilasDependientes —
-// TR-063 en docs/tradeoffs.md: una cuenta nativa sin verificar, más vieja
+// TR-063 en docs/Arquitectura y base/tradeoffs.md: una cuenta nativa sin verificar, más vieja
 // que la TTL, se borra de verdad (Unscoped) junto con sus propias
 // verification_tokens/sessions/auth_rate_counters — sin esto quedan
 // huérfanos.

@@ -7,7 +7,7 @@ import { marcarAsistenciaAction, turnosPendientesAsistenciaAction } from "@/app/
 import { formatDiaLargo, formatHora } from "@/lib/calendar-utils";
 import { ModalPortal } from "./modal-portal";
 
-// AsistenciaCartelGlobal — TR-107 (1.3ter en docs/ArquitecturaPeticionesTurno.md),
+// AsistenciaCartelGlobal — TR-107 (1.3ter en docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md),
 // pedido textual del cliente: "cuando se completa el turno, es decir
 // llego a la hora de finalización del turno, que aparezca un cartel en
 // pantalla incerrable que le diga al profesional[...] ASISTIÓ, NO

@@ -23,7 +23,7 @@ export function HeaderFrame({
   // Solo el Home arranca con una foto a pantalla completa detrás del
   // header — el resto de las páginas no tiene "fondo" que respetar.
   const hasHero = pathname === "/";
-  // Piel cálida (TR-013/TR-015 en docs/tradeoffs.md): identidad por
+  // Piel cálida (TR-013/TR-015 en docs/Arquitectura y base/tradeoffs.md): identidad por
   // defecto de todo el sitio — el topbar usa la paleta nueva
   // (marfil/grafito/arena) en cualquier ruta salvo la home pública, que
   // conserva porcelain/ink sobre su primera foto (pedido explícito del

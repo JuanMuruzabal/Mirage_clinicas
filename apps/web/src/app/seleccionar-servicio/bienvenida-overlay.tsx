@@ -12,7 +12,7 @@ interface BienvenidaOverlayProps {
   especialidades: Especialidad[];
 }
 
-// Modal de "bienvenida" — TR-057 en docs/tradeoffs.md, pedido explícito
+// Modal de "bienvenida" — TR-057 en docs/Arquitectura y base/tradeoffs.md, pedido explícito
 // del cliente (2026-08-26): una vez confirmada la cuenta, el destino
 // siempre es /seleccionar-servicio; si perfil/clínica todavía no están
 // completos, este modal se muestra POR ENCIMA de esa página (que queda

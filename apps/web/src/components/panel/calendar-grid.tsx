@@ -224,8 +224,8 @@ function agruparEnClusters(items: ItemSolapable[]): ItemSolapable[][] {
 // los turnos van ordenados por su propia hora de inicio. El cálculo de
 // disponibilidad real para reservar (ver disponibilidad.go) no depende de
 // nada de esto — ahí todas las reglas simplemente se unen, sin ninguna
-// prioridad (TR-086/087 en docs/tradeoffs.md).
-// Exportada (F2.3 extra ítem 1, docs/implementation-plan.md §11.5): el
+// prioridad (TR-086/087 en docs/Arquitectura y base/tradeoffs.md).
+// Exportada (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md §11.5): el
 // deep-link "Ver eventos" de una fila de la tarjeta "Horarios reservados"
 // del dashboard (calendar-view.tsx, bloqueoAFocalizarId) necesita
 // resolver a qué cluster pertenece un bloqueo puntual — mismo cálculo que
@@ -462,7 +462,7 @@ export function CalendarGrid({
 
   return (
     <div className="flex" style={anchoMinPx ? { minWidth: anchoMinPx } : undefined}>
-      {/* F2.1 (docs/implementation-plan.md §11, pedido explícito del
+      {/* F2.1 (docs/Arquitectura y base/implementation-plan.md §11, pedido explícito del
           cliente): "si me muevo horizontalmente, al costado los horarios
           me van siguiendo" — columna de horas fija en X (`sticky left-0`)
           sin fijarse en Y (deja que las horas se desplacen verticalmente

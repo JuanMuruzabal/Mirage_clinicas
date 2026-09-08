@@ -8,7 +8,7 @@ interface VerificarMailPageProps {
   searchParams: Promise<{ email?: string }>;
 }
 
-// Acceso directo/de respaldo (TR-055 en docs/tradeoffs.md): el camino
+// Acceso directo/de respaldo (TR-055 en docs/Arquitectura y base/tradeoffs.md): el camino
 // normal es confirmar sin salir de /sumarse o /ingresar, que ya conocen el
 // mail por contexto — esta pantalla es para el caso de alguien que abre el
 // código en otro dispositivo, sin sesión ni formulario a mano, así que el

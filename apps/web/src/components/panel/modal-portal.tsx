@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 /**
  * Portal directo a `document.body` (rama fix/mobile, séptima corrección
- * 2026-08-24 — ver TR-030 en docs/tradeoffs.md, pedido explícito del
+ * 2026-08-24 — ver TR-030 en docs/Arquitectura y base/tradeoffs.md, pedido explícito del
  * cliente: "Montalos con un portal al body... No deben heredar el ancho
  * del contenedor de contenido").
  *

@@ -254,7 +254,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
               {filtrados.map((t) => {
                 const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
                 // resuelto: mismo criterio derivado que TurnosTable/
-                // TurnoDetalle (TR-074 en docs/tradeoffs.md) — no es un
+                // TurnoDetalle (TR-074 en docs/Arquitectura y base/tradeoffs.md) — no es un
                 // estado real, agendado + horaFin ya pasado.
                 const resuelto = t.estado === "agendado" && Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < new Date().getTime();
                 // Ir al turno en la vista Turnos (TR-074, pedido explícito
@@ -264,7 +264,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 // calendario") — mismo patrón que TurnoDetalle/
                 // hrefVerTurno: esa fila arranca ya desplegada (`?turno=`,
                 // ver TurnosTable/abrirId). `resuelto ? "resuelto" :
-                // t.estado` (TR-076 en docs/tradeoffs.md): un turno
+                // t.estado` (TR-076 en docs/Arquitectura y base/tradeoffs.md): un turno
                 // resuelto tiene que abrir la pestaña "Resueltos", no
                 // "Confirmadas" — turnos/page.tsx trata "resuelto" como
                 // su propio pseudo-valor de `estado` en la URL, no el

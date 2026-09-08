@@ -7,7 +7,7 @@ import { fechaISOLocal, horaISOLocal } from "@/lib/calendar-utils";
 
 interface AgregarReglaModalProps {
   // Especifico decide la forma del formulario (F2.3, TR-084 en
-  // docs/tradeoffs.md): una regla general pide día de la semana + alcance
+  // docs/Arquitectura y base/tradeoffs.md): una regla general pide día de la semana + alcance
   // (semana/mes/todos); una específica pide una fecha puntual en su
   // lugar. El único tipo de regla disponible hoy es "bloquear horario"
   // (bloquear_horario) — el backend está pensado para sumar más
@@ -23,7 +23,7 @@ interface AgregarReglaModalProps {
 
 const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-// AgregarReglaModal — F2.3.6 (docs/implementation-plan.md §11.3). Se abre
+// AgregarReglaModal — F2.3.6 (docs/Arquitectura y base/implementation-plan.md §11.3). Se abre
 // ENCIMA del modal de "Configuración de calendario" (que queda con blur
 // atrás, pedido explícito del cliente) — no usa ModalPortal a propósito:
 // ese portal saca el nodo a document.body para escapar el overflow de

@@ -17,11 +17,11 @@ interface ConfirmarCodigoFormProps {
    * (sumarse) y el aviso de "mail no verificado" en el login ya saben a
    * qué cuenta se refieren, se muestra como texto fijo. En falso
    * (/verificar-mail, acceso directo sin sesión ni contexto previo) se
-   * deja como un input editable — TR-055 en docs/tradeoffs.md. */
+   * deja como un input editable — TR-055 en docs/Arquitectura y base/tradeoffs.md. */
   emailFijo?: boolean;
 }
 
-// ConfirmarCodigoForm — TR-055 en docs/tradeoffs.md: reemplaza al link de
+// ConfirmarCodigoForm — TR-055 en docs/Arquitectura y base/tradeoffs.md: reemplaza al link de
 // un solo clic (ConfirmarMailButton) por un código de 6 dígitos que la
 // persona escribe a mano, sin salir de la pantalla donde se registró. Un
 // solo componente compartido por las tres pantallas donde hace falta

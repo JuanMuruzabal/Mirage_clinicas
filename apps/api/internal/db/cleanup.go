@@ -16,7 +16,7 @@ type PurgeStats struct {
 	TokensVencidos      int64
 }
 
-// PurgeAuthGarbage — TR-063 en docs/tradeoffs.md: hasta acá nada borraba
+// PurgeAuthGarbage — TR-063 en docs/Arquitectura y base/tradeoffs.md: hasta acá nada borraba
 // activamente lo que las propias TTLs del sistema ya declaran vencido —
 // una cuenta nativa sin verificar abandonada, un código de verificación
 // usado o vencido, una sesión vencida quedaban en la base para siempre

@@ -2,7 +2,7 @@
 
 Transcripción a Markdown de `docs/FASE-2.3-extra.docx` (el cliente lo dejó en
 formato Word; este archivo es la versión versionable/legible en diffs, igual
-criterio que `docs/fase2-dental-mirage.md` con el brief original de Fase 2).
+criterio que `docs/Fase 2/fase2-dental-mirage.md` con el brief original de Fase 2).
 El `.docx` queda también en el repo como fuente original, sin tocar.
 
 El cliente perdió el hilo de la numeración de ítems al escribir este
@@ -152,5 +152,5 @@ información rápida.
 | Extra 2.3.4 | Pacientes: "Ver mail" para direcciones largas | tabla de Pacientes |
 | Extra 2.3.5 | Formulario público de turno reescrito + DNI único + fix de bug + botón "agregar paciente" | `pedir-turno-form.tsx`, backend de turno público, `agregar-turno-modal.tsx`, sección Pacientes |
 
-Ver `docs/implementation-plan.md` §11.5 para el detalle de tareas y
+Ver `docs/Arquitectura y base/implementation-plan.md` §11.5 para el detalle de tareas y
 criterios de aceptación de cada ítem.

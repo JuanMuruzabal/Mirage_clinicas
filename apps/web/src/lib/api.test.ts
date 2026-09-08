@@ -306,7 +306,7 @@ describe("lib/api", () => {
     expect(result).toEqual({ ok: true, data: null });
   });
 
-  // --- Auth/onboarding (docs/feature-sumarte-login.md) ---
+  // --- Auth/onboarding (docs/Login/feature-sumarte-login.md) ---
 
   it("apiGoogleState manda GET a /auth/google/state", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ state: "abc" }) } as Response);

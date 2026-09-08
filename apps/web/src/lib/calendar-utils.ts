@@ -144,7 +144,7 @@ export function minutosDesdeMedianocheCordoba(d: Date): number {
   return hora * 60 + minuto;
 }
 
-// fechaISOLocal/horaISOLocal (TR-074 en docs/tradeoffs.md, 2026-08-27) —
+// fechaISOLocal/horaISOLocal (TR-074 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27) —
 // "YYYY-MM-DD"/"HH:MM" en la fecha y hora LOCAL del dispositivo, para
 // <input type="date"/"time"> (value/min) y como valor por defecto de
 // "ahora". A diferencia de `d.toISOString().slice(...)` (que da la
@@ -166,7 +166,7 @@ export function horaISOLocal(d: Date = new Date()): string {
 }
 
 // parseFechaISOLocal — inverso de fechaISOLocal (F2.3 extra ítem 1,
-// docs/implementation-plan.md §11.5): construye el Date con el
+// docs/Arquitectura y base/implementation-plan.md §11.5): construye el Date con el
 // constructor LOCAL (no `new Date("YYYY-MM-DD")`, que ISO-parsea como
 // UTC medianoche y corre un día para atrás en cualquier timezone
 // negativo, incluida Córdoba) — así sus getters locales (getFullYear/
@@ -255,7 +255,7 @@ export function diasDeVista(fecha: Date, vista: VistaCalendario): Date[] {
 
 export type RangoRapido = "hoy" | "semana" | "mes";
 
-// rangoRapidoFechas — Extra 2.3.3 (E3.5, docs/implementation-plan.md
+// rangoRapidoFechas — Extra 2.3.3 (E3.5, docs/Arquitectura y base/implementation-plan.md
 // §11.5): "filtro rápido HOY/SEMANA/MES antes de Desde/Hasta" en Turnos
 // (app/panel/turnos/page.tsx) y en "Turnos activos"/"Historial" de la
 // ficha de paciente (paciente-turnos-table.tsx) — un solo cálculo para

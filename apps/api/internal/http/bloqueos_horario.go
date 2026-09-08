@@ -15,9 +15,9 @@ import (
 )
 
 // registerBloqueoHorarioRoutes monta GET/POST/DELETE /bloqueos (F2.3.3,
-// docs/implementation-plan.md §11.3) — reglas GENERALES y ESPECÍFICAS por
+// docs/Arquitectura y base/implementation-plan.md §11.3) — reglas GENERALES y ESPECÍFICAS por
 // el mismo recurso, distinguidas por el campo `especifico` (TR-084 en
-// docs/tradeoffs.md). La resolución de conflictos (una específica gana
+// docs/Arquitectura y base/tradeoffs.md). La resolución de conflictos (una específica gana
 // sobre una general que se solape) no vive acá — se resuelve al calcular
 // disponibilidad (F2.4.1), este CRUD solo guarda/borra reglas.
 func registerBloqueoHorarioRoutes(r chi.Router, gdb *gorm.DB) {

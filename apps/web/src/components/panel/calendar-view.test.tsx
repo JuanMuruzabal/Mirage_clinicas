@@ -75,7 +75,7 @@ describe("CalendarView", () => {
     expect(screen.getByRole("button", { name: "Día" })).toHaveClass("bg-salvia-oscuro");
   });
 
-  // F2.3 extra ítem 1 (docs/implementation-plan.md §11.5) — deep-link
+  // F2.3 extra ítem 1 (docs/Arquitectura y base/implementation-plan.md §11.5) — deep-link
   // desde una fila de tarjeta del dashboard "Turnero". String, no un Date
   // ya armado (bug real de QA, 2026-09-06: un Date cruzando de Server a
   // Client Component se reconstruye por su INSTANTE, no por sus dígitos
@@ -163,7 +163,7 @@ describe("CalendarView", () => {
     }
   });
 
-  // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/implementation-plan.md
+  // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — corrección de QA: "en la tarjeta de horarios reservados,
   // cuando dé click a un elemento del cuerpo, también llevarme a la
   // tarjeta de ese elemento... es lo mismo que sucede si le doy click a
@@ -225,7 +225,7 @@ describe("CalendarView", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  // Banner de conflicto (F2.3 extra ítem 2, docs/implementation-plan.md
+  // Banner de conflicto (F2.3 extra ítem 2, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — pedido textual: "Tienes X turnos en conflictos, toca para
   // ver", entre el selector día/semana/mes y el calendario.
   describe("banner de conflicto", () => {
@@ -447,7 +447,7 @@ describe("CalendarView", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Día" })).toHaveClass("bg-salvia-oscuro"));
   });
 
-  // F2.3 (docs/implementation-plan.md §11.3, corregido tras QA: "al
+  // F2.3 (docs/Arquitectura y base/implementation-plan.md §11.3, corregido tras QA: "al
   // tocarlo se debe deslizar hacia la derecha, y ahí mostrar
   // configuración" — no un menú desplegable hacia abajo). Dos toques
   // sobre el MISMO botón: el primero solo despliega el texto, el

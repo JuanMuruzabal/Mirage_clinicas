@@ -2,7 +2,7 @@
 // la reestructuración del 2026-08-26 (pedido explícito del cliente: crear
 // cuenta + verificar código quedan en /sumarse; perfil + clínica pasan a
 // vivir en el modal de bienvenida sobre /seleccionar-servicio, ver
-// docs/tradeoffs.md TR-057) — antes era un solo wizard de 3 pasos fijos.
+// docs/Arquitectura y base/tradeoffs.md TR-057) — antes era un solo wizard de 3 pasos fijos.
 export interface PasoStepper {
   id: string;
   titulo: string;

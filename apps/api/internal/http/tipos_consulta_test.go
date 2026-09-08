@@ -80,7 +80,7 @@ func TestListTiposConsulta_RequiereAutenticacion(t *testing.T) {
 	}
 }
 
-// F2.3.4 (docs/implementation-plan.md §11.3) — CRUD completo, antes solo
+// F2.3.4 (docs/Arquitectura y base/implementation-plan.md §11.3) — CRUD completo, antes solo
 // existía GET.
 
 func TestCrearTipoConsulta(t *testing.T) {
@@ -262,7 +262,7 @@ func TestEliminarTipoConsulta_SinTurnosAsociados(t *testing.T) {
 	}
 }
 
-// R2F-4 (docs/implementation-plan.md §11.4): un tipo de consulta con
+// R2F-4 (docs/Arquitectura y base/implementation-plan.md §11.4): un tipo de consulta con
 // turnos asociados no se puede borrar — dejaría esos turnos con un
 // tipo_consulta_id huérfano.
 func TestEliminarTipoConsulta_ConTurnosAsociadosDevuelve409(t *testing.T) {

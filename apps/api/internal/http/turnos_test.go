@@ -742,7 +742,7 @@ func TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados(t *testing.T) {
 // TestResumenPanel_TurnosHoyYProximos — F2.3 extra ítem 1: "turnos de
 // hoy" y "turnos próximos" son listas separadas y mutuamente excluyentes
 // (un turno de hoy nunca aparece en "próximos", ver el brief en
-// docs/fase2.3-extra-dental-mirage.md). `clock.Now().Add(1*time.Minute)`
+// docs/Fase 2/fase2.3-extra-dental-mirage.md). `clock.Now().Add(1*time.Minute)`
 // (no una hora fija del día): garantiza que el turno todavía NO está
 // resuelto sea cual sea la hora real a la que corra el test — corrección
 // de QA posterior ("turnos de hoy no muestra turnos resueltos") excluye
@@ -1913,7 +1913,7 @@ func TestMarcarAsistencia_AusenteEnTurnoDisputadoBorraFichaSinBloquearMail(t *te
 }
 
 // TestMarcarAsistencia_ConflictoYaResueltoNoAplicaCarveOut — TR-107, item
-// 27 de la checklist de docs/ArquitecturaPeticionesTurno.md: si el
+// 27 de la checklist de docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md: si el
 // conflicto que originó este turno ya se resolvió por otra vía (a mano,
 // desde el panel) antes de esta fecha, el carve-out de 1.3bis no aplica —
 // marcar asistencia en ese turno sigue el flujo normal, sin efecto

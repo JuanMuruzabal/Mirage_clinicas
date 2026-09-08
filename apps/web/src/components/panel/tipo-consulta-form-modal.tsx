@@ -7,7 +7,7 @@ import { crearTipoConsultaAction, editarTipoConsultaAction } from "@/app/actions
 // Paleta cerrada de swatches (corrección de QA: "el editor de color...
 // debe ser más simple", en vez del selector nativo del sistema
 // operativo) — los mismos hex del sistema de diseño (Sistema Cascarón,
-// docs/tradeoffs.md TR-010/TR-013: globals.css), no colores inventados.
+// docs/Arquitectura y base/tradeoffs.md TR-010/TR-013: globals.css), no colores inventados.
 const PALETA_COLORES = [
   "#E7D9BE", // cascarón (default histórico de "Consulta general", TR-001)
   "#D6563A", // urgencia (default histórico de "Urgencia", TR-001)
@@ -28,10 +28,10 @@ interface TipoConsultaFormModalProps {
   onGuardado: (tipo: TipoConsulta) => void;
 }
 
-// TipoConsultaFormModal — F2.3.7 (docs/implementation-plan.md §11.3): alta
+// TipoConsultaFormModal — F2.3.7 (docs/Arquitectura y base/implementation-plan.md §11.3): alta
 // y edición de un tipo de consulta desde "Configuración de calendario" —
 // color, duración, tiempo post-consulta ("mismo concepto que tiempo
-// entre turnos", TR-084 en docs/tradeoffs.md) y cantidad de sesiones
+// entre turnos", TR-084 en docs/Arquitectura y base/tradeoffs.md) y cantidad de sesiones
 // (informativo, sin lógica asociada esta fase).
 export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: TipoConsultaFormModalProps) {
   const [nombre, setNombre] = useState(tipoExistente?.nombre ?? "");

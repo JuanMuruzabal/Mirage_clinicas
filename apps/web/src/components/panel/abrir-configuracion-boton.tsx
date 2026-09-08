@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ConfiguracionCalendarioModal } from "./configuracion-calendario-modal";
 
-// AbrirConfiguracionBoton (F2.3 extra ítem 1, docs/implementation-plan.md
+// AbrirConfiguracionBoton (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
 // §11.5) — la cabecera de la tarjeta "Horarios reservados" del Turnero
 // dice "Ver horarios reservados" y abre Configuración de calendario, no
 // navega a `/panel/calendario` (a diferencia de las otras tarjetas) —

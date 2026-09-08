@@ -6,7 +6,7 @@ import { PerfilForm } from "./perfil-form";
 
 export const metadata: Metadata = { title: "Tu perfil — Dental Mirage" };
 
-// "Tu perfil" (T1.5, extendido por docs/feature-sumarte-login.md con
+// "Tu perfil" (T1.5, extendido por docs/Login/feature-sumarte-login.md con
 // matrícula/documento/años de experiencia/bio/idiomas): datos personales +
 // especialidades editables. Email y nombre de clínica no se editan acá.
 // "Cerrar sesión" vive acá, no en el header global (pedido explícito del

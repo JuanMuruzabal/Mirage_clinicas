@@ -354,7 +354,7 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           <tbody>
             {turnos.map((t) => {
               const expandido = expandidoId === t.id;
-              // resuelto (TR-074 en docs/tradeoffs.md, 2026-08-27, pedido
+              // resuelto (TR-074 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
               // explícito del cliente: "un turno resuelto sigue
               // apareciendo... como confirmado, debería aparecer
               // resuelto, no se tendría que poder editar") — no es un

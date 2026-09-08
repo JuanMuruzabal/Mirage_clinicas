@@ -66,7 +66,7 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 		return resultadoPacientePublico{}, err
 	}
 
-	// Fase 2.4.2 (`docs/ArquitecturaPeticionesTurno.md` 3.4, rediseñado en
+	// Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4, rediseñado en
 	// la ronda de correcciones del 2026-09-06): "¿esta ficha responde al
 	// mail entrante?" compara contra CUALQUIERA de los tutores YA
 	// CONOCIDOS de esta ficha cuando el turno es "para otro" — ahí la
@@ -144,7 +144,7 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 	// motivoDeConflicto — 4 escenarios según si la ficha YA CONOCÍA algún
 	// tutor y si el pedido nuevo es "para otro" (ronda de correcciones,
 	// 2026-09-06, pedido textual del cliente con 4 casos concretos — ver
-	// TR-116 en docs/tradeoffs.md). Ninguno de los 4 cambia el mecanismo
+	// TR-116 en docs/Arquitectura y base/tradeoffs.md). Ninguno de los 4 cambia el mecanismo
 	// de conflicto en sí (misma tabla ConflictoPaciente, misma resolución
 	// manual) — solo el texto que le explica al profesional qué pasó.
 	existenteTieneTutores, err := existentePacienteTieneTutores(tx, existente.ID)

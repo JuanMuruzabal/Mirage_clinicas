@@ -5,7 +5,7 @@ import { FilaPersona, ModalFooter, ModalShell } from "./shared";
 
 /**
  * [5a]/[5b] — resultado de la búsqueda, ya con el código validado
- * (docs/rediseno-flujo-turnos.md §5). El backend solo expone
+ * (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §5). El backend solo expone
  * `{id, nombre, dni}` en `PacienteVerificadoPublico` (`lib/api.ts`) — sin
  * "última visita" ni vínculo, que el mockup del doc muestra en la
  * segunda línea de la fila de persona. No se inventan esos datos: la

@@ -93,7 +93,7 @@ func (c *HTTPPwnedChecker) IsPwned(ctx context.Context, password string) (bool, 
 // onError y se sigue como si la contraseña no estuviera filtrada. Bloquear
 // un registro entero porque un servicio de terceros no respondió sería
 // peor que dejar pasar el chequeo esa vez (decisión documentada en el plan
-// aprobado / docs/tradeoffs.md).
+// aprobado / docs/Arquitectura y base/tradeoffs.md).
 func IsPwnedFailOpen(ctx context.Context, checker PwnedChecker, password string, onError func(error)) bool {
 	pwned, err := checker.IsPwned(ctx, password)
 	if err != nil {

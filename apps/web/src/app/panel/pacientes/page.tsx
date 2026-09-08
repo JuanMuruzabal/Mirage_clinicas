@@ -67,7 +67,7 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
-    // corrección 2026-08-24 — ver TR-029 en docs/tradeoffs.md: "hay un
+    // corrección 2026-08-24 — ver TR-029 en docs/Arquitectura y base/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll... quitá
     // el padding-top sobrante").
     <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">

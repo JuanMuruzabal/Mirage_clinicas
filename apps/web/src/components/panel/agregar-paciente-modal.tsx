@@ -10,7 +10,7 @@ interface AgregarPacienteModalProps {
   onSuccess: (paciente: Paciente) => void;
 }
 
-// Mismas reglas de formato que TR-002 (docs/tradeoffs.md) — feedback
+// Mismas reglas de formato que TR-002 (docs/Arquitectura y base/tradeoffs.md) — feedback
 // inmediato acá, el backend (crearPacienteHandler) es la fuente de verdad.
 const DNI_REGEX = /^\d{7,8}$/;
 const TELEFONO_REGEX = /^\+?\d{10,13}$/;
@@ -29,7 +29,7 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   const [email, setEmail] = useState("");
   // conTutor (Fase 2.4.2) — "Con tutor" reemplaza el formulario de un
   // bloque por el de dos bloques (paciente + tutor) — ver
-  // docs/ArquitecturaPeticionesTurno.md 3.7bis.
+  // docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.7bis.
   const [conTutor, setConTutor] = useState(false);
   const [tutorRelacion, setTutorRelacion] = useState("");
   const [tutorNombre, setTutorNombre] = useState("");

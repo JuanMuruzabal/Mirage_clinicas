@@ -15,7 +15,7 @@ interface ExpandableCardProps {
 // desplegable real con más información, no solo hover. La altura anima
 // hacia/desde "auto" (framer-motion lo soporta directo) para que el
 // despliegue quede suave, no un salto brusco. Identidad cálida (TR-015 en
-// docs/tradeoffs.md, pedido explícito del cliente: "el home solo cambiar
+// docs/Arquitectura y base/tradeoffs.md, pedido explícito del cliente: "el home solo cambiar
 // las tarjetas y botones") — solo color/forma/sombra, la tipografía
 // condensada del título queda igual que el resto del Home.
 export function ExpandableCard({ eyebrow, titulo, descripcion, detalle }: ExpandableCardProps) {

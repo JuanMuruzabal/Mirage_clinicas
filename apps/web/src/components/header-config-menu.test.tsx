@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HeaderConfigMenu } from "./header-config-menu";
 
-// TR-075 en docs/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
+// TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
 // reducido a Tu perfil + Cerrar sesión — "Gestionar tu clínica" y
 // "Personalizar tu página" quedaron redundantes con el sidebar/botón
 // "Panel" (ver TR-060 para la versión original de 3 accesos).

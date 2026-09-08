@@ -20,7 +20,7 @@ import (
 // sin Google OAuth ni Turnstile configurados (nil-disabled), sin chequeo
 // de HaveIBeenPwned. authSecret firma el `state` de OAuth (ver
 // oauthstate.go) — el nombre se mantuvo desde antes de
-// docs/feature-sumarte-login.md (cuando firmaba JWT de sesión) a propósito,
+// docs/Login/feature-sumarte-login.md (cuando firmaba JWT de sesión) a propósito,
 // para no tocar los ~50 call sites de test que ya lo usan así.
 //
 // Producción (cmd/api/main.go) usa NewRouterWithDeps con AuthDeps

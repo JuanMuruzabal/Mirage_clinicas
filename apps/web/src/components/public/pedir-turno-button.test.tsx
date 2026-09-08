@@ -91,7 +91,7 @@ describe("PedirTurnoButton", () => {
 
   // docs/archivo/prompt-claude-code-fecha-horario.md, punto 3: "bloqueá el scroll
   // del body... y mantené el foco atrapado dentro del modal" — pendiente
-  // sin resolver desde el propio §6 de docs/rediseno-flujo-turnos.md.
+  // sin resolver desde el propio §6 de docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md.
   it("bloquea el scroll del body mientras está abierto y lo restaura al cerrar", async () => {
     const user = userEvent.setup();
     render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);

@@ -11,7 +11,7 @@ import (
 
 // TestMigrateProfesionalesToUsers_MigraSinPerdidaDeDatos cubre el punto de
 // aceptación "la especialidad única existente quedó migrada a la relación
-// múltiple sin pérdida de datos" (docs/feature-sumarte-login.md §10) y la
+// múltiple sin pérdida de datos" (docs/Login/feature-sumarte-login.md §10) y la
 // estrategia de migración del plan aprobado: un Profesional produce
 // User+ProfessionalProfile+Clinic+ClinicMember con el mismo UUID de Clinic
 // que tenía el Profesional, sin perder especialidades ni contraseña.

@@ -12,7 +12,7 @@ interface NavCardProps {
 
 // Tarjeta de navegación con hover que crece un poco. Uso actual: solo
 // /seleccionar-servicio (la pantalla post-login) — por eso lleva la
-// identidad cálida del panel (TR-013 en docs/tradeoffs.md), no la del
+// identidad cálida del panel (TR-013 en docs/Arquitectura y base/tradeoffs.md), no la del
 // Sistema Cascarón de la home marketing/pública, que no la usa.
 export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar", size = "default" }: NavCardProps) {
   const big = size === "large";

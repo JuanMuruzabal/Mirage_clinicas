@@ -1,6 +1,6 @@
 # Sumarse + Login con onboarding profesional — resumen de entrega
 
-Cierre de la feature pedida originalmente en `docs/feature-sumarte-login.md` (el prompt inicial, no un documento vivo — sección 11 de ese prompt pedía explícitamente "al final, un resumen de qué cambió, qué variables de entorno hay que configurar, qué quedó preparado para invitaciones, y un repaso explícito de la sección 7"). Este documento, junto con `docs/tradeoffs.md` (TR-036 a TR-047) y las secciones actualizadas de `docs/dental-mirage-spec.md` (§2, §3, §7, §9.3), es la referencia viva de la feature de ahora en más. Rama `feature/sumarte-login`, no mergeada a `dev`/`main` todavía.
+Cierre de la feature pedida originalmente en `docs/Login/feature-sumarte-login.md` (el prompt inicial, no un documento vivo — sección 11 de ese prompt pedía explícitamente "al final, un resumen de qué cambió, qué variables de entorno hay que configurar, qué quedó preparado para invitaciones, y un repaso explícito de la sección 7"). Este documento, junto con `docs/Arquitectura y base/tradeoffs.md` (TR-036 a TR-047) y las secciones actualizadas de `docs/Arquitectura y base/dental-mirage-spec.md` (§2, §3, §7, §9.3), es la referencia viva de la feature de ahora en más. Rama `feature/sumarte-login`, no mergeada a `dev`/`main` todavía.
 
 ## 1. Qué cambió
 
@@ -17,7 +17,7 @@ Commits (orden de los entregables de la spec §11):
 7. Migración de usuarios existentes — `cmd/migrate-usuarios`, lista para correr contra producción; no hay datos reales que migrar todavía en esta rama.
 8. Tests — cobertura agregada del backend 74.9% → 81.5% (gate 80%, ver commit `test(api): cierra el gate de cobertura 80% del backend`).
 
-`Profesional` (modelo y tabla) se mantiene sin borrar a propósito hasta confirmar que `cmd/migrate-usuarios` corrió en producción (TR-039, `docs/tradeoffs.md`).
+`Profesional` (modelo y tabla) se mantiene sin borrar a propósito hasta confirmar que `cmd/migrate-usuarios` corrió en producción (TR-039, `docs/Arquitectura y base/tradeoffs.md`).
 
 ## 2. Variables de entorno a configurar
 

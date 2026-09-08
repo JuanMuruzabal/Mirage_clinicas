@@ -71,7 +71,7 @@ func doJSONAuth(t *testing.T, router http.Handler, method, path, token string, b
 }
 
 // altaDePruebaInput es el equivalente de prueba del viejo registerRequest
-// de un solo paso (antes de docs/feature-sumarte-login.md, que separó el
+// de un solo paso (antes de docs/Login/feature-sumarte-login.md, que separó el
 // alta en cuenta/perfil/clínica) — junta los tres pasos en una sola
 // llamada para no reescribir cada test de dominio (turnos/pacientes/
 // tipos_consulta/página pública) que solo necesita "una clínica
@@ -254,7 +254,7 @@ func (c *capturingMailSender) turnoConfirmadoEnviadoA(email string) *mail.TurnoC
 	return &info
 }
 
-// codigoDeLaUltimaVerificacion — TR-055 en docs/tradeoffs.md: el mail de
+// codigoDeLaUltimaVerificacion — TR-055 en docs/Arquitectura y base/tradeoffs.md: el mail de
 // verificación manda un código de 6 dígitos directo, ya no un link del
 // que haya que extraer un ?token=.
 func (c *capturingMailSender) codigoDeLaUltimaVerificacion(email string) string {
@@ -357,7 +357,7 @@ func routerOverDBWithTurnstile(gdb *gorm.DB, turnstileOK bool) http.Handler {
 }
 
 // newTestRouterWithAutoVerify arma un router con AutoVerifyEmail activo —
-// TR-051 en docs/tradeoffs.md: sin RESEND_API_KEY configurada, las
+// TR-051 en docs/Arquitectura y base/tradeoffs.md: sin RESEND_API_KEY configurada, las
 // cuentas nativas nuevas quedan verificadas de entrada.
 func newTestRouterWithAutoVerify(t *testing.T) (http.Handler, *gorm.DB) {
 	t.Helper()

@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 const { PanelScrollLock } = await import("./panel-scroll-lock");
 
 // Rama fix/mobile, corrección 2026-08-24 sobre TR-026 (ver TR-027 en
-// docs/tradeoffs.md) — PanelScrollLock es el componente que pone/saca
+// docs/Arquitectura y base/tradeoffs.md) — PanelScrollLock es el componente que pone/saca
 // `.panel-locked` en <html> mientras se está en /panel/**, para cerrar la
 // vía de filtración del rebote elástico de mobile Safari hacia el header
 // fijo (ver el comentario del propio componente).

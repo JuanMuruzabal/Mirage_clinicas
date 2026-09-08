@@ -83,7 +83,7 @@ describe("TurnoDetalle", () => {
     expect(screen.queryByText("Resuelto")).not.toBeInTheDocument();
   });
 
-  // TR-076 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-076 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): "tocar un turno resuelto... lleva a la pestaña de
   // Confirmadas, no Resueltas" — 'Ver turno' tiene que abrir la pestaña
   // correcta (?estado=resuelto, no el estado real "agendado").

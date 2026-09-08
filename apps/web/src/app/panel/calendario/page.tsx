@@ -21,7 +21,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 // default sigue siendo "Hoy" (día), sin cambios.
 //
 // `?fecha=YYYY-MM-DD`/`?turno=<id>`/`?bloqueo=<id>` (F2.3 extra ítem 1,
-// docs/implementation-plan.md §11.5): deep-link desde una fila de las
+// docs/Arquitectura y base/implementation-plan.md §11.5): deep-link desde una fila de las
 // tarjetas "Turnos de hoy"/"Turnos próximos"/"Horarios reservados" del
 // dashboard — `fecha` ancla la semana/día inicial a la fecha REAL del
 // turno/horario reservado (sin esto, "Turnos próximos" siempre caía en

@@ -8,7 +8,7 @@ vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 
 const { PanelSidebar } = await import("./panel-sidebar");
 
-// usePanelSidebar() (TR-075 en docs/tradeoffs.md) requiere el Provider
+// usePanelSidebar() (TR-075 en docs/Arquitectura y base/tradeoffs.md) requiere el Provider
 // del layout raíz — este botón expone el toggle para los tests, ya que
 // el disparador real (la hamburguesa) vive en otro componente
 // (site-header-chrome.tsx, fuera del árbol de PanelSidebar).
@@ -51,7 +51,7 @@ describe("PanelSidebar", () => {
     expect(screen.getByRole("link", { name: "Seguridad" })).toHaveAttribute("href", "/panel/seguridad");
   });
 
-  // TR-075 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): "agregar la opción para volver a seleccionar servicio,
   // con un botón que diga panel".
   it("'Panel' lleva a /seleccionar-servicio", () => {
@@ -59,7 +59,7 @@ describe("PanelSidebar", () => {
     expect(screen.getByRole("link", { name: "Panel" })).toHaveAttribute("href", "/seleccionar-servicio");
   });
 
-  // TR-077 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-077 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): "en la versión de escritorio no debería ver la opción
   // de Panel en el sidebar" — ya está en el header ahí (botón "Panel"
   // que reemplaza al logo). Solo mobile.
@@ -90,7 +90,7 @@ describe("PanelSidebar", () => {
 
   // Rama fix/mobile, sexta corrección (2026-08-24, pedido explícito del
   // cliente: "sidebar colapsado más chico... 52px" — ver TR-029 en
-  // docs/tradeoffs.md). El ancho colapsado ahora es solo de escritorio
+  // docs/Arquitectura y base/tradeoffs.md). El ancho colapsado ahora es solo de escritorio
   // (TR-075): `md:w-[52px]`, no `w-[52px]` a secas — en mobile el drawer
   // siempre es de ancho completo cuando está abierto.
   it("colapsado mide 52px en escritorio, con los íconos centrados", async () => {
@@ -119,7 +119,7 @@ describe("PanelSidebar", () => {
     expect(iconos).toHaveLength(7);
   });
 
-  // TR-075 en docs/tradeoffs.md (pedido explícito del cliente,
+  // TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-27): "el sidebar debe ser desplegable desde el header...
   // en mobile" — reemplaza el criterio anterior (TR-034, arrancaba
   // colapsado en mobile detectando matchMedia): ahora es un drawer

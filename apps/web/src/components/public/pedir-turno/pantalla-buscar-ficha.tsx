@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { CampoTexto, ModalFooter, ModalShell } from "./shared";
 
 /**
- * [3b]/[3e] — pantallas de "ya vine antes" (docs/rediseno-flujo-turnos.md
+ * [3b]/[3e] — pantallas de "ya vine antes" (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
  * §5). Deviación deliberada de copy respecto del doc: ahí el botón dice
  * "Buscar mi ficha"/"Buscar" porque asume que la búsqueda ocurre en este
  * paso. El backend real busca DESPUÉS de validar el código (decisión ya

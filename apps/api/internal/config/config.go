@@ -18,7 +18,7 @@ type Config struct {
 	// excepciones) — eso nunca pasa por CORS.
 	CORSAllowedOrigins []string
 
-	// --- docs/feature-sumarte-login.md: auth/onboarding nuevo ---
+	// --- docs/Login/feature-sumarte-login.md: auth/onboarding nuevo ---
 
 	// AppBaseURL arma los links absolutos de los mails (verificación,
 	// reset de password) — apps/web, no la URL de esta API.

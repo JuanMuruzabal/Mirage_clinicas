@@ -2,7 +2,7 @@
 
 /*
  * Sistema de diseño — Dental Mirage ("Sistema Cascarón")
- * Ver docs/tradeoffs.md TR-010. Paleta y tipografía ya resueltas por
+ * Ver docs/Arquitectura y base/tradeoffs.md TR-010. Paleta y tipografía ya resueltas por
  * adelantado (T5.1 del plan) — cada sprint de UI usa estos tokens, no
  * valores nuevos.
  */
@@ -22,7 +22,7 @@
   --color-urgencia: #d6563a;
 
   /* --- Color: piel cálida del panel de gestión (TR-013 en
-     docs/tradeoffs.md) — NUNCA en la home pública/marketing, que conserva
+     docs/Arquitectura y base/tradeoffs.md) — NUNCA en la home pública/marketing, que conserva
      ink/porcelain/steel de arriba. `-claro`/`-oscuro` son tintes propios
      para pares fondo-claro + texto-oscuro con contraste AA real: el tono
      medio (salvia, terracota) no alcanza 4.5:1 como texto de cuerpo
@@ -112,7 +112,7 @@
 /* `.panel-shell-h`/`.panel-sidebar-h` — rama fix/mobile, sexta vuelta
    (2026-08-24, pedido explícito del cliente: "el scroll vertical no
    funciona (prioridad): no puedo ver las horas de abajo del calendario"
-   — ver TR-029 en docs/tradeoffs.md). Dos correcciones sobre las rondas
+   — ver TR-029 en docs/Arquitectura y base/tradeoffs.md). Dos correcciones sobre las rondas
    anteriores, las dos solo debajo de 768px:
 
    1. Fallback `vh` → `dvh`, vía `@supports` (NO declarando la misma
@@ -158,7 +158,7 @@
   }
 
   /* `.panel-main-h` (novena vuelta, 2026-08-24 — ver TR-032 en
-     docs/tradeoffs.md): antes `<main>` NO tenía un alto propio explícito
+     docs/Arquitectura y base/tradeoffs.md): antes `<main>` NO tenía un alto propio explícito
      — dependía por completo de `align-items: stretch` heredado de
      `.panel-shell-h` (su padre, un `flex` row) para quedar acotado a la
      altura del viewport. Eso funcionaba para Turnos/Pacientes/General,
@@ -197,7 +197,7 @@
 
 
 /* `.panel-locked` (rama fix/mobile, corrección 2026-08-24 sobre TR-026 —
-   ver TR-027 en docs/tradeoffs.md) — la clase la pone/saca
+   ver TR-027 en docs/Arquitectura y base/tradeoffs.md) — la clase la pone/saca
    `PanelScrollLock` (componente cliente, `usePathname`) mientras se está
    en `/panel/**`. El header y el sidebar de gestión de clínica YA eran
    hermanos del área que scrollea (no estaban anidados adentro) — el bug
@@ -233,7 +233,7 @@ html {
   background: var(--color-hueso);
   overscroll-behavior: none;
   /* Undécima corrección, rama fix/mobile (2026-08-24 — ver TR-034 en
-     docs/tradeoffs.md, pedido explícito del cliente: "un fix en la
+     docs/Arquitectura y base/tradeoffs.md, pedido explícito del cliente: "un fix en la
      version de escritorio, ya que ahora cuando navego en los diferentes
      apartados el header se modifica un poco de lugar para cada caso").
      El header es `position: fixed` a lo ancho del viewport — pero en
@@ -246,7 +246,7 @@ html {
      px de un lado a otro entre pantallas.
 
      `overflow-y: scroll` en vez de `scrollbar-gutter: stable` (TR-068 en
-     docs/tradeoffs.md, 2026-08-27, pedido explícito del cliente: "cuando
+     docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido explícito del cliente: "cuando
      desaparece la scrollbar del costado de la página, ahí es visible ese
      espacio"). `scrollbar-gutter: stable` reservaba el espacio SIEMPRE
      pero lo dejaba VACÍO en las páginas sin contenido para scrollear —
@@ -286,7 +286,7 @@ body {
    primera fila... queda un espacio blanco feo". Al llegar al tope y
    seguir arrastrando, el navegador hacía "rebote elástico" (overscroll)
    más allá del propio borde de esta caja — mismo fenómeno que motivó
-   `.panel-locked` para la página completa (TR-027 en docs/tradeoffs.md),
+   `.panel-locked` para la página completa (TR-027 en docs/Arquitectura y base/tradeoffs.md),
    acá a escala de un solo contenedor con scroll interno. `contain` frena
    el rebote en el borde de la caja en vez de dejarlo escapar hacia el
    fondo de la página (`--color-hueso`, un tono distinto al `bg-marfil`
@@ -314,7 +314,7 @@ body {
 /* `.panel-card-scroll` — mismo criterio que `.panel-table-scroll` de
    arriba (scrollbar fina, color arena, track transparente), separada en
    su propia clase porque semánticamente es para el cuerpo scrolleable de
-   una tarjeta (F2.3 extra ítem 1, docs/implementation-plan.md §11.5:
+   una tarjeta (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md §11.5:
    "si el cuerpo de tarjeta tiene [scroll], hacer esta discreta"), no una
    tabla de gestión. */
 .panel-card-scroll {

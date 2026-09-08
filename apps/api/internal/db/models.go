@@ -6,10 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Modelos GORM del esquema inicial (docs/implementation-plan.md §2.1 — la
+// Modelos GORM del esquema inicial (docs/Arquitectura y base/implementation-plan.md §2.1 — la
 // spec no trae un ERD propio, este es el modelo propuesto en la fase de
 // planificación). Especialidad y TipoConsulta son catálogos (TR-001/TR-004
-// en docs/tradeoffs.md); Paciente/Turno/PaginaPublica se amplían en los
+// en docs/Arquitectura y base/tradeoffs.md); Paciente/Turno/PaginaPublica se amplían en los
 // sprints que los usan (Sprint 2-4).
 
 // Profesional refleja el alta individual de un odontólogo (spec §3 — sin
@@ -19,11 +19,11 @@ type Profesional struct {
 	Nombre string    `gorm:"type:varchar(150);not null"`
 	Email  string    `gorm:"type:varchar(255);not null;uniqueIndex"`
 	// PasswordHash: nunca se serializa a JSON (ver usuarioResponse en
-	// internal/http/auth.go) — bcrypt, TR-005 en docs/tradeoffs.md.
+	// internal/http/auth.go) — bcrypt, TR-005 en docs/Arquitectura y base/tradeoffs.md.
 	PasswordHash string  `gorm:"column:password_hash;type:varchar(255);not null"`
 	Telefono     *string `gorm:"type:varchar(50)"`
 	// NombreClinica/Slug (spec §3, paso 5): Slug deriva la ruta pública
-	// /clinica-x (docs/implementation-plan.md §2.1) — único, generado a
+	// /clinica-x (docs/Arquitectura y base/implementation-plan.md §2.1) — único, generado a
 	// partir de NombreClinica al registrarse.
 	NombreClinica string `gorm:"column:nombre_clinica;type:varchar(200);not null"`
 	Slug          string `gorm:"type:varchar(220);not null;uniqueIndex"`
@@ -41,7 +41,7 @@ func (Profesional) TableName() string { return "profesionales" }
 // Sembrado en Sprint 1 (T1.3) cuando exista el flujo de onboarding que las
 // necesita; el esquema ya queda listo desde T0.3.
 //
-// Activa (TR-011 en docs/tradeoffs.md, 2026-08-22): el catálogo completo
+// Activa (TR-011 en docs/Arquitectura y base/tradeoffs.md, 2026-08-22): el catálogo completo
 // queda sembrado en la base, pero GET /especialidades solo devuelve las
 // activas — hoy únicamente "Odontología general", hasta que el cliente
 // confirme el resto de la lista (spec §7.4). Ocultar es cambiar
@@ -58,11 +58,11 @@ func (Especialidad) TableName() string { return "especialidades" }
 // Profesional nuevo recibe sus propios dos tipos por defecto al
 // registrarse (ver SeedTiposConsultaDefault más abajo, usado desde
 // internal/http/auth.go). Color es el hex del bloque de calendario (spec
-// §4.3) — "cascarón"/"urgencia" del Sistema Cascarón (docs/tradeoffs.md
+// §4.3) — "cascarón"/"urgencia" del Sistema Cascarón (docs/Arquitectura y base/tradeoffs.md
 // TR-010), nunca un color de marca.
 //
 // DuracionMinutos/TiempoPostConsultaMinutos/CantidadSesiones (F2.3,
-// TR-084 en docs/tradeoffs.md): el profesional los configura por tipo de
+// TR-084 en docs/Arquitectura y base/tradeoffs.md): el profesional los configura por tipo de
 // consulta, no hay ningún buffer a nivel `Clinic` — "tiempo entre
 // turnos" y "tiempo postconsulta" son el mismo concepto, pedido
 // explícito del cliente ("consulta general dura 45min... quiero que
@@ -559,7 +559,7 @@ type Turno struct {
 	// EsParaOtro/Tutor* — Fase 2.4.2, camino "sacar turno para otro": a
 	// diferencia de los campos Contacto de arriba (que SIGUEN siendo el
 	// paciente, sin cambio de significado — ver el comentario grande en
-	// docs/ArquitecturaPeticionesTurno.md Parte 3 sobre por qué), este es
+	// docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md Parte 3 sobre por qué), este es
 	// un set PARALELO con el snapshot de quien reservó en nombre del
 	// paciente. Mismo criterio que NombreContacto/ApellidoContacto: un
 	// snapshot propio de Turno, no un join en vivo contra Paciente (ver

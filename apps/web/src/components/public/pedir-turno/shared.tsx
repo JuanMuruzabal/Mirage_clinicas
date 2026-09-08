@@ -5,7 +5,7 @@ import { IconChevronDown, IconCheckBadge, IconX } from "@/components/icons";
 
 /**
  * Componentes compartidos del rediseño del wizard público "Pedir turno"
- * (docs/rediseno-flujo-turnos.md §3). Implementados una sola vez acá y
+ * (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3). Implementados una sola vez acá y
  * reutilizados en cada pantalla del flujo — el propio documento lo pide
  * como paso 1 de su orden sugerido (§9): "todo lo demás depende de esto".
  *

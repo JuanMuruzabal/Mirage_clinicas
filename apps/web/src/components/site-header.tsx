@@ -7,7 +7,7 @@ import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome"
 // solo dentro de /perfil (pedido explícito del cliente, 2026-08-23).
 //
 // `estado` (prop de SiteHeaderChrome) tiene 3 valores — TR-058/TR-060 en
-// docs/tradeoffs.md:
+// docs/Arquitectura y base/tradeoffs.md:
 //   - "anonimo": sin sesión válida.
 //   - "cuentaSinTerminar": mail verificado pero perfil/clínica sin
 //     terminar — bug real reportado por el cliente (2026-08-26): con una

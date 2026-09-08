@@ -6,7 +6,7 @@ import { CampoTelefonoConPais } from "./campo-telefono";
 import { BarraContexto, CampoSelect, CampoTexto, CampoTextarea, ModalFooter, ModalShell } from "./shared";
 
 /**
- * [3a] Tus datos — para mí, primera vez (docs/rediseno-flujo-turnos.md
+ * [3a] Tus datos — para mí, primera vez (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
  * §5). Grilla de dos columnas (§2: `repeat(auto-fit, minmax(200px,1fr))`,
  * colapsa sola a una columna en mobile — acá implementada como
  * `sm:grid-cols-2` porque los campos de esta pantalla no necesitan más

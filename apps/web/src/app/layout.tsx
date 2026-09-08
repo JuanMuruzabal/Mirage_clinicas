@@ -8,7 +8,7 @@ import { SiteFooterVisibility } from "@/components/site-footer-visibility";
 import { PanelScrollLock } from "@/components/panel-scroll-lock";
 import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
-// Sistema Cascarón (docs/tradeoffs.md TR-010) — display condensada de alto
+// Sistema Cascarón (docs/Arquitectura y base/tradeoffs.md TR-010) — display condensada de alto
 // contraste, uso restringido a títulos/cifras/rótulos (spec §9.7).
 const bigShoulders = Big_Shoulders({
   variable: "--font-big-shoulders",
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${bigShoulders.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        {/* PanelSidebarProvider (TR-075 en docs/tradeoffs.md) — sin nodo
+        {/* PanelSidebarProvider (TR-075 en docs/Arquitectura y base/tradeoffs.md) — sin nodo
             propio en el DOM, envuelve todo el sitio para que el ícono de
             abrir/cerrar el sidebar (en el header, fuera de /panel/**) y el
             sidebar en sí (adentro de app/panel/layout.tsx) compartan

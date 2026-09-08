@@ -6,7 +6,7 @@ import { GoogleIcon } from "./google-icon";
 
 // Google Identity Services, flujo popup + Authorization Code (decisión #1
 // del plan aprobado — mismo patrón ya validado en producción por
-// Marcuzzi_Madryn, ver docs/tradeoffs.md TR-038): el `code` viaja a
+// Marcuzzi_Madryn, ver docs/Arquitectura y base/tradeoffs.md TR-038): el `code` viaja a
 // googleLoginAction, que lo manda a apps/api para el intercambio
 // server-to-server. El `state` se pide a googleStateAction justo antes de
 // cada intento — nunca se reutiliza uno viejo (spec §7).
