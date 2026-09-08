@@ -33,6 +33,22 @@ type misTurnoPublicoResponse struct {
 	ApellidoContacto   string `json:"apellidoContacto"`
 }
 
+// mailIdentificaAlTurno — ¿este mail pertenece a alguien que legítimamente
+// conoce este turno? Ver el comentario grande del call site (bug de la
+// auditoría 2026-09-08). Un mail vacío en el turno nunca matchea: `email`
+// ya viene validado como una dirección real por el handler, así que no
+// hay riesgo de que "" == "" abra la puerta, pero la guarda queda
+// explícita igual.
+func mailIdentificaAlTurno(turno db.Turno, email string) bool {
+	if turno.EmailContacto != "" && strings.EqualFold(turno.EmailContacto, email) {
+		return true
+	}
+	if turno.EsParaOtro && turno.TutorEmail != nil && *turno.TutorEmail != "" && strings.EqualFold(*turno.TutorEmail, email) {
+		return true
+	}
+	return false
+}
+
 // misTurnosPublicoHandler — GET /clinicas/{slug}/mis-turnos?dni=&email=.
 // Gracias a la regla universal de "1 turno activo por DNI" (corrección
 // de QA sobre TR-107), a lo sumo hay UN turno vigente por DNI — no hace
@@ -78,11 +94,24 @@ func misTurnosPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "no encontramos ningún turno activo con esos datos")
 			return
 		}
-		// El mail tiene que coincidir con el que se usó para ESTE turno —
-		// nunca se revela que el DNI tiene un turno a quien no conoce el
-		// mail correcto (mismo motivo por el que dniCensurado/etc. existen
-		// en el resto del código: un dato ajeno no sale gratis).
-		if !strings.EqualFold(turno.EmailContacto, email) {
+		// El mail tiene que coincidir con alguno de los que identifican a
+		// ESTE turno — nunca se revela que el DNI tiene un turno a quien no
+		// conoce un mail correcto (mismo motivo por el que dniCensurado/etc.
+		// existen en el resto del código: un dato ajeno no sale gratis).
+		//
+		// Bug corregido (auditoría 2026-09-08, segunda pasada): esto
+		// comparaba SOLO contra `turno.EmailContacto`. En el camino "para
+		// otro" (Fase 2.4.2) ese campo es el mail PROPIO del paciente —
+		// opcional, y casi siempre vacío: el mail que se verifica y que
+		// identifica el pedido es `TutorEmail`. Con la comparación vieja,
+		// un tutor que sacó turno para su hijo NUNCA podía encontrarlo acá
+		// (la feature quedaba rota entera para ese camino). Se aceptan los
+		// DOS mails asociados al turno: el del tutor (identidad verificada
+		// del pedido) y el propio del paciente si tiene uno cargado —
+		// ambos son de personas que legítimamente conocen este turno, y
+		// seguir exigiendo un mail correcto mantiene intacta la protección
+		// contra consultas de datos ajenos.
+		if !mailIdentificaAlTurno(turno, email) {
 			writeError(w, http.StatusNotFound, "no encontramos ningún turno activo con esos datos")
 			return
 		}

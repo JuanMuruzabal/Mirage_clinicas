@@ -6,7 +6,7 @@
 # repo). Ver README.md "Deploy" para la guía paso a paso completa.
 #
 # UN SOLO ENTORNO POR AHORA (corrección 2026-08-24, ver TR-021 en
-# docs/tradeoffs.md) — la idea original era prod (rama `main`) + dev (rama
+# docs/Arquitectura y base/tradeoffs.md) — la idea original era prod (rama `main`) + dev (rama
 # `dev`) separados con su propia base cada uno, mismo criterio que
 # Marcuzzi_Madryn duplicado; el plan free de Render solo permite **una**
 # base Postgres por cuenta, así que por ahora queda un solo trío
@@ -20,7 +20,7 @@
 # Nota sobre storage de fotos (pendiente, Fase 2 — perfil de profesional y
 # fotos de la página pública, hoy sin construir): cuando se implemente,
 # va a ser Cloudflare R2, mismo patrón dev/prod que Marcuzzi_Madryn (ver
-# docs/tradeoffs.md). Los env vars ya están reservados abajo (`sync:
+# docs/Arquitectura y base/tradeoffs.md). Los env vars ya están reservados abajo (`sync:
 # false`, sin cargar todavía) para no tener que tocar este blueprint de
 # nuevo cuando se construya la feature — la convención de key pensada
 # para eso (namespaced por profesional, no un bucket plano, porque acá
@@ -77,7 +77,7 @@ services:
       # (Render no permite interpolar la URL de un servicio dentro de otro
       # en el blueprint).
       # Dominio propio conectado al servicio web de abajo (pedido
-      # explícito del cliente, 2026-08-26 — TR-065 en docs/tradeoffs.md):
+      # explícito del cliente, 2026-08-26 — TR-065 en docs/Arquitectura y base/tradeoffs.md):
       # el link de "recuperar contraseña" armaba la URL con
       # miragesoftware.online sin estar seteado, así que aplicaba el
       # default de internal/config, http://localhost:3000 — roto para un
@@ -97,13 +97,13 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://miragesoftware.online,https://dental-mirage-web.onrender.com
       # Arma los links absolutos de los mails de verificación/reset
-      # (docs/feature-sumarte-login-resumen.md) — tiene que ser la URL
+      # (docs/Login/feature-sumarte-login-resumen.md) — tiene que ser la URL
       # pública real que visitan los usuarios, no la interna de Render.
       - key: APP_BASE_URL
         value: https://miragesoftware.online
       # Resend (envío real de mails de verificación/reset/bienvenida,
       # spec §6) — sin RESEND_API_KEY, internal/http.AuthDeps.AutoVerifyEmail
-      # queda activo (TR-051 en docs/tradeoffs.md): las cuentas nativas
+      # queda activo (TR-051 en docs/Arquitectura y base/tradeoffs.md): las cuentas nativas
       # nuevas quedan verificadas de entrada, sin mail real. Cargar estos
       # dos valores en el dashboard de Render revierte ese modo solo, sin
       # otro cambio — RESEND_FROM_EMAIL tiene que ser una dirección de un
