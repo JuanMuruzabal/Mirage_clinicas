@@ -166,10 +166,21 @@ const (
 // constantes acá — única fuente de verdad, para que el módulo de
 // invitaciones futuro (fuera de alcance, spec §9) no necesite refactor.
 type ClinicMember struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ClinicID  uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;uniqueIndex:idx_clinic_member"`
-	UserID    uuid.UUID  `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_clinic_member"`
-	Role      string     `gorm:"type:varchar(20);not null;check:role IN ('owner','admin','profesional','recepcion')"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;uniqueIndex:idx_clinic_member"`
+	// UserID — corrección de performance (auditoría 2026-09-08, docs/
+	// Seguridad y optimizacion/radiografia-tecnica_1.md): requireClinic
+	// (middleware.go) resuelve la Clinic del usuario autenticado con
+	// `WHERE user_id = ? AND role = ?` en CADA request al panel — el único
+	// índice que existía acá (idx_clinic_member, uniqueIndex) es compuesto
+	// (clinic_id, user_id), con user_id como columna NO líder, así que esa
+	// consulta no lo aprovechaba bien (sequential scan silencioso con
+	// muchas clínicas). Este índice nuevo, con user_id como líder, es
+	// justo el que esa query necesita — hoy con pocas filas la diferencia
+	// no se nota, pero es la mejora de mejor relación impacto/esfuerzo de
+	// toda la auditoría.
+	UserID    uuid.UUID  `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_clinic_member;index:idx_clinic_member_user_role,priority:1"`
+	Role      string     `gorm:"type:varchar(20);not null;check:role IN ('owner','admin','profesional','recepcion');index:idx_clinic_member_user_role,priority:2"`
 	Status    string     `gorm:"type:varchar(20);not null;default:'active';check:status IN ('active','invited')"`
 	JoinedAt  *time.Time `gorm:"column:joined_at"`
 	CreatedAt time.Time

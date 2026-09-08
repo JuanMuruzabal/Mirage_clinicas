@@ -45,6 +45,16 @@ import type {
 // Client Component.
 const API_URL = process.env.API_URL ?? "http://localhost:8080";
 
+// requestTimeoutMs — corrección de seguridad/optimización (auditoría
+// 2026-09-08, docs/Seguridad y optimizacion/radiografia-tecnica_1.md):
+// este fetch no tenía ningún timeout propio — si el backend se cuelga o
+// responde muy lento, cada Server Action/Server Component que dependa de
+// él quedaba esperando sin un corte propio. Un poco por encima del
+// WriteTimeout del backend (30s, cmd/api/main.go) — así una request que
+// el backend todavía está procesando dentro de SU propio límite no se
+// corta antes de tiempo del lado del frontend.
+const requestTimeoutMs = 35_000;
+
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -54,8 +64,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T
       ...init,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
       cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMs),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return { ok: false, status: 0, error: "El servidor tardó demasiado en responder. Probá de nuevo en un momento." };
+    }
     return { ok: false, status: 0, error: "No se pudo conectar con el servidor. Probá de nuevo en un momento." };
   }
 
