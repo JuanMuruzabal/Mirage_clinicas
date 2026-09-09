@@ -606,25 +606,35 @@ Es el mismo patrón que el bug de orden de la deduplicación (§13) y el del `DE
 
 **Test de regresión** (`TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos`): arma las tres formas en que un turno puede quedar roto sobre una base descartable, y verifica que la migración completa termina, que el turno inalcanzable se borra, que los de una clínica real **sobreviven** con la referencia en NULL, y que un turno sano no se toca. Validado en los dos sentidos: sin el arreglo reproduce el error exacto de Render.
 
-### 17.3 El problema más grave: `entorno=development` en Render
+### 17.3 `entorno=development` en Render — qué es y qué no es
 
-El log dice `entorno=development`. **No es un detalle de formato: significa que `APP_ENV` no está configurada en ese servicio**, y de eso dependen dos protecciones que quedaron desactivadas sin que nada avisara:
+> **Corrección de la primera lectura de este incidente.** Al ver `entorno=development` en el log se concluyó que `APP_ENV` no estaba configurada y que el backend podía estar firmando el `state` de OAuth con el secreto público del repo. **Las dos cosas son falsas**, y basta abrir `render.yaml` para verlo. Queda escrito porque el error de método importa más que el error en sí: se dedujo la configuración desde un log en vez de leer el archivo que la define.
 
-| Protección | Qué debería hacer fuera de `development` | Qué hizo |
+**`APP_ENV` sí está configurada**, y vale `development` a propósito. `render.yaml` lo fija con su motivo escrito: el plan free de Render permite una sola base Postgres, así que hay **un único entorno** que se redeploya con cada push a `dev`. No es un olvido.
+
+**`JWT_SECRET` no está expuesto.** El blueprint lo declara con `generateValue: true`: Render genera un secreto aleatorio la primera vez y lo guarda, sin que nadie lo vea en texto plano. El valor de ejemplo del repo nunca llegó a ese servicio, así que el fail-fast de TR-125 no tenía nada que frenar. **No hay que rotar nada.**
+
+#### Lo que sí es cierto, y una consecuencia que no se había visto
+
+Con `APP_ENV=development`, tres comportamientos quedan en su modo de desarrollo. Uno era conocido, otro es inocuo, y el tercero pasó desapercibido:
+
+| Depende de `APP_ENV` | Con `development` | Impacto real |
 |---|---|---|
-| Guardián de migraciones destructivas (TR-132) | Frenar y pedir `DB_ALLOW_DESTRUCTIVE=true` con backup hecho | **Autorizó sola** el borrado de 10 filas |
-| `requireExplicitSecretsOutsideDev` (TR-125) | Negarse a arrancar si el secreto de firma es el de ejemplo del repo | **No se disparó** — el backend puede estar firmando el `state` de OAuth con el secreto público |
+| Guardián de migraciones destructivas (TR-132) | Autoriza solo | **Real**: borró 10 filas sin pedir permiso (revertidas por el rollback) |
+| `requireExplicitSecretsOutsideDev` (TR-125) | No se dispara | **Ninguno**: el secreto es generado por Render, no el de ejemplo |
+| `configurarLogger` (TR-124) | Texto plano en vez de JSON | **Real, y no se había notado**: el logging estructurado que se construyó para que un agregador pudiera filtrar por `clinic_id`/`request_id`/`status` **no está activo en el entorno deployado**. Se ve en el propio log del incidente, que salió en texto plano |
 
-La ironía es que la Fase C construyó una barrera para exactamente este escenario y la barrera se saltó a sí misma, porque el entorno no se declara. **Una protección condicionada a una variable de entorno no vale más que la configuración de esa variable.**
+Ese tercero es el más interesante: la Fase B construyó observabilidad estructurada y la condición que la activa nunca se cumplió donde importaba. **Una defensa condicionada a una variable de entorno no vale más que el valor de esa variable — y hay que verificar el valor donde corre, no donde se escribió.**
 
-**Acción requerida, del lado del dashboard de Render, no del código:**
+#### La decisión que hay que tomar
 
-1. Setear `APP_ENV=production` (o `staging`) en **todos** los servicios que corren este backend: el web service y el job de migraciones.
-2. Confirmar que `JWT_SECRET` tiene un valor real. Si estuvo corriendo con el de ejemplo, **rotarlo**: es público, está en este repo.
-3. Recién después volver a deployar. Con `APP_ENV` correcta, la migración de limpieza va a **frenar** y pedir autorización explícita — que es lo que corresponde, porque va a borrar filas de una base que ya no es de desarrollo.
+El entorno se llama `development` pero es el único que hay: tiene el dominio real del cliente, datos reales y es lo que ven los usuarios. La etiqueta quedó haciendo dos trabajos a la vez — "acá se desarrolla" y "las protecciones están apagadas".
 
-**Lección para el próximo snapshot:** una defensa que depende de una variable de entorno necesita una forma de verificar que está activa, no solo de existir. Un chequeo de arranque que loguee en qué entorno se cree que está —y que sea visible en el primer renglón del log del deploy— habría hecho evidente el problema la primera vez.
+Cambiar `APP_ENV` a `staging` es seguro: se revisó **todo** lo que depende de esa variable (son las tres filas de la tabla de arriba, nada más). El efecto sería activar el logging JSON y el guardián de migraciones, sin tocar ningún otro comportamiento — `AutoVerifyEmail` y los demás modos de desarrollo dependen de `RESEND_API_KEY`, no de `APP_ENV`.
 
+El costo es un paso manual la primera vez: con el guardián activo, el próximo deploy **frena** hasta que alguien autorice la limpieza de filas legacy con `DB_ALLOW_DESTRUCTIVE=true`. Eso es exactamente lo que la protección existe para hacer, sobre una base que ya no es de desarrollo — y el momento correcto para hacer un backup, que hoy no existe.
+
+---
 
 ---
 
