@@ -558,4 +558,84 @@ Resultado de la corrida del 2026-09-09: **17 de 17**.
 
 ---
 
+## 17. Incidente de deploy (2026-09-09) — dos problemas, y el más grave no es el que rompió
+
+El primer deploy a Render con las foreign keys falló en loop:
+
+```
+WARN aplicando migración destructiva autorizada
+     migracion=limpiar_filas_legacy_sin_clinica afectados=10 entorno=development
+error aplicando migraciones: no se pueden crear las foreign keys:
+  turnos.profesional_id   -> clinics:        4 fila(s) apuntan a un registro inexistente
+  turnos.paciente_id      -> pacientes:      4 fila(s) apuntan a un registro inexistente
+  turnos.tipo_consulta_id -> tipos_consulta: 4 fila(s) apuntan a un registro inexistente
+==> Exited with status 1
+```
+
+### 17.1 Lo primero: no se perdió nada
+
+Toda la migración corre dentro de **una sola transacción** (`migrarUnaVezConLock`). El fallo al crear las foreign keys devolvió error, la transacción hizo rollback y **los 10 borrados se deshicieron**. Por eso el mensaje se repite idéntico en cada intento: nada avanzó y nada se rompió.
+
+Es el diseño de la transacción pagando: la alternativa —cada migración con su propio commit— habría dejado la base a medio limpiar, sin registro de hasta dónde llegó.
+
+### 17.2 El bug que rompió el deploy: la limpieza no contemplaba `turnos`
+
+`limpiar_filas_legacy_sin_clinica` barría pacientes, tipos de consulta, páginas públicas y tutores huérfanos. **No los turnos.**
+
+Y no es solo que faltaran los turnos de una clínica inexistente: al borrar fichas y tipos de consulta, la limpieza podía **crear** turnos rotos que antes no lo estaban — cambiando un problema de integridad por otro, que es exactamente lo que este archivo dice evitar en su propio comentario.
+
+**Por qué la verificación no lo agarró.** Se verificó contra la base de desarrollo, donde el reporte de huérfanos había dado explícitamente:
+
+```
+turnos que apuntan a un paciente huerfano        | 0
+turnos que apuntan a un tipo_consulta huerfano   | 0
+turnos huerfanos de clinica (invisibles)         | 0
+```
+
+Se comprobó que la limpieza no arrastraba turnos **en esa base**, y se tomó como que el caso estaba cubierto. No lo estaba: estaba **ausente**. Una verificación contra datos que no tienen el caso no dice nada sobre el caso.
+
+Es el mismo patrón que el bug de orden de la deduplicación (§13) y el del `DELETE` de turnos `pendiente` (§16.1): **CI y la base de desarrollo nacen limpias, y la población para la que existe una migración de limpieza es justamente la que no tienen.**
+
+**El arreglo**, en el orden que importa:
+
+1. **Primero** se borran los turnos de una clínica que no existe. Son inalcanzables (toda query del panel filtra por la clínica de la sesión) y van antes que todo para no tener que contemplarlos en cada paso siguiente.
+2. Se borran las fichas, tipos y páginas legacy, con sus hijos, como ya se hacía.
+3. **Barrido final**: los turnos que pertenecen a una clínica **real** pero quedaron apuntando a una ficha o a un tipo ya borrado se corrigen con `SET NULL`, **no se borran**. Un turno de una clínica real es historia clínica. Es además lo que la aplicación ya hace en el único lugar donde borra una ficha con turnos (`migrarOCancelarTurnosDePerdedor` pone `paciente_id = NULL` antes de borrar la ficha perdedora), y lo que harán de acá en más las foreign keys `ON DELETE SET NULL`.
+
+**Corregido también el conteo.** `Afectados` contaba 10 y el borrado tocaba 14 filas. Si el número que reporta el guardián no es el número de filas que va a tocar, está pidiendo permiso para algo distinto de lo que hace.
+
+**Test de regresión** (`TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos`): arma las tres formas en que un turno puede quedar roto sobre una base descartable, y verifica que la migración completa termina, que el turno inalcanzable se borra, que los de una clínica real **sobreviven** con la referencia en NULL, y que un turno sano no se toca. Validado en los dos sentidos: sin el arreglo reproduce el error exacto de Render.
+
+### 17.3 `entorno=development` en Render — qué es y qué no es
+
+> **Corrección de la primera lectura de este incidente.** Al ver `entorno=development` en el log se concluyó que `APP_ENV` no estaba configurada y que el backend podía estar firmando el `state` de OAuth con el secreto público del repo. **Las dos cosas son falsas**, y basta abrir `render.yaml` para verlo. Queda escrito porque el error de método importa más que el error en sí: se dedujo la configuración desde un log en vez de leer el archivo que la define.
+
+**`APP_ENV` sí está configurada**, y vale `development` a propósito. `render.yaml` lo fija con su motivo escrito: el plan free de Render permite una sola base Postgres, así que hay **un único entorno** que se redeploya con cada push a `dev`. No es un olvido.
+
+**`JWT_SECRET` no está expuesto.** El blueprint lo declara con `generateValue: true`: Render genera un secreto aleatorio la primera vez y lo guarda, sin que nadie lo vea en texto plano. El valor de ejemplo del repo nunca llegó a ese servicio, así que el fail-fast de TR-125 no tenía nada que frenar. **No hay que rotar nada.**
+
+#### Lo que sí es cierto, y una consecuencia que no se había visto
+
+Con `APP_ENV=development`, tres comportamientos quedan en su modo de desarrollo. Uno era conocido, otro es inocuo, y el tercero pasó desapercibido:
+
+| Depende de `APP_ENV` | Con `development` | Impacto real |
+|---|---|---|
+| Guardián de migraciones destructivas (TR-132) | Autoriza solo | **Real**: borró 10 filas sin pedir permiso (revertidas por el rollback) |
+| `requireExplicitSecretsOutsideDev` (TR-125) | No se dispara | **Ninguno**: el secreto es generado por Render, no el de ejemplo |
+| `configurarLogger` (TR-124) | Texto plano en vez de JSON | **Real, y no se había notado**: el logging estructurado que se construyó para que un agregador pudiera filtrar por `clinic_id`/`request_id`/`status` **no está activo en el entorno deployado**. Se ve en el propio log del incidente, que salió en texto plano |
+
+Ese tercero es el más interesante: la Fase B construyó observabilidad estructurada y la condición que la activa nunca se cumplió donde importaba. **Una defensa condicionada a una variable de entorno no vale más que el valor de esa variable — y hay que verificar el valor donde corre, no donde se escribió.**
+
+#### La decisión que hay que tomar
+
+El entorno se llama `development` pero es el único que hay: tiene el dominio real del cliente, datos reales y es lo que ven los usuarios. La etiqueta quedó haciendo dos trabajos a la vez — "acá se desarrolla" y "las protecciones están apagadas".
+
+Cambiar `APP_ENV` a `staging` es seguro: se revisó **todo** lo que depende de esa variable (son las tres filas de la tabla de arriba, nada más). El efecto sería activar el logging JSON y el guardián de migraciones, sin tocar ningún otro comportamiento — `AutoVerifyEmail` y los demás modos de desarrollo dependen de `RESEND_API_KEY`, no de `APP_ENV`.
+
+El costo es un paso manual la primera vez: con el guardián activo, el próximo deploy **frena** hasta que alguien autorice la limpieza de filas legacy con `DB_ALLOW_DESTRUCTIVE=true`. Eso es exactamente lo que la protección existe para hacer, sobre una base que ya no es de desarrollo — y el momento correcto para hacer un backup, que hoy no existe.
+
+---
+
+---
+
 *Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*

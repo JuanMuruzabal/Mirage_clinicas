@@ -20,7 +20,7 @@ Producir un plan accionable, ordenado por dependencias, para construir Dental Mi
 | Frontend | Next.js + TypeScript + Tailwind, `apps/web` — leer el `AGENTS.md` que genera Next antes de escribir código | Spec §9.1 |
 | Base de datos | PostgreSQL + extensión `btree_gist` | Spec §9.1 |
 | Monorepo | `pnpm` — `apps/api`, `apps/web`, `packages/shared-types` | Spec §9.1 |
-| Auth | JWT propio (bcrypt + middleware chi), cookie `httpOnly` de sesión | Spec §9.3; TR-005 (sin OAuth en MVP) |
+| ~~Auth~~ **SUPERADO** | ~~JWT propio (bcrypt + middleware chi)~~ → **sesión server-side** (token opaco validado contra la tabla `sessions`) + **argon2id**, con Google OAuth y verificación de mail. Cookie `httpOnly`, eso no cambió | TR-037 y TR-005 (superseded); ver §9 y la nota de la sección 5 |
 | WhatsApp (envío inicial del formulario público) | Link `wa.me` con mensaje prellenado, generado client-side | TR-003 |
 | WhatsApp/SMS (recordatorios futuros) | Interfaz dev/prod (`internal/notificaciones`), no implementada en MVP | Spec §9.4 |
 | Storage / Email | Mismo patrón interfaz + dev (local/log) + prod (env var), aunque el MVP no tiene fotos ni emails transaccionales obligatorios — se deja el esqueleto listo si Sprint 4/5 lo necesita | Spec §9.4 |
@@ -65,12 +65,12 @@ La spec de Dental Mirage no trae una sección de ERD como la de Marcuzzi (§5). 
       /actions               # Server Actions ("use server")
     /src/lib
       api.ts                # server-only, cliente HTTP hacia apps/api
-      session.ts             # cookie httpOnly del JWT
+      session.ts             # cookie httpOnly del token de sesión (opaco, no JWT — TR-037)
   /api                    # Go (chi + GORM)
     /cmd/api                # entrypoint
     /cmd/migrate            # migraciones
     /internal
-      auth                   # JWT (generar/parsear), sin lógica de dominio
+      auth                   # sesiones server-side (crear/validar/rotar/revocar), sin lógica de dominio — ya no JWT (TR-037)
       clock                  # clock.Today() fijado a America/Argentina/Cordoba (UTC-3)
       config
       db                     # modelos GORM + migración + exclusion constraint + seeds
@@ -131,7 +131,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 | T0.2 | ✅ PostgreSQL local (docker-compose, `btree_gist`) + GORM conectado | T0.1 | 0.5d | `apps/api` conecta y hace ping a la DB al arrancar — verificado con `go run ./cmd/migrate` contra el Postgres de `docker compose up -d` |
 | T0.3 | ✅ Esquema inicial: `profesional`, `especialidad` (+ puente), `tipo_consulta` (seed: Consulta general / Urgencia, sembrado por profesional al registrarse — TR-001), `paciente`, `turno`, `pagina_publica` (modelo §2.1) | T0.2 | 2d | Migración aplica sin error; constraint `sin_solapamiento_turno` (`EXCLUDE USING gist` sobre `profesional_id, rango_horario`, solo `estado='agendado'`) probada con un insert que solapa (falla, `internal/db/migrate_test.go`) y con turnos `pendiente`/no solapados (no fallan) |
 | T0.4 | ✅ CI: lint + typecheck + build + **test+coverage con gate 80%** en ambos lados, desde el día 1 | T0.1 | 1d | `.github/workflows/ci.yml` — pipeline falla si cualquiera de los dos coverage cae de 80% — activo desde el primer PR de código de negocio, no retrofit (ver TR-007). Verificado localmente: api 83.4%, web 100% |
-| T0.5 | ✅ Auth backend (registro/login profesional, JWT, bcrypt) | T0.2, T0.3 | 1.5d | Login/registro funcional, password hasheado (bcrypt), JWT emitido por `apps/api`; slug de clínica único generado al registrarse (`internal/http/auth.go`, `internal/http/auth_test.go`) |
+| T0.5 | ✅ Auth backend (registro/login profesional, JWT, bcrypt) — **superado, ver la nota al final de esta sección: hoy es sesión server-side + argon2id (TR-037)** | T0.2, T0.3 | 1.5d | Login/registro funcional, password hasheado (bcrypt), JWT emitido por `apps/api`; slug de clínica único generado al registrarse (`internal/http/auth.go`, `internal/http/auth_test.go`) |
 | T0.6 | ✅ `internal/clock.Today()` fijado a `America/Argentina/Cordoba` (UTC-3), `time/tzdata` embebido | T0.1 | 0.5d | Test unitario confirma la zona horaria independientemente del contenedor de deploy (`internal/clock/clock_test.go`) |
 
 **Riesgo específico de este sprint (mitigado):** el exclusion constraint se probó con un insert real solapado (`TestRunMigrations_RechazaSolapamientoDeTurnosAgendados`) antes de construir cualquier UI sobre él — el requisito no negociable de la spec (§4.3) queda validado desde el día 1, no diferido hasta que sea costoso de arreglar (mismo riesgo R1 que en Marcuzzi_Madryn).

@@ -222,3 +222,154 @@ func columnaExiste(t *testing.T, gdb *gorm.DB, tabla, columna string) bool {
 	}
 	return n > 0
 }
+
+// TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos — test de
+// regresión de un deploy que falló DE VERDAD en Render el 2026-09-09:
+//
+//	WARN aplicando migración destructiva autorizada afectados=10
+//	error aplicando migraciones: no se pueden crear las foreign keys:
+//	  turnos.profesional_id -> clinics: 4 fila(s) ...
+//	  turnos.paciente_id -> pacientes: 4 fila(s) ...
+//	  turnos.tipo_consulta_id -> tipos_consulta: 4 fila(s) ...
+//	==> Exited with status 1
+//
+// La limpieza de filas legacy contemplaba pacientes, tipos de consulta,
+// páginas públicas y tutores — pero NO los turnos. En la base de desarrollo
+// donde se verificó no había ni un turno roto, así que el caso nunca se
+// ejercitó: la verificación se hizo contra una base que no tenía el
+// problema.
+//
+// El resultado era un loop del que no se sale: la limpieza borra, el
+// CREATE de las foreign keys falla, la transacción entera hace rollback
+// (los datos se salvan, pero nada avanza) y el arranque siguiente repite
+// exactamente lo mismo. Mismo patrón que el bug de orden de la
+// deduplicación (TR-123).
+//
+// El test arma las tres formas en que un turno puede quedar roto y
+// confirma que la migración completa termina bien, que los turnos
+// inalcanzables se borran y que los de una clínica REAL sobreviven con la
+// referencia rota en NULL — nunca borrados: son historia clínica.
+func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
+	gdb, ok := baseDescartableConMigracionesAplicadas(t)
+	if !ok {
+		t.Skip("no se pudo crear una base descartable (permisos) — se saltea")
+	}
+
+	// Una clínica REAL, con su turno sano y sus referencias válidas.
+	ownerReal := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&ownerReal).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario: %v", err)
+	}
+	clinicaReal := db.Clinic{Nombre: "Real", Tipo: "individual", Slug: uuid.NewString(), OwnerID: ownerReal.ID}
+	if err := gdb.Create(&clinicaReal).Error; err != nil {
+		t.Fatalf("no se pudo crear la clínica: %v", err)
+	}
+	tel := "+5493511111111"
+	pacienteReal := db.Paciente{ProfesionalID: clinicaReal.ID, Nombre: "Sana", Apellido: "Real", DNI: "31000001", Telefono: &tel}
+	if err := gdb.Create(&pacienteReal).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente: %v", err)
+	}
+	tipoReal := db.TipoConsulta{ProfesionalID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
+	if err := gdb.Create(&tipoReal).Error; err != nil {
+		t.Fatalf("no se pudo crear el tipo: %v", err)
+	}
+
+	// Se desregistra la migración y se sacan las foreign keys, para poder
+	// plantar las filas rotas: con las constraints puestas la base no las
+	// aceptaría, que es justamente lo que este arreglo viene a garantizar.
+	for _, fk := range []string{"fk_turnos_clinica", "fk_turnos_paciente", "fk_turnos_tipo_consulta", "fk_pacientes_clinica"} {
+		if err := gdb.Exec("ALTER TABLE " + tablaDe(fk) + " DROP CONSTRAINT IF EXISTS " + fk).Error; err != nil {
+			t.Fatalf("no se pudo sacar %s: %v", fk, err)
+		}
+	}
+	if err := gdb.Exec(`DELETE FROM migraciones_una_vez WHERE nombre = 'limpiar_filas_legacy_sin_clinica'`).Error; err != nil {
+		t.Fatalf("no se pudo desregistrar la migración: %v", err)
+	}
+
+	// Cada turno en su propia franja: son de la misma clínica y el
+	// exclusion constraint de no-solapamiento los rechazaría si coincidieran.
+	horas := 0
+	crearTurnoCrudo := func(clinicaID uuid.UUID, pacienteID, tipoID *uuid.UUID, dni string) uuid.UUID {
+		t.Helper()
+		horas++
+		id := uuid.New()
+		if err := gdb.Exec(`INSERT INTO turnos (id, profesional_id, paciente_id, tipo_consulta_id, estado, origen,
+			nombre_contacto, apellido_contacto, dni_contacto, telefono_contacto, email_contacto, motivo,
+			hora_inicio, hora_fin, created_at, updated_at)
+			VALUES (?, ?, ?, ?, 'agendado', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
+			        now() + make_interval(hours => ?), now() + make_interval(hours => ?) + interval '30 minutes',
+			        now(), now())`,
+			id, clinicaID, pacienteID, tipoID, dni, horas, horas).Error; err != nil {
+			t.Fatalf("no se pudo insertar el turno: %v", err)
+		}
+		return id
+	}
+
+	inexistente := uuid.New()
+	// (a) turno de una clínica que no existe — inalcanzable, se borra.
+	turnoSinClinica := crearTurnoCrudo(inexistente, nil, nil, "31000002")
+	// (b) y (c) turnos de una clínica REAL con referencias rotas — sobreviven.
+	turnoSinPaciente := crearTurnoCrudo(clinicaReal.ID, &inexistente, &tipoReal.ID, "31000003")
+	turnoSinTipo := crearTurnoCrudo(clinicaReal.ID, &pacienteReal.ID, &inexistente, "31000004")
+	turnoSano := crearTurnoCrudo(clinicaReal.ID, &pacienteReal.ID, &tipoReal.ID, "31000005")
+
+	// La migración completa tiene que terminar bien: es lo que en Render
+	// fallaba en loop.
+	if err := db.RunMigrations(gdb); err != nil {
+		t.Fatalf("las migraciones fallaron — el loop de Render sigue vivo: %v", err)
+	}
+
+	existe := func(id uuid.UUID) bool {
+		var n int64
+		gdb.Raw(`SELECT count(*) FROM turnos WHERE id = ?`, id).Scan(&n)
+		return n > 0
+	}
+	if existe(turnoSinClinica) {
+		t.Error("el turno de una clínica inexistente sobrevivió — es inalcanzable, tenía que borrarse")
+	}
+	for nombre, id := range map[string]uuid.UUID{
+		"con paciente roto": turnoSinPaciente, "con tipo roto": turnoSinTipo, "sano": turnoSano,
+	} {
+		if !existe(id) {
+			t.Errorf("el turno %s se BORRÓ: un turno de una clínica real es historia clínica, "+
+				"solo hay que soltarle la referencia rota", nombre)
+		}
+	}
+
+	// Se pregunta `IS NULL` en SQL y no se escanea la columna a un
+	// *uuid.UUID: un NULL escaneado a un puntero da el UUID cero, no nil, y
+	// la aserción diría cualquier cosa.
+	esNull := func(columna string, turnoID uuid.UUID) bool {
+		t.Helper()
+		var v bool
+		if err := gdb.Raw(`SELECT `+columna+` IS NULL FROM turnos WHERE id = ?`, turnoID).Scan(&v).Error; err != nil {
+			t.Fatalf("no se pudo consultar %s: %v", columna, err)
+		}
+		return v
+	}
+	if !esNull("paciente_id", turnoSinPaciente) {
+		t.Error("paciente_id sigue apuntando a una ficha inexistente — el barrido no lo soltó")
+	}
+	if !esNull("tipo_consulta_id", turnoSinTipo) {
+		t.Error("tipo_consulta_id sigue apuntando a un tipo inexistente — el barrido no lo soltó")
+	}
+
+	// Y el turno sano no se tocó: el barrido tiene que ser quirúrgico.
+	var sanoOK bool
+	if err := gdb.Raw(`SELECT paciente_id = ? AND tipo_consulta_id = ? FROM turnos WHERE id = ?`,
+		pacienteReal.ID, tipoReal.ID, turnoSano).Scan(&sanoOK).Error; err != nil {
+		t.Fatalf("no se pudo consultar el turno sano: %v", err)
+	}
+	if !sanoOK {
+		t.Error("el barrido tocó un turno que estaba sano")
+	}
+}
+
+// tablaDe — a qué tabla pertenece cada constraint, para poder sacarlas en
+// el test de arriba.
+func tablaDe(constraint string) string {
+	if constraint == "fk_pacientes_clinica" {
+		return "pacientes"
+	}
+	return "turnos"
+}

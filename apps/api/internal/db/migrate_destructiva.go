@@ -176,7 +176,7 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 			// ADD CONSTRAINT las rechaza. Y se borran los hijos primero, para
 			// no fabricar huérfanos nuevos al borrar las fichas.
 			Nombre:      "limpiar_filas_legacy_sin_clinica",
-			Descripcion: "fichas de paciente, tipos de consulta y páginas públicas que apuntan a una clínica inexistente (era anterior a TR-037), más los datos que cuelgan de esas fichas",
+			Descripcion: "turnos, fichas de paciente, tipos de consulta y páginas públicas que apuntan a una clínica inexistente (era anterior a TR-037), más lo que cuelga de esas fichas; a los turnos de una clínica REAL que quedaron apuntando a una ficha o tipo ya borrado se les suelta la referencia, no se borran",
 			Afectados:   contarFilasLegacySinClinica,
 			Aplicar:     borrarFilasLegacySinClinica,
 		},
