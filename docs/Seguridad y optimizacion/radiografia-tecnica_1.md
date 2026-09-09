@@ -196,29 +196,38 @@ Repregunta del cliente sobre la v1: la preocupación real no era escalar a varia
 
 Reordenado desde la v1: el hallazgo crítico ahora encabeza la Fase A.
 
-### Fase A — Antes de cualquier otra cosa (esta semana)
+### Fase A — Antes de cualquier otra cosa (esta semana) — ✅ **completa**
 
-1. **Arreglar clientIP()** — validar que `X-Forwarded-For` venga de un proxy confiable, o cambiar a un header específico y garantizado del proveedor de hosting. *(medio día, con testing cuidadoso)*
-2. **Límite de tamaño de body** en `decodeJSON` (`http.MaxBytesReader`). *(1-2 horas)*
-3. **ReadHeaderTimeout/ReadTimeout** en un `http.Server{}` explícito, en vez de `ListenAndServe` directo. *(15-30 min)*
-4. **Fail-fast si falta JWT_SECRET en producción** — nunca degradar al valor hardcodeado. *(30 min)*
+Revisada de nuevo, ítem por ítem contra el código, el 2026-09-09 (ver sección 15).
 
-### Fase B — Antes de sumar mucha más funcionalidad (próximas 1-2 semanas)
+1. ✅ **Arreglar clientIP()** — toma el ÚLTIMO valor de `X-Forwarded-For`, el que agrega el proxy de confianza. 3 tests, incluido el del cliente que falsifica el header.
+2. ✅ **Límite de tamaño de body** en `decodeJSON` (`http.MaxBytesReader`, 1 MiB). Verificado que no queda ni un solo call site que lo esquive.
+3. ✅ **ReadHeaderTimeout/ReadTimeout** en un `http.Server{}` explícito.
+4. ✅ **Fail-fast si falta el secreto de firma en producción** — con un agujero encontrado y cerrado en la revisión del 2026-09-09: el guard miraba si la variable EXISTÍA, no su valor. Ver sección 15.
 
-1. **Índice `(user_id, role)` en ClinicMember** — el de mejor relación impacto/esfuerzo de todo el informe. *(1 hora + migración)*
-2. **Paginación real** en `/turnos` y `/pacientes` (backend + frontend). *(2-3 días)*
-3. **Timeout en el fetch del BFF** (`lib/api.ts`) hacia la API Go. *(1 hora)*
-4. **Logging estructurado mínimo** (request-id, clinic_id, status, latencia). *(1 día)*
-5. **Partir turno_publico.go, turnos.go y pedir-turno-form.tsx** por sub-responsabilidad, refactor puro apoyado en los tests existentes. *(3-5 días)*
-6. **Tests de aislamiento cross-tenant** en CI. *(1-2 días)*
-7. **Migrar la deduplicación de pacientes** a una migración versionada de una sola vez. *(medio día)*
+### Fase B — Antes de sumar mucha más funcionalidad (próximas 1-2 semanas) — ✅ **completa**
+
+1. ✅ **Índice `(user_id, role)` en ClinicMember** — el de mejor relación impacto/esfuerzo de todo el informe.
+2. ✅ **Paginación real** en `/turnos` y `/pacientes` (backend + frontend). Ver sección 13.
+3. ✅ **Timeout en el fetch del BFF** (`lib/api.ts`) hacia la API Go.
+4. ✅ **Logging estructurado mínimo** (request-id, clinic_id, status, latencia).
+5. ✅ **Tests de aislamiento cross-tenant** en CI — 12 tests.
+6. ✅ **Migrar la deduplicación de pacientes** a una migración versionada de una sola vez.
+
+**Movido a Fase C (2026-09-09):** *partir `turno_publico.go`, `turnos.go` y `pedir-turno-form.tsx`*. Ver el porqué abajo.
 
 ### Fase C — Al escalar horizontalmente o sumar clientes reales (cuando el tráfico/riesgo lo justifique)
 
-1. **Foreign keys reales** en el esquema, como red de seguridad adicional.
-2. **Migrar el IPLimiter a Redis** — recién con más de una instancia del backend.
-3. **Ajustar el pool de conexiones / sumar PgBouncer** según cuántas instancias corran.
-4. **Cortar de raíz las migraciones destructivas sin backup** apenas exista el primer cliente pagando.
+1. **Partir `turno_publico.go` (1504 líneas), `turnos.go` (1503) y `pedir-turno-form.tsx` (1306)** por sub-responsabilidad — refactor puro apoyado en los tests existentes. *(3-5 días)*
+
+   **Por qué baja de la Fase B.** Es el único ítem del informe que no arregla nada: no cierra un riesgo, no destraba un límite de escala, no corrige un bug. Paga en *velocidad futura de desarrollo* — algo real, pero que se cobra recién cuando haya varias personas tocando esos archivos a la vez, y hoy no es el caso. Al mismo tiempo es, por lejos, el más caro (3-5 días) y el único con riesgo de **introducir** regresiones en el camino más delicado del sistema: `turno_publico.go` concentra los 3 detectores de abuso, la detección de conflictos de identidad y la revalidación de horario dentro de la transacción.
+
+   Cambiar 1500 líneas de eso a cambio de cero mejora observable, mientras siguen abiertos ítems que sí atacan riesgos, es un mal negocio. La condición para subirlo de prioridad es concreta: cuando el archivo empiece a generar conflictos de merge reales, o cuando entre alguien nuevo al proyecto y ese archivo sea su primer obstáculo.
+
+2. **Foreign keys reales** en el esquema, como red de seguridad adicional.
+3. **Migrar el IPLimiter a Redis** — recién con más de una instancia del backend.
+4. **Ajustar el pool de conexiones / sumar PgBouncer** según cuántas instancias corran.
+5. **Cortar de raíz las migraciones destructivas sin backup** apenas exista el primer cliente pagando.
 
 ---
 
@@ -352,6 +361,61 @@ Por eso el test **provoca un deadlock de verdad** (dos transacciones tomando dos
 ### Riesgo residual, explícito
 
 Postgres elige a la víctima del deadlock, y puede elegir la transacción del test en vez de la de la migración. En ese caso el reintento no ayuda: falla un test cualquiera con un error de deadlock. No se vio todavía; si aparece, la salida es correr los paquetes de test en serie (`go test -p 1`) o darles a los tests el mismo tratamiento de reintento, ninguna de las dos gratis.
+
+---
+
+## 15. Revisión de la Fase A (2026-09-09) — un agujero encontrado
+
+Repaso de los 4 ítems de la Fase A contra el código real, no contra lo que dicen los commits.
+
+### A1 — `clientIP()` ✅
+
+Toma el último valor de `X-Forwarded-For`. Tres tests, incluido el que importa: un cliente que manda `X-Forwarded-For: 203.0.113.9` falsificado y el proxy agrega la IP real detrás — la función devuelve la real, no la falsificada. La limitación (un segundo proxy delante, un CDN por ejemplo, rompe el supuesto) queda documentada en el propio código.
+
+### A2 — límite de body ✅, con un chequeo extra
+
+`decodeJSON` acota a 1 MiB con `http.MaxBytesReader`. Verificado que **no queda un solo call site que lo esquive**: no hay ningún `io.ReadAll(r.Body)` ni `json.NewDecoder(r.Body)` suelto en todo el backend.
+
+Sí aparecieron tres lecturas **sin techo del lado de las respuestas salientes** — `googleauth` (2) y `turnstile` (1) decodificaban `resp.Body` sin acotar. Severidad baja de verdad (el otro lado es Google/Cloudflare sobre TLS, no un atacante), pero es el mismo principio del ítem, y acotarlas cuesta una línea cada una: `io.LimitReader`, 1 MiB, dos órdenes de magnitud por encima del tamaño real de esas respuestas. Corregido.
+
+### A3 — timeouts del servidor ✅
+
+`http.Server{}` explícito con `ReadHeaderTimeout` 10s, `ReadTimeout` 15s, `WriteTimeout` 30s, `IdleTimeout` 60s, y es esa instancia la que corre `ListenAndServe` — no una `http.ListenAndServe` suelta que dejaría la struct sin efecto.
+
+### A4 — fail-fast del secreto de firma 🔴 **estaba abierto**
+
+El guard preguntaba lo equivocado. Chequeaba **si la variable de entorno existía**:
+
+```go
+if _, ok := os.LookupEnv("JWT_SECRET"); !ok {
+    return errors.New("...")
+}
+```
+
+…mientras que `config.getEnv` cae al valor de desarrollo cuando la variable **existe pero está vacía o es solo espacios** (recorta el whitespace justamente para tolerar un secreto pegado con un salto de línea de más). Los dos lados de la misma decisión, tomada con criterios distintos.
+
+El resultado: borrar el *contenido* del campo `JWT_SECRET` en el dashboard de deploy —en vez de borrar la fila entera, que es el error humano más plausible de los dos— pasaba el guard, y el proceso arrancaba en producción firmando el `state` de OAuth con el secreto que está publicado en este mismo repo.
+
+Reproducido antes de tocar nada:
+
+```
+cfg resuelto = "dev-secret-cambiar-en-produccion"
+AGUJERO CONFIRMADO: el guard dejó arrancar
+```
+
+**Arreglo:** el guard compara el **valor resuelto** contra `config.OAuthStateSecretDeDesarrollo`, ahora una constante con nombre. Eso cubre los cuatro casos de una sola vez — variable ausente, vacía, con solo espacios, o seteada a mano con el valor de ejemplo — en vez de enumerarlos.
+
+**Lección de método, más útil que el bug:** el test viejo armaba una `config.Config` a mano y seteaba la variable de entorno por separado. Nunca ejercitó `config.Load()`. El bug no vivía en ninguna de las dos piezas: vivía en la **juntura** entre ellas, y por construcción ningún test que las probara por separado podía verlo. El test nuevo va contra `config.Load()` de verdad, con la variable de entorno puesta como la pondría una persona. Validado en los dos sentidos: 4 de sus 5 casos fallan con el guard viejo, todos pasan con el nuevo.
+
+### Aclaración de nombres: acá no hay ningún JWT
+
+Salió a la luz revisando este ítem, y vale dejarlo escrito porque confunde a cualquiera que lea el código:
+
+- **No existe ningún JWT en este backend.** La librería `golang-jwt/jwt/v5` se eliminó como dependencia muerta en la segunda pasada de esta auditoría. La sesión es un token opaco validado contra la tabla `sessions` (TR-037).
+- La variable de entorno se sigue llamando `JWT_SECRET` por **herencia**, de cuando la sesión sí era un JWT stateless. No se renombra a propósito: rompería los deploys ya configurados con ese nombre.
+- Su único uso real es firmar con HMAC-SHA256 el parámetro `state` del login con Google (`oauthstate.go`), que evita CSRF en el callback de OAuth.
+
+El identificador de Go pasó de `Config.JWTSecret` a `Config.OAuthStateSecret`, que dice lo que la cosa es. La variable de entorno se queda como está, y la disonancia entre los dos nombres vive documentada en `config.go` y en `.env.example` — no en la cabeza de quien lea el código.
 
 ---
 

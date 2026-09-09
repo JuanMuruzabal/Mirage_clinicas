@@ -102,15 +102,30 @@ func main() {
 }
 
 // requireExplicitSecretsOutsideDev — ver el comentario grande en main()
-// sobre por qué. Extraída como función pura (recibe el resultado de
-// os.LookupEnv en vez de leerlo ella misma) para poder testearla sin
-// mutar variables de entorno globales del proceso de test.
+// sobre por qué. Función pura sobre la Config ya resuelta: se puede
+// testear sin mutar variables de entorno del proceso de test.
+//
+// Chequea el VALOR RESUELTO, no si la variable de entorno existe (agujero
+// real encontrado y reproducido en la revisión de la Fase A, 2026-09-09):
+// getEnv (internal/config) cae al valor de desarrollo cuando la variable
+// está vacía o es solo espacios, no solo cuando falta. Con el chequeo
+// anterior —`os.LookupEnv("JWT_SECRET")`, presencia— un JWT_SECRET puesto
+// en blanco en el dashboard de deploy (borrar el contenido del campo en
+// vez de borrar la fila entera: el error humano más plausible de todos)
+// pasaba el guard y el proceso arrancaba firmando el `state` de OAuth con
+// el secreto público del repo, exactamente lo que este guard existe para
+// impedir.
+//
+// Comparar contra config.OAuthStateSecretDeDesarrollo cubre los cuatro casos de
+// una sola vez: variable ausente, vacía, con solo espacios, o seteada a
+// mano con el mismo valor de ejemplo.
 func requireExplicitSecretsOutsideDev(cfg config.Config) error {
 	if cfg.Env == "development" {
 		return nil
 	}
-	if _, ok := os.LookupEnv("JWT_SECRET"); !ok {
-		return errors.New("JWT_SECRET es obligatorio fuera de development — no se puede arrancar con el secreto de ejemplo del repo")
+	if cfg.OAuthStateSecret == config.OAuthStateSecretDeDesarrollo {
+		return errors.New("JWT_SECRET es obligatorio fuera de development y no puede quedar vacío — " +
+			"no se puede arrancar con el secreto de ejemplo del repo")
 	}
 	return nil
 }
@@ -179,7 +194,7 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		AccountLimiter:    &ratelimit.AccountLimiter{DB: gormDB},
 		IPLimiter:         ratelimit.NewIPLimiter(),
 		AppBaseURL:        cfg.AppBaseURL,
-		StateSecret:       cfg.JWTSecret,
+		StateSecret:       cfg.OAuthStateSecret,
 		GoogleRedirectURI: cfg.GoogleRedirectURI,
 		// Sin RESEND_API_KEY no hay forma de que un usuario reciba el link
 		// de verificación — auto-verificar en vez de dejarlo bloqueado

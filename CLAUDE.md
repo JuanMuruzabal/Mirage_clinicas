@@ -67,6 +67,25 @@ MVP (spec §2): alta de profesional individual + gestión de clínica completa (
 
 **Fase 2 completa (2026-09-07):** los 5 ítems del brief original, los 5 ítems extra de F2.3 y los ítems extra de Fase 2.4/2.4.2 quedan implementados, aprobados por el cliente y mergeados a `dev` — lista para pasar a `main`. Ver "Flujo de ramas" abajo — esta fase tuvo un proceso de QA propio, distinto del criterio general.
 
+## Auditoría de seguridad y optimización (línea de trabajo recurrente)
+
+Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas periódicas de revisión técnica. **Antes de tocar `internal/http`, `internal/db` o `apps/web/src/lib/api.ts`, leer `docs/Seguridad y optimizacion/radiografia-tecnica_1.md`** — es el diagnóstico vigente y explica por qué varias cosas están como están.
+
+- `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — el diagnóstico (primera radiografía, de ahí el `_1`), el plan de acción en Fases A/B/C, y el registro de cada ronda de arreglos.
+- `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
+- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-130. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
+
+**Fases A y B cerradas (2026-09-09).** Lo que hay que tener presente al escribir código nuevo:
+
+- **`clientIP()` usa el ÚLTIMO valor de `X-Forwarded-For`** (TR-121), no el primero. Vale con exactamente un proxy de confianza delante; si se suma un CDN, esa lógica deja de alcanzar.
+- **`decodeJSON(w, r, v)` acota el body a 1 MiB.** No leer `r.Body` por fuera de esa función.
+- **Paginación opt-in en `/turnos` y `/pacientes`** (TR-122): `?limit=&offset=`, total en `X-Total-Count`. Sin `limit` el endpoint responde como siempre — el calendario depende de eso, necesita el rango de fechas completo. Del lado del panel, "Cargar más" (`components/panel/cargar-mas.tsx`, tamaños en `lib/paginacion.ts`).
+- **Nunca loguear la query string** (TR-124): "Mis turnos" lleva DNI y mail del paciente ahí. Se loguea el patrón de ruta de chi, no la URL concreta.
+- **Las migraciones de DATOS van en `aplicarUnaVez`** (`internal/db/migrate_una_vez.go`, TR-123), no en el bloque idempotente de `migrate.go`. `RunMigrations` reintenta ante deadlock (SQLSTATE 40P01).
+- **`JWT_SECRET` no tiene nada que ver con JWT** (TR-125): acá no hay ningún JWT ni la librería. Es el nombre heredado de la env var que firma con HMAC el `state` de OAuth de Google; del lado de Go se llama `Config.OAuthStateSecret`. El proceso no arranca fuera de `development` si su valor resuelto es el de ejemplo del repo.
+
+**Fase C** no tiene fecha: cada ítem tiene una condición de activación escrita (`implementation-plan.md` §12.3). La refactorización de `turno_publico.go`/`turnos.go`/`pedir-turno-form.tsx` quedó postergada a la próxima radiografía — no refactorizar eso "de paso" sin pedido explícito.
+
 ## Flujo de ramas
 
 Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`.
