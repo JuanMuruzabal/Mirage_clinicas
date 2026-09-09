@@ -156,6 +156,8 @@ Estos puntos aparecían implícitos o sin resolver en el brief original y convie
 
 Se reutiliza sin cambios el modo de trabajo ya validado en Turismo Marcuzzi (documentado en detalle en `playbook-clinica-dental.md`, mismo directorio). No es "a evaluar": es la base decidida para arrancar. Resumen aplicado a Dental Mirage:
 
+> **El fundamento técnico de cada elección** —contra qué alternativa se comparó, qué se sacrifica y qué la haría cambiar— está en [`por-que-cada-decision-tecnica.md`](por-que-cada-decision-tecnica.md), escrito el 2026-09-09. Esta sección fija **qué** se usa; ese documento explica **por qué**.
+
 ### 9.1 Stack
 - **Backend:** Go + chi + GORM, servicio independiente (`apps/api`).
 - **Frontend:** Next.js + TypeScript + Tailwind (`apps/web`) — leer el `AGENTS.md` que genera cada versión de Next antes de escribir código, por posibles breaking changes.

@@ -10,6 +10,8 @@ Dental Mirage: plataforma para odontólogos de Córdoba que combina gestión de 
 
 ## Stack (decidido, no "a evaluar" — spec §9.1)
 
+El **porqué técnico** de cada pieza —contra qué alternativa se comparó, qué se sacrifica y qué condición la haría cambiar— está en `docs/Arquitectura y base/por-que-cada-decision-tecnica.md`. Leerlo antes de proponer cambiar cualquier elemento del stack: varias decisiones que parecen arbitrarias sostienen mecanismos centrales (el exclusion constraint de no-solapamiento y el rollback de las migraciones dependen de features que solo tiene PostgreSQL).
+
 - **Backend:** Go + [chi](https://github.com/go-chi/chi) + GORM, en `apps/api`.
 - **Frontend:** Next.js + TypeScript + Tailwind, en `apps/web` — leer el `AGENTS.md` que genera cada versión de Next antes de escribir código, por posibles breaking changes.
 - **DB:** PostgreSQL + extensión `btree_gist`.
