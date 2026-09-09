@@ -75,7 +75,9 @@ Esto levanta, en orden, con las dependencias correctas entre servicios:
 1. **`postgres`** — Postgres 16 (puerto `5432`).
 2. **`migrate`** — aplica el esquema y termina. Es idempotente: corre en
    cada `docker compose up` sin romper nada, incluso si el esquema ya
-   existe.
+   existe. Desde 2026-09-09 aplica además las foreign keys del esquema y,
+   si encuentra datos huérfanos, **se niega y los lista** en vez de fallar
+   con un error opaco de Postgres (ver "Migraciones que borran datos").
 3. **`api`** — backend Go (puerto `8080`), arranca recién cuando
    `migrate` terminó bien.
 4. **`web`** — frontend Next.js (puerto `3000`), le habla a `api` por la
@@ -84,9 +86,44 @@ Esto levanta, en orden, con las dependencias correctas entre servicios:
 Con eso arriba: **http://localhost:3000** es el sitio,
 **http://localhost:8080** es la API.
 
-Variables opcionales (`JWT_SECRET`, `CONTACTO_EMAIL`): copiar
-[`.env.example`](.env.example) a `.env` en la raíz antes de levantar el
-stack si hace falta cambiar algún default de desarrollo.
+Variables opcionales en desarrollo (`JWT_SECRET`, `CONTACTO_EMAIL`):
+copiar [`.env.example`](.env.example) a `.env` en la raíz antes de
+levantar el stack si hace falta cambiar algún default.
+
+> **`JWT_SECRET` es opcional SOLO en `development`.** Con `APP_ENV`
+> distinto de `development`, el proceso **se niega a arrancar** si su
+> valor resuelto es el de ejemplo del repo — incluida la variable puesta
+> pero vacía o con solo espacios, que es el error humano más plausible
+> (borrar el contenido del campo en el dashboard en vez de borrar la
+> fila). Ver TR-125.
+>
+> Pese al nombre, **acá no hay ningún JWT**: la sesión es un token opaco
+> validado contra la tabla `sessions` (TR-037). Esa variable firma con
+> HMAC-SHA256 el parámetro `state` del login con Google, y nada más. El
+> nombre quedó de una versión anterior y no se renombra para no romper
+> deploys ya configurados; del lado de Go el campo se llama
+> `Config.OAuthStateSecret`.
+
+### Migraciones que borran datos
+
+Una migración que destruye datos (borrar filas, dropear una columna o una
+tabla) **no corre fuera de `development` sin autorización explícita**. Si
+encuentra algo que destruir, el contenedor `migrate` frena con un mensaje
+que dice qué migración es, cuántos elementos afectaría y qué hacer:
+
+```
+migración destructiva "limpiar_filas_legacy_sin_clinica" FRENADA en el
+entorno "production": destruiría 38 elemento(s) — ...
+Hacé un backup de la base ANTES de seguir. Con el backup hecho, volvé a
+correr este contenedor con DB_ALLOW_DESTRUCTIVE=true para autorizarla
+solo en esta corrida.
+```
+
+El permiso se pide **solo si de verdad hay algo que perder**: sobre una
+base nueva —producción incluida— ninguna de estas migraciones pide nada y
+el deploy pasa de largo. `DB_ALLOW_DESTRUCTIVE` no debe quedar prendida de
+forma permanente: la protección es justamente el paso manual. Ver TR-132 y
+`docs/Seguridad y optimizacion/radiografia-tecnica_1.md` §16.
 
 Para bajar todo (y borrar el volumen de Postgres, si se quiere empezar de
 cero):
@@ -274,7 +311,9 @@ retomarlo tal cual.
 declara qué variables existen; cada una marcada `sync: false` se carga
 una única vez desde el dashboard de Render al aplicar el blueprint (o
 `generateValue: true` para `JWT_SECRET`, que Render genera y guarda solo,
-sin que nadie lo vea en texto plano).
+sin que nadie lo vea en texto plano — y que **no puede quedar vacía**: el
+backend se niega a arrancar si el valor resuelto es el de ejemplo del
+repo).
 
 > ⚠️ **La base está en el plan `free` de Postgres a propósito**, mientras
 > no haya profesionales reales cargados — **se borra sola a los 30 días

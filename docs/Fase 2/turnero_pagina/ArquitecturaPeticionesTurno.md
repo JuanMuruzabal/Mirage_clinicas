@@ -215,6 +215,25 @@ Fix: cada turno que pasa a la ficha que prevalece ahora también pisa
 `NombreContacto`/`ApellidoContacto` con el nombre canónico de esa ficha.
 Test: `TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico`.
 
+**Restricción de esquema (agregada 2026-09-09, auditoría Fase C — TR-131).**
+El esquema pasó a tener foreign keys reales (de 4 a 33), y
+`conflictos_paciente` quedó **deliberadamente excluida**: sus tres columnas
+que referencian filas borrables (`paciente_en_conflicto_id`,
+`paciente_verificado_id`, `turno_en_conflicto_id`) **no llevan foreign
+key**. El motivo es exactamente el mecanismo descripto en esta sección: al
+resolver, el código BORRA la ficha perdedora y conserva la fila del
+conflicto con `resuelto = true` como registro de lo que pasó — la
+referencia queda colgada a propósito (en la base de desarrollo eran 17 de
+17 filas). Una foreign key `RESTRICT` ahí rompería la resolución de
+conflictos de plano; una `CASCADE` borraría el historial junto con la
+ficha, que es justo lo que esta tabla existe para conservar.
+
+Hay un test que protege la exclusión
+(`TestFK_ConflictosPacienteSigueSinForeignKey`) para que nadie la
+"arregle" por descuido más adelante. Si alguna vez se decide que estas
+referencias tienen que ser íntegras, el cambio no es agregar la
+constraint: es dejar de borrar la ficha perdedora.
+
 ### 1.3ter — Cartel de confirmación de asistencia en tiempo real (TR-107, frontend)
 
 Pedido textual del cliente: apenas se cumple la hora de fin de un turno
