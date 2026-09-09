@@ -531,7 +531,29 @@ antes:  16 pacientes, 29 tipos, 29 turnos,  4 FKs
 después: 6 pacientes,  5 tipos, 29 turnos, 33 FKs
 ```
 
-Los **29 turnos intactos**, y smoke test del wizard público (`/clinicas/{slug}`, `/clinicas/{slug}/tipos-consulta`) respondiendo igual que antes. El único huérfano que queda es la excepción deliberada de `conflictos_paciente`.
+Los **29 turnos intactos**. El único huérfano que queda es la excepción deliberada de `conflictos_paciente`.
+
+### 16.4 QA del entorno de desarrollo
+
+La suite de tests y el entorno real prueban cosas distintas: la suite corre contra una base de test con transacciones que se revierten; el entorno corre con las migraciones ya aplicadas y los datos que hay. Un problema de migración, de configuración, o de una constraint que se creó sobre la columna equivocada, **solo se ve en el segundo**.
+
+Queda como script reusable: `scripts/qa-entorno-dev.sh`, pensado para correrse antes de cada snapshot. Recorre el flujo real de punta a punta contra los contenedores levantados —alta de profesional por los endpoints de onboarding, creación de un turno, listados del panel, wizard público, frontend— y borra al final lo que creó.
+
+Resultado de la corrida del 2026-09-09: **17 de 17**.
+
+| Qué se verificó | Resultado |
+|---|---|
+| Alta completa de profesional (registro → perfil → clínica) | ✅ |
+| Las FK aceptan el camino legítimo (tipos sembrados, turno creado por el endpoint real) | ✅ |
+| Las FK rechazan lo que no existe (`fk_pacientes_clinica` sobre una clínica inventada) | ✅ |
+| `GET /turnos?limit=1` devuelve `X-Total-Count` | ✅ |
+| **Sin `limit` NO manda el header** — el calendario depende de eso | ✅ |
+| Un filtro de verificación inventado devuelve 400, no la lista entera | ✅ |
+| Wizard público: clínica, tipos de consulta y disponibilidad real | ✅ |
+| Frontend: home y página pública de la clínica | ✅ |
+| El `CASCADE` de `users` se lleva sesión y perfil al borrar la cuenta | ✅ |
+
+**Un detalle que el QA demostró en vivo:** la primera versión del script no pudo limpiar sus propios datos — `fk_clinics_owner` se negó a borrar un usuario que todavía era dueño de una clínica, y la cadena RESTRICT de `clinic_members`/`horarios_atencion` impidió borrar la clínica antes de sus hijos. No es un bug: es exactamente la garantía para la que se puso esa constraint, comprobada sin buscarla. Ninguna ruta del producto borra clínicas; el orden explícito existe solo en el script de QA.
 
 
 ---
