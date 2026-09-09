@@ -74,9 +74,22 @@ const lockKeyMigraciones = 483920175
 const intentosMigracion = 5
 const esperaBaseEntreIntentosMigracion = 200 * time.Millisecond
 
+// RunMigrations usa la política PERMISIVA de migraciones destructivas —
+// es el camino de los tests y del desarrollo local, donde borrar datos de
+// prueba no le importa a nadie.
+//
+// El contenedor `migrate` de producción NO usa esta función: usa
+// RunMigrationsConPolitica con la política resuelta desde la Config
+// (cmd/migrate/main.go). Ver migrate_destructiva.go.
 func RunMigrations(gdb *gorm.DB) error {
+	return RunMigrationsConPolitica(gdb, PoliticaDestructiva{Permitir: true, Entorno: "development"})
+}
+
+// RunMigrationsConPolitica es la variante que decide, desde afuera, si una
+// migración que destruye datos puede correr. Ver PoliticaDestructiva.
+func RunMigrationsConPolitica(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	return conReintentoPorDeadlock(intentosMigracion, esperaBaseEntreIntentosMigracion, func() error {
-		return migrarUnaVezConLock(gdb)
+		return migrarUnaVezConLock(gdb, pol)
 	})
 }
 
@@ -102,12 +115,12 @@ func conReintentoPorDeadlock(intentos int, espera time.Duration, intentar func()
 
 // migrarUnaVezConLock — un intento completo: una transacción, el advisory
 // lock, y el cuerpo de las migraciones.
-func migrarUnaVezConLock(gdb *gorm.DB) error {
+func migrarUnaVezConLock(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	return gdb.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKeyMigraciones).Error; err != nil {
 			return fmt.Errorf("no se pudo tomar el advisory lock de migraciones: %w", err)
 		}
-		return runMigrationsLocked(tx)
+		return runMigrationsLocked(tx, pol)
 	})
 }
 
@@ -121,7 +134,7 @@ func esDeadlock(err error) bool {
 
 // runMigrationsLocked — el cuerpo real de RunMigrations, corrido siempre
 // con el advisory lock de arriba ya tomado.
-func runMigrationsLocked(gdb *gorm.DB) error {
+func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	// Migración manual (corrección de QA, 2026-09-01): horarios_atencion
 	// pasa de 1 fila por clínica (PK=clinic_id, un único horario fijo) a
 	// una LISTA con alcance (general/semana/mes/rango), igual criterio
@@ -133,16 +146,30 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 	// el horario general default (08:00-18:00) hasta que lo guarde de
 	// nuevo. Detecta la tabla vieja por la AUSENCIA de la columna `id`
 	// (idempotente: no vuelve a tocar la tabla una vez migrada).
-	if err := gdb.Exec(`
-		DO $$
-		BEGIN
-		  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'horarios_atencion')
-		     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'horarios_atencion' AND column_name = 'id') THEN
-		    DROP TABLE horarios_atencion;
-		  END IF;
-		END $$
-	`).Error; err != nil {
-		return fmt.Errorf("migración manual de horarios_atencion falló: %w", err)
+	// La tabla de control de migraciones va PRIMERO, antes que cualquier
+	// otra cosa del esquema. El guardián de migraciones destructivas la
+	// consulta y la escribe, y la primera de esas migraciones corre acá
+	// abajo, ANTES del AutoMigrate del resto del esquema — sobre una base
+	// recién creada esa tabla todavía no existiría.
+	//
+	// Bug real, encontrado por migrate_destructiva_test.go al crear una
+	// base desde cero: sin esto, el guardián fallaba con "relation
+	// migraciones_una_vez does not exist" y, peor, la consulta fallida
+	// abortaba la transacción entera (SQLSTATE 25P02 en todo lo que
+	// siguiera). CI lo habría encontrado también, porque su base nace
+	// vacía en cada corrida.
+	if err := gdb.AutoMigrate(&MigracionUnaVez{}); err != nil {
+		return fmt.Errorf("automigrate de migraciones_una_vez falló: %w", err)
+	}
+
+	// Pasa por el guardián de migraciones destructivas (Fase C de la
+	// auditoría, ver migrate_destructiva.go): dropea una tabla con datos
+	// de clínicas reales. Va ACÁ, antes del AutoMigrate, porque es el
+	// AutoMigrate el que la recrea con la forma nueva.
+	for _, m := range migracionesDestructivasPrevias() {
+		if err := aplicarDestructivaUnaVez(gdb, pol, m); err != nil {
+			return err
+		}
 	}
 
 	if err := gdb.AutoMigrate(
@@ -307,15 +334,10 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`CREATE UNIQUE INDEX idx_paciente_dni_unico
 		   ON pacientes (profesional_id, dni) WHERE NOT en_conflicto`,
 
-		// Extra 2.3.3 (TR-104): el estado `pendiente` se saca del todo — antes
-		// de estrechar el check constraint de abajo, borra cualquier turno
-		// `pendiente` que haya quedado de antes de Extra 2.3.5 (sin
-		// producción todavía, CLAUDE.md; un turno pendiente nunca tuvo
-		// horario ni paciente vinculado, así que no hay nada de negocio real
-		// que preservar — a diferencia del de-duplicado de pacientes de
-		// arriba, acá no hace falta reasignar nada antes de borrar).
-		// Idempotente: sin filas `pendiente`, no borra nada.
-		`DELETE FROM turnos WHERE estado = 'pendiente'`,
+		// El `DELETE FROM turnos WHERE estado = 'pendiente'` que estaba acá
+		// se movió al bloque de migraciones destructivas (Fase C de la
+		// auditoría, ver migrate_destructiva.go) — corre antes que este
+		// loop, que es lo que el check constraint de abajo necesita.
 
 		// DROP + ADD (no el patrón DO $$/duplicate_object): el check
 		// constraint cambió de valores permitidos (saca 'pendiente' del
@@ -385,11 +407,8 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// porque GORM AutoMigrate nunca borra columnas — solo agrega. Sin
 		// pérdida de datos real: esta rama no está deployada todavía
 		// (Fase 2.4.2 sigue en QA, TR-116/TR-083 en docs/Arquitectura y base/tradeoffs.md).
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_relacion`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_nombre`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_dni`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_telefono`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_email`,
+		// Los 5 `DROP COLUMN` de tutor_* que estaban acá se movieron al
+		// bloque de migraciones destructivas (migrate_destructiva.go).
 
 		// `paciente_tutores.relacion` — a diferencia de `pacientes`/`turnos`
 		// de arriba, acá NUNCA es null (cada fila ES un tutor, por
@@ -407,8 +426,8 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// NOT NULL) y en `turnos` (snapshot paralelo, nullable). Mismo
 		// motivo que las columnas Tutor* de `pacientes` más arriba: GORM
 		// AutoMigrate nunca borra columnas, solo agrega.
-		`ALTER TABLE paciente_tutores DROP COLUMN IF EXISTS dni`,
-		`ALTER TABLE turnos DROP COLUMN IF EXISTS tutor_dni`,
+		// Los `DROP COLUMN` de dni/tutor_dni que estaban acá se movieron al
+		// bloque de migraciones destructivas (migrate_destructiva.go).
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
@@ -430,8 +449,10 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 	// contenedor queda en un loop del que no se sale sin SQL a mano. CI no
 	// lo detecta porque su base de test siempre nace limpia, sin
 	// duplicados — exactamente la población para la que este bloque existe.
-	if err := aplicarUnaVez(gdb, migracionDedupPacientesDNI, dedupPacientesPorDNI); err != nil {
-		return err
+	for _, m := range migracionesDestructivasPosteriores() {
+		if err := aplicarDestructivaUnaVez(gdb, pol, m); err != nil {
+			return err
+		}
 	}
 
 	for _, stmt := range statements {

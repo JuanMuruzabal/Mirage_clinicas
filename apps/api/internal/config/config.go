@@ -37,6 +37,16 @@ type Config struct {
 	// vive documentada acá y en apps/api/.env.example, no en la cabeza de
 	// quien lea el código.
 	OAuthStateSecret string
+	// AllowDestructiveMigrations autoriza, SOLO para esta corrida, las
+	// migraciones que destruyen datos (Fase C de la auditoría — ver
+	// PoliticaDestructiva en internal/db/migrate_destructiva.go). Fuera de
+	// `development` el contenedor `migrate` se niega a correr una
+	// migración destructiva que de verdad tenga algo que destruir hasta
+	// que alguien pone DB_ALLOW_DESTRUCTIVE=true a conciencia, con un
+	// backup hecho. No tiene sentido dejarla prendida de forma
+	// permanente: la protección es justamente el paso manual.
+	AllowDestructiveMigrations bool
+
 	// CORSAllowedOrigins — orígenes desde los que el navegador puede
 	// llamar directo a la API. No afecta las llamadas server-to-server de
 	// Next.js vía Server Actions/Route Handlers (spec §9.3, BFF sin
@@ -90,6 +100,8 @@ func Load() Config {
 		DBUrl:            getEnv("DATABASE_URL", "postgres://dental_mirage:dental_mirage@localhost:5432/dental_mirage?sslmode=disable"),
 		OAuthStateSecret: getEnv("JWT_SECRET", OAuthStateSecretDeDesarrollo),
 		Env:              getEnv("APP_ENV", "development"),
+
+		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 
