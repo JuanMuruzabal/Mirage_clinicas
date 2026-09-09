@@ -199,10 +199,14 @@ func baseDescartableConMigracionesAplicadas(t *testing.T) (*gorm.DB, bool) {
 
 func profesionalDePruebaMinimo(t *testing.T, gdb *gorm.DB) uuid.UUID {
 	t.Helper()
-	prof := db.Profesional{
-		Nombre: "Destructiva", Email: uuid.NewString() + "@example.com", PasswordHash: "hash",
-		NombreClinica: "Clínica", Slug: uuid.NewString(),
+	// La columna `profesional_id` guarda un clinics.id, no un
+	// profesionales.id — ver migrate_fk.go. La tabla `profesionales` es
+	// legacy de antes de TR-037 y está vacía.
+	ownerprof := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&ownerprof).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario dueño: %v", err)
 	}
+	prof := db.Clinic{Nombre: "Clínica de prueba", Tipo: "individual", Slug: uuid.NewString(), OwnerID: ownerprof.ID}
 	if err := gdb.Create(&prof).Error; err != nil {
 		t.Fatalf("no se pudo crear el profesional: %v", err)
 	}

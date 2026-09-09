@@ -714,7 +714,7 @@ Documentos, en `docs/Seguridad y optimizacion/`:
 | `radiografia-tecnica_1.md` | **El diagnóstico** — primera radiografía (`_1`), módulo por módulo. Qué está bien, qué está mal, el plan de acción en 3 fases, y el registro de cada ronda de arreglos (§13 paginación, §14 deadlock, §15 revisión de la Fase A). |
 | `como-se-arreglo-cada-cosa.md` | **La guía de estudio** — el porqué de cada decisión, las alternativas descartadas, y los bugs que introdujo el propio trabajo de la auditoría. |
 
-Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-130**.
+Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**.
 
 ### 12.1 Fase A — riesgos inmediatos (cerrada)
 
@@ -747,10 +747,10 @@ No es una fase con fecha: cada ítem tiene una **condición de activación**, y 
 
 | Ítem | Condición que lo activa |
 |---|---|
-| Foreign keys reales en el esquema | Ninguna — es red de seguridad adicional, no corrige un problema existente |
-| Cortar las migraciones destructivas sin backup | Apenas exista el primer cliente pagando |
-| Migrar el `IPLimiter` a Redis | Cuando corra **más de una instancia** del backend (hoy vive en memoria del proceso) |
-| Ajustar pool de conexiones / PgBouncer | Según cuántas instancias corran |
+| ✅ **Foreign keys reales en el esquema** (2026-09-09) | Hecho. 4 → 33 constraints. Destapó 38 filas huérfanas de un cambio de significado de columna a mitad de proyecto — TR-131 |
+| ✅ **Cortar las migraciones destructivas sin backup** (2026-09-09) | Hecho antes de lo previsto: era barato y el riesgo es irreversible — TR-132 |
+| ⛔ Migrar el `IPLimiter` a Redis | **Bloqueado por su propia condición:** sirve recién con más de una instancia del backend. Hoy hay una — hacerlo ahora es sumar un servicio que operar a cambio de nada |
+| ⛔ Ajustar pool de conexiones / PgBouncer | **Bloqueado por su propia condición:** se dimensiona según cuántas instancias corran. Con una, no hay nada que dimensionar |
 | Partir `turno_publico.go` / `turnos.go` / `pedir-turno-form.tsx` | Cuando el archivo genere conflictos de merge reales, o cuando entre alguien nuevo y ese archivo sea su primer obstáculo. **Postergado a la próxima radiografía** (2026-09-09) |
 
 Sobre el último: es el único ítem del informe que **no arregla nada** — no cierra un riesgo, no destraba un límite de escala, no corrige un bug. Paga en velocidad futura de desarrollo, se cobra recién con varias personas tocando esos archivos, es el más caro (3-5 días) y el único que puede *introducir* regresiones sobre el código más delicado del sistema. Sin una condición escrita, "más adelante" significa "nunca" y el ítem se vuelve deuda invisible.

@@ -158,6 +158,29 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 			},
 		},
 		{
+			// Fase C de la auditoría (2026-09-09): filas de la era anterior a
+			// TR-037, cuando `profesional_id` guardaba un `profesionales.id` y
+			// no un `clinics.id`. El significado de la columna cambió a mitad
+			// del proyecto y estas filas nunca se migraron; nadie lo notó
+			// justamente porque no había foreign keys (ver migrate_fk.go).
+			//
+			// En la base de desarrollo eran 38 filas, todas del 22 al 24 de
+			// agosto de 2026 (las sanas arrancan el 27), apuntando a 8-12
+			// clínicas que no existen. Son INALCANZABLES para la aplicación:
+			// cada query del panel filtra por `profesional_id = <clínica de la
+			// sesión>`, y esas clínicas no existen, así que ninguna pantalla
+			// puede mostrarlas ni ningún turno referenciarlas (verificado: 0
+			// turnos apuntan a ellas).
+			//
+			// Hay que borrarlas antes de crear las foreign keys — si no, el
+			// ADD CONSTRAINT las rechaza. Y se borran los hijos primero, para
+			// no fabricar huérfanos nuevos al borrar las fichas.
+			Nombre:      "limpiar_filas_legacy_sin_clinica",
+			Descripcion: "fichas de paciente, tipos de consulta y páginas públicas que apuntan a una clínica inexistente (era anterior a TR-037), más los datos que cuelgan de esas fichas",
+			Afectados:   contarFilasLegacySinClinica,
+			Aplicar:     borrarFilasLegacySinClinica,
+		},
+		{
 			// Tercera ronda de correcciones de QA (2026-09-06), pedido
 			// textual del cliente: el DNI del tutor "no es tan útil y
 			// agrega complejidad" — se saca de las dos tablas donde vivía.

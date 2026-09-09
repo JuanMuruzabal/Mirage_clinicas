@@ -461,6 +461,14 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		}
 	}
 
+	// Foreign keys — Fase C de la auditoría (ver migrate_fk.go). Van al
+	// final, después del loop de statements: necesitan que TODAS las
+	// tablas existan, y que la limpieza de filas legacy (bloque de
+	// migraciones destructivas, más arriba) ya haya corrido.
+	if err := aplicarForeignKeys(gdb); err != nil {
+		return err
+	}
+
 	// TR-004: el catálogo de especialidades es global (a diferencia de
 	// tipos_consulta, que es por profesional) — se siembra acá, una vez
 	// por esquema, no por cada alta de profesional.
