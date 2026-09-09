@@ -11,11 +11,13 @@ import {
   apiCrearEnlaceTurno,
   apiCrearTurnoManual,
   apiListTurnos,
+  apiListTurnosPaginado,
   apiMarcarAsistencia,
   apiReprogramarTurno,
   apiTurnosPendientesAsistencia,
   type CrearTurnoManualPayload,
   type ListarTurnosParams,
+  type Pagina,
   type ReprogramarTurnoPayload,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -36,6 +38,28 @@ export async function listTurnosAction(params: ListarTurnosParams): Promise<Turn
   }
   const result = await apiListTurnos(token, params);
   return result.ok ? result.data : [];
+}
+
+// listTurnosPaginadoAction — la variante que usa la VISTA DE LISTA
+// (/panel/turnos) con "Cargar más" (Fase B de la auditoría). El
+// calendario sigue con listTurnosAction sin paginar A PROPÓSITO: pide un
+// rango de fechas acotado y necesita verlo COMPLETO — paginarlo le
+// escondería turnos del rango visible.
+//
+// Ante un error devuelve una página vacía con total 0, mismo criterio que
+// listTurnosAction: la tabla se muestra vacía en vez de romper la
+// pantalla entera.
+export async function listTurnosPaginadoAction(
+  params: ListarTurnosParams,
+  limit: number,
+  offset: number,
+): Promise<Pagina<Turno>> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiListTurnosPaginado(token, params, limit, offset);
+  return result.ok ? result.data : { items: [], total: 0 };
 }
 
 // crearTurnoManualAction — modal "+ Agregar turno" (spec §4.3), camino

@@ -1,12 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PacientesTable } from "./pacientes-table";
 
 // Cada fila es un ClickableTableRow (TR-023 en docs/Arquitectura y base/tradeoffs.md), que usa
 // useRouter() internamente — mismo mock que clickable-table-row.test.tsx.
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+const { pushMock, listPacientesPaginadoActionMock } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  listPacientesPaginadoActionMock: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
+// La tabla pide las tandas siguientes de "Cargar más" por Server Action
+// (@/lib/api es server-only, no puede importarse desde jsdom).
+vi.mock("@/app/actions/pacientes", () => ({ listPacientesPaginadoAction: listPacientesPaginadoActionMock }));
 
 const paciente = {
   id: "p-1",
@@ -19,6 +25,11 @@ const paciente = {
 };
 
 describe("PacientesTable", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    listPacientesPaginadoActionMock.mockResolvedValue({ items: [], total: 0 });
+  });
+
   it("muestra nombre, teléfono, DNI y email como columnas", () => {
     render(<PacientesTable pacientes={[paciente]} />);
     expect(screen.getByText("Bruno Iglesias")).toBeInTheDocument();
@@ -283,6 +294,40 @@ describe("PacientesTable", () => {
     it("sin el campo verificado (fixture vieja), se trata como no verificado", () => {
       render(<PacientesTable pacientes={[paciente]} />);
       expect(screen.getByText("NO VERIFICADO")).toBeInTheDocument();
+    });
+  });
+
+  // Fase B de la auditoría: la tabla recibe una TANDA, no la lista
+  // entera. Sin el total no hay forma de saber si falta algo, así que
+  // el pie solo aparece cuando de verdad quedan filas por traer.
+  describe("Cargar más", () => {
+    const otro = { ...paciente, id: "p-2", nombre: "Carla", apellido: "Mendez", dni: "30111333" };
+
+    it("no muestra el pie cuando ya está todo cargado", () => {
+      render(<PacientesTable pacientes={[paciente]} totalInicial={1} filtros={{}} />);
+      expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Mostrando/)).not.toBeInTheDocument();
+    });
+
+    it("sin totalInicial asume que lo recibido es todo (no ofrece cargar más)", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+      expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
+    });
+
+    it("ofrece cargar el resto y suma la tanda nueva a la que ya estaba", async () => {
+      listPacientesPaginadoActionMock.mockResolvedValue({ items: [otro], total: 2 });
+      const user = userEvent.setup();
+      render(<PacientesTable pacientes={[paciente]} totalInicial={2} filtros={{ q: "me" }} />);
+
+      expect(screen.getByText("Mostrando 1 de 2 pacientes")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Cargar más (1)" }));
+
+      // El offset es la cantidad YA cargada — es lo que evita repetir
+      // filas o saltearlas, y los filtros vigentes viajan con el pedido.
+      await waitFor(() => expect(listPacientesPaginadoActionMock).toHaveBeenCalledWith({ q: "me" }, 50, 1));
+      expect(await screen.findByText("Carla Mendez")).toBeInTheDocument();
+      expect(screen.getByText("Bruno Iglesias")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
     });
   });
 });

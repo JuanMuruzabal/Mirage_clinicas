@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { apiListConflictosPaciente, apiListPacientes, apiListTiposConsulta } from "@/lib/api";
+import { apiContarPacientes, apiListConflictosPaciente, apiListPacientesPaginado, apiListTiposConsulta } from "@/lib/api";
+import type { ListarPacientesParams } from "@/lib/api";
+import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 import { getSessionToken } from "@/lib/session";
 import { PacientesTable } from "@/components/panel/pacientes-table";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
@@ -37,16 +39,36 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const tab = parseTabPacientes(firstParam(resolved.estado));
 
   const token = await getSessionToken();
-  const result = token ? await apiListPacientes(token, q) : null;
-  const pacientes = result?.ok ? result.data : [];
-  const verificadosCount = pacientes.filter((p) => p.verificado).length;
-  const conteoPorTab: Record<TabPacientes, number> = {
-    todos: pacientes.length,
-    verificados: verificadosCount,
-    sin_verificar: pacientes.length - verificadosCount,
+
+  // Fase B de la auditoría: hasta acá esta pantalla pedía la lista
+  // COMPLETA de fichas de la clínica y resolvía en el navegador tanto el
+  // filtro de pestaña como sus tres contadores. Ahora la pestaña activa
+  // pide solo la primera tanda (PACIENTES_POR_PAGINA, el resto llega con
+  // "Cargar más") y las otras dos piden únicamente el total
+  // (apiContarPacientes: 1 fila + X-Total-Count). El filtro
+  // verificado/sin verificar baja al backend con el mismo parámetro y la
+  // misma subquery que ya usaba /turnos — filtrar una tanda parcial del
+  // lado del cliente mostraría cualquier cosa.
+  const filtros: ListarPacientesParams = {
+    q,
+    verificacion: tab === "verificados" ? "verificado" : tab === "sin_verificar" ? "sin_verificar" : undefined,
   };
-  const pacientesFiltrados =
-    tab === "todos" ? pacientes : pacientes.filter((p) => (tab === "verificados" ? p.verificado : !p.verificado));
+  const [paginaPacientes, cTodos, cVerificados, cSinVerificar] = token
+    ? await Promise.all([
+        apiListPacientesPaginado(token, filtros, PACIENTES_POR_PAGINA, 0),
+        apiContarPacientes(token, { q }),
+        apiContarPacientes(token, { q, verificacion: "verificado" }),
+        apiContarPacientes(token, { q, verificacion: "sin_verificar" }),
+      ])
+    : [null, 0, 0, 0];
+
+  const pacientesFiltrados = paginaPacientes?.ok ? paginaPacientes.data.items : [];
+  const totalPacientes = paginaPacientes?.ok ? paginaPacientes.data.total : 0;
+  const conteoPorTab: Record<TabPacientes, number> = {
+    todos: cTodos,
+    verificados: cVerificados,
+    sin_verificar: cSinVerificar,
+  };
   const querySecundaria = q ? `&q=${encodeURIComponent(q)}` : "";
   // hrefBaseSinQ — para BuscadorEnVivo (TR-115): mismo tab vigente, sin
   // `q` (el componente lo agrega solo, con cada tecla).
@@ -144,12 +166,12 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
           <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
             {q
               ? "No encontramos pacientes para esa búsqueda."
-              : pacientes.length === 0
+              : conteoPorTab.todos === 0
                 ? "Todavía no hay pacientes cargados."
                 : "No hay pacientes en esta pestaña."}
           </p>
         ) : (
-          <PacientesTable pacientes={pacientesFiltrados} />
+          <PacientesTable pacientes={pacientesFiltrados} totalInicial={totalPacientes} filtros={filtros} />
         )}
       </div>
     </div>

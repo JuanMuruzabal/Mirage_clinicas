@@ -4,7 +4,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { cancelarTurnoAction, cancelarTurnosSinVerificarAction, listTurnosAction } from "@/app/actions/turnos";
+import { cancelarTurnoAction, cancelarTurnosSinVerificarAction, listTurnosPaginadoAction } from "@/app/actions/turnos";
+import { CargarMas } from "@/components/panel/cargar-mas";
+import { PAGINACION_LIMITE_MAX, TURNOS_POR_PAGINA } from "@/lib/paginacion";
 import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
@@ -15,6 +17,17 @@ import { EditarTurnoModal } from "./editar-turno-modal";
 
 interface TurnosTableProps {
   turnosIniciales: Turno[];
+  // totalInicial — cuántos turnos hay detrás de los mismos filtros, no
+  // cuántos vinieron en esta primera tanda (Fase B de la auditoría: la
+  // página ya no trae la lista entera). Es lo que decide si se ofrece
+  // "Cargar más".
+  //
+  // Opcional, y por default la cantidad recibida: "lo que me pasaron es
+  // todo lo que hay", que es el caso de cualquier render que arme la
+  // lista a mano (los tests) y el único comportamiento seguro si alguna
+  // vez se omite — a lo sumo no se ofrece "Cargar más", nunca se ofrece
+  // una tanda que no existe.
+  totalInicial?: number;
   tiposConsulta: TipoConsulta[];
   filtros: ListarTurnosParams;
   // Deep-link desde TurnoDetalle ("Ver turno", 2026-08-23): esa fila
@@ -42,8 +55,10 @@ function contactoDeTurno(t: Turno): { telefono: string; email: string } {
 // cliente, 2026-08-23): tocarla despliega un panel debajo con las
 // acciones (Confirmar/Editar/Cancelar) — antes vivían siempre visibles en
 // una columna aparte, que competía por espacio con los datos del turno.
-export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }: TurnosTableProps) {
+export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filtros, abrirId }: TurnosTableProps) {
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  const [total, setTotal] = useState(totalInicial ?? turnosIniciales.length);
+  const [cargandoMas, setCargandoMas] = useState(false);
   // tipoPorId — corrección de QA: "dar un indicador visual en la tabla de
   // turnos el tipo de consulta, ya que está ausente" — mismo criterio que
   // paciente-turnos-table.tsx (temaTipoConsulta, punto de color + nombre,
@@ -105,8 +120,37 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
     recargar();
   }
 
+  // recargar — después de cancelar/editar un turno. Vuelve a pedir LA
+  // MISMA VENTANA que el profesional tenía cargada, no la primera tanda:
+  // si venía de tocar "Cargar más" un par de veces, la tabla no se le
+  // encoge de golpe bajo el cursor.
+  //
+  // El pedido se recorta a PAGINACION_LIMITE_MAX porque el backend
+  // recorta ahí de todos modos, en silencio (paginacion.go). En ese caso
+  // —más de 200 filas ya cargadas a mano— la tabla sí vuelve a 200 y el
+  // botón reaparece; es el único punto donde la ventana se achica, y
+  // preferimos eso antes que ocultar el corte.
   function recargar() {
-    listTurnosAction(filtros).then(setTurnos);
+    const cuantos = Math.min(Math.max(turnos.length, TURNOS_POR_PAGINA), PAGINACION_LIMITE_MAX);
+    listTurnosPaginadoAction(filtros, cuantos, 0).then((pagina) => {
+      setTurnos(pagina.items);
+      setTotal(pagina.total);
+    });
+  }
+
+  // cargarMas — la siguiente tanda, desde donde quedó la anterior. El
+  // total se refresca con cada tanda: entre un click y el otro alguien
+  // pudo haber sacado o cancelado un turno, y el contador de abajo tiene
+  // que reflejar lo que hay ahora.
+  async function cargarMas() {
+    setCargandoMas(true);
+    try {
+      const pagina = await listTurnosPaginadoAction(filtros, TURNOS_POR_PAGINA, turnos.length);
+      setTurnos((actuales) => [...actuales, ...pagina.items]);
+      setTotal(pagina.total);
+    } finally {
+      setCargandoMas(false);
+    }
   }
 
   function alternarExpandido(id: string) {
@@ -595,6 +639,8 @@ export function TurnosTable({ turnosIniciales, tiposConsulta, filtros, abrirId }
           </tbody>
         </table>
       </div>
+
+      <CargarMas cargados={turnos.length} total={total} cargando={cargandoMas} onCargarMas={cargarMas} sustantivo="turnos" />
 
       {editarTurno && (
         <EditarTurnoModal
