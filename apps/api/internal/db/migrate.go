@@ -108,6 +108,9 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// Fase 2, ítem 5 ("compartir calendario"): link de 1h generado por
 		// el profesional, sin CAPTCHA/verificación de mail.
 		&EnlaceTurno{},
+		// Fase B de la auditoría (2026-09-08): control de las migraciones de
+		// DATOS que corren una sola vez — ver aplicarUnaVez más abajo.
+		&MigracionUnaVez{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -211,54 +214,6 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// la red de seguridad a nivel de base.
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_unico
 		   ON horarios_atencion (clinic_id) WHERE alcance = 'general'`,
-
-		// Extra 2.3.5 (E5.1): antes de que existiera el índice único de abajo,
-		// ya se habían cargado Paciente duplicados (mismo profesional_id+dni)
-		// en desarrollo — sin producción todavía (CLAUDE.md), pero el CREATE
-		// UNIQUE INDEX de abajo fallaría igual contra esos datos ya
-		// cargados. Este bloque deja una sola fila por (profesional_id, dni)
-		// — la más vieja (MIN(created_at), MIN(id) como desempate) — reasigna
-		// cualquier turno que apuntara a una fila descartada hacia la que se
-		// conserva, y recién después borra las descartadas. Idempotente: sin
-		// duplicados, el loop no encuentra filas y no hace nada.
-		//
-		// Corrección de bug real (encontrado en QA en vivo, Fase 2.4.1):
-		// este bloque corre en CADA RunMigrations (cada deploy/reinicio del
-		// contenedor `migrate`), sin ningún guard de "una sola vez" — y
-		// hasta acá agrupaba TODAS las fichas por (profesional_id, dni) sin
-		// excluir `en_conflicto`. Eso significa que dos fichas separadas
-		// A PROPÓSITO por un conflicto sin resolver (crearPacientePublicoConDeteccionDeConflicto,
-		// paciente_conflicto_publico.go — la razón de ser de en_conflicto)
-		// quedaban agrupadas igual que un duplicado real, y la ficha
-		// en_conflicto=true se borraba y su turno se reasignaba a la otra
-		// EN CADA DEPLOY, sin pasar por ConflictoPaciente ni por
-		// migrarOCancelarTurnosDePerdedor — deshaciendo en silencio toda la
-		// detección de conflicto. `WHERE NOT en_conflicto` restringe el
-		// barrido a lo que este bloque siempre debió limpiar: fichas
-		// duplicadas de verdad que violan el índice parcial de abajo
-		// (idx_paciente_dni_unico, también `WHERE NOT en_conflicto`) —
-		// nunca una ficha en conflicto todavía sin resolver.
-		`DO $$
-		DECLARE
-		  duplicado RECORD;
-		  ids uuid[];
-		  conservar uuid;
-		  descartar uuid[];
-		BEGIN
-		  FOR duplicado IN
-		    SELECT array_agg(id ORDER BY created_at, id) AS ids
-		    FROM pacientes
-		    WHERE NOT en_conflicto
-		    GROUP BY profesional_id, dni
-		    HAVING COUNT(*) > 1
-		  LOOP
-		    ids := duplicado.ids;
-		    conservar := ids[1];
-		    descartar := ids[2:array_length(ids, 1)];
-		    UPDATE turnos SET paciente_id = conservar WHERE paciente_id = ANY(descartar);
-		    DELETE FROM pacientes WHERE id = ANY(descartar);
-		  END LOOP;
-		END $$`,
 
 		// Extra 2.3.5 (docs/Arquitectura y base/implementation-plan.md §11.5, E5.1): un mismo DNI
 		// no puede tener dos fichas de Paciente dentro de la misma clínica —
@@ -390,6 +345,16 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		if err := gdb.Exec(stmt).Error; err != nil {
 			return fmt.Errorf("migración cruda falló (%s): %w", stmt, err)
 		}
+	}
+
+	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
+	// 2026-09-08). A diferencia de todo lo de arriba —idempotente y barato
+	// de repetir— estas barren tablas enteras: su costo crece con el
+	// volumen de la base y se pagaría en CADA arranque del contenedor
+	// `migrate`, para siempre, aunque después de la primera vez no
+	// encuentren nada que corregir.
+	if err := aplicarUnaVez(gdb, migracionDedupPacientesDNI, dedupPacientesPorDNI); err != nil {
+		return err
 	}
 
 	// TR-004: el catálogo de especialidades es global (a diferencia de
