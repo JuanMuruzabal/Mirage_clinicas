@@ -33,6 +33,9 @@ func main() {
 	// .env es opcional (útil en desarrollo local); en producción las
 	// variables de entorno las provee la plataforma de deploy.
 	if err := godotenv.Load(); err != nil {
+		// Único log.* que sobrevive en este archivo: corre ANTES de
+		// configurarLogger, cuando todavía no hay logger estructurado —
+		// no le aplica la degradación de nivel que motivó el helper fatal().
 		log.Println("no se encontró .env, usando variables de entorno del sistema")
 	}
 
@@ -44,6 +47,11 @@ func main() {
 	// cualquier otro más adelante) puede parsear y filtrar por clinic_id /
 	// request_id / status. En development, texto legible a ojo — nadie
 	// quiere leer JSON crudo mientras desarrolla.
+	// EL ORDEN IMPORTA: tiene que correr ANTES de NewRouterWithDeps, que
+	// captura slog.Default() al construir el middleware de logging. Si se
+	// moviera después, el router se quedaría con el logger de texto por
+	// default y los logs de producción dejarían de salir en JSON, en
+	// silencio.
 	configurarLogger(cfg.Env)
 
 	// Corrección de seguridad (auditoría 2026-09-08, docs/Seguridad y
@@ -57,12 +65,12 @@ func main() {
 	// leer en GitHub. Un secreto crítico tiene que frenar el arranque si
 	// falta, nunca degradar solo.
 	if err := requireExplicitSecretsOutsideDev(cfg); err != nil {
-		log.Fatalf("configuración insegura: %v", err)
+		fatal("configuración insegura", err)
 	}
 
 	gormDB, err := db.Connect(cfg.DBUrl)
 	if err != nil {
-		log.Fatalf("error conectando a la base de datos: %v", err)
+		fatal("error conectando a la base de datos", err)
 	}
 
 	deps := buildAuthDeps(cfg, gormDB)
@@ -87,9 +95,9 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	log.Printf("dental-mirage api escuchando en :%s (env=%s)", cfg.Port, cfg.Env)
+	slog.Info("dental-mirage api escuchando", "puerto", cfg.Port, "env", cfg.Env)
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("error arrancando el servidor: %v", err)
+		fatal("error arrancando el servidor", err)
 	}
 }
 
@@ -125,13 +133,14 @@ func runPurgeLoop(gormDB *gorm.DB) {
 func purgeOnce(gormDB *gorm.DB) {
 	stats, err := db.PurgeAuthGarbage(gormDB, apihttp.CuentaAbandonadaTTL)
 	if err != nil {
-		log.Printf("purga de basura de auth: error: %v", err)
+		slog.Error("purga de basura de auth", "error", err)
 		return
 	}
 	if stats.UsuariosAbandonados > 0 || stats.SesionesVencidas > 0 || stats.TokensVencidos > 0 {
-		log.Printf(
-			"purga de basura de auth: %d cuentas abandonadas, %d sesiones vencidas, %d tokens vencidos",
-			stats.UsuariosAbandonados, stats.SesionesVencidas, stats.TokensVencidos,
+		slog.Info("purga de basura de auth",
+			"cuentas_abandonadas", stats.UsuariosAbandonados,
+			"sesiones_vencidas", stats.SesionesVencidas,
+			"tokens_vencidos", stats.TokensVencidos,
 		)
 	}
 }
@@ -203,4 +212,19 @@ func configurarLogger(env string) {
 		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
 	}
 	slog.SetDefault(slog.New(handler))
+}
+
+// fatal loguea con nivel Error y termina el proceso — reemplaza a
+// log.Fatalf en todo lo que corre DESPUÉS de configurarLogger.
+//
+// Por qué hace falta (bug encontrado en la revisión de código de esta
+// tanda): slog.SetDefault, además de fijar el logger por default, redirige
+// el paquete `log` de la stdlib al mismo handler PERO SIEMPRE A NIVEL
+// INFO. Con eso, un log.Fatalf("error conectando a la base de datos")
+// terminaba emitiendo {"level":"INFO"} — invisible para cualquier alerta
+// o filtro sobre level >= ERROR, que es justamente para lo que se pasó a
+// logging estructurado. Verificado empíricamente antes de escribir esto.
+func fatal(msg string, err error) {
+	slog.Error(msg, "error", err)
+	os.Exit(1)
 }

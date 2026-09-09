@@ -341,20 +341,33 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`ALTER TABLE turnos DROP COLUMN IF EXISTS tutor_dni`,
 	}
 
+	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
+	// 2026-09-08). A diferencia de los `statements` de abajo —idempotentes
+	// y baratos de repetir— estas barren tablas enteras: su costo crece con
+	// el volumen de la base y se pagaría en CADA arranque del contenedor
+	// `migrate`, para siempre, aunque después de la primera vez no
+	// encuentren nada que corregir.
+	//
+	// EL ORDEN IMPORTA, y es la razón por la que este bloque va ACÁ y no
+	// después del loop (bug real introducido y corregido el 2026-09-08, en
+	// la revisión de código de esta misma tanda): la deduplicación existe
+	// justamente para que `CREATE UNIQUE INDEX idx_paciente_dni_unico`
+	// —que está entre los statements de abajo, y se re-crea sin
+	// IF NOT EXISTS en cada corrida— no falle contra fichas duplicadas ya
+	// cargadas. Con la limpieza DESPUÉS, una base con duplicados reales
+	// revienta en el CREATE INDEX, toda la transacción hace rollback, y
+	// como los duplicados siguen ahí el próximo arranque falla igual: el
+	// contenedor queda en un loop del que no se sale sin SQL a mano. CI no
+	// lo detecta porque su base de test siempre nace limpia, sin
+	// duplicados — exactamente la población para la que este bloque existe.
+	if err := aplicarUnaVez(gdb, migracionDedupPacientesDNI, dedupPacientesPorDNI); err != nil {
+		return err
+	}
+
 	for _, stmt := range statements {
 		if err := gdb.Exec(stmt).Error; err != nil {
 			return fmt.Errorf("migración cruda falló (%s): %w", stmt, err)
 		}
-	}
-
-	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
-	// 2026-09-08). A diferencia de todo lo de arriba —idempotente y barato
-	// de repetir— estas barren tablas enteras: su costo crece con el
-	// volumen de la base y se pagaría en CADA arranque del contenedor
-	// `migrate`, para siempre, aunque después de la primera vez no
-	// encuentren nada que corregir.
-	if err := aplicarUnaVez(gdb, migracionDedupPacientesDNI, dedupPacientesPorDNI); err != nil {
-		return err
 	}
 
 	// TR-004: el catálogo de especialidades es global (a diferencia de
