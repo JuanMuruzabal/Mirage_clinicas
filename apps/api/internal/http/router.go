@@ -3,6 +3,7 @@ package http
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -43,7 +44,11 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
+	// Logging estructurado (Fase B de la auditoría) — reemplaza a
+	// middleware.Logger de chi, que emitía texto plano sin request-id
+	// correlacionable ni la clínica involucrada. Ver logging.go, en
+	// particular la regla de NO loguear datos personales.
+	r.Use(loggerMiddleware(slog.Default()))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(cors.Handler(cors.Options{

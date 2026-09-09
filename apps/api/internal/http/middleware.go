@@ -44,6 +44,13 @@ func requireSession(gdb *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Completa el holder de logging (logging.go) para que la línea
+			// de esta request lleve user_id — el middleware de logging corre
+			// por FUERA de este, así que no puede resolverlo por su cuenta.
+			if campos := camposLogDe(r.Context()); campos != nil {
+				campos.UserID = session.UserID.String()
+			}
+
 			ctx := context.WithValue(r.Context(), sessionContextKey, session)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -71,6 +78,13 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 			if err != nil {
 				writeError(w, http.StatusForbidden, "completá el alta de tu clínica antes de acceder a esta sección")
 				return
+			}
+
+			// Ídem requireSession, para clinic_id — es el atributo que
+			// permite filtrar "qué le pasa a ESTA clínica" cuando hay N
+			// clínicas compartiendo la misma instancia.
+			if campos := camposLogDe(r.Context()); campos != nil {
+				campos.ClinicID = member.ClinicID.String()
 			}
 
 			ctx := context.WithValue(r.Context(), clinicIDContextKey, member.ClinicID)

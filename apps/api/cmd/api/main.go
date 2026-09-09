@@ -4,6 +4,7 @@ package main
 import (
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -36,6 +37,14 @@ func main() {
 	}
 
 	cfg := config.Load()
+
+	// Logging estructurado (Fase B de la auditoría, 2026-09-08) — ver
+	// internal/http/logging.go. JSON en cualquier entorno que no sea
+	// development: es lo que un agregador de logs (el de Render, o
+	// cualquier otro más adelante) puede parsear y filtrar por clinic_id /
+	// request_id / status. En development, texto legible a ojo — nadie
+	// quiere leer JSON crudo mientras desarrolla.
+	configurarLogger(cfg.Env)
 
 	// Corrección de seguridad (auditoría 2026-09-08, docs/Seguridad y
 	// optimizacion/radiografia-tecnica_1.md): JWT_SECRET cae a un valor
@@ -179,4 +188,19 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// borrados) que hay que limpiar a mano para seguir iterando.
 		SimularBloqueosSeguridad: cfg.ResendAPIKey == "",
 	}
+}
+
+// configurarLogger fija el logger por default del proceso, que es el que
+// toma internal/http (slog.Default()). Se configura una sola vez, acá, en
+// vez de threadearlo por toda la app: cambiar la firma de
+// NewRouter/NewRouterWithDeps tocaría ~50 call sites de test sin ganar
+// nada — ver el comentario de esas funciones en internal/http/router.go.
+func configurarLogger(env string) {
+	var handler slog.Handler
+	if env == "development" {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	}
+	slog.SetDefault(slog.New(handler))
 }
