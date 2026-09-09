@@ -233,7 +233,7 @@ Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el si
 
 - **Diagnóstico:** `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — primera radiografía (de ahí el `_1`), módulo por módulo: los 12 paquetes de `apps/api` completos más los archivos más grandes y sensibles de `apps/web`. Incluye el plan de acción en Fases A/B/C y el registro de cada ronda de arreglos.
 - **Guía de estudio:** `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- **Decisiones de arquitectura:** `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-125.
+- **Decisiones de arquitectura:** `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-130.
 - **Plan por fases:** `docs/Arquitectura y base/implementation-plan.md` §12.
 
 **Estado al 2026-09-09: Fases A y B cerradas.** Lo que cambió en el sistema, resumido:

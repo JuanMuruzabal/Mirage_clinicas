@@ -1639,4 +1639,77 @@
 
 ---
 
+## TR-126: Techos y timeouts en todos los bordes de entrada/salida
+
+- **Fecha:** 2026-09-08 (body, timeouts del servidor, timeout del BFF) / 2026-09-09 (respuestas externas)
+- **Fase:** Auditoría, Fase A ítems 2 y 3 + Fase B ítem 3. Ver `radiografia-tecnica_1.md` §15 y `como-se-arreglo-cada-cosa.md` §A2/§A3.
+- **Se agrupan en un solo TR a propósito:** son cuatro cambios en archivos distintos, pero una sola idea — *si el tamaño o la duración de algo los decide otro, hay que ponerles un techo*. Separarlos en cuatro entradas escondería que es un patrón y no cuatro parches.
+
+| Borde | Quién decidía | Techo puesto |
+|---|---|---|
+| Body de cualquier request (`decodeJSON`) | cualquiera con acceso a la API, **incluidos los endpoints públicos sin sesión** | 1 MiB (`http.MaxBytesReader`) |
+| Lectura de la conexión (`http.Server`) | el cliente, byte a byte | `ReadHeaderTimeout` 10s, `ReadTimeout` 15s, `WriteTimeout` 30s, `IdleTimeout` 60s |
+| Fetch del BFF hacia la API Go (`lib/api.ts`) | el backend, si se cuelga | 35s (`AbortSignal.timeout`) |
+| Respuestas de servicios externos (`googleauth`, `turnstile`) | Google, Cloudflare | 1 MiB (`io.LimitReader`) |
+
+- **`MaxBytesReader` y no simplemente truncar la lectura:** además de cortar, cierra la conexión si el cliente sigue mandando. Truncar sin cerrar deja al atacante ocupando una conexión indefinidamente — se cambia un ataque por otro.
+- **Efecto de diseño buscado:** el límite obligó a cambiar la firma a `decodeJSON(w, r, v)` —`MaxBytesReader` necesita el `ResponseWriter`— y por lo tanto a tocar TODOS los call sites. Eso, que parece una molestia, es lo que hace confiable al arreglo: el compilador garantiza que no quedó ninguno afuera. Un límite que hay que "acordarse de aplicar" en cada handler nuevo no es un límite. Verificado además que no queda ni un `io.ReadAll(r.Body)` ni un `json.NewDecoder(r.Body)` suelto en todo el backend.
+- **Por qué `middleware.Timeout(30s)` no alcanzaba** (y por qué la v1 del informe se equivocó al darlo por suficiente): un middleware corre DESPUÉS de que el handler arrancó, y el handler arranca DESPUÉS de que el servidor terminó de leer los headers. El ataque Slowloris —mandar los headers de a un byte cada varios segundos, sin terminar nunca la request— vive en la fase anterior a todo eso. Cada defensa cubre una fase concreta del ciclo de vida de una request; tener "un timeout" no es estar cubierto.
+- **Por qué 35s en el BFF y no menos:** apenas por encima del `WriteTimeout` del backend (30s), para que una request que el backend TODAVÍA está procesando dentro de su propio límite no se corte antes de tiempo del lado del frontend.
+- **Severidades muy distintas, y está bien:** el body sin techo era un DoS trivial contra endpoints públicos; las respuestas de Google/Cloudflare sobre TLS son riesgo casi nulo y se acotaron solo porque cuesta una línea. Reconocer el patrón no obliga a tratar los cuatro casos como igual de urgentes.
+- **Alternativas descartadas:** un límite por endpoint según lo que cada uno espera recibir — más ajustado, pero multiplica los lugares donde equivocarse y ningún payload legítimo de este backend se acerca a 1 MiB (son formularios de texto; la subida de archivos pasa por `internal/storage`, no por acá).
+- **Reversibilidad:** alta — constantes y configuración, sin cambios de esquema ni de contrato de API.
+
+## TR-127: Redis NO para sesiones — la consulta cara era otra, y se resolvió con un índice
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 1. Ver `radiografia-tecnica_1.md` §09 y `como-se-arreglo-cada-cosa.md` §B2.
+- **La pregunta de partida, planteada explícitamente:** cada request autenticada consulta la sesión en Postgres (TR-037, token opaco server-side). ¿No convendría cachearla en Redis?
+- **Decisión: no.** Esa consulta busca por `token_hash`, que tiene índice único: es una búsqueda directa, de costo prácticamente constante, sobre un dato que Postgres mantiene caliente en memoria por lo seguido que se pide. Redis ahorraría muy poco y a cambio suma un servicio más que operar, monitorear y que puede caerse — además de un problema de invalidación que hoy no existe (un logout revoca la sesión en la tabla y listo).
+- **Lo que apareció al medir en vez de suponer:** la consulta cara de verdad era otra. `requireClinic` resuelve a qué clínica pertenece el usuario en CADA request autenticada, y esa consulta **no usaba índice** — recorría la tabla `clinic_members` entera. Se resolvió con un índice compuesto `(user_id, role)`, en una hora, sin sumar infraestructura.
+- **Por qué compuesto y en ese orden:** un índice compuesto sirve para consultas que filtran por la primera columna, o por la primera Y la segunda — nunca por la segunda sola. La consulta real filtra por `user_id` y discrimina por `role`, así que ese orden le sirve; al revés, no.
+- **Verificación, y por qué importa más que el arreglo:** se confirmó con `EXPLAIN` que la base **usa** el índice, y después contra `pg_indexes` que existe en la base real. Postgres puede perfectamente ignorar un índice que creaste y no avisa: "creé un índice y asumo que lo usa" no es una verificación.
+- **La lección que se lleva el proyecto:** una intuición de rendimiento es una hipótesis, no un diagnóstico. Medir primero cambió QUÉ se arregló, no solo cuánto — la solución costó una hora en vez de sumar un servicio a la infraestructura.
+- **Redis no queda descartado para siempre:** vuelve en Fase C para el `IPLimiter` (que hoy vive en memoria del proceso, ver el comentario de TR-021 sobre una sola instancia), y solo cuando corra **más de una instancia** del backend. Hasta entonces, la condición de activación no se cumple.
+
+## TR-128: Subir a Go 1.26 para cerrar CVEs de `x/crypto`, en vez de fijar versiones
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, segunda pasada (`radiografia-tecnica_1.md` §12).
+- **El problema:** `golang.org/x/crypto` arrastraba 4 vulnerabilidades conocidas. Las correcciones upstream exigían una versión de la librería que a su vez exige un toolchain de Go más nuevo del que usaba el proyecto — no se podían tomar sin subir el toolchain.
+- **Decisión:** subir a **Go 1.26** (`go.mod` + `Dockerfile`: `golang:1.25-alpine` → `golang:1.26-alpine`) y actualizar `x/crypto` a v0.57.0. Cierra 3 de las 4; la restante **no tiene fix upstream**.
+- **Sobre la que queda, la distinción que importa:** `govulncheck` —que analiza *alcanzabilidad*, no solo la lista de dependencias— confirma **0 vulnerabilidades alcanzables** desde este código. No es lo mismo "tenemos una vulnerabilidad" que "tenemos una dependencia que contiene una vulnerabilidad en código que nunca ejecutamos". Un escáner que solo mira versiones no puede hacer esa diferencia y genera alarmas que no se pueden accionar.
+- **Alternativas descartadas:** quedarse en Go 1.25 y fijar `x/crypto` a la última versión compatible — deja las 3 CVEs abiertas a cambio de no tocar el toolchain, y la deuda solo crece: la próxima corrección va a exigir el mismo salto, con más cosas encima. Esperar a que aparezca el fix de la cuarta — no bloquea nada, y `govulncheck` ya confirma que no es alcanzable.
+- **Qué se sacrifica / riesgo asumido:** subir un toolchain puede romper el build o cambiar comportamiento sutilmente. Se verificó con un `docker compose build api` real, no solo con `go build` local — el `Dockerfile` es el que define la versión que corre en producción, y desincronizarlo con `go.mod` es el error clásico de este cambio. CI no necesitó tocarse: usa `go-version-file`, así que sigue a `go.mod` solo.
+- **De paso, en la misma pasada:** `golang-jwt/jwt/v5` seguía declarada en `go.mod` desde antes de TR-037, sin un solo uso real — solo menciones en comentarios. Eliminada con `go mod tidy`. Ver también TR-125 sobre la confusión de nombres que dejó esa herencia.
+- **Reversibilidad:** media — volver atrás es revertir `go.mod` y el `Dockerfile` juntos, pero reabre las 3 CVEs.
+
+## TR-129: Tests de aislamiento entre clínicas como red automática, no como revisión manual
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 6. Ver `radiografia-tecnica_1.md` §03.
+- **El punto de partida:** la revisión manual del aislamiento por tenant dio bien. Se leyó cada `Where("id = ?", ...)`/`First(&x, "id = ?")` de todo `internal/http` —más de 20 sitios— y en cada handler que resuelve un registro directo desde un id del request, el filtro `profesional_id`/`clinic_id` estaba. Los pocos casos sin ese filtro explícito navegan desde un registro **padre** ya resuelto con el filtro correcto: seguros por construcción, no por descuido.
+- **El problema con eso:** una revisión manual vale para el día que se hace. La garantía "ninguna clínica ve datos de otra" es la más importante de un sistema multi-tenant y la más fácil de romper sin querer al agregar un handler — no puede depender de que alguien se acuerde de mirar.
+- **Decisión:** 12 tests en `aislamiento_tenant_test.go` que arman **dos clínicas reales** y, desde la sesión de una, intentan leer/modificar/borrar registros de la otra: listar turnos, cancelar/reprogramar/marcar asistencia en un turno ajeno, ver/editar un paciente ajeno, listar pacientes, editar/eliminar/listar tipos de consulta, el resumen del panel, y los bloqueos de seguridad. Corren en CI con el resto de la suite.
+- **Criterio de las aserciones:** un acceso cruzado tiene que responder **"no encontrado"**, no "prohibido". Un 403 confirma que el registro existe, y eso ya es información que no le corresponde a esa clínica.
+- **Alternativas descartadas:** confiar en la revisión manual y documentarla — es lo que ya estaba, y no sobrevive al próximo handler. Un middleware que fuerce el filtro de tenant automáticamente en cada query (row-level security de Postgres, o un scope global de GORM) — más fuerte de verdad, pero es un cambio estructural grande sobre código que hoy está bien; los tests dan la red por una fracción del costo y del riesgo. Queda anotado como opción si el aislamiento llega a fallar alguna vez.
+- **Qué NO cubren:** los caminos públicos sin sesión (el wizard de turno), que tienen su propio modelo de amenaza y sus propios tests. Estos 12 son sobre el panel autenticado.
+- **Reversibilidad:** total — son tests, no tocan código de producción.
+
+## TR-130: La refactorización de los 3 archivos grandes se posterga, con condición de activación escrita
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría — el ítem 5 de la Fase B se mueve a Fase C. Ver `implementation-plan.md` §12.3 y `radiografia-tecnica_1.md` §11.
+- **De qué se trata:** `turno_publico.go` (1504 líneas), `turnos.go` (1503) y `pedir-turno-form.tsx` (1306) son incómodos de leer y de tocar. Partirlos por sub-responsabilidad estaba planificado para la Fase B.
+- **Decisión: postergarlo,** y dejarlo para la próxima radiografía.
+- **Por qué, con los tres motivos que lo definen:**
+  1. **Es el único ítem del informe que no arregla nada.** No cierra un riesgo, no destraba un límite de escala, no corrige un bug. Paga en velocidad futura de desarrollo — algo real, pero que se cobra recién cuando haya varias personas tocando esos archivos a la vez, y hoy no es el caso.
+  2. **Es por lejos el más caro:** 3 a 5 días, contra horas de la mayoría de los otros ítems.
+  3. **Es el único que puede INTRODUCIR problemas.** `turno_publico.go` concentra los 3 detectores de abuso, la detección de conflictos de identidad y la revalidación de horario dentro de la transacción — el código más delicado del sistema. Cambiar 1500 líneas de eso a cambio de cero mejora observable, mientras siguen abiertos ítems que sí atacan riesgos, es un mal negocio.
+- **La parte que hace que esto no sea simplemente patearlo:** la condición de activación queda escrita. Se hace **cuando el archivo empiece a generar conflictos de merge reales, o cuando entre alguien nuevo al proyecto y ese archivo sea su primer obstáculo.** Sin una condición concreta, "más adelante" significa "nunca" y el ítem se convierte en deuda invisible — que es exactamente lo que se busca evitar teniendo un informe.
+- **Alternativas descartadas:** hacerlo igual porque estaba planificado — planificar no es un compromiso, es una hipótesis sobre prioridades que la propia auditoría corrigió. Partir solo uno de los tres (el menos riesgoso) para "avanzar algo" — media refactorización deja el proyecto con dos convenciones conviviendo, que es peor que ninguna.
+- **Riesgo asumido:** los tres archivos siguen creciendo mientras tanto. La próxima radiografía tiene que volver a medirlos: si crecieron mucho, la condición se cumplió sola.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

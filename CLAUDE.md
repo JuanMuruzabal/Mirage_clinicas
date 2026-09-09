@@ -73,7 +73,7 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 
 - `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — el diagnóstico (primera radiografía, de ahí el `_1`), el plan de acción en Fases A/B/C, y el registro de cada ronda de arreglos.
 - `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-125. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
+- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-130. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
 
 **Fases A y B cerradas (2026-09-09).** Lo que hay que tener presente al escribir código nuevo:
 

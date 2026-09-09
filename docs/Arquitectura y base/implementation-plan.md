@@ -714,28 +714,30 @@ Documentos, en `docs/Seguridad y optimizacion/`:
 | `radiografia-tecnica_1.md` | **El diagnóstico** — primera radiografía (`_1`), módulo por módulo. Qué está bien, qué está mal, el plan de acción en 3 fases, y el registro de cada ronda de arreglos (§13 paginación, §14 deadlock, §15 revisión de la Fase A). |
 | `como-se-arreglo-cada-cosa.md` | **La guía de estudio** — el porqué de cada decisión, las alternativas descartadas, y los bugs que introdujo el propio trabajo de la auditoría. |
 
-Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-125**.
+Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-130**.
 
 ### 12.1 Fase A — riesgos inmediatos (cerrada)
 
 | Ítem | Qué se hizo | Referencia |
 |---|---|---|
 | A1 | `clientIP()` toma el **último** valor de `X-Forwarded-For`, no el primero — hallazgo #1, del que dependían el rate-limiter por IP y un detector de abuso | TR-121 |
-| A2 | Límite de 1 MiB al body entrante (`http.MaxBytesReader` en `decodeJSON`), verificado que ningún call site lo esquiva. Más `io.LimitReader` en las respuestas de `googleauth`/`turnstile` | §15 |
-| A3 | `http.Server{}` explícito con `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`/`IdleTimeout` — `middleware.Timeout` no cubre la fase de lectura de headers (Slowloris) | §15 |
+| A2 | Límite de 1 MiB al body entrante (`http.MaxBytesReader` en `decodeJSON`), verificado que ningún call site lo esquiva. Más `io.LimitReader` en las respuestas de `googleauth`/`turnstile` | TR-126 |
+| A3 | `http.Server{}` explícito con `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`/`IdleTimeout` — `middleware.Timeout` no cubre la fase de lectura de headers (Slowloris) | TR-126 |
 | A4 | El guard de arranque compara el **valor resuelto** del secreto, no si la env var existe. Reabierto y cerrado el 2026-09-09 | TR-125 |
 
 ### 12.2 Fase B — antes de sumar más funcionalidad (cerrada)
 
 | Ítem | Qué se hizo | Referencia |
 |---|---|---|
-| B1 | Índice compuesto `(user_id, role)` en `ClinicMember` — la consulta que corre en cada request autenticada. Verificado con `EXPLAIN`, no asumido | §Optimización |
+| B1 | Índice compuesto `(user_id, role)` en `ClinicMember` — la consulta que corre en cada request autenticada. Verificado con `EXPLAIN`, no asumido | TR-127 |
 | B2 | Paginación opt-in de `/turnos` y `/pacientes` + "Cargar más" en el panel | TR-122, §13 |
-| B3 | Timeout de 35s en el fetch del BFF (`lib/api.ts`) hacia la API Go | §Frontend |
+| B3 | Timeout de 35s en el fetch del BFF (`lib/api.ts`) hacia la API Go | TR-126 |
 | B4 | Logging estructurado con `log/slog`, sin loguear nunca la query string | TR-124 |
-| B5 | ~~Partir los 3 archivos grandes~~ — **movido a Fase C** el 2026-09-09 | §11 del informe |
-| B6 | 12 tests de aislamiento cross-tenant, corriendo en CI | §CRUD del panel |
+| B5 | ~~Partir los 3 archivos grandes~~ — **movido a Fase C** el 2026-09-09 | TR-130 |
+| B6 | 12 tests de aislamiento cross-tenant, corriendo en CI | TR-129 |
 | B7 | Deduplicación de pacientes migrada a `aplicarUnaVez` + reintento ante deadlock | TR-123, §14 |
+
+Además, fuera de la numeración A/B: **subida a Go 1.26 + `x/crypto` v0.57.0**, que cierra 3 de 4 CVEs conocidas (la cuarta no tiene fix upstream, y `govulncheck` confirma que no es alcanzable desde este código) — TR-128.
 
 **Redis quedó descartado para sesiones**, que era la hipótesis de partida: la búsqueda por `token_hash` usa índice único y es prácticamente constante. La consulta cara de verdad era otra (B1) y se resolvió con un índice, en una hora, sin sumar un servicio a la infraestructura. Redis vuelve en Fase C para el `IPLimiter`, y solo cuando haya más de una instancia del backend.
 
