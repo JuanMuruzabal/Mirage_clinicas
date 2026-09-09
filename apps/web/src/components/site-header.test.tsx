@@ -55,7 +55,7 @@ describe("SiteHeader", () => {
     expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dental Mirage" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "PRISMA" })).toHaveAttribute("href", "/");
   });
 
   it("con token vencido (apiMe falla), se comporta como sin sesión", async () => {
@@ -77,7 +77,7 @@ describe("SiteHeader", () => {
 
     renderConProvider(await SiteHeader());
 
-    expect(screen.getByRole("link", { name: "Dental Mirage" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "PRISMA" })).toHaveAttribute("href", "/");
   });
 
   it("con sesión, 'Cerrar sesión' NO está en el header — vive solo en /perfil (pedido explícito)", async () => {
@@ -180,7 +180,7 @@ describe("SiteHeader", () => {
         .getAllByRole("link")
         .map((el) => el.textContent);
 
-      expect(nombresDeLinks).toEqual(["Dental Mirage"]);
+      expect(nombresDeLinks).toEqual(["PRISMA"]);
       expect(within(header).getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
     });
   });

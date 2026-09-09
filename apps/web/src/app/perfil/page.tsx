@@ -4,7 +4,7 @@ import { apiListEspecialidades } from "@/lib/api";
 import { LogoutButton } from "@/components/logout-button";
 import { PerfilForm } from "./perfil-form";
 
-export const metadata: Metadata = { title: "Tu perfil — Dental Mirage" };
+export const metadata: Metadata = { title: "Tu perfil — PRISMA" };
 
 // "Tu perfil" (T1.5, extendido por docs/Login/feature-sumarte-login.md con
 // matrícula/documento/años de experiencia/bio/idiomas): datos personales +

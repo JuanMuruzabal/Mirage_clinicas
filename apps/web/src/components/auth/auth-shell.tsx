@@ -4,7 +4,7 @@ import Link from "next/link";
 // Estilos compartidos de las pantallas de auth (sumarse/ingresar/
 // recuperar-password/verificar-mail) — layout estructural adaptado de
 // auth-shell.tsx de Marcuzzi_Madryn (card centrada, labels/inputs/estados
-// de error), pero sobre los tokens YA EXISTENTES de Dental Mirage
+// de error), pero sobre los tokens YA EXISTENTES de PRISMA
 // (hueso/marfil/salvia/terracota/grafito/arena, rounded-card/rounded-field,
 // shadow-soft — nunca los tokens de Madryn ink/coral/tide, ver
 // docs/Arquitectura y base/tradeoffs.md TR-013/015). Reemplaza el `Campo`/`inputClass` que

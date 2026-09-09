@@ -32,7 +32,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dental Mirage",
+  title: "PRISMA",
   description:
     "Gestión de clínica y página pública para odontólogos de Córdoba: turnero, agenda y una página propia donde tus pacientes piden turno.",
 };

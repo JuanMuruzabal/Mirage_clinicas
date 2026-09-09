@@ -5,7 +5,7 @@ import { SiteFooter } from "./site-footer";
 describe("SiteFooter", () => {
   it("muestra el nombre de marca y los links de navegación", () => {
     render(<SiteFooter />);
-    expect(screen.getByText("Dental Mirage")).toBeInTheDocument();
+    expect(screen.getByText("PRISMA")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Buscar clínicas" })).toHaveAttribute("href", "/buscar");
     expect(screen.getByRole("link", { name: "Sumate" })).toHaveAttribute("href", "/sumarse");
     expect(screen.getByRole("link", { name: "Ingresar" })).toHaveAttribute("href", "/ingresar");
@@ -14,7 +14,7 @@ describe("SiteFooter", () => {
   it("muestra el copyright con el año actual", () => {
     render(<SiteFooter />);
     const year = new Date().getFullYear();
-    expect(screen.getByText(new RegExp(`© ${year} Dental Mirage`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`© ${year} PRISMA`))).toBeInTheDocument();
   });
 
   it("tiene fondo oscuro, no blanco (pedido explícito) — grafito, no ink (TR-015)", () => {

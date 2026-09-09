@@ -10,7 +10,7 @@ import { ConflictosPacienteBanner } from "@/components/panel/conflictos-paciente
 import { QueEsVerificadoBoton } from "@/components/panel/que-es-verificado-boton";
 import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
 
-export const metadata: Metadata = { title: "Pacientes — Dental Mirage" };
+export const metadata: Metadata = { title: "Pacientes — PRISMA" };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

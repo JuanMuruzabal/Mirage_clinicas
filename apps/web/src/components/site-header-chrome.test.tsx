@@ -121,13 +121,13 @@ describe("SiteHeaderChrome — logo", () => {
   it.each(["anonimo", "cuentaSinTerminar"] as const)("con estado=%s en /panel, el logo linkea a / siempre", (estado) => {
     usePathnameMock.mockReturnValue("/panel");
     renderHeader(estado);
-    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /PRISMA/ })).toHaveAttribute("href", "/");
   });
 
   it("con estado completo fuera de una pantalla de herramienta (Home), el logo linkea a /", () => {
     usePathnameMock.mockReturnValue("/");
     renderHeader("completo");
-    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /PRISMA/ })).toHaveAttribute("href", "/");
   });
 });
 
@@ -179,7 +179,7 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
 });
 
 // TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente, 2026-08-27):
-// "quitar de aquí el logo de Dental Mirage... solo en la página de
+// "quitar de aquí el logo de PRISMA... solo en la página de
 // /seleccionar-servicio debe ser visible el ícono para volver al home".
 // De las 4 pantallas de herramienta, solo /seleccionar-servicio conserva
 // el logo — en /panel/** (mobile) lo reemplaza la hamburguesa que abre
@@ -189,7 +189,7 @@ describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-07
   it("en /seleccionar-servicio con estado completo, el logo sigue visible (única excepción)", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
     renderHeader("completo");
-    expect(screen.getByRole("link", { name: /Dental Mirage/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /PRISMA/ })).toHaveAttribute("href", "/");
   });
 
   it.each(["/panel", "/panel/turnos", "/perfil", "/personalizar-pagina"])(
@@ -197,7 +197,7 @@ describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-07
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
       renderHeader("completo");
-      expect(screen.queryByRole("link", { name: /Dental Mirage/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /PRISMA/ })).not.toBeInTheDocument();
     },
   );
 

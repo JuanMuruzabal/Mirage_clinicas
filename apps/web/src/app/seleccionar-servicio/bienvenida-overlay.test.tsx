@@ -111,7 +111,7 @@ describe("BienvenidaOverlay", () => {
 
     await user.click(screen.getByRole("button", { name: /Clínica individual/ }));
     await user.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
-    await user.click(screen.getByRole("button", { name: "Empezar a usar Dental Mirage" }));
+    await user.click(screen.getByRole("button", { name: "Empezar a usar PRISMA" }));
 
     expect(onboardingClinicaActionMock).toHaveBeenCalledWith(
       expect.objectContaining({ tipo: "individual", nombre: "Clínica Games" }),

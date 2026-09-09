@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RecuperarPasswordForm } from "./recuperar-password-form";
 
-export const metadata: Metadata = { title: "Recuperar contraseña — Dental Mirage" };
+export const metadata: Metadata = { title: "Recuperar contraseña — PRISMA" };
 
 // Identidad cálida (TR-015 en docs/Arquitectura y base/tradeoffs.md). Sin guard de sesión — es
 // una pantalla pública, para alguien que probablemente no puede loguearse.

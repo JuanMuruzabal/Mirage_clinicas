@@ -31,7 +31,7 @@ export function BienvenidaOverlay({ me, especialidades }: BienvenidaOverlayProps
       <div className="w-full max-w-xl">
         <AuthShell
           title={paso === "perfil" ? "Creá tu perfil profesional" : "Ahora, tu clínica"}
-          subtitle="Un último paso antes de empezar a usar Dental Mirage."
+          subtitle="Un último paso antes de empezar a usar PRISMA."
           sinVolver
           ancho="xl"
           scrollInterno

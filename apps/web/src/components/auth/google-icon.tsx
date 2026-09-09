@@ -1,5 +1,5 @@
 // Logo oficial de Google (multicolor) — no se recolorea con los tokens de
-// Dental Mirage a propósito, es una marca de terceros.
+// PRISMA a propósito, es una marca de terceros.
 export function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">

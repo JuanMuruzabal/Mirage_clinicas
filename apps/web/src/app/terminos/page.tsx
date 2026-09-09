@@ -3,8 +3,8 @@ import Link from "next/link";
 import { CONTACTO_EMAIL } from "@/lib/contacto";
 
 export const metadata: Metadata = {
-  title: "Términos y condiciones — Dental Mirage",
-  description: "Términos y condiciones de uso de la plataforma Dental Mirage.",
+  title: "Términos y condiciones — PRISMA",
+  description: "Términos y condiciones de uso de la plataforma PRISMA.",
 };
 
 // Página pública de un solo segmento (/terminos) — sin esto, cae en la
@@ -30,7 +30,7 @@ export default function TerminosPage() {
 
         <div className="mt-10 flex flex-col gap-8 text-grafito/90">
           <p>
-            Estos términos regulan el uso de Dental Mirage, la plataforma que combina gestión de clínica (turnero,
+            Estos términos regulan el uso de PRISMA, la plataforma que combina gestión de clínica (turnero,
             agenda, pacientes) con una página pública para que tus pacientes pidan turno. Al crear una cuenta,
             aceptás lo siguiente.
           </p>
@@ -65,7 +65,7 @@ export default function TerminosPage() {
               3. Uso aceptable
             </h2>
             <p>
-              No uses Dental Mirage para cargar información falsa, suplantar a otro profesional o clínica, ni para
+              No uses PRISMA para cargar información falsa, suplantar a otro profesional o clínica, ni para
               fines distintos de la gestión de tu propia práctica odontológica.
             </p>
           </section>

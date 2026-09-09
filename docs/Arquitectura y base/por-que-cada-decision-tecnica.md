@@ -1,6 +1,6 @@
 # Por qué cada decisión técnica
 
-**Dental Mirage · El fundamento del stack, y qué lo haría cambiar**
+**PRISMA · El fundamento del stack, y qué lo haría cambiar**
 
 `dental-mirage-spec.md` §9.1 fija el stack como "decidido, no a evaluar" — y tiene razón para arrancar rápido, pero deja un hueco: **el porqué nunca se escribió**. Este documento lo cubre.
 

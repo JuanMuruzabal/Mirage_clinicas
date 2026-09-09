@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/panel/pacientes/[
   const token = await getSessionToken();
   const result = token ? await apiGetPaciente(token, id) : null;
   if (!result?.ok) return {};
-  return { title: `${result.data.nombre} ${result.data.apellido} — Dental Mirage` };
+  return { title: `${result.data.nombre} ${result.data.apellido} — PRISMA` };
 }
 
 function esActivo(t: Turno): boolean {

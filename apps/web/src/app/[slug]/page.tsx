@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps<"/[slug]">): Promis
   const { slug } = await params;
   const result = await apiGetClinicaPublica(slug);
   if (!result.ok) return {};
-  return { title: `${result.data.nombreClinica} — Dental Mirage` };
+  return { title: `${result.data.nombreClinica} — PRISMA` };
 }
 
 export default async function ClinicaPublicaPage({ params }: PageProps<"/[slug]">) {

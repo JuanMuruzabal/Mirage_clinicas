@@ -32,7 +32,7 @@ export function SiteFooter() {
         {/* Wordmark sin tocar tipografía (font-black uppercase) — identidad
             de marca, no de sección, mismo criterio que el header (TR-013). */}
         <p className="text-center font-[family-name:var(--font-display)] text-2xl font-black uppercase tracking-tight text-marfil">
-          Dental Mirage
+          PRISMA
         </p>
 
         <div className="my-10 border-t border-marfil/15" />
@@ -71,7 +71,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="mt-14 text-center text-xs text-marfil/50">© {year} Dental Mirage. Córdoba, Argentina.</p>
+        <p className="mt-14 text-center text-xs text-marfil/50">© {year} PRISMA. Córdoba, Argentina.</p>
       </div>
     </footer>
   );

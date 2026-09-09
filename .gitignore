@@ -1,4 +1,4 @@
-# Dental Mirage — .gitignore de la raíz del monorepo.
+# PRISMA — .gitignore de la raíz del monorepo.
 # apps/web tiene su propio .gitignore (generado por Next.js: .next/,
 # tsbuildinfo, next-env.d.ts, etc.) — acá va lo que aplica al resto del
 # repo (apps/api, tooling, entorno local).

@@ -4,7 +4,7 @@ import { getSessionToken } from "@/lib/session";
 import { hoyEnCordoba, parseFechaISOLocal, rangoVisible, type VistaCalendario } from "@/lib/calendar-utils";
 import { CalendarView } from "@/components/panel/calendar-view";
 
-export const metadata: Metadata = { title: "Calendario — Dental Mirage" };
+export const metadata: Metadata = { title: "Calendario — PRISMA" };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

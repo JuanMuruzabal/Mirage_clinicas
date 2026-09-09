@@ -45,7 +45,7 @@ export function SumarseWizard({ me }: SumarseWizardProps) {
   }
 
   return (
-    <AuthShell title="Sumate a Dental Mirage">
+    <AuthShell title="Sumate a PRISMA">
       <div className="flex flex-col gap-6">
         <Stepper pasos={PASOS_SUMARSE} actual="cuenta" />
         <CrearCuentaForm

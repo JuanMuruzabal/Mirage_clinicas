@@ -1,4 +1,4 @@
-# Plan de Implementación — Dental Mirage
+# Plan de Implementación — PRISMA
 
 > Basado en `dental-mirage-spec.md`. Cubre desde el arranque del proyecto (repo vacío) hasta el cierre del MVP (spec §2), con la Fase 2 (lo explícitamente fuera de alcance de §2) resumida como backlog.
 >
@@ -8,7 +8,7 @@
 
 ## 1. Resumen y objetivo
 
-Producir un plan accionable, ordenado por dependencias, para construir Dental Mirage: onboarding de profesional individual → selección de servicio (gestión de clínica / página pública) → módulo de gestión de clínica (calendario sin solapamientos, turnos entrantes, pacientes) → editor/deploy de página pública con plantilla fija → buscador público de clínicas — sobre el stack y arquitectura ya fijados en la spec (sección 9).
+Producir un plan accionable, ordenado por dependencias, para construir PRISMA: onboarding de profesional individual → selección de servicio (gestión de clínica / página pública) → módulo de gestión de clínica (calendario sin solapamientos, turnos entrantes, pacientes) → editor/deploy de página pública con plantilla fija → buscador público de clínicas — sobre el stack y arquitectura ya fijados en la spec (sección 9).
 
 ---
 
@@ -24,13 +24,13 @@ Producir un plan accionable, ordenado por dependencias, para construir Dental Mi
 | WhatsApp (envío inicial del formulario público) | Link `wa.me` con mensaje prellenado, generado client-side | TR-003 |
 | WhatsApp/SMS (recordatorios futuros) | Interfaz dev/prod (`internal/notificaciones`), no implementada en MVP | Spec §9.4 |
 | Storage / Email | Mismo patrón interfaz + dev (local/log) + prod (env var), aunque el MVP no tiene fotos ni emails transaccionales obligatorios — se deja el esqueleto listo si Sprint 4/5 lo necesita | Spec §9.4 |
-| Deploy | Mismo target que Marcuzzi_Madryn (a confirmar: Vercel front + Railway/Fly.io API + Neon/Supabase Postgres) | Análogo a Marcuzzi, no fijado por la spec de Dental Mirage — confirmar en Sprint 5 |
+| Deploy | Mismo target que Marcuzzi_Madryn (a confirmar: Vercel front + Railway/Fly.io API + Neon/Supabase Postgres) | Análogo a Marcuzzi, no fijado por la spec de PRISMA — confirmar en Sprint 5 |
 
 No hay Opción A/B que evaluar acá (a diferencia de Marcuzzi): el stack ya viene fijado por decisión explícita del cliente (spec §7, punto 6, "Resuelto").
 
 ### 2.1 Modelo de datos propuesto (no está en la spec — se define acá)
 
-La spec de Dental Mirage no trae una sección de ERD como la de Marcuzzi (§5). Se propone el siguiente modelo mínimo para MVP, a validar en T0.3:
+La spec de PRISMA no trae una sección de ERD como la de Marcuzzi (§5). Se propone el siguiente modelo mínimo para MVP, a validar en T0.3:
 
 - **`profesional`**: datos personales, `nombre_clinica`, `slug` (único, deriva la ruta pública `/clinica-x`), credenciales de auth.
 - **`especialidad`**: catálogo cerrado predefinido por Mirage (TR-004). `profesional_especialidad` es la tabla puente (N:M).
@@ -263,7 +263,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 
 **Ronda de CI/deploy (2026-08-24), rama `feature/ci-deployment`, pedido explícito del cliente, ✅ implementada y verificada — ver TR-020 en `docs/Arquitectura y base/tradeoffs.md`:**
 - Seis recursos en `render.yaml` (antes tres en Marcuzzi_Madryn): `dental-mirage-db`/`-api`/`-web` (prod, rama `main`) y sus tres equivalentes `-dev` (rama `dev`), cada trío con su propia base de datos, nunca compartida.
-- `apps/api/Dockerfile` y `apps/web/Dockerfile` nuevos (build en dos etapas, mismo patrón que Marcuzzi_Madryn pero sin el manejo de `NEXT_PUBLIC_*`/uploads que Dental Mirage no tiene) — `.dockerignore` en la raíz y en `apps/api/`. `docker-compose.yml` extendido con `migrate`/`api`/`web` (antes solo Postgres).
+- `apps/api/Dockerfile` y `apps/web/Dockerfile` nuevos (build en dos etapas, mismo patrón que Marcuzzi_Madryn pero sin el manejo de `NEXT_PUBLIC_*`/uploads que PRISMA no tiene) — `.dockerignore` en la raíz y en `apps/api/`. `docker-compose.yml` extendido con `migrate`/`api`/`web` (antes solo Postgres).
 - `.github/workflows/ci.yml`: corre también en push directo a `dev` (antes solo `main`); el job `deploy` se separa en `deploy-prod`/`deploy-dev`, cada uno disparando su propio par de Deploy Hooks (`RENDER_DEPLOY_HOOK_API`/`_WEB` vs. `_API_DEV`/`_WEB_DEV`) según la rama.
 - Storage de fotos (perfil de profesional, fotos de página pública — todavía sin construir): env vars de R2 reservados en `render.yaml` (`sync: false`) con la convención de key multi-tenant ya decidida (`paginas/{profesionalId}/...`, `perfiles/{profesionalId}/...`) para cuando la feature exista.
 - Verificación: los dos Dockerfiles se buildearon de verdad (`docker build`) y se corrió el stack completo (`docker compose up --build`) contra el código real — health check de la API, página `/buscar` sirviendo vía SSR contra el `api` interno por la red de Docker, y un registro real (`POST /auth/register`) contra el Postgres containerizado, los tres verdes. YAML de los tres archivos (`render.yaml`, `docker-compose.yml`, `ci.yml`) validado con un parser real (`js-yaml`), no solo a ojo.

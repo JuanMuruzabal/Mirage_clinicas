@@ -110,7 +110,7 @@ func Load() Config {
 		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
 		// Dominio real del cliente (miragesoftware.online) — con nombre de
 		// marca, Resend acepta "Nombre <mail>" en el campo `from` tal cual.
-		ResendFromEmail: getEnv("RESEND_FROM_EMAIL", "Dental Mirage <no-reply@miragesoftware.online>"),
+		ResendFromEmail: getEnv("RESEND_FROM_EMAIL", "PRISMA <no-reply@miragesoftware.online>"),
 
 		GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
