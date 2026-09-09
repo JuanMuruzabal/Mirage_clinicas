@@ -1,4 +1,4 @@
-# Dental Mirage
+# PRISMA
 
 Plataforma para odontólogos de Córdoba que combina gestión de clínica
 (turnero, agenda, pacientes) con una página pública propia donde los
