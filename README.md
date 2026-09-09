@@ -444,3 +444,72 @@ fecha) y los ítems extra de identidad/seguridad (paciente verificado "ya
 he venido antes", detección de conflictos, 3 detectores anti-abuso,
 "sacar turno para otro" con tutor) quedan implementados, aprobados por el
 cliente y mergeados a `dev`.
+
+**Primera radiografía técnica completada (2026-09-09):** con la Fase 2
+cerrada, el sistema pasó por una auditoría completa de seguridad,
+complejidad y rendimiento antes de escalar a N profesionales / N clínicas.
+No fue un trabajo de una vez: queda como **línea de trabajo recurrente**,
+con un snapshot fechado por ronda para poder comparar.
+
+Los cuatro documentos, en `docs/Seguridad y optimizacion/`:
+
+| Documento | Qué es |
+|---|---|
+| [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/snapshot-2026-09-09.md>) | **Empezá por acá.** El inventario completo de qué hace seguro y eficiente al sistema hoy — sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué agregó la auditoría. Cierra con lo que **no** está y qué lo activa |
+| [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | El diagnóstico crudo, módulo por módulo, y el registro de cada ronda de arreglos (§13 a §17) |
+| [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría |
+| [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada snapshot |
+
+Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md`
+**TR-121 a TR-132**. Plan por fases: `implementation-plan.md` §12.
+
+**Qué cambió en el sistema.** Fases A y B cerradas, y los dos ítems
+accionables de la Fase C:
+
+- **Modelo de confianza de la IP del cliente** (TR-121) — el hallazgo más
+  serio: `clientIP()` leía el primer valor de `X-Forwarded-For`, que lo
+  escribe el propio cliente. De esa función dependen el rate-limiter por IP
+  y un detector de abuso del formulario público.
+- **Techos donde no los había** (TR-126) — 1 MiB al body de cualquier
+  request, timeouts explícitos de lectura/escritura en el servidor (la fase
+  que `middleware.Timeout` no cubre), y 35 s en el fetch del BFF.
+- **Arranque seguro** (TR-125) — el proceso se niega a arrancar fuera de
+  `development` si el secreto de firma es el valor de ejemplo del repo.
+- **Los listados del panel dejan de traer la tabla entera** (TR-122) —
+  paginación opt-in con `X-Total-Count` y "Cargar más". `/panel/turnos`
+  traía **cinco** listas completas por visita: la de la pestaña activa más
+  las cuatro que se usaban solo para el contador de cada pestaña.
+- **Índice `(user_id, role)`** (TR-127) — la consulta que corre en cada
+  request autenticada y no usaba índice. Redis se evaluó para sesiones y se
+  descartó: al medir, la consulta cara era otra.
+- **Logging estructurado** (TR-124) — JSON con `request_id`/`clinic_id`/
+  status/latencia, sin loguear nunca la query string (en "Mis turnos" lleva
+  DNI y mail del paciente).
+- **Foreign keys reales** (TR-131) — de 4 constraints a 33. Destapó que
+  `profesional_id` guarda un `clinics.id` y no un `profesionales.id`, y 38
+  filas huérfanas de cuando el significado de esa columna cambió sin migrar
+  lo viejo.
+- **Guardián de migraciones destructivas** (TR-132) — una migración que
+  borra datos no corre fuera de `development` sin autorización explícita, y
+  el permiso se pide solo si de verdad hay algo que perder.
+- **Migraciones de datos separadas de las de esquema** (TR-123), con
+  reintento ante deadlock — un escenario real tanto en CI como en un deploy
+  con la instancia anterior todavía atendiendo tráfico.
+- **12 tests de aislamiento entre clínicas** (TR-129) en CI, y **Go 1.26**
+  cerrando 3 de 4 CVEs de `x/crypto` (TR-128), con `govulncheck`
+  confirmando 0 alcanzables.
+
+**Lo que queda abierto, y qué lo activa.** Tres ítems de la Fase C siguen
+bloqueados **por su propia condición**, no por falta de tiempo: migrar el
+rate-limiter por IP a Redis y ajustar el pool/PgBouncer necesitan más de
+una instancia del backend (hoy hay una), y partir los tres archivos más
+grandes quedó postergado a la próxima radiografía — es el único ítem del
+informe que no arregla nada, el más caro, y el único que puede *introducir*
+regresiones sobre el camino más delicado del sistema (TR-130).
+
+> ⚠️ **Lo único urgente: no hay sistema de backups.** La base está en el
+> plan `free` de Render a propósito mientras no haya clínicas reales — y
+> ese plan **se borra solo a los 30 días**. Subir de plan y armar backups
+> antes del primer profesional real no es opcional. Ver el snapshot,
+> sección "Lo que NO está, y por qué".
+
