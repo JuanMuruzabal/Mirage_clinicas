@@ -419,4 +419,121 @@ El identificador de Go pasó de `Config.JWTSecret` a `Config.OAuthStateSecret`, 
 
 ---
 
+## 16. Fase C (2026-09-09) — foreign keys y migraciones destructivas
+
+Dos de los cinco ítems de la Fase C. Los otros tres siguen **bloqueados por su propia condición de activación**, y eso está bien: hacerlos hoy sería trabajo sin retorno (ver §11).
+
+| Ítem | Estado |
+|---|---|
+| Foreign keys reales en el esquema | ✅ Hecho — 4 → 33 constraints |
+| Cortar las migraciones destructivas sin backup | ✅ Hecho, antes de lo previsto: era barato y el riesgo es irreversible |
+| Migrar el `IPLimiter` a Redis | ⛔ Necesita más de una instancia del backend. Hoy hay una |
+| Ajustar pool de conexiones / PgBouncer | ⛔ Se dimensiona según cuántas instancias corran |
+| Partir los 3 archivos grandes | ⛔ Postergado a la próxima radiografía (TR-130) |
+
+---
+
+### 16.1 El guardián de migraciones destructivas
+
+`migrate.go` tenía repartidos, mezclados con las migraciones de esquema inofensivas, un `DELETE FROM turnos`, cinco `DROP COLUMN` sobre `pacientes`, dos más sobre `paciente_tutores`/`turnos` y un `DROP TABLE`. Todos corriendo automáticamente en cada arranque del contenedor `migrate`, sin dejar registro y sin que nadie aprobara nada.
+
+**La regla:** una migración que destruye datos no corre fuera de `development` sin que alguien la habilite explícitamente para ESE deploy (`DB_ALLOW_DESTRUCTIVE=true`), con un mensaje que nombra la migración, el entorno, cuántos elementos destruiría y que hay que hacer backup.
+
+**El matiz que la hace sostenible:** el permiso se pide **solo si de verdad hay algo que perder**. Cada migración declara cómo contar su impacto; si da cero —base nueva, o ya migrada— se registra y se sigue de largo. Una barrera que se dispara cuando no hace falta se termina desactivando "para que el deploy pase", y ahí deja de proteger.
+
+**Bug latente que apareció al escribir los tests, no leyendo el código:** el `DELETE FROM turnos WHERE estado = 'pendiente'` estaba mal ubicado desde antes de esta fase. El check constraint vive en el tag de GORM del modelo `Turno`, así que lo aplica el AutoMigrate — sobre una base con turnos `pendiente` reales, el AutoMigrate revienta **antes** de que el DELETE tuviera ocasión de correr, y el deploy queda trabado sin salida que no sea SQL a mano. Mismo bug de orden que el de la deduplicación (§13). CI no lo veía: su base nace sin esas filas.
+
+Detalle completo en TR-132.
+
+---
+
+### 16.2 Foreign keys: 4 en todo el esquema, y las 4 automáticas
+
+El esquema tenía exactamente 4 foreign keys, todas creadas por GORM en tablas de join many2many. Las ~29 relaciones del dominio eran columnas `uuid` sueltas.
+
+#### El método, que importó más que el resultado
+
+Una FK `RESTRICT` **no puede destruir datos**: solo puede rechazar un borrado. Las únicas que destruyen son `CASCADE` y `SET NULL`. Eso permitió partir el riesgo en cinco pasos, de los cuales solo uno era peligroso:
+
+1. **Reporte de huérfanos** — contar, por relación, cuántas filas apuntan a un padre inexistente. Solo lecturas, riesgo cero.
+2. **Las 29 en RESTRICT.** Peor caso posible: una ruta de borrado empieza a fallar.
+3. **Correr la suite** y catalogar qué se rompe. Los tests recorren todas las rutas de borrado.
+4. **Decidir la semántica solo en esos casos** — resultaron ser 9 relaciones, no 29.
+5. **Un test por FK que pruebe que muerde.**
+
+Sin ese orden había que adivinar 29 semánticas de borrado a ciegas sobre historia clínica.
+
+#### Hallazgo #3 — `profesional_id` no apunta a `profesionales`
+
+**Guarda un `clinics.id`.** Se verificó empíricamente antes de escribir una sola constraint: `profesionalIDFromRequest` devuelve el `clinicID` del contexto, y el wizard público escribe `clinic.ID` en esa misma columna. La tabla `profesionales` es legacy de antes de TR-037 y está vacía.
+
+Una FK puesta por el nombre habría hecho fallar **todos los inserts**, en el panel y en el formulario público. Es el mejor argumento posible a favor de verificar en vez de leer: el nombre de la columna es la única fuente que decía otra cosa, y era la más convincente.
+
+#### Hallazgo #4 — 38 filas de un cambio de significado a mitad de proyecto
+
+El reporte encontró, en la base de desarrollo:
+
+| Relación | Huérfanos |
+|---|---|
+| `tipos_consulta.profesional_id → clinics` | 24 de 29 |
+| `pacientes.profesional_id → clinics` | 10 de 16 |
+| `paginas_publicas.profesional_id → clinics` | 3 de 4 |
+| `paciente_tutores.paciente_id → pacientes` | 1 de 8 |
+
+Todas del 22 al 24 de agosto de 2026, con 8-12 ids distintos; las sanas arrancan el 27, con exactamente 2 (las clínicas reales). Es la era pre-TR-037: **el significado de la columna cambió y esas filas nunca se migraron**. Nadie lo notó porque no había foreign keys.
+
+Eran inalcanzables (toda query del panel filtra por la clínica de la sesión) y ningún turno las referenciaba. Se limpiaron bajo el guardián de §16.1.
+
+Los **fixtures de test venían haciendo lo mismo**: creaban un `db.Profesional` y usaban su id como `profesional_id`. Los tests probaban contra una forma del esquema que la aplicación dejó de usar, y pasaban porque nada los desmentía.
+
+#### Hallazgo #5 — `conflictos_paciente` no puede llevar foreign key
+
+Es una tabla de **historial**. `resolverConflictoComoVerdadero`/`...ComoFalso` borran la ficha perdedora y conservan la fila del conflicto con `resuelto = true`: la referencia queda colgada **a propósito**. En desarrollo, 17 de 17 filas.
+
+Una FK `RESTRICT` habría roto la resolución de conflictos de plano; una `CASCADE` habría borrado el historial junto con la ficha, que es justo lo que la tabla existe para conservar. Excluida, documentada en el código y con un test propio para que nadie la "arregle" por descuido.
+
+#### Hallazgo #6 — el `ADD CONSTRAINT` idempotente no lo es en sus locks
+
+Bug propio. Tras agregar las FKs aparecieron fallos intermitentes en tests sin relación entre sí —deadlocks, 401, 404, distintos en cada corrida—. Se diagnosticó leyendo el **log del servidor de Postgres**, no adivinando:
+
+```
+Process 88084 waits for ShareRowExclusiveLock on relation 26852; blocked by process 88081.
+```
+
+El patrón `DO $$ ... EXCEPTION WHEN duplicate_object` que usa el resto de `migrate.go` es idempotente en su **resultado** pero no en sus **locks**: un `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY` toma `ShareRowExclusiveLock` sobre la tabla padre *antes* de descubrir que la constraint ya existía. Con 29 FKs sobre `clinics` y `users` —las dos tablas más ocupadas— cada corrida de migraciones bloqueaba esas tablas 29 veces mientras los tests de otro paquete insertaban filas.
+
+Fix: preguntar a `pg_constraint` si la constraint existe (un `SELECT` no toma locks pesados) y saltear el `ALTER`. De paso, la migración dejó de tardar ~29 segundos de más.
+
+#### Las semánticas de borrado
+
+- **RESTRICT** para todo lo que pertenece a una clínica. Ninguna ruta borra una clínica hoy, así que no bloquea nada; el día que se agregue, obliga a decidir explícitamente qué pasa con pacientes y turnos.
+- **CASCADE** para lo que cuelga de un usuario. `PurgeAuthGarbage` ya borraba a mano sesiones y tokens antes de borrar la cuenta —la intención estaba— pero se olvidaba del perfil profesional, sus especialidades y la membresía de clínica. Ese olvido es lo que el chequeo de huérfanos encontró en la base de test.
+- **SET NULL** para `audit_events.user_id`. Es auditoría: el registro vale justamente cuando el usuario ya no está.
+- **RESTRICT a propósito** para `clinics.owner_id` — el freno de mano, la única FK hacia `users` que no cascadea.
+
+Detalle completo, con las alternativas descartadas, en TR-131.
+
+---
+
+### 16.3 Verificación
+
+**Los tests prueban que las constraints muerden, no que existan.** Un test que consulta `pg_constraint` y confirma que la fila está pasa igual si la constraint se creó sobre la columna equivocada — que es justamente el error que casi cometimos. La única prueba que vale es intentar la operación prohibida y ver que la base la rechaza.
+
+- 6 tests de foreign keys: insert huérfano rechazado (verificando el **nombre** de la constraint que lo rechazó), insert legítimo aceptado —contrapeso obligatorio: una constraint que rechaza todo también haría pasar los negativos—, CASCADE de sesiones, SET NULL de auditoría, freno de `clinics.owner_id`, y la ausencia de FK en `conflictos_paciente`.
+- 4 tests del guardián destructivo: frena con datos reales (verificando que **no destruyó nada antes de frenar**, y que el mensaje nombra migración/entorno/backup/env var), aplica con autorización, no molesta a una base sana, y frena el borrado de turnos con una fila real.
+- Suite completa en verde **3 corridas seguidas** — los fallos eran intermitentes, una sola corrida no alcanzaba como evidencia.
+- `gofmt` y `golangci-lint` limpios.
+
+**Aplicado sobre la base de desarrollo real:**
+
+```
+antes:  16 pacientes, 29 tipos, 29 turnos,  4 FKs
+después: 6 pacientes,  5 tipos, 29 turnos, 33 FKs
+```
+
+Los **29 turnos intactos**, y smoke test del wizard público (`/clinicas/{slug}`, `/clinicas/{slug}/tipos-consulta`) respondiendo igual que antes. El único huérfano que queda es la excepción deliberada de `conflictos_paciente`.
+
+
+---
+
 *Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*

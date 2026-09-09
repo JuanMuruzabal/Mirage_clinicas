@@ -247,6 +247,11 @@ Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el si
 
 **Nota sobre `JWT_SECRET`:** en este backend **no hay ningún JWT**. La sesión es un token opaco validado contra la tabla `sessions` (TR-037) y la librería de JWT se eliminó como dependencia muerta. Esa variable de entorno conserva el nombre por herencia —renombrarla rompería deploys ya configurados— y su único uso es firmar con HMAC-SHA256 el parámetro `state` del login con Google. Del lado de Go el identificador sí dice lo que es: `Config.OAuthStateSecret`.
 
-**Fase C** no tiene fecha: cada ítem tiene una condición de activación escrita (ver `implementation-plan.md` §12.3). La refactorización de los tres archivos más grandes quedó postergada a la próxima radiografía — es el único ítem del informe que no arregla nada, el más caro, y el único que puede introducir regresiones sobre el camino más delicado del sistema.
+**Fase C (2026-09-09) — dos ítems hechos, tres bloqueados por su propia condición.**
+
+7. **Foreign keys reales en el esquema (TR-131).** De 4 constraints —las 4 creadas por GORM en tablas de join— a 33. Destapó que `profesional_id` guarda un `clinics.id` y no un `profesionales.id` (esa tabla es legacy y está vacía), y 38 filas huérfanas de cuando el significado de la columna cambió sin migrar lo viejo. `conflictos_paciente` queda **sin** foreign key a propósito: es historial, y sus referencias se cuelgan por diseño al resolver un conflicto.
+8. **Guardián de migraciones destructivas (TR-132).** Una migración que borra datos no corre fuera de `development` sin autorización explícita para ese deploy — y el permiso se pide solo si de verdad hay algo que perder, para que la barrera no se termine desactivando por molesta.
+
+Los tres restantes tienen su **condición de activación escrita** (ver `implementation-plan.md` §12.3), y hasta que se cumpla, hacerlos es trabajo sin retorno: Redis para el `IPLimiter` y el ajuste de pool/PgBouncer necesitan más de una instancia del backend (hoy hay una), y la refactorización de los tres archivos más grandes quedó postergada a la próxima radiografía — es el único ítem del informe que no arregla nada, el más caro, y el único que puede introducir regresiones sobre el camino más delicado del sistema.
 
 ---

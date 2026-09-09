@@ -14,8 +14,9 @@ Está escrito para leerse de arriba a abajo, sin necesidad de tener el código a
 2. [Fase A — los arreglos que no podían esperar](#fase-a--los-arreglos-que-no-podían-esperar)
 3. [Fase B — antes de sumar más funcionalidad](#fase-b--antes-de-sumar-más-funcionalidad)
 4. [Los tres bugs que aparecieron *mientras* se arreglaba](#los-tres-bugs-que-aparecieron-mientras-se-arreglaba)
-5. [Cómo se decidió qué NO hacer](#cómo-se-decidió-qué-no-hacer)
-6. [Cómo verificar que un arreglo de verdad arregla algo](#cómo-verificar-que-un-arreglo-de-verdad-arregla-algo)
+5. [Fase C — cuando el cambio puede destruir datos](#fase-c--cuando-el-cambio-puede-destruir-datos)
+6. [Cómo se decidió qué NO hacer](#cómo-se-decidió-qué-no-hacer)
+7. [Cómo verificar que un arreglo de verdad arregla algo](#cómo-verificar-que-un-arreglo-de-verdad-arregla-algo)
 
 ---
 
@@ -325,6 +326,114 @@ Y una confesión útil: la **primera versión de ese test no producía el deadlo
 
 ---
 
+---
+
+## Fase C — cuando el cambio puede destruir datos
+
+Las Fases A y B agregaban defensas. La Fase C toca el esquema y borra filas: si algo sale mal, no se arregla con un rollback del código. Por eso el método cambia — y el método es acá la lección, más que el resultado.
+
+### La idea que hace manejable el riesgo: separar lo que puede destruir de lo que no
+
+Al empezar a poner foreign keys, el miedo era razonable: 29 relaciones, cada una con una semántica de borrado (`RESTRICT`, `CASCADE`, `SET NULL`) que había que elegir bien. Elegir mal una `CASCADE` sobre historia clínica es pérdida de datos silenciosa.
+
+La observación que desarma el problema:
+
+> **Una foreign key `RESTRICT` no puede destruir nada. Solo puede *rechazar* un borrado.**
+
+Las únicas que destruyen son `CASCADE` (borra los hijos) y `SET NULL` (les suelta la referencia). Entonces el trabajo se parte en dos mitades muy desiguales:
+
+1. Poner **las 29 en RESTRICT**. Riesgo de pérdida de datos: **cero, por construcción**. El peor caso posible es que una ruta de borrado empiece a fallar.
+2. Correr la suite de tests, que recorre todas las rutas de borrado, y **dejar que ella diga cuáles importan**.
+
+Resultado real: de 29 relaciones, solo 9 necesitaron una semántica distinta de RESTRICT. Pasamos de "adivinar 29 decisiones peligrosas" a "decidir 9, cada una con un test que la respalda".
+
+**La idea general:** cuando un cambio grande te da miedo, buscá el subconjunto que es *demostrablemente* seguro y hacelo primero. Lo que quede es más chico, y ahora tenés información que antes no tenías.
+
+### El paso 1 costó nada y evitó dos desastres
+
+Antes de escribir una sola constraint: un reporte que cuenta, por relación, cuántas filas apuntan a un padre inexistente. Solo `SELECT`s. Encontró dos cosas que habrían roto producción:
+
+**Primero: `profesional_id` no apunta a `profesionales`.** Guarda un `clinics.id`. La tabla `profesionales` es legacy, quedó de una versión anterior del sistema, y está vacía. Una foreign key puesta por el nombre habría hecho fallar **todos los inserts** de la aplicación.
+
+Esto es lo mismo que pasó con `JWT_SECRET` en la Fase A, y por eso conviene grabárselo: **en un proyecto que evolucionó, los nombres son la fuente menos confiable que hay.** El código dice lo que hace hoy; el nombre dice lo que hacía cuando alguien lo eligió. Verificar cuesta cinco minutos.
+
+**Segundo: `conflictos_paciente` no puede llevar foreign key.** Es una tabla de historial: cuando el profesional resuelve un conflicto de identidad, el código borra la ficha perdedora y conserva la fila del conflicto como registro de lo que pasó. La referencia queda colgada **a propósito** — 17 de 17 filas.
+
+Una FK `RESTRICT` ahí habría roto la resolución de conflictos; una `CASCADE` habría borrado el historial junto con la ficha, que es justo lo que la tabla existe para conservar.
+
+**La idea general:** no toda referencia rota es un error. Una tabla de auditoría o de historial guarda *lo que pasó*, y lo que pasó incluye cosas que ya no existen. Antes de imponer integridad referencial sobre una columna, preguntá si esa columna apunta a algo vivo o a algo que ocurrió.
+
+### El hallazgo incómodo: los tests probaban un esquema que la app ya no usa
+
+Los huérfanos que encontró el reporte eran todos del 22 al 24 de agosto; las filas sanas arrancan el 27. En el medio, el significado de la columna cambió y nadie migró lo viejo. **Nadie lo notó durante dos semanas justamente porque no había foreign keys** — que es el argumento más fuerte a favor de ponerlas.
+
+Lo incómodo vino después: los propios *fixtures de test* creaban un `Profesional` y usaban su id como `profesional_id`. O sea, **los tests venían verificando contra una forma del esquema que la aplicación había dejado de usar**, y pasaban perfectamente porque no había nada que los desmintiera.
+
+**La idea general:** un test que no puede fallar no te está diciendo nada. Cuando agregás una restricción real y varios tests se caen, la lectura correcta no es "la restricción molesta" — es "estos tests venían mintiendo y recién ahora se nota".
+
+### El bug que solo se veía desde el log del servidor
+
+Con las FKs puestas, la suite empezó a fallar de forma intermitente: deadlocks, errores 401, errores 404, **distintos en cada corrida**, en tests que no tenían nada que ver con lo que habíamos tocado. Correr `internal/http` sola pasaba; correrla con las demás fallaba.
+
+La tentación acá es enorme: reintentar, subir un timeout, marcar el test como flaky. Todo eso esconde el problema. La respuesta estaba en el log de Postgres:
+
+```
+Process 88084 waits for ShareRowExclusiveLock on relation 26852; blocked by process 88081.
+```
+
+El patrón que usábamos para hacer idempotente el `ADD CONSTRAINT` —intentar y atrapar el error "ya existe"— es idempotente en su **resultado**, pero no en sus **locks**: `ALTER TABLE ... ADD CONSTRAINT` bloquea la tabla padre *antes* de descubrir que no tenía nada que hacer. Con 29 foreign keys sobre las dos tablas más ocupadas, cada corrida de migraciones las bloqueaba 29 veces mientras otro paquete de tests insertaba filas.
+
+Se arregla preguntando primero (`SELECT` sobre `pg_constraint`, que no toma locks pesados) y salteando el `ALTER`. De paso, la migración dejó de tardar medio minuto de más.
+
+**Dos ideas generales de acá:**
+
+- **"Idempotente" no es una sola propiedad.** Algo puede serlo en su resultado y no en su costo, sus locks, o sus efectos secundarios. Cuando decís "esto se puede correr muchas veces sin problema", especificá en qué sentido.
+- **Un síntoma que cambia de corrida en corrida es casi siempre contención, no un bug de la funcionalidad.** Y la contención se diagnostica del lado del servidor. El log de Postgres tenía la respuesta exacta; adivinando habría tardado horas y probablemente habría "arreglado" el síntoma.
+
+### La barrera que se usa es la que no molesta cuando no hace falta
+
+Para las migraciones destructivas la regla es: no corren fuera de desarrollo sin autorización explícita. Pero la primera versión de esa regla es inservible, y vale entender por qué.
+
+Si la barrera se dispara **siempre** que existe una migración destructiva —aunque no haya nada que destruir— entonces cada deploy pide autorización. A la tercera vez, alguien deja la variable prendida de forma permanente "para que el deploy pase", y la protección deja de existir.
+
+Por eso cada migración declara **cómo contar su propio impacto**, y el permiso se pide solo si esa cuenta da más que cero. En una base nueva —producción, por ejemplo— ninguna pide nada.
+
+**La idea general:** una medida de seguridad que interrumpe cuando no hace falta se termina desactivando. El diseño no termina cuando la protección funciona; termina cuando además es tolerable convivir con ella.
+
+### Cómo se prueba una foreign key
+
+La forma fácil es consultar `pg_constraint` y confirmar que la constraint está. **Ese test no prueba nada útil**: pasa igual si la constraint quedó sobre la columna equivocada, o apuntando a la tabla equivocada — que es exactamente el error que estuvimos a punto de cometer.
+
+La forma que vale es intentar la operación prohibida:
+
+```go
+turno := db.Turno{ProfesionalID: uuid.New() /* no existe */, ...}
+err := gdb.Create(&turno).Error
+if err == nil {
+    t.Fatal("la foreign key no está mordiendo")
+}
+if !strings.Contains(err.Error(), "fk_turnos_clinica") {
+    t.Errorf("el rechazo vino de otro lado: %v", err)
+}
+```
+
+Fijate en el segundo chequeo: no alcanza con que falle, tiene que fallar **por la constraint que creemos**. Un `NOT NULL` de otra columna también habría hecho fallar el insert.
+
+Y el contrapeso obligatorio: un test que confirme que el caso **legítimo sigue funcionando**. Una constraint que rechaza todo haría pasar los dos tests negativos. Sin ese tercer test, no sabés si pusiste una garantía o rompiste la aplicación.
+
+### Resumen de la fase
+
+| Lo que pasó | La idea que queda |
+|---|---|
+| 29 FKs daban miedo | Separá el subconjunto demostrablemente seguro y hacelo primero |
+| `profesional_id` no apunta a `profesionales` | En un proyecto que evolucionó, los nombres son la fuente menos confiable |
+| `conflictos_paciente` queda sin FK | No toda referencia rota es un error: el historial guarda lo que ya no existe |
+| Los tests probaban un esquema muerto | Un test que no puede fallar no dice nada |
+| Fallos intermitentes tras las FKs | Síntoma que cambia = contención; se diagnostica en el log del servidor |
+| El `ADD CONSTRAINT` "idempotente" | Idempotente no es una sola propiedad: aclarar en qué sentido |
+| La autorización para borrar datos | Una barrera que molesta cuando no hace falta se termina desactivando |
+| Tests de foreign key | Probá que la restricción muerde, y que el camino legítimo sigue vivo |
+
 ## Cómo se decidió qué NO hacer
 
 Tan importante como la lista de arreglos es la lista de cosas que se dejaron pasar a propósito.
@@ -404,7 +513,11 @@ Y una vuelta de tuerca: esa copia **no puede vivir en el directorio temporal del
 | Migración de una sola vez | Esquema y datos son dos clases distintas de migración |
 | Reintento por deadlock | Detectá códigos de error, nunca textos |
 | Refactor a Fase C | Escribí la condición que reactiva lo que postergás |
+| Foreign keys en RESTRICT primero | Separá el subconjunto que no puede destruir nada y hacelo antes |
+| `profesional_id` → `clinics` | En un proyecto que evolucionó, el nombre es la fuente menos confiable |
+| `conflictos_paciente` sin FK | No toda referencia rota es un error: el historial guarda lo que ya no existe |
+| Guardián de migraciones destructivas | Una barrera que molesta cuando no hace falta se termina desactivando |
 
 ---
 
-*Escrito el 2026-09-09, como cierre de las Fases A y B de la auditoría. Acompaña a `radiografia-tecnica_1.md` (el diagnóstico) y precede al snapshot periódico de seguridad y optimización.*
+*Escrito el 2026-09-09, como cierre de las Fases A, B y de los dos ítems accionables de la Fase C. Acompaña a `radiografia-tecnica_1.md` (el diagnóstico) y precede al snapshot periódico de seguridad y optimización.*
