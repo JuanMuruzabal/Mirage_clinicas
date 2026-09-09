@@ -3,7 +3,7 @@ import { apiListBloqueosSeguridad } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { SeguridadBloqueos } from "@/components/panel/seguridad-bloqueos";
 
-export const metadata: Metadata = { title: "Seguridad — Dental Mirage" };
+export const metadata: Metadata = { title: "Seguridad — PRISMA" };
 
 // /panel/seguridad (corrección de seguridad, Fase 2.4.1) — pedido
 // textual del cliente: "el apartado de auditoría de turnos de bloqueos,

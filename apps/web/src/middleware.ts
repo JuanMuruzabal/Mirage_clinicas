@@ -26,7 +26,7 @@ import type { NextRequest } from "next/server";
 // Identity Services, popup + Authorization Code — decisión #1 del plan
 // aprobado) y challenges.cloudflare.com (Turnstile, spec §7) — son los
 // dos únicos orígenes externos que esta app carga a propósito. El resto
-// del tráfico (API de Dental Mirage) pasa siempre por Server Actions
+// del tráfico (API de PRISMA) pasa siempre por Server Actions
 // same-origin (BFF, CLAUDE.md) — nunca necesita un origen externo acá.
 function buildCsp(nonce: string): string {
   return [

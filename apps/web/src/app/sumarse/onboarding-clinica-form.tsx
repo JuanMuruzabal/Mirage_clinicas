@@ -107,7 +107,7 @@ export function OnboardingClinicaForm({ onAtras }: OnboardingClinicaFormProps) {
           Atrás
         </button>
         <button type="submit" disabled={isSubmitting || !tipo} className={authSubmitClass}>
-          {isSubmitting ? "Creando clínica…" : "Empezar a usar Dental Mirage"}
+          {isSubmitting ? "Creando clínica…" : "Empezar a usar PRISMA"}
         </button>
       </div>
     </form>

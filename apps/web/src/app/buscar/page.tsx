@@ -5,7 +5,7 @@ import { ClinicSearchForm } from "@/components/clinic-search-form";
 import { ScrollReveal } from "@/components/scroll-reveal";
 
 export const metadata: Metadata = {
-  title: "Buscar clínicas — Dental Mirage",
+  title: "Buscar clínicas — PRISMA",
   description: "Encontrá tu clínica dental en Córdoba por nombre, profesional o especialidad.",
 };
 

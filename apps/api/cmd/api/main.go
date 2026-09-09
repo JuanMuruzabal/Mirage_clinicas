@@ -1,4 +1,4 @@
-// Command api arranca el backend HTTP de Dental Mirage.
+// Command api arranca el backend HTTP de PRISMA.
 package main
 
 import (

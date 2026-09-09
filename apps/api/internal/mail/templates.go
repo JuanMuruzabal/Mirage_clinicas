@@ -31,7 +31,7 @@ func renderVerificationEmail(code string) (subject, html string, err error) {
 	if err := verificationTpl.Execute(&buf, verificationData{Code: code}); err != nil {
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de verificación: %w", err)
 	}
-	return "Tu código de confirmación de Dental Mirage", buf.String(), nil
+	return "Tu código de confirmación de PRISMA", buf.String(), nil
 }
 
 // renderTurnoVerificacionEmail — Extra 2.3.5 (E5.6): "Confirmanos que sos
@@ -62,7 +62,7 @@ func renderPasswordResetEmail(resetURL string) (subject, html string, err error)
 	if err := passwordResetTpl.Execute(&buf, passwordResetData{ResetURL: resetURL}); err != nil {
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de recuperación: %w", err)
 	}
-	return "Recuperá tu contraseña de Dental Mirage", buf.String(), nil
+	return "Recuperá tu contraseña de PRISMA", buf.String(), nil
 }
 
 func renderWelcomeEmail(nombre string) (subject, html string, err error) {
@@ -70,5 +70,5 @@ func renderWelcomeEmail(nombre string) (subject, html string, err error) {
 	if err := welcomeTpl.Execute(&buf, welcomeData{Nombre: nombre}); err != nil {
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de bienvenida: %w", err)
 	}
-	return "¡Bienvenido/a a Dental Mirage!", buf.String(), nil
+	return "¡Bienvenido/a a PRISMA!", buf.String(), nil
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ConfirmarCodigoForm } from "@/components/auth/confirmar-codigo-form";
 
-export const metadata: Metadata = { title: "Confirmá tu cuenta — Dental Mirage" };
+export const metadata: Metadata = { title: "Confirmá tu cuenta — PRISMA" };
 
 interface VerificarMailPageProps {
   searchParams: Promise<{ email?: string }>;

@@ -3,7 +3,7 @@ import { apiGetPaginaPublica } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PaginaEditor } from "@/components/pagina-editor";
 
-export const metadata: Metadata = { title: "Tu página — Dental Mirage" };
+export const metadata: Metadata = { title: "Tu página — PRISMA" };
 
 // /personalizar-pagina (T4.1/T4.2, spec §5) — área propia, separada de
 // gestión de clínica (pedido explícito del cliente, 2026-08-23:

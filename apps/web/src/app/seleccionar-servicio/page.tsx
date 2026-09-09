@@ -5,7 +5,7 @@ import { NavCard } from "@/components/nav-card";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { BienvenidaOverlay } from "./bienvenida-overlay";
 
-export const metadata: Metadata = { title: "¿Qué necesitás hoy? — Dental Mirage" };
+export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" };
 
 // Pantalla de selección de servicios (02-seleccion-servicios.png, T1.4).
 // Requiere sesión y mail verificado — TR-057 en docs/Arquitectura y base/tradeoffs.md (pedido

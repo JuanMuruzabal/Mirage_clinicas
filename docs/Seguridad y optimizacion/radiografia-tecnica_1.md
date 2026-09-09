@@ -1,6 +1,6 @@
 # Radiografía técnica del sistema
 
-**Dental Mirage · Auditoría interna de ingeniería — v2, pasada completa por módulo**
+**PRISMA · Auditoría interna de ingeniería — v2, pasada completa por módulo**
 
 Complejidad, seguridad, rendimiento y qué hay que resolver antes de pasar de "una clínica probando" a "N profesionales, N clínicas, tráfico real". Segunda pasada, esta vez módulo por módulo, sin dejar nada sin mirar: los 12 paquetes de `apps/api` completos (49 archivos de producción) y los archivos más grandes/sensibles de `apps/web`. Corrige un error de la v1 (headers de seguridad) y suma el hallazgo más serio de toda la revisión.
 

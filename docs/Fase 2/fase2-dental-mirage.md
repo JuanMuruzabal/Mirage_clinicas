@@ -1,4 +1,4 @@
-# Fase 2 — Dental Mirage
+# Fase 2 — PRISMA
 
 ## Contexto
 

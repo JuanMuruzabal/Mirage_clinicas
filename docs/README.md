@@ -9,6 +9,7 @@ Mapa rápido de qué es cada documento y dónde vive, y si sigue vigente. `CLAUD
 | [`dental-mirage-spec.md`](<Arquitectura y base/dental-mirage-spec.md>) | Especificación funcional completa del producto. |
 | [`implementation-plan.md`](<Arquitectura y base/implementation-plan.md>) | Plan de implementación fase por fase, sprint por sprint, con criterios de aceptación. |
 | [`tradeoffs.md`](<Arquitectura y base/tradeoffs.md>) | Decisión por decisión: qué se eligió, qué alternativas se descartaron y por qué (TR-001 en adelante). El documento más largo y el que hay que leer para entender el "por qué" de cualquier cosa no obvia en el código. |
+| [`por-que-cada-decision-tecnica.md`](<Arquitectura y base/por-que-cada-decision-tecnica.md>) | El fundamento del **stack**, que la spec da por decidido sin explicar: por qué PostgreSQL y no MySQL/InnoDB, Go y no Node/Python, Render y no Cloudflare/Kubernetes, sesiones en base y no JWT ni Redis. Cada una con la alternativa contra la que se comparó, qué se sacrifica, y **la condición concreta que la haría cambiar**. `tradeoffs.md` cubre las decisiones de producto; este, las de plataforma, que están debajo de todas ellas. |
 
 ## `Fase 2/` — briefs originales del cliente y su especificación técnica
 

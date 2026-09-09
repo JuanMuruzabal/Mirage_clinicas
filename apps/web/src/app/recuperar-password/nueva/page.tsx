@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { NuevaPasswordForm } from "./nueva-password-form";
 
-export const metadata: Metadata = { title: "Nueva contraseña — Dental Mirage" };
+export const metadata: Metadata = { title: "Nueva contraseña — PRISMA" };
 
 interface NuevaPasswordPageProps {
   searchParams: Promise<{ token?: string }>;

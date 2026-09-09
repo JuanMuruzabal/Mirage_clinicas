@@ -1,6 +1,6 @@
 # Cómo se arregló cada cosa, y por qué
 
-**Dental Mirage · Guía de estudio de la auditoría de seguridad y optimización**
+**PRISMA · Guía de estudio de la auditoría de seguridad y optimización**
 
 Este documento acompaña a `radiografia-tecnica_1.md`. La radiografía dice **qué** estaba mal y **qué** se hizo; este explica **por qué se hizo así y no de otra forma**, qué alternativa se descartó en cada caso, y qué idea general queda para aplicar en otro proyecto.
 

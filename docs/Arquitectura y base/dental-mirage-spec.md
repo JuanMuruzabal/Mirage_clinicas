@@ -1,4 +1,4 @@
-# Dental Mirage — Especificación de Producto (MVP)
+# PRISMA — Especificación de Producto (MVP)
 
 > Documento organizado a partir del brief original, para ser analizado con `/proyect-planning` y `/frontend-design`.
 > Imágenes de referencia en `mockups/` (`01-home.png` a `05-editor-pagina.png`).
@@ -8,7 +8,7 @@
 
 ## 1. Visión general
 
-Dental Mirage es una plataforma para odontólogos de la provincia de Córdoba que combina dos servicios en una sola cuenta:
+PRISMA es una plataforma para odontólogos de la provincia de Córdoba que combina dos servicios en una sola cuenta:
 
 1. **Gestión de clínica**: turnero, pacientes, agenda.
 2. **Página web propia**: sitio público personalizable donde los pacientes piden turno.
@@ -154,7 +154,9 @@ Estos puntos aparecían implícitos o sin resolver en el brief original y convie
 
 ## 9. Stack técnico y modo de trabajo
 
-Se reutiliza sin cambios el modo de trabajo ya validado en Turismo Marcuzzi (documentado en detalle en `playbook-clinica-dental.md`, mismo directorio). No es "a evaluar": es la base decidida para arrancar. Resumen aplicado a Dental Mirage:
+Se reutiliza sin cambios el modo de trabajo ya validado en Turismo Marcuzzi (documentado en detalle en `playbook-clinica-dental.md`, mismo directorio). No es "a evaluar": es la base decidida para arrancar. Resumen aplicado a PRISMA:
+
+> **El fundamento técnico de cada elección** —contra qué alternativa se comparó, qué se sacrifica y qué la haría cambiar— está en [`por-que-cada-decision-tecnica.md`](por-que-cada-decision-tecnica.md), escrito el 2026-09-09. Esta sección fija **qué** se usa; ese documento explica **por qué**.
 
 ### 9.1 Stack
 - **Backend:** Go + chi + GORM, servicio independiente (`apps/api`).
@@ -202,7 +204,7 @@ Verificar contra el pipeline completo antes de cada commit (lint + typecheck + b
 
 | Archivo | Contenido |
 |---|---|
-| `01-home.png` | Home pública de Dental Mirage |
+| `01-home.png` | Home pública de PRISMA |
 | `02-seleccion-servicios.png` | Pantalla "¿Qué necesitás hoy?" (selección de servicio) |
 | `03-calendario.png` | Referencia de calendario/turnero |
 | `04-turnos-pacientes-referencia.png` | Referencia de formato tabla (proyecto Marcuzzi_Madryn) para Turnos y Pacientes |

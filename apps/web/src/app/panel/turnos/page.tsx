@@ -9,7 +9,7 @@ import { TurnosFiltros } from "@/components/panel/turnos-filtros";
 import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
 import { TURNOS_POR_PAGINA } from "@/lib/paginacion";
 
-export const metadata: Metadata = { title: "Turnos — Dental Mirage" };
+export const metadata: Metadata = { title: "Turnos — PRISMA" };
 
 // "Resueltos" (pedido explícito del cliente, 2026-08-23) separa, dentro de
 // lo que antes era una sola bolsa "Confirmadas", los turnos cuya hora de

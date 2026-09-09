@@ -15,7 +15,7 @@ import { AbrirConfiguracionBoton } from "@/components/panel/abrir-configuracion-
 import { VerTextoBoton } from "@/components/ver-texto-boton";
 import { textoEsLargo } from "@/lib/texto-largo";
 
-export const metadata: Metadata = { title: "General — Dental Mirage" };
+export const metadata: Metadata = { title: "General — PRISMA" };
 
 // Dashboard "Turnero" (F2.3 extra ítem 1 — rediseño completo,
 // docs/Arquitectura y base/implementation-plan.md §11.5, brief en

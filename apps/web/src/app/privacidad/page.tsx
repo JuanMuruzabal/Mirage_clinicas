@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { CONTACTO_EMAIL } from "@/lib/contacto";
 
 export const metadata: Metadata = {
-  title: "Política de privacidad — Dental Mirage",
-  description: "Cómo Dental Mirage recolecta, usa y protege tus datos personales.",
+  title: "Política de privacidad — PRISMA",
+  description: "Cómo PRISMA recolecta, usa y protege tus datos personales.",
 };
 
 // Ver el comentario de app/terminos/page.tsx — mismo bug (TR-050 en
@@ -22,7 +22,7 @@ export default function PrivacidadPage() {
 
         <div className="mt-10 flex flex-col gap-8 text-grafito/90">
           <p>
-            En Dental Mirage tratamos tus datos personales conforme a la Ley 25.326 de Protección de Datos
+            En PRISMA tratamos tus datos personales conforme a la Ley 25.326 de Protección de Datos
             Personales (Argentina). Esta política explica qué datos recolectamos, para qué los usamos y qué derechos
             tenés sobre ellos.
           </p>

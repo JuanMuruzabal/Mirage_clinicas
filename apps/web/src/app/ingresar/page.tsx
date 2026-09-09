@@ -3,7 +3,7 @@ import { getMe, redirectSiEmailVerificado } from "@/lib/session";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Ingresar — Dental Mirage" };
+export const metadata: Metadata = { title: "Ingresar — PRISMA" };
 
 // Identidad cálida (TR-015 en docs/Arquitectura y base/tradeoffs.md). Con sesión y mail ya
 // verificado, no tiene sentido mostrar el form de login — se manda

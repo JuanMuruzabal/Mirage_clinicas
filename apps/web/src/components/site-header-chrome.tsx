@@ -79,7 +79,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const mostrarAccesosAnonimos = estado === "anonimo";
 
   // TR-075 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido explícito del
-  // cliente: "quitar de aquí el logo de Dental Mirage que te lleva a la
+  // cliente: "quitar de aquí el logo de PRISMA que te lleva a la
   // home... solo en la página de /seleccionar-servicio debe ser visible
   // el ícono para volver al home"). De las 4 pantallas de herramienta
   // (`esHerramienta` de arriba), solo /seleccionar-servicio conserva
@@ -183,7 +183,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
             <Link href="/" className="flex items-center gap-2 text-current" onClick={closeMenu}>
               <QuadrantMark className="text-steel" />
               <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
-                Dental Mirage
+                PRISMA
               </span>
             </Link>
           )}
