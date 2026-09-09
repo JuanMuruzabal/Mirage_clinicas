@@ -73,7 +73,7 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 
 - `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — el diagnóstico (primera radiografía, de ahí el `_1`), el plan de acción en Fases A/B/C, y el registro de cada ronda de arreglos.
 - `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-130. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
+- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
 
 **Fases A y B cerradas (2026-09-09).** Lo que hay que tener presente al escribir código nuevo:
 
@@ -84,7 +84,14 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 - **Las migraciones de DATOS van en `aplicarUnaVez`** (`internal/db/migrate_una_vez.go`, TR-123), no en el bloque idempotente de `migrate.go`. `RunMigrations` reintenta ante deadlock (SQLSTATE 40P01).
 - **`JWT_SECRET` no tiene nada que ver con JWT** (TR-125): acá no hay ningún JWT ni la librería. Es el nombre heredado de la env var que firma con HMAC el `state` de OAuth de Google; del lado de Go se llama `Config.OAuthStateSecret`. El proceso no arranca fuera de `development` si su valor resuelto es el de ejemplo del repo.
 
-**Fase C** no tiene fecha: cada ítem tiene una condición de activación escrita (`implementation-plan.md` §12.3). La refactorización de `turno_publico.go`/`turnos.go`/`pedir-turno-form.tsx` quedó postergada a la próxima radiografía — no refactorizar eso "de paso" sin pedido explícito.
+**Fase C — lo que ya está aplicado (2026-09-09):**
+
+- **El esquema tiene foreign keys reales** (TR-131): 33 constraints. Dos cosas que hay que saber antes de tocar el modelo de datos:
+  - **`profesional_id` guarda un `clinics.id`, NO un `profesionales.id`.** La tabla `profesionales` es legacy de antes de TR-037 y está vacía. Las constraints se llaman por la relación real (`fk_pacientes_clinica`).
+  - **`conflictos_paciente` no lleva foreign key a propósito** — es historial, sus referencias quedan colgadas cuando se resuelve un conflicto. Hay un test que lo protege; no "arreglarlo".
+- **Una migración que borra datos va en `migracionesDestructivasPrevias/Posteriores`** (`internal/db/migrate_destructiva.go`, TR-132), nunca suelta en el loop de `statements`. Declara cómo contar su impacto; fuera de `development` no corre sin `DB_ALLOW_DESTRUCTIVE=true`. Si el AutoMigrate falla cuando ella no corrió antes (un check constraint del tag de GORM, por ejemplo), va en el grupo PREVIO.
+
+**Fase C — lo que sigue pendiente,** y no tiene fecha: cada ítem tiene una condición de activación escrita (`implementation-plan.md` §12.3). La refactorización de `turno_publico.go`/`turnos.go`/`pedir-turno-form.tsx` quedó postergada a la próxima radiografía — no refactorizar eso "de paso" sin pedido explícito.
 
 ## Flujo de ramas
 

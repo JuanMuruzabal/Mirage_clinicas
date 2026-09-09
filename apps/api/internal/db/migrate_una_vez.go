@@ -22,24 +22,35 @@ import (
 // ya corrió.
 const migracionDedupPacientesDNI = "dedup_pacientes_por_dni"
 
-// aplicarUnaVez corre fn solo si nombre no está registrado todavía en
-// migraciones_una_vez, y registra el nombre en la MISMA transacción que el
-// trabajo — o pasan las dos cosas, o ninguna. Si fn falla, no queda
-// registrado y el próximo arranque lo vuelve a intentar.
-//
-// Corre dentro de RunMigrations, que ya tomó el advisory lock (ver el
-// comentario grande ahí) — no hace falta un lock propio: dos procesos
-// arrancando a la vez ya están serializados desde afuera.
-func aplicarUnaVez(gdb *gorm.DB, nombre string, fn func(tx *gorm.DB) error) error {
+// migracionYaAplicada consulta la tabla de control. Separada de
+// registrarMigracion para que el guardián de las migraciones destructivas
+// (migrate_destructiva.go) pueda preguntar sin aplicar nada.
+func migracionYaAplicada(gdb *gorm.DB, nombre string) (bool, error) {
+	// La tabla existe siempre en este punto: runMigrationsLocked la crea
+	// como primer paso, ANTES de cualquier migración destructiva (ver el
+	// comentario grande ahí). No se intenta recuperarse de que falte, y es
+	// deliberado: todo esto corre dentro de una transacción, donde
+	// cualquier error de Postgres la aborta entera — atraparlo del lado de
+	// Go no la devuelve a la vida, todo lo que siga falla con 25P02
+	// ("current transaction is aborted"). Bug real, encontrado por
+	// migrate_destructiva_test.go al crear una base desde cero.
 	var ya MigracionUnaVez
 	err := gdb.Where("nombre = ?", nombre).First(&ya).Error
 	if err == nil {
-		return nil // ya se aplicó en un arranque anterior
+		return true, nil
 	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("no se pudo consultar migraciones_una_vez (%s): %w", nombre, err)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
 	}
+	return false, fmt.Errorf("no se pudo consultar migraciones_una_vez (%s): %w", nombre, err)
+}
 
+// registrarMigracion corre fn y anota el nombre en la MISMA transacción —
+// o pasan las dos cosas, o ninguna. Ese detalle es todo el diseño: un
+// registro hecho aparte dejaría la migración marcada como aplicada sin
+// haberlo estado si fn falla a mitad de camino. Si fn falla, no queda
+// registrada y el próximo arranque la vuelve a intentar.
+func registrarMigracion(gdb *gorm.DB, nombre string, fn func(tx *gorm.DB) error) error {
 	return gdb.Transaction(func(tx *gorm.DB) error {
 		if err := fn(tx); err != nil {
 			return fmt.Errorf("migración de una vez %q falló: %w", nombre, err)

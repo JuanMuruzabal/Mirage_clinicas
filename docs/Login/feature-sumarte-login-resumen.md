@@ -27,7 +27,8 @@ Documentadas en detalle en `apps/api/.env.example` y `apps/web/.env.example`. Re
 
 | Variable | Obligatoria | Efecto si falta |
 |---|---|---|
-| `APP_BASE_URL` | Sí (para links de mail correctos) | Los links de verificación/reset quedan mal armados |
+| `APP_BASE_URL` | Sí (para links de mail correctos) | Los links de verificación/reset quedan mal armados |
+| `JWT_SECRET` | **Sí fuera de `development`** | El proceso **no arranca** (ver la nota abajo) |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | No | Mails solo se loguean (`LogSender`), nunca se envían de verdad |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | El login con Google responde 501 (no configurado) |
 | `GOOGLE_REDIRECT_URI` | No (default `postmessage`) | — |
@@ -42,7 +43,11 @@ Documentadas en detalle en `apps/api/.env.example` y `apps/web/.env.example`. Re
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | No | El botón de Google no se renderiza |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | No | El widget de CAPTCHA no se renderiza |
 
-Ninguna es obligatoria para levantar el proyecto en dev — todo el diseño es nil-safe por dependencia (mismo patrón dev/prod de siempre, spec §9.4 de CLAUDE.md): sin configurar nada, el flujo nativo (registro/login/reset por mail) funciona completo con mails yendo al log.
+Ninguna es obligatoria para levantar el proyecto en dev — todo el diseño es nil-safe por dependencia (mismo patrón dev/prod de siempre, spec §9.4 de CLAUDE.md): sin configurar nada, el flujo nativo (registro/login/reset por mail) funciona completo con mails yendo al log.
+
+> **Sobre `JWT_SECRET` (agregado 2026-09-09, auditoría Fase A — TR-125).** Pese al nombre, **en este backend no hay ningún JWT**: la sesión es un token opaco validado contra la tabla `sessions` (TR-037) y la librería de JWT se eliminó como dependencia muerta. Esa variable firma con HMAC-SHA256 el parámetro `state` del login con Google (`internal/http/oauthstate.go`), y nada más — el nombre quedó de antes de TR-037 y no se renombra para no romper deploys ya configurados. Del lado de Go el campo se llama `Config.OAuthStateSecret`.
+>
+> En `development` puede faltar (cae a un valor de ejemplo que está publicado en el repo). **Fuera de `development` el proceso se niega a arrancar** si su valor resuelto es ese — incluida la variable puesta pero vacía o con solo espacios, que es el error humano más plausible: borrar el contenido del campo en el dashboard en vez de borrar la fila entera.
 
 ## 3. Qué quedó preparado para invitaciones (fuera de alcance del MVP, spec §9)
 

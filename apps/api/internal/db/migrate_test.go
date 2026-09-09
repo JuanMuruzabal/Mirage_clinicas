@@ -110,17 +110,22 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	gdb := testdb.Shared(t)
 
 	dni := "459" + uuid.NewString()[:5]
-	profesional := db.Profesional{
-		Nombre: "Profesional de prueba", Email: uuid.NewString() + "@example.com",
-		PasswordHash: "hash-de-prueba", NombreClinica: "Clínica de prueba", Slug: uuid.NewString(),
+	// `profesional_id` guarda un clinics.id — ver migrate_fk.go.
+	owner := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&owner).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario dueño: %v", err)
+	}
+	profesional := db.Clinic{
+		Nombre: "Clínica de prueba", Tipo: "individual", Slug: uuid.NewString(), OwnerID: owner.ID,
 	}
 	if err := gdb.Create(&profesional).Error; err != nil {
-		t.Fatalf("no se pudo crear el profesional de prueba: %v", err)
+		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
 	}
 	t.Cleanup(func() {
 		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Turno{})
 		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Paciente{})
 		gdb.Unscoped().Delete(&profesional)
+		gdb.Unscoped().Delete(&owner)
 	})
 
 	telVerificada := "+5493511111111"
@@ -204,19 +209,35 @@ func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 // crearProfesionalDePrueba inserta un Profesional mínimo (los tests de
 // turnos solo necesitan un profesional_id válido para el exclusion
 // constraint, no un flujo de registro completo).
+// crearProfesionalDePrueba devuelve el id que va en la columna
+// `profesional_id` de turnos/pacientes/tipos_consulta — que, pese al
+// nombre, es un `clinics.id` (ver la explicación en migrate_fk.go).
+//
+// Hasta la Fase C de la auditoría este helper creaba un `db.Profesional`,
+// la tabla legacy de antes de TR-037, y devolvía SU id: los tests venían
+// escribiendo en `profesional_id` algo que la aplicación real nunca
+// escribe. Pasaban porque no había ninguna foreign key que lo
+// desmintiera. Lo destapó `fk_turnos_clinica` al agregarse, con el mismo
+// diagnóstico que las 38 filas huérfanas que aparecieron en la base de
+// desarrollo: el significado de la columna cambió a mitad del proyecto y
+// quedaron cosas atrás.
 func crearProfesionalDePrueba(t *testing.T, gdb *gorm.DB) uuid.UUID {
 	t.Helper()
-	p := db.Profesional{
-		Nombre:        "Profesional de prueba",
-		Email:         uuid.NewString() + "@example.com",
-		PasswordHash:  "hash-de-prueba",
-		NombreClinica: "Clínica de prueba",
-		Slug:          uuid.NewString(),
+	// La clínica necesita un dueño real: fk_clinics_owner apunta a users.
+	owner := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&owner).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario dueño de la clínica: %v", err)
 	}
-	if err := gdb.Create(&p).Error; err != nil {
-		t.Fatalf("no se pudo crear el profesional de prueba: %v", err)
+	clinica := db.Clinic{
+		Nombre:  "Clínica de prueba",
+		Tipo:    "individual",
+		Slug:    uuid.NewString(),
+		OwnerID: owner.ID,
 	}
-	return p.ID
+	if err := gdb.Create(&clinica).Error; err != nil {
+		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
+	}
+	return clinica.ID
 }
 
 // turnoAgendadoDePrueba arma un Turno ya `agendado` (con horario fijo,

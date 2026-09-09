@@ -1712,4 +1712,68 @@
 
 ---
 
+## TR-131: Foreign keys reales en el esquema, y la trampa de nombres que casi las rompe
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría de seguridad y optimización, Fase C ítem 2. Ver `radiografia-tecnica_1.md` §16 y `como-se-arreglo-cada-cosa.md`.
+- **Punto de partida:** el esquema tenía exactamente **4 foreign keys**, y las 4 las creaba GORM sola en tablas de join many2many. Las ~29 relaciones del dominio (`turnos.profesional_id`, `pacientes.profesional_id`, `turnos.paciente_id`…) eran columnas `uuid` sueltas, sin ninguna garantía de apuntar a algo que existiera.
+
+### El método, que fue más importante que el resultado
+
+Una FK `RESTRICT` **no puede destruir datos**: solo puede rechazar un borrado. Las únicas que destruyen son `CASCADE` y `SET NULL`. Eso permitió partir el riesgo en dos: (1) reporte de huérfanos —solo lecturas, riesgo cero—, (2) agregar las 29 en RESTRICT, (3) correr la suite y dejar que los tests dijeran cuáles rutas de borrado se rompían, (4) decidir la semántica solo en esos pocos casos, (5) un test por FK que pruebe que muerde. Sin ese orden, había que adivinar 29 semánticas de borrado a ciegas sobre historia clínica.
+
+### Hallazgo 1 — `profesional_id` no apunta a `profesionales`
+
+**Guarda un `clinics.id`.** Verificado empíricamente antes de escribir una sola constraint: `profesionalIDFromRequest` devuelve el `clinicID` del contexto, y el wizard público escribe `clinic.ID` en esa misma columna. La tabla `profesionales` es legacy de antes de TR-037 y está **vacía**.
+
+Una FK puesta por el nombre (`profesional_id → profesionales(id)`) habría hecho fallar **todos los inserts**, en el panel y en el formulario público. La columna no se renombra acá —toca decenas de queries y merece su propio cambio—, pero las constraints se llaman por lo que la relación ES (`fk_pacientes_clinica`), así que el esquema dice la verdad aunque la columna no.
+
+### Hallazgo 2 — 38 filas huérfanas de un cambio de significado a mitad de proyecto
+
+El reporte de huérfanos encontró, en la base de desarrollo, 24 de 29 `tipos_consulta`, 10 de 16 `pacientes` y 3 de 4 `paginas_publicas` apuntando a clínicas inexistentes. Todas del 22 al 24 de agosto de 2026, con 8-12 ids distintos; las sanas arrancan el 27, con exactamente 2 (las clínicas reales). Es la era pre-TR-037. **El significado de la columna cambió y esas filas nunca se migraron — nadie lo notó justamente porque no había foreign keys.**
+
+Eran inalcanzables (toda query del panel filtra por la clínica de la sesión) y ningún turno las referenciaba. Se limpian con `limpiar_filas_legacy_sin_clinica`, bajo el guardián de migraciones destructivas de TR-132.
+
+Los mismos fixtures de test venían escribiendo un `profesionales.id` en `profesional_id`: **los tests probaban contra una forma del esquema que la aplicación dejó de usar**, y pasaban porque nada lo desmentía. Lo destapó `fk_turnos_clinica` al agregarse.
+
+### Hallazgo 3 — `conflictos_paciente` NO lleva foreign key (excepción deliberada)
+
+Es una tabla de **historial**: `resolverConflictoComoVerdadero`/`...ComoFalso` borran la ficha perdedora y conservan la fila del conflicto con `resuelto = true`. La referencia queda colgada **a propósito** — 17 de 17 filas en desarrollo. Una FK `RESTRICT` habría roto la resolución de conflictos de plano; una `CASCADE` habría borrado el historial junto con la ficha, que es justo lo que la tabla existe para conservar. Excluida, documentada en el código y con un test propio (`TestFK_ConflictosPacienteSigueSinForeignKey`) para que nadie la "arregle" por descuido.
+
+### Las semánticas de borrado, y por qué cada una
+
+- **RESTRICT (la mayoría)** para todo lo que pertenece a una clínica. Ninguna ruta actual borra una clínica, así que no bloquea nada existente; el día que se agregue esa funcionalidad, obliga a decidir explícitamente qué pasa con pacientes y turnos.
+- **CASCADE** para lo que cuelga de un usuario (`sessions`, `verification_tokens`, `accounts`, `professional_profiles`, `professional_especialidades`, `clinic_members`, `clinic_invitations`). `PurgeAuthGarbage` ya borraba a mano sesiones y tokens antes de borrar la cuenta —la intención ya estaba— pero se olvidaba del resto, y ese olvido es lo que el chequeo de huérfanos encontró en la base de test. CASCADE completa la intención sin tocar código ya verificado.
+- **SET NULL** para `audit_events.user_id`. Es auditoría: el registro vale justamente cuando el usuario ya no está.
+- **RESTRICT a propósito** para `clinics.owner_id` — el freno de mano. Es la única FK hacia `users` que no cascadea, y evita que un borrado de cuenta se lleve puestos los datos clínicos por el camino.
+- **`turnos.tipo_consulta_id` en RESTRICT** calca lo que el código ya hace: `eliminarTipoConsultaHandler` responde 409 si hay turnos asociados.
+
+### Hallazgo 4 — el `ADD CONSTRAINT` idempotente no es idempotente en sus LOCKS
+
+Bug propio, diagnosticado leyendo el log del servidor de Postgres tras ver fallos intermitentes en tests sin relación (deadlocks, 401, 404, distintos en cada corrida).
+
+El patrón `DO $$ ... EXCEPTION WHEN duplicate_object` que usa el resto de `migrate.go` es idempotente en su RESULTADO pero no en sus locks: un `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY` toma `ShareRowExclusiveLock` sobre la tabla PADRE **antes** de descubrir que la constraint ya existía. Con 29 FK sobre `clinics` y `users` —las dos tablas más ocupadas—, cada corrida de migraciones bloqueaba esas tablas 29 veces mientras los tests de otro paquete insertaban filas.
+
+Fix: preguntar a `pg_constraint` si la constraint existe (un SELECT no toma locks pesados) y saltear el ALTER. De paso, la migración dejó de tardar ~29 segundos de más.
+
+- **Alternativas descartadas:** `ADD CONSTRAINT ... NOT VALID` + `VALIDATE CONSTRAINT` aparte — evita el lock exclusivo largo y es lo correcto con tablas grandes, pero con el volumen actual no cambia nada y agrega un estado intermedio ("constraint existe pero no validada") que hay que recordar. Queda anotado para cuando el volumen lo pida. Dar a cada paquete de test su propia base para eliminar la contención — arregla el síntoma sin arreglar el ALTER innecesario, y multiplica el tiempo de migración por la cantidad de paquetes.
+- **Qué se sacrifica:** el nombre `profesional_id` sigue mintiendo; las constraints lo compensan pero no lo arreglan. Y `conflictos_paciente` queda sin garantía de integridad, a conciencia.
+- **Reversibilidad:** alta — `ALTER TABLE ... DROP CONSTRAINT` por cada una. Lo irreversible es la limpieza de las 38 filas, que va por el guardián de TR-132.
+- **Verificación:** 6 tests que prueban que las constraints MUERDEN (insert huérfano rechazado por nombre de constraint, insert legítimo aceptado, CASCADE de sesiones, SET NULL de auditoría, freno de `clinics.owner_id`, y la ausencia de FK en `conflictos_paciente`) — no que existan en `pg_constraint`, que pasaría igual con la constraint puesta sobre la columna equivocada. Suite completa en verde en 3 corridas seguidas (los fallos eran intermitentes). Aplicado sobre la base de desarrollo real: 4 → 33 foreign keys, 38 filas legacy borradas, **29 turnos intactos**, y smoke test del wizard público (`/clinicas/{slug}`, `/clinicas/{slug}/tipos-consulta`) respondiendo igual que antes.
+
+## TR-132: Guardián de migraciones destructivas — el permiso se pide solo si hay algo que perder
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría, Fase C ítem 1. Ver `radiografia-tecnica_1.md` §16.
+- **El problema:** `migrate.go` tenía repartidos, mezclados con las migraciones de esquema inofensivas, un `DELETE FROM turnos`, cinco `DROP COLUMN` sobre `pacientes`, dos más sobre `paciente_tutores`/`turnos` y un `DROP TABLE`. Todos corriendo automáticamente en cada arranque del contenedor `migrate`, sin dejar registro y sin que nadie aprobara nada. Sin producción todavía era tolerable; con datos de una clínica adentro no: un `DROP COLUMN IF EXISTS` no avisa, no falla y no se deshace.
+- **Decisión:** una migración que destruye datos no corre fuera de `development` sin que alguien la habilite explícitamente para ESE deploy (`DB_ALLOW_DESTRUCTIVE=true`), con un mensaje que nombra la migración, el entorno, cuántos elementos destruiría y que hay que hacer backup antes.
+- **El matiz que la hace sostenible:** el permiso se pide **solo si de verdad hay algo que perder**. Cada migración declara cómo contar su impacto; si da cero —base nueva, o ya migrada— se registra y se sigue de largo. Una barrera que se dispara cuando no hace falta se termina desactivando "para que el deploy pase", y ahí deja de proteger. En producción, donde el esquema nace limpio, ninguna de estas migraciones pide nada.
+- **La política se resuelve UNA vez**, en `cmd/migrate/main.go`, desde la Config ya cargada — nunca leyendo variables de entorno desde `internal/db`. Es la lección de TR-125: dos lugares decidiendo "¿estamos en producción?" por su cuenta terminan discrepando, y el hueco entre los dos es donde vive el bug.
+- **Bug latente que apareció al escribir los tests, no leyendo el código:** el `DELETE FROM turnos WHERE estado = 'pendiente'` estaba MAL UBICADO desde antes de esta fase. El check constraint `estado IN ('agendado','cancelada')` vive en el tag de GORM del modelo `Turno`, así que lo aplica el AutoMigrate: sobre una base con turnos `pendiente` reales, el AutoMigrate revienta con "check constraint is violated by some row" ANTES de que el DELETE tuviera ocasión de correr — el deploy muere ahí y no se sale sin SQL a mano. Mismo bug de orden que el de la deduplicación (TR-123). CI no lo veía: su base nace sin filas `pendiente`. De ahí que las migraciones destructivas se separen en dos grupos, previas y posteriores al AutoMigrate — no es organización, es una restricción real.
+- **Dos errores propios que los tests atajaron:** (1) atrapar el 42P01 ("tabla no existe") del lado de Go no sirve dentro de una transacción, porque cualquier error de Postgres la aborta entera y todo lo que sigue falla con 25P02 — se pregunta con `to_regclass`, que devuelve NULL en vez de fallar, y la tabla de control pasa a crearse como primer paso de todo; (2) con 0 afectados igual se llamaba a `Aplicar`, que sobre una base recién creada intentaba un DELETE contra una tabla inexistente — ahora `Afectados == 0` significa "no hay nada que hacer" y queda escrito como contrato en el tipo.
+- **Alternativas descartadas:** exigir un backup verificado antes de cualquier migración destructiva — no hay sistema de backups todavía, y una barrera que no se puede satisfacer se saltea. Prohibirlas del todo fuera de development — deja sin salida a una base que legítimamente necesita la limpieza.
+- **Verificación:** 4 tests que prueban que el guardián DISCRIMINA — frena con columnas que todavía tienen datos (verificando además que no destruyó nada antes de frenar, y que el mensaje nombra la migración, el entorno, el backup y la env var), aplica con autorización explícita, no molesta a una base sana con política restrictiva, y frena el borrado de turnos con una fila real. Aplicado sobre la base de desarrollo: `afectados=38`, exactamente lo que el reporte de huérfanos había predicho.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

@@ -114,13 +114,21 @@ func TestRunMigrations_DeduplicaAntesDeCrearElIndiceUnico(t *testing.T) {
 
 	// Esquema mínimo SIN el índice único, para poder cargar duplicados —
 	// simula una base vieja, de antes de que ese índice existiera.
-	if err := gdb.AutoMigrate(&db.Profesional{}, &db.Paciente{}, &db.Turno{}); err != nil {
+	// User y Clinic van también: desde la Fase C hay foreign keys, y
+	// `pacientes.profesional_id` apunta a `clinics` (ver migrate_fk.go).
+	// Sin esas dos tablas, el fixture no puede crear la clínica dueña de
+	// las fichas duplicadas.
+	if err := gdb.AutoMigrate(&db.User{}, &db.Clinic{}, &db.Profesional{}, &db.Paciente{}, &db.Turno{}); err != nil {
 		t.Fatalf("automigrate parcial: %v", err)
 	}
-	prof := db.Profesional{
-		Nombre: "Regresión Orden", Email: uuid.NewString() + "@example.com", PasswordHash: "hash",
-		NombreClinica: "Clínica", Slug: uuid.NewString(),
+	// La columna `profesional_id` guarda un clinics.id, no un
+	// profesionales.id — ver migrate_fk.go. La tabla `profesionales` es
+	// legacy de antes de TR-037 y está vacía.
+	ownerprof := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&ownerprof).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario dueño: %v", err)
 	}
+	prof := db.Clinic{Nombre: "Clínica de prueba", Tipo: "individual", Slug: uuid.NewString(), OwnerID: ownerprof.ID}
 	if err := gdb.Create(&prof).Error; err != nil {
 		t.Fatalf("no se pudo crear el profesional: %v", err)
 	}
