@@ -26,8 +26,8 @@ func TestLoad_EnvOverride(t *testing.T) {
 	if cfg.Port != "9090" {
 		t.Errorf("Port = %q, esperaba %q", cfg.Port, "9090")
 	}
-	if cfg.JWTSecret != "un-secret-con-espacios" {
-		t.Errorf("JWTSecret = %q, esperaba recortado sin espacios", cfg.JWTSecret)
+	if cfg.OAuthStateSecret != "un-secret-con-espacios" {
+		t.Errorf("OAuthStateSecret = %q, esperaba recortado sin espacios", cfg.OAuthStateSecret)
 	}
 	if len(cfg.CORSAllowedOrigins) != 2 || cfg.CORSAllowedOrigins[0] != "https://a.com" || cfg.CORSAllowedOrigins[1] != "https://b.com" {
 		t.Errorf("CORSAllowedOrigins = %v, esperaba [https://a.com https://b.com]", cfg.CORSAllowedOrigins)

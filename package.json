@@ -2,7 +2,7 @@
   "name": "dental-mirage",
   "version": "0.1.0",
   "private": true,
-  "description": "Monorepo de Dental Mirage. apps/web (Next.js) y packages/* son workspaces pnpm (ver pnpm-workspace.yaml); apps/api es un módulo Go independiente (ver docs/implementation-plan.md).",
+  "description": "Monorepo de Dental Mirage. apps/web (Next.js) y packages/* son workspaces pnpm (ver pnpm-workspace.yaml); apps/api es un módulo Go independiente (ver docs/Arquitectura y base/implementation-plan.md).",
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"

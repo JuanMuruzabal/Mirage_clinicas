@@ -44,6 +44,17 @@ export default defineConfig({
     env: {
       TZ: "America/Argentina/Cordoba",
     },
+    // testTimeout — 15s en vez de los 5s por default (Fase B de la
+    // auditoría, 2026-09-08). No es que ningún test tarde 15s: el
+    // problema es que `pnpm test:coverage:web` corre los 92 archivos en
+    // paralelo CON instrumentación de cobertura encima, y bajo esa carga
+    // los tests más pesados de `pedir-turno-form.test.tsx` (wizard
+    // público completo, decenas de interacciones de userEvent) cruzan los
+    // 5s y fallan por timeout — el MISMO archivo pasa en 42/42 corrido
+    // solo, también con cobertura, y la suite sin cobertura pasa entera.
+    // Un gate que falla según la carga de la máquina no informa nada; con
+    // 15s un test de verdad colgado sigue fallando, solo que más tarde.
+    testTimeout: 15_000,
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

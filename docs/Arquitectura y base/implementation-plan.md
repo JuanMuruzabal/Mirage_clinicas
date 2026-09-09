@@ -20,7 +20,7 @@ Producir un plan accionable, ordenado por dependencias, para construir Dental Mi
 | Frontend | Next.js + TypeScript + Tailwind, `apps/web` — leer el `AGENTS.md` que genera Next antes de escribir código | Spec §9.1 |
 | Base de datos | PostgreSQL + extensión `btree_gist` | Spec §9.1 |
 | Monorepo | `pnpm` — `apps/api`, `apps/web`, `packages/shared-types` | Spec §9.1 |
-| Auth | JWT propio (bcrypt + middleware chi), cookie `httpOnly` de sesión | Spec §9.3; TR-005 (sin OAuth en MVP) |
+| ~~Auth~~ **SUPERADO** | ~~JWT propio (bcrypt + middleware chi)~~ → **sesión server-side** (token opaco validado contra la tabla `sessions`) + **argon2id**, con Google OAuth y verificación de mail. Cookie `httpOnly`, eso no cambió | TR-037 y TR-005 (superseded); ver §9 y la nota de la sección 5 |
 | WhatsApp (envío inicial del formulario público) | Link `wa.me` con mensaje prellenado, generado client-side | TR-003 |
 | WhatsApp/SMS (recordatorios futuros) | Interfaz dev/prod (`internal/notificaciones`), no implementada en MVP | Spec §9.4 |
 | Storage / Email | Mismo patrón interfaz + dev (local/log) + prod (env var), aunque el MVP no tiene fotos ni emails transaccionales obligatorios — se deja el esqueleto listo si Sprint 4/5 lo necesita | Spec §9.4 |
@@ -65,12 +65,12 @@ La spec de Dental Mirage no trae una sección de ERD como la de Marcuzzi (§5). 
       /actions               # Server Actions ("use server")
     /src/lib
       api.ts                # server-only, cliente HTTP hacia apps/api
-      session.ts             # cookie httpOnly del JWT
+      session.ts             # cookie httpOnly del token de sesión (opaco, no JWT — TR-037)
   /api                    # Go (chi + GORM)
     /cmd/api                # entrypoint
     /cmd/migrate            # migraciones
     /internal
-      auth                   # JWT (generar/parsear), sin lógica de dominio
+      auth                   # sesiones server-side (crear/validar/rotar/revocar), sin lógica de dominio — ya no JWT (TR-037)
       clock                  # clock.Today() fijado a America/Argentina/Cordoba (UTC-3)
       config
       db                     # modelos GORM + migración + exclusion constraint + seeds
@@ -131,7 +131,7 @@ Todas las tareas de la sección 5 referencian estos IDs.
 | T0.2 | ✅ PostgreSQL local (docker-compose, `btree_gist`) + GORM conectado | T0.1 | 0.5d | `apps/api` conecta y hace ping a la DB al arrancar — verificado con `go run ./cmd/migrate` contra el Postgres de `docker compose up -d` |
 | T0.3 | ✅ Esquema inicial: `profesional`, `especialidad` (+ puente), `tipo_consulta` (seed: Consulta general / Urgencia, sembrado por profesional al registrarse — TR-001), `paciente`, `turno`, `pagina_publica` (modelo §2.1) | T0.2 | 2d | Migración aplica sin error; constraint `sin_solapamiento_turno` (`EXCLUDE USING gist` sobre `profesional_id, rango_horario`, solo `estado='agendado'`) probada con un insert que solapa (falla, `internal/db/migrate_test.go`) y con turnos `pendiente`/no solapados (no fallan) |
 | T0.4 | ✅ CI: lint + typecheck + build + **test+coverage con gate 80%** en ambos lados, desde el día 1 | T0.1 | 1d | `.github/workflows/ci.yml` — pipeline falla si cualquiera de los dos coverage cae de 80% — activo desde el primer PR de código de negocio, no retrofit (ver TR-007). Verificado localmente: api 83.4%, web 100% |
-| T0.5 | ✅ Auth backend (registro/login profesional, JWT, bcrypt) | T0.2, T0.3 | 1.5d | Login/registro funcional, password hasheado (bcrypt), JWT emitido por `apps/api`; slug de clínica único generado al registrarse (`internal/http/auth.go`, `internal/http/auth_test.go`) |
+| T0.5 | ✅ Auth backend (registro/login profesional, JWT, bcrypt) — **superado, ver la nota al final de esta sección: hoy es sesión server-side + argon2id (TR-037)** | T0.2, T0.3 | 1.5d | Login/registro funcional, password hasheado (bcrypt), JWT emitido por `apps/api`; slug de clínica único generado al registrarse (`internal/http/auth.go`, `internal/http/auth_test.go`) |
 | T0.6 | ✅ `internal/clock.Today()` fijado a `America/Argentina/Cordoba` (UTC-3), `time/tzdata` embebido | T0.1 | 0.5d | Test unitario confirma la zona horaria independientemente del contenedor de deploy (`internal/clock/clock_test.go`) |
 
 **Riesgo específico de este sprint (mitigado):** el exclusion constraint se probó con un insert real solapado (`TestRunMigrations_RechazaSolapamientoDeTurnosAgendados`) antes de construir cualquier UI sobre él — el requisito no negociable de la spec (§4.3) queda validado desde el día 1, no diferido hasta que sea costoso de arreglar (mismo riesgo R1 que en Marcuzzi_Madryn).
@@ -700,6 +700,64 @@ Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el clien
 - **Ítem 5 del brief original — "compartir calendario":** ver arriba, F2.5/TR-120. **Implementado y mergeado a `dev`** (PR #15), con una corrección de QA post-merge — la pantalla "¿Ya te atendiste?" se saltaba entera con enlace, se restauró para recorrer el wizard completo (PR #16).
 
 **Con esto, los 5 ítems del brief original de Fase 2, los 5 ítems extra de F2.3, y los dos ítems extra de F2.4 quedan implementados, aprobados y mergeados a `dev` (2026-09-07)** — Fase 2 completa, lista para pasar a `main`.
+
+---
+
+## 12. Auditoría de seguridad y optimización (2026-09-08 en adelante)
+
+Con la Fase 2 cerrada, se hizo una revisión completa del código antes de escalar a N profesionales / N clínicas. Es un trabajo **recurrente**, no un proyecto de una vez: la idea es repetir el diagnóstico periódicamente y comparar contra el anterior.
+
+Documentos, en `docs/Seguridad y optimizacion/`:
+
+| Documento | Qué es |
+|---|---|
+| `radiografia-tecnica_1.md` | **El diagnóstico** — primera radiografía (`_1`), módulo por módulo. Qué está bien, qué está mal, el plan de acción en 3 fases, y el registro de cada ronda de arreglos (§13 paginación, §14 deadlock, §15 revisión de la Fase A). |
+| `como-se-arreglo-cada-cosa.md` | **La guía de estudio** — el porqué de cada decisión, las alternativas descartadas, y los bugs que introdujo el propio trabajo de la auditoría. |
+
+Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**.
+
+### 12.1 Fase A — riesgos inmediatos (cerrada)
+
+| Ítem | Qué se hizo | Referencia |
+|---|---|---|
+| A1 | `clientIP()` toma el **último** valor de `X-Forwarded-For`, no el primero — hallazgo #1, del que dependían el rate-limiter por IP y un detector de abuso | TR-121 |
+| A2 | Límite de 1 MiB al body entrante (`http.MaxBytesReader` en `decodeJSON`), verificado que ningún call site lo esquiva. Más `io.LimitReader` en las respuestas de `googleauth`/`turnstile` | TR-126 |
+| A3 | `http.Server{}` explícito con `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`/`IdleTimeout` — `middleware.Timeout` no cubre la fase de lectura de headers (Slowloris) | TR-126 |
+| A4 | El guard de arranque compara el **valor resuelto** del secreto, no si la env var existe. Reabierto y cerrado el 2026-09-09 | TR-125 |
+
+### 12.2 Fase B — antes de sumar más funcionalidad (cerrada)
+
+| Ítem | Qué se hizo | Referencia |
+|---|---|---|
+| B1 | Índice compuesto `(user_id, role)` en `ClinicMember` — la consulta que corre en cada request autenticada. Verificado con `EXPLAIN`, no asumido | TR-127 |
+| B2 | Paginación opt-in de `/turnos` y `/pacientes` + "Cargar más" en el panel | TR-122, §13 |
+| B3 | Timeout de 35s en el fetch del BFF (`lib/api.ts`) hacia la API Go | TR-126 |
+| B4 | Logging estructurado con `log/slog`, sin loguear nunca la query string | TR-124 |
+| B5 | ~~Partir los 3 archivos grandes~~ — **movido a Fase C** el 2026-09-09 | TR-130 |
+| B6 | 12 tests de aislamiento cross-tenant, corriendo en CI | TR-129 |
+| B7 | Deduplicación de pacientes migrada a `aplicarUnaVez` + reintento ante deadlock | TR-123, §14 |
+
+Además, fuera de la numeración A/B: **subida a Go 1.26 + `x/crypto` v0.57.0**, que cierra 3 de 4 CVEs conocidas (la cuarta no tiene fix upstream, y `govulncheck` confirma que no es alcanzable desde este código) — TR-128.
+
+**Redis quedó descartado para sesiones**, que era la hipótesis de partida: la búsqueda por `token_hash` usa índice único y es prácticamente constante. La consulta cara de verdad era otra (B1) y se resolvió con un índice, en una hora, sin sumar un servicio a la infraestructura. Redis vuelve en Fase C para el `IPLimiter`, y solo cuando haya más de una instancia del backend.
+
+### 12.3 Fase C — al escalar horizontalmente o sumar clientes reales
+
+No es una fase con fecha: cada ítem tiene una **condición de activación**, y hasta que esa condición no se cumple, hacerlo es trabajo sin retorno.
+
+| Ítem | Condición que lo activa |
+|---|---|
+| ✅ **Foreign keys reales en el esquema** (2026-09-09) | Hecho. 4 → 33 constraints. Destapó 38 filas huérfanas de un cambio de significado de columna a mitad de proyecto — TR-131 |
+| ✅ **Cortar las migraciones destructivas sin backup** (2026-09-09) | Hecho antes de lo previsto: era barato y el riesgo es irreversible — TR-132 |
+| ⛔ Migrar el `IPLimiter` a Redis | **Bloqueado por su propia condición:** sirve recién con más de una instancia del backend. Hoy hay una — hacerlo ahora es sumar un servicio que operar a cambio de nada |
+| ⛔ Ajustar pool de conexiones / PgBouncer | **Bloqueado por su propia condición:** se dimensiona según cuántas instancias corran. Con una, no hay nada que dimensionar |
+| Partir `turno_publico.go` / `turnos.go` / `pedir-turno-form.tsx` | Cuando el archivo genere conflictos de merge reales, o cuando entre alguien nuevo y ese archivo sea su primer obstáculo. **Postergado a la próxima radiografía** (2026-09-09) |
+
+Sobre el último: es el único ítem del informe que **no arregla nada** — no cierra un riesgo, no destraba un límite de escala, no corrige un bug. Paga en velocidad futura de desarrollo, se cobra recién con varias personas tocando esos archivos, es el más caro (3-5 días) y el único que puede *introducir* regresiones sobre el código más delicado del sistema. Sin una condición escrita, "más adelante" significa "nunca" y el ítem se vuelve deuda invisible.
+
+### 12.4 Snapshot periódico
+
+Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
 
 ---
 

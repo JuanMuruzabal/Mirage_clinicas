@@ -80,7 +80,7 @@ func enviarVerificacionTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.Han
 		}
 
 		var req enviarVerificacionTurnoPublicoRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -226,7 +226,7 @@ func confirmarVerificacionTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.
 		}
 
 		var req confirmarVerificacionTurnoPublicoRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

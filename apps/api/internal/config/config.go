@@ -6,12 +6,47 @@ import (
 	"strings"
 )
 
+// OAuthStateSecretDeDesarrollo — el valor al que cae la env var cuando no
+// está, está vacía o es solo espacios (ver getEnv más abajo). Existe para
+// que `development` nunca se trabe por falta de configuración local, y es
+// PÚBLICO: está acá, en el repo, a la vista de cualquiera.
+//
+// Es una constante con nombre, y no un literal suelto en Load(), porque el
+// guard de arranque (requireExplicitSecretsOutsideDev en cmd/api/main.go)
+// necesita poder comparar contra ella: fuera de development, arrancar con
+// este valor tiene que ser imposible.
+const OAuthStateSecretDeDesarrollo = "dev-secret-cambiar-en-produccion"
+
 // Config agrupa todo lo que el backend necesita para arrancar.
 type Config struct {
-	Port      string
-	DBUrl     string
-	JWTSecret string
-	Env       string
+	Port  string
+	DBUrl string
+	Env   string
+
+	// OAuthStateSecret firma con HMAC-SHA256 el parámetro `state` del
+	// login con Google (internal/http/oauthstate.go). Es su ÚNICO uso: en
+	// este backend no hay ningún JWT, ni una librería para manejarlos —
+	// la sesión es un token opaco validado contra la tabla `sessions`
+	// (TR-037 en docs/Arquitectura y base/tradeoffs.md).
+	//
+	// Se lee de la env var JWT_SECRET, y ese nombre es una HERENCIA de
+	// antes de TR-037, cuando la sesión sí era un JWT stateless. La
+	// variable NO se renombró a propósito: cambiarle el nombre rompería
+	// los deploys que ya la tienen configurada así. El identificador de
+	// Go sí dice lo que la cosa es — la disonancia entre los dos nombres
+	// vive documentada acá y en apps/api/.env.example, no en la cabeza de
+	// quien lea el código.
+	OAuthStateSecret string
+	// AllowDestructiveMigrations autoriza, SOLO para esta corrida, las
+	// migraciones que destruyen datos (Fase C de la auditoría — ver
+	// PoliticaDestructiva en internal/db/migrate_destructiva.go). Fuera de
+	// `development` el contenedor `migrate` se niega a correr una
+	// migración destructiva que de verdad tenga algo que destruir hasta
+	// que alguien pone DB_ALLOW_DESTRUCTIVE=true a conciencia, con un
+	// backup hecho. No tiene sentido dejarla prendida de forma
+	// permanente: la protección es justamente el paso manual.
+	AllowDestructiveMigrations bool
+
 	// CORSAllowedOrigins — orígenes desde los que el navegador puede
 	// llamar directo a la API. No afecta las llamadas server-to-server de
 	// Next.js vía Server Actions/Route Handlers (spec §9.3, BFF sin
@@ -61,10 +96,12 @@ type Config struct {
 func Load() Config {
 	port := getEnv("PORT", "8080")
 	return Config{
-		Port:      port,
-		DBUrl:     getEnv("DATABASE_URL", "postgres://dental_mirage:dental_mirage@localhost:5432/dental_mirage?sslmode=disable"),
-		JWTSecret: getEnv("JWT_SECRET", "dev-secret-cambiar-en-produccion"),
-		Env:       getEnv("APP_ENV", "development"),
+		Port:             port,
+		DBUrl:            getEnv("DATABASE_URL", "postgres://dental_mirage:dental_mirage@localhost:5432/dental_mirage?sslmode=disable"),
+		OAuthStateSecret: getEnv("JWT_SECRET", OAuthStateSecretDeDesarrollo),
+		Env:              getEnv("APP_ENV", "development"),
+
+		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 

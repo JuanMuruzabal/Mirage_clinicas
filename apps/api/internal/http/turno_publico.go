@@ -880,7 +880,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		}
 
 		var req solicitarTurnoPublicoRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,6 +14,20 @@ import (
 )
 
 const siteverifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+// maxRespuestaExterna — techo de lectura para el body de una respuesta de
+// un servicio externo. Mismo principio que maxJSONBodyBytes en
+// internal/http (Fase A de la auditoría, límite del body ENTRANTE), del
+// lado de las respuestas SALIENTES: json.NewDecoder sobre un resp.Body sin
+// acotar transmite a memoria todo lo que el otro lado mande, sin techo.
+//
+// Severidad baja y a conciencia: el otro lado acá es Google/Cloudflare
+// sobre TLS, no un atacante. Pero un servicio externo puede empezar a
+// responder cualquier cosa (un incidente suyo, un proxy corporativo
+// intercalado devolviendo una página de error gigante) sin que este
+// backend tenga forma de anticiparlo — y estas respuestas son de unos
+// pocos KB: 1 MiB es holgado por dos órdenes de magnitud.
+const maxRespuestaExterna = 1 << 20 // 1 MiB
 
 // Verifier valida un token de Turnstile resuelto por el cliente.
 type Verifier interface {
@@ -65,7 +80,7 @@ func (v *HTTPVerifier) Verify(ctx context.Context, token, remoteIP string) (bool
 	defer func() { _ = resp.Body.Close() }()
 
 	var out siteverifyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxRespuestaExterna)).Decode(&out); err != nil {
 		return false, fmt.Errorf("respuesta de Turnstile inválida: %w", err)
 	}
 	return out.Success, nil

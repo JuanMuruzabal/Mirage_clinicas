@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
+import { apiContarTurnos, apiListTiposConsulta, apiListTurnosPaginado } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { filtrosDeTab, parseTab, parseVerificacion, type Tab } from "@/lib/turnos-filtros";
 import { TurnosTable } from "@/components/panel/turnos-table";
 import { TurnosFiltros } from "@/components/panel/turnos-filtros";
 import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
+import { TURNOS_POR_PAGINA } from "@/lib/paginacion";
 
 export const metadata: Metadata = { title: "Turnos — Dental Mirage" };
 
@@ -76,32 +77,37 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
     tipoConsultaId ? `&tipoConsultaId=${tipoConsultaId}` : ""
   }${verificacion ? `&verificacion=${verificacion}` : ""}`;
 
-  // Corrección de estética (2026-09-06, fotos de referencia del cliente):
-  // cada pestaña muestra su propia cantidad ("Confirmadas 8", "Resueltos
-  // 4"...) — se pide el conteo de las OTRAS 3 pestañas en paralelo con la
-  // data de la pestaña activa (misma q/desde/hasta/tipo/verificación,
-  // solo cambia el estado). Sin endpoint de "solo contar" en el backend
-  // — reusa apiListTurnos y se queda con `.length`; volumen esperado de
-  // una clínica (decenas/centenas de turnos, no miles) hace este costo
-  // aceptable sin sumar un endpoint nuevo solo para esto.
-  const [tiposResult, turnosResult, agendadoResult, resueltoResult, canceladaResult, todasResult] = token
+  // Cada pestaña muestra su propia cantidad ("Confirmadas 8", "Resueltos
+  // 4"...) — corrección de estética 2026-09-06, fotos de referencia del
+  // cliente.
+  //
+  // Hasta la Fase B de la auditoría esos 4 conteos salían de pedir las 4
+  // LISTAS ENTERAS y hacer `.length`: cada visita a esta pantalla
+  // serializaba todos los turnos de la clínica cinco veces (las 4
+  // pestañas + la activa). Ahora la pestaña activa pide solo la primera
+  // tanda (TURNOS_POR_PAGINA, el resto llega con "Cargar más") y las
+  // otras tres piden únicamente el total (apiContarTurnos: 1 fila +
+  // X-Total-Count). El conteo de la activa ya viene en su propia
+  // respuesta paginada, así que no se pide dos veces.
+  const [tiposResult, paginaTurnos, cAgendado, cResuelto, cCancelada, cTodas] = token
     ? await Promise.all([
         apiListTiposConsulta(token),
-        apiListTurnos(token, filtros),
-        apiListTurnos(token, filtrosDeTab("agendado", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiListTurnos(token, filtrosDeTab("resuelto", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiListTurnos(token, filtrosDeTab("cancelada", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiListTurnos(token, filtrosDeTab("todas", q, desde, hasta, tipoConsultaId, verificacion)),
+        apiListTurnosPaginado(token, filtros, TURNOS_POR_PAGINA, 0),
+        apiContarTurnos(token, filtrosDeTab("agendado", q, desde, hasta, tipoConsultaId, verificacion)),
+        apiContarTurnos(token, filtrosDeTab("resuelto", q, desde, hasta, tipoConsultaId, verificacion)),
+        apiContarTurnos(token, filtrosDeTab("cancelada", q, desde, hasta, tipoConsultaId, verificacion)),
+        apiContarTurnos(token, filtrosDeTab("todas", q, desde, hasta, tipoConsultaId, verificacion)),
       ])
-    : [null, null, null, null, null, null];
+    : [null, null, 0, 0, 0, 0];
 
   const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
-  const turnos = turnosResult?.ok ? turnosResult.data : [];
+  const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];
+  const totalTurnos = paginaTurnos?.ok ? paginaTurnos.data.total : 0;
   const conteoPorTab: Record<Tab, number> = {
-    agendado: agendadoResult?.ok ? agendadoResult.data.length : 0,
-    resuelto: resueltoResult?.ok ? resueltoResult.data.length : 0,
-    cancelada: canceladaResult?.ok ? canceladaResult.data.length : 0,
-    todas: todasResult?.ok ? todasResult.data.length : 0,
+    agendado: cAgendado,
+    resuelto: cResuelto,
+    cancelada: cCancelada,
+    todas: cTodas,
   };
   // Chips de filtros activos (fotos de referencia: "Esta semana ✕",
   // "Consulta general ✕") — cada uno navega a la misma URL sin ESE
@@ -250,6 +256,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
         <TurnosTable
           key={`${tab}-${q ?? ""}-${desde ?? ""}-${hasta ?? ""}-${tipoConsultaId ?? ""}-${verificacion ?? ""}-${abrirId ?? ""}`}
           turnosIniciales={turnos}
+          totalInicial={totalTurnos}
           tiposConsulta={tiposConsulta}
           filtros={filtros}
           abrirId={abrirId}

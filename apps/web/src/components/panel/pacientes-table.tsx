@@ -8,9 +8,21 @@ import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { ClickableTableRow } from "./clickable-table-row";
 import { EstadoVerificadoBadge } from "./estado-verificado-badge";
+import { CargarMas } from "./cargar-mas";
+import { listPacientesPaginadoAction } from "@/app/actions/pacientes";
+import type { ListarPacientesParams } from "@/lib/api";
+import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 
 interface PacientesTableProps {
+  // pacientes — la PRIMERA tanda (Fase B de la auditoría), no la lista
+  // completa: el resto llega con "Cargar más".
   pacientes: Paciente[];
+  // totalInicial / filtros — lo que hace falta para pedir las tandas
+  // siguientes. Opcionales, y sin ellos la tabla se comporta como antes
+  // de paginar (muestra lo que le pasaron y no ofrece cargar más): así
+  // sigue sirviendo para cualquier render que arme la lista a mano.
+  totalInicial?: number;
+  filtros?: ListarPacientesParams;
 }
 
 // todosLosContactos — corrección de QA (ronda de correcciones, 2026-09-06):
@@ -37,7 +49,25 @@ function todosLosContactos(p: Paciente): { mails: string[]; telefonos: string[] 
 // entera hacia la ficha (TR-023, `ClickableTableRow`, sin cambios) —
 // desde `md` el chevron de acá queda oculto porque DNI/Email ya se ven
 // como columnas propias, no hace falta desplegar nada.
-export function PacientesTable({ pacientes }: PacientesTableProps) {
+export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, filtros }: PacientesTableProps) {
+  const [pacientes, setPacientes] = useState<Paciente[]>(pacientesIniciales);
+  const [total, setTotal] = useState(totalInicial ?? pacientesIniciales.length);
+  const [cargandoMas, setCargandoMas] = useState(false);
+
+  // cargarMas — la siguiente tanda desde donde quedó la anterior. El
+  // total se refresca en cada tanda: entre un click y el otro pudo
+  // haberse dado de alta (o borrado) una ficha.
+  async function cargarMas() {
+    setCargandoMas(true);
+    try {
+      const pagina = await listPacientesPaginadoAction(filtros ?? {}, PACIENTES_POR_PAGINA, pacientes.length);
+      setPacientes((actuales) => [...actuales, ...pagina.items]);
+      setTotal(pagina.total);
+    } finally {
+      setCargandoMas(false);
+    }
+  }
+
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
 
   function alternarExpandido(id: string) {
@@ -45,6 +75,7 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
   }
 
   return (
+    <>
     <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
@@ -282,5 +313,9 @@ export function PacientesTable({ pacientes }: PacientesTableProps) {
         </tbody>
       </table>
     </div>
+    {/* Fuera de la caja con scroll de arriba, no adentro: el botón tiene
+        que estar siempre a la vista, no al final de un scroll interno. */}
+    <CargarMas cargados={pacientes.length} total={total} cargando={cargandoMas} onCargarMas={cargarMas} sustantivo="pacientes" />
+    </>
   );
 }

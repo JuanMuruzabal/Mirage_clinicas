@@ -45,17 +45,66 @@ import type {
 // Client Component.
 const API_URL = process.env.API_URL ?? "http://localhost:8080";
 
+// requestTimeoutMs — corrección de seguridad/optimización (auditoría
+// 2026-09-08, docs/Seguridad y optimizacion/radiografia-tecnica_1.md):
+// este fetch no tenía ningún timeout propio — si el backend se cuelga o
+// responde muy lento, cada Server Action/Server Component que dependa de
+// él quedaba esperando sin un corte propio. Un poco por encima del
+// WriteTimeout del backend (30s, cmd/api/main.go) — así una request que
+// el backend todavía está procesando dentro de SU propio límite no se
+// corta antes de tiempo del lado del frontend.
+const requestTimeoutMs = 35_000;
+
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
+// Pagina<T> — una tanda de un listado paginado, más el total que hay
+// detrás de los filtros actuales (Fase B de la auditoría, ver
+// internal/http/paginacion.go en el backend). El total es lo que le
+// permite a la UI saber si mostrar "Cargar más" o no.
+export interface Pagina<T> {
+  items: T[];
+  total: number;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
+  const res = await requestRaw<T>(path, init);
+  if (!res.ok) return res;
+  return { ok: true, data: res.data };
+}
+
+// requestPaginado — igual que request, pero además lee el total del
+// header `X-Total-Count`. El backend lo manda ahí, y no en el body, para
+// que la respuesta siga siendo el mismo array JSON de siempre y ningún
+// consumidor existente se rompa (ver paginacion.go). Si el header no
+// viene —porque no se pidió paginar, o porque un proxy lo filtró— se cae
+// a la cantidad de items recibidos: el peor caso es que la UI no ofrezca
+// "Cargar más", nunca que rompa.
+async function requestPaginado<T>(path: string, init?: RequestInit): Promise<ApiResult<Pagina<T>>> {
+  const res = await requestRaw<T[]>(path, init);
+  if (!res.ok) return res;
+  const crudo = res.headers.get("X-Total-Count");
+  const total = crudo !== null && crudo !== "" && !Number.isNaN(Number(crudo)) ? Number(crudo) : res.data.length;
+  return { ok: true, data: { items: res.data, total } };
+}
+
+type RawResult<T> = { ok: true; data: T; headers: Headers } | { ok: false; status: number; error: string };
+
+// requestRaw — el fetch real. Existe separado de `request` solo para que
+// requestPaginado pueda mirar los headers de la respuesta sin duplicar
+// todo el manejo de errores/timeout.
+async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResult<T>> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
       cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMs),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return { ok: false, status: 0, error: "El servidor tardó demasiado en responder. Probá de nuevo en un momento." };
+    }
     return { ok: false, status: 0, error: "No se pudo conectar con el servidor. Probá de nuevo en un momento." };
   }
 
@@ -71,7 +120,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T
     return { ok: false, status: res.status, error: message };
   }
 
-  return { ok: true, data: body as T };
+  return { ok: true, data: body as T, headers: res.headers };
 }
 
 function isErrorBody(body: unknown): body is { error: string } {
@@ -608,7 +657,7 @@ export interface ListarTurnosParams {
   verificacion?: "verificado" | "sin_verificar";
 }
 
-export function apiListTurnos(token: string, params: ListarTurnosParams = {}): Promise<ApiResult<Turno[]>> {
+function queryDeTurnos(params: ListarTurnosParams): URLSearchParams {
   const query = new URLSearchParams();
   if (params.estado) query.set("estado", params.estado);
   if (params.desde) query.set("desde", params.desde);
@@ -617,8 +666,42 @@ export function apiListTurnos(token: string, params: ListarTurnosParams = {}): P
   if (params.resuelto !== undefined) query.set("resuelto", String(params.resuelto));
   if (params.tipoConsultaId) query.set("tipoConsultaId", params.tipoConsultaId);
   if (params.verificacion) query.set("verificacion", params.verificacion);
-  const qs = query.toString();
+  return query;
+}
+
+export function apiListTurnos(token: string, params: ListarTurnosParams = {}): Promise<ApiResult<Turno[]>> {
+  const qs = queryDeTurnos(params).toString();
   return request<Turno[]>(`/turnos${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// apiListTurnosPaginado — la variante que usa la VISTA DE LISTA
+// (/panel/turnos) con "Cargar más". El calendario sigue usando
+// apiListTurnos sin paginar a propósito: pide un rango de fechas acotado
+// y necesita verlo completo — paginarlo le escondería turnos del rango
+// visible. Ver internal/http/paginacion.go en el backend.
+export function apiListTurnosPaginado(
+  token: string,
+  params: ListarTurnosParams,
+  limit: number,
+  offset: number,
+): Promise<ApiResult<Pagina<Turno>>> {
+  const query = queryDeTurnos(params);
+  query.set("limit", String(limit));
+  query.set("offset", String(offset));
+  return requestPaginado<Turno>(`/turnos?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// apiContarTurnos — SOLO el total detrás de un filtro, sin traer las
+// filas. Pide una página de 1 y se queda con el X-Total-Count: el total
+// lo calcula el backend con un COUNT(*) aparte (paginacion.go), así que
+// el body es una fila en vez de la lista completa.
+//
+// Lo usan los contadores de las pestañas de /panel/turnos ("Confirmadas
+// 8", "Resueltos 4"...). Antes esa cuenta salía de pedir las 4 listas
+// enteras y hacer `.length` — el costo que esta función elimina.
+export async function apiContarTurnos(token: string, params: ListarTurnosParams): Promise<number> {
+  const res = await apiListTurnosPaginado(token, params, 1, 0);
+  return res.ok ? res.data.total : 0;
 }
 
 export interface CrearTurnoManualPayload {
@@ -756,6 +839,40 @@ export function apiTurnosPendientesAsistencia(token: string): Promise<ApiResult<
 export function apiListPacientes(token: string, q?: string): Promise<ApiResult<Paciente[]>> {
   const qs = q ? `?q=${encodeURIComponent(q)}` : "";
   return request<Paciente[]>(`/pacientes${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// ListarPacientesParams — `verificacion` es el filtro de las pestañas
+// Todos/Verificados/Sin verificar de /panel/pacientes. Hasta la
+// paginación se resolvía en el navegador sobre la lista completa; con
+// tandas parciales eso mostraría cualquier cosa, así que ahora lo
+// resuelve el backend (mismo parámetro y misma subquery que ya usaba
+// /turnos, ver listPacientesHandler en Go).
+export interface ListarPacientesParams {
+  q?: string;
+  verificacion?: "verificado" | "sin_verificar";
+}
+
+// apiListPacientesPaginado — mismo criterio que apiListTurnosPaginado: lo
+// usa la vista de lista de Pacientes con "Cargar más".
+export function apiListPacientesPaginado(
+  token: string,
+  params: ListarPacientesParams,
+  limit: number,
+  offset: number,
+): Promise<ApiResult<Pagina<Paciente>>> {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.verificacion) query.set("verificacion", params.verificacion);
+  query.set("limit", String(limit));
+  query.set("offset", String(offset));
+  return requestPaginado<Paciente>(`/pacientes?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// apiContarPacientes — igual que apiContarTurnos, para las pestañas
+// Todos/Verificados/Sin verificar de /panel/pacientes.
+export async function apiContarPacientes(token: string, params: ListarPacientesParams): Promise<number> {
+  const res = await apiListPacientesPaginado(token, params, 1, 0);
+  return res.ok ? res.data.total : 0;
 }
 
 export interface CrearPacientePayload {

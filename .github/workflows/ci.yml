@@ -4,7 +4,7 @@ name: CI
 # integración — cualquiera que haga `push` directo a `dev` (o mergee un
 # feature branch ahí) quiere saber si rompió algo, sin esperar un PR. Y
 # porque también dispara deploy (ver el job `deploy` al final) — el
-# entorno único de Render (ver TR-021 en docs/tradeoffs.md) se redeploya
+# entorno único de Render (ver TR-021 en docs/Arquitectura y base/tradeoffs.md) se redeploya
 # con cada push a `dev`, nunca con `main`.
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
       - name: Build
         run: go build ./...
 
-  # T0.4 (docs/implementation-plan.md): gate de coverage 80% activo desde
-  # Sprint 0 — ver TR-007 en docs/tradeoffs.md (lección aplicada de
+  # T0.4 (docs/Arquitectura y base/implementation-plan.md): gate de coverage 80% activo desde
+  # Sprint 0 — ver TR-007 en docs/Arquitectura y base/tradeoffs.md (lección aplicada de
   # Marcuzzi_Madryn, donde este gate se agregó recién al final del
   # proyecto). Dos jobs paralelos, uno por stack.
   test-api:
@@ -141,7 +141,7 @@ jobs:
 
   # Deploy (Sprint 5, T5.5) — repuesto (2026-08-24, blueprint ya aplicado
   # en Render y RENDER_DEPLOY_HOOK_API/WEB ya cargados como secrets del
-  # repo, ver TR-022 en docs/tradeoffs.md). Un solo entorno (TR-021):
+  # repo, ver TR-022 en docs/Arquitectura y base/tradeoffs.md). Un solo entorno (TR-021):
   # dispara con push a `dev`, no a `main` — `main` sigue corriendo los
   # cuatro jobs de arriba (necesarios acá también), simplemente no
   # dispara deploy todavía. Mismo patrón que Marcuzzi_Madryn en lo demás:

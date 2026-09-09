@@ -30,7 +30,11 @@ Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas direct
 
 ## `Seguridad y optimizacion/`
 
-- [`radiografia-tecnica.md`](<Seguridad y optimizacion/radiografia-tecnica.md>) — auditoría de ingeniería (complejidad, seguridad, rendimiento) — 2026-09-08. Se puede volver a correr y actualizar cuando haga falta un nuevo chequeo.
+Auditoría periódica de ingeniería (complejidad, seguridad, rendimiento) — cada ronda queda como su propio archivo, numerado, en vez de sobreescribir la anterior:
+
+- [`radiografia-tecnica_1.md`](<Seguridad y optimizacion/radiografia-tecnica_1.md>) — primer diagnóstico completo, 2026-09-08. Arranca con los hallazgos crudos y el plan de acción en Fases A/B/C; cada ronda de arreglos se le suma como una sección más al final (§13 paginación, §14 deadlock en migraciones, §15 revisión de la Fase A). **Fases A y B cerradas, y los dos ítems accionables de la Fase C, el 2026-09-09** (§16: foreign keys reales y guardián de migraciones destructivas). Los tres ítems restantes de la Fase C están bloqueados por su propia condición de activación, escrita.
+- [`como-se-arreglo-cada-cosa.md`](<Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) — guía de estudio que acompaña al diagnóstico: el porqué de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría. Si querés entender el razonamiento y no solo el resultado, este es el que hay que leer.
+- [`snapshot-2026-09-09.md`](<Seguridad y optimizacion/snapshot-2026-09-09.md>) — **el documento que hay que leer para saber "cómo estamos hoy"**, sin releer el diagnóstico crudo. No es solo lo que arregló la auditoría: es el inventario COMPLETO de lo que hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué se agregó. Cierra con lo que NO está y qué lo activa, y con una lista concreta de qué volver a medir en el próximo snapshot para poder compararlos.
 
 ## `mockups/` — capturas de referencia visual del cliente
 

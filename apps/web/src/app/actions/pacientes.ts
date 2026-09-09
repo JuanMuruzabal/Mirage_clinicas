@@ -8,9 +8,12 @@ import {
   apiEditarPaciente,
   apiListConflictosPaciente,
   apiListPacientes,
+  apiListPacientesPaginado,
   apiResolverConflictoPaciente,
   type CrearPacientePayload,
   type EditarPacientePayload,
+  type ListarPacientesParams,
+  type Pagina,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
@@ -31,6 +34,25 @@ export async function listPacientesAction(q?: string): Promise<Paciente[]> {
   }
   const result = await apiListPacientes(token, q);
   return result.ok ? result.data : [];
+}
+
+// listPacientesPaginadoAction — la variante que usa el LISTADO de
+// /panel/pacientes con "Cargar más" (Fase B de la auditoría). El
+// buscador del modal "+ Agregar turno" sigue con listPacientesAction sin
+// paginar: ahí el filtro por texto ya acota el resultado a un puñado de
+// fichas, y una tanda parcial de coincidencias confundiría más de lo que
+// ayuda.
+export async function listPacientesPaginadoAction(
+  params: ListarPacientesParams,
+  limit: number,
+  offset: number,
+): Promise<Pagina<Paciente>> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiListPacientesPaginado(token, params, limit, offset);
+  return result.ok ? result.data : { items: [], total: 0 };
 }
 
 // editarPacienteAction — ficha de paciente (2026-08-23): corrige DNI/

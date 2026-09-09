@@ -213,6 +213,18 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		// Paginación opt-in (ver paginacion.go): sin `limit` esto se
+		// comporta igual que siempre — es lo que mantiene intacto al
+		// calendario, que necesita el rango de fechas COMPLETO.
+		if limit, offset, aplicar := paginacionDeRequest(r); aplicar {
+			var err error
+			query, err = aplicarPaginacion(w, query, &db.Turno{}, limit, offset)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo obtener los turnos")
+				return
+			}
+		}
+
 		var turnos []db.Turno
 		if err := query.Order("created_at").Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los turnos")
@@ -281,7 +293,7 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req crearTurnoManualRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -489,7 +501,7 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req reprogramarTurnoRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -588,7 +600,7 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req autoreservarTurnosRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -751,7 +763,7 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req marcarAsistenciaRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

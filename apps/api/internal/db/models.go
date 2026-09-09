@@ -597,3 +597,27 @@ type PaginaPublica struct {
 }
 
 func (PaginaPublica) TableName() string { return "paginas_publicas" }
+
+// MigracionUnaVez — corrección de performance (auditoría 2026-09-08, Fase
+// B, docs/Seguridad y optimizacion/): registro de las migraciones de datos
+// que deben correr UNA SOLA VEZ, no en cada arranque.
+//
+// El resto de RunMigrations es idempotente por diseño (CREATE ... IF NOT
+// EXISTS, DO $$ ... EXCEPTION WHEN duplicate_object) y no necesita esto:
+// re-ejecutarlo es gratis. Pero una migración de DATOS que barre una tabla
+// entera (ver la deduplicación de pacientes en migrate.go) no es gratis —
+// crece con el volumen de la base y se paga en CADA deploy/reinicio del
+// contenedor `migrate`, para siempre, aunque después de la primera vez
+// nunca vuelva a encontrar nada que corregir.
+//
+// Deliberadamente mínima: nombre + cuándo se aplicó. No pretende ser un
+// sistema de migraciones versionadas completo (no hay `down`, ni orden, ni
+// checksums) — para eso ya está el resto del archivo, que es idempotente.
+// Esto resuelve solo el caso puntual "barrido de datos que ya no hace
+// falta repetir".
+type MigracionUnaVez struct {
+	Nombre     string    `gorm:"primaryKey;type:varchar(150)"`
+	AplicadaEn time.Time `gorm:"column:aplicada_en;not null;default:now()"`
+}
+
+func (MigracionUnaVez) TableName() string { return "migraciones_una_vez" }

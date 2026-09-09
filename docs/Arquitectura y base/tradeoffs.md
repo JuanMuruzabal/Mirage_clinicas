@@ -1579,4 +1579,201 @@
 
 ---
 
+## TR-121: Modelo de confianza de `X-Forwarded-For` — el último valor, no el primero
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría de seguridad y optimización, Fase A ítem 1 — hallazgo #1 del informe, el más serio de toda la revisión. Diagnóstico completo en `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` (Hallazgo #1); el porqué explicado paso a paso en `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` §A1.
+- **Decisión:** `clientIP()` (`internal/http/auth.go`) toma el **último** valor de la cadena `X-Forwarded-For`, no el primero. Con un único proxy de confianza delante (el load balancer de Render), cada proxy AGREGA su IP observada al final — el último valor es el que puso ese proxy, el único que el cliente no controla. El primero es texto libre que cualquiera puede escribir en su request.
+- **Por qué era grave:** de esta función dependen el rate-limiter por IP (`internal/ratelimit`) y el detector de rotación por IP del formulario público (`turno_publico.go`). Tomar el valor equivocado los dejaba evadibles con un solo header falsificado, cambiándolo en cada request. El resto de la capa anti-abuso estaba bien construida, apoyada sobre un dato que el atacante elegía.
+- **Alternativas descartadas:** usar un header propietario del proveedor de hosting (Render expone el suyo, garantizado sobrescrito por su proxy) — igual de correcto y algo más simple, pero ata el código a Render: mudarse a otro hosting rompería la seguridad EN SILENCIO, sin que nada falle. Mantener una lista explícita de proxies de confianza y contar saltos desde el final — es lo correcto con más de un proxy, pero hoy hay exactamente uno y la complejidad extra no compra nada.
+- **Qué se sacrifica / letra chica:** esto vale con **exactamente un** proxy de confianza. Si algún día se suma un CDN (Cloudflare u otro) delante de Render, hay dos saltos y "el último" pasa a ser la IP del primer proxy, no la del cliente — el rate limiting agruparía a todos los usuarios en una sola IP. No es un agujero de seguridad, pero rompe la funcionalidad y no falla de forma visible. Documentado en el propio `clientIP` para que la próxima persona lo vea.
+- **Reversibilidad:** alta — una línea, más su comentario.
+- **Verificación:** 3 tests, incluido el que importa: un cliente que manda `X-Forwarded-For: 203.0.113.9` falsificado con el proxy agregando la IP real detrás — la función devuelve la real.
+
+## TR-122: Paginación opt-in de los listados del panel, con "Cargar más" en vez de páginas numeradas
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 2. Detalle en `radiografia-tecnica_1.md` §13; el razonamiento de cada decisión en `como-se-arreglo-cada-cosa.md` §B3.
+- **El problema real, peor de lo que decía el diagnóstico:** `/panel/turnos` no traía una lista completa por visita, traía CINCO — la de la pestaña activa más las cuatro que se usaban solo para el contador al lado de cada pestaña (`lista.length`). El costo no estaba en el endpoint sino en cómo la pantalla lo usaba: leyendo solo el backend no se ve.
+- **Decisión 1 — la paginación es OPT-IN.** Sin el parámetro `limit`, el endpoint responde exactamente como antes. No es pereza: el **calendario** usa el mismo `GET /turnos` y necesita el rango de fechas COMPLETO. Si paginar fuera el default, el calendario empezaría a esconder turnos sin fallar — el peor tipo de bug, el que no rompe, solo miente.
+- **Decisión 2 — el total viaja en el header `X-Total-Count`, no en el body.** Alternativa descartada: cambiar la respuesta a `{items, total}` — habría roto a todos los consumidores existentes de golpe. Con el header, el body sigue siendo el mismo array de siempre y quien no conoce el header funciona igual que antes.
+- **Decisión 3 — `limit` se recorta a 200 en silencio.** El sentido de paginar es que NINGUNA consulta pueda pedir la tabla entera; un límite que el cliente puede desactivar pidiendo `limit=999999` no es un límite.
+- **Decisión 4 — "Cargar más" y no páginas 1/2/3.** De producto, no técnica: el profesional escanea estas tablas de arriba a abajo y entra y sale de fichas todo el tiempo; con páginas numeradas cada vuelta lo obliga a recordar dónde estaba. Con "Cargar más" la lista solo crece, que es como se leía antes de paginar. Detalle asociado: recargar tras cancelar un turno vuelve a pedir LA VENTANA YA CARGADA, no la primera tanda — si no, la tabla se encoge de golpe bajo el cursor.
+- **Efecto secundario que hubo que resolver:** las pestañas Verificados/Sin verificar de `/panel/pacientes` se filtraban EN EL NAVEGADOR sobre la lista completa; con tandas parciales eso muestra cualquier cosa. El filtro bajó al backend (`?verificacion=`) reusando `pacientesVerificadosQuery`, la misma subquery que `/turnos` ya usaba — **no** una segunda copia de la regla de "paciente verificado", que se habría desincronizado. Un valor inventado devuelve 400: un filtro que falla abierto le hace creer a la UI que filtró.
+- **Qué NO se paginó, a propósito:** el calendario (ver decisión 1) y el buscador de "Paciente conocido" del modal "+ Agregar turno" (ahí el filtro por texto ya acota a un puñado de fichas, y una tanda parcial de coincidencias confunde más de lo que ayuda).
+- **Reversibilidad:** alta del lado del backend (aditivo, sin `limit` no cambia nada); media del lado del frontend (las pantallas de Turnos y Pacientes cambian cómo piden los datos).
+- **Verificación:** 10 tests de backend y 5 de frontend; ver `radiografia-tecnica_1.md` §13.
+
+## TR-123: Migraciones de DATOS separadas de las de esquema, y reintento ante deadlock
+
+- **Fecha:** 2026-09-08 (una sola vez) / 2026-09-09 (reintento)
+- **Fase:** Auditoría, Fase B ítem 7 + un bug real de CI. Ver `radiografia-tecnica_1.md` §13 y §14.
+- **Distinción que motiva todo:** hay dos clases de migración y confundirlas sale caro. Las de **esquema** (crear tabla, agregar columna) son idempotentes y baratas de repetir en cada arranque — se quedan en `migrate.go` como estaban. Las de **datos** (barrer y corregir filas) tienen un costo que CRECE con el volumen de la base y solo tienen sentido una vez: la deduplicación de pacientes por DNI recorría la tabla entera en cada arranque del contenedor `migrate`, para siempre, sin volver a encontrar nada que corregir después de la primera vez.
+- **Decisión:** tabla `MigracionUnaVez` con el nombre de cada migración aplicada, y `aplicarUnaVez(nombre, fn)` (`internal/db/migrate_una_vez.go`). El registro se hace **en la misma transacción** que el trabajo: o pasan las dos cosas o ninguna. Si `fn` falla no queda registrada y el próximo arranque la reintenta. Ese detalle es todo el diseño — un registro hecho aparte dejaría la migración marcada como aplicada sin haberlo estado ante un fallo intermedio.
+- **Bug real introducido y corregido en la revisión de código (mismo día):** al mover la deduplicación a este mecanismo quedó DESPUÉS del `CREATE UNIQUE INDEX idx_paciente_dni_unico`, que es exactamente lo que ella existe para habilitar. Sobre una base con duplicados reales: el índice falla, la transacción hace rollback, los duplicados siguen y el arranque siguiente falla igual — el contenedor queda en un loop del que no se sale sin SQL a mano. CI no lo detecta nunca: su base nace limpia, sin duplicados, que es justamente la población para la que el bloque existe. Test de regresión con base descartable propia, validado en los dos sentidos.
+- **Reintento ante deadlock (2026-09-09), decisión aparte:** el advisory lock de `RunMigrations` (2026-09-06) serializa las migraciones ENTRE SÍ, pero no contra las transacciones comunes que corran al mismo tiempo. En CI, un paquete de test que ya migró y está corriendo sus tests mientras otro recién arranca y migra; en producción, el contenedor `migrate` de un deploy mientras la instancia anterior de la API sigue atendiendo tráfico. `RunMigrations` reintenta hasta 5 veces con backoff creciente ante SQLSTATE 40P01. Es seguro porque toda la migración vive en UNA transacción (el rollback no deja nada a medias) y la función es idempotente.
+- **Detalle no negociable:** se detecta el **código** del error (`40P01`), nunca el texto del mensaje — el texto cambia con la versión del servidor y con el locale, el código es parte del contrato de SQL.
+- **Alternativas descartadas para el deadlock:** tomar todos los locks de tabla por adelantado en orden fijo — `LOCK TABLE a, b, c` los adquiere de a uno, así que puede trabarse igual contra una transacción que los pida en otro orden. Correr los paquetes de test en serie (`go test -p 1`) — arregla CI y no arregla producción, que es donde el ciclo también existe.
+- **Riesgo residual, explícito:** Postgres elige la víctima del deadlock y puede elegir la transacción del test en vez de la de la migración; ahí el reintento no ayuda. No se vio todavía.
+- **Verificación:** el test PROVOCA un deadlock real (dos transacciones tomando dos advisory locks en orden opuesto, con barrera de dos partes) en vez de fabricar un `*pgconn.PgError` a mano — lo único que podía fallar en silencio era el desenvuelto del error a través de pgx/stdlib y GORM, y un error fabricado no prueba eso. La primera versión del test no producía el ciclo y pasaba sin probar nada; se vio fallar antes de darla por buena.
+
+## TR-124: Logging estructurado con `log/slog`, y la regla de no loguear query strings
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 4. Ver `radiografia-tecnica_1.md` y `como-se-arreglo-cada-cosa.md` §B4.
+- **Decisión:** `loggerMiddleware` (`internal/http/logging.go`) reemplaza a `middleware.Logger` de chi. Emite JSON fuera de `development` (texto legible en desarrollo) con `request_id`, `metodo`, `ruta`, `status`, `duracion_ms`, `bytes`, `ip`, `clinic_id`, `user_id`. `clinic_id`/`user_id` se pueblan desde `requireSession`/`requireClinic` vía un holder mutable en el contexto.
+- **La regla que importa más que el formato: NUNCA loguear la query string.** El endpoint "Mis turnos" recibe DNI y mail del paciente **como parámetros de URL**. Loguear la ruta completa habría escrito datos personales de salud en texto plano en un sistema de logs — replicado, con retención larga y accesible a más gente que la base de datos. Por eso se loguea el PATRÓN de ruta de chi (`/clinicas/{slug}/mis-turnos`), nunca la URL concreta. Una mejora de observabilidad que, mal hecha, crea un problema de privacidad.
+- **Bug encontrado en la revisión de código de esta misma tanda, sin síntoma visible:** `slog.SetDefault()` además de fijar el logger redirige el paquete `log` de la stdlib al mismo handler PERO SIEMPRE A NIVEL INFO. Con eso, `log.Fatalf("error conectando a la base de datos")` pasaba a emitirse como `{"level":"INFO"}` — invisible para cualquier alerta sobre `level >= ERROR`, que es exactamente para lo que se migró a logging estructurado. El arreglo rompía en silencio lo que venía a mejorar. Corregido con un helper `fatal()`; verificado empíricamente con un programa mínimo aparte, no leyendo la documentación.
+- **Alternativas descartadas:** pasar el logger por parámetro a `NewRouter`/`NewRouterWithDeps` en vez de usar `slog.Default()` — más explícito, pero tocaría ~50 call sites de test sin ganar nada. A cambio queda una dependencia de orden: `configurarLogger` DEBE correr antes de construir el router, o los logs de producción salen en texto plano sin que nada falle. Documentado en ambos lados.
+- **Reversibilidad:** alta — un middleware, aditivo.
+
+## TR-125: El guard de secretos de arranque pregunta por el valor resuelto, no por la existencia de la env var
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría, revisión de la Fase A ítem 4 — el ítem se daba por cerrado y no lo estaba. Ver `radiografia-tecnica_1.md` §15.
+- **El agujero:** el guard chequeaba `os.LookupEnv("JWT_SECRET")`, o sea si la variable EXISTÍA, mientras `config.getEnv` cae al valor de desarrollo cuando la variable existe pero está VACÍA o es solo espacios (recorta whitespace a propósito, para tolerar un secreto pegado con un salto de línea de más). Borrar el CONTENIDO del campo en el dashboard de deploy —en vez de borrar la fila entera, y es el más probable de los dos errores humanos— pasaba el guard, y el proceso arrancaba en producción firmando el `state` de OAuth con el secreto que está publicado en este repo. Reproducido antes de tocar nada.
+- **Decisión:** comparar el VALOR RESUELTO contra `config.OAuthStateSecretDeDesarrollo`, ahora una constante con nombre. Cubre los cuatro casos de una sola vez —variable ausente, vacía, con solo espacios, o el valor de ejemplo escrito a mano— en vez de enumerarlos. Cuando un chequeo necesita enumerar casos, casi siempre está preguntando lo que no es: la pregunta correcta no era "¿configuraron la variable?" sino "¿el valor con el que voy a arrancar es el público?".
+- **Lección de método, más útil que el bug:** el bug no vivía en ninguna de las dos funciones, vivía en la JUNTURA entre ellas. El test viejo armaba una `config.Config` a mano y seteaba la env var por separado, así que por construcción no podía verlo. El test nuevo va contra `config.Load()` de verdad, con la variable puesta como la pondría una persona.
+- **Aclaración de nombres asociada — acá no hay ningún JWT:** no existe ningún JWT en este backend, ni la librería (eliminada como dependencia muerta en la 2da pasada de la auditoría). La sesión es un token opaco validado contra `sessions` (TR-037). La env var se llama `JWT_SECRET` por herencia de antes de TR-037 y **no se renombra** (rompería deploys ya configurados); su único uso es firmar con HMAC-SHA256 el `state` de OAuth de Google. El identificador de Go sí se renombró: `Config.JWTSecret` → `Config.OAuthStateSecret`. La disonancia queda documentada en `config.go` y `.env.example`, no en la cabeza de quien lea el código.
+- **Verificación:** validado en los dos sentidos — 4 de los 5 casos del test nuevo fallan con el guard viejo, todos pasan con el nuevo.
+
+---
+
+## TR-126: Techos y timeouts en todos los bordes de entrada/salida
+
+- **Fecha:** 2026-09-08 (body, timeouts del servidor, timeout del BFF) / 2026-09-09 (respuestas externas)
+- **Fase:** Auditoría, Fase A ítems 2 y 3 + Fase B ítem 3. Ver `radiografia-tecnica_1.md` §15 y `como-se-arreglo-cada-cosa.md` §A2/§A3.
+- **Se agrupan en un solo TR a propósito:** son cuatro cambios en archivos distintos, pero una sola idea — *si el tamaño o la duración de algo los decide otro, hay que ponerles un techo*. Separarlos en cuatro entradas escondería que es un patrón y no cuatro parches.
+
+| Borde | Quién decidía | Techo puesto |
+|---|---|---|
+| Body de cualquier request (`decodeJSON`) | cualquiera con acceso a la API, **incluidos los endpoints públicos sin sesión** | 1 MiB (`http.MaxBytesReader`) |
+| Lectura de la conexión (`http.Server`) | el cliente, byte a byte | `ReadHeaderTimeout` 10s, `ReadTimeout` 15s, `WriteTimeout` 30s, `IdleTimeout` 60s |
+| Fetch del BFF hacia la API Go (`lib/api.ts`) | el backend, si se cuelga | 35s (`AbortSignal.timeout`) |
+| Respuestas de servicios externos (`googleauth`, `turnstile`) | Google, Cloudflare | 1 MiB (`io.LimitReader`) |
+
+- **`MaxBytesReader` y no simplemente truncar la lectura:** además de cortar, cierra la conexión si el cliente sigue mandando. Truncar sin cerrar deja al atacante ocupando una conexión indefinidamente — se cambia un ataque por otro.
+- **Efecto de diseño buscado:** el límite obligó a cambiar la firma a `decodeJSON(w, r, v)` —`MaxBytesReader` necesita el `ResponseWriter`— y por lo tanto a tocar TODOS los call sites. Eso, que parece una molestia, es lo que hace confiable al arreglo: el compilador garantiza que no quedó ninguno afuera. Un límite que hay que "acordarse de aplicar" en cada handler nuevo no es un límite. Verificado además que no queda ni un `io.ReadAll(r.Body)` ni un `json.NewDecoder(r.Body)` suelto en todo el backend.
+- **Por qué `middleware.Timeout(30s)` no alcanzaba** (y por qué la v1 del informe se equivocó al darlo por suficiente): un middleware corre DESPUÉS de que el handler arrancó, y el handler arranca DESPUÉS de que el servidor terminó de leer los headers. El ataque Slowloris —mandar los headers de a un byte cada varios segundos, sin terminar nunca la request— vive en la fase anterior a todo eso. Cada defensa cubre una fase concreta del ciclo de vida de una request; tener "un timeout" no es estar cubierto.
+- **Por qué 35s en el BFF y no menos:** apenas por encima del `WriteTimeout` del backend (30s), para que una request que el backend TODAVÍA está procesando dentro de su propio límite no se corte antes de tiempo del lado del frontend.
+- **Severidades muy distintas, y está bien:** el body sin techo era un DoS trivial contra endpoints públicos; las respuestas de Google/Cloudflare sobre TLS son riesgo casi nulo y se acotaron solo porque cuesta una línea. Reconocer el patrón no obliga a tratar los cuatro casos como igual de urgentes.
+- **Alternativas descartadas:** un límite por endpoint según lo que cada uno espera recibir — más ajustado, pero multiplica los lugares donde equivocarse y ningún payload legítimo de este backend se acerca a 1 MiB (son formularios de texto; la subida de archivos pasa por `internal/storage`, no por acá).
+- **Reversibilidad:** alta — constantes y configuración, sin cambios de esquema ni de contrato de API.
+
+## TR-127: Redis NO para sesiones — la consulta cara era otra, y se resolvió con un índice
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 1. Ver `radiografia-tecnica_1.md` §09 y `como-se-arreglo-cada-cosa.md` §B2.
+- **La pregunta de partida, planteada explícitamente:** cada request autenticada consulta la sesión en Postgres (TR-037, token opaco server-side). ¿No convendría cachearla en Redis?
+- **Decisión: no.** Esa consulta busca por `token_hash`, que tiene índice único: es una búsqueda directa, de costo prácticamente constante, sobre un dato que Postgres mantiene caliente en memoria por lo seguido que se pide. Redis ahorraría muy poco y a cambio suma un servicio más que operar, monitorear y que puede caerse — además de un problema de invalidación que hoy no existe (un logout revoca la sesión en la tabla y listo).
+- **Lo que apareció al medir en vez de suponer:** la consulta cara de verdad era otra. `requireClinic` resuelve a qué clínica pertenece el usuario en CADA request autenticada, y esa consulta **no usaba índice** — recorría la tabla `clinic_members` entera. Se resolvió con un índice compuesto `(user_id, role)`, en una hora, sin sumar infraestructura.
+- **Por qué compuesto y en ese orden:** un índice compuesto sirve para consultas que filtran por la primera columna, o por la primera Y la segunda — nunca por la segunda sola. La consulta real filtra por `user_id` y discrimina por `role`, así que ese orden le sirve; al revés, no.
+- **Verificación, y por qué importa más que el arreglo:** se confirmó con `EXPLAIN` que la base **usa** el índice, y después contra `pg_indexes` que existe en la base real. Postgres puede perfectamente ignorar un índice que creaste y no avisa: "creé un índice y asumo que lo usa" no es una verificación.
+- **La lección que se lleva el proyecto:** una intuición de rendimiento es una hipótesis, no un diagnóstico. Medir primero cambió QUÉ se arregló, no solo cuánto — la solución costó una hora en vez de sumar un servicio a la infraestructura.
+- **Redis no queda descartado para siempre:** vuelve en Fase C para el `IPLimiter` (que hoy vive en memoria del proceso, ver el comentario de TR-021 sobre una sola instancia), y solo cuando corra **más de una instancia** del backend. Hasta entonces, la condición de activación no se cumple.
+
+## TR-128: Subir a Go 1.26 para cerrar CVEs de `x/crypto`, en vez de fijar versiones
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, segunda pasada (`radiografia-tecnica_1.md` §12).
+- **El problema:** `golang.org/x/crypto` arrastraba 4 vulnerabilidades conocidas. Las correcciones upstream exigían una versión de la librería que a su vez exige un toolchain de Go más nuevo del que usaba el proyecto — no se podían tomar sin subir el toolchain.
+- **Decisión:** subir a **Go 1.26** (`go.mod` + `Dockerfile`: `golang:1.25-alpine` → `golang:1.26-alpine`) y actualizar `x/crypto` a v0.57.0. Cierra 3 de las 4; la restante **no tiene fix upstream**.
+- **Sobre la que queda, la distinción que importa:** `govulncheck` —que analiza *alcanzabilidad*, no solo la lista de dependencias— confirma **0 vulnerabilidades alcanzables** desde este código. No es lo mismo "tenemos una vulnerabilidad" que "tenemos una dependencia que contiene una vulnerabilidad en código que nunca ejecutamos". Un escáner que solo mira versiones no puede hacer esa diferencia y genera alarmas que no se pueden accionar.
+- **Alternativas descartadas:** quedarse en Go 1.25 y fijar `x/crypto` a la última versión compatible — deja las 3 CVEs abiertas a cambio de no tocar el toolchain, y la deuda solo crece: la próxima corrección va a exigir el mismo salto, con más cosas encima. Esperar a que aparezca el fix de la cuarta — no bloquea nada, y `govulncheck` ya confirma que no es alcanzable.
+- **Qué se sacrifica / riesgo asumido:** subir un toolchain puede romper el build o cambiar comportamiento sutilmente. Se verificó con un `docker compose build api` real, no solo con `go build` local — el `Dockerfile` es el que define la versión que corre en producción, y desincronizarlo con `go.mod` es el error clásico de este cambio. CI no necesitó tocarse: usa `go-version-file`, así que sigue a `go.mod` solo.
+- **De paso, en la misma pasada:** `golang-jwt/jwt/v5` seguía declarada en `go.mod` desde antes de TR-037, sin un solo uso real — solo menciones en comentarios. Eliminada con `go mod tidy`. Ver también TR-125 sobre la confusión de nombres que dejó esa herencia.
+- **Reversibilidad:** media — volver atrás es revertir `go.mod` y el `Dockerfile` juntos, pero reabre las 3 CVEs.
+
+## TR-129: Tests de aislamiento entre clínicas como red automática, no como revisión manual
+
+- **Fecha:** 2026-09-08
+- **Fase:** Auditoría, Fase B ítem 6. Ver `radiografia-tecnica_1.md` §03.
+- **El punto de partida:** la revisión manual del aislamiento por tenant dio bien. Se leyó cada `Where("id = ?", ...)`/`First(&x, "id = ?")` de todo `internal/http` —más de 20 sitios— y en cada handler que resuelve un registro directo desde un id del request, el filtro `profesional_id`/`clinic_id` estaba. Los pocos casos sin ese filtro explícito navegan desde un registro **padre** ya resuelto con el filtro correcto: seguros por construcción, no por descuido.
+- **El problema con eso:** una revisión manual vale para el día que se hace. La garantía "ninguna clínica ve datos de otra" es la más importante de un sistema multi-tenant y la más fácil de romper sin querer al agregar un handler — no puede depender de que alguien se acuerde de mirar.
+- **Decisión:** 12 tests en `aislamiento_tenant_test.go` que arman **dos clínicas reales** y, desde la sesión de una, intentan leer/modificar/borrar registros de la otra: listar turnos, cancelar/reprogramar/marcar asistencia en un turno ajeno, ver/editar un paciente ajeno, listar pacientes, editar/eliminar/listar tipos de consulta, el resumen del panel, y los bloqueos de seguridad. Corren en CI con el resto de la suite.
+- **Criterio de las aserciones:** un acceso cruzado tiene que responder **"no encontrado"**, no "prohibido". Un 403 confirma que el registro existe, y eso ya es información que no le corresponde a esa clínica.
+- **Alternativas descartadas:** confiar en la revisión manual y documentarla — es lo que ya estaba, y no sobrevive al próximo handler. Un middleware que fuerce el filtro de tenant automáticamente en cada query (row-level security de Postgres, o un scope global de GORM) — más fuerte de verdad, pero es un cambio estructural grande sobre código que hoy está bien; los tests dan la red por una fracción del costo y del riesgo. Queda anotado como opción si el aislamiento llega a fallar alguna vez.
+- **Qué NO cubren:** los caminos públicos sin sesión (el wizard de turno), que tienen su propio modelo de amenaza y sus propios tests. Estos 12 son sobre el panel autenticado.
+- **Reversibilidad:** total — son tests, no tocan código de producción.
+
+## TR-130: La refactorización de los 3 archivos grandes se posterga, con condición de activación escrita
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría — el ítem 5 de la Fase B se mueve a Fase C. Ver `implementation-plan.md` §12.3 y `radiografia-tecnica_1.md` §11.
+- **De qué se trata:** `turno_publico.go` (1504 líneas), `turnos.go` (1503) y `pedir-turno-form.tsx` (1306) son incómodos de leer y de tocar. Partirlos por sub-responsabilidad estaba planificado para la Fase B.
+- **Decisión: postergarlo,** y dejarlo para la próxima radiografía.
+- **Por qué, con los tres motivos que lo definen:**
+  1. **Es el único ítem del informe que no arregla nada.** No cierra un riesgo, no destraba un límite de escala, no corrige un bug. Paga en velocidad futura de desarrollo — algo real, pero que se cobra recién cuando haya varias personas tocando esos archivos a la vez, y hoy no es el caso.
+  2. **Es por lejos el más caro:** 3 a 5 días, contra horas de la mayoría de los otros ítems.
+  3. **Es el único que puede INTRODUCIR problemas.** `turno_publico.go` concentra los 3 detectores de abuso, la detección de conflictos de identidad y la revalidación de horario dentro de la transacción — el código más delicado del sistema. Cambiar 1500 líneas de eso a cambio de cero mejora observable, mientras siguen abiertos ítems que sí atacan riesgos, es un mal negocio.
+- **La parte que hace que esto no sea simplemente patearlo:** la condición de activación queda escrita. Se hace **cuando el archivo empiece a generar conflictos de merge reales, o cuando entre alguien nuevo al proyecto y ese archivo sea su primer obstáculo.** Sin una condición concreta, "más adelante" significa "nunca" y el ítem se convierte en deuda invisible — que es exactamente lo que se busca evitar teniendo un informe.
+- **Alternativas descartadas:** hacerlo igual porque estaba planificado — planificar no es un compromiso, es una hipótesis sobre prioridades que la propia auditoría corrigió. Partir solo uno de los tres (el menos riesgoso) para "avanzar algo" — media refactorización deja el proyecto con dos convenciones conviviendo, que es peor que ninguna.
+- **Riesgo asumido:** los tres archivos siguen creciendo mientras tanto. La próxima radiografía tiene que volver a medirlos: si crecieron mucho, la condición se cumplió sola.
+
+---
+
+## TR-131: Foreign keys reales en el esquema, y la trampa de nombres que casi las rompe
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría de seguridad y optimización, Fase C ítem 2. Ver `radiografia-tecnica_1.md` §16 y `como-se-arreglo-cada-cosa.md`.
+- **Punto de partida:** el esquema tenía exactamente **4 foreign keys**, y las 4 las creaba GORM sola en tablas de join many2many. Las ~29 relaciones del dominio (`turnos.profesional_id`, `pacientes.profesional_id`, `turnos.paciente_id`…) eran columnas `uuid` sueltas, sin ninguna garantía de apuntar a algo que existiera.
+
+### El método, que fue más importante que el resultado
+
+Una FK `RESTRICT` **no puede destruir datos**: solo puede rechazar un borrado. Las únicas que destruyen son `CASCADE` y `SET NULL`. Eso permitió partir el riesgo en dos: (1) reporte de huérfanos —solo lecturas, riesgo cero—, (2) agregar las 29 en RESTRICT, (3) correr la suite y dejar que los tests dijeran cuáles rutas de borrado se rompían, (4) decidir la semántica solo en esos pocos casos, (5) un test por FK que pruebe que muerde. Sin ese orden, había que adivinar 29 semánticas de borrado a ciegas sobre historia clínica.
+
+### Hallazgo 1 — `profesional_id` no apunta a `profesionales`
+
+**Guarda un `clinics.id`.** Verificado empíricamente antes de escribir una sola constraint: `profesionalIDFromRequest` devuelve el `clinicID` del contexto, y el wizard público escribe `clinic.ID` en esa misma columna. La tabla `profesionales` es legacy de antes de TR-037 y está **vacía**.
+
+Una FK puesta por el nombre (`profesional_id → profesionales(id)`) habría hecho fallar **todos los inserts**, en el panel y en el formulario público. La columna no se renombra acá —toca decenas de queries y merece su propio cambio—, pero las constraints se llaman por lo que la relación ES (`fk_pacientes_clinica`), así que el esquema dice la verdad aunque la columna no.
+
+### Hallazgo 2 — 38 filas huérfanas de un cambio de significado a mitad de proyecto
+
+El reporte de huérfanos encontró, en la base de desarrollo, 24 de 29 `tipos_consulta`, 10 de 16 `pacientes` y 3 de 4 `paginas_publicas` apuntando a clínicas inexistentes. Todas del 22 al 24 de agosto de 2026, con 8-12 ids distintos; las sanas arrancan el 27, con exactamente 2 (las clínicas reales). Es la era pre-TR-037. **El significado de la columna cambió y esas filas nunca se migraron — nadie lo notó justamente porque no había foreign keys.**
+
+Eran inalcanzables (toda query del panel filtra por la clínica de la sesión) y ningún turno las referenciaba. Se limpian con `limpiar_filas_legacy_sin_clinica`, bajo el guardián de migraciones destructivas de TR-132.
+
+Los mismos fixtures de test venían escribiendo un `profesionales.id` en `profesional_id`: **los tests probaban contra una forma del esquema que la aplicación dejó de usar**, y pasaban porque nada lo desmentía. Lo destapó `fk_turnos_clinica` al agregarse.
+
+### Hallazgo 3 — `conflictos_paciente` NO lleva foreign key (excepción deliberada)
+
+Es una tabla de **historial**: `resolverConflictoComoVerdadero`/`...ComoFalso` borran la ficha perdedora y conservan la fila del conflicto con `resuelto = true`. La referencia queda colgada **a propósito** — 17 de 17 filas en desarrollo. Una FK `RESTRICT` habría roto la resolución de conflictos de plano; una `CASCADE` habría borrado el historial junto con la ficha, que es justo lo que la tabla existe para conservar. Excluida, documentada en el código y con un test propio (`TestFK_ConflictosPacienteSigueSinForeignKey`) para que nadie la "arregle" por descuido.
+
+### Las semánticas de borrado, y por qué cada una
+
+- **RESTRICT (la mayoría)** para todo lo que pertenece a una clínica. Ninguna ruta actual borra una clínica, así que no bloquea nada existente; el día que se agregue esa funcionalidad, obliga a decidir explícitamente qué pasa con pacientes y turnos.
+- **CASCADE** para lo que cuelga de un usuario (`sessions`, `verification_tokens`, `accounts`, `professional_profiles`, `professional_especialidades`, `clinic_members`, `clinic_invitations`). `PurgeAuthGarbage` ya borraba a mano sesiones y tokens antes de borrar la cuenta —la intención ya estaba— pero se olvidaba del resto, y ese olvido es lo que el chequeo de huérfanos encontró en la base de test. CASCADE completa la intención sin tocar código ya verificado.
+- **SET NULL** para `audit_events.user_id`. Es auditoría: el registro vale justamente cuando el usuario ya no está.
+- **RESTRICT a propósito** para `clinics.owner_id` — el freno de mano. Es la única FK hacia `users` que no cascadea, y evita que un borrado de cuenta se lleve puestos los datos clínicos por el camino.
+- **`turnos.tipo_consulta_id` en RESTRICT** calca lo que el código ya hace: `eliminarTipoConsultaHandler` responde 409 si hay turnos asociados.
+
+### Hallazgo 4 — el `ADD CONSTRAINT` idempotente no es idempotente en sus LOCKS
+
+Bug propio, diagnosticado leyendo el log del servidor de Postgres tras ver fallos intermitentes en tests sin relación (deadlocks, 401, 404, distintos en cada corrida).
+
+El patrón `DO $$ ... EXCEPTION WHEN duplicate_object` que usa el resto de `migrate.go` es idempotente en su RESULTADO pero no en sus locks: un `ALTER TABLE ... ADD CONSTRAINT FOREIGN KEY` toma `ShareRowExclusiveLock` sobre la tabla PADRE **antes** de descubrir que la constraint ya existía. Con 29 FK sobre `clinics` y `users` —las dos tablas más ocupadas—, cada corrida de migraciones bloqueaba esas tablas 29 veces mientras los tests de otro paquete insertaban filas.
+
+Fix: preguntar a `pg_constraint` si la constraint existe (un SELECT no toma locks pesados) y saltear el ALTER. De paso, la migración dejó de tardar ~29 segundos de más.
+
+- **Alternativas descartadas:** `ADD CONSTRAINT ... NOT VALID` + `VALIDATE CONSTRAINT` aparte — evita el lock exclusivo largo y es lo correcto con tablas grandes, pero con el volumen actual no cambia nada y agrega un estado intermedio ("constraint existe pero no validada") que hay que recordar. Queda anotado para cuando el volumen lo pida. Dar a cada paquete de test su propia base para eliminar la contención — arregla el síntoma sin arreglar el ALTER innecesario, y multiplica el tiempo de migración por la cantidad de paquetes.
+- **Qué se sacrifica:** el nombre `profesional_id` sigue mintiendo; las constraints lo compensan pero no lo arreglan. Y `conflictos_paciente` queda sin garantía de integridad, a conciencia.
+- **Reversibilidad:** alta — `ALTER TABLE ... DROP CONSTRAINT` por cada una. Lo irreversible es la limpieza de las 38 filas, que va por el guardián de TR-132.
+- **Verificación:** 6 tests que prueban que las constraints MUERDEN (insert huérfano rechazado por nombre de constraint, insert legítimo aceptado, CASCADE de sesiones, SET NULL de auditoría, freno de `clinics.owner_id`, y la ausencia de FK en `conflictos_paciente`) — no que existan en `pg_constraint`, que pasaría igual con la constraint puesta sobre la columna equivocada. Suite completa en verde en 3 corridas seguidas (los fallos eran intermitentes). Aplicado sobre la base de desarrollo real: 4 → 33 foreign keys, 38 filas legacy borradas, **29 turnos intactos**, y smoke test del wizard público (`/clinicas/{slug}`, `/clinicas/{slug}/tipos-consulta`) respondiendo igual que antes.
+
+## TR-132: Guardián de migraciones destructivas — el permiso se pide solo si hay algo que perder
+
+- **Fecha:** 2026-09-09
+- **Fase:** Auditoría, Fase C ítem 1. Ver `radiografia-tecnica_1.md` §16.
+- **El problema:** `migrate.go` tenía repartidos, mezclados con las migraciones de esquema inofensivas, un `DELETE FROM turnos`, cinco `DROP COLUMN` sobre `pacientes`, dos más sobre `paciente_tutores`/`turnos` y un `DROP TABLE`. Todos corriendo automáticamente en cada arranque del contenedor `migrate`, sin dejar registro y sin que nadie aprobara nada. Sin producción todavía era tolerable; con datos de una clínica adentro no: un `DROP COLUMN IF EXISTS` no avisa, no falla y no se deshace.
+- **Decisión:** una migración que destruye datos no corre fuera de `development` sin que alguien la habilite explícitamente para ESE deploy (`DB_ALLOW_DESTRUCTIVE=true`), con un mensaje que nombra la migración, el entorno, cuántos elementos destruiría y que hay que hacer backup antes.
+- **El matiz que la hace sostenible:** el permiso se pide **solo si de verdad hay algo que perder**. Cada migración declara cómo contar su impacto; si da cero —base nueva, o ya migrada— se registra y se sigue de largo. Una barrera que se dispara cuando no hace falta se termina desactivando "para que el deploy pase", y ahí deja de proteger. En producción, donde el esquema nace limpio, ninguna de estas migraciones pide nada.
+- **La política se resuelve UNA vez**, en `cmd/migrate/main.go`, desde la Config ya cargada — nunca leyendo variables de entorno desde `internal/db`. Es la lección de TR-125: dos lugares decidiendo "¿estamos en producción?" por su cuenta terminan discrepando, y el hueco entre los dos es donde vive el bug.
+- **Bug latente que apareció al escribir los tests, no leyendo el código:** el `DELETE FROM turnos WHERE estado = 'pendiente'` estaba MAL UBICADO desde antes de esta fase. El check constraint `estado IN ('agendado','cancelada')` vive en el tag de GORM del modelo `Turno`, así que lo aplica el AutoMigrate: sobre una base con turnos `pendiente` reales, el AutoMigrate revienta con "check constraint is violated by some row" ANTES de que el DELETE tuviera ocasión de correr — el deploy muere ahí y no se sale sin SQL a mano. Mismo bug de orden que el de la deduplicación (TR-123). CI no lo veía: su base nace sin filas `pendiente`. De ahí que las migraciones destructivas se separen en dos grupos, previas y posteriores al AutoMigrate — no es organización, es una restricción real.
+- **Dos errores propios que los tests atajaron:** (1) atrapar el 42P01 ("tabla no existe") del lado de Go no sirve dentro de una transacción, porque cualquier error de Postgres la aborta entera y todo lo que sigue falla con 25P02 — se pregunta con `to_regclass`, que devuelve NULL en vez de fallar, y la tabla de control pasa a crearse como primer paso de todo; (2) con 0 afectados igual se llamaba a `Aplicar`, que sobre una base recién creada intentaba un DELETE contra una tabla inexistente — ahora `Afectados == 0` significa "no hay nada que hacer" y queda escrito como contrato en el tipo.
+- **Alternativas descartadas:** exigir un backup verificado antes de cualquier migración destructiva — no hay sistema de backups todavía, y una barrera que no se puede satisfacer se saltea. Prohibirlas del todo fuera de development — deja sin salida a una base que legítimamente necesita la limpieza.
+- **Verificación:** 4 tests que prueban que el guardián DISCRIMINA — frena con columnas que todavía tienen datos (verificando además que no destruyó nada antes de frenar, y que el mensaje nombra la migración, el entorno, el backup y la env var), aplica con autorización explícita, no molesta a una base sana con política restrictiva, y frena el borrado de turnos con una fila real. Aplicado sobre la base de desarrollo: `afectados=38`, exactamente lo que el reporte de huérfanos había predicho.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

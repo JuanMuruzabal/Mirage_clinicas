@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,6 +23,20 @@ const (
 	tokenEndpoint    = "https://oauth2.googleapis.com/token"
 	userinfoEndpoint = "https://www.googleapis.com/oauth2/v3/userinfo"
 )
+
+// maxRespuestaExterna — techo de lectura para el body de una respuesta de
+// un servicio externo. Mismo principio que maxJSONBodyBytes en
+// internal/http (Fase A de la auditoría, límite del body ENTRANTE), del
+// lado de las respuestas SALIENTES: json.NewDecoder sobre un resp.Body sin
+// acotar transmite a memoria todo lo que el otro lado mande, sin techo.
+//
+// Severidad baja y a conciencia: el otro lado acá es Google/Cloudflare
+// sobre TLS, no un atacante. Pero un servicio externo puede empezar a
+// responder cualquier cosa (un incidente suyo, un proxy corporativo
+// intercalado devolviendo una página de error gigante) sin que este
+// backend tenga forma de anticiparlo — y estas respuestas son de unos
+// pocos KB: 1 MiB es holgado por dos órdenes de magnitud.
+const maxRespuestaExterna = 1 << 20 // 1 MiB
 
 // UserInfo es lo único que este paquete conserva de la respuesta de
 // Google — no se persisten tokens de acceso/refresco (minimización de
@@ -101,7 +116,7 @@ func (e *HTTPExchanger) Exchange(ctx context.Context, code, redirectURI string) 
 	defer func() { _ = resp.Body.Close() }()
 
 	var tok tokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxRespuestaExterna)).Decode(&tok); err != nil {
 		return UserInfo{}, fmt.Errorf("respuesta de token inválida: %w", err)
 	}
 	if tok.Error != "" {
@@ -128,7 +143,7 @@ func (e *HTTPExchanger) Exchange(ctx context.Context, code, redirectURI string) 
 	}
 
 	var info userinfoResponse
-	if err := json.NewDecoder(infoResp.Body).Decode(&info); err != nil {
+	if err := json.NewDecoder(io.LimitReader(infoResp.Body, maxRespuestaExterna)).Decode(&info); err != nil {
 		return UserInfo{}, fmt.Errorf("respuesta de userinfo inválida: %w", err)
 	}
 	if info.Sub == "" || info.Email == "" {

@@ -161,7 +161,7 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req tipoConsultaRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}
@@ -202,7 +202,7 @@ func editarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var req tipoConsultaRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
 			return
 		}

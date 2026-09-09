@@ -1,9 +1,12 @@
 package db
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -40,18 +43,98 @@ const lockKeyMigraciones = 483920175
 // (sesión), que exigiría mantener la MISMA conexión entre el lock y el
 // unlock, algo que un `*gorm.DB` con pool no garantiza entre dos `Exec`
 // separados.
+// Reintento por deadlock (bug real de CI, 2026-09-09): el advisory lock de
+// arriba serializa las migraciones ENTRE SÍ, pero no contra las
+// transacciones COMUNES que estén corriendo al mismo tiempo — y ese es el
+// otro lado del deadlock que apareció en CI:
+//
+//	migrate.go:368 ERROR: deadlock detected (SQLSTATE 40P01)
+//	DROP INDEX IF EXISTS idx_paciente_dni_unico
+//
+// Dos migraciones no pueden trabarse entre sí (la segunda espera el
+// advisory lock sin tener tomado nada más, así que no hay ciclo posible).
+// El contrincante real es una transacción cualquiera: en CI, un paquete de
+// test que ya migró y está corriendo sus tests contra la MISMA base
+// mientras otro paquete recién arranca y migra. La migración toma ACCESS
+// EXCLUSIVE sobre varias tablas y después pide `pacientes` para el DROP
+// INDEX; la transacción del test ya tiene `pacientes` tomada y pide alguna
+// de las que la migración ya se quedó — ciclo, y Postgres mata a una de
+// las dos.
+//
+// Lo mismo puede pasar en producción, que es lo que hace que esto valga
+// más que un parche de CI: el contenedor `migrate` de un deploy corre
+// mientras la instancia anterior de la API sigue atendiendo tráfico.
+//
+// Un deadlock es, por definición, un error para reintentar: Postgres mata
+// a una de las dos transacciones justamente para que pueda volver a
+// intentarlo. Reintentar acá es seguro porque toda la migración vive en
+// UNA transacción (el rollback no deja nada a medias) y porque la función
+// es idempotente. Backoff creciente para no volver a chocar de inmediato
+// con la misma transacción larga.
+const intentosMigracion = 5
+const esperaBaseEntreIntentosMigracion = 200 * time.Millisecond
+
+// RunMigrations usa la política PERMISIVA de migraciones destructivas —
+// es el camino de los tests y del desarrollo local, donde borrar datos de
+// prueba no le importa a nadie.
+//
+// El contenedor `migrate` de producción NO usa esta función: usa
+// RunMigrationsConPolitica con la política resuelta desde la Config
+// (cmd/migrate/main.go). Ver migrate_destructiva.go.
 func RunMigrations(gdb *gorm.DB) error {
+	return RunMigrationsConPolitica(gdb, PoliticaDestructiva{Permitir: true, Entorno: "development"})
+}
+
+// RunMigrationsConPolitica es la variante que decide, desde afuera, si una
+// migración que destruye datos puede correr. Ver PoliticaDestructiva.
+func RunMigrationsConPolitica(gdb *gorm.DB, pol PoliticaDestructiva) error {
+	return conReintentoPorDeadlock(intentosMigracion, esperaBaseEntreIntentosMigracion, func() error {
+		return migrarUnaVezConLock(gdb, pol)
+	})
+}
+
+// conReintentoPorDeadlock reintenta `intentar` mientras falle por deadlock,
+// esperando cada vez un poco más (espera × número de intento). Cualquier
+// otro error se devuelve tal cual, en el primer intento: reintentar a
+// ciegas convertiría un error de migración real en varios segundos de
+// espera antes de la misma falla.
+//
+// Recibe los parámetros en vez de leer las constantes directamente para
+// que los tests puedan ejercitarla sin dormir segundos de verdad.
+func conReintentoPorDeadlock(intentos int, espera time.Duration, intentar func() error) error {
+	var err error
+	for intento := 1; intento <= intentos; intento++ {
+		err = intentar()
+		if err == nil || !esDeadlock(err) {
+			return err
+		}
+		time.Sleep(time.Duration(intento) * espera)
+	}
+	return fmt.Errorf("las migraciones fallaron por deadlock %d veces seguidas: %w", intentos, err)
+}
+
+// migrarUnaVezConLock — un intento completo: una transacción, el advisory
+// lock, y el cuerpo de las migraciones.
+func migrarUnaVezConLock(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	return gdb.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKeyMigraciones).Error; err != nil {
 			return fmt.Errorf("no se pudo tomar el advisory lock de migraciones: %w", err)
 		}
-		return runMigrationsLocked(tx)
+		return runMigrationsLocked(tx, pol)
 	})
+}
+
+// esDeadlock — SQLSTATE 40P01. Se chequea el CÓDIGO del error de Postgres,
+// nunca el texto del mensaje: el texto cambia con la versión y con el
+// locale del servidor, el código no.
+func esDeadlock(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "40P01"
 }
 
 // runMigrationsLocked — el cuerpo real de RunMigrations, corrido siempre
 // con el advisory lock de arriba ya tomado.
-func runMigrationsLocked(gdb *gorm.DB) error {
+func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	// Migración manual (corrección de QA, 2026-09-01): horarios_atencion
 	// pasa de 1 fila por clínica (PK=clinic_id, un único horario fijo) a
 	// una LISTA con alcance (general/semana/mes/rango), igual criterio
@@ -63,16 +146,30 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 	// el horario general default (08:00-18:00) hasta que lo guarde de
 	// nuevo. Detecta la tabla vieja por la AUSENCIA de la columna `id`
 	// (idempotente: no vuelve a tocar la tabla una vez migrada).
-	if err := gdb.Exec(`
-		DO $$
-		BEGIN
-		  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'horarios_atencion')
-		     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'horarios_atencion' AND column_name = 'id') THEN
-		    DROP TABLE horarios_atencion;
-		  END IF;
-		END $$
-	`).Error; err != nil {
-		return fmt.Errorf("migración manual de horarios_atencion falló: %w", err)
+	// La tabla de control de migraciones va PRIMERO, antes que cualquier
+	// otra cosa del esquema. El guardián de migraciones destructivas la
+	// consulta y la escribe, y la primera de esas migraciones corre acá
+	// abajo, ANTES del AutoMigrate del resto del esquema — sobre una base
+	// recién creada esa tabla todavía no existiría.
+	//
+	// Bug real, encontrado por migrate_destructiva_test.go al crear una
+	// base desde cero: sin esto, el guardián fallaba con "relation
+	// migraciones_una_vez does not exist" y, peor, la consulta fallida
+	// abortaba la transacción entera (SQLSTATE 25P02 en todo lo que
+	// siguiera). CI lo habría encontrado también, porque su base nace
+	// vacía en cada corrida.
+	if err := gdb.AutoMigrate(&MigracionUnaVez{}); err != nil {
+		return fmt.Errorf("automigrate de migraciones_una_vez falló: %w", err)
+	}
+
+	// Pasa por el guardián de migraciones destructivas (Fase C de la
+	// auditoría, ver migrate_destructiva.go): dropea una tabla con datos
+	// de clínicas reales. Va ACÁ, antes del AutoMigrate, porque es el
+	// AutoMigrate el que la recrea con la forma nueva.
+	for _, m := range migracionesDestructivasPrevias() {
+		if err := aplicarDestructivaUnaVez(gdb, pol, m); err != nil {
+			return err
+		}
 	}
 
 	if err := gdb.AutoMigrate(
@@ -108,6 +205,9 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// Fase 2, ítem 5 ("compartir calendario"): link de 1h generado por
 		// el profesional, sin CAPTCHA/verificación de mail.
 		&EnlaceTurno{},
+		// Fase B de la auditoría (2026-09-08): control de las migraciones de
+		// DATOS que corren una sola vez — ver aplicarUnaVez más abajo.
+		&MigracionUnaVez{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -212,54 +312,6 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_unico
 		   ON horarios_atencion (clinic_id) WHERE alcance = 'general'`,
 
-		// Extra 2.3.5 (E5.1): antes de que existiera el índice único de abajo,
-		// ya se habían cargado Paciente duplicados (mismo profesional_id+dni)
-		// en desarrollo — sin producción todavía (CLAUDE.md), pero el CREATE
-		// UNIQUE INDEX de abajo fallaría igual contra esos datos ya
-		// cargados. Este bloque deja una sola fila por (profesional_id, dni)
-		// — la más vieja (MIN(created_at), MIN(id) como desempate) — reasigna
-		// cualquier turno que apuntara a una fila descartada hacia la que se
-		// conserva, y recién después borra las descartadas. Idempotente: sin
-		// duplicados, el loop no encuentra filas y no hace nada.
-		//
-		// Corrección de bug real (encontrado en QA en vivo, Fase 2.4.1):
-		// este bloque corre en CADA RunMigrations (cada deploy/reinicio del
-		// contenedor `migrate`), sin ningún guard de "una sola vez" — y
-		// hasta acá agrupaba TODAS las fichas por (profesional_id, dni) sin
-		// excluir `en_conflicto`. Eso significa que dos fichas separadas
-		// A PROPÓSITO por un conflicto sin resolver (crearPacientePublicoConDeteccionDeConflicto,
-		// paciente_conflicto_publico.go — la razón de ser de en_conflicto)
-		// quedaban agrupadas igual que un duplicado real, y la ficha
-		// en_conflicto=true se borraba y su turno se reasignaba a la otra
-		// EN CADA DEPLOY, sin pasar por ConflictoPaciente ni por
-		// migrarOCancelarTurnosDePerdedor — deshaciendo en silencio toda la
-		// detección de conflicto. `WHERE NOT en_conflicto` restringe el
-		// barrido a lo que este bloque siempre debió limpiar: fichas
-		// duplicadas de verdad que violan el índice parcial de abajo
-		// (idx_paciente_dni_unico, también `WHERE NOT en_conflicto`) —
-		// nunca una ficha en conflicto todavía sin resolver.
-		`DO $$
-		DECLARE
-		  duplicado RECORD;
-		  ids uuid[];
-		  conservar uuid;
-		  descartar uuid[];
-		BEGIN
-		  FOR duplicado IN
-		    SELECT array_agg(id ORDER BY created_at, id) AS ids
-		    FROM pacientes
-		    WHERE NOT en_conflicto
-		    GROUP BY profesional_id, dni
-		    HAVING COUNT(*) > 1
-		  LOOP
-		    ids := duplicado.ids;
-		    conservar := ids[1];
-		    descartar := ids[2:array_length(ids, 1)];
-		    UPDATE turnos SET paciente_id = conservar WHERE paciente_id = ANY(descartar);
-		    DELETE FROM pacientes WHERE id = ANY(descartar);
-		  END LOOP;
-		END $$`,
-
 		// Extra 2.3.5 (docs/Arquitectura y base/implementation-plan.md §11.5, E5.1): un mismo DNI
 		// no puede tener dos fichas de Paciente dentro de la misma clínica —
 		// antes de esto, cualquier camino de alta (formulario público,
@@ -282,15 +334,10 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		`CREATE UNIQUE INDEX idx_paciente_dni_unico
 		   ON pacientes (profesional_id, dni) WHERE NOT en_conflicto`,
 
-		// Extra 2.3.3 (TR-104): el estado `pendiente` se saca del todo — antes
-		// de estrechar el check constraint de abajo, borra cualquier turno
-		// `pendiente` que haya quedado de antes de Extra 2.3.5 (sin
-		// producción todavía, CLAUDE.md; un turno pendiente nunca tuvo
-		// horario ni paciente vinculado, así que no hay nada de negocio real
-		// que preservar — a diferencia del de-duplicado de pacientes de
-		// arriba, acá no hace falta reasignar nada antes de borrar).
-		// Idempotente: sin filas `pendiente`, no borra nada.
-		`DELETE FROM turnos WHERE estado = 'pendiente'`,
+		// El `DELETE FROM turnos WHERE estado = 'pendiente'` que estaba acá
+		// se movió al bloque de migraciones destructivas (Fase C de la
+		// auditoría, ver migrate_destructiva.go) — corre antes que este
+		// loop, que es lo que el check constraint de abajo necesita.
 
 		// DROP + ADD (no el patrón DO $$/duplicate_object): el check
 		// constraint cambió de valores permitidos (saca 'pendiente' del
@@ -360,11 +407,8 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// porque GORM AutoMigrate nunca borra columnas — solo agrega. Sin
 		// pérdida de datos real: esta rama no está deployada todavía
 		// (Fase 2.4.2 sigue en QA, TR-116/TR-083 en docs/Arquitectura y base/tradeoffs.md).
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_relacion`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_nombre`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_dni`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_telefono`,
-		`ALTER TABLE pacientes DROP COLUMN IF EXISTS tutor_email`,
+		// Los 5 `DROP COLUMN` de tutor_* que estaban acá se movieron al
+		// bloque de migraciones destructivas (migrate_destructiva.go).
 
 		// `paciente_tutores.relacion` — a diferencia de `pacientes`/`turnos`
 		// de arriba, acá NUNCA es null (cada fila ES un tutor, por
@@ -382,14 +426,47 @@ func runMigrationsLocked(gdb *gorm.DB) error {
 		// NOT NULL) y en `turnos` (snapshot paralelo, nullable). Mismo
 		// motivo que las columnas Tutor* de `pacientes` más arriba: GORM
 		// AutoMigrate nunca borra columnas, solo agrega.
-		`ALTER TABLE paciente_tutores DROP COLUMN IF EXISTS dni`,
-		`ALTER TABLE turnos DROP COLUMN IF EXISTS tutor_dni`,
+		// Los `DROP COLUMN` de dni/tutor_dni que estaban acá se movieron al
+		// bloque de migraciones destructivas (migrate_destructiva.go).
+	}
+
+	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
+	// 2026-09-08). A diferencia de los `statements` de abajo —idempotentes
+	// y baratos de repetir— estas barren tablas enteras: su costo crece con
+	// el volumen de la base y se pagaría en CADA arranque del contenedor
+	// `migrate`, para siempre, aunque después de la primera vez no
+	// encuentren nada que corregir.
+	//
+	// EL ORDEN IMPORTA, y es la razón por la que este bloque va ACÁ y no
+	// después del loop (bug real introducido y corregido el 2026-09-08, en
+	// la revisión de código de esta misma tanda): la deduplicación existe
+	// justamente para que `CREATE UNIQUE INDEX idx_paciente_dni_unico`
+	// —que está entre los statements de abajo, y se re-crea sin
+	// IF NOT EXISTS en cada corrida— no falle contra fichas duplicadas ya
+	// cargadas. Con la limpieza DESPUÉS, una base con duplicados reales
+	// revienta en el CREATE INDEX, toda la transacción hace rollback, y
+	// como los duplicados siguen ahí el próximo arranque falla igual: el
+	// contenedor queda en un loop del que no se sale sin SQL a mano. CI no
+	// lo detecta porque su base de test siempre nace limpia, sin
+	// duplicados — exactamente la población para la que este bloque existe.
+	for _, m := range migracionesDestructivasPosteriores() {
+		if err := aplicarDestructivaUnaVez(gdb, pol, m); err != nil {
+			return err
+		}
 	}
 
 	for _, stmt := range statements {
 		if err := gdb.Exec(stmt).Error; err != nil {
 			return fmt.Errorf("migración cruda falló (%s): %w", stmt, err)
 		}
+	}
+
+	// Foreign keys — Fase C de la auditoría (ver migrate_fk.go). Van al
+	// final, después del loop de statements: necesitan que TODAS las
+	// tablas existan, y que la limpieza de filas legacy (bloque de
+	// migraciones destructivas, más arriba) ya haya corrido.
+	if err := aplicarForeignKeys(gdb); err != nil {
+		return err
 	}
 
 	// TR-004: el catálogo de especialidades es global (a diferencia de
