@@ -220,6 +220,41 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			query = query.Where("nombre ILIKE ? OR apellido ILIKE ? OR dni ILIKE ?", like, like, like)
 		}
 
+		// verificacion — mismo filtro (y misma subquery) que
+		// listTurnosHandler (turnos.go): las pestañas Todos/Verificados/Sin
+		// verificar de /panel/pacientes se resolvían en el navegador,
+		// filtrando la lista COMPLETA de fichas ya traída. Con la
+		// paginación eso deja de funcionar (una tanda parcial filtrada en
+		// el cliente muestra cualquier cosa), así que el filtro baja acá.
+		// pacientesVerificadosQuery, y no el mapa en memoria de
+		// pacientesVerificadosIDs, justamente para no caer en el `NOT IN
+		// (NULL)` que describe el comentario de esa función.
+		if verificacion := r.URL.Query().Get("verificacion"); verificacion != "" {
+			sub := pacientesVerificadosQuery(gdb, profesionalID)
+			switch verificacion {
+			case "verificado":
+				query = query.Where("id IN (?)", sub)
+			case "sin_verificar":
+				query = query.Where("id NOT IN (?)", sub)
+			default:
+				writeError(w, http.StatusBadRequest, "el parámetro 'verificacion' debe ser 'verificado' o 'sin_verificar'")
+				return
+			}
+		}
+
+		// Paginación opt-in — ver paginacion.go. El picker de "Paciente
+		// conocido" del modal de turnos usa el mismo endpoint y también la
+		// pide: una lista desplegable con miles de fichas no le sirve a
+		// nadie, para eso está el buscador.
+		if limit, offset, aplicar := paginacionDeRequest(r); aplicar {
+			var err error
+			query, err = aplicarPaginacion(w, query, &db.Paciente{}, limit, offset)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+				return
+			}
+		}
+
 		var pacientes []db.Paciente
 		if err := query.Order("apellido, nombre").Find(&pacientes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")

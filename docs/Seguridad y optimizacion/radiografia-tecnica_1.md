@@ -274,4 +274,85 @@ Ninguna de las áreas nuevas abrió hallazgos altos más allá de los dos de arr
 
 ---
 
+## 13. Fase B, ítem 2 — Paginación de `/turnos` y `/pacientes` (2026-09-08)
+
+El ítem más caro de la Fase B, y el que más cambia el comportamiento en runtime. Estado: **implementado**.
+
+### Qué estaba mal
+
+Ninguno de los dos listados del panel tenía techo. `/panel/turnos` era el peor caso, y por un motivo que no se ve leyendo el handler: además de traer la lista de la pestaña activa, la página pedía **las cuatro listas completas** (una por pestaña) solo para mostrar el numerito al lado de cada una — `apiListTurnos(...).length`. Con los filtros vacíos, entrar a esa pantalla serializaba todos los turnos de la clínica **cinco veces** por visita. `/panel/pacientes` hacía lo mismo en menor escala: una sola lista completa, pero después filtraba y contaba las tres pestañas en el navegador.
+
+Con una clínica probando no se nota. Con años de historial, es la primera pantalla que se cae.
+
+### Cómo se resolvió
+
+**Backend — paginación opt-in** (`internal/http/paginacion.go`, nuevo). `?limit=&offset=`, con el total detrás de los filtros en el header `X-Total-Count`. Dos decisiones deliberadas:
+
+- **Sin `limit`, el endpoint responde exactamente como antes.** No es pereza: el calendario usa el mismo `GET /turnos` y necesita el rango de fechas **completo** — paginarlo por default le escondería turnos del rango visible, en silencio. Que la paginación sea opt-in es lo que deja tocar estos endpoints sin romperlo.
+- **`limit` se recorta a 200 sin avisar.** El punto de paginar es que ninguna consulta pueda pedir la tabla entera; un cliente que pide 999999 no debería poder saltearse eso.
+
+**El total viaja en un header, no en el body.** Así la respuesta sigue siendo el mismo array JSON de siempre y ningún consumidor existente se rompe. Si el header falta (un proxy que lo filtre), el frontend cae a la cantidad de items recibidos: el peor caso es que no ofrezca "Cargar más", nunca que rompa.
+
+**Los contadores de pestaña dejaron de traer listas.** `apiContarTurnos`/`apiContarPacientes` piden una página de 1 y se quedan con el `X-Total-Count` — el `COUNT(*)` ya lo hace el backend de todos modos para armar el total. La pestaña activa no se cuenta aparte: su total viene en su propia respuesta paginada.
+
+**El filtro Verificados/Sin verificar de Pacientes bajó al backend.** Se resolvía en el navegador sobre la lista completa; con tandas parciales eso mostraría cualquier cosa. Reusa `pacientesVerificadosQuery` — el mismo parámetro y la misma subquery que `/turnos` ya usaba, no una segunda copia de la regla de "verificado". Un valor inventado devuelve 400, no la lista entera: un filtro que falla abierto le hace creer a la UI que filtró.
+
+**Frontend — "Cargar más", no páginas numeradas.** El profesional recorre estas tablas escaneando de arriba a abajo; partirlas en 1/2/3 lo obliga a recordar en qué página estaba cada vez que vuelve de abrir una ficha. Con "Cargar más" la lista solo crece, que es exactamente cómo se leía antes — la diferencia es que la primera carga trae 50 filas, no la tabla entera. El pie (`CargarMas`) desaparece cuando ya está todo cargado: existe para explicar una lista cortada, y el total de la pantalla ya lo dice el encabezado.
+
+Detalle que importa: **recargar después de cancelar/editar un turno vuelve a pedir la ventana que el profesional ya tenía cargada**, no la primera tanda. Si venía de tocar "Cargar más" tres veces, la tabla no se le encoge de golpe bajo el cursor.
+
+### Lo que NO se paginó, a propósito
+
+- **El calendario.** Ver arriba — pide un rango de fechas acotado y lo necesita completo.
+- **El buscador de "Paciente conocido"** del modal "+ Agregar turno". Ahí el filtro por texto ya acota el resultado a un puñado de fichas, y una tanda parcial de coincidencias confunde más de lo que ayuda.
+
+### De paso: el `testTimeout` de Vitest
+
+`pnpm test:coverage:web` fallaba de forma intermitente con "Test timed out in 5000ms" en los tests más pesados del wizard público — mismo síntoma ya documentado en el addendum de TR-120, atribuido entonces a contención de recursos. Es real, pero el diagnóstico completo es más simple: la corrida de cobertura ejecuta 92 archivos en paralelo **con instrumentación encima**, y bajo esa carga esos tests cruzan los 5s por default. El mismo archivo aislado pasa 42/42, también con cobertura; la suite sin cobertura pasa entera.
+
+Un gate que falla según la carga de la máquina no informa nada, así que `testTimeout` pasa a 15s. Un test de verdad colgado sigue fallando, solo que más tarde.
+
+### Verificación
+
+Backend: `go build`/`go vet` en verde, `gofmt`/`golangci-lint` limpios (copia sin CRLF), suite completa contra Postgres real en verde, cobertura 80.4% (gate 80%). 10 tests de paginación — sin `limit` devuelve todo y no manda el header; con `limit` devuelve la tanda y el total; tres páginas seguidas sin repetir ni saltear filas; `limit` abusivo recortado; valores inválidos ignorados sin romper; el total respeta los filtros; el filtro de verificación en sus tres valores más el caso límite de cero verificados (el `NOT IN (NULL)` que descarta todas las filas) y el 400 del valor inventado.
+
+Frontend: typecheck/lint/build en verde, 1006 tests en verde, cobertura 82.94% statements / 84.34% líneas (gate 80%). 5 tests nuevos sobre el pie de paginación: que no aparezca cuando ya está todo cargado, que sin `totalInicial` asuma que lo recibido es todo, y que "Cargar más" pida el offset correcto (la cantidad ya cargada, con los filtros vigentes) y sume la tanda a la que ya estaba, en las dos tablas.
+
+---
+
+## 14. Deadlock en migraciones (2026-09-09) — encontrado por CI, no por la auditoría
+
+```
+migrate.go:368 ERROR: deadlock detected (SQLSTATE 40P01)
+DROP INDEX IF EXISTS idx_paciente_dni_unico
+--- FAIL: TestNew_DevuelveUnaConexionUtilizableYAislada
+    testdb: no se pudo migrar la base de test
+```
+
+### El diagnóstico
+
+`RunMigrations` ya tomaba un `pg_advisory_xact_lock` para serializar las migraciones entre sí (bug real de CI de 2026-09-06). Ese lock **no puede ser el problema acá**: la segunda migración espera el advisory lock sin tener tomado nada más, así que entre dos migraciones no hay ciclo posible.
+
+El contrincante es una transacción **común**. En CI: un paquete de test que ya migró y está corriendo sus tests contra la misma base mientras otro paquete recién arranca y migra. La migración toma `ACCESS EXCLUSIVE` sobre varias tablas y después pide `pacientes` para el `DROP INDEX`; la transacción del test ya tiene `pacientes` y pide alguna de las que la migración se quedó. Ciclo, y Postgres mata a una de las dos.
+
+**Esto no es solo un problema de CI**, y es lo que hace que valga más que un parche: el contenedor `migrate` de un deploy corre mientras la instancia anterior de la API sigue atendiendo tráfico. El mismo ciclo, con el mismo final — solo que ahí el contenedor termina en error.
+
+### El arreglo
+
+Reintento con backoff creciente ante SQLSTATE 40P01, hasta 5 veces. Un deadlock es, por definición, un error para reintentar: Postgres mata una de las dos transacciones **justamente para que pueda volver a intentarlo**. Es seguro acá porque toda la migración vive en una sola transacción (el rollback no deja nada a medias) y porque la función es idempotente.
+
+Se chequea el **código** del error (`40P01`), nunca el texto del mensaje: el texto cambia con la versión y el locale del servidor.
+
+### Lo que se testeó, y por qué así
+
+El único punto que podía fallar en silencio es el **desenvuelto del error**: entre el `deadlock detected` de Postgres y el `error` que devuelve GORM hay dos capas (pgx/stdlib y GORM). Si alguna envolviera el error de una forma que `errors.As` no atraviesa, el reintento no se dispararía nunca y no habría ningún síntoma hasta el próximo CI rojo.
+
+Por eso el test **provoca un deadlock de verdad** (dos transacciones tomando dos advisory locks en orden opuesto, con una barrera de dos partes para garantizar el ciclo) en vez de fabricar un `*pgconn.PgError` a mano — que habría pasado igual sin probar nada. Se completa con los casos negativos (un `relation does not exist` real de Postgres no es un deadlock; un `errors.New` que *menciona* "deadlock detected" tampoco) y los tres del bucle: reintenta hasta salir bien, se rinde tras agotar los intentos sin perder el error original, y **no** reintenta un error que no sea deadlock.
+
+### Riesgo residual, explícito
+
+Postgres elige a la víctima del deadlock, y puede elegir la transacción del test en vez de la de la migración. En ese caso el reintento no ayuda: falla un test cualquiera con un error de deadlock. No se vio todavía; si aparece, la salida es correr los paquetes de test en serie (`go test -p 1`) o darles a los tests el mismo tratamiento de reintento, ninguna de las dos gratis.
+
+---
+
 *Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*

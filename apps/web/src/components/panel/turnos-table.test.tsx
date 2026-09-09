@@ -6,6 +6,7 @@ const {
   cancelarTurnoActionMock,
   cancelarTurnosSinVerificarActionMock,
   listTurnosActionMock,
+  listTurnosPaginadoActionMock,
   crearTurnoManualActionMock,
   reprogramarTurnoActionMock,
   marcarAsistenciaActionMock,
@@ -15,6 +16,7 @@ const {
   cancelarTurnoActionMock: vi.fn(),
   cancelarTurnosSinVerificarActionMock: vi.fn(),
   listTurnosActionMock: vi.fn(),
+  listTurnosPaginadoActionMock: vi.fn(),
   crearTurnoManualActionMock: vi.fn(),
   reprogramarTurnoActionMock: vi.fn(),
   marcarAsistenciaActionMock: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/app/actions/turnos", () => ({
   cancelarTurnoAction: cancelarTurnoActionMock,
   cancelarTurnosSinVerificarAction: cancelarTurnosSinVerificarActionMock,
   listTurnosAction: listTurnosActionMock,
+  listTurnosPaginadoAction: listTurnosPaginadoActionMock,
   crearTurnoManualAction: crearTurnoManualActionMock,
   reprogramarTurnoAction: reprogramarTurnoActionMock,
   marcarAsistenciaAction: marcarAsistenciaActionMock,
@@ -71,6 +74,7 @@ describe("TurnosTable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listTurnosActionMock.mockResolvedValue([]);
+    listTurnosPaginadoActionMock.mockResolvedValue({ items: [], total: 0 });
     listPacientesActionMock.mockResolvedValue([]);
     listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
     cancelarTurnosSinVerificarActionMock.mockResolvedValue({ cancelados: 0 });
@@ -148,7 +152,7 @@ describe("TurnosTable", () => {
 
     it("en éxito, muestra cuántos se cancelaron y recarga la lista", async () => {
       cancelarTurnosSinVerificarActionMock.mockResolvedValue({ cancelados: 3 });
-      listTurnosActionMock.mockResolvedValue([]);
+      listTurnosPaginadoActionMock.mockResolvedValue({ items: [], total: 0 });
       const user = userEvent.setup();
       render(
         <TurnosTable
@@ -181,7 +185,7 @@ describe("TurnosTable", () => {
       await user.click(screen.getByRole("button", { name: "Sí, cancelar todos" }));
 
       expect(await screen.findByText("no se pudieron cancelar los turnos")).toBeInTheDocument();
-      expect(listTurnosActionMock).not.toHaveBeenCalled();
+      expect(listTurnosPaginadoActionMock).not.toHaveBeenCalled();
     });
   });
 
@@ -243,7 +247,7 @@ describe("TurnosTable", () => {
 
   it("confirmar en el modal de cancelación llama a la acción y recarga la lista", async () => {
     cancelarTurnoActionMock.mockResolvedValue({ turno: { ...turnoAgendado, estado: "cancelada" } });
-    listTurnosActionMock.mockResolvedValue([{ ...turnoAgendado, estado: "cancelada" }]);
+    listTurnosPaginadoActionMock.mockResolvedValue({ items: [{ ...turnoAgendado, estado: "cancelada" }], total: 1 });
     const user = userEvent.setup();
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
@@ -253,7 +257,9 @@ describe("TurnosTable", () => {
     await user.click(within(dialogo).getByRole("button", { name: "Sí, cancelar turno" }));
 
     await waitFor(() => expect(cancelarTurnoActionMock).toHaveBeenCalledWith("agen-1"));
-    await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalledWith({}));
+    // La recarga pide la MISMA ventana ya cargada, no la lista entera
+    // (Fase B de la auditoría): filtros + tamaño de tanda + offset 0.
+    await waitFor(() => expect(listTurnosPaginadoActionMock).toHaveBeenCalledWith({}, 50, 0));
     expect(screen.queryByRole("dialog", { name: "Cancelar turno" })).not.toBeInTheDocument();
   });
 
@@ -515,6 +521,40 @@ describe("TurnosTable", () => {
 
       await desplegarFila(user, "Julián Ortiz");
       expect(screen.queryByRole("link", { name: "Ver paciente" })).not.toBeInTheDocument();
+    });
+  });
+
+  // Fase B de la auditoría — ver CargarMas / lib/paginacion.ts. Lo que
+  // importa acá es que el offset sea la cantidad YA cargada (si no,
+  // "Cargar más" repite o saltea turnos) y que los filtros vigentes
+  // viajen con cada tanda.
+  describe("Cargar más", () => {
+    const segundo = { ...turnoAgendado, id: "agen-2", nombreContacto: "Marta", apellidoContacto: "Vega" };
+
+    it("no ofrece cargar más cuando la primera tanda ya trae todo", () => {
+      render(<TurnosTable turnosIniciales={[turnoAgendado]} totalInicial={1} tiposConsulta={tiposConsulta} filtros={{}} />);
+      expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
+    });
+
+    it("pide la siguiente tanda desde el offset correcto y la suma a la tabla", async () => {
+      listTurnosPaginadoActionMock.mockResolvedValue({ items: [segundo], total: 2 });
+      const user = userEvent.setup();
+      render(
+        <TurnosTable
+          turnosIniciales={[turnoAgendado]}
+          totalInicial={2}
+          tiposConsulta={tiposConsulta}
+          filtros={{ estado: "agendado" }}
+        />,
+      );
+
+      expect(screen.getByText("Mostrando 1 de 2 turnos")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Cargar más (1)" }));
+
+      await waitFor(() => expect(listTurnosPaginadoActionMock).toHaveBeenCalledWith({ estado: "agendado" }, 50, 1));
+      expect(await screen.findByText("Marta Vega")).toBeInTheDocument();
+      expect(screen.getByText("Julián Ortiz")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
     });
   });
 });

@@ -122,6 +122,15 @@ func TestPurgeAuthGarbage_BorraSesionVencidaDeCualquierCuenta(t *testing.T) {
 	gdb := testdb.New(t)
 	u := usuarioDePrueba(t, gdb, "conSesionVencida@example.com", true, time.Hour)
 
+	// Mismo motivo que en el test de tokens de más abajo: PurgeAuthGarbage
+	// borra globalmente y stats cuenta TODO lo purgable de la base, no solo
+	// lo de este test. Se afirma el delta sobre el piso preexistente.
+	var sesionesPurgablesPrevias int64
+	if err := gdb.Model(&db.Session{}).Where("expires_at < ?", time.Now()).
+		Count(&sesionesPurgablesPrevias).Error; err != nil {
+		t.Fatalf("no se pudo medir el piso de sesiones purgables: %v", err)
+	}
+
 	vencida := db.Session{UserID: u.ID, TokenHash: "vencida", LastSeenAt: time.Now(), ExpiresAt: time.Now().Add(-time.Minute)}
 	vigente := db.Session{UserID: u.ID, TokenHash: "vigente", LastSeenAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)}
 	if err := gdb.Create(&vencida).Error; err != nil {
@@ -135,8 +144,9 @@ func TestPurgeAuthGarbage_BorraSesionVencidaDeCualquierCuenta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PurgeAuthGarbage: %v", err)
 	}
-	if stats.SesionesVencidas != 1 {
-		t.Errorf("SesionesVencidas = %d, esperaba 1", stats.SesionesVencidas)
+	if esperadas := sesionesPurgablesPrevias + 1; stats.SesionesVencidas != esperadas {
+		t.Errorf("SesionesVencidas = %d, esperaba %d (%d preexistentes + la vencida de este test)",
+			stats.SesionesVencidas, esperadas, sesionesPurgablesPrevias)
 	}
 	var count int64
 	gdb.Model(&db.Session{}).Where("id = ?", vencida.ID).Count(&count)
@@ -157,6 +167,23 @@ func TestPurgeAuthGarbage_BorraTokenUsadoOVencidoPeroNoUnoVigente(t *testing.T) 
 	u := usuarioDePrueba(t, gdb, "contokens@example.com", true, time.Hour)
 	ahora := time.Now()
 
+	// PurgeAuthGarbage borra GLOBALMENTE, sin scope por usuario — así que
+	// stats.TokensVencidos cuenta TODO lo purgable de la base, no solo lo
+	// que crea este test. Y testdb.New aísla las ESCRITURAS de este test
+	// (transacción revertida) pero no le oculta las filas ya commiteadas
+	// por otros: cualquier residuo de una corrida anterior se suma al
+	// conteo. Afirmar "== 2" a secas hacía fallar el test según qué
+	// hubiera quedado en la base — falla real, difícil de diagnosticar
+	// porque no tiene nada que ver con lo que el test prueba. Se mide el
+	// piso preexistente y se afirma el DELTA, que es lo que de verdad
+	// importa: que estos 2 tokens se hayan contado.
+	var tokensPurgablesPrevios int64
+	if err := gdb.Model(&db.VerificationToken{}).
+		Where("used_at IS NOT NULL OR expires_at < ?", ahora).
+		Count(&tokensPurgablesPrevios).Error; err != nil {
+		t.Fatalf("no se pudo medir el piso de tokens purgables: %v", err)
+	}
+
 	usado := db.VerificationToken{UserID: u.ID, TokenHash: "usado", Type: db.VerificationTokenEmailVerify, ExpiresAt: ahora.Add(time.Hour), UsedAt: &ahora}
 	vencido := db.VerificationToken{UserID: u.ID, TokenHash: "vencido", Type: db.VerificationTokenPasswordReset, ExpiresAt: ahora.Add(-time.Minute)}
 	vigente := db.VerificationToken{UserID: u.ID, TokenHash: "vigente", Type: db.VerificationTokenEmailVerify, ExpiresAt: ahora.Add(time.Hour)}
@@ -170,8 +197,9 @@ func TestPurgeAuthGarbage_BorraTokenUsadoOVencidoPeroNoUnoVigente(t *testing.T) 
 	if err != nil {
 		t.Fatalf("PurgeAuthGarbage: %v", err)
 	}
-	if stats.TokensVencidos != 2 {
-		t.Errorf("TokensVencidos = %d, esperaba 2 (usado + vencido)", stats.TokensVencidos)
+	if esperados := tokensPurgablesPrevios + 2; stats.TokensVencidos != esperados {
+		t.Errorf("TokensVencidos = %d, esperaba %d (%d preexistentes + usado + vencido)",
+			stats.TokensVencidos, esperados, tokensPurgablesPrevios)
 	}
 	var count int64
 	gdb.Model(&db.VerificationToken{}).Where("id = ?", vigente.ID).Count(&count)
