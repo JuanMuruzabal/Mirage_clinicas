@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
+	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/testdb"
 )
 
@@ -151,6 +152,28 @@ func TestLogger_CompletaClinicIDYUserIDEnRequestAutenticado(t *testing.T) {
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Nombre: "Log Test", Email: uuid.NewString() + "@example.com",
 		Password: "password123456", NombreClinica: "Clínica Log " + uuid.NewString()[:8],
+	})
+
+	// Limpieza explícita: este test corre sobre testdb.Shared (hace falta
+	// una clínica REAL para probar el cableado de clinic_id), así que sus
+	// escrituras COMMITEAN — no se revierten como en testdb.New. Sin esto,
+	// cada corrida dejaba un User + VerificationToken huérfanos, y esos
+	// residuos rompen TestPurgeAuthGarbage_* en internal/db, que cuenta
+	// tokens purgables GLOBALMENTE (PurgeAuthGarbage no tiene scope).
+	// Detectado midiendo la tabla antes y después de correr este test.
+	t.Cleanup(func() {
+		var user db.User
+		if err := gdb.Where("id = (SELECT user_id FROM clinic_members WHERE clinic_id = ?)", reg.Profesional.ID).First(&user).Error; err == nil {
+			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.VerificationToken{})
+			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.Session{})
+			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.ProfessionalProfile{})
+		}
+		gdb.Unscoped().Where("profesional_id = ?", reg.Profesional.ID).Delete(&db.TipoConsulta{})
+		gdb.Unscoped().Where("clinic_id = ?", reg.Profesional.ID).Delete(&db.ClinicMember{})
+		gdb.Unscoped().Where("id = ?", reg.Profesional.ID).Delete(&db.Clinic{})
+		if user.ID != uuid.Nil {
+			gdb.Unscoped().Where("id = ?", user.ID).Delete(&db.User{})
+		}
 	})
 
 	buf.Reset() // descarta el ruido del alta, interesa solo la request de abajo
