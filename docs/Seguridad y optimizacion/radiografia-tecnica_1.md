@@ -320,4 +320,39 @@ Frontend: typecheck/lint/build en verde, 1006 tests en verde, cobertura 82.94% s
 
 ---
 
+## 14. Deadlock en migraciones (2026-09-09) — encontrado por CI, no por la auditoría
+
+```
+migrate.go:368 ERROR: deadlock detected (SQLSTATE 40P01)
+DROP INDEX IF EXISTS idx_paciente_dni_unico
+--- FAIL: TestNew_DevuelveUnaConexionUtilizableYAislada
+    testdb: no se pudo migrar la base de test
+```
+
+### El diagnóstico
+
+`RunMigrations` ya tomaba un `pg_advisory_xact_lock` para serializar las migraciones entre sí (bug real de CI de 2026-09-06). Ese lock **no puede ser el problema acá**: la segunda migración espera el advisory lock sin tener tomado nada más, así que entre dos migraciones no hay ciclo posible.
+
+El contrincante es una transacción **común**. En CI: un paquete de test que ya migró y está corriendo sus tests contra la misma base mientras otro paquete recién arranca y migra. La migración toma `ACCESS EXCLUSIVE` sobre varias tablas y después pide `pacientes` para el `DROP INDEX`; la transacción del test ya tiene `pacientes` y pide alguna de las que la migración se quedó. Ciclo, y Postgres mata a una de las dos.
+
+**Esto no es solo un problema de CI**, y es lo que hace que valga más que un parche: el contenedor `migrate` de un deploy corre mientras la instancia anterior de la API sigue atendiendo tráfico. El mismo ciclo, con el mismo final — solo que ahí el contenedor termina en error.
+
+### El arreglo
+
+Reintento con backoff creciente ante SQLSTATE 40P01, hasta 5 veces. Un deadlock es, por definición, un error para reintentar: Postgres mata una de las dos transacciones **justamente para que pueda volver a intentarlo**. Es seguro acá porque toda la migración vive en una sola transacción (el rollback no deja nada a medias) y porque la función es idempotente.
+
+Se chequea el **código** del error (`40P01`), nunca el texto del mensaje: el texto cambia con la versión y el locale del servidor.
+
+### Lo que se testeó, y por qué así
+
+El único punto que podía fallar en silencio es el **desenvuelto del error**: entre el `deadlock detected` de Postgres y el `error` que devuelve GORM hay dos capas (pgx/stdlib y GORM). Si alguna envolviera el error de una forma que `errors.As` no atraviesa, el reintento no se dispararía nunca y no habría ningún síntoma hasta el próximo CI rojo.
+
+Por eso el test **provoca un deadlock de verdad** (dos transacciones tomando dos advisory locks en orden opuesto, con una barrera de dos partes para garantizar el ciclo) en vez de fabricar un `*pgconn.PgError` a mano — que habría pasado igual sin probar nada. Se completa con los casos negativos (un `relation does not exist` real de Postgres no es un deadlock; un `errors.New` que *menciona* "deadlock detected" tampoco) y los tres del bucle: reintenta hasta salir bien, se rinde tras agotar los intentos sin perder el error original, y **no** reintenta un error que no sea deadlock.
+
+### Riesgo residual, explícito
+
+Postgres elige a la víctima del deadlock, y puede elegir la transacción del test en vez de la de la migración. En ese caso el reintento no ayuda: falla un test cualquiera con un error de deadlock. No se vio todavía; si aparece, la salida es correr los paquetes de test en serie (`go test -p 1`) o darles a los tests el mismo tratamiento de reintento, ninguna de las dos gratis.
+
+---
+
 *Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*

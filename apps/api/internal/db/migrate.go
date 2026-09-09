@@ -1,9 +1,12 @@
 package db
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -40,13 +43,80 @@ const lockKeyMigraciones = 483920175
 // (sesión), que exigiría mantener la MISMA conexión entre el lock y el
 // unlock, algo que un `*gorm.DB` con pool no garantiza entre dos `Exec`
 // separados.
+// Reintento por deadlock (bug real de CI, 2026-09-09): el advisory lock de
+// arriba serializa las migraciones ENTRE SÍ, pero no contra las
+// transacciones COMUNES que estén corriendo al mismo tiempo — y ese es el
+// otro lado del deadlock que apareció en CI:
+//
+//	migrate.go:368 ERROR: deadlock detected (SQLSTATE 40P01)
+//	DROP INDEX IF EXISTS idx_paciente_dni_unico
+//
+// Dos migraciones no pueden trabarse entre sí (la segunda espera el
+// advisory lock sin tener tomado nada más, así que no hay ciclo posible).
+// El contrincante real es una transacción cualquiera: en CI, un paquete de
+// test que ya migró y está corriendo sus tests contra la MISMA base
+// mientras otro paquete recién arranca y migra. La migración toma ACCESS
+// EXCLUSIVE sobre varias tablas y después pide `pacientes` para el DROP
+// INDEX; la transacción del test ya tiene `pacientes` tomada y pide alguna
+// de las que la migración ya se quedó — ciclo, y Postgres mata a una de
+// las dos.
+//
+// Lo mismo puede pasar en producción, que es lo que hace que esto valga
+// más que un parche de CI: el contenedor `migrate` de un deploy corre
+// mientras la instancia anterior de la API sigue atendiendo tráfico.
+//
+// Un deadlock es, por definición, un error para reintentar: Postgres mata
+// a una de las dos transacciones justamente para que pueda volver a
+// intentarlo. Reintentar acá es seguro porque toda la migración vive en
+// UNA transacción (el rollback no deja nada a medias) y porque la función
+// es idempotente. Backoff creciente para no volver a chocar de inmediato
+// con la misma transacción larga.
+const intentosMigracion = 5
+const esperaBaseEntreIntentosMigracion = 200 * time.Millisecond
+
 func RunMigrations(gdb *gorm.DB) error {
+	return conReintentoPorDeadlock(intentosMigracion, esperaBaseEntreIntentosMigracion, func() error {
+		return migrarUnaVezConLock(gdb)
+	})
+}
+
+// conReintentoPorDeadlock reintenta `intentar` mientras falle por deadlock,
+// esperando cada vez un poco más (espera × número de intento). Cualquier
+// otro error se devuelve tal cual, en el primer intento: reintentar a
+// ciegas convertiría un error de migración real en varios segundos de
+// espera antes de la misma falla.
+//
+// Recibe los parámetros en vez de leer las constantes directamente para
+// que los tests puedan ejercitarla sin dormir segundos de verdad.
+func conReintentoPorDeadlock(intentos int, espera time.Duration, intentar func() error) error {
+	var err error
+	for intento := 1; intento <= intentos; intento++ {
+		err = intentar()
+		if err == nil || !esDeadlock(err) {
+			return err
+		}
+		time.Sleep(time.Duration(intento) * espera)
+	}
+	return fmt.Errorf("las migraciones fallaron por deadlock %d veces seguidas: %w", intentos, err)
+}
+
+// migrarUnaVezConLock — un intento completo: una transacción, el advisory
+// lock, y el cuerpo de las migraciones.
+func migrarUnaVezConLock(gdb *gorm.DB) error {
 	return gdb.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKeyMigraciones).Error; err != nil {
 			return fmt.Errorf("no se pudo tomar el advisory lock de migraciones: %w", err)
 		}
 		return runMigrationsLocked(tx)
 	})
+}
+
+// esDeadlock — SQLSTATE 40P01. Se chequea el CÓDIGO del error de Postgres,
+// nunca el texto del mensaje: el texto cambia con la versión y con el
+// locale del servidor, el código no.
+func esDeadlock(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "40P01"
 }
 
 // runMigrationsLocked — el cuerpo real de RunMigrations, corrido siempre
