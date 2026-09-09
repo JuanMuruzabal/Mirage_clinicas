@@ -558,4 +558,74 @@ Resultado de la corrida del 2026-09-09: **17 de 17**.
 
 ---
 
+## 17. Incidente de deploy (2026-09-09) — dos problemas, y el más grave no es el que rompió
+
+El primer deploy a Render con las foreign keys falló en loop:
+
+```
+WARN aplicando migración destructiva autorizada
+     migracion=limpiar_filas_legacy_sin_clinica afectados=10 entorno=development
+error aplicando migraciones: no se pueden crear las foreign keys:
+  turnos.profesional_id   -> clinics:        4 fila(s) apuntan a un registro inexistente
+  turnos.paciente_id      -> pacientes:      4 fila(s) apuntan a un registro inexistente
+  turnos.tipo_consulta_id -> tipos_consulta: 4 fila(s) apuntan a un registro inexistente
+==> Exited with status 1
+```
+
+### 17.1 Lo primero: no se perdió nada
+
+Toda la migración corre dentro de **una sola transacción** (`migrarUnaVezConLock`). El fallo al crear las foreign keys devolvió error, la transacción hizo rollback y **los 10 borrados se deshicieron**. Por eso el mensaje se repite idéntico en cada intento: nada avanzó y nada se rompió.
+
+Es el diseño de la transacción pagando: la alternativa —cada migración con su propio commit— habría dejado la base a medio limpiar, sin registro de hasta dónde llegó.
+
+### 17.2 El bug que rompió el deploy: la limpieza no contemplaba `turnos`
+
+`limpiar_filas_legacy_sin_clinica` barría pacientes, tipos de consulta, páginas públicas y tutores huérfanos. **No los turnos.**
+
+Y no es solo que faltaran los turnos de una clínica inexistente: al borrar fichas y tipos de consulta, la limpieza podía **crear** turnos rotos que antes no lo estaban — cambiando un problema de integridad por otro, que es exactamente lo que este archivo dice evitar en su propio comentario.
+
+**Por qué la verificación no lo agarró.** Se verificó contra la base de desarrollo, donde el reporte de huérfanos había dado explícitamente:
+
+```
+turnos que apuntan a un paciente huerfano        | 0
+turnos que apuntan a un tipo_consulta huerfano   | 0
+turnos huerfanos de clinica (invisibles)         | 0
+```
+
+Se comprobó que la limpieza no arrastraba turnos **en esa base**, y se tomó como que el caso estaba cubierto. No lo estaba: estaba **ausente**. Una verificación contra datos que no tienen el caso no dice nada sobre el caso.
+
+Es el mismo patrón que el bug de orden de la deduplicación (§13) y el del `DELETE` de turnos `pendiente` (§16.1): **CI y la base de desarrollo nacen limpias, y la población para la que existe una migración de limpieza es justamente la que no tienen.**
+
+**El arreglo**, en el orden que importa:
+
+1. **Primero** se borran los turnos de una clínica que no existe. Son inalcanzables (toda query del panel filtra por la clínica de la sesión) y van antes que todo para no tener que contemplarlos en cada paso siguiente.
+2. Se borran las fichas, tipos y páginas legacy, con sus hijos, como ya se hacía.
+3. **Barrido final**: los turnos que pertenecen a una clínica **real** pero quedaron apuntando a una ficha o a un tipo ya borrado se corrigen con `SET NULL`, **no se borran**. Un turno de una clínica real es historia clínica. Es además lo que la aplicación ya hace en el único lugar donde borra una ficha con turnos (`migrarOCancelarTurnosDePerdedor` pone `paciente_id = NULL` antes de borrar la ficha perdedora), y lo que harán de acá en más las foreign keys `ON DELETE SET NULL`.
+
+**Corregido también el conteo.** `Afectados` contaba 10 y el borrado tocaba 14 filas. Si el número que reporta el guardián no es el número de filas que va a tocar, está pidiendo permiso para algo distinto de lo que hace.
+
+**Test de regresión** (`TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos`): arma las tres formas en que un turno puede quedar roto sobre una base descartable, y verifica que la migración completa termina, que el turno inalcanzable se borra, que los de una clínica real **sobreviven** con la referencia en NULL, y que un turno sano no se toca. Validado en los dos sentidos: sin el arreglo reproduce el error exacto de Render.
+
+### 17.3 El problema más grave: `entorno=development` en Render
+
+El log dice `entorno=development`. **No es un detalle de formato: significa que `APP_ENV` no está configurada en ese servicio**, y de eso dependen dos protecciones que quedaron desactivadas sin que nada avisara:
+
+| Protección | Qué debería hacer fuera de `development` | Qué hizo |
+|---|---|---|
+| Guardián de migraciones destructivas (TR-132) | Frenar y pedir `DB_ALLOW_DESTRUCTIVE=true` con backup hecho | **Autorizó sola** el borrado de 10 filas |
+| `requireExplicitSecretsOutsideDev` (TR-125) | Negarse a arrancar si el secreto de firma es el de ejemplo del repo | **No se disparó** — el backend puede estar firmando el `state` de OAuth con el secreto público |
+
+La ironía es que la Fase C construyó una barrera para exactamente este escenario y la barrera se saltó a sí misma, porque el entorno no se declara. **Una protección condicionada a una variable de entorno no vale más que la configuración de esa variable.**
+
+**Acción requerida, del lado del dashboard de Render, no del código:**
+
+1. Setear `APP_ENV=production` (o `staging`) en **todos** los servicios que corren este backend: el web service y el job de migraciones.
+2. Confirmar que `JWT_SECRET` tiene un valor real. Si estuvo corriendo con el de ejemplo, **rotarlo**: es público, está en este repo.
+3. Recién después volver a deployar. Con `APP_ENV` correcta, la migración de limpieza va a **frenar** y pedir autorización explícita — que es lo que corresponde, porque va a borrar filas de una base que ya no es de desarrollo.
+
+**Lección para el próximo snapshot:** una defensa que depende de una variable de entorno necesita una forma de verificar que está activa, no solo de existir. Un chequeo de arranque que loguee en qué entorno se cree que está —y que sea visible en el primer renglón del log del deploy— habría hecho evidente el problema la primera vez.
+
+
+---
+
 *Método: primera pasada — lectura completa de los 12 paquetes de `apps/api` (49 archivos de producción) y de los archivos más grandes/sensibles de `apps/web`, más grep dirigido para confirmar patrones (aislamiento por tenant, uso de `clientIP`, filtros de paginación) en el resto. Segunda pasada — Server Actions, CI/CD, dependencias y endpoints públicos restantes, más `govulncheck` y `go mod tidy` sobre el código real. No reemplaza un pentest ni una herramienta de SAST comercial.*
