@@ -158,6 +158,11 @@ type resolverConflictoPacienteRequest struct {
 // dos funciones ya manejan el `ON CONFLICT DO NOTHING` (evita el bug real
 // de QA de dejar la transacción "abortada" en Postgres, 25P02, si se
 // capturara la violación de índice a mano).
+// Migra el mail/teléfono PRINCIPAL de `pierde` y también los que ella misma
+// tenía como alternativos — si esa ficha ya había absorbido datos de un
+// conflicto anterior, la cadena completa se preserva. (Hasta 2026-09-12 solo
+// se migraba el principal: el resto quedaba huérfano al borrarse la ficha, y
+// desde las foreign keys de TR-131 directamente rebotaba el borrado.)
 func migrarAlternativosDeContacto(tx *gorm.DB, prevalece *db.Paciente, pierde db.Paciente) error {
 	if pierde.Email != nil {
 		if err := agregarEmailAlternativoSiNuevo(tx, prevalece, *pierde.Email); err != nil {
@@ -166,6 +171,24 @@ func migrarAlternativosDeContacto(tx *gorm.DB, prevalece *db.Paciente, pierde db
 	}
 	if pierde.Telefono != nil && *pierde.Telefono != "" {
 		if err := agregarTelefonoAlternativoSiNuevo(tx, prevalece, *pierde.Telefono); err != nil {
+			return err
+		}
+	}
+	var mails []db.PacienteEmailAlternativo
+	if err := tx.Where("paciente_id = ?", pierde.ID).Find(&mails).Error; err != nil {
+		return err
+	}
+	for _, m := range mails {
+		if err := agregarEmailAlternativoSiNuevo(tx, prevalece, m.Email); err != nil {
+			return err
+		}
+	}
+	var telefonos []db.PacienteTelefonoAlternativo
+	if err := tx.Where("paciente_id = ?", pierde.ID).Find(&telefonos).Error; err != nil {
+		return err
+	}
+	for _, tel := range telefonos {
+		if err := agregarTelefonoAlternativoSiNuevo(tx, prevalece, tel.Telefono); err != nil {
 			return err
 		}
 	}
@@ -330,10 +353,9 @@ func resolverConflictoComoVerdadero(tx *gorm.DB, conflicto db.ConflictoPaciente,
 	if err := migrarOCancelarTurnosDePerdedor(tx, prevalece, enConflicto.ID); err != nil {
 		return err
 	}
-	if err := tx.Model(&db.Turno{}).Where("paciente_id = ?", enConflicto.ID).Update("paciente_id", nil).Error; err != nil {
-		return err
-	}
-	if err := tx.Delete(&db.Paciente{}, "id = ?", enConflicto.ID).Error; err != nil {
+	// Los alternativos y tutores ya se migraron arriba a la ficha que
+	// prevalece; lo que quede de esta se va con ella.
+	if err := borrarFichaPacienteConSusHijas(tx, enConflicto.ID); err != nil {
 		return err
 	}
 	return tx.Model(&conflicto).Update("resuelto", true).Error
@@ -402,19 +424,10 @@ func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, pro
 		}
 	}
 
-	// Red de seguridad: cualquier turno que por algún otro motivo siguiera
-	// apuntando a esta ficha (incluido el excluido del cancelado de
-	// arriba) queda desvinculado antes de borrarla — nunca dejar un
-	// paciente_id colgando hacia una fila que ya no existe. Mismo criterio
-	// para sus filas de PacienteTutor (si las tenía) — ya se usaron arriba
-	// para bloquear los mails, esta ficha se descarta del todo.
-	if err := tx.Model(&db.Turno{}).Where("paciente_id = ?", enConflicto.ID).Update("paciente_id", nil).Error; err != nil {
-		return err
-	}
-	if err := tx.Where("paciente_id = ?", enConflicto.ID).Delete(&db.PacienteTutor{}).Error; err != nil {
-		return err
-	}
-	if err := tx.Delete(&db.Paciente{}, "id = ?", enConflicto.ID).Error; err != nil {
+	// Esta ficha se descarta del todo: sus tutores ya se usaron arriba para
+	// bloquear los mails, y sus turnos quedan desvinculados (nunca se
+	// borran) antes de que la ficha desaparezca.
+	if err := borrarFichaPacienteConSusHijas(tx, enConflicto.ID); err != nil {
 		return err
 	}
 	return tx.Model(&conflicto).Update("resuelto", true).Error

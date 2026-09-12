@@ -184,13 +184,48 @@ func borrarPacienteNoVerificadoSiSinHistorialReal(tx *gorm.DB, pacienteID uuid.U
 		}
 	}
 
-	if err := tx.Exec("UPDATE turnos SET paciente_id = NULL WHERE paciente_id = ?", pacienteID).Error; err != nil {
-		return false, err
-	}
-	if err := tx.Delete(&db.Paciente{}, "id = ?", pacienteID).Error; err != nil {
+	if err := borrarFichaPacienteConSusHijas(tx, pacienteID); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// borrarFichaPacienteConSusHijas — el ÚNICO lugar donde se borra una ficha
+// de paciente. Los cuatro caminos que lo hacen (cancelar un turno y marcar
+// asistencia vía borrarPacienteNoVerificadoSiSinHistorialReal, las dos
+// resoluciones de conflicto del panel, y el barrido de fichas sin turno de
+// turno_publico.go) pasan por acá.
+//
+// Bug real que lo motivó (QA 2026-09-12): cancelar el único turno de una
+// ficha sacada por un TUTOR devolvía 500. Cada call site limpiaba un
+// subconjunto DISTINTO de las filas hijas antes del DELETE —uno desvinculaba
+// turnos, otro borraba tutores, ninguno tocaba los alternativos— y eso
+// alcanzaba mientras el esquema no tuvo foreign keys. Con las de TR-131
+// (`fk_paciente_tutores_paciente`, `fk_paciente_emails_alt_paciente`,
+// `fk_paciente_telefonos_alt_paciente`, todas NO ACTION) cualquier fila hija
+// viva rebota el DELETE con 23503 y tumba la transacción entera.
+//
+// El orden importa: primero se sueltan/borran las hijas, la ficha al final.
+// Los TURNOS nunca se borran —son registro histórico real— solo se
+// desvinculan; el resto de las hijas no tiene vida propia sin su ficha.
+//
+// Es idempotente sobre lo ya limpiado: un call site que además migró los
+// tutores a otra ficha antes de llamar acá no rompe nada, simplemente no
+// queda nada que borrar.
+func borrarFichaPacienteConSusHijas(tx *gorm.DB, pacienteID uuid.UUID) error {
+	if err := tx.Exec("UPDATE turnos SET paciente_id = NULL WHERE paciente_id = ?", pacienteID).Error; err != nil {
+		return err
+	}
+	for _, hija := range []any{
+		&db.PacienteTutor{},
+		&db.PacienteEmailAlternativo{},
+		&db.PacienteTelefonoAlternativo{},
+	} {
+		if err := tx.Where("paciente_id = ?", pacienteID).Delete(hija).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Delete(&db.Paciente{}, "id = ?", pacienteID).Error
 }
 
 // pacienteRespondeAlMail — Fase 2.4.1: ¿esta ficha de paciente puede

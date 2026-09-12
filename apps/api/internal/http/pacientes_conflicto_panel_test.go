@@ -293,6 +293,85 @@ func TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoF
 // que ya fuera alternativo de OTRO paciente hacía fallar con 500 la
 // resolución de un conflicto que no tenía nada que ver con ese paciente
 // — sin haber resuelto nada repetido del lado de quien probaba.
+// TestResolverConflictoPaciente_FichaPerdedoraConAlternativosPropiosSeMigranYNoRompen
+// — misma causa de fondo que el bug de cancelar un turno con tutor
+// (QA 2026-09-12): borrar una ficha que todavía tiene filas hijas rebota
+// contra las foreign keys de TR-131 con 23503.
+//
+// Acá la ficha en conflicto trae SUS PROPIOS alternativos (de una
+// resolución anterior). Antes se migraba solo su mail/teléfono principal y
+// esas filas quedaban vivas: el DELETE de más abajo fallaba y la
+// resolución entera devolvía 500. Ahora se migra la cadena completa y la
+// ficha se va con lo que le quede.
+func TestResolverConflictoPaciente_FichaPerdedoraConAlternativosPropiosSeMigranYNoRompen(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-altpropios@example.com")
+	verificado, enConflicto, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	if err := gdb.Create(&db.PacienteEmailAlternativo{PacienteID: enConflicto.ID, Email: "viejo@example.com"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el email alternativo de la ficha en conflicto: %v", err)
+	}
+	if err := gdb.Create(&db.PacienteTelefonoAlternativo{PacienteID: enConflicto.ID, Telefono: "+5493519999999"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el teléfono alternativo de la ficha en conflicto: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	// La cadena completa terminó en la ficha que prevalece.
+	var mail, telefono int64
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ? AND email = ?", verificado.ID, "viejo@example.com").Count(&mail)
+	if mail != 1 {
+		t.Errorf("el mail alternativo de la ficha perdedora no se migró (encontrados %d)", mail)
+	}
+	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ? AND telefono = ?", verificado.ID, "+5493519999999").Count(&telefono)
+	if telefono != 1 {
+		t.Errorf("el teléfono alternativo de la ficha perdedora no se migró (encontrados %d)", telefono)
+	}
+
+	// Y la ficha perdedora no dejó nada huérfano.
+	var ficha, huerfanosMail, huerfanosTel int64
+	gdb.Model(&db.Paciente{}).Where("id = ?", enConflicto.ID).Count(&ficha)
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ?", enConflicto.ID).Count(&huerfanosMail)
+	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ?", enConflicto.ID).Count(&huerfanosTel)
+	if ficha != 0 || huerfanosMail != 0 || huerfanosTel != 0 {
+		t.Errorf("quedó algo de la ficha perdedora: ficha=%d mails=%d telefonos=%d", ficha, huerfanosMail, huerfanosTel)
+	}
+}
+
+// TestResolverConflictoPaciente_NoEsVerificadoConAlternativosNoRompe — el
+// otro camino de resolución ("no es la persona"): la ficha se descarta
+// entera, incluidos sus alternativos, sin rebotar contra las foreign keys.
+func TestResolverConflictoPaciente_NoEsVerificadoConAlternativosNoRompe(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf-altdescarta@example.com")
+	_, enConflicto, _, conflicto := crearConflictoPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com", "otro@example.com")
+
+	if err := gdb.Create(&db.PacienteEmailAlternativo{PacienteID: enConflicto.ID, Email: "viejo@example.com"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el email alternativo de la ficha en conflicto: %v", err)
+	}
+	if err := gdb.Create(&db.PacienteTelefonoAlternativo{PacienteID: enConflicto.ID, Telefono: "+5493519999999"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el teléfono alternativo de la ficha en conflicto: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: false})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var ficha, mails, telefonos int64
+	gdb.Model(&db.Paciente{}).Where("id = ?", enConflicto.ID).Count(&ficha)
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ?", enConflicto.ID).Count(&mails)
+	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ?", enConflicto.ID).Count(&telefonos)
+	if ficha != 0 || mails != 0 || telefonos != 0 {
+		t.Errorf("quedó algo de la ficha descartada: ficha=%d mails=%d telefonos=%d", ficha, mails, telefonos)
+	}
+}
+
 func TestResolverConflictoPaciente_MismoDatoDeContactoParaDosPacientesDistintosNoChoca(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})

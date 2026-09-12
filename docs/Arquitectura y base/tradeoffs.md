@@ -1761,6 +1761,25 @@ Fix: preguntar a `pg_constraint` si la constraint existe (un SELECT no toma lock
 - **Reversibilidad:** alta — `ALTER TABLE ... DROP CONSTRAINT` por cada una. Lo irreversible es la limpieza de las 38 filas, que va por el guardián de TR-132.
 - **Verificación:** 6 tests que prueban que las constraints MUERDEN (insert huérfano rechazado por nombre de constraint, insert legítimo aceptado, CASCADE de sesiones, SET NULL de auditoría, freno de `clinics.owner_id`, y la ausencia de FK en `conflictos_paciente`) — no que existan en `pg_constraint`, que pasaría igual con la constraint puesta sobre la columna equivocada. Suite completa en verde en 3 corridas seguidas (los fallos eran intermitentes). Aplicado sobre la base de desarrollo real: 4 → 33 foreign keys, 38 filas legacy borradas, **29 turnos intactos**, y smoke test del wizard público (`/clinicas/{slug}`, `/clinicas/{slug}/tipos-consulta`) respondiendo igual que antes.
 
+**Addendum (2026-09-12) — la regresión que las foreign keys destaparon, y el arreglo estructural.**
+
+Reportado en QA: cancelar el único turno de una ficha sacada por un **tutor** devolvía `500 no se pudo cancelar el turno`. Causa real, del log de la API:
+
+```
+ERROR: update or delete on table "pacientes" violates foreign key constraint
+"fk_paciente_tutores_paciente" on table "paciente_tutores" (SQLSTATE 23503)
+```
+
+Al cancelar, la ficha queda sin historial real y `borrarPacienteNoVerificadoSiSinHistorialReal` la borra. Esa función desvinculaba los **turnos** antes del DELETE… y nada más. Mientras el esquema no tuvo foreign keys, eso "funcionaba": las filas de `paciente_tutores` y de los dos alternativos quedaban huérfanas y nadie se enteraba. Desde TR-131 (las tres FKs son `NO ACTION`) cualquier fila hija viva rebota el DELETE y tumba la transacción entera.
+
+**Lo que el bug enseñó no es "faltó un DELETE", es que el borrado de una ficha estaba repartido en cuatro lugares y cada uno limpiaba un subconjunto distinto:** el de cancelar/asistencia desvinculaba turnos; `resolverConflictoComoVerdadero` migraba tutores pero no los alternativos propios de la ficha perdedora; `resolverConflictoComoFalso` borraba tutores pero no alternativos; el barrido de fichas sin turno de `turno_publico.go` no limpiaba nada. Tres de los cuatro tenían el mismo 500 esperando, con un dato hijo distinto cada uno.
+
+Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se borra una ficha** — desvincula turnos (nunca se borran: son registro histórico real), borra tutores y alternativos, y recién después la ficha. Los cuatro call sites pasan por ahí. Además `migrarAlternativosDeContacto` ahora migra también las filas alternativas de la ficha que pierde, no solo su mail/teléfono principal — antes esa cadena se perdía al borrarla.
+
+**Por qué los tests no lo habían visto:** los 6 tests de TR-131 prueban que las constraints MUERDEN, que es lo que se buscaba entonces. Ninguno recorría un flujo de negocio completo sobre una ficha **con** filas hijas de las tres clases a la vez, que es la combinación que rompe. Los tres tests nuevos ponen tutor + mail alternativo + teléfono alternativo juntos y recorren los tres caminos de borrado; con el arreglo revertido a mano, los tres fallan con el mismo 23503 (control negativo hecho).
+
+**Lección para el próximo cambio de esquema:** agregar una foreign key no es solo "ahora la base valida". Convierte en error todo código que venía dejando huérfanos en silencio — y ese código no se encuentra leyendo el modelo de datos, se encuentra recorriendo los flujos que borran.
+
 ## TR-132: Guardián de migraciones destructivas — el permiso se pide solo si hay algo que perder
 
 - **Fecha:** 2026-09-09
