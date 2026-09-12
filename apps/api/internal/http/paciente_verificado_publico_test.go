@@ -487,3 +487,91 @@ func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenInvalidoFalla(t *test
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
 	}
 }
+
+// TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta
+// — Fase 3.1, pedido textual del cliente: "el camino 'ya he venido
+// anteriormente' también funciona con turnos activos y no exclusivamente
+// con pacientes verificados, es decir, si soy un paciente no verificado,
+// pero tengo un turno activo, si pongo mis datos, me debería saltar mi
+// tarjeta".
+//
+// Hasta acá hacía falta estar VERIFICADO (haber asistido a un turno ya
+// resuelto). Alguien que sacó turno la semana pasada y vuelve a sacar otro
+// tenía que retipear todo, aunque ya había demostrado acceso al mail de esa
+// ficha con el código de 6 dígitos — y se lo vuelve a pedir ahora.
+func TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacactivo1@example.com")
+	email := "sinverificar@example.com"
+
+	// Ficha SIN verificar: creada por la vía pública, con un turno a futuro
+	// todavía sin asistir. Es el estado de cualquiera que acaba de sacar su
+	// primer turno.
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
+	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req.EmailContacto = email
+	req.DNIContacto = "30999888"
+	if rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req); rec.Code != http.StatusCreated {
+		t.Fatalf("no se pudo crear el turno de prueba: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var paciente db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30999888").First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró la ficha recién creada: %v", err)
+	}
+	// Se confirma el punto de partida: la ficha NO está verificada.
+	verificado, err := pacienteEstaVerificado(gdb, paciente)
+	if err != nil {
+		t.Fatalf("no se pudo evaluar la verificación: %v", err)
+	}
+	if verificado {
+		t.Fatal("la ficha quedó verificada — el test no estaría probando el caso nuevo")
+	}
+
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown",
+		db.RateLimitScopeTurnoVerifConfirmar).Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoURL(reg.Profesional.Slug, "30999888", email, token2), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d — una ficha sin verificar con turno activo tiene que mostrar su tarjeta. body=%s",
+			rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got pacienteVerificadoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.ID != paciente.ID.String() {
+		t.Errorf("ID = %q, esperaba la ficha existente %q", got.ID, paciente.ID.String())
+	}
+}
+
+// TestPacienteVerificadoPublico_SinVerificarYSinTurnoActivoSigueSinAparecer —
+// el contrapeso del de arriba: la ampliación es "verificado O con turno
+// activo", no "cualquiera que tipee un DNI". Sin ninguna de las dos cosas,
+// la tarjeta no aparece.
+func TestPacienteVerificadoPublico_SinVerificarYSinTurnoActivoSigueSinAparecer(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacsinnada1@example.com")
+	email := "nadie@example.com"
+
+	// Ficha suelta, sin turnos: el estado de un paciente cargado a medias.
+	telefono := "+5493511234567"
+	pid := uuid.MustParse(reg.Profesional.ID)
+	paciente := db.Paciente{
+		ProfesionalID: pid, Nombre: "Sin", Apellido: "Turnos", DNI: "30777666",
+		Telefono: &telefono, Email: &email, Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha: %v", err)
+	}
+
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
+	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoURL(reg.Profesional.Slug, "30777666", email, token), nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba %d — sin verificación y sin turno activo no hay tarjeta. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}

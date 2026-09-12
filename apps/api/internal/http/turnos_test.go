@@ -742,7 +742,7 @@ func TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados(t *testing.T) {
 // TestResumenPanel_TurnosHoyYProximos — F2.3 extra ítem 1: "turnos de
 // hoy" y "turnos próximos" son listas separadas y mutuamente excluyentes
 // (un turno de hoy nunca aparece en "próximos", ver el brief en
-// docs/Fase 2/fase2.3-extra-dental-mirage.md). `clock.Now().Add(1*time.Minute)`
+// docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md). `clock.Now().Add(1*time.Minute)`
 // (no una hora fija del día): garantiza que el turno todavía NO está
 // resuelto sea cual sea la hora real a la que corra el test — corrección
 // de QA posterior ("turnos de hoy no muestra turnos resueltos") excluye
@@ -1153,6 +1153,101 @@ func TestCancelarTurno_Exitoso(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
 	if got.Estado != "cancelada" {
 		t.Errorf("Estado = %q, esperaba cancelada", got.Estado)
+	}
+}
+
+// TestCancelarTurno_FichaConTutorYAlternativosSeBorraSinRomper — bug real
+// reportado en QA (2026-09-12): cancelar el único turno de una ficha
+// sacada por un TUTOR devolvía 500 "no se pudo cancelar el turno".
+//
+// La causa está dos capas abajo: al cancelar, la ficha queda sin historial
+// real y borrarPacienteNoVerificadoSiSinHistorialReal la borra — pero solo
+// desvinculaba los TURNOS antes del DELETE. Con las foreign keys reales de
+// TR-131 (`fk_paciente_tutores_paciente` y las dos de alternativos, todas
+// NO ACTION), cualquier fila hija que quedara viva rebota el DELETE con
+// 23503 y tumba la transacción entera. Antes de TR-131 el mismo DELETE
+// "funcionaba" dejando filas huérfanas.
+//
+// El test pone las TRES clases de fila hija a la vez, que es exactamente
+// lo que ninguno de los tests anteriores hacía.
+func TestCancelarTurno_FichaConTutorYAlternativosSeBorraSinRomper(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "cancelar-tutor@example.com")
+	turno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC))
+
+	clinicID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+	email := "josefina@example.com"
+	paciente := db.Paciente{
+		ProfesionalID: clinicID,
+		Nombre:        "josefin", Apellido: "j", DNI: "44555666",
+		Email:  &email,
+		Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
+	}
+	if err := gdb.Create(&db.PacienteTutor{
+		PacienteID: paciente.ID, Relacion: "familiar",
+		Nombre: "María J", Telefono: "+5493511111111", Email: "mama@example.com",
+	}).Error; err != nil {
+		t.Fatalf("no se pudo crear el tutor de prueba: %v", err)
+	}
+	if err := gdb.Create(&db.PacienteEmailAlternativo{PacienteID: paciente.ID, Email: "otro@example.com"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el mail alternativo de prueba: %v", err)
+	}
+	if err := gdb.Create(&db.PacienteTelefonoAlternativo{PacienteID: paciente.ID, Telefono: "+5493512222222"}).Error; err != nil {
+		t.Fatalf("no se pudo crear el teléfono alternativo de prueba: %v", err)
+	}
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).Update("paciente_id", paciente.ID).Error; err != nil {
+		t.Fatalf("no se pudo vincular el turno al paciente: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turno.ID.String()+"/cancelar", reg.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	// La ficha se borró (no tenía historial real), y con ella todas sus
+	// filas hijas — nada huérfano, que es lo que las FKs de TR-131 impiden
+	// dejar.
+	var quedan int64
+	if err := gdb.Model(&db.Paciente{}).Where("id = ?", paciente.ID).Count(&quedan).Error; err != nil {
+		t.Fatalf("no se pudo contar pacientes: %v", err)
+	}
+	if quedan != 0 {
+		t.Errorf("la ficha sin historial real debería haberse borrado, quedan %d", quedan)
+	}
+	for _, caso := range []struct {
+		nombre string
+		modelo any
+	}{
+		{"paciente_tutores", &db.PacienteTutor{}},
+		{"paciente_emails_alternativos", &db.PacienteEmailAlternativo{}},
+		{"paciente_telefonos_alternativos", &db.PacienteTelefonoAlternativo{}},
+	} {
+		var n int64
+		if err := gdb.Model(caso.modelo).Where("paciente_id = ?", paciente.ID).Count(&n).Error; err != nil {
+			t.Fatalf("no se pudo contar %s: %v", caso.nombre, err)
+		}
+		if n != 0 {
+			t.Errorf("%s: quedaron %d filas huérfanas", caso.nombre, n)
+		}
+	}
+
+	// Y el turno sigue existiendo, desvinculado — nunca se borra un turno.
+	var turnoFinal db.Turno
+	if err := gdb.First(&turnoFinal, "id = ?", turno.ID).Error; err != nil {
+		t.Fatalf("el turno no debería borrarse: %v", err)
+	}
+	if turnoFinal.Estado != "cancelada" {
+		t.Errorf("Estado = %q, esperaba cancelada", turnoFinal.Estado)
+	}
+	if turnoFinal.PacienteID != nil {
+		t.Errorf("PacienteID = %v, esperaba nil (la ficha se borró)", turnoFinal.PacienteID)
 	}
 }
 
@@ -1913,7 +2008,7 @@ func TestMarcarAsistencia_AusenteEnTurnoDisputadoBorraFichaSinBloquearMail(t *te
 }
 
 // TestMarcarAsistencia_ConflictoYaResueltoNoAplicaCarveOut — TR-107, item
-// 27 de la checklist de docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md: si el
+// 27 de la checklist de docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md: si el
 // conflicto que originó este turno ya se resolvió por otra vía (a mano,
 // desde el panel) antes de esta fecha, el carve-out de 1.3bis no aplica —
 // marcar asistencia en ese turno sigue el flujo normal, sin efecto

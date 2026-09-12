@@ -23,7 +23,7 @@ type resultadoPacientePublico struct {
 }
 
 // crearPacientePublicoConDeteccionDeConflicto — Fase 2.4.1 (F4.1.3,
-// `docs/FASE 2.4 - detallada y bien especificada.docx`): variante de
+// `docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`): variante de
 // crearOBuscarPacientePorDNI (turnos.go, TR-100/101) SOLO para el
 // formulario público — el camino del panel ("Agregar turno" del
 // profesional) sigue usando la función vieja tal cual, sin tocar, ya
@@ -66,7 +66,7 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 		return resultadoPacientePublico{}, err
 	}
 
-	// Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4, rediseñado en
+	// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4, rediseñado en
 	// la ronda de correcciones del 2026-09-06): "¿esta ficha responde al
 	// mail entrante?" compara contra CUALQUIERA de los tutores YA
 	// CONOCIDOS de esta ficha cuando el turno es "para otro" — ahí la

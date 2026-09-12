@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agregar tipo de consulta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --card:#FDFCF8;
+    --field:#F5F1E9;
+    --ink:#2C2C26;
+    --muted:#8B8578;
+    --muted-soft:#A9A395;
+    --line:#E9E4D9;
+    --green:#46603A;
+    --green-deep:#324529;
+    --green-tint:#E5ECE0;
+    --danger:#9A3B32;
+    --display:'Oswald',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--body);color:var(--ink);background:#EDEAE2;-webkit-font-smoothing:antialiased}
+  button{font-family:var(--body)}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+  [hidden]{display:none!important}
+
+  .overlay{position:fixed;inset:0;background:rgba(44,44,38,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:50}
+  .modal{background:var(--card);border-radius:20px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 70px rgba(40,34,20,.3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.6rem 1.9rem;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-family:var(--display);font-weight:700;font-size:26px;margin:0}
+  .close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex}
+  .close:hover{color:var(--ink)}
+  .modal-body{padding:1.6rem 1.9rem 1.9rem}
+
+  .lbl{display:block;font-size:16px;margin:0 0 .6rem}
+  .fg{margin-bottom:1.4rem}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+  .sep{height:1px;background:var(--line);margin:0 0 1.5rem}
+
+  .chips-wrap{overflow:hidden}
+  .chips-wrap.colapsado{overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain}
+  .chips-wrap.colapsado::-webkit-scrollbar{width:0;height:0;display:none}
+  .more{
+    display:inline-flex;align-items:center;gap:7px;background:none;border:none;padding:0;
+    margin:.9rem 0 0;color:var(--green);font-size:14.5px;cursor:pointer;
+  }
+  .more:hover{text-decoration:underline;text-underline-offset:3px}
+  .more svg{transition:transform .2s ease}
+  .more[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{
+    display:flex;align-items:center;gap:11px;background:transparent;
+    border:1px dashed #D3CBBA;border-radius:999px;padding:9px 8px 9px 15px;
+    cursor:pointer;transition:border-color .15s ease,background .15s ease;
+  }
+  .chip:hover{border-color:var(--green);background:rgba(70,96,58,.05)}
+  .chip[aria-pressed="true"]{border-style:solid;border-color:var(--green);background:rgba(70,96,58,.09)}
+  .swatch{width:16px;height:16px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.08)}
+  .chip-name{font-size:15px;font-weight:500}
+  .chip-meta{font-size:13.5px;color:var(--muted)}
+  .chip-plus{width:26px;height:26px;border-radius:50%;background:var(--green-tint);color:var(--green-deep);display:flex;align-items:center;justify-content:center;flex:none}
+  .chip-hint{font-size:13.5px;color:var(--muted-soft);margin:.8rem 0 0;line-height:1.5}
+  .chip-empty{font-size:15px;color:var(--muted);margin:0}
+
+  input[type="text"],input[type="number"]{
+    width:100%;font-family:var(--body);font-size:16px;color:var(--ink);
+    background:var(--field);border:1px solid transparent;border-radius:10px;padding:15px 16px;
+  }
+  input:focus{outline:none;border-color:var(--green);background:#FBF9F3}
+  .swatches{display:flex;gap:14px;flex-wrap:wrap}
+  .sw{width:44px;height:44px;border-radius:50%;border:1px solid rgba(0,0,0,.08);cursor:pointer;padding:0}
+  .sw[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:3px}
+  .cbx{display:flex;align-items:center;gap:12px;cursor:pointer;font-size:16px}
+  .cbx input{width:19px;height:19px;accent-color:var(--green)}
+  .err{font-size:14px;color:var(--danger);margin:.6rem 0 0}
+  .modal-foot{display:flex;justify-content:flex-end;margin-top:1.9rem}
+  .btn-primary{
+    font-family:var(--body);font-size:16px;font-weight:500;background:var(--green);color:#FBFAF6;
+    border:none;padding:16px 32px;border-radius:999px;cursor:pointer;transition:background .15s ease;
+  }
+  .btn-primary:hover{background:var(--green-deep)}
+
+  @media (max-width:600px){
+    .row2{grid-template-columns:1fr}
+    .modal-body,.modal-head{padding-left:1.25rem;padding-right:1.25rem}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Agregar tipo de consulta</h2>
+      <button class="close" id="cerrar" aria-label="Cerrar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="fg">
+        <span class="lbl">Los usan tus colegas</span>
+        <div class="chips-wrap" id="chips-wrap">
+          <div class="chips" id="chips"></div>
+        </div>
+        <button class="more" id="ver-mas" aria-expanded="false" aria-controls="chips-wrap" hidden>
+          <span id="ver-mas-txt">Ver todos</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <p class="chip-hint" id="chips-hint">Tocá uno para completar el formulario con sus datos y ajustá lo que quieras antes de guardar.</p>
+        <p class="chip-empty" id="chips-vacio" hidden>Ya tenés todos los tipos que usan tus colegas.</p>
+      </div>
+      <div class="sep"></div>
+
+      <div class="fg">
+        <label class="lbl" for="f-nombre">Nombre</label>
+        <input type="text" id="f-nombre" autocomplete="off">
+        <p class="err" id="err-nombre" hidden>Ponele un nombre al tipo de consulta.</p>
+      </div>
+
+      <div class="fg">
+        <span class="lbl">Color</span>
+        <div class="swatches" id="swatches"></div>
+      </div>
+
+      <div class="row2">
+        <div class="fg">
+          <label class="lbl" for="f-dur">Duración (minutos)</label>
+          <input type="number" id="f-dur" min="5" step="5" value="30">
+          <p class="err" id="err-dur" hidden>La duración tiene que ser mayor a cero.</p>
+        </div>
+        <div class="fg">
+          <label class="lbl" for="f-post">Tiempo post-consulta (minutos)</label>
+          <input type="number" id="f-post" min="0" step="5" value="0">
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="lbl" for="f-ses">Cantidad de sesiones (opcional)</label>
+        <input type="number" id="f-ses" min="1" step="1">
+      </div>
+
+      <label class="cbx"><input type="checkbox" id="f-pref"> Preferencia de atención</label>
+
+      <div class="modal-foot">
+        <button class="btn-primary" id="guardar">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var PALETA = ['#E3DAB9','#D9482A','#7CA37F','#2E4A32','#D08758','#A34620','#EAE4D8','#2E2A24'];
+
+  var mios = ['Consulta general','Limpieza','Conducto'];
+
+  var deColegas = [
+    {n:'Blanqueamiento', c:'#D08758', dur:45, post:10, ses:2, por:['Dra. Lucía Ferrer']},
+    {n:'Control de ortodoncia', c:'#2E4A32', dur:20, post:0, ses:null, por:['Dra. Lucía Ferrer','Dr. Matías Soto']},
+    {n:'Urgencia', c:'#D9482A', dur:20, post:5, ses:null, por:['Dr. Matías Soto']},
+    {n:'Cirugía de cordales', c:'#2E2A24', dur:90, post:30, ses:null, por:['Dr. Matías Soto']},
+    {n:'Implante', c:'#A34620', dur:75, post:20, ses:3, por:['Dra. Lucía Ferrer']},
+    {n:'Prótesis', c:'#7CA37F', dur:50, post:10, ses:4, por:['Dr. Matías Soto']},
+    {n:'Radiografía', c:'#E3DAB9', dur:15, post:0, ses:null, por:['Camila Ortiz']},
+    {n:'Control post-cirugía', c:'#EAE4D8', dur:15, post:0, ses:null, por:['Dr. Matías Soto']}
+  ];
+
+  var chips = document.getElementById('chips');
+  var chipsVacio = document.getElementById('chips-vacio');
+  var chipsHint = document.getElementById('chips-hint');
+  var swatches = document.getElementById('swatches');
+  var fNombre = document.getElementById('f-nombre');
+  var fDur = document.getElementById('f-dur');
+  var fPost = document.getElementById('f-post');
+  var fSes = document.getElementById('f-ses');
+  var fPref = document.getElementById('f-pref');
+  var errNombre = document.getElementById('err-nombre');
+  var errDur = document.getElementById('err-dur');
+  var colorElegido = PALETA[0];
+  var origenElegido = null;
+
+  function apellido(nombre){
+    var p = nombre.replace(/^(Dra?\.)\s*/,'').split(' ');
+    var trato = nombre.indexOf('Dra.') === 0 ? 'Dra. ' : nombre.indexOf('Dr.') === 0 ? 'Dr. ' : '';
+    return trato + (p[1] || p[0]);
+  }
+
+  for(var i=0;i<PALETA.length;i++){
+    (function(hex, idx){
+      var b = document.createElement('button');
+      b.className = 'sw';
+      b.style.background = hex;
+      b.setAttribute('aria-label','Color '+(idx+1));
+      b.setAttribute('aria-pressed', String(idx === 0));
+      b.addEventListener('click', function(){ elegirColor(hex); });
+      swatches.appendChild(b);
+    })(PALETA[i], i);
+  }
+
+  function elegirColor(hex){
+    var idx = PALETA.indexOf(hex);
+    if(idx < 0){ idx = 0; }
+    var todos = swatches.querySelectorAll('.sw');
+    for(var j=0;j<todos.length;j++){ todos[j].setAttribute('aria-pressed', String(j === idx)); }
+    colorElegido = PALETA[idx];
+  }
+
+  function deseleccionarChips(){
+    var todos = chips.querySelectorAll('.chip');
+    for(var j=0;j<todos.length;j++){ todos[j].setAttribute('aria-pressed','false'); }
+    origenElegido = null;
+  }
+
+  function pintarChips(){
+    chips.innerHTML = '';
+    var pendientes = 0;
+    for(var i=0;i<deColegas.length;i++){
+      (function(t){
+        for(var k=0;k<mios.length;k++){
+          if(mios[k].toLowerCase() === t.n.toLowerCase()){ return; }
+        }
+        pendientes++;
+        var quien = t.por.length === 1 ? apellido(t.por[0]) : t.por.length + ' colegas';
+        var b = document.createElement('button');
+        b.className = 'chip';
+        b.setAttribute('aria-pressed','false');
+        b.setAttribute('aria-label','Usar los datos de '+t.n);
+        b.innerHTML =
+          '<span class="swatch" style="background:'+t.c+'"></span>'+
+          '<span><span class="chip-name">'+t.n+'</span> '+
+          '<span class="chip-meta">'+t.dur+' min · '+quien+'</span></span>'+
+          '<span class="chip-plus" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>';
+        b.addEventListener('click', function(){
+          deseleccionarChips();
+          b.setAttribute('aria-pressed','true');
+          fNombre.value = t.n;
+          fDur.value = t.dur;
+          fPost.value = t.post;
+          fSes.value = t.ses || '';
+          fPref.checked = false;
+          elegirColor(t.c);
+          origenElegido = apellido(t.por[0]);
+          errNombre.hidden = true;
+          errDur.hidden = true;
+        });
+        chips.appendChild(b);
+      })(deColegas[i]);
+    }
+    chipsVacio.hidden = pendientes > 0;
+    chipsHint.hidden = pendientes === 0;
+    ajustarRecorte(pendientes);
+  }
+
+  var wrap = document.getElementById('chips-wrap');
+  var verMas = document.getElementById('ver-mas');
+  var verMasTxt = document.getElementById('ver-mas-txt');
+  var totalPendientes = 0;
+
+  function ajustarRecorte(pendientes){
+    totalPendientes = pendientes;
+    if(pendientes <= 4){
+      wrap.classList.remove('colapsado');
+      wrap.style.maxHeight = '';
+      verMas.hidden = true;
+      verMas.setAttribute('aria-expanded','false');
+      return;
+    }
+    verMas.hidden = false;
+    verMasTxt.textContent = 'Ver los ' + pendientes;
+    if(verMas.getAttribute('aria-expanded') === 'true'){ return; }
+    colapsar();
+  }
+
+  function colapsar(){
+    var lista = chips.querySelectorAll('.chip');
+    if(lista.length < 5){ return; }
+    var quinto = lista[4];
+    var corte = quinto.offsetTop + Math.round(quinto.offsetHeight / 2);
+    if(corte < quinto.offsetHeight){ return; }
+    wrap.classList.add('colapsado');
+    wrap.style.maxHeight = corte + 'px';
+  }
+
+  verMas.addEventListener('click', function(){
+    var abierto = verMas.getAttribute('aria-expanded') === 'true';
+    if(abierto){
+      verMas.setAttribute('aria-expanded','false');
+      verMasTxt.textContent = 'Ver los ' + totalPendientes;
+      colapsar();
+      wrap.scrollTop = 0;
+    } else {
+      verMas.setAttribute('aria-expanded','true');
+      verMasTxt.textContent = 'Ver menos';
+      wrap.classList.remove('colapsado');
+      wrap.style.maxHeight = '';
+    }
+  });
+
+  window.addEventListener('resize', function(){
+    if(totalPendientes > 4 && verMas.getAttribute('aria-expanded') === 'false'){ colapsar(); }
+  });
+  pintarChips();
+
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(function(){
+      if(totalPendientes > 4 && verMas.getAttribute('aria-expanded') === 'false'){ colapsar(); }
+    });
+  }
+
+  fNombre.addEventListener('input', function(){ errNombre.hidden = true; deseleccionarChips(); });
+  fDur.addEventListener('input', function(){ errDur.hidden = true; });
+
+  document.getElementById('guardar').addEventListener('click', function(){
+    var nombre = fNombre.value.trim();
+    var dur = parseInt(fDur.value, 10);
+    if(!nombre){ errNombre.hidden = false; fNombre.focus(); return; }
+    if(!dur || dur <= 0){ errDur.hidden = false; fDur.focus(); return; }
+    var ses = parseInt(fSes.value, 10);
+    var tipo = {
+      nombre:nombre,
+      color:colorElegido,
+      duracion:dur,
+      postConsulta:parseInt(fPost.value, 10) || 0,
+      sesiones:(ses && ses > 1) ? ses : null,
+      preferencia:fPref.checked,
+      origen:origenElegido
+    };
+    console.log('Guardar tipo de consulta', tipo);
+  });
+
+  document.getElementById('cerrar').addEventListener('click', function(){
+    document.getElementById('overlay').hidden = true;
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ document.getElementById('overlay').hidden = true; }
+  });
+</script>
+
+</body>
+</html>

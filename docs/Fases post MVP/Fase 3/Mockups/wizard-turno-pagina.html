@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elegí día y horario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --card:#FDFCF8;--field:#F5F1E9;--ink:#2C2C26;--muted:#8B8578;--muted-soft:#A9A395;
+    --line:#E9E4D9;--green:#46603A;--green-deep:#324529;--green-tint:#E5ECE0;--green-pale:#B3C5AA;
+    --danger:#9A3B32;
+    --display:'Oswald',system-ui,sans-serif;--body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--body);color:var(--ink);background:#EDEAE2;-webkit-font-smoothing:antialiased}
+  button{font-family:var(--body)}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+  [hidden]{display:none!important}
+
+  .overlay{position:fixed;inset:0;background:rgba(44,44,38,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:50}
+  .modal{background:var(--card);border-radius:20px;width:100%;max-width:620px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 70px rgba(40,34,20,.3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.6rem 1.9rem;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-family:var(--display);font-weight:700;font-size:27px;margin:0}
+  .close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex}
+  .close:hover{color:var(--ink)}
+  .modal-body{padding:1.6rem 1.9rem 1.9rem}
+
+  .lbl-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.65rem}
+  .lbl{font-size:16px;color:var(--muted);margin:0}
+  .fg{margin-bottom:1.7rem}
+
+  select{
+    width:100%;font-family:var(--body);font-size:17px;color:var(--ink);cursor:pointer;
+    background:var(--field);border:1px solid transparent;border-radius:12px;padding:16px 46px 16px 18px;
+    appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238B8578' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 18px center;
+  }
+  select:focus{outline:none;border-color:var(--green)}
+
+  /* Profesionales */
+  .profs{display:flex;flex-direction:column;gap:.65rem}
+  .prof{
+    display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    background:var(--field);border:1px solid transparent;border-radius:13px;
+    padding:.95rem 1.1rem;cursor:pointer;
+  }
+  .prof:hover{background:#F1ECE2}
+  .prof[aria-pressed="true"]{background:var(--green-tint);border-color:var(--green)}
+  .prof-av{width:42px;height:42px;border-radius:50%;background:#E3DDD0;color:#6E695C;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;font-size:14px;flex:none}
+  .prof[aria-pressed="true"] .prof-av{background:var(--green);color:#FBFAF6}
+  .prof-n{display:block;font-size:16px;font-weight:500;line-height:1.25}
+  .prof-e{display:block;font-size:13.5px;color:var(--muted);margin-top:2px}
+  .prof-libre{margin-left:auto;text-align:right;flex:none}
+  .prof-libre b{display:block;font-family:var(--display);font-weight:600;font-size:16px;color:var(--green-deep);letter-spacing:.03em}
+  .prof-libre span{display:block;font-size:12.5px;color:var(--muted-soft);margin-top:2px}
+  .prof-libre.sin b{color:var(--muted-soft);font-weight:400;font-family:var(--body);font-size:14px}
+  .tag-pronto{
+    display:inline-block;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;
+    background:var(--green);color:#FBFAF6;border-radius:5px;padding:3px 8px;margin-top:5px;
+  }
+  .sin-prof{background:var(--field);border-radius:12px;padding:1.3rem;color:var(--muted);font-size:15px;line-height:1.55;margin:0}
+
+  /* Día */
+  .dia{display:flex;align-items:stretch;background:var(--field);border-radius:14px;padding:8px;gap:8px}
+  .dia-arrow{
+    background:#FFFEFC;border:1px solid transparent;border-radius:11px;width:58px;flex:none;
+    color:var(--ink);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .dia-arrow:hover{border-color:var(--line)}
+  .dia-arrow:disabled{opacity:.35;cursor:not-allowed;background:transparent}
+  .dia-centro{flex:1;text-align:center;padding:.7rem .5rem;min-width:0}
+  .dia-grande{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;text-transform:uppercase;line-height:1;margin:0}
+  .dia-chico{font-size:14.5px;color:var(--muted);margin:.45rem 0 0}
+  .link-fecha{display:flex;align-items:center;gap:9px;background:none;border:none;color:var(--ink);font-size:16px;cursor:pointer;padding:0}
+  .link-fecha:hover{color:var(--green)}
+  .link-fecha svg{color:var(--muted)}
+  #fecha-input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+
+  /* Horarios */
+  .cabecera-h{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
+  .cant{font-size:14.5px;color:var(--muted-soft)}
+  .franjas{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+  .franjas button{
+    background:var(--field);border:1px solid transparent;border-radius:999px;
+    padding:10px 20px;font-size:15px;color:var(--ink);cursor:pointer;
+  }
+  .franjas button:hover{background:#EDE8DE}
+  .franjas button[aria-selected="true"]{background:var(--green);color:#FBFAF6;font-weight:500}
+  .franjas button:disabled{opacity:.45;cursor:not-allowed}
+
+  .carrusel{display:flex;align-items:center;gap:8px}
+  .car-arrow{
+    background:var(--field);border:none;border-radius:11px;width:38px;height:74px;flex:none;
+    color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .car-arrow:hover{background:#EDE8DE;color:var(--ink)}
+  .pista{
+    display:flex;gap:10px;overflow-x:auto;scroll-behavior:smooth;flex:1;
+    scrollbar-width:none;-ms-overflow-style:none;padding:1px;
+  }
+  .pista::-webkit-scrollbar{display:none}
+  .hora{
+    background:var(--field);border:1px solid transparent;border-radius:12px;
+    padding:0 22px;height:74px;flex:none;cursor:pointer;
+    font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:21px;letter-spacing:.06em;color:var(--ink);
+  }
+  .hora:hover{background:#EDE8DE}
+  .hora[aria-pressed="true"]{background:var(--green);color:#FBFAF6;border-color:var(--green)}
+  .sin-horas{background:var(--field);border-radius:12px;padding:1.6rem;text-align:center;color:var(--muted);font-size:15px;width:100%}
+
+  .modal-foot{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:2rem;flex-wrap:wrap}
+  .atras{display:flex;align-items:center;gap:11px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0}
+  .atras:hover{color:var(--ink)}
+  .btn-solid{background:var(--green);color:#FBFAF6;border:none;border-radius:999px;padding:16px 30px;font-size:16px;font-weight:500;cursor:pointer}
+  .btn-solid:hover{background:var(--green-deep)}
+  .btn-solid:disabled{background:var(--green-pale);cursor:not-allowed}
+
+  @media (max-width:620px){
+    .modal-body,.modal-head{padding-left:1.25rem;padding-right:1.25rem}
+    .dia-grande{font-size:24px}
+    .prof-libre{width:100%;text-align:left;margin-left:0}
+    .prof{flex-wrap:wrap}
+  }
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div class="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="t">
+    <div class="modal-head">
+      <h2 id="t">Elegí día y horario</h2>
+      <button class="close" aria-label="Cerrar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="fg">
+        <div class="lbl-row"><label class="lbl" for="tipo">Tipo de consulta</label></div>
+        <select id="tipo"></select>
+      </div>
+
+      <div class="fg">
+        <div class="lbl-row"><p class="lbl">Profesional</p></div>
+        <div class="profs" id="profs"></div>
+        <p class="sin-prof" id="sin-prof" hidden>Ninguno de los profesionales de la clínica tiene este tipo de consulta configurado en su agenda.</p>
+      </div>
+
+      <div class="fg" id="bloque-dia">
+        <div class="lbl-row">
+          <p class="lbl">Día</p>
+          <button class="link-fecha" id="btn-fecha">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            Elegir fecha
+          </button>
+          <input type="date" id="fecha-input">
+        </div>
+        <div class="dia">
+          <button class="dia-arrow" id="dia-prev" aria-label="Día anterior">‹</button>
+          <div class="dia-centro">
+            <p class="dia-grande" id="dia-grande">—</p>
+            <p class="dia-chico" id="dia-chico"></p>
+          </div>
+          <button class="dia-arrow" id="dia-next" aria-label="Día siguiente">›</button>
+        </div>
+      </div>
+
+      <div id="bloque-horas">
+        <div class="cabecera-h">
+          <p class="lbl">Horarios disponibles</p>
+          <span class="cant" id="cant"></span>
+        </div>
+        <div class="franjas">
+          <button id="f-manana" aria-selected="true">Mañana (0)</button>
+          <button id="f-tarde" aria-selected="false">Tarde (0)</button>
+        </div>
+        <div class="carrusel">
+          <button class="car-arrow" id="car-prev" aria-label="Ver anteriores">‹</button>
+          <div class="pista" id="pista"></div>
+          <button class="car-arrow" id="car-next" aria-label="Ver siguientes">›</button>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="atras">← Atrás</button>
+        <button class="btn-solid" id="confirmar" disabled>Confirmar turno</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var DIAS_L = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  /* Duración por tipo, tal como está configurada en el calendario */
+  var TIPOS = {
+    'Consulta general':30, 'Limpieza':30, 'Control':20,
+    'Conducto':60, 'Urgencia':20, 'Primera consulta':45, 'Control de ortodoncia':20
+  };
+
+  /* Cada profesional ofrece solo los tipos que tiene cargados, y atiende ciertos días */
+  var profesionales = [
+    {n:'Juan Muru', esp:'Odontología general', tipos:['Consulta general','Limpieza','Control'], ini:8, fin:17, dias:[1,2,3,4,5]},
+    {n:'Lucía Ferrer', esp:'Ortodoncia', tipos:['Control de ortodoncia','Consulta general'], ini:9, fin:18, dias:[2,4,6]},
+    {n:'Matías Soto', esp:'Endodoncia', tipos:['Conducto','Urgencia'], ini:10, fin:19, dias:[1,3,5]},
+    {n:'Valeria Nieto', esp:'Odontopediatría', tipos:['Primera consulta','Limpieza','Consulta general'], ini:8, fin:13, dias:[1,2,3,4,5,6]}
+  ];
+
+  var AHORA = new Date();
+  var HOY = new Date(AHORA.getFullYear(), AHORA.getMonth(), AHORA.getDate());
+  var MIN_AHORA = AHORA.getHours()*60 + AHORA.getMinutes();
+
+  function sumar(d,n){ var x = new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+  function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function desdeIso(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+  function hhmm(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+  function iniciales(n){ var p = n.split(' '); return ((p[0]||'').charAt(0)+(p[1]||'').charAt(0)).toUpperCase(); }
+
+  function hash(s){
+    var h = 0;
+    for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) % 100000; }
+    return h;
+  }
+
+  /* Horarios libres de un profesional para una fecha y un tipo */
+  function libres(idx, fecha, tipo){
+    var p = profesionales[idx];
+    if(p.tipos.indexOf(tipo) === -1){ return []; }
+    var d = desdeIso(fecha);
+    if(p.dias.indexOf(d.getDay()) === -1){ return []; }
+    var dur = TIPOS[tipo];
+    var out = [];
+    for(var m = p.ini*60; m + dur <= p.fin*60; m += dur){
+      if(fecha === iso(HOY) && m <= MIN_AHORA + 30){ continue; }
+      if(hash(p.n + fecha + m) % 100 < 38){ continue; }
+      out.push(m);
+    }
+    return out;
+  }
+
+  /* Primer hueco del profesional, mirando 45 días */
+  function primerHueco(idx, tipo){
+    for(var d=0; d<45; d++){
+      var f = iso(sumar(HOY, d));
+      var l = libres(idx, f, tipo);
+      if(l.length){ return {fecha:f, min:l[0], dias:d}; }
+    }
+    return null;
+  }
+
+  var tipo = 'Consulta general';
+  var profSel = null;
+  var fechaSel = iso(HOY);
+  var franja = 'manana';
+  var horaSel = null;
+
+  /* Select de tipos */
+  var selTipo = document.getElementById('tipo');
+  (function(){
+    var usados = {};
+    for(var i=0;i<profesionales.length;i++){
+      for(var j=0;j<profesionales[i].tipos.length;j++){ usados[profesionales[i].tipos[j]] = true; }
+    }
+    for(var t in usados){
+      var o = document.createElement('option');
+      o.value = t;
+      o.textContent = t + ' — ' + TIPOS[t] + ' min';
+      selTipo.appendChild(o);
+    }
+    selTipo.value = tipo;
+  })();
+  selTipo.addEventListener('change', function(){
+    tipo = this.value;
+    profSel = null; horaSel = null;
+    render();
+  });
+
+  /* Profesionales según el tipo */
+  var cont = document.getElementById('profs');
+  var sinProf = document.getElementById('sin-prof');
+  var bloqueDia = document.getElementById('bloque-dia');
+  var bloqueHoras = document.getElementById('bloque-horas');
+
+  function etiquetaHueco(h){
+    if(!h){ return null; }
+    var d = desdeIso(h.fecha);
+    var cuando = h.dias === 0 ? 'hoy' : h.dias === 1 ? 'mañana'
+      : DIAS_L[d.getDay()].slice(0,3) + ' ' + d.getDate();
+    return {hora:hhmm(h.min), cuando:cuando};
+  }
+
+  function pintarProfs(){
+    cont.innerHTML = '';
+    var candidatos = [];
+    for(var i=0;i<profesionales.length;i++){
+      if(profesionales[i].tipos.indexOf(tipo) !== -1){
+        candidatos.push({idx:i, hueco:primerHueco(i, tipo)});
+      }
+    }
+    sinProf.hidden = candidatos.length > 0;
+    cont.hidden = candidatos.length === 0;
+
+    var mejor = -1, mejorClave = null;
+    for(var k=0;k<candidatos.length;k++){
+      var h = candidatos[k].hueco;
+      if(!h){ continue; }
+      var clave = h.fecha + ' ' + String(h.min).padStart(4,'0');
+      if(mejorClave === null || clave < mejorClave){ mejorClave = clave; mejor = candidatos[k].idx; }
+    }
+
+    for(var c=0;c<candidatos.length;c++){
+      (function(cand){
+        var p = profesionales[cand.idx];
+        var et = etiquetaHueco(cand.hueco);
+        var b = document.createElement('button');
+        b.className = 'prof';
+        b.setAttribute('aria-pressed', String(profSel === cand.idx));
+        b.innerHTML =
+          '<span class="prof-av">'+iniciales(p.n)+'</span>'+
+          '<span><span class="prof-n">'+p.n+'</span><span class="prof-e">'+p.esp+'</span></span>'+
+          (et
+            ? '<span class="prof-libre"><b>'+et.hora+'</b><span>'+et.cuando+'</span>'+
+              (cand.idx === mejor ? '<span class="tag-pronto">Más próximo</span>' : '')+'</span>'
+            : '<span class="prof-libre sin"><b>Sin turnos cercanos</b></span>');
+        b.addEventListener('click', function(){
+          profSel = cand.idx;
+          horaSel = null;
+          if(cand.hueco){
+            fechaSel = cand.hueco.fecha;
+            franja = cand.hueco.min < 13*60 ? 'manana' : 'tarde';
+          }
+          render();
+        });
+        cont.appendChild(b);
+      })(candidatos[c]);
+    }
+  }
+
+  /* Día */
+  var diaGrande = document.getElementById('dia-grande');
+  var diaChico = document.getElementById('dia-chico');
+  var diaPrev = document.getElementById('dia-prev');
+  var fechaInput = document.getElementById('fecha-input');
+
+  document.getElementById('btn-fecha').addEventListener('click', function(){
+    fechaInput.value = fechaSel;
+    fechaInput.min = iso(HOY);
+    if(fechaInput.showPicker){ fechaInput.showPicker(); } else { fechaInput.click(); }
+  });
+  fechaInput.addEventListener('change', function(){
+    if(this.value){ fechaSel = this.value; horaSel = null; render(); }
+  });
+  diaPrev.addEventListener('click', function(){
+    if(fechaSel <= iso(HOY)){ return; }
+    fechaSel = iso(sumar(desdeIso(fechaSel), -1)); horaSel = null; render();
+  });
+  document.getElementById('dia-next').addEventListener('click', function(){
+    fechaSel = iso(sumar(desdeIso(fechaSel), 1)); horaSel = null; render();
+  });
+
+  /* Franjas y horarios */
+  var fManana = document.getElementById('f-manana');
+  var fTarde = document.getElementById('f-tarde');
+  var pista = document.getElementById('pista');
+  var cant = document.getElementById('cant');
+  var confirmar = document.getElementById('confirmar');
+
+  fManana.addEventListener('click', function(){ franja = 'manana'; horaSel = null; render(); });
+  fTarde.addEventListener('click', function(){ franja = 'tarde'; horaSel = null; render(); });
+  document.getElementById('car-prev').addEventListener('click', function(){ pista.scrollBy({left:-240, behavior:'smooth'}); });
+  document.getElementById('car-next').addEventListener('click', function(){ pista.scrollBy({left:240, behavior:'smooth'}); });
+
+  function render(){
+    pintarProfs();
+
+    var hayProf = profSel !== null;
+    bloqueDia.hidden = !hayProf;
+    bloqueHoras.hidden = !hayProf;
+    confirmar.disabled = horaSel === null;
+    if(!hayProf){ return; }
+
+    var d = desdeIso(fechaSel);
+    var dif = Math.round((d - HOY) / 86400000);
+    diaGrande.textContent = dif === 0 ? 'HOY' : dif === 1 ? 'MAÑANA' : DIAS_L[d.getDay()].toUpperCase();
+    diaChico.textContent = DIAS_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()];
+    diaPrev.disabled = fechaSel <= iso(HOY);
+
+    var todos = libres(profSel, fechaSel, tipo);
+    var mañana = [], tarde = [];
+    for(var i=0;i<todos.length;i++){ (todos[i] < 13*60 ? mañana : tarde).push(todos[i]); }
+
+    cant.textContent = todos.length + (todos.length === 1 ? ' turno' : ' turnos');
+    fManana.textContent = 'Mañana ('+mañana.length+')';
+    fTarde.textContent = 'Tarde ('+tarde.length+')';
+    fManana.disabled = mañana.length === 0;
+    fTarde.disabled = tarde.length === 0;
+    if(franja === 'manana' && !mañana.length && tarde.length){ franja = 'tarde'; }
+    if(franja === 'tarde' && !tarde.length && mañana.length){ franja = 'manana'; }
+    fManana.setAttribute('aria-selected', String(franja === 'manana'));
+    fTarde.setAttribute('aria-selected', String(franja === 'tarde'));
+
+    var lista = franja === 'manana' ? mañana : tarde;
+    pista.innerHTML = '';
+    if(!lista.length){
+      pista.innerHTML = '<p class="sin-horas">No hay horarios libres este día. Probá con el siguiente.</p>';
+      return;
+    }
+    for(var k=0;k<lista.length;k++){
+      (function(m){
+        var b = document.createElement('button');
+        b.className = 'hora';
+        b.textContent = hhmm(m);
+        b.setAttribute('aria-pressed', String(horaSel === m));
+        b.addEventListener('click', function(){
+          horaSel = m;
+          var todas = pista.querySelectorAll('.hora');
+          for(var z=0;z<todas.length;z++){ todas[z].setAttribute('aria-pressed','false'); }
+          b.setAttribute('aria-pressed','true');
+          confirmar.disabled = false;
+        });
+        pista.appendChild(b);
+      })(lista[k]);
+    }
+  }
+
+  confirmar.addEventListener('click', function(){
+    console.log('Confirmar turno', {
+      tipo: tipo,
+      duracion: TIPOS[tipo],
+      profesional: profesionales[profSel].n,
+      fecha: fechaSel,
+      hora: hhmm(horaSel)
+    });
+  });
+
+  render();
+</script>
+
+</body>
+</html>

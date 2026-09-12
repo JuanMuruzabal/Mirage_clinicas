@@ -380,7 +380,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		`ALTER TABLE auditoria_bloqueos_turno_publico ADD CONSTRAINT chk_auditoria_bloqueos_turno_publico_motivo
 		   CHECK (motivo IN ('mail_muchos_dnis', 'ip_rotacion', 'dni_tipo_tope'))`,
 
-		// Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien especificada.docx`,
+		// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`,
 		// camino "sacar turno para otro"): teléfono del PACIENTE pasa a
 		// opcional — antes NOT NULL, obligatorio en todos los casos. GORM
 		// AutoMigrate no relaja un constraint existente al cambiar el tipo

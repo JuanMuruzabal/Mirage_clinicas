@@ -29,7 +29,7 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   const [email, setEmail] = useState("");
   // conTutor (Fase 2.4.2) — "Con tutor" reemplaza el formulario de un
   // bloque por el de dos bloques (paciente + tutor) — ver
-  // docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.7bis.
+  // docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.7bis.
   const [conTutor, setConTutor] = useState(false);
   const [tutorRelacion, setTutorRelacion] = useState("");
   const [tutorNombre, setTutorNombre] = useState("");

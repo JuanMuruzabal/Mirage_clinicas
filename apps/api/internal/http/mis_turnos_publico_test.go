@@ -25,10 +25,16 @@ func TestMisTurnosPublico_ConDNIYMailCorrectosMuestraLaTarjeta(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	var got misTurnoPublicoResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	// Fase 3.1: el endpoint devuelve una LISTA desde que un DNI
+	// puede tener un turno activo por cada tipo de consulta.
+	var lista []misTurnoPublicoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &lista); err != nil {
 		t.Fatalf("respuesta no es JSON válido: %v", err)
 	}
+	if len(lista) != 1 {
+		t.Fatalf("devolvió %d turnos, esperaba 1", len(lista))
+	}
+	got := lista[0]
 	if got.NombreContacto != "Bruno" || got.ApellidoContacto != "Iglesias" {
 		t.Errorf("got = %+v, esperaba los datos de Bruno Iglesias", got)
 	}
@@ -155,10 +161,16 @@ func TestMisTurnosPublico_ParaOtroElTutorEncuentraElTurno(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d — el tutor no puede encontrar el turno que él mismo sacó. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	var got misTurnoPublicoResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	// Fase 3.1: el endpoint devuelve una LISTA desde que un DNI
+	// puede tener un turno activo por cada tipo de consulta.
+	var lista []misTurnoPublicoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &lista); err != nil {
 		t.Fatalf("respuesta no es JSON válido: %v", err)
 	}
+	if len(lista) != 1 {
+		t.Fatalf("devolvió %d turnos, esperaba 1", len(lista))
+	}
+	got := lista[0]
 	// La tarjeta muestra al PACIENTE (de quién es el turno), no al tutor.
 	if got.NombreContacto != "Juanito" || got.ApellidoContacto != "Pérez" {
 		t.Errorf("got = %+v, esperaba los datos del paciente (Juanito Pérez)", got)

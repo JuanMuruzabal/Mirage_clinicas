@@ -483,7 +483,7 @@ type crearPacienteRequest struct {
 	Telefono string `json:"telefono"`
 	Email    string `json:"email"`
 	// ConTutor/Tutor* (Fase 2.4.2) — opción "Con tutor" del alta directa
-	// desde el panel (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis): con
+	// desde el panel (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis): con
 	// ConTutor=true, Telefono/Email pasan a ser opcionales (son del
 	// PACIENTE, igual criterio que el wizard público) y los 5 campos de
 	// tutor son obligatorios.

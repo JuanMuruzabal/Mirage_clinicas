@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dental Mirage — ¿Dónde trabajás hoy?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFE8;
+    --header:#FDFBF6;
+    --surface:#FFFDF9;
+    --ink:#2C2C26;
+    --muted:#8B8578;
+    --muted-soft:#A9A395;
+    --line:#E7E1D6;
+    --green:#46603A;
+    --green-deep:#324529;
+    --green-tint:#EDF1E6;
+    --display:'Oswald',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{text-decoration:none;color:inherit}
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:4px}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    background:var(--header);
+    border-bottom:1px solid var(--line);
+    padding:0 2.5rem;
+    height:104px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-name{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .gear{color:var(--ink);display:flex;padding:6px;border:none;background:none;cursor:pointer}
+
+  /* ---------- Layout ---------- */
+  .page{max-width:1400px;margin:0 auto;padding:3.5rem 2.5rem 6rem}
+  .eyebrow{
+    font-family:var(--body);
+    font-size:13px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--muted-soft);
+    margin:0 0 .5rem;
+  }
+  h1{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(38px,5.2vw,62px);
+    line-height:1.02;
+    letter-spacing:-.005em;
+    margin:0 0 3.25rem;
+  }
+
+  .section{margin-bottom:3rem}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin:0 0 1.1rem;
+    padding-bottom:.85rem;
+    border-bottom:1px solid var(--line);
+  }
+  .section-title{
+    font-family:var(--display);
+    font-weight:500;
+    font-size:17px;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+    margin:0;
+    color:var(--ink);
+  }
+  .section-count{
+    font-size:13px;
+    color:var(--muted-soft);
+    letter-spacing:.04em;
+  }
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2rem}
+
+  /* ---------- Tarjetas ---------- */
+  .card{
+    background:var(--surface);
+    border-radius:14px;
+    padding:2.6rem 2.6rem 2.4rem;
+    box-shadow:0 1px 2px rgba(60,50,30,.05), 0 8px 22px rgba(60,50,30,.045);
+    display:flex;
+    flex-direction:column;
+    min-height:230px;
+  }
+  .card--wide{grid-column:1 / -1}
+
+  .card-icon{color:var(--green);margin-bottom:1.6rem;display:block}
+
+  .card h2{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:34px;
+    line-height:1.08;
+    margin:0 0 .7rem;
+  }
+  .card--sm h2{font-size:27px}
+
+  .card p{
+    font-size:16.5px;
+    line-height:1.55;
+    color:var(--muted);
+    margin:0;
+    max-width:46ch;
+  }
+
+  .card-meta{
+    margin-top:.9rem;
+    font-size:14px;
+    color:var(--muted-soft);
+    letter-spacing:.02em;
+  }
+
+  .enter{
+    margin-top:auto;
+    padding-top:1.9rem;
+    font-size:16.5px;
+    color:var(--green);
+    align-self:flex-start;
+    transition:color .15s ease;
+  }
+  .enter:hover{color:var(--green-deep);text-decoration:underline;text-underline-offset:4px}
+
+  .role{
+    display:inline-block;
+    font-size:12.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-family:var(--display);
+    font-weight:500;
+    color:var(--green-deep);
+    background:var(--green-tint);
+    padding:5px 11px;
+    border-radius:5px;
+    margin-bottom:1.1rem;
+  }
+
+  /* ---------- Estado vacío ---------- */
+  .empty{
+    grid-column:1 / -1;
+    border:1px dashed #DCD5C8;
+    border-radius:14px;
+    padding:2.4rem 2.6rem;
+    background:transparent;
+  }
+  .empty h3{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:23px;
+    margin:0 0 .5rem;
+  }
+  .empty p{margin:0;color:var(--muted);font-size:16px;line-height:1.55;max-width:52ch}
+
+  /* ---------- Tarjeta unirse ---------- */
+  .join{
+    border:1px dashed #D6CEBE;
+    border-radius:14px;
+    background:transparent;
+    box-shadow:none;
+    transition:border-color .15s ease, background .15s ease;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    padding:2.6rem;
+    min-height:230px;
+  }
+  .join:hover{border-color:var(--green);background:rgba(70,96,58,.035)}
+  .join h2{font-family:var(--display);font-weight:700;font-size:27px;margin:0 0 .7rem;line-height:1.08}
+  .join p{font-size:16.5px;line-height:1.55;color:var(--muted);margin:0;max-width:44ch}
+  .join .enter{color:var(--green)}
+
+  .enter-btn{
+    font-family:var(--body);
+    background:none;border:none;padding:1.9rem 0 0;
+    cursor:pointer;text-align:left;
+  }
+  .enter-btn:hover{text-decoration:underline;text-underline-offset:4px}
+
+  .token{
+    margin-top:1.4rem;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:var(--green-tint);
+    border-radius:9px;
+    padding:.85rem 1.1rem;
+  }
+  .token-code{
+    font-family:ui-monospace,'SF Mono',Menlo,monospace;
+    font-size:19px;
+    letter-spacing:.16em;
+    color:var(--green-deep);
+  }
+  .token-copy{
+    font-family:var(--body);font-size:13px;
+    background:transparent;color:var(--green-deep);
+    border:1px solid rgba(50,69,41,.3);
+    padding:5px 12px;border-radius:6px;cursor:pointer;
+    margin-left:auto;
+  }
+  .token-copy:hover{background:rgba(50,69,41,.08)}
+  .token-hint{
+    margin-top:.85rem!important;
+    font-size:14px!important;
+    color:var(--muted-soft)!important;
+  }
+  [hidden]{display:none!important}
+
+  /* ---------- Control de demo ---------- */
+  .demo{
+    position:sticky;top:0;z-index:5;
+    background:#2C2C26;color:#F3EFE8;
+    display:flex;align-items:center;gap:14px;
+    padding:.7rem 2.5rem;font-size:13.5px;
+  }
+  .demo span{letter-spacing:.05em;opacity:.7}
+  .demo button{
+    font-family:var(--body);font-size:13px;
+    background:transparent;color:#F3EFE8;
+    border:1px solid rgba(243,239,232,.35);
+    padding:5px 13px;border-radius:6px;cursor:pointer;
+  }
+  .demo button[aria-pressed="true"]{background:#F3EFE8;color:#2C2C26;border-color:#F3EFE8}
+
+  @media (max-width:880px){
+    .topbar{padding:0 1.25rem;height:80px}
+    .page{padding:2.5rem 1.25rem 4rem}
+    .grid{grid-template-columns:1fr;gap:1.25rem}
+    .card,.join{padding:1.75rem;min-height:0}
+    .card h2{font-size:28px}
+    .demo{padding:.7rem 1.25rem;flex-wrap:wrap}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <span>Vista previa</span>
+  <button id="btn-nuevo" aria-pressed="true">Usuario nuevo</button>
+  <button id="btn-varias" aria-pressed="false">Con varias clínicas</button>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="2" y="2" width="8" height="8" rx="1.5"/>
+      <rect x="14" y="2" width="8" height="5" rx="1.5"/>
+      <rect x="2" y="14" width="8" height="5" rx="1.5"/>
+      <rect x="14" y="11" width="8" height="8" rx="1.5"/>
+    </svg>
+    <span class="brand-name">Dental Mirage</span>
+  </div>
+  <button class="gear" aria-label="Configuración">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<main class="page">
+  <p class="eyebrow">Hola, Prueba</p>
+  <h1>¿Dónde trabajás hoy?</h1>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">Mi clínica</h2>
+    </div>
+    <div class="grid">
+      <article class="card card--wide">
+        <svg class="card-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="2" y="2" width="8" height="8" rx="1.5"/>
+          <rect x="14" y="2" width="8" height="5" rx="1.5"/>
+          <rect x="2" y="14" width="8" height="5" rx="1.5"/>
+          <rect x="14" y="11" width="8" height="8" rx="1.5"/>
+        </svg>
+        <span class="role">Titular</span>
+        <h2>Consultorio Prueba</h2>
+        <p>Tu clínica principal. Desde acá manejás la agenda, los pacientes y tu página pública.</p>
+        <p class="card-meta">Av. Colón 1240, Córdoba · 3 profesionales</p>
+        <a class="enter" href="#">Entrar</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">Otras clínicas</h2>
+      <span class="section-count" id="count">Ninguna todavía</span>
+    </div>
+
+    <div class="grid" id="otras">
+      <div class="empty" id="vacio">
+        <h3>Todavía no trabajás en otras clínicas</h3>
+        <p>Cuando un colega te invite, o cuando uses un código de invitación, la clínica va a aparecer acá y vas a poder cambiar de una a otra sin cerrar sesión.</p>
+      </div>
+
+      <article class="join" id="unirse">
+        <svg class="card-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        <h2>Unirme a otra clínica</h2>
+        <p id="unirse-texto">Generá tu código y pasáselo a la clínica para que te sumen al equipo. También podés darles tu mail y que te manden la invitación desde ahí.</p>
+        <div class="token" id="token-box" hidden>
+          <span class="token-code" id="token-code"></span>
+          <button class="token-copy" id="token-copy">Copiar</button>
+        </div>
+        <p class="card-meta token-hint" id="token-hint" hidden>Vence en 24 horas. La clínica lo carga desde Equipo → Agregar profesional.</p>
+        <button class="enter enter-btn" id="token-btn">Generar mi código</button>
+      </article>
+    </div>
+  </section>
+</main>
+
+<script>
+  var clinicas = [
+    {n:'Odontología Nueva Córdoba', r:'Asistente', d:'Turnos de tarde, martes y jueves.', m:'Bv. Illia 320 · 6 profesionales'},
+    {n:'Centro Dental Cerro', r:'Profesional', d:'Guardias y consultas de ortodoncia.', m:'Rafael Núñez 4180 · 11 profesionales'},
+    {n:'Clínica Sur', r:'Suplente', d:'Cobertura los sábados por la mañana.', m:'Vélez Sarsfield 990 · 4 profesionales'}
+  ];
+
+  var iconoSvg = '<svg class="card-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+
+    '<rect x="2" y="2" width="8" height="8" rx="1.5"/><rect x="14" y="2" width="8" height="5" rx="1.5"/>'+
+    '<rect x="2" y="14" width="8" height="5" rx="1.5"/><rect x="14" y="11" width="8" height="8" rx="1.5"/></svg>';
+
+  var cont = document.getElementById('otras');
+  var vacio = document.getElementById('vacio');
+  var unirse = document.getElementById('unirse');
+  var count = document.getElementById('count');
+  var bNuevo = document.getElementById('btn-nuevo');
+  var bVarias = document.getElementById('btn-varias');
+
+  function limpiar(){
+    var viejas = cont.querySelectorAll('.card--otra');
+    for(var i=0;i<viejas.length;i++){ viejas[i].remove(); }
+  }
+
+  function render(conClinicas){
+    limpiar();
+    if(conClinicas){
+      vacio.style.display = 'none';
+      count.textContent = clinicas.length + ' clínicas';
+      for(var i=0;i<clinicas.length;i++){
+        var c = clinicas[i];
+        var el = document.createElement('article');
+        el.className = 'card card--sm card--otra';
+        el.innerHTML = iconoSvg +
+          '<span class="role">'+c.r+'</span>'+
+          '<h2>'+c.n+'</h2>'+
+          '<p>'+c.d+'</p>'+
+          '<p class="card-meta">'+c.m+'</p>'+
+          '<a class="enter" href="#">Entrar</a>';
+        cont.insertBefore(el, unirse);
+      }
+    } else {
+      vacio.style.display = '';
+      count.textContent = 'Ninguna todavía';
+    }
+    bNuevo.setAttribute('aria-pressed', String(!conClinicas));
+    bVarias.setAttribute('aria-pressed', String(conClinicas));
+  }
+
+  var tokenBtn = document.getElementById('token-btn');
+  var tokenBox = document.getElementById('token-box');
+  var tokenCode = document.getElementById('token-code');
+  var tokenHint = document.getElementById('token-hint');
+  var tokenCopy = document.getElementById('token-copy');
+
+  function nuevoToken(){
+    var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var bloque = function(n){
+      var s = '';
+      for(var i=0;i<n;i++){ s += abc.charAt(Math.floor(Math.random()*abc.length)); }
+      return s;
+    };
+    return 'DM-' + bloque(4) + '-' + bloque(4);
+  }
+
+  tokenBtn.addEventListener('click', function(){
+    tokenCode.textContent = nuevoToken();
+    tokenBox.hidden = false;
+    tokenHint.hidden = false;
+    tokenBtn.textContent = 'Generar otro';
+    tokenCopy.textContent = 'Copiar';
+  });
+
+  tokenCopy.addEventListener('click', function(){
+    var t = tokenCode.textContent;
+    if(navigator.clipboard){ navigator.clipboard.writeText(t); }
+    tokenCopy.textContent = 'Copiado';
+    setTimeout(function(){ tokenCopy.textContent = 'Copiar'; }, 1800);
+  });
+
+  bNuevo.addEventListener('click', function(){ render(false); });
+  bVarias.addEventListener('click', function(){ render(true); });
+  render(false);
+</script>
+
+</body>
+</html>

@@ -70,6 +70,48 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 	return out, nil
 }
 
+// pacienteReconocibleEnElWizard — a quién le mostramos su tarjeta en el
+// camino "ya he venido antes".
+//
+// Hasta la Fase 3.1 era exactamente "paciente verificado": al
+// menos un turno resuelto y asistido, o ficha cargada a mano por el
+// profesional. El cliente pidió ampliarlo: "si soy un paciente no
+// verificado, pero tengo un turno activo, si pongo mis datos, me debería
+// saltar mi tarjeta".
+//
+// Tiene sentido más allá del pedido: alguien que sacó un turno la semana
+// pasada y vuelve a sacar otro YA demostró acceso al mail de esa ficha —
+// el código de 6 dígitos se lo pidió entonces y se lo vuelve a pedir
+// ahora. Obligarlo a retipear todo porque todavía no asistió era fricción
+// sin contrapartida.
+//
+// Lo que NO cambia: sigue haciendo falta responder al mail de la ficha
+// (`pacienteRespondeAlMail`), así que el DNI solo no alcanza para que
+// aparezca la tarjeta de nadie.
+func pacienteReconocibleEnElWizard(tx *gorm.DB, paciente db.Paciente) (bool, error) {
+	verificado, err := pacienteEstaVerificado(tx, paciente)
+	if err != nil {
+		return false, err
+	}
+	if verificado {
+		return true, nil
+	}
+	return pacienteTieneTurnoActivo(tx, paciente)
+}
+
+// pacienteTieneTurnoActivo — mismo criterio de "vigente" que el resto del
+// wizard (estado 'agendado' y hora_fin todavía por delante).
+func pacienteTieneTurnoActivo(tx *gorm.DB, paciente db.Paciente) (bool, error) {
+	var n int64
+	err := tx.Model(&db.Turno{}).
+		Where("paciente_id = ? AND estado = 'agendado' AND hora_fin >= now()", paciente.ID).
+		Count(&n).Error
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // pacientesVerificadosQuery — mismo criterio que pacienteEstaVerificado/
 // pacientesVerificadosIDs de arriba, pero como subquery SQL en vez de un
 // mapa en memoria — corrección de seguridad (Fase 2.4.1, visibilidad para
@@ -142,13 +184,48 @@ func borrarPacienteNoVerificadoSiSinHistorialReal(tx *gorm.DB, pacienteID uuid.U
 		}
 	}
 
-	if err := tx.Exec("UPDATE turnos SET paciente_id = NULL WHERE paciente_id = ?", pacienteID).Error; err != nil {
-		return false, err
-	}
-	if err := tx.Delete(&db.Paciente{}, "id = ?", pacienteID).Error; err != nil {
+	if err := borrarFichaPacienteConSusHijas(tx, pacienteID); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// borrarFichaPacienteConSusHijas — el ÚNICO lugar donde se borra una ficha
+// de paciente. Los cuatro caminos que lo hacen (cancelar un turno y marcar
+// asistencia vía borrarPacienteNoVerificadoSiSinHistorialReal, las dos
+// resoluciones de conflicto del panel, y el barrido de fichas sin turno de
+// turno_publico.go) pasan por acá.
+//
+// Bug real que lo motivó (QA 2026-09-12): cancelar el único turno de una
+// ficha sacada por un TUTOR devolvía 500. Cada call site limpiaba un
+// subconjunto DISTINTO de las filas hijas antes del DELETE —uno desvinculaba
+// turnos, otro borraba tutores, ninguno tocaba los alternativos— y eso
+// alcanzaba mientras el esquema no tuvo foreign keys. Con las de TR-131
+// (`fk_paciente_tutores_paciente`, `fk_paciente_emails_alt_paciente`,
+// `fk_paciente_telefonos_alt_paciente`, todas NO ACTION) cualquier fila hija
+// viva rebota el DELETE con 23503 y tumba la transacción entera.
+//
+// El orden importa: primero se sueltan/borran las hijas, la ficha al final.
+// Los TURNOS nunca se borran —son registro histórico real— solo se
+// desvinculan; el resto de las hijas no tiene vida propia sin su ficha.
+//
+// Es idempotente sobre lo ya limpiado: un call site que además migró los
+// tutores a otra ficha antes de llamar acá no rompe nada, simplemente no
+// queda nada que borrar.
+func borrarFichaPacienteConSusHijas(tx *gorm.DB, pacienteID uuid.UUID) error {
+	if err := tx.Exec("UPDATE turnos SET paciente_id = NULL WHERE paciente_id = ?", pacienteID).Error; err != nil {
+		return err
+	}
+	for _, hija := range []any{
+		&db.PacienteTutor{},
+		&db.PacienteEmailAlternativo{},
+		&db.PacienteTelefonoAlternativo{},
+	} {
+		if err := tx.Where("paciente_id = ?", pacienteID).Delete(hija).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Delete(&db.Paciente{}, "id = ?", pacienteID).Error
 }
 
 // pacienteRespondeAlMail — Fase 2.4.1: ¿esta ficha de paciente puede
@@ -170,7 +247,7 @@ func pacienteRespondeAlMail(tx *gorm.DB, paciente db.Paciente, email string) (bo
 }
 
 // pacienteTieneTutorConMail — Fase 2.4.2 (camino "sacar turno para otro",
-// `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4), reemplaza a la vieja
+// `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4), reemplaza a la vieja
 // pacienteRespondeAlMailDeTutor en la ronda de correcciones del
 // 2026-09-06: misma pregunta ("¿esta ficha responde a este mail?"), pero
 // contra CUALQUIERA de los tutores YA CONOCIDOS del paciente (ver
@@ -278,7 +355,7 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.5) — segundo
+		// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.5) — segundo
 		// modo del mismo endpoint, sin `dni`: busca por MAIL DEL TUTOR en
 		// vez de por DNI del paciente, y puede devolver más de una
 		// tarjeta (un tutor puede tener más de un hijo verificado a su
@@ -346,12 +423,12 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar el paciente")
 			return
 		}
-		verificado, err := pacienteEstaVerificado(gdb, paciente)
+		reconocible, err := pacienteReconocibleEnElWizard(gdb, paciente)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar el paciente")
 			return
 		}
-		if !responde || !verificado {
+		if !responde || !reconocible {
 			writeError(w, http.StatusNotFound, "no encontramos un paciente verificado con esos datos")
 			return
 		}
@@ -366,7 +443,7 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // listarPacientesVerificadosDeTutorHandler — Fase 2.4.2, segundo modo de
 // pacienteVerificadoPublicoHandler (ver el comentario grande de arriba y
-// docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.5): a diferencia del modo por DNI
+// docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.5): a diferencia del modo por DNI
 // (una sola tarjeta), acá el match es por `Paciente.TutorEmail` y puede
 // devolver 0, 1 o más tarjetas — un tutor puede tener más de un hijo
 // verificado a su cargo. Mismo criterio de censura y de exigir el token
@@ -416,12 +493,15 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 
 	out := make([]pacienteVerificadoResponse, 0, len(candidatos))
 	for _, p := range candidatos {
-		verificado, err := pacienteEstaVerificado(gdb, p)
+		// Mismo criterio ampliado que el modo por DNI (Fase 3.1):
+		// un hijo con turno activo pero todavía sin asistir también le
+		// aparece a su tutor, que ya demostró acceso al mail.
+		reconocible, err := pacienteReconocibleEnElWizard(gdb, p)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")
 			return
 		}
-		if !verificado {
+		if !reconocible {
 			continue
 		}
 		out = append(out, pacienteVerificadoResponse{

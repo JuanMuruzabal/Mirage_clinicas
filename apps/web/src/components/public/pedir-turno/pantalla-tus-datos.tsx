@@ -6,7 +6,7 @@ import { CampoTelefonoConPais } from "./campo-telefono";
 import { BarraContexto, CampoSelect, CampoTexto, CampoTextarea, ModalFooter, ModalShell } from "./shared";
 
 /**
- * [3a] Tus datos — para mí, primera vez (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+ * [3a] Tus datos — para mí, primera vez (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
  * §5). Grilla de dos columnas (§2: `repeat(auto-fit, minmax(200px,1fr))`,
  * colapsa sola a una columna en mobile — acá implementada como
  * `sm:grid-cols-2` porque los campos de esta pantalla no necesitan más
@@ -151,6 +151,7 @@ export function PantallaTusDatosTutor({
   paso,
   total,
   submitDisabled,
+  extra,
 }: {
   values: DatosTutor;
   onChange: <K extends keyof DatosTutor>(field: K, value: DatosTutor[K]) => void;
@@ -161,6 +162,10 @@ export function PantallaTusDatosTutor({
   paso: number;
   total: number;
   submitDisabled?: boolean;
+  // Fase 3.1: el CAPTCHA y el error viven acá desde que este paso es el
+  // que dispara el código de verificación (antes lo hacía el de datos del
+  // paciente, ver pedir-turno-form.tsx).
+  extra?: React.ReactNode;
 }) {
   return (
     <ModalShell
@@ -230,8 +235,10 @@ export function PantallaTusDatosTutor({
 
         <div className="flex items-center gap-2 rounded-field bg-hueso px-3 py-2.5 text-[13px] text-grafito/70">
           <IconArrowRight className="h-4 w-4 shrink-0 text-salvia-oscuro" />
-          Después te pedimos los datos de la persona que se atiende.
+          Te mandamos un código para confirmar que sos vos, y después seguimos con la persona que se atiende.
         </div>
+
+        {extra}
       </form>
     </ModalShell>
   );

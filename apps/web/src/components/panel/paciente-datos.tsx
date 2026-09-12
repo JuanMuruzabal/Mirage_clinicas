@@ -103,7 +103,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
 
     {/* Datos de tutores (Fase 2.4.2) — tarjeta APARTE, nunca mezclada con
         "Datos de contacto" de arriba (que son del PACIENTE): pedido de
-        diseño explícito, `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis —
+        diseño explícito, `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis —
         "para que quede claro a simple vista cuál dato es de quién".
         Ausente del todo si la ficha se cargó "para mí" (sin tutor).
         Rediseñado en la ronda de correcciones (2026-09-06): un paciente

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consultorio Prueba — Colaboradores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFE8;
+    --header:#FDFBF6;
+    --surface:#FFFDF9;
+    --ink:#2C2C26;
+    --muted:#8B8578;
+    --muted-soft:#A9A395;
+    --line:#E7E1D6;
+    --green:#46603A;
+    --green-deep:#324529;
+    --green-tint:#EDF1E6;
+    --amber-tint:#F7EDD9;
+    --amber-deep:#7A5410;
+    --danger:#9A3B32;
+    --display:'Oswald',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  a{text-decoration:none;color:inherit}
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:4px}
+  [hidden]{display:none!important}
+
+  /* Header */
+  .topbar{
+    background:var(--header);border-bottom:1px solid var(--line);
+    padding:0 2.5rem;height:104px;
+    display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  }
+  .crumbs{display:flex;align-items:center;gap:14px;min-width:0;flex-wrap:wrap}
+  .crumb{
+    font-family:var(--display);font-weight:700;font-size:22px;
+    letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+  }
+  .crumb-back{display:flex;align-items:center;gap:13px;color:var(--muted);transition:color .15s ease}
+  .crumb-back:hover{color:var(--ink)}
+  .crumb-sep{color:#CFC8BA;font-size:20px;font-family:var(--display)}
+  .crumb-clinic{color:var(--green)}
+  .crumb-here{color:var(--ink)}
+  .gear{color:var(--ink);display:flex;padding:6px;border:none;background:none;cursor:pointer}
+
+  /* Página */
+  .page{max-width:1400px;margin:0 auto;padding:3.5rem 2.5rem 6rem}
+  .page-head{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:2rem;margin-bottom:3.25rem;flex-wrap:wrap;
+  }
+  h1{
+    font-family:var(--display);font-weight:700;
+    font-size:clamp(38px,5.2vw,62px);line-height:1.02;
+    letter-spacing:-.005em;margin:0 0 .6rem;
+  }
+  .sub{margin:0;color:var(--muted);font-size:16.5px;line-height:1.55;max-width:52ch}
+
+  .btn-primary{
+    font-family:var(--display);font-weight:600;font-size:16px;
+    letter-spacing:.09em;text-transform:uppercase;
+    background:var(--green);color:#FBFAF6;border:none;
+    padding:15px 26px;border-radius:9px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:10px;white-space:nowrap;
+    transition:background .15s ease;
+  }
+  .btn-primary:hover{background:var(--green-deep)}
+
+  .section{margin-bottom:3rem}
+  .section-head{
+    display:flex;align-items:baseline;gap:12px;
+    margin:0 0 1.1rem;padding-bottom:.85rem;border-bottom:1px solid var(--line);
+  }
+  .section-title{
+    font-family:var(--display);font-weight:500;font-size:17px;
+    letter-spacing:.13em;text-transform:uppercase;margin:0;
+  }
+  .section-count{font-size:13px;color:var(--muted-soft)}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.75rem}
+
+  /* Tarjeta de persona */
+  .person{
+    background:var(--surface);border-radius:14px;padding:2rem 2rem 1.6rem;
+    box-shadow:0 1px 2px rgba(60,50,30,.05), 0 8px 22px rgba(60,50,30,.045);
+    display:flex;flex-direction:column;
+  }
+  .person-top{display:flex;align-items:center;gap:15px;margin-bottom:1.4rem}
+  .avatar{
+    width:52px;height:52px;border-radius:50%;flex:none;
+    background:var(--green-tint);color:var(--green-deep);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:.04em;
+  }
+  .person--pending .avatar{background:var(--amber-tint);color:var(--amber-deep)}
+  .person h3{font-family:var(--display);font-weight:700;font-size:23px;line-height:1.15;margin:0}
+  .person-mail{font-size:14px;color:var(--muted);margin:.25rem 0 0;word-break:break-all}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.1rem}
+  .tag{
+    font-family:var(--display);font-weight:500;font-size:12.5px;
+    letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 11px;border-radius:5px;
+    background:var(--green-tint);color:var(--green-deep);
+  }
+  .tag--pending{background:var(--amber-tint);color:var(--amber-deep)}
+  .tag--you{background:#EDEAE2;color:#5D584C}
+  .person-note{font-size:14.5px;color:var(--muted);line-height:1.5;margin:0}
+  .person-actions{
+    margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid var(--line);
+    display:flex;gap:20px;align-items:center;flex-wrap:wrap;
+  }
+  .link-act{
+    font-family:var(--body);font-size:14.5px;color:var(--green);
+    background:none;border:none;padding:0;cursor:pointer;
+  }
+  .link-act:hover{text-decoration:underline;text-underline-offset:3px}
+  .link-act--danger{color:var(--danger)}
+  .flash{animation:flash 1.6s ease}
+  @keyframes flash{0%{box-shadow:0 0 0 3px var(--green)}100%{box-shadow:0 1px 2px rgba(60,50,30,.05), 0 8px 22px rgba(60,50,30,.045)}}
+
+  /* Modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(44,44,38,.5);
+    display:flex;align-items:center;justify-content:center;
+    padding:1.5rem;z-index:50;
+  }
+  .modal{
+    background:var(--surface);border-radius:16px;width:100%;max-width:560px;
+    padding:2.5rem;max-height:90vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(40,34,20,.28);
+  }
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.4rem}
+  .modal h2{font-family:var(--display);font-weight:700;font-size:32px;line-height:1.1;margin:0}
+  .step-mark{
+    font-size:13px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted-soft);margin:0 0 1.9rem;
+  }
+  .close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex}
+  .close:hover{color:var(--ink)}
+  .field-label{
+    display:block;font-size:15px;font-weight:500;margin:0 0 .9rem;
+  }
+  .opt{
+    display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;
+    border:1px solid var(--line);background:transparent;border-radius:11px;
+    padding:1.1rem 1.2rem;margin-bottom:.75rem;cursor:pointer;
+    font-family:var(--body);transition:border-color .15s ease,background .15s ease;
+  }
+  .opt:hover{border-color:#D2CABA}
+  .opt[aria-pressed="true"]{border-color:var(--green);background:rgba(70,96,58,.05)}
+  .opt-radio{
+    width:19px;height:19px;border-radius:50%;border:1px solid #CFC8BA;flex:none;margin-top:2px;
+  }
+  .opt[aria-pressed="true"] .opt-radio{border:6px solid var(--green)}
+  .opt-name{font-family:var(--display);font-weight:600;font-size:19px;display:block;margin-bottom:.2rem}
+  .opt-desc{font-size:14.5px;color:var(--muted);line-height:1.5}
+
+  .seg{display:flex;gap:8px;background:#EFEBE3;padding:5px;border-radius:10px;margin-bottom:1.5rem}
+  .seg button{
+    flex:1;font-family:var(--body);font-size:14.5px;
+    background:transparent;border:none;padding:10px;border-radius:7px;cursor:pointer;color:var(--muted);
+  }
+  .seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:500}
+
+  input[type="text"],input[type="email"]{
+    width:100%;font-family:var(--body);font-size:16px;color:var(--ink);
+    background:#FFFEFB;border:1px solid var(--line);border-radius:9px;
+    padding:14px 15px;
+  }
+  input::placeholder{color:#BDB6A7}
+  input:focus{outline:2px solid var(--green);outline-offset:0;border-color:transparent}
+  .hint{font-size:14px;color:var(--muted);line-height:1.5;margin:.8rem 0 0}
+  .err{font-size:14px;color:var(--danger);margin:.7rem 0 0}
+  .modal-foot{display:flex;gap:12px;align-items:center;margin-top:2rem}
+  .btn-ghost{
+    font-family:var(--body);font-size:15px;background:none;border:none;
+    color:var(--muted);cursor:pointer;padding:14px 4px;
+  }
+  .btn-ghost:hover{color:var(--ink)}
+  .modal-foot .btn-primary{margin-left:auto}
+
+  .toast{
+    position:fixed;left:50%;bottom:2rem;transform:translateX(-50%);
+    background:var(--ink);color:#F3EFE8;font-size:14.5px;
+    padding:14px 22px;border-radius:10px;z-index:60;max-width:90vw;
+  }
+
+  @media (max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:880px){
+    .topbar{padding:1rem 1.25rem;height:auto;min-height:80px}
+    .crumb{font-size:17px}
+    .page{padding:2.5rem 1.25rem 4rem}
+    .grid{grid-template-columns:1fr;gap:1.25rem}
+    .modal{padding:1.75rem}
+    .modal h2{font-size:27px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <nav class="crumbs" aria-label="Ruta">
+    <a class="crumb crumb-back" href="donde-trabajas-hoy.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="1.5"/><rect x="14" y="2" width="8" height="5" rx="1.5"/>
+        <rect x="2" y="14" width="8" height="5" rx="1.5"/><rect x="14" y="11" width="8" height="8" rx="1.5"/>
+      </svg>
+      <span>Clínicas</span>
+    </a>
+    <span class="crumb-sep" aria-hidden="true">/</span>
+    <a class="crumb crumb-clinic" href="clinica-inicio.html">Consultorio Prueba</a>
+    <span class="crumb-sep" aria-hidden="true">/</span>
+    <span class="crumb crumb-here" aria-current="page">Colaboradores</span>
+  </nav>
+  <button class="gear" aria-label="Configuración">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Colaboradores</h1>
+      <p class="sub">Quién trabaja en la clínica y qué puede ver cada uno.</p>
+    </div>
+    <button class="btn-primary" id="abrir-invitar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      Invitar colaborador
+    </button>
+  </div>
+
+  <section class="section">
+    <div class="section-head"><h2 class="section-title">Titular</h2></div>
+    <div class="grid">
+      <article class="person">
+        <div class="person-top">
+          <div class="avatar">PR</div>
+          <div>
+            <h3>Prueba Rivas</h3>
+            <p class="person-mail">prueba@consultorio.com</p>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag">Creador</span>
+          <span class="tag tag--you">Sos vos</span>
+        </div>
+        <p class="person-note">Acceso completo. Es el único perfil que puede invitar, cambiar roles y cerrar la clínica.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">Recepción</h2>
+      <span class="section-count" id="count-recep"></span>
+    </div>
+    <div class="grid" id="grid-recepcion"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">Profesionales</h2>
+      <span class="section-count" id="count-prof"></span>
+    </div>
+    <div class="grid" id="grid-profesionales"></div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Invitar colaborador</h2>
+      <button class="close" id="cerrar" aria-label="Cerrar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <p class="step-mark" id="step-mark">Paso 1 de 2</p>
+
+    <div id="paso1">
+      <span class="field-label">¿Qué rol va a tener?</span>
+      <button class="opt" data-rol="Profesional" aria-pressed="false">
+        <span class="opt-radio" aria-hidden="true"></span>
+        <span>
+          <span class="opt-name">Profesional</span>
+          <span class="opt-desc">Ve y atiende su propia agenda, carga historias clínicas de sus pacientes.</span>
+        </span>
+      </button>
+      <button class="opt" data-rol="Recepcionista" aria-pressed="false">
+        <span class="opt-radio" aria-hidden="true"></span>
+        <span>
+          <span class="opt-name">Recepcionista</span>
+          <span class="opt-desc">Maneja turnos de toda la clínica y datos de contacto. No ve historias clínicas.</span>
+        </span>
+      </button>
+      <p class="err" id="err-rol" hidden>Elegí un rol para seguir.</p>
+      <div class="modal-foot">
+        <button class="btn-primary" id="continuar">Continuar</button>
+      </div>
+    </div>
+
+    <div id="paso2" hidden>
+      <span class="field-label">¿Cómo lo agregás?</span>
+      <div class="seg" role="tablist">
+        <button role="tab" id="tab-codigo" aria-selected="true">Código de perfil</button>
+        <button role="tab" id="tab-mail" aria-selected="false">Correo electrónico</button>
+      </div>
+
+      <div id="panel-codigo">
+        <input type="text" id="in-codigo" placeholder="DM-A1B2-C3D4" autocomplete="off" aria-label="Código de perfil">
+        <p class="hint">Es el código que la persona generó desde su pantalla de clínicas. Como ya lo compartió, se agrega al instante.</p>
+        <p class="err" id="err-codigo" hidden></p>
+      </div>
+
+      <div id="panel-mail" hidden>
+        <input type="email" id="in-mail" placeholder="nombre@correo.com" autocomplete="off" aria-label="Correo electrónico">
+        <p class="hint">Le mandamos una invitación por mail. Va a figurar como pendiente hasta que la acepte.</p>
+        <p class="err" id="err-mail" hidden></p>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn-ghost" id="volver">Volver</button>
+        <button class="btn-primary" id="confirmar">Agregar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var equipo = [
+    {n:'Camila Ortiz', m:'camila.ortiz@consultorio.com', rol:'Recepcionista', estado:'activo', nota:'Turno mañana, de 8 a 15.'},
+    {n:'Julián Paz', m:'j.paz@consultorio.com', rol:'Recepcionista', estado:'pendiente', nota:'Invitación enviada hace 2 días.'},
+    {n:'Dra. Lucía Ferrer', m:'l.ferrer@consultorio.com', rol:'Profesional', estado:'activo', nota:'Ortodoncia. Martes y jueves.'},
+    {n:'Dr. Matías Soto', m:'m.soto@consultorio.com', rol:'Profesional', estado:'activo', nota:'Endodoncia. Lunes, miércoles y viernes.'}
+  ];
+
+  var perfilesDemo = [
+    {n:'Dra. Valeria Nieto', m:'v.nieto@correo.com'},
+    {n:'Dr. Ignacio Bravo', m:'i.bravo@correo.com'},
+    {n:'Sofía Quiroga', m:'s.quiroga@correo.com'}
+  ];
+
+  var gRecep = document.getElementById('grid-recepcion');
+  var gProf = document.getElementById('grid-profesionales');
+  var cRecep = document.getElementById('count-recep');
+  var cProf = document.getElementById('count-prof');
+
+  function iniciales(nombre){
+    var p = nombre.replace(/^(Dra?\.)\s*/,'').split(' ');
+    return ((p[0]||'').charAt(0) + (p[1]||'').charAt(0)).toUpperCase();
+  }
+
+  function tarjeta(p){
+    var pend = p.estado === 'pendiente';
+    var el = document.createElement('article');
+    el.className = 'person' + (pend ? ' person--pending' : '');
+    var acciones = pend
+      ? '<button class="link-act">Reenviar invitación</button><button class="link-act link-act--danger">Cancelar</button>'
+      : '<button class="link-act">Ver permisos</button><button class="link-act link-act--danger">Quitar</button>';
+    el.innerHTML =
+      '<div class="person-top">'+
+        '<div class="avatar">'+iniciales(p.n)+'</div>'+
+        '<div><h3>'+p.n+'</h3><p class="person-mail">'+p.m+'</p></div>'+
+      '</div>'+
+      '<div class="tags"><span class="tag">'+p.rol+'</span>'+
+        (pend ? '<span class="tag tag--pending">Pendiente</span>' : '')+
+      '</div>'+
+      '<p class="person-note">'+p.nota+'</p>'+
+      '<div class="person-actions">'+acciones+'</div>';
+    return el;
+  }
+
+  function pintar(nuevo){
+    gRecep.innerHTML = '';
+    gProf.innerHTML = '';
+    var nr = 0, np = 0;
+    for(var i=0;i<equipo.length;i++){
+      var p = equipo[i];
+      var el = tarjeta(p);
+      if(nuevo && p === nuevo){ el.className += ' flash'; }
+      if(p.rol === 'Recepcionista'){ gRecep.appendChild(el); nr++; }
+      else { gProf.appendChild(el); np++; }
+    }
+    cRecep.textContent = nr === 1 ? '1 persona' : nr + ' personas';
+    cProf.textContent = np === 1 ? '1 persona' : np + ' personas';
+  }
+  pintar();
+
+  /* ---- Modal ---- */
+  var overlay = document.getElementById('overlay');
+  var paso1 = document.getElementById('paso1');
+  var paso2 = document.getElementById('paso2');
+  var stepMark = document.getElementById('step-mark');
+  var opts = document.querySelectorAll('.opt');
+  var errRol = document.getElementById('err-rol');
+  var tabCodigo = document.getElementById('tab-codigo');
+  var tabMail = document.getElementById('tab-mail');
+  var panelCodigo = document.getElementById('panel-codigo');
+  var panelMail = document.getElementById('panel-mail');
+  var inCodigo = document.getElementById('in-codigo');
+  var inMail = document.getElementById('in-mail');
+  var errCodigo = document.getElementById('err-codigo');
+  var errMail = document.getElementById('err-mail');
+  var confirmar = document.getElementById('confirmar');
+
+  var rolElegido = null;
+  var metodo = 'codigo';
+
+  function abrir(){
+    rolElegido = null;
+    for(var i=0;i<opts.length;i++){ opts[i].setAttribute('aria-pressed','false'); }
+    errRol.hidden = true; errCodigo.hidden = true; errMail.hidden = true;
+    inCodigo.value = ''; inMail.value = '';
+    metodo = 'codigo'; setMetodo();
+    paso1.hidden = false; paso2.hidden = true;
+    stepMark.textContent = 'Paso 1 de 2';
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function cerrar(){
+    overlay.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('abrir-invitar').addEventListener('click', abrir);
+  document.getElementById('cerrar').addEventListener('click', cerrar);
+  overlay.addEventListener('click', function(e){ if(e.target === overlay){ cerrar(); } });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !overlay.hidden){ cerrar(); } });
+
+  for(var i=0;i<opts.length;i++){
+    opts[i].addEventListener('click', function(){
+      for(var j=0;j<opts.length;j++){ opts[j].setAttribute('aria-pressed','false'); }
+      this.setAttribute('aria-pressed','true');
+      rolElegido = this.getAttribute('data-rol');
+      errRol.hidden = true;
+    });
+  }
+
+  document.getElementById('continuar').addEventListener('click', function(){
+    if(!rolElegido){ errRol.hidden = false; return; }
+    paso1.hidden = true; paso2.hidden = false;
+    stepMark.textContent = 'Paso 2 de 2 · ' + rolElegido;
+    setTimeout(function(){ (metodo === 'codigo' ? inCodigo : inMail).focus(); }, 30);
+  });
+
+  document.getElementById('volver').addEventListener('click', function(){
+    paso2.hidden = true; paso1.hidden = false;
+    stepMark.textContent = 'Paso 1 de 2';
+  });
+
+  function setMetodo(){
+    var esCodigo = metodo === 'codigo';
+    tabCodigo.setAttribute('aria-selected', String(esCodigo));
+    tabMail.setAttribute('aria-selected', String(!esCodigo));
+    panelCodigo.hidden = !esCodigo;
+    panelMail.hidden = esCodigo;
+    confirmar.textContent = esCodigo ? 'Agregar' : 'Enviar invitación';
+    errCodigo.hidden = true; errMail.hidden = true;
+  }
+  tabCodigo.addEventListener('click', function(){ metodo = 'codigo'; setMetodo(); inCodigo.focus(); });
+  tabMail.addEventListener('click', function(){ metodo = 'mail'; setMetodo(); inMail.focus(); });
+  inCodigo.addEventListener('input', function(){ errCodigo.hidden = true; });
+  inMail.addEventListener('input', function(){ errMail.hidden = true; });
+
+  function toast(txt){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.setAttribute('role','status');
+    t.textContent = txt;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 4000);
+  }
+
+  confirmar.addEventListener('click', function(){
+    var nuevo;
+    if(metodo === 'codigo'){
+      var cod = inCodigo.value.trim().toUpperCase();
+      if(!cod){ errCodigo.textContent = 'Pegá el código que te pasaron.'; errCodigo.hidden = false; return; }
+      if(!/^DM-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(cod)){
+        errCodigo.textContent = 'Ese código no tiene el formato correcto. Se ve así: DM-A1B2-C3D4.';
+        errCodigo.hidden = false; return;
+      }
+      var perfil = perfilesDemo[Math.floor(Math.random()*perfilesDemo.length)];
+      nuevo = {n:perfil.n, m:perfil.m, rol:rolElegido, estado:'activo', nota:'Se sumó con código de perfil, hoy.'};
+      equipo.push(nuevo);
+      pintar(nuevo);
+      cerrar();
+      toast(perfil.n + ' ya forma parte de la clínica como ' + rolElegido.toLowerCase() + '.');
+    } else {
+      var mail = inMail.value.trim();
+      if(!mail){ errMail.textContent = 'Escribí el correo de la persona.'; errMail.hidden = false; return; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)){
+        errMail.textContent = 'Revisá el correo, no parece válido.';
+        errMail.hidden = false; return;
+      }
+      var alias = mail.split('@')[0].replace(/[._-]+/g,' ');
+      nuevo = {n:alias, m:mail, rol:rolElegido, estado:'pendiente', nota:'Invitación enviada recién. Se activa cuando la acepte.'};
+      equipo.push(nuevo);
+      pintar(nuevo);
+      cerrar();
+      toast('Invitación enviada a ' + mail + '. Queda pendiente hasta que la acepte.');
+    }
+  });
+</script>
+
+</body>
+</html>

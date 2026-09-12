@@ -12,7 +12,7 @@ import (
 
 // panelNotificacionesResponse — pedido textual del cliente: "si estoy
 // afuera de la sección pacientes mostrar las notificaciones de conflicto
-// en la zona [de arriba del todo, marcada en docs/foto1.png]... si es
+// en la zona [de arriba del todo, marcada en docs/foto1.png, que ya no está en el repo]... si es
 // conflicto de pacientes que diga tenés un conflicto con los pacientes y
 // me envíe al apartado paciente, si es conflicto con turno de calendario
 // al calendario". Endpoint chico y barato a propósito — se sondea desde

@@ -46,7 +46,7 @@ function etiquetaResumen(fecha: string, hora: string): string {
   return `${dia} a las ${hora} hs`;
 }
 
-// Franjas horarias (docs/archivo/prompt-claude-code-fecha-horario.md, punto 2):
+// Franjas horarias (docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md, punto 2):
 // un día con 60+ turnos es inusable como una sola tira — se agrupan en
 // chips y la tira muestra solo la franja activa.
 type Franja = "manana" | "tarde" | "noche";

@@ -372,6 +372,13 @@ deja de fondo por pedido explícito, no por descuido.
 
 ### 1.4bis — Tope de 1 turno activo por DNI, universal (TR-107, endurecido en TR-109)
 
+> ⚠️ **REVERTIDO en Fase 3.1 (2026-09-12, TR-133).** El tope
+> volvió a ser **por DNI y tipo de consulta** — ver 1.4quater, que es la
+> regla vigente. Esta sección queda como está porque explica por qué la
+> regla universal existió y qué la reemplazó; `turnoActivoPorDNI` y
+> `turnoActivoDeOtroTipo` siguen en el código sin call sites
+> (`//nolint:unused`), listas si el cliente quiere volver a endurecer.
+
 Pedido textual del cliente, revisión sobre el diseño de 1.4: "es muy
 específico que un atacante sepa que tal DNI va a asistir a la clínica y
 reservarlo de antemano" — en vez de tolerar varios turnos sin verificar
@@ -443,6 +450,132 @@ tocando MUCHOS DNIs distintos) y la rotación por IP (1.6) siguen
 totalmente vigentes — cubren un eje distinto (cuántos DNIs distintos toca
 un mail/IP, no cuántos turnos tiene UN DNI) que esta regla nueva no
 resuelve.
+
+### 1.4quater — La regla vigente: 1 turno activo por DNI **y tipo** (Fase 3.1 — TR-133)
+
+Pedido textual del cliente: *"se quita la regla de solo UN turno por DNI
+en la clínica, sino que se hace menos restrictivo, solo será UN turno por
+tipo de consulta por DNI (como ya se hacía antes), ya que en la práctica
+los pacientes suelen hacer varios turnos de diferentes tipos"*.
+
+La regla universal de 1.4bis le pegaba al caso normal, no al abuso: el
+mismo paciente que quiere una limpieza y un control de ortodoncia quedaba
+bloqueado y su única salida era llamar a la clínica.
+
+**Qué se chequea hoy**, en los dos caminos:
+
+- **"Primera vez"** (`!usaPacienteVerificado`): `turnoActivoDelMismoTipo`
+  (clínica + DNI + tipo). Si hay uno, 409 con el mensaje de
+  `errTurnoActivoConOtroMail` — que muestra el mail con el que se sacó ese
+  turno, censurado, y el botón de WhatsApp a la clínica.
+- **"Ya he venido antes"** (`usaPacienteVerificado`): primero
+  `turnoVigenteDeTipo` sobre la ficha ya resuelta — es el mismo caso pero
+  con un mensaje mejor, porque nombra la fecha del turno que ya tiene
+  (`errTurnoPublicoDuplicado`) — y recién después `turnoActivoDelMismoTipo`,
+  que atrapa al que llega con OTRA ficha del mismo DNI.
+
+El mail que muestra el mensaje pasa por `identidadDeContactoDelTurno`: si
+el turno que bloquea lo sacó un **tutor** (`EsParaOtro`), el mail que la
+persona reconoce es el del tutor, no el `EmailContacto` del paciente (casi
+siempre vacío en ese camino). Sin eso el mensaje decía "con mail " y nada
+más — bug real, con test propio
+(`TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor`).
+
+**Por qué relajar el tope no deja el wizard desprotegido.** El tope nunca
+fue lo que protege la identidad: eso lo hace la detección de conflictos de
+1.2 (mismo DNI + mail distinto → dos fichas y un conflicto que resuelve el
+profesional a mano). Con el tope universal puesto, esa detección quedaba
+tapada en muchos casos — el pedido se rechazaba antes de llegar. Sacándolo,
+vuelve a ser ella la que actúa: verificado en corrida real, dos pedidos con
+el mismo DNI y mails distintos dan `201` + 2 fichas + 1 conflicto
+pendiente. Los detectores de 1.5 (mail con muchos DNIs) y 1.6 (rotación por
+IP) tampoco dependían de esta regla.
+
+**Qué se sacrifica:** un DNI puede ocupar tantos cupos activos como tipos
+de consulta tenga la clínica. Con un catálogo típico (4-6 tipos) el techo
+es bajo y cada turno exige su propia prueba de mail; si una clínica creara
+decenas de tipos, este tope dejaría de acotar nada y habría que sumar un
+límite absoluto aparte.
+
+#### El botón "¿Querés sacar turno para otro tipo?" y la prueba de mail reemitida
+
+El mismo brief pide que, al confirmar un turno, el cartel final ofrezca
+sacar otro **del mismo paciente** volviendo al último paso con los datos
+cargados. Eso choca de frente con una decisión de E5.6: la prueba de mail
+(`VerificacionTurnoPublico.TokenHash`) es **de un solo uso a propósito**.
+El primer turno la consume, así que el segundo pedido moría con "verificá
+tu mail" justo después de haber verificado.
+
+`consumirYReemitirVerificacionTurnoPublico` marca usada la fila vieja y
+crea una nueva **heredando el `ExpiresAt` original**, no arrancando otros
+30 minutos. Esa herencia es lo que hace que no sea una puerta abierta: la
+ventana total durante la cual un mail verificado puede seguir sacando
+turnos es exactamente la de antes, sin importar cuántas veces se reemita.
+Pasada la media hora hay que volver a pedir el código.
+
+El token nuevo viaja en `solicitarTurnoPublicoResponse.verificacionToken`
+(opcional) y el frontend solo muestra el botón si lo recibió — mejor no
+ofrecerlo que ofrecerlo y que falle al tocarlo. Al volver al paso "turno",
+`repetirParaOtroTipo()` conserva TODO lo que identifica a la persona
+(datos de contacto, flujo, ficha elegida, tutor) y solo rehace la elección
+del turno: el tipo salta al primero distinto del recién sacado, el horario
+se limpia y se vuelve a pedir la disponibilidad (el turno recién creado
+acaba de ocupar uno de los slots en pantalla). La fecha **no** se limpia:
+`PantallaDiaHora` formatea el día elegido apenas entra y con `""` eso es un
+`Invalid time value` — lo agarró un test, no una lectura del código.
+
+#### "Ya he venido antes" ahora reconoce también al que tiene un turno activo
+
+Hasta acá la tarjeta de "sos vos" solo aparecía para una ficha
+**verificada** (`pacienteEstaVerificado`: alta manual del profesional, o
+turno resuelto + asistido). Con el tope relajado, el caso que antes era
+imposible pasa a ser el normal: alguien que sacó su primer turno hace diez
+minutos vuelve a sacar otro y todavía no se atendió, así que no está
+verificado y tenía que retipear todo.
+
+`pacienteReconocibleEnElWizard` = verificado **o** con un turno `agendado`
+cuya `hora_fin >= now()`. Es un criterio más flojo que la verificación
+**a propósito y solo para esto**: reconocer a alguien en el wizard no le da
+acceso a nada — la tarjeta muestra nombre/apellido y DNI censurados igual
+que siempre, y el resto del flujo sigue pidiendo el código al mail. La
+verificación propiamente dicha (la que habilita saltar pasos y la que mira
+la resolución de conflictos) no cambió.
+
+#### El tutor conocido ve sus pacientes, y el paso del código se mueve
+
+Pedido del cliente sobre esta misma entrega: *"si el tutor ingresa el mismo mail con el que ya sacó un turno aparecerá la tarjeta del paciente al que sacó… abajo un 'añadir paciente' si es que el turno no es para Josefina"*. Es la simetría del punto anterior — aquel le ahorra el retipeo al paciente que vuelve, este al **tutor** que vuelve.
+
+El camino "para otro / primera vez" mandaba el código **al final** (datos del tutor → datos del paciente → código). Eso es incompatible con el pedido, y no por comodidad: la lista de pacientes de un tutor **no puede mostrarse antes de probar que el mail es suyo**, porque diría qué pacientes tiene esa persona en esta clínica a cualquiera que tipee su dirección — nombre con iniciales y DNI censurado, pero dato al fin. Es la misma razón por la que 1.4ter/"ya he venido antes" siempre pidió el código antes de mostrar nada.
+
+El paso de verificación se **mueve**, no se suma (el wizard sigue teniendo 5 pasos):
+
+```
+datos del tutor → código a SU mail → ¿es un tutor conocido?
+                                       ├── sí  → otro-tarjeta-paciente (+ "Es para otra persona")
+                                       └── no  → otro-paciente (datos del paciente, como siempre)
+```
+
+**Backend sin cambios.** `listarPacientesVerificadosDeTutorHandler` ya buscaba por mail de tutor (join contra `paciente_tutores`), ya exigía la prueba de mail y ya filtraba con `pacienteReconocibleEnElWizard` — "verificado **o** con turno activo", exactamente el criterio que pide el cliente. Todo el trabajo fue reordenar `pedir-turno-form.tsx`.
+
+**El botón "+ Es para otra persona"** estaba en el diseño original de [5b] y se había dejado sin implementar con el motivo escrito en el código: "ya he venido antes" junta SOLO el mail del tutor, y dar de alta un paciente nuevo bajo ese tutor necesita además nombre, teléfono y vínculo. Esta entrega lo destraba para "primera vez", donde el tutor ya completó todo eso. El destino depende de por dónde llegó:
+
+| Llegó por | "+ Es para otra persona" / "Atrás" van a | Motivo |
+|---|---|---|
+| Primera vez (tutor completo) | `otro-paciente` / `otro-tutor` | ya tenemos todo del tutor |
+| Ya he venido antes (solo mail) | `otro-tutor` / `otro-ya-vine-datos` | faltan nombre, teléfono y vínculo |
+
+Dos detalles que no son cosméticos: el **CAPTCHA** vive donde se dispara el envío del código, así que se mudó con él a la pantalla del tutor; y elegir "Es para otra persona" **suelta la ficha seleccionada** (`setPacienteVerificado(null)`), o el pedido viajaría con la ficha de la lista y los datos de la persona nueva — hay un test que lo mira en el payload final.
+
+**El teléfono NO entra en el criterio de búsqueda,** aunque el pedido decía "mail o teléfono": el código se manda al mail, así que el mail es lo único que la persona demuestra tener. Buscar también por teléfono dejaría que alguien verifique su propia dirección, tipee el teléfono de otro tutor y vea sus pacientes. El caso legítimo que queda afuera —tutor que cambió de mail y conserva el teléfono— exige verificación por SMS, fuera de alcance hoy; mientras tanto carga al paciente de nuevo y la ficha se resuelve por DNI sin duplicarse.
+
+#### "Mis turnos" devuelve una lista
+
+Con varios turnos activos posibles por DNI, `GET /clinicas/{slug}/mis-turnos`
+devolviendo solo el primero pasaba de simplificación a mentira. Devuelve un
+array, filtrando turno por turno con el mismo criterio de identidad de antes
+(`mailIdentificaAlTurno`: el mail propio, o el del tutor si `EsParaOtro`), y
+sigue respondiendo 404 si ninguno matchea — un 200 con lista vacía le diría
+a quien prueba mails al azar que el DNI existe.
 
 ### 1.4ter — "Mis turnos" (consulta pública sin verificación, TR-109)
 
@@ -801,6 +934,8 @@ cierre de la Parte 3, sección 3.8).
 
 **Ítems 21-24: implementados y cubiertos por test automatizado (backend), no
 hace falta repetirlos a mano — se dejan igual para referencia rápida.**
+**Actualizados en Fase 3.1 (TR-133): el tope volvió a ser por
+DNI + tipo, ver 1.4quater.**
 
 21. DNI con un turno vigente de tipo "General" → pedir OTRO turno del
     MISMO tipo con un mail distinto → debe rechazar mostrando el mail
@@ -808,27 +943,42 @@ hace falta repetirlos a mano — se dejan igual para referencia rápida.**
     `TestSolicitarTurnoPublico_SegundoMailMismoTipoRechazaSiPrimeroNoVerificado`,
     `TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNIRechazaDesdeElSegundo`,
     `TestSolicitarTurnoPublico_VerificadoConTurnoActivoRechazaOtroPedidoDelMismoTipo`.
-22. Mismo DNI del caso 21, pedir un turno de OTRO tipo (ej. "Urgencia") —
-    con CUALQUIER mail (el mismo que ya tiene el turno de "General", u
-    otro distinto) y sin importar si esa ficha ya está verificada — debe
-    rechazar con el mensaje universal ("ya tenés un turno pendiente...").
-    Corrección de QA (TR-109) sobre el diseño anterior: ya NO hay
-    excepción para el mismo mail ni para fichas verificadas — "aunque
-    esté verificado". ✅
-    `TestSolicitarTurnoPublico_VerificadoConOtroTipoActivoTambienRechaza`,
-    `TestSolicitarTurnoPublico_PacienteVerificadoIdConTurnoActivoPropioRechaza`.
-    El mismo mail solo puede reutilizar la ficha (o cualquier mail pedir
-    otro tipo) una vez que el primer turno ya no está vigente (pasó su
-    hora) — `TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente`
-    simula esa ventana a mano.
-23. (Reemplazado por TR-109 — la excepción de "ficha verificada" del
-    caso 22 se eliminó del todo, no hace falta un caso aparte.)
+    Si ese turno lo sacó un tutor, el mail que muestra el mensaje es el
+    del TUTOR ✅
+    `TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor`.
+22. **(Cambiado por TR-133.)** Mismo DNI del caso 21, pedir un turno de
+    OTRO tipo (ej. "Urgencia") → ahora **se permite**, sea la ficha
+    verificada o no. Lo que sí sigue actuando si el mail es distinto es la
+    detección de conflictos de 1.2: se crea una ficha aparte y queda un
+    conflicto pendiente para el profesional, no un rechazo. ✅
+    `TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo`,
+    `TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha`,
+    `TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea`.
+    El mismo mail solo puede volver a pedir el MISMO tipo una vez que el
+    primer turno ya no está vigente (pasó su hora) —
+    `TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente` simula esa
+    ventana a mano.
+23. **(Nuevo, TR-133.)** Sacar un turno → en el cartel final tocar
+    "¿Querés sacar turno para otro tipo?" → vuelve al último paso con los
+    datos cargados y el segundo pedido viaja con la prueba de mail NUEVA
+    (la original ya se consumió). ✅
+    `TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno`
+    (backend) y "con el token reemitido, ofrece sacar otro turno..." /
+    "sin token reemitido, no ofrece sacar otro turno"
+    (`pedir-turno-form.test.tsx`).
 24. Turno vigente del caso 21 se resuelve (pasa su hora) sin marcar
     asistencia todavía → un pedido nuevo con el mismo DNI (mismo o distinto
-    tipo) ya NO debería rechazar por 1.4bis (el turno dejó de estar
+    tipo) ya NO debería rechazar por 1.4quater (el turno dejó de estar
     "activo") — cae en el flujo normal de 1.2 (Caso A o B según
     corresponda). ✅ `TestSolicitarTurnoPublico_TurnoResueltoLiberaElTopeDeUnoPorDNI`,
     `TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflictoSiNadieVerificado`.
+
+24bis. **(Nuevo, TR-133.)** Paciente SIN verificar pero con un turno
+    activo → "ya he venido antes" con sus datos debe mostrarle la tarjeta
+    igual (antes solo aparecía para fichas verificadas). Sin turno activo
+    y sin verificar, sigue sin aparecer. ✅
+    `TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta`,
+    `TestPacienteVerificadoPublico_SinVerificarYSinTurnoActivoSigueSinAparecer`.
 
 **Ítems 25-29: implementados y cubiertos por test automatizado
 (25-28 backend, 29 frontend — ver 1.3ter).**

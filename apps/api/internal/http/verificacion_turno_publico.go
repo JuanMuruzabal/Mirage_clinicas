@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/db"
@@ -322,8 +323,8 @@ func validarVerificacionTurnoPublico(tx *gorm.DB, clinicID, email, token string)
 	return vt, nil
 }
 
-// consumirVerificacionTurnoPublico — Extra 2.3.5 (E5.6): valida el token
-// de prueba que viaja en el pedido final de turno (POST
+// consumirYReemitirVerificacionTurnoPublico — Extra 2.3.5 (E5.6): valida
+// el token de prueba que viaja en el pedido final de turno (POST
 // /clinicas/{slug}/turnos) contra la fila que confirmarVerificacionTurnoPublicoHandler
 // dejó verificada, y la marca usada (de un solo uso — no se puede pedir un
 // segundo turno reusando el mismo mail ya verificado sin pasar de nuevo
@@ -332,12 +333,53 @@ func validarVerificacionTurnoPublico(tx *gorm.DB, clinicID, email, token string)
 // adelante (horario ya no disponible, exclusion constraint), la
 // transacción entera se revierte y el token queda sin consumir, para que
 // el paciente pueda reintentar con otro horario sin verificar de nuevo.
-func consumirVerificacionTurnoPublico(tx *gorm.DB, clinicID, email, token string) error {
+//
+// Además devuelve un token NUEVO para la misma identidad ya probada.
+// Fase 3.1: el cartel final ofrece "¿querés sacar turno para otro
+// tipo?", que vuelve al último paso con los datos cargados. Ese segundo
+// pedido necesita una prueba de mail, y la que traía se acaba de consumir
+// (de un solo uso a propósito, ver arriba) — sin esto, el botón fallaría
+// con "verificá tu mail" justo después de haber verificado.
+//
+// La prueba nueva HEREDA EL VENCIMIENTO de la vieja, no arranca 30 minutos
+// de nuevo. Eso es lo que hace que esto no sea una puerta abierta: la
+// ventana total durante la cual un mail verificado puede seguir sacando
+// turnos es exactamente la misma de antes, sin importar cuántas veces se
+// reemita. Pasada esa media hora, hay que volver a pedir el código.
+func consumirYReemitirVerificacionTurnoPublico(tx *gorm.DB, clinicID, email, token string) (string, error) {
 	vt, err := validarVerificacionTurnoPublico(tx, clinicID, email, token)
 	if err != nil {
-		return err
+		return "", err
 	}
 	now := time.Now()
 	vt.UsedAt = &now
-	return tx.Save(&vt).Error
+	if err := tx.Save(&vt).Error; err != nil {
+		return "", err
+	}
+
+	// Si a la prueba original ya casi no le queda vida, no vale la pena
+	// emitir otra: el frontend simplemente no ofrece seguir.
+	if !vt.ExpiresAt.After(now) {
+		return "", nil
+	}
+	nuevoToken, nuevoHash, err := security.NewToken()
+	if err != nil {
+		return "", err
+	}
+	clinicUUID, err := uuid.Parse(clinicID)
+	if err != nil {
+		return "", err
+	}
+	verificadaEn := now
+	if err := tx.Create(&db.VerificacionTurnoPublico{
+		ClinicID:   clinicUUID,
+		Email:      email,
+		CodigoHash: vt.CodigoHash,
+		TokenHash:  &nuevoHash,
+		VerifiedAt: &verificadaEn,
+		ExpiresAt:  vt.ExpiresAt,
+	}).Error; err != nil {
+		return "", err
+	}
+	return nuevoToken, nil
 }

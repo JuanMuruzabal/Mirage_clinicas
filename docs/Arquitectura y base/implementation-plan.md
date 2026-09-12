@@ -451,7 +451,7 @@ Si el cliente responde distinto a alguna de estas, el sprint afectado (ver colum
 
 ## 11. Fase 2 — Calendario avanzado y autogestión de turnos
 
-Brief original del cliente: `docs/Fase 2/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
+Brief original del cliente: `docs/Fases post MVP/Fase 2/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
 
 ### 11.1 Qué cambia respecto al esquema de la Fase 1
 
@@ -558,7 +558,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 ### 11.5 Ítems extra de F2.3 (brief post-QA del cliente)
 
 Brief completo (transcripción del `.docx` original que dejó el cliente):
-`docs/Fase 2/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
+`docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
 "perdí cómo era la numeración que teníamos" — la segmentación de abajo
 quedó confirmada por el cliente (2026-09-06), con un orden de
 implementación propio, distinto del orden en que aparecen en el brief:
@@ -695,7 +695,7 @@ Probado y descartado en esta misma ronda: hacer sticky (flotante) el título+too
 
 Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el cliente pidió estos ítems durante el QA de Extra 2.3.5, sin brief previo — se documentan directamente en `docs/Arquitectura y base/tradeoffs.md` a medida que se implementaron, no acá.
 
-- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
+- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
 - **Fase 2.4.2 — "sacar turno para otro" (tutor/representante):** un tutor puede reservar el turno de otra persona verificándose él mismo por mail; un paciente puede tener más de un tutor a lo largo del tiempo (`PacienteTutor`, uno-a-muchos). TR-116. **Implementado, aprobado y mergeado a `dev`** (PR #12, #13, #14).
 - **Ítem 5 del brief original — "compartir calendario":** ver arriba, F2.5/TR-120. **Implementado y mergeado a `dev`** (PR #15), con una corrección de QA post-merge — la pantalla "¿Ya te atendiste?" se saltaba entera con enlace, se restauró para recorrer el wizard completo (PR #16).
 
@@ -758,6 +758,37 @@ Sobre el último: es el único ítem del informe que **no arregla nada** — no 
 ### 12.4 Snapshot periódico
 
 Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
+
+## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
+
+Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.
+
+### 13.1 Fase 3.1 — cambios al wizard, previos al multi-tenant (✅ 2026-09-12)
+
+El brief arranca con tres correcciones al wizard público que no dependen del multi-tenant y que conviene cerrar antes, porque tocan el mismo código que la Fase 3 va a extender. Decisiones en TR-133; explicación larga en `docs/Fases post MVP/Fase 3/fase3.1-wizard-sacar-turno.md`.
+
+| # | Qué pidió el cliente | Cómo quedó |
+|---|---|---|
+| 1 | Quitar el tope de 1 turno activo por DNI en toda la clínica; volver a 1 por DNI **y tipo de consulta** | `turnoActivoPorDNI`/`turnoActivoDeOtroTipo` quedan sin call sites (`//nolint:unused`); vale `turnoActivoDelMismoTipo` en los dos caminos. La protección de identidad la sigue haciendo la detección de conflictos, que estaba tapada por el tope |
+| 2 | Botón "¿Querés sacar turno para otro tipo?" en el cartel final, que vuelva al último paso con los datos cargados | La prueba de mail es de un solo uso, así que se **reemite heredando el vencimiento original** — la ventana total no se estira. El botón solo aparece si el backend devolvió el token nuevo |
+| 3 | "Ya he venido antes" debe reconocer también a quien tiene un turno activo, no solo al paciente verificado | `pacienteReconocibleEnElWizard` = verificado **o** con turno `agendado` vigente. La verificación propiamente dicha no cambia |
+| 4 | En "para otro / primera vez", si el mail del tutor ya es conocido, mostrarle sus pacientes en vez de pedir datos nuevos, con un "añadir paciente" abajo | El paso de verificación se **mueve** a después de los datos del tutor (no se suma: siguen siendo 5): la lista no puede mostrarse antes de probar el mail. Backend sin cambios — el handler ya buscaba por mail de tutor con el criterio correcto. El teléfono queda fuera del criterio de búsqueda, por seguridad |
+
+Consecuencia arrastrada: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista**, no un turno — con varios activos posibles por DNI, devolver el primero era mentir.
+
+### 13.2 Multi-tenant propiamente dicho (pendiente)
+
+Las dos mitades del modelo nuevo, según el brief:
+
+1. **1 clínica → N profesionales.** Cada profesional con su vista aislada (GENERAL, calendario y configuración propia, sus turnos, sus pacientes) dentro de la misma clínica. Pacientes y turnos viven en la **clínica**; las vistas se anclan al profesional que los gestiona. El wizard público pasa a pedir el profesional (filtrado por el tipo de consulta elegido) y el recepcionista también al crear un turno a mano.
+2. **1 profesional → N clínicas.** Un profesional puede moverse entre clínicas y tener en cada una sus turnos y pacientes.
+
+Más: roles (administrador con acceso a todas las vistas y reasignación de turnos entre profesionales, recepcionista), onboarding "¿dónde trabajás hoy?", invitación/gestión de colaboradores.
+
+**Dos entregables explícitos del brief, además del código:**
+
+- Diagramas ER/relacionales **antes** y **después** de la Fase 3, como artefactos en `docs/Arquitectura y base/modelo de datos/`.
+- Un documento explicativo del cambio de modelo dentro de `docs/Fases post MVP/Fase 3/`.
 
 ---
 

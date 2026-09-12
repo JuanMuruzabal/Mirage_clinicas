@@ -851,7 +851,7 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 				}
 				return nil
 			}
-			// Fase 2.4.1 (`docs/FASE 2.4 - detallada y bien especificada.docx`),
+			// Fase 2.4.1 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`),
 			// regla nueva pedida textualmente por el cliente: "para un
 			// paciente no verificado si se ausenta a lo que vendría siendo
 			// su PRIMER turno, eliminar de la tabla pacientes este

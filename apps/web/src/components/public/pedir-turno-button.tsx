@@ -59,7 +59,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
   // body de la página mientras el modal está abierto, y mantené el foco
   // atrapado dentro del modal") + foco atrapado — ninguno de los dos
   // estaba implementado (era un pendiente ya señalado, sin resolver, del
-  // propio §6 de docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md).
+  // propio §6 de docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md).
   useEffect(() => {
     if (!abierto) return;
 

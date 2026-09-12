@@ -19,7 +19,7 @@ interface VerTextoBotonProps {
 // tarea E1.7) — componente compartido para "Ver motivo"/"Ver mail": un
 // texto largo (motivo de un horario reservado/turno, email de un
 // paciente) rompía el ancho de la fila que lo mostraba inline — pedido
-// explícito del cliente, ver docs/Fase 2/fase2.3-extra-dental-mirage.md. Se
+// explícito del cliente, ver docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md. Se
 // construye ACÁ (tarjeta 3- del Turnero, la primera en usarlo) para que
 // los ítems 2.3.3 ("Ver motivo" en Turnos) y 2.3.4 ("Ver mail" en
 // Pacientes) lo reusen tal cual, sin duplicar el modal.

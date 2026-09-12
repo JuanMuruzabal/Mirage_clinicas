@@ -37,7 +37,7 @@ Auditoría periódica de ingeniería (complejidad, seguridad, rendimiento) — c
 - [`como-se-arreglo-cada-cosa.md`](<Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) — guía de estudio que acompaña al diagnóstico: el porqué de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría. Si querés entender el razonamiento y no solo el resultado, este es el que hay que leer.
 - [`snapshot-2026-09-09.md`](<Seguridad y optimizacion/snapshot-2026-09-09.md>) — **el documento que hay que leer para saber "cómo estamos hoy"**, sin releer el diagnóstico crudo. No es solo lo que arregló la auditoría: es el inventario COMPLETO de lo que hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué se agregó. Cierra con lo que NO está y qué lo activa, y con una lista concreta de qué volver a medir en el próximo snapshot para poder compararlos.
 
-## `mockups/` — capturas de referencia visual del cliente
+## `mockups MVP/` — capturas de referencia visual del cliente
 
 Las 5 imágenes (`01-home.png` a `05-editor-pagina.png`) que ilustran las pantallas de referencia citadas en `dental-mirage-spec.md`/`implementation-plan.md`.
 

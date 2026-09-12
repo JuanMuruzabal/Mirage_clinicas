@@ -26,7 +26,7 @@ interface PedirTurnoFormProps {
   slug: string;
   nombreClinica: string;
   telefonoClinica?: string | null;
-  /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.1). */
+  /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.1). */
   onClose: () => void;
   /**
    * Fase 2, ítem 5 ("compartir calendario") — presente cuando el wizard
@@ -78,7 +78,7 @@ const TUTOR_CAMPOS_INICIALES = {
   email: "",
 };
 
-// Paso — Fase 2.4.1 (`docs/FASE 2.4 - detallada y bien especificada.docx`):
+// Paso — Fase 2.4.1 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`):
 // el wizard de Extra 2.3.5 (contacto → verificacion → turno) ahora arranca
 // con dos preguntas nuevas ("¿Para quién es el turno?" / "¿Ya te has
 // atendido con nosotros?") que abren dos caminos:
@@ -97,7 +97,7 @@ const TUTOR_CAMPOS_INICIALES = {
 //     (sin nombre/apellido/DNI/teléfono del paciente asumidos del contacto
 //     que completa el formulario — son 2 personas distintas). El código de
 //     verificación se manda recién al terminar "otro-paciente" (a
-//     diferencia del mapa de pantallas de docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+//     diferencia del mapa de pantallas de docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
 //     §4, que lo pone entre tutor y paciente) — se mantiene el orden real
 //     ya construido en vez de reordenar CUÁNDO se dispara el envío del
 //     código, solo se ajustó la numeración de "paso N de M" para reflejar
@@ -243,7 +243,7 @@ function borrarEstadoGuardado(slug: string) {
 
 // PedirTurnoForm — Extra 2.3.5 (E5.3) + Fase 2.4.1 (rework de punta a
 // punta, docs/Arquitectura y base/implementation-plan.md §11.6) + rediseño visual completo
-// (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md, "2.4.2.1"): la lógica de estado y las
+// (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md, "2.4.2.1"): la lógica de estado y las
 // llamadas al backend no cambiaron con el rediseño — lo que cambió es
 // qué componente de pantalla renderiza cada `paso` (antes JSX inline acá
 // mismo, ahora los componentes de `./pedir-turno/*`) y, puntualmente, la
@@ -269,7 +269,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [paisTelefonoTutor, setPaisTelefonoTutor] = useState(() => estadoInicial?.paisTelefonoTutor ?? PAIS_TELEFONO_DEFAULT);
 
   // paraQuienSel/yaAtendisteSel — selección TRANSITORIA de las pantallas
-  // [1]/[2] antes de tocar "Continuar" (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+  // [1]/[2] antes de tocar "Continuar" (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
   // §3.5: tarjeta de opción, elegir ≠ avanzar). No se persisten: si se
   // resume el wizard justo en uno de estos 2 pasos, todavía no hay nada
   // elegido para ESE paso puntual (si ya se había elegido, `paso` ya
@@ -332,7 +332,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // los disparan, mismo criterio que agregar-turno-modal.tsx.
   const [cargandoSlots, setCargandoSlots] = useState(true);
 
-  // Calendario mensual (3.8, docs/archivo/prompt-claude-code-fecha-horario.md) —
+  // Calendario mensual (3.8, docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md) —
   // `mesVisible` es del PANEL, no necesariamente el mes de `fecha`: se
   // puede navegar mes a mes sin mover la selección. Arranca en el mes de
   // `fecha` porque es el valor sensato la primera vez que se abre.
@@ -353,7 +353,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [linkWhatsapp, setLinkWhatsapp] = useState<string | null>(null);
-  const [confirmado, setConfirmado] = useState<{ fecha: string; hora: string } | null>(null);
+  const [confirmado, setConfirmado] = useState<{ fecha: string; hora: string; puedeRepetir: boolean } | null>(null);
 
   function actualizar<K extends keyof typeof CAMPOS_INICIALES>(campo: K, valor: string) {
     setCampos((c) => ({ ...c, [campo]: valor }));
@@ -505,7 +505,16 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // continuarOtroTutor — Fase 2.4.2, camino "para otro" + "primera vez",
   // PRIMER paso: solo los datos de quien reserva (el tutor — relación/
   // nombre/teléfono/mail, todos obligatorios).
-  function continuarOtroTutor() {
+  //
+  // Fase 3.1: acá se verifica el mail del tutor, ANTES de pedir los datos
+  // del paciente (antes el código salía recién en el paso siguiente). El
+  // motivo es el pedido del cliente: si ese mail ya es el de un tutor
+  // conocido, el wizard tiene que ofrecerle sus pacientes en vez de
+  // hacerle retipear los datos de alguien que ya está en el sistema — y
+  // esa lista no se puede mostrar antes de probar que el mail es suyo,
+  // porque diría qué pacientes tiene un tutor a cualquiera que adivine su
+  // dirección. Verificar primero y decidir después es lo que lo permite.
+  async function continuarOtroTutor() {
     setError(null);
 
     const tutorNombre = tutorCampos.nombre.trim();
@@ -530,15 +539,46 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     }
 
     setTutorCampos((c) => ({ ...c, nombre: tutorNombre, email: tutorEmail }));
-    setPaso("otro-paciente");
+    setEmailEnVerificacion(tutorEmail);
+
+    // Con enlace (Fase 2, ítem 5) no hay código: el enlace ES la prueba,
+    // así que se resuelve la lista de una — mismo criterio que
+    // continuarOtroYaVine.
+    if (enlaceToken) {
+      setBuscandoPaciente(true);
+      const resultado = await pacientesVerificadosDeTutorAction(slug, tutorEmail, "", enlaceToken);
+      setBuscandoPaciente(false);
+      if (resultado.pacientes && resultado.pacientes.length > 0) {
+        setPacientesVerificadosTutor(resultado.pacientes);
+        setPacienteListaSeleccionado(null);
+        setPaso("otro-tarjeta-paciente");
+        return;
+      }
+      setPaso("otro-paciente");
+      return;
+    }
+
+    setEnviandoCodigo(true);
+    const result = await enviarVerificacionEmailAction(slug, tutorEmail, captchaToken);
+    setEnviandoCodigo(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setCodigoDev(result.codigoDev ?? null);
+    setPaso("otro-verificacion");
   }
 
   // continuarOtroPaciente — Fase 2.4.2, camino "para otro" + "primera
   // vez", SEGUNDO paso: datos del PACIENTE (nombre/apellido/DNI
-  // obligatorios, teléfono/mail propios opcionales). Recién acá se manda
-  // el código de verificación — al mail del TUTOR (ya validado en el paso
-  // anterior), no al del paciente.
-  async function continuarOtroPaciente() {
+  // obligatorios, teléfono/mail propios opcionales).
+  //
+  // Fase 3.1: ya no manda ningún código — el mail del TUTOR se verificó en
+  // el paso anterior (ver continuarOtroTutor). Acá se llega de dos
+  // maneras: el tutor es nuevo y no tenía pacientes que ofrecerle, o los
+  // tenía y eligió "+ Es para otra persona". En ambos casos la prueba de
+  // mail ya está en mano, así que este paso desemboca directo en el turno.
+  function continuarOtroPaciente() {
     setError(null);
 
     const nombreContacto = campos.nombreContacto.trim();
@@ -565,31 +605,12 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     }
 
     setCampos((c) => ({ ...c, emailContacto }));
-
-    // Fase 2, ítem 5: con enlace, directo al paso de turno — mismo
-    // criterio que "otro-verificacion" (confirmarCodigo()): sin chequeo
-    // retroactivo acá, el mail que se verificaría es el del TUTOR, no el
-    // del paciente, así que "¿ya pertenece a una ficha verificada?" no
-    // tiene el mismo sentido que en el camino "para mí".
-    if (enlaceToken) {
-      setFlujo("otro-primera-vez");
-      setPaso("turno");
-      return;
-    }
-
-    // "Confirmanos que sos vos" — acá el mail que se verifica es el del
-    // TUTOR (quien reserva), no el del paciente.
-    const tutorEmail = tutorCampos.email;
-    setEmailEnVerificacion(tutorEmail);
-    setEnviandoCodigo(true);
-    const result = await enviarVerificacionEmailAction(slug, tutorEmail, captchaToken);
-    setEnviandoCodigo(false);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    setCodigoDev(result.codigoDev ?? null);
-    setPaso("otro-verificacion");
+    // La ficha del paciente se crea con estos datos, no con una elegida de
+    // la lista — si el tutor venía de ahí y cambió de idea, hay que soltar
+    // la selección o el pedido viajaría con el paciente equivocado.
+    setPacienteVerificado(null);
+    setFlujo("otro-primera-vez");
+    setPaso("turno");
   }
 
   // continuarYaVine — Fase 2.4.1, camino "ya he venido antes": pide DNI +
@@ -699,11 +720,15 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // antes" muestra el aviso de no encontrado; "primera vez" sigue de
   // largo al paso de turno con los datos recién tipeados, como siempre.
   //
-  // "otro-verificacion" (para otro, primera vez): sin este chequeo
-  // retroactivo — a diferencia de "para mí", acá el mail que se verifica
-  // es el del TUTOR, no el del paciente, así que "¿el DNI+mail ya
-  // pertenecen a una ficha verificada?" no tiene el mismo sentido —
-  // sigue de largo al paso de turno.
+  // "otro-verificacion" (para otro, primera vez): Fase 3.1 — acá SÍ hay
+  // chequeo retroactivo, pero por el eje que corresponde a este camino.
+  // En "para mí" la pregunta es "¿este DNI+mail ya son de una ficha
+  // conocida?"; acá el mail es el del TUTOR y el DNI del paciente todavía
+  // no se tipeó, así que la pregunta correcta es "¿este mail ya es el de
+  // un tutor conocido?" — si lo es, se le ofrecen SUS pacientes
+  // (otro-tarjeta-paciente) en vez de hacerle cargar de nuevo a alguien
+  // que ya está en el sistema. Si no, sigue a los datos del paciente como
+  // siempre.
   //
   // "otro-ya-vine-codigo" (para otro, ya he venido antes): busca por
   // MAIL DEL TUTOR (pacientesVerificadosDeTutorAction) — puede devolver
@@ -721,8 +746,18 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     setVerificacionToken(result.token);
 
     if (paso === "otro-verificacion") {
-      setFlujo("otro-primera-vez");
-      setPaso("turno");
+      setBuscandoPaciente(true);
+      const resultado = await pacientesVerificadosDeTutorAction(slug, emailEnVerificacion, result.token);
+      setBuscandoPaciente(false);
+      if (resultado.pacientes && resultado.pacientes.length > 0) {
+        setPacientesVerificadosTutor(resultado.pacientes);
+        setPacienteListaSeleccionado(null);
+        setPaso("otro-tarjeta-paciente");
+        return;
+      }
+      // Tutor nuevo (o sin pacientes reconocibles todavía): sigue al paso
+      // de datos del paciente, que es el flujo de siempre.
+      setPaso("otro-paciente");
       return;
     }
 
@@ -928,7 +963,52 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     // guardado más arriba, que además deja de escribir apenas `confirmado`
     // pasa a tener valor).
     borrarEstadoGuardado(slug);
-    setConfirmado({ fecha, hora });
+    // Prueba de mail reemitida (Fase 3.1): es lo que habilita el
+    // botón "sacar turno para otro tipo" de abajo. Si no vino —pedido por
+    // enlace, o la prueba original ya sin tiempo— el botón no se ofrece,
+    // en vez de ofrecerlo y que falle al tocarlo.
+    if (result.verificacionToken) setVerificacionToken(result.verificacionToken);
+    setConfirmado({ fecha, hora, puedeRepetir: Boolean(result.verificacionToken) });
+  }
+
+  // repetirParaOtroTipo — el botón del cartel final (Fase 3.1).
+  //
+  // Vuelve al paso "turno" conservando TODO lo que identifica a la
+  // persona: sus datos de contacto, el flujo por el que llegó, la ficha
+  // elegida si vino por "ya he venido antes", y los datos del tutor si es
+  // "para otro". Lo único que cambia es la elección del turno en sí,
+  // porque es justamente lo que viene a rehacer:
+  //
+  //   - el tipo de consulta salta al primero distinto del recién sacado
+  //     (si la clínica tiene uno solo queda el mismo, y el backend
+  //     rechaza el duplicado con su mensaje de siempre);
+  //   - el horario se limpia, porque el turno recién creado acaba de
+  //     ocupar uno de los slots que están en pantalla — hay que volver a
+  //     pedir la disponibilidad antes de dejar elegir;
+  //   - la fecha NO se limpia: `PantallaDiaHora` formatea el día elegido
+  //     apenas entra, y con "" eso es un `Invalid time value`. Además
+  //     conservarla es lo amable: lo más probable es que quiera el mismo
+  //     día.
+  //
+  // El backend se encarga de que los dos turnos caigan en la MISMA ficha:
+  // mismo DNI y mismo mail resuelven a la ficha ya creada por el turno
+  // anterior, no a una nueva.
+  async function repetirParaOtroTipo() {
+    const siguienteTipo = tipos.find((t) => t.id !== tipoConsultaId)?.id ?? tipoConsultaId;
+    setConfirmado(null);
+    setLinkWhatsapp(null);
+    setError(null);
+    setHora("");
+    setTipoConsultaId(siguienteTipo);
+    setPaso("turno");
+    if (!siguienteTipo) return;
+    setCargandoSlots(true);
+    // Si el tipo cambió, el efecto de disponibilidad se dispara solo; si
+    // no (clínica con un único tipo), hay que refrescar a mano igual.
+    if (siguienteTipo !== tipoConsultaId) return;
+    const disponibilidad = await listDisponibilidadPublicaAction(slug, siguienteTipo, fecha);
+    setSlots(disponibilidad.slots);
+    setCargandoSlots(false);
   }
 
   if (confirmado) {
@@ -947,6 +1027,25 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           >
             Escribir también por WhatsApp
           </a>
+        )}
+        {/* "¿Querés sacar turno para otro tipo?" (Fase 3.1) — la
+            regla pasó de 1 turno activo por DNI a 1 por DNI y tipo de
+            consulta, justamente porque "en la práctica pacientes suelen
+            hacer varios turnos de diferentes tipos". Vuelve al ÚLTIMO paso
+            con los datos ya cargados: no hay que retipear nada ni volver a
+            pedir el código.
+
+            Solo aparece si el backend devolvió una prueba de mail nueva
+            (`puedeRepetir`) — sin eso el pedido siguiente sería rechazado,
+            y un botón que falla al tocarlo es peor que no tenerlo. */}
+        {confirmado.puedeRepetir && (
+          <button
+            type="button"
+            onClick={repetirParaOtroTipo}
+            className="mx-auto mt-3 block rounded-lg border-[0.5px] border-arena bg-marfil px-6 py-3 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          >
+            ¿Querés sacar turno para otro tipo?
+          </button>
         )}
       </div>
     );
@@ -1083,7 +1182,13 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           }}
           paso={3}
           total={5}
-          submitDisabled={false}
+          submitDisabled={enviandoCodigo || buscandoPaciente}
+          extra={
+            <>
+              {!enlaceToken && <TurnstileWidget onToken={setCaptchaToken} />}
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+            </>
+          }
         />
       );
 
@@ -1099,20 +1204,17 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           }}
           onChange={(field, value) => actualizar(field === "nombre" ? "nombreContacto" : field === "apellido" ? "apellidoContacto" : field === "dni" ? "dniContacto" : field === "telefono" ? "telefonoContacto" : "emailContacto", value)}
           onSubmit={continuarOtroPaciente}
-          onBack={() => setPaso("otro-tutor")}
+          // Fase 3.1: si el tutor llegó acá desde su lista de pacientes
+          // ("+ Es para otra persona"), "Atrás" vuelve a esa lista, no a
+          // sus propios datos — que ya quedaron confirmados por código.
+          onBack={() => setPaso(pacientesVerificadosTutor.length > 0 ? "otro-tarjeta-paciente" : "otro-tutor")}
           onClose={onClose}
           onEditarTutor={() => setPaso("otro-tutor")}
           tutorNombre={tutorCampos.nombre}
           tutorRelacion={relacionActual}
-          paso={4}
+          paso={5}
           total={5}
-          submitDisabled={enviandoCodigo}
-          extra={
-            <>
-              {!enlaceToken && <TurnstileWidget onToken={setCaptchaToken} />}
-              {error && <ErrorMsg>{error}</ErrorMsg>}
-            </>
-          }
+          extra={error ? <ErrorMsg>{error}</ErrorMsg> : null}
         />
       );
 
@@ -1151,7 +1253,10 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     case "otro-ya-vine-codigo": {
       const backTarget: Paso =
         paso === "ya-vine-codigo" ? "ya-vine-datos" : paso === "otro-verificacion" ? "otro-paciente" : paso === "otro-ya-vine-codigo" ? "otro-ya-vine-datos" : "contacto";
-      const pasoActual = paso === "verificacion" ? 4 : paso === "otro-verificacion" ? 5 : 4;
+      // Fase 3.1: "otro-verificacion" pasó de 5 a 4 — ahora viene justo
+      // después de los datos del tutor (3), no después de los del
+      // paciente. Los cuatro caminos de código caen en el mismo número.
+      const pasoActual = 4;
       const totalActual = paso === "verificacion" ? 4 : 5;
       return (
         <PantallaCodigo
@@ -1189,8 +1294,15 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
         />
       );
 
-    case "otro-tarjeta-paciente":
+    case "otro-tarjeta-paciente": {
       if (pacientesVerificadosTutor.length === 0) return null;
+      // Fase 3.1: a esta lista se llega por dos caminos y el destino de
+      // "Atrás"/"Es para otra persona" depende de cuál. El camino "ya he
+      // venido antes" junta SOLO el mail del tutor; el de "primera vez"
+      // junta además nombre, teléfono y vínculo — que es justo lo que hace
+      // falta para dar de alta un paciente nuevo bajo ese tutor. Por eso
+      // el nombre del tutor alcanza para distinguirlos.
+      const tutorCompleto = tutorCampos.nombre.trim() !== "";
       return (
         <PantallaParaQuienLista
           pacientes={pacientesVerificadosTutor}
@@ -1198,17 +1310,27 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onSeleccionar={setPacienteListaSeleccionado}
           onBack={() => {
             setPacientesVerificadosTutor([]);
-            setPaso("otro-ya-vine-datos");
+            setPaso(tutorCompleto ? "otro-tutor" : "otro-ya-vine-datos");
           }}
           onClose={onClose}
           onContinuar={() => {
             const elegido = pacientesVerificadosTutor.find((p) => p.id === pacienteListaSeleccionado);
             if (elegido) elegirPacienteVerificadoTutor(elegido);
           }}
+          onOtraPersona={() => {
+            setPacienteListaSeleccionado(null);
+            setPacienteVerificado(null);
+            setError(null);
+            // Con los datos del tutor completos se va derecho a cargar al
+            // paciente nuevo; si entró por "ya he venido antes", primero
+            // hay que pedírselos (el mail ya verificado queda cargado).
+            setPaso(tutorCompleto ? "otro-paciente" : "otro-tutor");
+          }}
           paso={5}
           total={5}
         />
       );
+    }
 
     case "turno":
       return (
