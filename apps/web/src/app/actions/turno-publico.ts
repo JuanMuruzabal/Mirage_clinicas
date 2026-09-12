@@ -23,6 +23,8 @@ export interface SolicitarTurnoPublicoResult {
   id?: string;
   horaInicio?: string;
   horaFin?: string;
+  /** Ver SolicitarTurnoPublicoResponse.verificacionToken en lib/api.ts. */
+  verificacionToken?: string;
 }
 
 // listTiposConsultaPublicoAction — primer paso del wizard público después
@@ -176,7 +178,12 @@ export async function solicitarTurnoPublicoAction(
   if (!result.ok) {
     return { error: result.error };
   }
-  return { id: result.data.id, horaInicio: result.data.horaInicio, horaFin: result.data.horaFin };
+  return {
+    id: result.data.id,
+    horaInicio: result.data.horaInicio,
+    horaFin: result.data.horaFin,
+    verificacionToken: result.data.verificacionToken,
+  };
 }
 
 export interface MisTurnoPublicoResult {

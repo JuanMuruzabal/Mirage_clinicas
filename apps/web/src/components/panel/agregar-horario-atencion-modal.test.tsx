@@ -135,8 +135,15 @@ describe("AgregarHorarioAtencionModal", () => {
     render(<AgregarHorarioAtencionModal onClose={vi.fn()} onGuardado={vi.fn()} />);
     await user.selectOptions(screen.getByLabelText("Alcance"), "rango");
 
-    setValor("Fecha desde", "2026-09-10");
-    setValor("Fecha hasta", "2026-09-05");
+    // Fechas relativas a HOY, no fijas. Este test estuvo roto en silencio
+    // desde el 2026-09-10: tenía "2026-09-10" y "2026-09-05" escritas a
+    // mano, y cuando el calendario las dejó atrás el componente pasó a
+    // rechazar por "no se puede reservar en el pasado" (TR-091) en vez de
+    // por el orden de las fechas — que es lo que este test verifica.
+    // Un test con fechas fijas no falla cuando el código se rompe: falla
+    // cuando pasa el tiempo.
+    setValor("Fecha desde", enDias(10));
+    setValor("Fecha hasta", enDias(5));
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent('La fecha "hasta" no puede ser anterior a la fecha "desde".');
@@ -198,3 +205,11 @@ describe("AgregarHorarioAtencionModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// enDias — una fecha a N días de hoy, en YYYY-MM-DD. Mantiene los casos
+// de prueba en el futuro sin fijarlos a un día concreto del calendario.
+function enDias(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}

@@ -360,6 +360,17 @@ export function apiGetPacientesVerificadosDeTutorPublico(
 }
 
 export interface SolicitarTurnoPublicoResponse {
+  /**
+   * Prueba de mail NUEVA para la misma identidad que acabó de sacar este
+   * turno (Fase 3, bloque 0). La que se mandó en el pedido se consumió;
+   * esta permite que el cartel final ofrezca "¿querés sacar turno para
+   * otro tipo?" sin volver a pedir el código de 6 dígitos.
+   *
+   * Hereda el vencimiento de la original, así que la ventana total no se
+   * extiende. Ausente cuando el pedido vino por enlace o cuando a la
+   * prueba original ya no le quedaba tiempo — ahí el botón no se ofrece.
+   */
+  verificacionToken?: string;
   id: string;
   horaInicio: string;
   horaFin: string;

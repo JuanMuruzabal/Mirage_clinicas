@@ -353,7 +353,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [linkWhatsapp, setLinkWhatsapp] = useState<string | null>(null);
-  const [confirmado, setConfirmado] = useState<{ fecha: string; hora: string } | null>(null);
+  const [confirmado, setConfirmado] = useState<{ fecha: string; hora: string; puedeRepetir: boolean } | null>(null);
 
   function actualizar<K extends keyof typeof CAMPOS_INICIALES>(campo: K, valor: string) {
     setCampos((c) => ({ ...c, [campo]: valor }));
@@ -928,7 +928,52 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     // guardado más arriba, que además deja de escribir apenas `confirmado`
     // pasa a tener valor).
     borrarEstadoGuardado(slug);
-    setConfirmado({ fecha, hora });
+    // Prueba de mail reemitida (Fase 3, bloque 0): es lo que habilita el
+    // botón "sacar turno para otro tipo" de abajo. Si no vino —pedido por
+    // enlace, o la prueba original ya sin tiempo— el botón no se ofrece,
+    // en vez de ofrecerlo y que falle al tocarlo.
+    if (result.verificacionToken) setVerificacionToken(result.verificacionToken);
+    setConfirmado({ fecha, hora, puedeRepetir: Boolean(result.verificacionToken) });
+  }
+
+  // repetirParaOtroTipo — el botón del cartel final (Fase 3, bloque 0).
+  //
+  // Vuelve al paso "turno" conservando TODO lo que identifica a la
+  // persona: sus datos de contacto, el flujo por el que llegó, la ficha
+  // elegida si vino por "ya he venido antes", y los datos del tutor si es
+  // "para otro". Lo único que cambia es la elección del turno en sí,
+  // porque es justamente lo que viene a rehacer:
+  //
+  //   - el tipo de consulta salta al primero distinto del recién sacado
+  //     (si la clínica tiene uno solo queda el mismo, y el backend
+  //     rechaza el duplicado con su mensaje de siempre);
+  //   - el horario se limpia, porque el turno recién creado acaba de
+  //     ocupar uno de los slots que están en pantalla — hay que volver a
+  //     pedir la disponibilidad antes de dejar elegir;
+  //   - la fecha NO se limpia: `PantallaDiaHora` formatea el día elegido
+  //     apenas entra, y con "" eso es un `Invalid time value`. Además
+  //     conservarla es lo amable: lo más probable es que quiera el mismo
+  //     día.
+  //
+  // El backend se encarga de que los dos turnos caigan en la MISMA ficha:
+  // mismo DNI y mismo mail resuelven a la ficha ya creada por el turno
+  // anterior, no a una nueva.
+  async function repetirParaOtroTipo() {
+    const siguienteTipo = tipos.find((t) => t.id !== tipoConsultaId)?.id ?? tipoConsultaId;
+    setConfirmado(null);
+    setLinkWhatsapp(null);
+    setError(null);
+    setHora("");
+    setTipoConsultaId(siguienteTipo);
+    setPaso("turno");
+    if (!siguienteTipo) return;
+    setCargandoSlots(true);
+    // Si el tipo cambió, el efecto de disponibilidad se dispara solo; si
+    // no (clínica con un único tipo), hay que refrescar a mano igual.
+    if (siguienteTipo !== tipoConsultaId) return;
+    const disponibilidad = await listDisponibilidadPublicaAction(slug, siguienteTipo, fecha);
+    setSlots(disponibilidad.slots);
+    setCargandoSlots(false);
   }
 
   if (confirmado) {
@@ -947,6 +992,25 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           >
             Escribir también por WhatsApp
           </a>
+        )}
+        {/* "¿Querés sacar turno para otro tipo?" (Fase 3, bloque 0) — la
+            regla pasó de 1 turno activo por DNI a 1 por DNI y tipo de
+            consulta, justamente porque "en la práctica pacientes suelen
+            hacer varios turnos de diferentes tipos". Vuelve al ÚLTIMO paso
+            con los datos ya cargados: no hay que retipear nada ni volver a
+            pedir el código.
+
+            Solo aparece si el backend devolvió una prueba de mail nueva
+            (`puedeRepetir`) — sin eso el pedido siguiente sería rechazado,
+            y un botón que falla al tocarlo es peor que no tenerlo. */}
+        {confirmado.puedeRepetir && (
+          <button
+            type="button"
+            onClick={repetirParaOtroTipo}
+            className="mx-auto mt-3 block rounded-lg border-[0.5px] border-arena bg-marfil px-6 py-3 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          >
+            ¿Querés sacar turno para otro tipo?
+          </button>
         )}
       </div>
     );

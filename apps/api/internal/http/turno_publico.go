@@ -141,6 +141,14 @@ func sincronizarTutorDesdeFichaVerificada(tx *gorm.DB, turno *db.Turno, paciente
 // archivo (estado='agendado' AND hora_fin >= ahora), sin filtrar por
 // tipo de consulta ni por ficha: dos fichas separadas por un conflicto
 // sin resolver comparten el mismo dni_contacto en sus turnos.
+// SIN USO desde la Fase 3 (bloque 0): la regla universal que sostenía
+// ("un turno activo por DNI, sea cual sea el tipo") se reemplazó por una
+// por DNI + tipo de consulta. Se conserva por la convención del proyecto
+// de no descartar lo ya establecido — convención que acá pagó: la regla
+// que la reemplaza es `turnoActivoDelMismoTipo`, que estuvo igual de sin
+// uso desde TR-107 y volvió a activarse sin tener que reescribirla.
+//
+//nolint:unused // superseded a propósito, ver arriba
 func turnoActivoPorDNI(tx *gorm.DB, profesionalID uuid.UUID, dni string) (*db.Turno, error) {
 	var turno db.Turno
 	err := tx.Where("profesional_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()",
@@ -225,6 +233,12 @@ func turnoActivoDelMismoTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, t
 	return &turno, nil
 }
 
+// SIN USO desde la Fase 3 (bloque 0): sostenía la Regla 2 de TR-107 (un
+// paciente sin verificar no podía sacar turno de otro tipo hasta asistir
+// al primero), quitada por decisión explícita del cliente. Se conserva por
+// el mismo criterio que turnoActivoPorDNI de arriba.
+//
+//nolint:unused // superseded a propósito, ver arriba
 func turnoActivoDeOtroTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, tipoConsultaID uuid.UUID) (*db.Turno, error) {
 	var turno db.Turno
 	err := tx.Where("profesional_id = ? AND dni_contacto = ? AND tipo_consulta_id <> ? AND estado = 'agendado' AND hora_fin >= now()",
@@ -834,6 +848,16 @@ type solicitarTurnoPublicoResponse struct {
 	ID         string `json:"id"`
 	HoraInicio string `json:"horaInicio"`
 	HoraFin    string `json:"horaFin"`
+	// VerificacionToken — prueba de mail NUEVA para la misma identidad que
+	// acaba de sacar este turno (Fase 3, bloque 0). La que vino en el
+	// pedido se consumió; esta permite que el cartel final ofrezca "¿querés
+	// sacar turno para otro tipo?" sin volver a pedir el código.
+	//
+	// Hereda el vencimiento de la original, así que la ventana total no se
+	// extiende — ver consumirYReemitirVerificacionTurnoPublico. Vacío
+	// cuando el pedido vino por enlace (ese camino tiene su propio cupo) o
+	// cuando a la prueba original ya no le quedaba tiempo.
+	VerificacionToken string `json:"verificacionToken,omitempty"`
 }
 
 // solicitarTurnoPublicoHandler — POST /clinicas/{slug}/turnos, reescrito
@@ -1044,6 +1068,12 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		// transacción de todos modos comitea normal (el bloqueo/borrado
 		// tiene que persistir) pero la respuesta HTTP final es un rechazo.
 		var mensajeBloqueoAbuso string
+		// Prueba de mail reemitida para que el cartel final pueda ofrecer
+		// otro turno sin volver a pedir el código (Fase 3, bloque 0). Se
+		// llena dentro de la transacción y se lee después de que commitee:
+		// si el turno no llega a crearse, tampoco hay token que devolver.
+		var tokenReemitido string
+
 		err = gdb.Transaction(func(tx *gorm.DB) error {
 			// Corrección de seguridad (Fase 2.4.1): misma lógica que el
 			// bloqueo de mail de acá abajo — por las dudas, un token emitido
@@ -1083,8 +1113,12 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				if err := consumirEnlaceTurno(tx, clinic.ID, req.EnlaceToken, req.ParaOtro); err != nil {
 					return err
 				}
-			} else if err := consumirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken); err != nil {
-				return err
+			} else {
+				nuevoToken, err := consumirYReemitirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken)
+				if err != nil {
+					return err
+				}
+				tokenReemitido = nuevoToken
 			}
 
 			// Revalida el horario DENTRO de la transacción — el paciente
@@ -1109,59 +1143,46 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				return errHorarioPublicoYaNoDisponible
 			}
 
-			// Corrección de QA, pedido textual del cliente: "sea paciente
-			// verificado o no verificado solo puede tener un turno activo
-			// con el mismo dni, sea el tipo de consulta que sea" — chequeo
-			// ANTES de resolver/crear cualquier ficha (mismo motivo que el
-			// detector de mail-abuso de abajo: no dejar una ficha huérfana
-			// sin turno si este pedido se rechaza).
-			if !usaPacienteVerificado {
-				turnoActivo, err := turnoActivoPorDNI(tx, clinic.ID, turno.DNIContacto)
-				if err != nil {
-					return err
-				}
-				if turnoActivo != nil {
-					return &errYaTieneUnTurnoActivo{email: identidadDeContactoDelTurno(*turnoActivo)}
-				}
-			}
-
-			// TR-107 (Rule A/B) — inalcanzable en la práctica desde la
-			// regla de arriba (topea en 1 turno activo por DNI sin
-			// importar el tipo, la de acá solo llega a topear en el mismo
-			// caso o más tarde). Se deja el código sin tocar, por pedido
-			// explícito del cliente de sesiones anteriores ("no descartar
-			// nada de lo ya establecido").
+			// UN turno activo por DNI + TIPO DE CONSULTA (Fase 3, bloque 0
+			// — pedido textual del cliente: "se quita la regla de solo UN
+			// turno por DNI en la clínica... solo será UN turno por tipo de
+			// consulta por DNI, ya que en la práctica pacientes suelen
+			// hacer varios turnos de diferentes tipos").
+			//
+			// Reemplaza al tope universal de TR-107 ("un turno activo por
+			// DNI, sea cual sea el tipo"), que se quitó: bloqueaba el caso
+			// real de alguien que necesita una consulta general y un
+			// conducto en la misma semana. Lo que queda es la Regla 1 de
+			// TR-107, que nunca dejó de ser cierta — el mismo DNI no puede
+			// tener dos turnos vigentes DEL MISMO TIPO, sea cual sea el
+			// mail que los pide.
+			//
+			// Se chequea ANTES de resolver/crear cualquier ficha (mismo
+			// motivo que el detector de mail-abuso de abajo: no dejar una
+			// ficha huérfana sin turno si este pedido se rechaza).
 			if !usaPacienteVerificado {
 				turnoMismoTipo, err := turnoActivoDelMismoTipo(tx, clinic.ID, turno.DNIContacto, tipo.ID)
 				if err != nil {
 					return err
 				}
 				if turnoMismoTipo != nil {
-					return &errTurnoActivoConOtroMail{email: turnoMismoTipo.EmailContacto}
+					return &errTurnoActivoConOtroMail{email: identidadDeContactoDelTurno(*turnoMismoTipo)}
 				}
 
-				turnoOtroTipo, err := turnoActivoDeOtroTipo(tx, clinic.ID, turno.DNIContacto, tipo.ID)
-				if err != nil {
-					return err
-				}
-				if turnoOtroTipo != nil {
-					otroTipoVerificado := false
-					if turnoOtroTipo.PacienteID != nil {
-						var pacienteOtroTipo db.Paciente
-						err := tx.First(&pacienteOtroTipo, "id = ?", *turnoOtroTipo.PacienteID).Error
-						if err == nil {
-							otroTipoVerificado, err = pacienteEstaVerificado(tx, pacienteOtroTipo)
-							if err != nil {
-								return err
-							}
-						} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-							return err
-						}
-					}
-					if !otroTipoVerificado {
-						return &errYaTieneOtroTipoActivo{turno: *turnoOtroTipo}
-					}
-				}
+				// La Regla 2 de TR-107 —un paciente SIN VERIFICAR no podía
+				// sacar turno de otro tipo hasta asistir al primero— se
+				// quitó en la Fase 3 (bloque 0), por decisión explícita del
+				// cliente. Era incompatible con el flujo nuevo: alguien que
+				// acaba de sacar su primer turno todavía no está verificado
+				// (verificado = asistió a un turno resuelto), así que el
+				// botón "¿querés sacar turno para otro tipo?" lo frenaba
+				// justo en el caso principal para el que se pidió.
+				//
+				// Lo que se pierde: un DNI ajeno puede reservar varios
+				// tipos a la vez sin haberse presentado nunca. Lo que
+				// queda en pie contra eso: el código de 6 dígitos al mail,
+				// el CAPTCHA, el tope de mail-con-muchos-DNIs y la
+				// rotación por IP.
 			}
 
 			// Corrección de seguridad (Fase 2.4.1), pedido textual del
@@ -1296,19 +1317,33 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				conflictoMotivo = resultado.Motivo
 			}
 
-			// Mismo chequeo universal de arriba ("un turno activo por DNI,
-			// sea cual sea el tipo, esté o no verificado"), acá para el
-			// camino "ya he venido antes" — recién ahora se conoce el DNI
-			// (viene de la ficha elegida, `usaPacienteVerificado` no manda
-			// DNI en la request). No aplica al camino "primera vez": ese
-			// ya se chequeó ANTES de crear la ficha, más arriba.
+			// El chequeo de DNI+tipo, acá para el camino "ya he venido
+			// antes" — recién ahora se conoce el DNI (viene de la ficha
+			// elegida, `usaPacienteVerificado` no manda DNI en la request).
+			// El camino "primera vez" ya se chequeó ANTES de crear la
+			// ficha, más arriba.
+			//
+			// Va DESPUÉS de la guarda por ficha de abajo en orden de
+			// lectura pero ANTES en ejecución, así que el mensaje amable
+			// ("ya tenés un turno de este tipo") gana cuando el turno
+			// existente es de la MISMA ficha; este otro solo aparece
+			// cuando el turno vigente está a nombre de otro mail con el
+			// mismo DNI, que es justamente lo que hay que avisar.
 			if usaPacienteVerificado {
-				turnoActivo, err := turnoActivoPorDNI(tx, clinic.ID, turno.DNIContacto)
+				propio, err := turnoVigenteDeTipo(tx, paciente.ID, tipo.ID)
 				if err != nil {
 					return err
 				}
-				if turnoActivo != nil {
-					return &errYaTieneUnTurnoActivo{email: identidadDeContactoDelTurno(*turnoActivo)}
+				if propio != nil {
+					return &errTurnoPublicoDuplicado{turno: *propio}
+				}
+
+				turnoMismoTipo, err := turnoActivoDelMismoTipo(tx, clinic.ID, turno.DNIContacto, tipo.ID)
+				if err != nil {
+					return err
+				}
+				if turnoMismoTipo != nil {
+					return &errTurnoActivoConOtroMail{email: identidadDeContactoDelTurno(*turnoMismoTipo)}
 				}
 			}
 
@@ -1496,9 +1531,10 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		})
 
 		writeJSON(w, http.StatusCreated, solicitarTurnoPublicoResponse{
-			ID:         turno.ID.String(),
-			HoraInicio: turno.HoraInicio.Format(time.RFC3339),
-			HoraFin:    turno.HoraFin.Format(time.RFC3339),
+			ID:                turno.ID.String(),
+			HoraInicio:        turno.HoraInicio.Format(time.RFC3339),
+			HoraFin:           turno.HoraFin.Format(time.RFC3339),
+			VerificacionToken: tokenReemitido,
 		})
 	}
 }

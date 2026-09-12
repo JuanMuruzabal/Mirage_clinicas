@@ -759,6 +759,36 @@ Sobre el último: es el único ítem del informe que **no arregla nada** — no 
 
 Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
 
+## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
+
+Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.
+
+### 13.0 Bloque 0 — cambios al wizard, previos al multi-tenant (✅ 2026-09-12)
+
+El brief arranca con tres correcciones al wizard público que no dependen del multi-tenant y que conviene cerrar antes, porque tocan el mismo código que la Fase 3 va a extender. Decisiones en TR-133; explicación larga en `docs/Fases post MVP/Fase 3/bloque-0-wizard-sacar-turno.md`.
+
+| # | Qué pidió el cliente | Cómo quedó |
+|---|---|---|
+| 1 | Quitar el tope de 1 turno activo por DNI en toda la clínica; volver a 1 por DNI **y tipo de consulta** | `turnoActivoPorDNI`/`turnoActivoDeOtroTipo` quedan sin call sites (`//nolint:unused`); vale `turnoActivoDelMismoTipo` en los dos caminos. La protección de identidad la sigue haciendo la detección de conflictos, que estaba tapada por el tope |
+| 2 | Botón "¿Querés sacar turno para otro tipo?" en el cartel final, que vuelva al último paso con los datos cargados | La prueba de mail es de un solo uso, así que se **reemite heredando el vencimiento original** — la ventana total no se estira. El botón solo aparece si el backend devolvió el token nuevo |
+| 3 | "Ya he venido antes" debe reconocer también a quien tiene un turno activo, no solo al paciente verificado | `pacienteReconocibleEnElWizard` = verificado **o** con turno `agendado` vigente. La verificación propiamente dicha no cambia |
+
+Consecuencia arrastrada: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista**, no un turno — con varios activos posibles por DNI, devolver el primero era mentir.
+
+### 13.1 Multi-tenant propiamente dicho (pendiente)
+
+Las dos mitades del modelo nuevo, según el brief:
+
+1. **1 clínica → N profesionales.** Cada profesional con su vista aislada (GENERAL, calendario y configuración propia, sus turnos, sus pacientes) dentro de la misma clínica. Pacientes y turnos viven en la **clínica**; las vistas se anclan al profesional que los gestiona. El wizard público pasa a pedir el profesional (filtrado por el tipo de consulta elegido) y el recepcionista también al crear un turno a mano.
+2. **1 profesional → N clínicas.** Un profesional puede moverse entre clínicas y tener en cada una sus turnos y pacientes.
+
+Más: roles (administrador con acceso a todas las vistas y reasignación de turnos entre profesionales, recepcionista), onboarding "¿dónde trabajás hoy?", invitación/gestión de colaboradores.
+
+**Dos entregables explícitos del brief, además del código:**
+
+- Diagramas ER/relacionales **antes** y **después** de la Fase 3, como artefactos en `docs/Arquitectura y base/modelo de datos/`.
+- Un documento explicativo del cambio de modelo dentro de `docs/Fases post MVP/Fase 3/`.
+
 ---
 
 *Documento vivo — actualizar cuando el cliente confirme o corrija alguna de las decisiones asumidas en la sección 9, o cuando `/frontend-design` (T5.1) fije la paleta/tipografía definitivas.*

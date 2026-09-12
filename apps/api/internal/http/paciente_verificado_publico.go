@@ -70,6 +70,48 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 	return out, nil
 }
 
+// pacienteReconocibleEnElWizard — a quién le mostramos su tarjeta en el
+// camino "ya he venido antes".
+//
+// Hasta la Fase 3 (bloque 0) era exactamente "paciente verificado": al
+// menos un turno resuelto y asistido, o ficha cargada a mano por el
+// profesional. El cliente pidió ampliarlo: "si soy un paciente no
+// verificado, pero tengo un turno activo, si pongo mis datos, me debería
+// saltar mi tarjeta".
+//
+// Tiene sentido más allá del pedido: alguien que sacó un turno la semana
+// pasada y vuelve a sacar otro YA demostró acceso al mail de esa ficha —
+// el código de 6 dígitos se lo pidió entonces y se lo vuelve a pedir
+// ahora. Obligarlo a retipear todo porque todavía no asistió era fricción
+// sin contrapartida.
+//
+// Lo que NO cambia: sigue haciendo falta responder al mail de la ficha
+// (`pacienteRespondeAlMail`), así que el DNI solo no alcanza para que
+// aparezca la tarjeta de nadie.
+func pacienteReconocibleEnElWizard(tx *gorm.DB, paciente db.Paciente) (bool, error) {
+	verificado, err := pacienteEstaVerificado(tx, paciente)
+	if err != nil {
+		return false, err
+	}
+	if verificado {
+		return true, nil
+	}
+	return pacienteTieneTurnoActivo(tx, paciente)
+}
+
+// pacienteTieneTurnoActivo — mismo criterio de "vigente" que el resto del
+// wizard (estado 'agendado' y hora_fin todavía por delante).
+func pacienteTieneTurnoActivo(tx *gorm.DB, paciente db.Paciente) (bool, error) {
+	var n int64
+	err := tx.Model(&db.Turno{}).
+		Where("paciente_id = ? AND estado = 'agendado' AND hora_fin >= now()", paciente.ID).
+		Count(&n).Error
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // pacientesVerificadosQuery — mismo criterio que pacienteEstaVerificado/
 // pacientesVerificadosIDs de arriba, pero como subquery SQL en vez de un
 // mapa en memoria — corrección de seguridad (Fase 2.4.1, visibilidad para
@@ -346,12 +388,12 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar el paciente")
 			return
 		}
-		verificado, err := pacienteEstaVerificado(gdb, paciente)
+		reconocible, err := pacienteReconocibleEnElWizard(gdb, paciente)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar el paciente")
 			return
 		}
-		if !responde || !verificado {
+		if !responde || !reconocible {
 			writeError(w, http.StatusNotFound, "no encontramos un paciente verificado con esos datos")
 			return
 		}
@@ -416,12 +458,15 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 
 	out := make([]pacienteVerificadoResponse, 0, len(candidatos))
 	for _, p := range candidatos {
-		verificado, err := pacienteEstaVerificado(gdb, p)
+		// Mismo criterio ampliado que el modo por DNI (Fase 3, bloque 0):
+		// un hijo con turno activo pero todavía sin asistir también le
+		// aparece a su tutor, que ya demostró acceso al mail.
+		reconocible, err := pacienteReconocibleEnElWizard(gdb, p)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")
 			return
 		}
-		if !verificado {
+		if !reconocible {
 			continue
 		}
 		out = append(out, pacienteVerificadoResponse{

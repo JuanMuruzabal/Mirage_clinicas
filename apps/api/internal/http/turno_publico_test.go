@@ -365,7 +365,18 @@ func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.
 // pendiente" mostraba el mail PROPIO del paciente (casi siempre vacío en
 // "para otro") en vez del mail del tutor, que es el que la persona
 // reconoce.
-func TestSolicitarTurnoPublico_YaTieneTurnoActivoParaOtroMuestraMailDelTutor(t *testing.T) {
+// TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha —
+// reescrito en la Fase 3 (bloque 0). Antes se llamaba
+// ...YaTieneTurnoActivoParaOtroMuestraMailDelTutor y afirmaba lo contrario:
+// que el tope universal de "1 turno activo por DNI" rechazaba el segundo
+// pedido mostrando el mail del tutor.
+//
+// Ese tope se quitó a pedido del cliente, y este es justamente el flujo que
+// lo motivó: el tutor saca un turno para su hijo, y desde el cartel final
+// pide otro de OTRO tipo. Tiene que entrar, y —lo que de verdad importa—
+// tiene que caer en la MISMA ficha de paciente, no crear una nueva: "los
+// turnos se cargan al mismo paciente, ya que los datos son los mismos".
+func TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "activotutor1@example.com")
 
@@ -385,11 +396,25 @@ func TestSolicitarTurnoPublico_YaTieneTurnoActivoParaOtroMuestraMailDelTutor(t *
 	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
-	if rec2.Code != http.StatusConflict {
-		t.Fatalf("status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d (otro tipo de consulta, mismo tutor y paciente). body=%s",
+			rec2.Code, http.StatusCreated, rec2.Body.String())
 	}
-	if !strings.Contains(rec2.Body.String(), "mama") {
-		t.Errorf("body = %q, esperaba que mencione el mail del TUTOR (mama...), no el del paciente (vacío)", rec2.Body.String())
+
+	// Una sola ficha, con los dos turnos colgando de ella.
+	var fichas []db.Paciente
+	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, req.DNIContacto).Find(&fichas).Error; err != nil {
+		t.Fatalf("no se pudieron buscar las fichas: %v", err)
+	}
+	if len(fichas) != 1 {
+		t.Fatalf("se crearon %d fichas para el mismo DNI, esperaba 1 — el segundo turno tiene que caer en la ficha ya existente", len(fichas))
+	}
+	var turnos int64
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ?", fichas[0].ID).Count(&turnos).Error; err != nil {
+		t.Fatalf("no se pudieron contar los turnos: %v", err)
+	}
+	if turnos != 2 {
+		t.Errorf("la ficha tiene %d turnos, esperaba 2", turnos)
 	}
 }
 
@@ -962,13 +987,15 @@ func TestSolicitarTurnoPublico_NoEnviaMailSiElPedidoSeRechaza(t *testing.T) {
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
 		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
 
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	// Fase 3 (bloque 0): el pedido que se rechaza tiene que ser del MISMO
+	// tipo. Otro tipo ya no se rechaza, y este test es sobre no mandar mail
+	// cuando el pedido NO prospera — no sobre qué regla lo rechaza.
 	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?)",
 		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown").Error; err != nil {
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req2 := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "10:00", token2)
+	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", token2)
 	req2.EmailContacto = "otro@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusConflict {
@@ -1315,7 +1342,25 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 // CUALQUIER tipo con un DNI que ya tiene un turno vigente (del tipo que
 // sea) se rechaza directo con el mensaje universal — nunca llega a crear
 // una ficha nueva ni un conflicto.
-func TestSolicitarTurnoPublico_VerificadoConOtroTipoActivoTambienRechaza(t *testing.T) {
+// TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea —
+// reescrito en la Fase 3 (bloque 0), y el más importante de los que cambió.
+//
+// Antes (...VerificadoConOtroTipoActivoTambienRechaza) el tope universal
+// rechazaba de plano a cualquiera que pidiera un turno con un DNI que ya
+// tenía uno vigente. Al quitarlo para permitir varios tipos por paciente,
+// la pregunta obligada es qué pasa con el caso de suplantación: un mail
+// DISTINTO usando el mismo DNI.
+//
+// La respuesta es que la protección no desapareció, cambió de forma. El
+// turno entra, pero el sistema de detección de conflictos de identidad
+// —que ya existía— crea una SEGUNDA ficha marcada `en_conflicto` y abre un
+// ConflictoPaciente para que el profesional lo resuelva. Donde antes había
+// un rechazo automático, ahora hay una resolución manual con la
+// información a la vista.
+//
+// Este test fija esa conducta: si alguna vez deja de crearse el conflicto,
+// la relajación de la regla sí habría abierto un agujero.
+func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico22@example.com")
 	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
@@ -1362,17 +1407,26 @@ func TestSolicitarTurnoPublico_VerificadoConOtroTipoActivoTambienRechaza(t *test
 	req := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "10:00", token)
 	req.EmailContacto = "otro@example.com"
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, esperaba %d (turno activo aunque esté verificado). body=%s", rec.Code, http.StatusConflict, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "ya tenés un turno pendiente") {
-		t.Errorf("body = %s, esperaba el mensaje universal de turno activo", rec.Body.String())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, esperaba %d (otro tipo de consulta ya no se bloquea). body=%s",
+			rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	var count int64
-	gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "30111222", original.ID).Count(&count)
-	if count != 0 {
-		t.Errorf("no esperaba ninguna ficha nueva creada, count=%d", count)
+	// Lo que reemplaza al bloqueo: una ficha aparte, marcada en conflicto.
+	var enConflicto int64
+	gdb.Model(&db.Paciente{}).
+		Where("profesional_id = ? AND dni = ? AND id != ? AND en_conflicto = true", reg.Profesional.ID, "30111222", original.ID).
+		Count(&enConflicto)
+	if enConflicto != 1 {
+		t.Errorf("fichas en conflicto = %d, esperaba 1 — un mail distinto sobre el mismo DNI tiene que abrir un conflicto", enConflicto)
+	}
+
+	// Y el ticket para que el profesional lo resuelva.
+	var conflictos int64
+	gdb.Model(&db.ConflictoPaciente{}).
+		Where("profesional_id = ? AND resuelto = false", reg.Profesional.ID).Count(&conflictos)
+	if conflictos != 1 {
+		t.Errorf("conflictos sin resolver = %d, esperaba 1", conflictos)
 	}
 }
 
@@ -1447,8 +1501,44 @@ func TestSolicitarTurnoPublico_VerificadoConTurnoActivoRechazaOtroPedidoDelMismo
 	if rec2.Code != http.StatusConflict {
 		t.Fatalf("segundo pedido (mismo tipo, verificado): status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
 	}
-	if !strings.Contains(rec2.Body.String(), "ya tenés un turno pendiente") || !strings.Contains(rec2.Body.String(), "contactate con la clínica") {
+	// Fase 3 (bloque 0): el mensaje lo da ahora errTurnoPublicoDuplicado, no
+	// el tope universal — y es mejor, porque nombra la fecha y el tipo en vez
+	// de decir solo "ya tenés un turno pendiente".
+	if !strings.Contains(rec2.Body.String(), "ya tenés un turno agendado") || !strings.Contains(rec2.Body.String(), "para este tipo de consulta") {
 		t.Errorf("body = %s, esperaba el mensaje universal de turno activo", rec2.Body.String())
+	}
+}
+
+// TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor —
+// cuando el turno que bloquea lo sacó un TUTOR ("para otro"), el mail que
+// la persona reconoce es el del tutor, no el `EmailContacto` del paciente
+// (vacío a propósito en ese camino, ver solicitudParaOtroDePrueba). Sin
+// identidadDeContactoDelTurno el mensaje decía "con mail " y nada más.
+func TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-mail-tutor@example.com")
+
+	tutor := "mama@example.com"
+	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutor)
+	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutor, token1)
+	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
+	if rec1.Code != http.StatusCreated {
+		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
+	}
+
+	// Alguien más, con el mismo DNI y el mismo tipo, desde otro mail.
+	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
+	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req2.EmailContacto = "otro@example.com"
+	req2.DNIContacto = "40111222" // el mismo paciente que sacó el turno el tutor
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusConflict {
+		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
+	}
+	// El mail va censurado (censurarMailParcial), así que se chequea el
+	// pedazo visible — lo que importa es que NO quede vacío.
+	if !strings.Contains(rec2.Body.String(), censurarMailParcial(tutor)) {
+		t.Errorf("body = %s, esperaba el mail del tutor censurado (%s)", rec2.Body.String(), censurarMailParcial(tutor))
 	}
 }
 
@@ -2148,7 +2238,14 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdCreaTurnoConDatosReales(t *te
 // — corrección de QA sobre TR-107: "aunque esté verificado" — un paciente
 // verificado que ya tiene un turno activo NO puede sacar otro ni siquiera
 // usando su propia tarjeta de "ya he venido antes" (pacienteVerificadoId).
-func TestSolicitarTurnoPublico_PacienteVerificadoIdConTurnoActivoPropioRechaza(t *testing.T) {
+// TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo — reescrito en la
+// Fase 3 (bloque 0). Antes era ...PacienteVerificadoIdConTurnoActivoPropioRechaza
+// y afirmaba que el tope universal rechazaba el segundo pedido.
+//
+// Es el mismo flujo del cartel "¿querés sacar turno para otro tipo?", pero
+// por el camino "ya he venido antes": misma persona, mismo mail, misma
+// ficha elegida a mano, otro tipo de consulta.
+func TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
 	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
@@ -2165,8 +2262,7 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdConTurnoActivoPropioRechaza(t
 		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
 	}
 
-	// Mismo paciente, mismo mail, pero OTRO tipo de consulta — igual se
-	// rechaza, ya tiene un turno activo (el de arriba).
+	// Mismo paciente, mismo mail, OTRO tipo de consulta — tiene que entrar.
 	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?)",
 		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown").Error; err != nil {
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
@@ -2177,11 +2273,36 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdConTurnoActivoPropioRechaza(t
 		VerificacionToken: token2, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
-	if rec2.Code != http.StatusConflict {
-		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("segundo pedido: status = %d, esperaba %d (otro tipo, misma ficha). body=%s",
+			rec2.Code, http.StatusCreated, rec2.Body.String())
 	}
-	if !strings.Contains(rec2.Body.String(), "ya tenés un turno pendiente") {
-		t.Errorf("body = %s, esperaba el mensaje universal de turno activo", rec2.Body.String())
+
+	// Los dos turnos cuelgan de la ficha que ya existía — no se creó otra.
+	var turnos int64
+	if err := gdb.Model(&db.Turno{}).Where("paciente_id = ? AND estado = 'agendado' AND hora_fin >= now()", paciente.ID).
+		Count(&turnos).Error; err != nil {
+		t.Fatalf("no se pudieron contar los turnos: %v", err)
+	}
+	if turnos != 2 {
+		t.Errorf("la ficha tiene %d turnos vigentes, esperaba 2", turnos)
+	}
+
+	// Y un tercer pedido del MISMO tipo que el segundo sigue rechazándose:
+	// la regla nueva topea por tipo, no desapareció.
+	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?)",
+		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown").Error; err != nil {
+		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
+	}
+	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
+	req3 := solicitarTurnoPublicoRequest{
+		EmailContacto: email, TipoConsultaID: segundoTipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "11:00",
+		VerificacionToken: token3, PacienteVerificadoID: paciente.ID.String(),
+	}
+	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
+	if rec3.Code != http.StatusConflict {
+		t.Errorf("tercer pedido (mismo tipo que el segundo): status = %d, esperaba %d. body=%s",
+			rec3.Code, http.StatusConflict, rec3.Body.String())
 	}
 }
 
@@ -2610,5 +2731,73 @@ func TestErroresDormantesDeTurnoPublico_FormateanElMensaje(t *testing.T) {
 	otroTipoSinHora := &errYaTieneOtroTipoActivo{turno: db.Turno{}}
 	if got := otroTipoSinHora.Error(); !strings.Contains(got, "una fecha ya agendada") {
 		t.Errorf("errYaTieneOtroTipoActivo.Error() sin HoraInicio = %q, esperaba el fallback", got)
+	}
+}
+
+// TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno —
+// Fase 3 (bloque 0). El cartel final ofrece "¿querés sacar turno para otro
+// tipo?", y ese segundo pedido necesita una prueba de mail: la que vino se
+// consumió (de un solo uso, a propósito). El backend devuelve una nueva
+// para la misma identidad ya probada.
+//
+// Lo que este test fija, y es lo que evita que sea una puerta abierta: la
+// prueba nueva HEREDA el vencimiento de la vieja. La ventana total durante
+// la cual un mail verificado puede seguir sacando turnos sigue siendo la
+// misma media hora, se reemita una vez o diez.
+func TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "reemision1@example.com")
+	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	email := "repetidor@example.com"
+
+	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
+	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req.EmailContacto = email
+	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var resp solicitarTurnoPublicoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if resp.VerificacionToken == "" {
+		t.Fatal("no vino un token reemitido — el botón de 'otro tipo' no tendría con qué seguir")
+	}
+	if resp.VerificacionToken == token {
+		t.Error("el token reemitido es el mismo que el original — tiene que ser uno nuevo")
+	}
+
+	// El original quedó consumido: reusarlo no sirve.
+	reqViejo := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", token)
+	reqViejo.EmailContacto = email
+	if rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", reqViejo); rec.Code == http.StatusCreated {
+		t.Error("el token original siguió sirviendo después de usarse — tiene que ser de un solo uso")
+	}
+
+	// El reemitido sí, para otro tipo de consulta.
+	req2 := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "10:00", resp.VerificacionToken)
+	req2.EmailContacto = email
+	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("segundo pedido con el token reemitido: status = %d, esperaba %d. body=%s",
+			rec2.Code, http.StatusCreated, rec2.Body.String())
+	}
+
+	// Y la ventana no se corrió: las dos pruebas vencen en el mismo instante.
+	var vencimientos []time.Time
+	if err := gdb.Model(&db.VerificacionTurnoPublico{}).
+		Where("clinic_id = ? AND email = ? AND verified_at IS NOT NULL", reg.Profesional.ID, email).
+		Order("created_at").Pluck("expires_at", &vencimientos).Error; err != nil {
+		t.Fatalf("no se pudieron leer las verificaciones: %v", err)
+	}
+	if len(vencimientos) < 2 {
+		t.Fatalf("esperaba al menos 2 verificaciones (la original y la reemitida), hay %d", len(vencimientos))
+	}
+	for i, v := range vencimientos[1:] {
+		if !v.Equal(vencimientos[0]) {
+			t.Errorf("la verificación reemitida #%d vence en %v y la original en %v — la ventana se extendió",
+				i+1, v, vencimientos[0])
+		}
 	}
 }

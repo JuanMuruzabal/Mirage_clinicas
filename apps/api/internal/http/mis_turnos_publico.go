@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -50,9 +49,14 @@ func mailIdentificaAlTurno(turno db.Turno, email string) bool {
 }
 
 // misTurnosPublicoHandler — GET /clinicas/{slug}/mis-turnos?dni=&email=.
-// Gracias a la regla universal de "1 turno activo por DNI" (corrección
-// de QA sobre TR-107), a lo sumo hay UN turno vigente por DNI — no hace
-// falta devolver una lista.
+//
+// Devuelve una LISTA. Hasta la Fase 3 (bloque 0) devolvía un único turno,
+// y era correcto: la regla universal de "1 turno activo por DNI" (TR-107)
+// garantizaba que no podía haber más de uno. Esa regla se relajó a "1 por
+// DNI + TIPO de consulta" —el cliente pidió que un paciente pueda tener
+// una consulta general y un conducto a la vez—, así que el supuesto dejó
+// de valer: devolver solo el primero escondería turnos reales al paciente
+// que viene justamente a consultar los suyos.
 func misTurnosPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "slug")
@@ -83,64 +87,69 @@ func misTurnosPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 			return
 		}
 
-		var turno db.Turno
-		err := gdb.Where("profesional_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", clinic.ID, dni).
-			Order("hora_inicio").First(&turno).Error
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				writeError(w, http.StatusInternalServerError, "no se pudo buscar el turno")
-				return
-			}
-			writeError(w, http.StatusNotFound, "no encontramos ningún turno activo con esos datos")
+		var turnos []db.Turno
+		if err := gdb.Where("profesional_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", clinic.ID, dni).
+			Order("hora_inicio").Find(&turnos).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo buscar el turno")
 			return
 		}
-		// El mail tiene que coincidir con alguno de los que identifican a
-		// ESTE turno — nunca se revela que el DNI tiene un turno a quien no
-		// conoce un mail correcto (mismo motivo por el que dniCensurado/etc.
-		// existen en el resto del código: un dato ajeno no sale gratis).
+		// El mail tiene que coincidir con alguno de los que identifican al
+		// turno — nunca se revela que el DNI tiene turnos a quien no conoce
+		// un mail correcto (mismo motivo por el que dniCensurado/etc. existen
+		// en el resto del código: un dato ajeno no sale gratis). El filtro se
+		// aplica turno por turno: alcanza con conocer UN mail asociado para
+		// ver los turnos que ese mail identifica, no los del DNI entero.
 		//
 		// Bug corregido (auditoría 2026-09-08, segunda pasada): esto
 		// comparaba SOLO contra `turno.EmailContacto`. En el camino "para
 		// otro" (Fase 2.4.2) ese campo es el mail PROPIO del paciente —
 		// opcional, y casi siempre vacío: el mail que se verifica y que
-		// identifica el pedido es `TutorEmail`. Con la comparación vieja,
-		// un tutor que sacó turno para su hijo NUNCA podía encontrarlo acá
-		// (la feature quedaba rota entera para ese camino). Se aceptan los
-		// DOS mails asociados al turno: el del tutor (identidad verificada
-		// del pedido) y el propio del paciente si tiene uno cargado —
-		// ambos son de personas que legítimamente conocen este turno, y
-		// seguir exigiendo un mail correcto mantiene intacta la protección
-		// contra consultas de datos ajenos.
-		if !mailIdentificaAlTurno(turno, email) {
+		// identifica el pedido es `TutorEmail`. Con la comparación vieja, un
+		// tutor que sacó turno para su hijo NUNCA podía encontrarlo acá (la
+		// feature quedaba rota entera para ese camino). Se aceptan los DOS
+		// mails asociados al turno.
+		salida := make([]misTurnoPublicoResponse, 0, len(turnos))
+		for _, turno := range turnos {
+			if !mailIdentificaAlTurno(turno, email) {
+				continue
+			}
+
+			var tipoNombre string
+			if turno.TipoConsultaID != nil {
+				var tipo db.TipoConsulta
+				if err := gdb.First(&tipo, "id = ?", *turno.TipoConsultaID).Error; err == nil {
+					tipoNombre = tipo.Nombre
+				}
+			}
+
+			var fecha, horaInicio, horaFin string
+			if turno.HoraInicio != nil {
+				local := clock.In(*turno.HoraInicio)
+				fecha = local.Format("2006-01-02")
+				horaInicio = local.Format("15:04")
+			}
+			if turno.HoraFin != nil {
+				horaFin = clock.In(*turno.HoraFin).Format("15:04")
+			}
+
+			salida = append(salida, misTurnoPublicoResponse{
+				Fecha:              fecha,
+				HoraInicio:         horaInicio,
+				HoraFin:            horaFin,
+				TipoConsultaNombre: tipoNombre,
+				NombreContacto:     turno.NombreContacto,
+				ApellidoContacto:   turno.ApellidoContacto,
+			})
+		}
+
+		// Mismo 404 que un DNI inexistente cuando no queda ninguno: un DNI
+		// con turnos pero con el mail equivocado no puede distinguirse de un
+		// DNI sin turnos.
+		if len(salida) == 0 {
 			writeError(w, http.StatusNotFound, "no encontramos ningún turno activo con esos datos")
 			return
 		}
 
-		var tipoNombre string
-		if turno.TipoConsultaID != nil {
-			var tipo db.TipoConsulta
-			if err := gdb.First(&tipo, "id = ?", *turno.TipoConsultaID).Error; err == nil {
-				tipoNombre = tipo.Nombre
-			}
-		}
-
-		var fecha, horaInicio, horaFin string
-		if turno.HoraInicio != nil {
-			local := clock.In(*turno.HoraInicio)
-			fecha = local.Format("2006-01-02")
-			horaInicio = local.Format("15:04")
-		}
-		if turno.HoraFin != nil {
-			horaFin = clock.In(*turno.HoraFin).Format("15:04")
-		}
-
-		writeJSON(w, http.StatusOK, misTurnoPublicoResponse{
-			Fecha:              fecha,
-			HoraInicio:         horaInicio,
-			HoraFin:            horaFin,
-			TipoConsultaNombre: tipoNombre,
-			NombreContacto:     turno.NombreContacto,
-			ApellidoContacto:   turno.ApellidoContacto,
-		})
+		writeJSON(w, http.StatusOK, salida)
 	}
 }

@@ -257,3 +257,17 @@ Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el si
 Los tres restantes tienen su **condición de activación escrita** (ver `implementation-plan.md` §12.3), y hasta que se cumpla, hacerlos es trabajo sin retorno: Redis para el `IPLimiter` y el ajuste de pool/PgBouncer necesitan más de una instancia del backend (hoy hay una), y la refactorización de los tres archivos más grandes quedó postergada a la próxima radiografía — es el único ítem del informe que no arregla nada, el más caro, y el único que puede introducir regresiones sobre el camino más delicado del sistema.
 
 ---
+
+## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
+
+Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`; plan en `docs/Arquitectura y base/implementation-plan.md` §13.
+
+**Bloque 0 — cambios al wizard, cerrado el 2026-09-12 (TR-133).** Tres correcciones previas al multi-tenant, sobre el mismo código que la Fase 3 va a extender:
+
+1. **El tope vuelve a ser 1 turno activo por DNI y tipo de consulta**, no 1 por DNI en toda la clínica (revierte TR-109). La regla universal le pegaba al caso normal —"los pacientes suelen hacer varios turnos de diferentes tipos"— y no al abuso. Lo que protege la identidad no era el tope sino la detección de conflictos (mismo DNI + mail distinto → dos fichas y un conflicto a resolver a mano), que estaba tapada por él y ahora vuelve a actuar.
+2. **Botón "¿Querés sacar turno para otro tipo?"** en el cartel de confirmación, que vuelve al último paso con los datos cargados. La prueba de mail es de un solo uso a propósito, así que se **reemite heredando el vencimiento original**: la ventana total durante la cual un mail verificado puede seguir sacando turnos es exactamente la de antes.
+3. **"Ya he venido antes" reconoce también a quien tiene un turno activo**, no solo al paciente verificado — con el tope relajado, volver a sacar turno antes de haberse atendido pasa a ser el caso normal. Reconocer no es verificar: la tarjeta sigue mostrando los datos censurados y el flujo sigue pidiendo el código al mail.
+
+Consecuencia: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista** de turnos, no uno solo.
+
+**Pendiente — el multi-tenant propiamente dicho:** 1 clínica → N profesionales (vistas aisladas por profesional, pacientes y turnos viviendo en la clínica) y 1 profesional → N clínicas, más roles (administrador, recepcionista), onboarding "¿dónde trabajás hoy?" y gestión de colaboradores. Dos entregables de documentación comprometidos en el brief: diagramas ER pre- y post-Fase 3 en `docs/Arquitectura y base/modelo de datos/`, y un documento explicativo del cambio de modelo en `docs/Fases post MVP/Fase 3/`.

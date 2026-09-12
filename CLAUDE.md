@@ -95,6 +95,20 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 
 **Fase C — lo que sigue pendiente,** y no tiene fecha: cada ítem tiene una condición de activación escrita (`implementation-plan.md` §12.3). La refactorización de `turno_publico.go`/`turnos.go`/`pedir-turno-form.tsx` quedó postergada a la próxima radiografía — no refactorizar eso "de paso" sin pedido explícito.
 
+## Fase 3 — Multi-tenant (N profesionales / N clínicas)
+
+Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`; mockups en `docs/Fases post MVP/Fase 3/Mockups/`; plan en `docs/Arquitectura y base/implementation-plan.md` §13.
+
+**Bloque 0 — cambios al wizard público, cerrado el 2026-09-12 (TR-133).** Explicación larga en `docs/Fases post MVP/Fase 3/bloque-0-wizard-sacar-turno.md`; mecanismo en `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` §1.4quater. Lo que cambia respecto a lo que dicen las secciones de Fase 2 más arriba:
+
+- **La regla vigente es 1 turno activo por DNI Y TIPO DE CONSULTA**, no 1 por DNI en toda la clínica. TR-109 queda revertido: `turnoActivoPorDNI`/`turnoActivoDeOtroTipo` siguen en el código sin call sites (`//nolint:unused`), vale `turnoActivoDelMismoTipo`. Cualquier texto anterior que diga "tope universal de 1 turno activo por DNI" describe el estado viejo.
+- **Relajar el tope no quitó protección:** la identidad la protege la detección de conflictos (mismo DNI + mail distinto → dos fichas + conflicto a resolver a mano), que el tope tapaba. No "reforzar" esto con un tope nuevo sin pedido explícito.
+- **La prueba de mail se reemite heredando su vencimiento** (`consumirYReemitirVerificacionTurnoPublico`). Sigue siendo de un solo uso; lo que no hace es reiniciar los 30 minutos. Si tocás esto, la herencia del `ExpiresAt` es la parte que no se puede perder.
+- **`pacienteReconocibleEnElWizard` ≠ `pacienteEstaVerificado`.** El primero (verificado **o** con turno activo) decide si aparece la tarjeta de "ya he venido antes". El segundo, más estricto, sigue rigiendo todo lo demás. No unificarlos.
+- **`GET /clinicas/{slug}/mis-turnos` devuelve una LISTA**, y sigue dando 404 —no 200 con lista vacía— cuando ninguno matchea.
+
+**Pendiente:** el multi-tenant propiamente dicho (vistas aisladas por profesional, N clínicas por profesional, roles, onboarding "¿dónde trabajás hoy?", colaboradores, elección de profesional en el wizard) + dos entregables de documentación comprometidos en el brief: diagramas ER pre- y post-Fase 3 en `docs/Arquitectura y base/modelo de datos/`, y un `.md` explicativo del cambio de modelo en `docs/Fases post MVP/Fase 3/`.
+
 ## Flujo de ramas
 
 Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`.

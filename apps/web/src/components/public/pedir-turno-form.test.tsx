@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act, type ComponentProps } from "react";
 
@@ -259,6 +259,63 @@ describe("PedirTurnoForm", () => {
     );
     const link = screen.getByRole("link", { name: "Escribir también por WhatsApp" });
     expect(link).toHaveAttribute("href", expect.stringContaining("https://wa.me/5493511234567"));
+  });
+
+  // "¿Querés sacar turno para otro tipo?" (Fase 3, bloque 0) — el botón
+  // existe porque la regla pasó de 1 turno activo por DNI a 1 por DNI y
+  // tipo de consulta.
+  it("con el token reemitido, ofrece sacar otro turno y vuelve al último paso con los datos cargados", async () => {
+    solicitarTurnoPublicoActionMock.mockResolvedValue({
+      id: "turno-1",
+      horaInicio: "2030-06-03T10:00:00-03:00",
+      horaFin: "2030-06-03T10:30:00-03:00",
+      verificacionToken: "token-reemitido",
+    });
+    const user = userEvent.setup();
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X" });
+
+    await avanzarHastaTurno(user);
+    await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+    expect(await screen.findByText(/¡Listo!/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "¿Querés sacar turno para otro tipo?" }));
+
+    // Vuelve al último paso, no al principio: el tipo y el horario se
+    // vuelven a elegir, pero los datos personales no se retipean.
+    expect(await screen.findByText("Tipo de consulta")).toBeInTheDocument();
+    expect(screen.queryByText(/¡Listo!/)).not.toBeInTheDocument();
+    // El horario quedó limpio (el turno recién sacado ocupó un slot), así
+    // que hay que volver a elegir uno antes de poder confirmar.
+    expect(screen.getByRole("button", { name: "Confirmar turno" })).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: "10:15" }));
+
+    // Y el segundo pedido viaja con la prueba de mail NUEVA — con la
+    // original (ya consumida) el backend lo rechazaría.
+    await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+    await waitFor(() =>
+      expect(solicitarTurnoPublicoActionMock).toHaveBeenLastCalledWith(
+        "clinica-x",
+        expect.objectContaining({ dniContacto: "30111222", verificacionToken: "token-reemitido" }),
+      ),
+    );
+  });
+
+  it("sin token reemitido, no ofrece sacar otro turno", async () => {
+    // Sin prueba nueva el pedido siguiente sería rechazado: mejor no
+    // ofrecer el botón que ofrecerlo y que falle al tocarlo.
+    solicitarTurnoPublicoActionMock.mockResolvedValue({
+      id: "turno-1",
+      horaInicio: "2030-06-03T10:00:00-03:00",
+      horaFin: "2030-06-03T10:30:00-03:00",
+    });
+    const user = userEvent.setup();
+    renderForm({ slug: "clinica-x", nombreClinica: "Clínica X" });
+
+    await avanzarHastaTurno(user);
+    await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+    expect(await screen.findByText(/¡Listo!/)).toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "¿Querés sacar turno para otro tipo?" })).not.toBeInTheDocument();
   });
 
   it("en éxito sin teléfono de clínica, muestra confirmación sin link de WhatsApp", async () => {
