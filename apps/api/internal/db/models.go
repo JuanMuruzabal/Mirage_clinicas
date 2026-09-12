@@ -559,7 +559,7 @@ type Turno struct {
 	// EsParaOtro/Tutor* — Fase 2.4.2, camino "sacar turno para otro": a
 	// diferencia de los campos Contacto de arriba (que SIGUEN siendo el
 	// paciente, sin cambio de significado — ver el comentario grande en
-	// docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md Parte 3 sobre por qué), este es
+	// docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md Parte 3 sobre por qué), este es
 	// un set PARALELO con el snapshot de quien reservó en nombre del
 	// paciente. Mismo criterio que NombreContacto/ApellidoContacto: un
 	// snapshot propio de Turno, no un join en vivo contra Paciente (ver

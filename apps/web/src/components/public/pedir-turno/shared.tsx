@@ -5,7 +5,7 @@ import { IconChevronDown, IconCheckBadge, IconX } from "@/components/icons";
 
 /**
  * Componentes compartidos del rediseño del wizard público "Pedir turno"
- * (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3). Implementados una sola vez acá y
+ * (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3). Implementados una sola vez acá y
  * reutilizados en cada pantalla del flujo — el propio documento lo pide
  * como paso 1 de su orden sugerido (§9): "todo lo demás depende de esto".
  *
@@ -83,7 +83,7 @@ interface ModalShellProps {
 
 // Estructura de 3 zonas (cabecera fija / cuerpo con scroll / pie fijo) —
 // pedido explícito del cliente sobre la primera entrega del rediseño
-// (docs/archivo/prompt-claude-code-fecha-horario.md, punto 3): "con el calendario
+// (docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md, punto 3): "con el calendario
 // abierto la pantalla no entra en viewports chicos... aplicá esto a TODOS
 // los modales del flujo, porque el mismo problema aparece con la lista
 // larga de fichas de [5b]". Antes todo el contenido (título, subtítulo,
@@ -169,7 +169,7 @@ interface ModalFooterProps {
 
 // Sin borde/margen propios (antes tenía `border-t`/`mt-5`/`pt-4`): eso
 // ahora lo pone la zona fija de pie de ModalShell — con las 3 zonas de
-// scroll (docs/archivo/prompt-claude-code-fecha-horario.md, punto 3), un divisor
+// scroll (docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md, punto 3), un divisor
 // acá Y otro en ModalShell hubiera dejado dos líneas seguidas.
 export function ModalFooter({ onBack, backLabel = "Atrás", paso, total, actionLabel, onAction, actionDisabled, actionType = "button", formId }: ModalFooterProps) {
   return (

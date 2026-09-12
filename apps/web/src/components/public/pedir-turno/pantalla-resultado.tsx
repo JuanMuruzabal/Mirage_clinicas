@@ -5,7 +5,7 @@ import { FilaPersona, ModalFooter, ModalShell } from "./shared";
 
 /**
  * [5a]/[5b] — resultado de la búsqueda, ya con el código validado
- * (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §5). El backend solo expone
+ * (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §5). El backend solo expone
  * `{id, nombre, dni}` en `PacienteVerificadoPublico` (`lib/api.ts`) — sin
  * "última visita" ni vínculo, que el mockup del doc muestra en la
  * segunda línea de la fila de persona. No se inventan esos datos: la
@@ -47,7 +47,7 @@ export function PantallaSosVos({
 // datos que hacen falta para dar de alta un paciente nuevo bajo ese
 // tutor; sumarlos a [3e] queda pendiente de una decisión aparte). Sin
 // scroll propio (a diferencia de la primera entrega): el CUERPO del
-// modal ya scrollea solo (docs/archivo/prompt-claude-code-fecha-horario.md,
+// modal ya scrollea solo (docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md,
 // punto 3) — un segundo scroll acá adentro sería scroll anidado.
 export function PantallaParaQuienLista({
   pacientes,

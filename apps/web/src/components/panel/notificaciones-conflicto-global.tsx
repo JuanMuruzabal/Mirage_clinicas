@@ -8,7 +8,7 @@ import { panelNotificacionesAction } from "@/app/actions/panel";
 
 // NotificacionesConflictoGlobal — pedido textual del cliente: "si estoy
 // afuera de la sección pacientes mostrar las notificaciones de conflicto
-// en la zona [marcada en docs/foto1.png — arriba del todo, encima del
+// en la zona [marcada en docs/foto1.png, que ya no está en el repo — arriba del todo, encima del
 // título/toolbar de cada pantalla del panel]... si es conflicto de
 // pacientes que diga tenés un conflicto con los pacientes y me envíe al
 // apartado paciente, si es conflicto con turno de calendario al
@@ -59,7 +59,7 @@ export function NotificacionesConflictoGlobal() {
   // su propio contenedor con este mismo padding horizontal (p-8/clamp),
   // así que este aviso — un hermano de esa página, no un hijo — necesita
   // el suyo para alinear con el título/toolbar de abajo, en vez de pegado
-  // al borde izquierdo del sidebar (ver docs/foto1.png).
+  // al borde izquierdo del sidebar (ver docs/foto1.png, que ya no está en el repo).
   return (
     <div className="px-8 pt-4 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-2">
       <div className="flex flex-col gap-2">

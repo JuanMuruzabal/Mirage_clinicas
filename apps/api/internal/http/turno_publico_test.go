@@ -183,7 +183,7 @@ func TestSolicitarTurnoPublico_ParaOtroSinTutorEmailFalla(t *testing.T) {
 }
 
 // TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs —
-// Fase 2.4.2 (docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.6): un tutor real con
+// Fase 2.4.2 (docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.6): un tutor real con
 // varios hijos (mismo mail, DNIs distintos) es exactamente el patrón que
 // el detector de "mail con muchos DNIs" (1.5) no debe tocar — se pide un
 // 3er hijo (el límite de la sección 1.5 es 2) y debe pasar sin bloquear
@@ -222,7 +222,7 @@ func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *te
 }
 
 // TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto —
-// caso cruzado de conflicto (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4),
+// caso cruzado de conflicto (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4),
 // versión "para otro" de
 // TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOriginalYaVerificada:
 // mismo DNI de paciente, pero el SEGUNDO tutor no responde al TutorEmail de
@@ -837,7 +837,7 @@ func TestListDisponibilidadPublica_TipoConsultaInexistente(t *testing.T) {
 	}
 }
 
-// TestListDisponibilidadMesPublica_Exitoso — docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+// TestListDisponibilidadMesPublica_Exitoso — docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
 // §3.8 (panel de calendario mensual): sin horario de atención configurado
 // (cae al default 08:00-18:00, sin bloqueos ni turnos), los 30 días de
 // junio 2030 tienen que salir todos con disponibilidad.

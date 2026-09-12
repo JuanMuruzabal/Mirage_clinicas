@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agregar horario reservado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --card:#FDFCF8;--field:#F5F1E9;--ink:#2C2C26;--muted:#8B8578;--muted-soft:#A9A395;
+    --line:#E9E4D9;--green:#46603A;--green-deep:#324529;--green-tint:#E5ECE0;--danger:#9A3B32;
+    --display:'Oswald',system-ui,sans-serif;--body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--body);color:var(--ink);background:#EDEAE2;-webkit-font-smoothing:antialiased}
+  button{font-family:var(--body)}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+  [hidden]{display:none!important}
+
+  .overlay{position:fixed;inset:0;background:rgba(44,44,38,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:50}
+  .modal{background:var(--card);border-radius:20px;width:100%;max-width:620px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 70px rgba(40,34,20,.3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.6rem 1.9rem;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-family:var(--display);font-weight:700;font-size:25px;margin:0;line-height:1.15}
+  .close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex}
+  .close:hover{color:var(--ink)}
+  .modal-body{padding:1.6rem 1.9rem 1.9rem}
+
+  .lbl{display:flex;align-items:baseline;gap:9px;font-size:16px;margin:0 0 .6rem}
+  .lbl small{font-size:13px;color:var(--muted-soft)}
+  .fg{margin-bottom:1.4rem}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+  .hint{font-size:14.5px;color:var(--muted);line-height:1.55;margin:0 0 1.3rem}
+  .err{font-size:14px;color:var(--danger);margin:.6rem 0 0}
+
+  /* Profesional */
+  .pf{position:relative;margin-bottom:1.5rem}
+  .pf-btn{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--field);border:1px solid transparent;border-radius:12px;padding:12px 15px;cursor:pointer}
+  .pf-btn:hover{background:#F1ECE2}
+  .pf-btn[aria-expanded="true"]{border-color:var(--green);background:#FBF9F3}
+  .pf-av{width:38px;height:38px;border-radius:50%;background:var(--green-tint);color:var(--green-deep);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;font-size:13.5px;flex:none}
+  .pf-av--vacio{background:#EAE5DA;color:var(--muted)}
+  .pf-name{display:block;font-weight:500;font-size:15.5px;line-height:1.3}
+  .pf-sub{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+  .pf-chev{margin-left:auto;color:var(--muted);display:flex}
+  .pop{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#FFFEFC;border:1px solid var(--line);border-radius:13px;box-shadow:0 16px 44px rgba(45,38,22,.16);padding:.5rem;z-index:20;max-height:300px;overflow-y:auto}
+  .pop-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;border-radius:9px;padding:.7rem .8rem;cursor:pointer;font-size:15px;color:var(--ink)}
+  .pop-item:hover{background:#F5F2EA}
+  .pop-item--on,.pop-item--on:hover{background:var(--green-tint)}
+  .check{margin-left:auto;color:var(--green);display:flex}
+
+  /* Tabs */
+  .tabs{display:flex;gap:4px;border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:1.3rem}
+  .tabs button{flex:1;background:transparent;border:none;border-radius:999px;padding:12px 10px;font-size:15.5px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .tabs button:hover{background:#F3EFE6}
+  .tabs button[aria-selected="true"]{background:var(--green);color:#FBFAF6;font-weight:500}
+  .tabs button[aria-selected="true"]:hover{background:var(--green-deep)}
+
+  .gate{position:relative}
+  .gate.cerrado{opacity:.4;pointer-events:none;user-select:none}
+  .gate-aviso{display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--danger);margin:0 0 1.1rem}
+
+  /* Campos */
+  input[type="text"],input[type="time"],input[type="date"],select{
+    width:100%;font-family:var(--body);font-size:16px;color:var(--ink);
+    background:var(--field);border:1px solid transparent;border-radius:10px;padding:15px 16px;
+  }
+  input::placeholder{color:#BDB6A7}
+  input:focus,select:focus{outline:none;border-color:var(--green);background:#FBF9F3}
+  select{
+    appearance:none;-webkit-appearance:none;padding-right:46px;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238B8578' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 16px center;
+  }
+  input[type="time"],input[type="date"]{cursor:pointer}
+
+  .resumen{
+    background:var(--green-tint);border-radius:11px;padding:1rem 1.15rem;
+    font-size:15px;line-height:1.55;color:var(--green-deep);margin-top:.4rem;
+  }
+  .modal-foot{display:flex;justify-content:flex-end;margin-top:1.6rem}
+  .btn-solid{background:var(--green);color:#FBFAF6;border:none;border-radius:999px;padding:16px 30px;font-size:16px;font-weight:500;cursor:pointer}
+  .btn-solid:hover{background:var(--green-deep)}
+
+  @media (max-width:620px){
+    .modal-body,.modal-head{padding-left:1.25rem;padding-right:1.25rem}
+    .tabs{flex-direction:column;border-radius:14px}
+    .tabs button{border-radius:10px}
+    .row2{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Agregar horario reservado general</h2>
+      <button class="close" id="cerrar" aria-label="Cerrar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- 1. Profesional, siempre primero -->
+      <div class="fg">
+        <p class="lbl">Profesional <small>Obligatorio</small></p>
+        <div class="pf">
+          <button class="pf-btn" id="pf-btn" aria-expanded="false" aria-haspopup="true">
+            <span class="pf-av pf-av--vacio" id="pf-av">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+            </span>
+            <span>
+              <span class="pf-name" id="pf-name">Elegí el profesional</span>
+              <span class="pf-sub" id="pf-sub">El horario se bloquea en su agenda</span>
+            </span>
+            <span class="pf-chev" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          </button>
+          <div class="pop" id="pf-pop" hidden></div>
+        </div>
+      </div>
+
+      <!-- 2. Tipo de repetición -->
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="general" aria-selected="true">General</button>
+        <button role="tab" data-tab="especifico" aria-selected="false">Específico</button>
+      </div>
+
+      <p class="gate-aviso" id="gate-aviso" hidden>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+        Elegí primero el profesional para seguir.
+      </p>
+
+      <div class="gate" id="gate">
+        <p class="hint" id="hint-modo">Se repite todas las semanas dentro del alcance que elijas. Sirve para bloques fijos, como la limpieza del consultorio.</p>
+
+        <div class="fg">
+          <label class="lbl" for="f-tipo">Tipo de horario reservado</label>
+          <select id="f-tipo">
+            <option>Bloquear horario</option>
+            <option>Limpieza</option>
+            <option>Consulta general</option>
+            <option>Control</option>
+            <option>Urgencia</option>
+            <option>Primera consulta</option>
+          </select>
+        </div>
+
+        <div id="campos-general">
+          <div class="fg">
+            <label class="lbl" for="f-alcance">Alcance</label>
+            <select id="f-alcance">
+              <option value="semana">Esta semana</option>
+              <option value="mes">Este mes</option>
+              <option value="siempre">Todas las semanas, sin fecha de fin</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="lbl" for="f-dia">Día</label>
+            <select id="f-dia">
+              <option>Lunes</option><option>Martes</option><option>Miércoles</option>
+              <option>Jueves</option><option>Viernes</option><option>Sábado</option><option>Domingo</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="campos-especifico" hidden>
+          <div class="fg">
+            <label class="lbl" for="f-fecha">Fecha</label>
+            <input type="date" id="f-fecha">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="fg">
+            <label class="lbl" for="f-desde">Desde</label>
+            <input type="time" id="f-desde" step="300">
+          </div>
+          <div class="fg">
+            <label class="lbl" for="f-hasta">Hasta</label>
+            <input type="time" id="f-hasta" step="300">
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="lbl" for="f-motivo">Motivo <small>Opcional</small></label>
+          <input type="text" id="f-motivo" placeholder="Ej.: limpieza semanal" autocomplete="off">
+        </div>
+
+        <p class="err" id="err" hidden></p>
+        <p class="resumen" id="resumen"></p>
+
+        <div class="modal-foot">
+          <button class="btn-solid" id="agregar">Agregar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var profesionales = [
+    {n:'Juan Muru', esp:'Odontología general'},
+    {n:'Lucía Ferrer', esp:'Ortodoncia'},
+    {n:'Matías Soto', esp:'Endodoncia'},
+    {n:'Valeria Nieto', esp:'Odontopediatría'}
+  ];
+
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var modo = 'general';
+  var profElegido = null;
+
+  function ini(nombre){
+    var p = nombre.split(' ');
+    return ((p[0]||'').charAt(0) + (p[1]||'').charAt(0)).toUpperCase();
+  }
+  var svgCheck = '<span class="check" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span>';
+  var svgPersona = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>';
+
+  var pfBtn = document.getElementById('pf-btn');
+  var pfPop = document.getElementById('pf-pop');
+  var pfAv = document.getElementById('pf-av');
+  var pfName = document.getElementById('pf-name');
+  var pfSub = document.getElementById('pf-sub');
+
+  function pintarProfesional(){
+    pfPop.innerHTML = '';
+    for(var i=0;i<profesionales.length;i++){
+      (function(p, idx){
+        var b = document.createElement('button');
+        b.className = 'pop-item' + (profElegido === idx ? ' pop-item--on' : '');
+        b.innerHTML = '<span class="pf-av">'+ini(p.n)+'</span>'+
+          '<span><span class="pf-name">'+p.n+'</span><span class="pf-sub">'+p.esp+'</span></span>'+
+          (profElegido === idx ? svgCheck : '');
+        b.addEventListener('click', function(){ profElegido = idx; cerrarPop(); actualizar(); });
+        pfPop.appendChild(b);
+      })(profesionales[i], i);
+    }
+    if(profElegido === null){
+      pfAv.className = 'pf-av pf-av--vacio';
+      pfAv.innerHTML = svgPersona;
+      pfName.textContent = 'Elegí el profesional';
+      pfSub.textContent = 'El horario se bloquea en su agenda';
+    } else {
+      var q = profesionales[profElegido];
+      pfAv.className = 'pf-av';
+      pfAv.textContent = ini(q.n);
+      pfName.textContent = q.n;
+      pfSub.textContent = q.esp;
+    }
+  }
+
+  /* Tabs */
+  var titulo = document.getElementById('modal-title');
+  var hintModo = document.getElementById('hint-modo');
+  var camposGeneral = document.getElementById('campos-general');
+  var camposEspecifico = document.getElementById('campos-especifico');
+  var tabsBtns = document.querySelectorAll('.tabs button');
+
+  for(var t=0;t<tabsBtns.length;t++){
+    tabsBtns[t].addEventListener('click', function(){
+      modo = this.getAttribute('data-tab');
+      for(var j=0;j<tabsBtns.length;j++){
+        tabsBtns[j].setAttribute('aria-selected', String(tabsBtns[j].getAttribute('data-tab') === modo));
+      }
+      actualizar();
+    });
+  }
+
+  /* Gate */
+  var gate = document.getElementById('gate');
+  var gateAviso = document.getElementById('gate-aviso');
+
+  var fTipo = document.getElementById('f-tipo');
+  var fAlcance = document.getElementById('f-alcance');
+  var fDia = document.getElementById('f-dia');
+  var fFecha = document.getElementById('f-fecha');
+  var fDesde = document.getElementById('f-desde');
+  var fHasta = document.getElementById('f-hasta');
+  var fMotivo = document.getElementById('f-motivo');
+  var elErr = document.getElementById('err');
+  var elResumen = document.getElementById('resumen');
+
+  (function(){
+    var h = new Date();
+    fFecha.value = h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0')+'-'+String(h.getDate()).padStart(2,'0');
+  })();
+
+  function fechaLarga(v){
+    if(!v){ return 'una fecha sin definir'; }
+    var p = v.split('-');
+    return 'el '+parseInt(p[2],10)+' de '+MESES[parseInt(p[1],10)-1]+' de '+p[0];
+  }
+
+  function actualizar(){
+    titulo.textContent = 'Agregar horario reservado ' + (modo === 'general' ? 'general' : 'específico');
+    hintModo.textContent = modo === 'general'
+      ? 'Se repite todas las semanas dentro del alcance que elijas. Sirve para bloques fijos, como la limpieza del consultorio.'
+      : 'Una sola fecha. Sirve para un feriado, un congreso o una tarde que no se va a atender.';
+    camposGeneral.hidden = (modo !== 'general');
+    camposEspecifico.hidden = (modo === 'general');
+
+    var cerrado = profElegido === null;
+    gate.classList.toggle('cerrado', cerrado);
+    gateAviso.hidden = !cerrado;
+
+    pintarProfesional();
+    pintarResumen();
+  }
+
+  function pintarResumen(){
+    var quien = profElegido === null ? 'el profesional que elijas' : profesionales[profElegido].n;
+    var accion = fTipo.value === 'Bloquear horario' ? 'Se bloquea' : 'Se reserva para ' + fTipo.value.toLowerCase();
+    var horas = (fDesde.value && fHasta.value) ? ' de '+fDesde.value+' a '+fHasta.value : ' en el horario que cargues';
+    var cuando;
+    if(modo === 'general'){
+      var alc = fAlcance.value === 'semana' ? 'esta semana'
+              : fAlcance.value === 'mes' ? 'este mes'
+              : 'todas las semanas, sin fecha de fin';
+      cuando = ' todos los ' + fDia.value.toLowerCase() + ', ' + alc;
+    } else {
+      cuando = ' ' + fechaLarga(fFecha.value);
+    }
+    elResumen.textContent = accion + horas + cuando + ', en la agenda de ' + quien + '.';
+  }
+
+  var campos = [fTipo, fAlcance, fDia, fFecha, fDesde, fHasta];
+  for(var c=0;c<campos.length;c++){
+    campos[c].addEventListener('change', function(){ elErr.hidden = true; pintarResumen(); });
+  }
+
+  /* Popover */
+  function cerrarPop(){ pfPop.hidden = true; pfBtn.setAttribute('aria-expanded','false'); }
+  pfBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var abierto = !pfPop.hidden;
+    cerrarPop();
+    if(!abierto){ pfPop.hidden = false; pfBtn.setAttribute('aria-expanded','true'); }
+  });
+  pfPop.addEventListener('click', function(e){ e.stopPropagation(); });
+  document.addEventListener('click', cerrarPop);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ cerrarPop(); } });
+
+  /* Guardar */
+  document.getElementById('agregar').addEventListener('click', function(){
+    if(!fDesde.value || !fHasta.value){
+      elErr.textContent = 'Cargá desde qué hora y hasta qué hora.';
+      elErr.hidden = false; return;
+    }
+    if(fHasta.value <= fDesde.value){
+      elErr.textContent = 'La hora de fin tiene que ser posterior a la de inicio.';
+      elErr.hidden = false; return;
+    }
+    if(modo === 'especifico' && !fFecha.value){
+      elErr.textContent = 'Elegí la fecha.';
+      elErr.hidden = false; return;
+    }
+    elErr.hidden = true;
+
+    var datos = {
+      profesional: profesionales[profElegido],
+      modo: modo,
+      tipo: fTipo.value,
+      desde: fDesde.value,
+      hasta: fHasta.value,
+      motivo: fMotivo.value.trim() || null
+    };
+    if(modo === 'general'){
+      datos.alcance = fAlcance.value;
+      datos.dia = fDia.value;
+    } else {
+      datos.fecha = fFecha.value;
+    }
+    console.log('Agregar horario reservado', datos);
+  });
+
+  document.getElementById('cerrar').addEventListener('click', function(){
+    document.getElementById('overlay').hidden = true;
+  });
+
+  actualizar();
+</script>
+
+</body>
+</html>

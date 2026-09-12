@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "General — PRISMA" };
 
 // Dashboard "Turnero" (F2.3 extra ítem 1 — rediseño completo,
 // docs/Arquitectura y base/implementation-plan.md §11.5, brief en
-// docs/Fase 2/fase2.3-extra-dental-mirage.md): reemplaza las 2 tarjetas viejas
+// docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md): reemplaza las 2 tarjetas viejas
 // (turnos pendientes/turnos próximos, T2.2) por 5 — 3 con un cuerpo de
 // filas scrolleable, 2 solo con un número. El estado `pendiente` en sí
 // sigue existiendo en el backend (lo saca recién el ítem 2.3.3/2.3.5,

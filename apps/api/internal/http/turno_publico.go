@@ -482,7 +482,7 @@ const ventanaRotacionPorIP = 30 * time.Minute
 // no combinados) que llegaron desde esta IP en la ventana de arriba. Ver
 // el comentario grande de limiteDistintosPorIPParaRotacion sobre por qué
 // no alcanza con un conteo combinado.
-// identidadEmailSQL — Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`
+// identidadEmailSQL — Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`
 // 3.6): la identidad que rota es la del TUTOR en un turno "para otro", no
 // la del paciente (que puede no tener mail propio, o directamente
 // compartirlo con otros hijos del mismo tutor a propósito) — un tutor
@@ -700,7 +700,7 @@ type disponibilidadMesResponse struct {
 }
 
 // listDisponibilidadMesPublicaHandler — GET
-// /clinicas/{slug}/disponibilidad-mes (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+// /clinicas/{slug}/disponibilidad-mes (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
 // §3.8, "panel de calendario mensual"): a diferencia de
 // listDisponibilidadPublicaHandler (un día concreto, la tira de
 // horarios), acá se pide UN MES entero para poder pintar qué días tienen
@@ -908,7 +908,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			writeError(w, http.StatusBadRequest, "verificá tu mail antes de pedir el turno")
 			return
 		}
-		// identidadEmail — Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`
+		// identidadEmail — Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`
 		// 3.1/3.3): el mail que de verdad se verificó y que identifica el
 		// pedido es el del TUTOR cuando `paraOtro=true` — EmailContacto
 		// pasa a ser el mail PROPIO (opcional) del paciente en ese camino,
@@ -1183,7 +1183,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// pedido que dispara el límite ni llega a crear nada — solo se
 			// borran los que ya existían.
 			//
-			// Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.6): se
+			// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.6): se
 			// EXCEPTÚA DEL TODO para "para otro" — un tutor real con
 			// varios hijos (mismo mail, DNIs distintos) es EXACTAMENTE el
 			// patrón que este chequeo no debe tocar. No se redirige a

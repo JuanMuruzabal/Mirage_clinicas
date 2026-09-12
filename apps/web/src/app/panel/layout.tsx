@@ -70,7 +70,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
         {/* NotificacionesConflictoGlobal — pedido textual del cliente:
             aviso de conflicto (pacientes o calendario) visible desde
             CUALQUIER pantalla del panel, arriba del todo (ver
-            docs/foto1.png). Primer hijo de `<main>`, antes que la propia
+            docs/foto1.png, que ya no está en el repo). Primer hijo de `<main>`, antes que la propia
             página — cada pantalla se salta su propio aviso más
             específico para no duplicarlo (ver el componente). */}
         <NotificacionesConflictoGlobal />

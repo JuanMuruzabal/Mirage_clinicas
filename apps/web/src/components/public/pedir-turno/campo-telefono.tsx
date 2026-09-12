@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Campo de teléfono con selector de país (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
+ * Campo de teléfono con selector de país (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md
  * §5, [3a]) — un solo control visual: contenedor con el estilo de campo
  * de 3.3, y adentro `<select>` de país + separador + `<input>`. El foco
  * en cualquiera de las dos partes ilumina el contenedor entero

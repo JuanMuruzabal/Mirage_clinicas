@@ -1,14 +1,14 @@
 // Tipos espejo de los structs Go de apps/api (internal/http/*.go). Se
 // amplía en cada sprint que agregue un endpoint nuevo — mantenimiento a
 // mano, no generado (mismo trade-off que Marcuzzi_Madryn, ver R8 en
-// docs/implementation-plan.md).
+// docs/Arquitectura y base/implementation-plan.md).
 
 export interface Especialidad {
   id: string;
   nombre: string;
 }
 
-// --- Auth/onboarding (docs/feature-sumarte-login.md) ---
+// --- Auth/onboarding (docs/Login/feature-sumarte-login.md) ---
 // Reemplaza al viejo Profesional/AuthResponse (una sola fila que hacía de
 // usuario+clínica) — ahora la identidad (User), el perfil profesional
 // (ProfessionalProfile) y la clínica (Clinic) son entidades separadas.
@@ -71,13 +71,13 @@ export interface RegisterResponse {
   token?: string;
   email: string;
   mensaje: string;
-  // TR-051 en docs/tradeoffs.md: cuentas nativas nuevas pueden llegar ya
+  // TR-051 en docs/Arquitectura y base/tradeoffs.md: cuentas nativas nuevas pueden llegar ya
   // verificadas (AutoVerifyEmail en el backend, mientras Resend no esté
   // configurado) — el wizard usa esto para saltar la pantalla "revisá tu
   // correo" e ir directo al Paso 2, igual que con Google.
   emailVerificado: boolean;
   onboardingStep?: OnboardingStep;
-  // TR-062 en docs/tradeoffs.md: true únicamente cuando el mail ya tiene
+  // TR-062 en docs/Arquitectura y base/tradeoffs.md: true únicamente cuando el mail ya tiene
   // una cuenta VERIFICADA — el único caso donde se decide revelarlo a
   // propósito (pedido explícito del cliente, revierte parcialmente el
   // anti-enumeración de arriba solo para este caso puntual). El wizard
@@ -114,7 +114,7 @@ export interface GoogleResponse {
   onboardingStep: OnboardingStep;
 }
 
-// TR-055 en docs/tradeoffs.md: código de 6 dígitos que se escribe a mano,
+// TR-055 en docs/Arquitectura y base/tradeoffs.md: código de 6 dígitos que se escribe a mano,
 // no un token de link — hace falta el mail para saber contra qué cuenta
 // validarlo (el código en sí no es único globalmente).
 export interface VerificarEmailPayload {
@@ -191,7 +191,7 @@ export interface ClinicaResultado {
 
 // Catálogo por profesional (TR-001), no global — spec §4.3.
 // duracionMinutos/tiempoPostConsultaMinutos/cantidadSesiones (F2.3,
-// TR-084 en docs/tradeoffs.md): configurables por tipo de consulta, no a
+// TR-084 en docs/Arquitectura y base/tradeoffs.md): configurables por tipo de consulta, no a
 // nivel de clínica — cantidadSesiones es puramente informativo esta fase.
 // Los tres opcionales acá (aunque la API real siempre los manda) para no
 // forzar a actualizar cada fixture de test existente que arma un
@@ -365,7 +365,7 @@ export interface ResumenHorarioReservadoItem {
 }
 
 // ResumenPanel (F2.3 extra, ítem 1 — rediseño del "Turnero",
-// docs/implementation-plan.md §11.5): reemplaza los 2 contadores viejos
+// docs/Arquitectura y base/implementation-plan.md §11.5): reemplaza los 2 contadores viejos
 // (pendientes/confirmados) por los datos de las 5 tarjetas nuevas.
 export interface ResumenPanel {
   turnosHoy: ResumenTurnoItem[];

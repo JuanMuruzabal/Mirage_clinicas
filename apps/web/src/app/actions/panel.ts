@@ -4,7 +4,7 @@ import type { PanelNotificacionesResponse } from "@dental-mirage/shared-types";
 import { apiPanelNotificaciones } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
-// panelNotificacionesAction — TR-108 (docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
+// panelNotificacionesAction — TR-108 (docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
 // fuente de datos de NotificacionesConflictoGlobal, montado en todo el
 // panel. Mismo criterio que turnosPendientesAsistenciaAction: nunca
 // redirige a /ingresar sin sesión, "nada que avisar" es la respuesta

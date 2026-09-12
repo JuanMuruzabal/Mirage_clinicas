@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { ModalFooter, ModalShell } from "./shared";
 
 /**
- * [4] Código de verificación (docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §5) — seis
+ * [4] Código de verificación (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §5) — seis
  * casillas separadas en vez del campo único con placeholder `000000` del
  * diseño anterior (se leía como contenido ya cargado, sin mostrar
  * cuántos dígitos faltan).

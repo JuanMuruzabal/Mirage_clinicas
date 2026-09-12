@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consultorio Prueba — ¿Qué necesitás hoy?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3EFE8;
+    --header:#FDFBF6;
+    --surface:#FFFDF9;
+    --ink:#2C2C26;
+    --muted:#8B8578;
+    --muted-soft:#A9A395;
+    --line:#E7E1D6;
+    --green:#46603A;
+    --green-deep:#324529;
+    --green-tint:#EDF1E6;
+    --display:'Oswald',system-ui,sans-serif;
+    --body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+  a{text-decoration:none;color:inherit}
+  :focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:4px}
+
+  .topbar{
+    background:var(--header);border-bottom:1px solid var(--line);
+    padding:0 2.5rem;height:104px;
+    display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  }
+  .crumbs{display:flex;align-items:center;gap:14px;min-width:0}
+  .crumb{
+    font-family:var(--display);font-weight:700;font-size:22px;
+    letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+  }
+  .crumb-back{display:flex;align-items:center;gap:13px;color:var(--muted);transition:color .15s ease}
+  .crumb-back:hover{color:var(--ink)}
+  .crumb-sep{color:#CFC8BA;font-size:20px;font-family:var(--display)}
+  .crumb-current{color:var(--green)}
+  .gear{color:var(--ink);display:flex;padding:6px;border:none;background:none;cursor:pointer}
+
+  .page{max-width:1400px;margin:0 auto;padding:3.5rem 2.5rem 6rem}
+  .eyebrow{
+    font-size:13px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted-soft);margin:0 0 .5rem;
+  }
+  h1{
+    font-family:var(--display);font-weight:700;
+    font-size:clamp(38px,5.2vw,62px);line-height:1.02;
+    letter-spacing:-.005em;margin:0 0 3.25rem;
+  }
+
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2rem}
+  .card{
+    background:var(--surface);border-radius:14px;
+    padding:2.4rem 2.4rem 2.2rem;
+    box-shadow:0 1px 2px rgba(60,50,30,.05), 0 8px 22px rgba(60,50,30,.045);
+    display:flex;flex-direction:column;min-height:250px;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(60,50,30,.05), 0 14px 30px rgba(60,50,30,.07)}
+  .card-icon{color:var(--green);margin-bottom:1.5rem;display:block}
+  .card h2{font-family:var(--display);font-weight:700;font-size:28px;line-height:1.1;margin:0 0 .7rem}
+  .card p{font-size:16.5px;line-height:1.55;color:var(--muted);margin:0;max-width:36ch}
+  .enter{
+    margin-top:auto;padding-top:1.9rem;font-size:16.5px;
+    color:var(--green);align-self:flex-start;transition:color .15s ease;
+  }
+  .enter:hover{color:var(--green-deep);text-decoration:underline;text-underline-offset:4px}
+  .badge-count{
+    display:inline-block;margin-top:.9rem;font-size:14px;color:var(--muted-soft);
+  }
+
+  @media (max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:880px){
+    .topbar{padding:0 1.25rem;height:auto;min-height:80px;flex-wrap:wrap;padding-top:1rem;padding-bottom:1rem}
+    .crumb{font-size:18px}
+    .page{padding:2.5rem 1.25rem 4rem}
+    .grid{grid-template-columns:1fr;gap:1.25rem}
+    .card{padding:1.75rem;min-height:0}
+    .card h2{font-size:26px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <nav class="crumbs" aria-label="Ruta">
+    <a class="crumb crumb-back" href="donde-trabajas-hoy.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="1.5"/>
+        <rect x="14" y="2" width="8" height="5" rx="1.5"/>
+        <rect x="2" y="14" width="8" height="5" rx="1.5"/>
+        <rect x="14" y="11" width="8" height="8" rx="1.5"/>
+      </svg>
+      <span>Clínicas</span>
+    </a>
+    <span class="crumb-sep" aria-hidden="true">/</span>
+    <span class="crumb crumb-current" aria-current="page">Consultorio Prueba</span>
+  </nav>
+  <button class="gear" aria-label="Configuración">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<main class="page">
+  <p class="eyebrow">Hola, Prueba</p>
+  <h1>¿Qué necesitás hoy?</h1>
+
+  <div class="grid">
+    <a class="card" href="#">
+      <svg class="card-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="1.5"/><rect x="14" y="2" width="8" height="5" rx="1.5"/>
+        <rect x="2" y="14" width="8" height="5" rx="1.5"/><rect x="14" y="11" width="8" height="8" rx="1.5"/>
+      </svg>
+      <h2>Gestión de clínica</h2>
+      <p>La agenda de hoy, los pedidos pendientes y el resto de tu día a día.</p>
+      <span class="enter">Entrar</span>
+    </a>
+
+    <a class="card" href="#">
+      <svg class="card-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="1.5"/><rect x="14" y="2" width="8" height="5" rx="1.5"/>
+        <rect x="2" y="14" width="8" height="5" rx="1.5"/><rect x="14" y="11" width="8" height="8" rx="1.5"/>
+      </svg>
+      <h2>Personalización de página</h2>
+      <p>Especialidades, secciones y el enlace que compartís con tus pacientes.</p>
+      <span class="enter">Entrar</span>
+    </a>
+
+    <a class="card" href="colaboradores.html">
+      <svg class="card-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <h2>Colaboradores</h2>
+      <p>Quién trabaja con vos, qué puede ver cada uno y las invitaciones pendientes.</p>
+      <span class="badge-count">5 personas · 1 pendiente</span>
+      <span class="enter">Entrar</span>
+    </a>
+  </div>
+</main>
+
+</body>
+</html>

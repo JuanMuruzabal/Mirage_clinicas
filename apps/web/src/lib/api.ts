@@ -178,7 +178,7 @@ export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: strin
   return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
 }
 
-// DisponibilidadMes — docs/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.8 (panel de
+// DisponibilidadMes — docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.8 (panel de
 // calendario mensual del wizard público): qué días de un mes tienen algún
 // horario disponible, para pintar el punto "con turnos" ANTES de que el
 // paciente toque ningún día.
@@ -776,7 +776,7 @@ export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>>
   return request<ResumenPanel>("/panel/resumen", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-// apiPanelNotificaciones — TR-108 (docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
+// apiPanelNotificaciones — TR-108 (docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
 // fuente de datos del aviso global de conflictos (fuera de Pacientes/
 // Calendario) — ver NotificacionesConflictoGlobal.
 export function apiPanelNotificaciones(token: string): Promise<ApiResult<PanelNotificacionesResponse>> {

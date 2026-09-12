@@ -170,7 +170,7 @@ func pacienteRespondeAlMail(tx *gorm.DB, paciente db.Paciente, email string) (bo
 }
 
 // pacienteTieneTutorConMail — Fase 2.4.2 (camino "sacar turno para otro",
-// `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4), reemplaza a la vieja
+// `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.4), reemplaza a la vieja
 // pacienteRespondeAlMailDeTutor en la ronda de correcciones del
 // 2026-09-06: misma pregunta ("¿esta ficha responde a este mail?"), pero
 // contra CUALQUIERA de los tutores YA CONOCIDOS del paciente (ver
@@ -278,7 +278,7 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Fase 2.4.2 (`docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.5) — segundo
+		// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.5) — segundo
 		// modo del mismo endpoint, sin `dni`: busca por MAIL DEL TUTOR en
 		// vez de por DNI del paciente, y puede devolver más de una
 		// tarjeta (un tutor puede tener más de un hijo verificado a su
@@ -366,7 +366,7 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // listarPacientesVerificadosDeTutorHandler — Fase 2.4.2, segundo modo de
 // pacienteVerificadoPublicoHandler (ver el comentario grande de arriba y
-// docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.5): a diferencia del modo por DNI
+// docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md 3.5): a diferencia del modo por DNI
 // (una sola tarjeta), acá el match es por `Paciente.TutorEmail` y puede
 // devolver 0, 1 o más tarjetas — un tutor puede tener más de un hijo
 // verificado a su cargo. Mismo criterio de censura y de exigir el token

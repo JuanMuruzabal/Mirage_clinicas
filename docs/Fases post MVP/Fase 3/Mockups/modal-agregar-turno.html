@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agregar turno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --card:#FDFCF8;--field:#F5F1E9;--ink:#2C2C26;--muted:#8B8578;--muted-soft:#A9A395;
+    --line:#E9E4D9;--green:#46603A;--green-deep:#324529;--green-tint:#E5ECE0;--danger:#9A3B32;
+    --display:'Oswald',system-ui,sans-serif;--body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--body);color:var(--ink);background:#EDEAE2;-webkit-font-smoothing:antialiased}
+  button{font-family:var(--body)}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+  [hidden]{display:none!important}
+
+  .overlay{position:fixed;inset:0;background:rgba(44,44,38,.45);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:50}
+  .modal{background:var(--card);border-radius:20px;width:100%;max-width:620px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 70px rgba(40,34,20,.3)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.6rem 1.9rem;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-family:var(--display);font-weight:700;font-size:26px;margin:0}
+  .close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex}
+  .close:hover{color:var(--ink)}
+  .modal-body{padding:1.6rem 1.9rem 1.9rem}
+
+  .lbl{display:flex;align-items:baseline;gap:9px;font-size:16px;margin:0 0 .6rem}
+  .lbl small{font-size:13px;color:var(--muted-soft)}
+  .fg{margin-bottom:1.4rem}
+  .hint{font-size:14.5px;color:var(--muted);line-height:1.55;margin:0 0 1.2rem}
+  .err{font-size:14px;color:var(--danger);margin:.6rem 0 0}
+
+  /* Profesional */
+  .pf{position:relative;margin-bottom:1.5rem}
+  .pf-btn{
+    display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+    background:var(--field);border:1px solid transparent;border-radius:12px;
+    padding:12px 15px;cursor:pointer;
+  }
+  .pf-btn:hover{background:#F1ECE2}
+  .pf-btn[aria-expanded="true"]{border-color:var(--green);background:#FBF9F3}
+  .pf-btn.falta{border-color:var(--danger)}
+  .pf-av{width:38px;height:38px;border-radius:50%;background:var(--green-tint);color:var(--green-deep);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;font-size:13.5px;flex:none}
+  .pf-av--vacio{background:#EAE5DA;color:var(--muted)}
+  .pf-name{display:block;font-weight:500;font-size:15.5px;line-height:1.3}
+  .pf-sub{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+  .pf-chev{margin-left:auto;color:var(--muted);display:flex}
+  .pop{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#FFFEFC;border:1px solid var(--line);border-radius:13px;box-shadow:0 16px 44px rgba(45,38,22,.16);padding:.5rem;z-index:20;max-height:300px;overflow-y:auto}
+  .pop-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;border-radius:9px;padding:.7rem .8rem;cursor:pointer;font-size:15px;color:var(--ink)}
+  .pop-item:hover{background:#F5F2EA}
+  .pop-item--on,.pop-item--on:hover{background:var(--green-tint)}
+  .pop-sep{height:1px;background:var(--line);margin:.4rem .5rem}
+  .check{margin-left:auto;color:var(--green);display:flex}
+
+  /* Tabs */
+  .tabs{display:flex;gap:4px;border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:1.3rem}
+  .tabs button{flex:1;background:transparent;border:none;border-radius:999px;padding:12px 10px;font-size:15.5px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .tabs button:hover{background:#F3EFE6}
+  .tabs button[aria-selected="true"]{background:var(--green);color:#FBFAF6;font-weight:500}
+  .tabs button[aria-selected="true"]:hover{background:var(--green-deep)}
+
+  /* Bloqueo hasta elegir profesional */
+  .gate{position:relative}
+  .gate.cerrado{opacity:.4;pointer-events:none;user-select:none}
+  .gate-aviso{
+    display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--danger);
+    margin:0 0 1.1rem;
+  }
+
+  /* Buscador */
+  .buscador{display:flex;gap:12px}
+  input[type="text"],input[type="email"],input[type="tel"]{
+    width:100%;font-family:var(--body);font-size:16px;color:var(--ink);
+    background:var(--field);border:1px solid transparent;border-radius:10px;padding:15px 16px;
+  }
+  input::placeholder{color:#BDB6A7}
+  input:focus{outline:none;border-color:var(--green);background:#FBF9F3}
+  .btn-outline{background:#FFFEFC;border:1px solid var(--line);border-radius:999px;padding:0 24px;font-size:15.5px;cursor:pointer;white-space:nowrap}
+  .btn-outline:hover{border-color:#D2CABA;background:#FAF8F3}
+
+  .lista{margin-top:1.1rem;max-height:250px;overflow-y:auto;border:1px solid var(--line);border-radius:12px}
+  .pac{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:.85rem 1rem;cursor:pointer}
+  .pac:last-child{border-bottom:none}
+  .pac:hover{background:#F5F2EA}
+  .pac--on,.pac--on:hover{background:var(--green-tint)}
+  .pac-av{width:36px;height:36px;border-radius:50%;background:#EFEBE1;color:#6E695C;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;font-size:13px;flex:none}
+  .pac-n{display:block;font-weight:500;font-size:15px;line-height:1.3}
+  .pac-d{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+  .pac-tag{margin-left:auto;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--green-deep);background:var(--green-tint);border-radius:5px;padding:4px 9px;white-space:nowrap}
+  .sin-res{padding:1.4rem 1rem;color:var(--muted);font-size:15px;margin:0}
+
+  .elegido{display:flex;align-items:center;gap:13px;background:var(--green-tint);border-radius:12px;padding:.9rem 1rem;margin-top:1.1rem}
+  .elegido .pac-av{background:#FFFEFC;color:var(--green-deep)}
+  .quitar{margin-left:auto;background:none;border:none;color:var(--green-deep);font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+  /* Link */
+  .token{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--green-tint);border-radius:10px;padding:.9rem 1.1rem;margin-top:1.2rem}
+  .token-url{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:14.5px;color:var(--green-deep);word-break:break-all}
+  .token-copy{font-family:var(--body);font-size:13px;background:transparent;color:var(--green-deep);border:1px solid rgba(50,69,41,.3);padding:6px 13px;border-radius:6px;cursor:pointer;margin-left:auto}
+  .token-copy:hover{background:rgba(50,69,41,.08)}
+  .token-hint{font-size:14px;color:var(--muted-soft);margin:.8rem 0 0;line-height:1.5}
+
+  .modal-foot{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:1.9rem}
+  .btn-solid{background:var(--green);color:#FBFAF6;border:none;border-radius:999px;padding:16px 30px;font-size:16px;font-weight:500;cursor:pointer}
+  .btn-solid:hover{background:var(--green-deep)}
+  .btn-solid:disabled{background:#CFCCC2;cursor:not-allowed}
+
+  @media (max-width:620px){
+    .modal-body,.modal-head{padding-left:1.25rem;padding-right:1.25rem}
+    .tabs{flex-direction:column;border-radius:14px}
+    .tabs button{border-radius:10px}
+    .buscador{flex-direction:column}
+    .btn-outline{padding:14px 24px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Agregar turno</h2>
+      <button class="close" id="cerrar" aria-label="Cerrar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- 1. Profesional, siempre primero -->
+      <div class="fg">
+        <p class="lbl">Profesional <small id="pf-req">Obligatorio</small></p>
+        <div class="pf">
+          <button class="pf-btn" id="pf-btn" aria-expanded="false" aria-haspopup="true">
+            <span class="pf-av pf-av--vacio" id="pf-av">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+            </span>
+            <span>
+              <span class="pf-name" id="pf-name">Elegí el profesional</span>
+              <span class="pf-sub" id="pf-sub">El turno se carga en su agenda</span>
+            </span>
+            <span class="pf-chev" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          </button>
+          <div class="pop" id="pf-pop" hidden></div>
+        </div>
+      </div>
+
+      <!-- 2. Origen del paciente -->
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="conocido" aria-selected="true">Paciente conocido</button>
+        <button role="tab" data-tab="nuevo" aria-selected="false">Paciente nuevo</button>
+        <button role="tab" data-tab="link" aria-selected="false">Compartir link</button>
+      </div>
+
+      <p class="gate-aviso" id="gate-aviso" hidden>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+        Elegí primero el profesional para seguir.
+      </p>
+
+      <div class="gate" id="gate">
+        <!-- Paciente conocido -->
+        <div id="panel-conocido">
+          <p class="hint">Todos los pacientes de la clínica, sin importar con quién se atendieron antes. Un mismo paciente puede tener turnos con varios profesionales.</p>
+          <div class="buscador">
+            <input type="text" id="buscar" placeholder="Nombre, apellido o DNI..." autocomplete="off" aria-label="Buscar paciente">
+            <button class="btn-outline" id="btn-buscar">Buscar</button>
+          </div>
+          <div class="lista" id="lista-pac"></div>
+          <div id="elegido-box"></div>
+          <div class="modal-foot">
+            <button class="btn-solid" id="btn-conocido" disabled>Continuar</button>
+          </div>
+        </div>
+
+        <!-- Paciente nuevo -->
+        <div id="panel-nuevo" hidden>
+          <p class="hint">Para alguien que nunca tuvo un turno en la clínica: se crea su ficha en este mismo paso y queda disponible para el resto del equipo.</p>
+          <div class="fg"><label class="lbl" for="n-nombre">Nombre</label><input type="text" id="n-nombre" autocomplete="off"></div>
+          <div class="fg"><label class="lbl" for="n-apellido">Apellido</label><input type="text" id="n-apellido" autocomplete="off"></div>
+          <div class="fg"><label class="lbl" for="n-dni">DNI</label><input type="text" id="n-dni" autocomplete="off"></div>
+          <div class="fg"><label class="lbl" for="n-tel">Teléfono</label><input type="tel" id="n-tel" autocomplete="off"></div>
+          <div class="fg"><label class="lbl" for="n-mail">Email <small>Opcional</small></label><input type="email" id="n-mail" autocomplete="off"></div>
+          <p class="err" id="err-nuevo" hidden></p>
+          <div class="modal-foot">
+            <button class="btn-solid" id="btn-nuevo">Crear y continuar</button>
+          </div>
+        </div>
+
+        <!-- Compartir link -->
+        <div id="panel-link" hidden>
+          <p class="hint">Generá un link de 1 hora para que la persona elija día y horario directamente, sin pasar por el código de verificación (ya hablaste con ella).</p>
+
+          <div class="fg">
+            <p class="lbl">Paciente <small>Opcional</small></p>
+            <div class="pf">
+              <button class="pf-btn" id="lk-btn" aria-expanded="false" aria-haspopup="true">
+                <span class="pf-av pf-av--vacio" id="lk-av">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+                </span>
+                <span>
+                  <span class="pf-name" id="lk-name">Sin paciente</span>
+                  <span class="pf-sub" id="lk-sub">Quien reciba el link carga sus datos</span>
+                </span>
+                <span class="pf-chev" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+              </button>
+              <div class="pop" id="lk-pop" hidden></div>
+            </div>
+          </div>
+
+          <div class="token" id="token-box" hidden>
+            <span class="token-url" id="token-url"></span>
+            <button class="token-copy" id="token-copy">Copiar</button>
+          </div>
+          <p class="token-hint" id="token-hint" hidden></p>
+
+          <div class="modal-foot">
+            <button class="btn-solid" id="btn-link">Generar link</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var profesionales = [
+    {n:'Juan Muru', esp:'Odontología general'},
+    {n:'Lucía Ferrer', esp:'Ortodoncia'},
+    {n:'Matías Soto', esp:'Endodoncia'},
+    {n:'Valeria Nieto', esp:'Odontopediatría'}
+  ];
+
+  var pacientes = [
+    {n:'Ana', a:'Gómez', dni:'32.145.678', tel:'351 555-1234'},
+    {n:'Pedro', a:'Lima', dni:'28.904.221', tel:'351 555-9087'},
+    {n:'Sol', a:'Ibarra', dni:'40.112.765', tel:'351 555-4410'},
+    {n:'Bruno', a:'Vera', dni:'35.778.903', tel:'351 555-2277'},
+    {n:'Elsa', a:'Duarte', dni:'22.443.019', tel:'351 555-6633'},
+    {n:'Tomás', a:'Rey', dni:'44.556.128', tel:'351 555-8890'}
+  ];
+
+  var tab = 'conocido';
+  var profElegido = null;
+  var pacElegido = null;
+  var pacLink = null;
+
+  function ini(a, b){ return ((a||'').charAt(0) + (b||'').charAt(0)).toUpperCase(); }
+  var svgCheck = '<span class="check" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span>';
+  var svgPersona = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>';
+
+  /* ---- Profesional ---- */
+  var pfBtn = document.getElementById('pf-btn');
+  var pfPop = document.getElementById('pf-pop');
+  var pfAv = document.getElementById('pf-av');
+  var pfName = document.getElementById('pf-name');
+  var pfSub = document.getElementById('pf-sub');
+  var pfReq = document.getElementById('pf-req');
+
+  function pintarProfesionales(){
+    pfPop.innerHTML = '';
+    if(tab === 'link'){
+      var libre = document.createElement('button');
+      libre.className = 'pop-item' + (profElegido === null ? ' pop-item--on' : '');
+      libre.innerHTML = '<span class="pf-av pf-av--vacio">'+svgPersona+'</span>'+
+        '<span><span class="pf-name">Que elija el paciente</span>'+
+        '<span class="pf-sub">Ve la agenda de toda la clínica</span></span>'+
+        (profElegido === null ? svgCheck : '');
+      libre.addEventListener('click', function(){ profElegido = null; pintarTodo(); cerrarPops(); });
+      pfPop.appendChild(libre);
+      var sep = document.createElement('div');
+      sep.className = 'pop-sep';
+      pfPop.appendChild(sep);
+    }
+    for(var i=0;i<profesionales.length;i++){
+      (function(p, idx){
+        var b = document.createElement('button');
+        b.className = 'pop-item' + (profElegido === idx ? ' pop-item--on' : '');
+        b.innerHTML = '<span class="pf-av">'+ini(p.n, p.esp === '' ? '' : p.n.split(' ')[1])+'</span>'+
+          '<span><span class="pf-name">'+p.n+'</span><span class="pf-sub">'+p.esp+'</span></span>'+
+          (profElegido === idx ? svgCheck : '');
+        b.addEventListener('click', function(){ profElegido = idx; pintarTodo(); cerrarPops(); });
+        pfPop.appendChild(b);
+      })(profesionales[i], i);
+    }
+  }
+
+  function pintarCabeceraProf(){
+    pfReq.textContent = (tab === 'link') ? 'Opcional' : 'Obligatorio';
+    if(profElegido === null){
+      pfAv.className = 'pf-av pf-av--vacio';
+      pfAv.innerHTML = svgPersona;
+      if(tab === 'link'){
+        pfName.textContent = 'Que elija el paciente';
+        pfSub.textContent = 'Ve la agenda de toda la clínica';
+      } else {
+        pfName.textContent = 'Elegí el profesional';
+        pfSub.textContent = 'El turno se carga en su agenda';
+      }
+    } else {
+      var p = profesionales[profElegido];
+      pfAv.className = 'pf-av';
+      pfAv.textContent = ini(p.n.split(' ')[0], p.n.split(' ')[1]);
+      pfName.textContent = p.n;
+      pfSub.textContent = p.esp;
+    }
+    pfBtn.classList.remove('falta');
+  }
+
+  /* ---- Bloqueo ---- */
+  var gate = document.getElementById('gate');
+  var gateAviso = document.getElementById('gate-aviso');
+
+  function aplicarGate(){
+    var cerrado = (tab !== 'link') && profElegido === null;
+    gate.classList.toggle('cerrado', cerrado);
+    gateAviso.hidden = !cerrado;
+  }
+
+  /* ---- Pacientes ---- */
+  var lista = document.getElementById('lista-pac');
+  var buscar = document.getElementById('buscar');
+  var elegidoBox = document.getElementById('elegido-box');
+  var btnConocido = document.getElementById('btn-conocido');
+
+  function filtrar(txt){
+    var q = (txt||'').trim().toLowerCase();
+    var out = [];
+    for(var i=0;i<pacientes.length;i++){
+      var p = pacientes[i];
+      var full = (p.n+' '+p.a+' '+p.dni).toLowerCase();
+      if(!q || full.indexOf(q) !== -1){ out.push(i); }
+    }
+    return out;
+  }
+
+  function pintarPacientes(){
+    var idxs = filtrar(buscar.value);
+    lista.innerHTML = '';
+    if(!idxs.length){
+      lista.innerHTML = '<p class="sin-res">No encontramos pacientes para esa búsqueda.</p>';
+      return;
+    }
+    for(var k=0;k<idxs.length;k++){
+      (function(idx){
+        var p = pacientes[idx];
+        var b = document.createElement('button');
+        b.className = 'pac' + (pacElegido === idx ? ' pac--on' : '');
+        b.innerHTML = '<span class="pac-av">'+ini(p.n, p.a)+'</span>'+
+          '<span><span class="pac-n">'+p.n+' '+p.a+'</span>'+
+          '<span class="pac-d">DNI '+p.dni+' · '+p.tel+'</span></span>'+
+          '<span class="pac-tag">Verificado</span>';
+        b.addEventListener('click', function(){
+          pacElegido = idx;
+          pintarPacientes();
+          pintarElegido();
+        });
+        lista.appendChild(b);
+      })(idxs[k]);
+    }
+  }
+
+  function pintarElegido(){
+    if(pacElegido === null){
+      elegidoBox.innerHTML = '';
+      btnConocido.disabled = true;
+      return;
+    }
+    var p = pacientes[pacElegido];
+    elegidoBox.innerHTML = '<div class="elegido"><span class="pac-av">'+ini(p.n,p.a)+'</span>'+
+      '<span><span class="pac-n">'+p.n+' '+p.a+'</span>'+
+      '<span class="pac-d">Turno para este paciente</span></span>'+
+      '<button class="quitar" id="quitar-pac">Cambiar</button></div>';
+    document.getElementById('quitar-pac').addEventListener('click', function(){
+      pacElegido = null; pintarPacientes(); pintarElegido();
+    });
+    btnConocido.disabled = false;
+  }
+
+  buscar.addEventListener('input', pintarPacientes);
+  document.getElementById('btn-buscar').addEventListener('click', pintarPacientes);
+
+  /* ---- Paciente del link ---- */
+  var lkBtn = document.getElementById('lk-btn');
+  var lkPop = document.getElementById('lk-pop');
+  var lkAv = document.getElementById('lk-av');
+  var lkName = document.getElementById('lk-name');
+  var lkSub = document.getElementById('lk-sub');
+
+  function pintarLinkPac(){
+    lkPop.innerHTML = '';
+    var sin = document.createElement('button');
+    sin.className = 'pop-item' + (pacLink === null ? ' pop-item--on' : '');
+    sin.innerHTML = '<span class="pf-av pf-av--vacio">'+svgPersona+'</span>'+
+      '<span><span class="pf-name">Sin paciente</span>'+
+      '<span class="pf-sub">Quien reciba el link carga sus datos</span></span>'+
+      (pacLink === null ? svgCheck : '');
+    sin.addEventListener('click', function(){ pacLink = null; pintarTodo(); cerrarPops(); });
+    lkPop.appendChild(sin);
+    var sep = document.createElement('div'); sep.className = 'pop-sep'; lkPop.appendChild(sep);
+    for(var i=0;i<pacientes.length;i++){
+      (function(p, idx){
+        var b = document.createElement('button');
+        b.className = 'pop-item' + (pacLink === idx ? ' pop-item--on' : '');
+        b.innerHTML = '<span class="pac-av">'+ini(p.n,p.a)+'</span>'+
+          '<span><span class="pf-name">'+p.n+' '+p.a+'</span><span class="pf-sub">DNI '+p.dni+'</span></span>'+
+          (pacLink === idx ? svgCheck : '');
+        b.addEventListener('click', function(){ pacLink = idx; pintarTodo(); cerrarPops(); });
+        lkPop.appendChild(b);
+      })(pacientes[i], i);
+    }
+
+    if(pacLink === null){
+      lkAv.className = 'pf-av pf-av--vacio';
+      lkAv.innerHTML = svgPersona;
+      lkName.textContent = 'Sin paciente';
+      lkSub.textContent = 'Quien reciba el link carga sus datos';
+    } else {
+      var q = pacientes[pacLink];
+      lkAv.className = 'pac-av';
+      lkAv.textContent = ini(q.n,q.a);
+      lkName.textContent = q.n+' '+q.a;
+      lkSub.textContent = 'DNI '+q.dni;
+    }
+  }
+
+  /* ---- Tabs ---- */
+  var tabsBtns = document.querySelectorAll('.tabs button');
+  var paneles = {
+    conocido: document.getElementById('panel-conocido'),
+    nuevo: document.getElementById('panel-nuevo'),
+    link: document.getElementById('panel-link')
+  };
+  for(var t=0;t<tabsBtns.length;t++){
+    tabsBtns[t].addEventListener('click', function(){
+      tab = this.getAttribute('data-tab');
+      for(var j=0;j<tabsBtns.length;j++){
+        tabsBtns[j].setAttribute('aria-selected', String(tabsBtns[j].getAttribute('data-tab') === tab));
+      }
+      for(var k in paneles){ paneles[k].hidden = (k !== tab); }
+      cerrarPops();
+      pintarTodo();
+    });
+  }
+
+  function pintarTodo(){
+    pintarCabeceraProf();
+    pintarProfesionales();
+    pintarPacientes();
+    pintarElegido();
+    pintarLinkPac();
+    aplicarGate();
+  }
+
+  /* ---- Popovers ---- */
+  function cerrarPops(){
+    pfPop.hidden = true; pfBtn.setAttribute('aria-expanded','false');
+    lkPop.hidden = true; lkBtn.setAttribute('aria-expanded','false');
+  }
+  function alternar(btn, pop){
+    var abierto = !pop.hidden; cerrarPops();
+    if(!abierto){ pop.hidden = false; btn.setAttribute('aria-expanded','true'); }
+  }
+  pfBtn.addEventListener('click', function(e){ e.stopPropagation(); alternar(pfBtn, pfPop); });
+  lkBtn.addEventListener('click', function(e){ e.stopPropagation(); alternar(lkBtn, lkPop); });
+  pfPop.addEventListener('click', function(e){ e.stopPropagation(); });
+  lkPop.addEventListener('click', function(e){ e.stopPropagation(); });
+  document.addEventListener('click', cerrarPops);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ cerrarPops(); } });
+
+  /* ---- Acciones ---- */
+  document.getElementById('btn-conocido').addEventListener('click', function(){
+    console.log('Continuar al horario', {profesional:profesionales[profElegido], paciente:pacientes[pacElegido]});
+  });
+
+  var errNuevo = document.getElementById('err-nuevo');
+  document.getElementById('btn-nuevo').addEventListener('click', function(){
+    var nombre = document.getElementById('n-nombre').value.trim();
+    var apellido = document.getElementById('n-apellido').value.trim();
+    var dni = document.getElementById('n-dni').value.trim();
+    var tel = document.getElementById('n-tel').value.trim();
+    if(!nombre || !apellido || !dni || !tel){
+      errNuevo.textContent = 'Completá nombre, apellido, DNI y teléfono.';
+      errNuevo.hidden = false;
+      return;
+    }
+    errNuevo.hidden = true;
+    console.log('Crear paciente y continuar', {
+      profesional:profesionales[profElegido],
+      paciente:{nombre:nombre, apellido:apellido, dni:dni, tel:tel, email:document.getElementById('n-mail').value.trim()}
+    });
+  });
+
+  var tokenBox = document.getElementById('token-box');
+  var tokenUrl = document.getElementById('token-url');
+  var tokenHint = document.getElementById('token-hint');
+  var tokenCopy = document.getElementById('token-copy');
+
+  document.getElementById('btn-link').addEventListener('click', function(){
+    var abc = 'abcdefghijkmnpqrstuvwxyz23456789';
+    var s = '';
+    for(var i=0;i<10;i++){ s += abc.charAt(Math.floor(Math.random()*abc.length)); }
+    tokenUrl.textContent = 'consultorioprueba.app/t/' + s;
+    tokenBox.hidden = false;
+    tokenHint.hidden = false;
+    tokenHint.textContent = 'Vence en 1 hora. ' +
+      (profElegido === null
+        ? 'La persona va a elegir profesional, día y horario.'
+        : 'La persona solo elige día y horario dentro de la agenda de ' + profesionales[profElegido].n + '.') +
+      (pacLink === null ? ' Va a cargar sus datos al reservar.' : ' Queda asociado a ' + pacientes[pacLink].n + ' ' + pacientes[pacLink].a + '.');
+    this.textContent = 'Generar otro';
+    tokenCopy.textContent = 'Copiar';
+  });
+
+  tokenCopy.addEventListener('click', function(){
+    if(navigator.clipboard){ navigator.clipboard.writeText(tokenUrl.textContent); }
+    tokenCopy.textContent = 'Copiado';
+    setTimeout(function(){ tokenCopy.textContent = 'Copiar'; }, 1800);
+  });
+
+  document.getElementById('cerrar').addEventListener('click', function(){
+    document.getElementById('overlay').hidden = true;
+  });
+
+  pintarTodo();
+</script>
+
+</body>
+</html>

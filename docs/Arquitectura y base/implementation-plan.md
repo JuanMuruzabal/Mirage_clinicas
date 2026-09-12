@@ -451,7 +451,7 @@ Si el cliente responde distinto a alguna de estas, el sprint afectado (ver colum
 
 ## 11. Fase 2 — Calendario avanzado y autogestión de turnos
 
-Brief original del cliente: `docs/Fase 2/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
+Brief original del cliente: `docs/Fases post MVP/Fase 2/fase2-dental-mirage.md`. Decisiones de arquitectura con alternativas descartadas: `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-083. El cliente pide 5 ítems, QA uno por uno, en este orden — ver la nota de reordenamiento recomendado más abajo antes de leer la tabla de sprints.
 
 ### 11.1 Qué cambia respecto al esquema de la Fase 1
 
@@ -558,7 +558,7 @@ Rediseñado el 2026-08-29 tras una explicación detallada del cliente sobre UI/U
 ### 11.5 Ítems extra de F2.3 (brief post-QA del cliente)
 
 Brief completo (transcripción del `.docx` original que dejó el cliente):
-`docs/Fase 2/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
+`docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md`. El cliente pidió 5 ítems más,
 "perdí cómo era la numeración que teníamos" — la segmentación de abajo
 quedó confirmada por el cliente (2026-09-06), con un orden de
 implementación propio, distinto del orden en que aparecen en el brief:
@@ -695,7 +695,7 @@ Probado y descartado en esta misma ronda: hacer sticky (flotante) el título+too
 
 Sin plan pre-escrito propio (a diferencia de F2.1-F2.5/11.5 de arriba): el cliente pidió estos ítems durante el QA de Extra 2.3.5, sin brief previo — se documentan directamente en `docs/Arquitectura y base/tradeoffs.md` a medida que se implementaron, no acá.
 
-- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
+- **Fase 2.4 — formulario público reescrito de punta a punta** (verificación de identidad "ya he venido antes", detección de conflictos, 3 detectores anti-abuso): TR-100 a TR-115, detalle del mecanismo en `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md`. **Implementado y mergeado a `dev`** (PR #9, #10, #11).
 - **Fase 2.4.2 — "sacar turno para otro" (tutor/representante):** un tutor puede reservar el turno de otra persona verificándose él mismo por mail; un paciente puede tener más de un tutor a lo largo del tiempo (`PacienteTutor`, uno-a-muchos). TR-116. **Implementado, aprobado y mergeado a `dev`** (PR #12, #13, #14).
 - **Ítem 5 del brief original — "compartir calendario":** ver arriba, F2.5/TR-120. **Implementado y mergeado a `dev`** (PR #15), con una corrección de QA post-merge — la pantalla "¿Ya te atendiste?" se saltaba entera con enlace, se restauró para recorrer el wizard completo (PR #16).
 
