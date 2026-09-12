@@ -41,14 +41,20 @@ export function PantallaSosVos({
   );
 }
 
-// [5b] — para otro, ya vine antes: lista de fichas del tutor, ninguna
-// preseleccionada. La fila "Otra persona" del doc queda afuera por ahora
-// (§3e actual solo junta el mail del tutor, no nombre/teléfono/vínculo —
-// datos que hacen falta para dar de alta un paciente nuevo bajo ese
-// tutor; sumarlos a [3e] queda pendiente de una decisión aparte). Sin
-// scroll propio (a diferencia de la primera entrega): el CUERPO del
+// [5b] — para otro: lista de fichas del tutor, ninguna preseleccionada.
+// Sin scroll propio (a diferencia de la primera entrega): el CUERPO del
 // modal ya scrollea solo (docs/Fases post MVP/Fase 2/turnero_pagina/prompt-claude-code-fecha-horario.md,
 // punto 3) — un segundo scroll acá adentro sería scroll anidado.
+//
+// Fase 3.1: `onOtraPersona` destraba la fila "Otra persona" del doc, que
+// hasta ahora quedaba afuera por una razón concreta — el camino "ya he
+// venido antes" para tutor junta SOLO su mail, y dar de alta un paciente
+// nuevo necesita además su nombre, teléfono y vínculo. Desde que esta
+// pantalla también aparece en el camino "primera vez" (donde el tutor ya
+// completó todo eso), el destino del botón depende de qué datos hay: a
+// los datos del paciente si el tutor ya está completo, o de vuelta a sus
+// datos si entró por "ya he venido antes". Esa decisión vive en el
+// llamador; acá es un botón y nada más.
 export function PantallaParaQuienLista({
   pacientes,
   seleccionado,
@@ -56,6 +62,7 @@ export function PantallaParaQuienLista({
   onBack,
   onClose,
   onContinuar,
+  onOtraPersona,
   paso,
   total,
 }: {
@@ -65,6 +72,7 @@ export function PantallaParaQuienLista({
   onBack: () => void;
   onClose: () => void;
   onContinuar: () => void;
+  onOtraPersona?: () => void;
   paso: number;
   total: number;
 }) {
@@ -79,6 +87,15 @@ export function PantallaParaQuienLista({
         {pacientes.map((p) => (
           <FilaPersona key={p.id} nombre={p.nombre} secundaria={`DNI ${p.dni}`} selected={seleccionado === p.id} onSelect={() => onSeleccionar(p.id)} />
         ))}
+        {onOtraPersona && (
+          <button
+            type="button"
+            onClick={onOtraPersona}
+            className="rounded-field border border-dashed border-grafito/25 px-3 py-2.5 text-left text-[14px] text-grafito/70 transition-colors hover:border-salvia-oscuro hover:text-grafito focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-salvia-oscuro"
+          >
+            + Es para otra persona
+          </button>
+        )}
       </div>
     </ModalShell>
   );

@@ -362,7 +362,7 @@ export function apiGetPacientesVerificadosDeTutorPublico(
 export interface SolicitarTurnoPublicoResponse {
   /**
    * Prueba de mail NUEVA para la misma identidad que acabó de sacar este
-   * turno (Fase 3, bloque 0). La que se mandó en el pedido se consumió;
+   * turno (Fase 3.1). La que se mandó en el pedido se consumió;
    * esta permite que el cartel final ofrezca "¿querés sacar turno para
    * otro tipo?" sin volver a pedir el código de 6 dígitos.
    *

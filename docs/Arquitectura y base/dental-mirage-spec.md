@@ -262,11 +262,13 @@ Los tres restantes tienen su **condición de activación escrita** (ver `impleme
 
 Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`; plan en `docs/Arquitectura y base/implementation-plan.md` §13.
 
-**Bloque 0 — cambios al wizard, cerrado el 2026-09-12 (TR-133).** Tres correcciones previas al multi-tenant, sobre el mismo código que la Fase 3 va a extender:
+**Fase 3.1 — cambios al wizard, cerrada el 2026-09-12 (TR-133).** Tres correcciones previas al multi-tenant, sobre el mismo código que la Fase 3 va a extender:
 
 1. **El tope vuelve a ser 1 turno activo por DNI y tipo de consulta**, no 1 por DNI en toda la clínica (revierte TR-109). La regla universal le pegaba al caso normal —"los pacientes suelen hacer varios turnos de diferentes tipos"— y no al abuso. Lo que protege la identidad no era el tope sino la detección de conflictos (mismo DNI + mail distinto → dos fichas y un conflicto a resolver a mano), que estaba tapada por él y ahora vuelve a actuar.
 2. **Botón "¿Querés sacar turno para otro tipo?"** en el cartel de confirmación, que vuelve al último paso con los datos cargados. La prueba de mail es de un solo uso a propósito, así que se **reemite heredando el vencimiento original**: la ventana total durante la cual un mail verificado puede seguir sacando turnos es exactamente la de antes.
 3. **"Ya he venido antes" reconoce también a quien tiene un turno activo**, no solo al paciente verificado — con el tope relajado, volver a sacar turno antes de haberse atendido pasa a ser el caso normal. Reconocer no es verificar: la tarjeta sigue mostrando los datos censurados y el flujo sigue pidiendo el código al mail.
+
+4. **El tutor que vuelve tampoco retipea** (adición del mismo día): si el mail del tutor ya es el de un tutor conocido, el wizard le ofrece **sus** pacientes en vez de pedirle cargar de nuevo a alguien que ya está en el sistema, con un "+ Es para otra persona" para el caso contrario. Obligó a **mover** (no sumar) el paso de verificación: el código sale ahora al terminar los datos del tutor, porque la lista de pacientes de un tutor no puede mostrarse antes de probar que el mail es suyo. La búsqueda es por mail y no por teléfono, a propósito: el código se manda al mail, así que es lo único que la persona demuestra tener.
 
 Consecuencia: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista** de turnos, no uno solo.
 

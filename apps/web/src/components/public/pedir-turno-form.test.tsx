@@ -261,7 +261,7 @@ describe("PedirTurnoForm", () => {
     expect(link).toHaveAttribute("href", expect.stringContaining("https://wa.me/5493511234567"));
   });
 
-  // "¿Querés sacar turno para otro tipo?" (Fase 3, bloque 0) — el botón
+  // "¿Querés sacar turno para otro tipo?" (Fase 3.1) — el botón
   // existe porque la regla pasó de 1 turno activo por DNI a 1 por DNI y
   // tipo de consulta.
   it("con el token reemitido, ofrece sacar otro turno y vuelve al último paso con los datos cargados", async () => {
@@ -616,7 +616,11 @@ describe("PedirTurnoForm", () => {
       expect(screen.getByText("¿Ya te atendiste con nosotros?")).toBeInTheDocument();
     });
 
-    it("primera vez: pide datos del tutor y LUEGO del paciente (2 pasos), verifica el mail del tutor y llega a turno", async () => {
+    // Fase 3.1: el orden cambió — el código del TUTOR se manda al terminar
+    // SUS datos, antes de pedir los del paciente. Es lo que permite
+    // ofrecerle sus pacientes ya conocidos sin mostrárselos a cualquiera
+    // que tipee su mail.
+    it("primera vez: pide datos del tutor, verifica SU mail y recién después los del paciente", async () => {
       solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
       const user = userEvent.setup();
       renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
@@ -632,9 +636,13 @@ describe("PedirTurnoForm", () => {
       await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
       await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
       await user.click(screen.getByRole("button", { name: "Continuar" }));
-      expect(enviarVerificacionEmailActionMock).not.toHaveBeenCalled();
 
-      // Paso 2: datos del paciente — recién acá se manda el código.
+      // El código sale ACÁ, con el mail del tutor.
+      await waitFor(() => expect(enviarVerificacionEmailActionMock).toHaveBeenCalledWith("clinica-x", "mama@example.com", ""));
+      await completarVerificacion(user);
+
+      // Sin pacientes previos bajo ese mail, sigue al paso de datos del
+      // paciente como siempre.
       expect(await screen.findByText("Datos de la persona que se atiende")).toBeInTheDocument();
       expect(screen.queryByLabelText("Tu nombre completo")).not.toBeInTheDocument();
       await user.type(screen.getByLabelText("Nombre"), "Juanito");
@@ -642,9 +650,6 @@ describe("PedirTurnoForm", () => {
       await user.type(screen.getByLabelText("DNI"), "40111222");
       await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-      expect(enviarVerificacionEmailActionMock).toHaveBeenCalledWith("clinica-x", "mama@example.com", "");
-
-      await completarVerificacion(user);
       await screen.findByText("Tipo de consulta");
       await user.click(screen.getByRole("button", { name: "10:00" }));
 
@@ -676,7 +681,101 @@ describe("PedirTurnoForm", () => {
       await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
       await user.click(screen.getByRole("button", { name: "Continuar" }));
 
+      // Fase 3.1: el código del tutor va en el medio.
+      await completarVerificacion(user);
+
       await screen.findByText("Datos de la persona que se atiende");
+      await user.click(screen.getByRole("button", { name: "Atrás" }));
+
+      expect(await screen.findByText("Primero, tus datos")).toBeInTheDocument();
+      expect(screen.getByLabelText("Tu nombre completo")).toHaveValue("María Pérez");
+    });
+
+    // Fase 3.1, pedido del cliente: "si el tutor ingresa el mismo mail con
+    // el que ya sacó un turno aparecerá la tarjeta del paciente al que
+    // sacó". El desvío ocurre DESPUÉS del código, nunca antes: la lista
+    // dice qué pacientes tiene un tutor, y eso no se le muestra a quien
+    // solo tipeó su dirección.
+    it("primera vez: si el mail del tutor ya es conocido, ofrece sus pacientes en vez de pedir datos nuevos", async () => {
+      pacientesVerificadosDeTutorActionMock.mockResolvedValue({
+        pacientes: [{ id: "pac-1", nombre: "Josefin J.", dni: "44***666" }],
+      });
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
+
+      await avanzarAOtroPrimeraVez(user);
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
+      await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
+      await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await completarVerificacion(user);
+
+      // Las tarjetas, no el formulario de datos del paciente.
+      expect(await screen.findByText("¿Para quién es el turno?")).toBeInTheDocument();
+      expect(screen.getByText("Josefin J.")).toBeInTheDocument();
+      expect(screen.queryByText("Datos de la persona que se atiende")).not.toBeInTheDocument();
+    });
+
+    it("primera vez: desde las tarjetas del tutor, '+ Es para otra persona' lleva a cargar un paciente nuevo", async () => {
+      pacientesVerificadosDeTutorActionMock.mockResolvedValue({
+        pacientes: [{ id: "pac-1", nombre: "Josefin J.", dni: "44***666" }],
+      });
+      solicitarTurnoPublicoActionMock.mockResolvedValue({ id: "turno-1", horaInicio: "2030-06-03T10:00:00-03:00", horaFin: "2030-06-03T10:30:00-03:00" });
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
+
+      await avanzarAOtroPrimeraVez(user);
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
+      await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
+      await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await completarVerificacion(user);
+
+      await user.click(await screen.findByRole("button", { name: "+ Es para otra persona" }));
+
+      // Los datos del tutor ya están confirmados: no se los vuelve a pedir.
+      expect(await screen.findByText("Datos de la persona que se atiende")).toBeInTheDocument();
+      await user.type(screen.getByLabelText("Nombre"), "Anita");
+      await user.type(screen.getByLabelText("Apellido"), "Pérez");
+      await user.type(screen.getByLabelText("DNI"), "41333444");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+      await screen.findByText("Tipo de consulta");
+      await user.click(screen.getByRole("button", { name: "10:00" }));
+      await user.click(screen.getByRole("button", { name: "Confirmar turno" }));
+      await screen.findByText(/¡Listo!/);
+
+      // El turno viaja con el paciente NUEVO, no con la ficha de la lista.
+      expect(solicitarTurnoPublicoActionMock).toHaveBeenCalledWith(
+        "clinica-x",
+        expect.objectContaining({
+          paraOtro: true,
+          nombreContacto: "Anita",
+          dniContacto: "41333444",
+          tutorEmail: "mama@example.com",
+        }),
+      );
+      expect(solicitarTurnoPublicoActionMock.mock.calls[0][1]).not.toHaveProperty("pacienteVerificadoId", "pac-1");
+    });
+
+    it("primera vez: desde las tarjetas, 'Atrás' vuelve a los datos del tutor, no al camino 'ya vine'", async () => {
+      pacientesVerificadosDeTutorActionMock.mockResolvedValue({
+        pacientes: [{ id: "pac-1", nombre: "Josefin J.", dni: "44***666" }],
+      });
+      const user = userEvent.setup();
+      renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
+
+      await avanzarAOtroPrimeraVez(user);
+      await user.selectOptions(screen.getByLabelText("Sos su…"), "familiar");
+      await user.type(screen.getByLabelText("Tu nombre completo"), "María Pérez");
+      await user.type(screen.getByLabelText("Tu teléfono"), "93511111111");
+      await user.type(screen.getByLabelText("Tu email"), "mama@example.com");
+      await user.click(screen.getByRole("button", { name: "Continuar" }));
+      await completarVerificacion(user);
+
+      await screen.findByText("¿Para quién es el turno?");
       await user.click(screen.getByRole("button", { name: "Atrás" }));
 
       expect(await screen.findByText("Primero, tus datos")).toBeInTheDocument();

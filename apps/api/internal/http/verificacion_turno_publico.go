@@ -335,7 +335,7 @@ func validarVerificacionTurnoPublico(tx *gorm.DB, clinicID, email, token string)
 // el paciente pueda reintentar con otro horario sin verificar de nuevo.
 //
 // Además devuelve un token NUEVO para la misma identidad ya probada.
-// Fase 3 (bloque 0): el cartel final ofrece "¿querés sacar turno para otro
+// Fase 3.1: el cartel final ofrece "¿querés sacar turno para otro
 // tipo?", que vuelve al último paso con los datos cargados. Ese segundo
 // pedido necesita una prueba de mail, y la que traía se acaba de consumir
 // (de un solo uso a propósito, ver arriba) — sin esto, el botón fallaría

@@ -372,7 +372,7 @@ deja de fondo por pedido explícito, no por descuido.
 
 ### 1.4bis — Tope de 1 turno activo por DNI, universal (TR-107, endurecido en TR-109)
 
-> ⚠️ **REVERTIDO en Fase 3, bloque 0 (2026-09-12, TR-133).** El tope
+> ⚠️ **REVERTIDO en Fase 3.1 (2026-09-12, TR-133).** El tope
 > volvió a ser **por DNI y tipo de consulta** — ver 1.4quater, que es la
 > regla vigente. Esta sección queda como está porque explica por qué la
 > regla universal existió y qué la reemplazó; `turnoActivoPorDNI` y
@@ -451,7 +451,7 @@ totalmente vigentes — cubren un eje distinto (cuántos DNIs distintos toca
 un mail/IP, no cuántos turnos tiene UN DNI) que esta regla nueva no
 resuelve.
 
-### 1.4quater — La regla vigente: 1 turno activo por DNI **y tipo** (Fase 3, bloque 0 — TR-133)
+### 1.4quater — La regla vigente: 1 turno activo por DNI **y tipo** (Fase 3.1 — TR-133)
 
 Pedido textual del cliente: *"se quita la regla de solo UN turno por DNI
 en la clínica, sino que se hace menos restrictivo, solo será UN turno por
@@ -540,6 +540,33 @@ acceso a nada — la tarjeta muestra nombre/apellido y DNI censurados igual
 que siempre, y el resto del flujo sigue pidiendo el código al mail. La
 verificación propiamente dicha (la que habilita saltar pasos y la que mira
 la resolución de conflictos) no cambió.
+
+#### El tutor conocido ve sus pacientes, y el paso del código se mueve
+
+Pedido del cliente sobre esta misma entrega: *"si el tutor ingresa el mismo mail con el que ya sacó un turno aparecerá la tarjeta del paciente al que sacó… abajo un 'añadir paciente' si es que el turno no es para Josefina"*. Es la simetría del punto anterior — aquel le ahorra el retipeo al paciente que vuelve, este al **tutor** que vuelve.
+
+El camino "para otro / primera vez" mandaba el código **al final** (datos del tutor → datos del paciente → código). Eso es incompatible con el pedido, y no por comodidad: la lista de pacientes de un tutor **no puede mostrarse antes de probar que el mail es suyo**, porque diría qué pacientes tiene esa persona en esta clínica a cualquiera que tipee su dirección — nombre con iniciales y DNI censurado, pero dato al fin. Es la misma razón por la que 1.4ter/"ya he venido antes" siempre pidió el código antes de mostrar nada.
+
+El paso de verificación se **mueve**, no se suma (el wizard sigue teniendo 5 pasos):
+
+```
+datos del tutor → código a SU mail → ¿es un tutor conocido?
+                                       ├── sí  → otro-tarjeta-paciente (+ "Es para otra persona")
+                                       └── no  → otro-paciente (datos del paciente, como siempre)
+```
+
+**Backend sin cambios.** `listarPacientesVerificadosDeTutorHandler` ya buscaba por mail de tutor (join contra `paciente_tutores`), ya exigía la prueba de mail y ya filtraba con `pacienteReconocibleEnElWizard` — "verificado **o** con turno activo", exactamente el criterio que pide el cliente. Todo el trabajo fue reordenar `pedir-turno-form.tsx`.
+
+**El botón "+ Es para otra persona"** estaba en el diseño original de [5b] y se había dejado sin implementar con el motivo escrito en el código: "ya he venido antes" junta SOLO el mail del tutor, y dar de alta un paciente nuevo bajo ese tutor necesita además nombre, teléfono y vínculo. Esta entrega lo destraba para "primera vez", donde el tutor ya completó todo eso. El destino depende de por dónde llegó:
+
+| Llegó por | "+ Es para otra persona" / "Atrás" van a | Motivo |
+|---|---|---|
+| Primera vez (tutor completo) | `otro-paciente` / `otro-tutor` | ya tenemos todo del tutor |
+| Ya he venido antes (solo mail) | `otro-tutor` / `otro-ya-vine-datos` | faltan nombre, teléfono y vínculo |
+
+Dos detalles que no son cosméticos: el **CAPTCHA** vive donde se dispara el envío del código, así que se mudó con él a la pantalla del tutor; y elegir "Es para otra persona" **suelta la ficha seleccionada** (`setPacienteVerificado(null)`), o el pedido viajaría con la ficha de la lista y los datos de la persona nueva — hay un test que lo mira en el payload final.
+
+**El teléfono NO entra en el criterio de búsqueda,** aunque el pedido decía "mail o teléfono": el código se manda al mail, así que el mail es lo único que la persona demuestra tener. Buscar también por teléfono dejaría que alguien verifique su propia dirección, tipee el teléfono de otro tutor y vea sus pacientes. El caso legítimo que queda afuera —tutor que cambió de mail y conserva el teléfono— exige verificación por SMS, fuera de alcance hoy; mientras tanto carga al paciente de nuevo y la ficha se resuelve por DNI sin duplicarse.
 
 #### "Mis turnos" devuelve una lista
 
@@ -907,7 +934,7 @@ cierre de la Parte 3, sección 3.8).
 
 **Ítems 21-24: implementados y cubiertos por test automatizado (backend), no
 hace falta repetirlos a mano — se dejan igual para referencia rápida.**
-**Actualizados en Fase 3, bloque 0 (TR-133): el tope volvió a ser por
+**Actualizados en Fase 3.1 (TR-133): el tope volvió a ser por
 DNI + tipo, ver 1.4quater.**
 
 21. DNI con un turno vigente de tipo "General" → pedir OTRO turno del

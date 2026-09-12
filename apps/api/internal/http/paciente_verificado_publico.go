@@ -73,7 +73,7 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 // pacienteReconocibleEnElWizard — a quién le mostramos su tarjeta en el
 // camino "ya he venido antes".
 //
-// Hasta la Fase 3 (bloque 0) era exactamente "paciente verificado": al
+// Hasta la Fase 3.1 era exactamente "paciente verificado": al
 // menos un turno resuelto y asistido, o ficha cargada a mano por el
 // profesional. El cliente pidió ampliarlo: "si soy un paciente no
 // verificado, pero tengo un turno activo, si pongo mis datos, me debería
@@ -493,7 +493,7 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 
 	out := make([]pacienteVerificadoResponse, 0, len(candidatos))
 	for _, p := range candidatos {
-		// Mismo criterio ampliado que el modo por DNI (Fase 3, bloque 0):
+		// Mismo criterio ampliado que el modo por DNI (Fase 3.1):
 		// un hijo con turno activo pero todavía sin asistir también le
 		// aparece a su tutor, que ya demostró acceso al mail.
 		reconocible, err := pacienteReconocibleEnElWizard(gdb, p)

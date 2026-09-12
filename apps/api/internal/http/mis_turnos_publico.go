@@ -50,7 +50,7 @@ func mailIdentificaAlTurno(turno db.Turno, email string) bool {
 
 // misTurnosPublicoHandler — GET /clinicas/{slug}/mis-turnos?dni=&email=.
 //
-// Devuelve una LISTA. Hasta la Fase 3 (bloque 0) devolvía un único turno,
+// Devuelve una LISTA. Hasta la Fase 3.1 devolvía un único turno,
 // y era correcto: la regla universal de "1 turno activo por DNI" (TR-107)
 // garantizaba que no podía haber más de uno. Esa regla se relajó a "1 por
 // DNI + TIPO de consulta" —el cliente pidió que un paciente pueda tener

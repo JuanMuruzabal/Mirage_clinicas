@@ -489,7 +489,7 @@ func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenInvalidoFalla(t *test
 }
 
 // TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta
-// — Fase 3 (bloque 0), pedido textual del cliente: "el camino 'ya he venido
+// — Fase 3.1, pedido textual del cliente: "el camino 'ya he venido
 // anteriormente' también funciona con turnos activos y no exclusivamente
 // con pacientes verificados, es decir, si soy un paciente no verificado,
 // pero tengo un turno activo, si pongo mis datos, me debería saltar mi

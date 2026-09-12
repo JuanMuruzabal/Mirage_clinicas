@@ -763,19 +763,20 @@ Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y o
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.
 
-### 13.0 Bloque 0 — cambios al wizard, previos al multi-tenant (✅ 2026-09-12)
+### 13.1 Fase 3.1 — cambios al wizard, previos al multi-tenant (✅ 2026-09-12)
 
-El brief arranca con tres correcciones al wizard público que no dependen del multi-tenant y que conviene cerrar antes, porque tocan el mismo código que la Fase 3 va a extender. Decisiones en TR-133; explicación larga en `docs/Fases post MVP/Fase 3/bloque-0-wizard-sacar-turno.md`.
+El brief arranca con tres correcciones al wizard público que no dependen del multi-tenant y que conviene cerrar antes, porque tocan el mismo código que la Fase 3 va a extender. Decisiones en TR-133; explicación larga en `docs/Fases post MVP/Fase 3/fase3.1-wizard-sacar-turno.md`.
 
 | # | Qué pidió el cliente | Cómo quedó |
 |---|---|---|
 | 1 | Quitar el tope de 1 turno activo por DNI en toda la clínica; volver a 1 por DNI **y tipo de consulta** | `turnoActivoPorDNI`/`turnoActivoDeOtroTipo` quedan sin call sites (`//nolint:unused`); vale `turnoActivoDelMismoTipo` en los dos caminos. La protección de identidad la sigue haciendo la detección de conflictos, que estaba tapada por el tope |
 | 2 | Botón "¿Querés sacar turno para otro tipo?" en el cartel final, que vuelva al último paso con los datos cargados | La prueba de mail es de un solo uso, así que se **reemite heredando el vencimiento original** — la ventana total no se estira. El botón solo aparece si el backend devolvió el token nuevo |
 | 3 | "Ya he venido antes" debe reconocer también a quien tiene un turno activo, no solo al paciente verificado | `pacienteReconocibleEnElWizard` = verificado **o** con turno `agendado` vigente. La verificación propiamente dicha no cambia |
+| 4 | En "para otro / primera vez", si el mail del tutor ya es conocido, mostrarle sus pacientes en vez de pedir datos nuevos, con un "añadir paciente" abajo | El paso de verificación se **mueve** a después de los datos del tutor (no se suma: siguen siendo 5): la lista no puede mostrarse antes de probar el mail. Backend sin cambios — el handler ya buscaba por mail de tutor con el criterio correcto. El teléfono queda fuera del criterio de búsqueda, por seguridad |
 
 Consecuencia arrastrada: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista**, no un turno — con varios activos posibles por DNI, devolver el primero era mentir.
 
-### 13.1 Multi-tenant propiamente dicho (pendiente)
+### 13.2 Multi-tenant propiamente dicho (pendiente)
 
 Las dos mitades del modelo nuevo, según el brief:
 

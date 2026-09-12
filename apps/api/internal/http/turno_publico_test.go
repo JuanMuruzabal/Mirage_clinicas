@@ -366,7 +366,7 @@ func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.
 // "para otro") en vez del mail del tutor, que es el que la persona
 // reconoce.
 // TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha —
-// reescrito en la Fase 3 (bloque 0). Antes se llamaba
+// reescrito en la Fase 3.1. Antes se llamaba
 // ...YaTieneTurnoActivoParaOtroMuestraMailDelTutor y afirmaba lo contrario:
 // que el tope universal de "1 turno activo por DNI" rechazaba el segundo
 // pedido mostrando el mail del tutor.
@@ -987,7 +987,7 @@ func TestSolicitarTurnoPublico_NoEnviaMailSiElPedidoSeRechaza(t *testing.T) {
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
 		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
 
-	// Fase 3 (bloque 0): el pedido que se rechaza tiene que ser del MISMO
+	// Fase 3.1: el pedido que se rechaza tiene que ser del MISMO
 	// tipo. Otro tipo ya no se rechaza, y este test es sobre no mandar mail
 	// cuando el pedido NO prospera — no sobre qué regla lo rechaza.
 	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?)",
@@ -1343,7 +1343,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 // sea) se rechaza directo con el mensaje universal — nunca llega a crear
 // una ficha nueva ni un conflicto.
 // TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea —
-// reescrito en la Fase 3 (bloque 0), y el más importante de los que cambió.
+// reescrito en la Fase 3.1, y el más importante de los que cambió.
 //
 // Antes (...VerificadoConOtroTipoActivoTambienRechaza) el tope universal
 // rechazaba de plano a cualquiera que pidiera un turno con un DNI que ya
@@ -1501,7 +1501,7 @@ func TestSolicitarTurnoPublico_VerificadoConTurnoActivoRechazaOtroPedidoDelMismo
 	if rec2.Code != http.StatusConflict {
 		t.Fatalf("segundo pedido (mismo tipo, verificado): status = %d, esperaba %d. body=%s", rec2.Code, http.StatusConflict, rec2.Body.String())
 	}
-	// Fase 3 (bloque 0): el mensaje lo da ahora errTurnoPublicoDuplicado, no
+	// Fase 3.1: el mensaje lo da ahora errTurnoPublicoDuplicado, no
 	// el tope universal — y es mejor, porque nombra la fecha y el tipo en vez
 	// de decir solo "ya tenés un turno pendiente".
 	if !strings.Contains(rec2.Body.String(), "ya tenés un turno agendado") || !strings.Contains(rec2.Body.String(), "para este tipo de consulta") {
@@ -2239,7 +2239,7 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdCreaTurnoConDatosReales(t *te
 // verificado que ya tiene un turno activo NO puede sacar otro ni siquiera
 // usando su propia tarjeta de "ya he venido antes" (pacienteVerificadoId).
 // TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo — reescrito en la
-// Fase 3 (bloque 0). Antes era ...PacienteVerificadoIdConTurnoActivoPropioRechaza
+// Fase 3.1. Antes era ...PacienteVerificadoIdConTurnoActivoPropioRechaza
 // y afirmaba que el tope universal rechazaba el segundo pedido.
 //
 // Es el mismo flujo del cartel "¿querés sacar turno para otro tipo?", pero
@@ -2735,7 +2735,7 @@ func TestErroresDormantesDeTurnoPublico_FormateanElMensaje(t *testing.T) {
 }
 
 // TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno —
-// Fase 3 (bloque 0). El cartel final ofrece "¿querés sacar turno para otro
+// Fase 3.1. El cartel final ofrece "¿querés sacar turno para otro
 // tipo?", y ese segundo pedido necesita una prueba de mail: la que vino se
 // consumió (de un solo uso, a propósito). El backend devuelve una nueva
 // para la misma identidad ya probada.

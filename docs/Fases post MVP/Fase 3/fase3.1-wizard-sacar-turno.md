@@ -1,4 +1,4 @@
-# Fase 3, bloque 0 — los tres cambios al wizard de sacar turno
+# Fase 3.1 — los cambios al wizard de sacar turno
 
 **Fecha:** 2026-09-12 · **Decisiones:** `docs/Arquitectura y base/tradeoffs.md` TR-133 · **Mecanismo completo del wizard:** `docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` §1.4quater
 
@@ -12,7 +12,7 @@ Este documento cuenta **qué se cambió, por qué, y qué se aprendió en el cam
 >
 > *Además el camino 'ya he venido anteriormente' también funciona con turnos activos y no exclusivamente con pacientes verificados."*
 
-Tres cosas. Se ven independientes. No lo son: la segunda existe **porque** la primera se relaja, y la tercera existe porque la primera cambia qué situación es "normal".
+Tres cosas. Se ven independientes. No lo son: la segunda existe **porque** la primera se relaja, y la tercera existe porque la primera cambia qué situación es "normal". Más tarde, el mismo día, se sumó una cuarta (ver "Cambio 4") que le da al **tutor** que vuelve la misma comodidad que el cambio 3 le dio al paciente.
 
 ---
 
@@ -124,7 +124,64 @@ Son dos preguntas distintas que antes compartían una función. Ahora no.
 
 ---
 
-## El cuarto cambio, que nadie pidió
+## Cambio 4 — El tutor que vuelve tampoco retipea (adición del 2026-09-12)
+
+### El pedido
+
+> *"Para el camino 'para otro' 'primera vez', vamos a hacer lo mismo que 'para mí': si el tutor ingresa el mismo mail con el que ya sacó un turno, aparecerá la tarjeta del paciente al que sacó. Yo saqué turno para Josefina con mi mail de tutor; ahora quiero sacar otro 'para otro': ingreso mi mail, y si coincide con el de un tutor de un paciente verificado —o uno no verificado con turno activo—, en vez de llevarlo al apartado de datos de paciente, llevarlo a las tarjetas. Abajo, un 'añadir paciente' si el turno no es para Josefina."*
+
+Es la simetría que faltaba. El cambio 3 hizo que el paciente que vuelve no retipee sus datos; este hace lo mismo con el **tutor** que vuelve.
+
+### El obstáculo: el orden de los pasos
+
+El camino "para otro / primera vez" era: **datos del tutor → datos del paciente → código al mail del tutor → turno**. El código salía al final.
+
+Eso choca con el pedido, porque la lista de pacientes de un tutor **no se puede mostrar antes de probar que el mail es suyo**. Mostrarla apenas se tipea la dirección le diría a cualquiera qué pacientes tiene esa persona en esa clínica — nombre con iniciales y DNI censurado, pero dato al fin. Es exactamente por eso que el camino "ya he venido antes" siempre pidió el código **antes** de mostrar la lista.
+
+Así que el orden pasa a ser:
+
+```
+datos del tutor → código a SU mail → ¿ese mail ya es de un tutor conocido?
+                                        ├── sí  → sus pacientes (+ "Es para otra persona")
+                                        └── no  → datos del paciente, como siempre
+```
+
+Verificar primero y decidir después es lo que hace posible el pedido sin abrir una fuga. El paso de verificación no se suma: se **mueve** — el wizard sigue teniendo 5 pasos.
+
+### Lo que ya estaba hecho
+
+El backend no necesitó una sola línea. `listarPacientesVerificadosDeTutorHandler` ya buscaba por mail de tutor, ya exigía la prueba de mail, y desde el cambio 3 ya usa `pacienteReconocibleEnElWizard` — o sea, ya devolvía "verificados **o** con turno activo", que es literalmente lo que pide el cliente. El trabajo fue todo de frontend: reordenar el flujo y decidir a dónde va cada botón.
+
+### El botón "+ Es para otra persona", y por qué no existía antes
+
+La fila "Otra persona" estaba en el documento de diseño original y se había dejado afuera con una razón escrita en el código:
+
+> *La fila "Otra persona" del doc queda afuera por ahora (§3e actual solo junta el mail del tutor, no nombre/teléfono/vínculo — datos que hacen falta para dar de alta un paciente nuevo bajo ese tutor).*
+
+El camino "ya he venido antes" pide **solo el mail** del tutor. Con eso no alcanza para crear una ficha nueva: falta su nombre, su teléfono y el vínculo.
+
+Este cambio lo destraba para la mitad de los casos, porque en "primera vez" el tutor **sí** completó todo eso antes de verificar. Entonces el destino del botón depende de por dónde llegó:
+
+| Llegó por | "+ Es para otra persona" va a | Motivo |
+|---|---|---|
+| Primera vez (tutor completo) | datos del paciente | ya tenemos todo del tutor, no hay nada que volver a pedir |
+| Ya he venido antes (solo mail) | datos del tutor | faltan nombre/teléfono/vínculo para dar de alta a alguien nuevo |
+
+Mismo criterio para "Atrás". La condición que los distingue es si el nombre del tutor está cargado.
+
+### Dos detalles que parecen menores y no lo son
+
+**El CAPTCHA se mudó de pantalla.** Vive donde se dispara el envío del código; al moverse el envío a los datos del tutor, el widget se movió con él. Dejarlo en la pantalla vieja lo habría dejado pidiendo un token que ya nadie usa.
+
+**Elegir "Es para otra persona" tiene que soltar la selección.** Si el tutor toca la tarjeta de Josefina y después cambia de idea, el `pacienteVerificado` elegido sigue en el estado — y el pedido viajaría con la ficha de Josefina y los datos de la persona nueva. `continuarOtroPaciente` lo limpia explícitamente, y hay un test que lo comprueba mirando el payload del pedido final.
+
+### Lo que NO se implementó, y por qué
+
+El pedido dice "si ese **mail o teléfono** coincide". El teléfono quedó afuera, y no por olvido: **el código se manda al mail, así que el mail es lo único que la persona demuestra tener.** Si la búsqueda también mirara el teléfono, alguien podría verificar su propia dirección y poner el teléfono de otro tutor para ver qué pacientes tiene — la verificación del mail no prueba nada sobre un teléfono ajeno.
+
+El caso legítimo que esto deja afuera es real: el tutor que cambió de mail pero conserva el teléfono no va a ser reconocido. Cubrirlo requiere verificar el teléfono, es decir un código por SMS — que hoy está fuera de alcance (CLAUDE.md, "Fuera de alcance salvo pedido explícito"). Mientras tanto ese tutor carga al paciente de nuevo y el sistema resuelve la ficha por DNI como siempre, sin duplicarla.
+
+## El cambio que nadie pidió: "Mis turnos" devuelve una lista
 
 `GET /clinicas/{slug}/mis-turnos` devolvía **un** turno. Con un solo turno activo posible por DNI eso era una simplificación razonable. Con varios posibles, pasa a ser una mentira: el paciente con tres turnos ve uno.
 
@@ -143,7 +200,7 @@ Devuelve una lista, filtrando turno por turno con el mismo criterio de identidad
 | `gofmt -l` + `golangci-lint run ./...` (copia sin CRLF) | 0 issues |
 | `pnpm typecheck:web` | limpio |
 | `pnpm lint:web` | 0 errores, 3 warnings preexistentes (`react-hooks/incompatible-library` en los forms de onboarding) |
-| `pnpm test:coverage:web` | 1008/1008 · statements 82.97% · branches 81.05% · functions 81.73% · lines 84.4% (gate: 80%) |
+| `pnpm test:coverage:web` | 1011/1011 · gate de 80% superado en las cuatro métricas |
 
 **Tests nuevos:**
 
@@ -155,6 +212,7 @@ Devuelve una lista, filtrando turno por turno con el mismo criterio de identidad
 - `TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta`
 - `TestPacienteVerificadoPublico_SinVerificarYSinTurnoActivoSigueSinAparecer`
 - Frontend: "con el token reemitido, ofrece sacar otro turno y vuelve al último paso con los datos cargados" y "sin token reemitido, no ofrece sacar otro turno"
+- Frontend (cambio 4): "si el mail del tutor ya es conocido, ofrece sus pacientes en vez de pedir datos nuevos" · "desde las tarjetas del tutor, '+ Es para otra persona' lleva a cargar un paciente nuevo" (comprobando que el pedido viaja con el paciente NUEVO, no con la ficha de la lista) · "desde las tarjetas, 'Atrás' vuelve a los datos del tutor" · más el test de orden de siempre, reescrito: "pide datos del tutor, verifica SU mail y recién después los del paciente"
 
 **Un test ajeno que estaba podrido:** `agregar-horario-atencion-modal.test.tsx` tenía fechas hardcodeadas (`"2026-09-10"`) que ya habían quedado en el pasado. Se verificó con `git stash` que el fallo era **previo** a este trabajo antes de tocarlo, y se reemplazaron por fechas relativas (`enDias(10)`). Un test con una fecha fija adentro tiene fecha de vencimiento.
 
@@ -162,6 +220,6 @@ Devuelve una lista, filtrando turno por turno con el mismo criterio de identidad
 
 ## Qué queda para el resto de la Fase 3
 
-El multi-tenant propiamente dicho: 1 clínica → N profesionales con vistas aisladas, 1 profesional → N clínicas, roles (administrador, recepcionista), onboarding "¿dónde trabajás hoy?", gestión de colaboradores, y la elección de profesional dentro del wizard público. Plan en `docs/Arquitectura y base/implementation-plan.md` §13.1.
+El multi-tenant propiamente dicho: 1 clínica → N profesionales con vistas aisladas, 1 profesional → N clínicas, roles (administrador, recepcionista), onboarding "¿dónde trabajás hoy?", gestión de colaboradores, y la elección de profesional dentro del wizard público. Plan en `docs/Arquitectura y base/implementation-plan.md` §13.2.
 
 Dos entregables de documentación comprometidos en el brief, además del código: los diagramas ER **antes** y **después** en `docs/Arquitectura y base/modelo de datos/`, y el documento explicativo del cambio de modelo acá mismo.

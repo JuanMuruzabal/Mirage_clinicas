@@ -25,7 +25,7 @@ func TestMisTurnosPublico_ConDNIYMailCorrectosMuestraLaTarjeta(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	// Fase 3 (bloque 0): el endpoint devuelve una LISTA desde que un DNI
+	// Fase 3.1: el endpoint devuelve una LISTA desde que un DNI
 	// puede tener un turno activo por cada tipo de consulta.
 	var lista []misTurnoPublicoResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &lista); err != nil {
@@ -161,7 +161,7 @@ func TestMisTurnosPublico_ParaOtroElTutorEncuentraElTurno(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d — el tutor no puede encontrar el turno que él mismo sacó. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	// Fase 3 (bloque 0): el endpoint devuelve una LISTA desde que un DNI
+	// Fase 3.1: el endpoint devuelve una LISTA desde que un DNI
 	// puede tener un turno activo por cada tipo de consulta.
 	var lista []misTurnoPublicoResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &lista); err != nil {

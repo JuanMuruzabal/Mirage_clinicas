@@ -141,7 +141,7 @@ func sincronizarTutorDesdeFichaVerificada(tx *gorm.DB, turno *db.Turno, paciente
 // archivo (estado='agendado' AND hora_fin >= ahora), sin filtrar por
 // tipo de consulta ni por ficha: dos fichas separadas por un conflicto
 // sin resolver comparten el mismo dni_contacto en sus turnos.
-// SIN USO desde la Fase 3 (bloque 0): la regla universal que sostenía
+// SIN USO desde la Fase 3.1: la regla universal que sostenía
 // ("un turno activo por DNI, sea cual sea el tipo") se reemplazó por una
 // por DNI + tipo de consulta. Se conserva por la convención del proyecto
 // de no descartar lo ya establecido — convención que acá pagó: la regla
@@ -233,7 +233,7 @@ func turnoActivoDelMismoTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, t
 	return &turno, nil
 }
 
-// SIN USO desde la Fase 3 (bloque 0): sostenía la Regla 2 de TR-107 (un
+// SIN USO desde la Fase 3.1: sostenía la Regla 2 de TR-107 (un
 // paciente sin verificar no podía sacar turno de otro tipo hasta asistir
 // al primero), quitada por decisión explícita del cliente. Se conserva por
 // el mismo criterio que turnoActivoPorDNI de arriba.
@@ -849,7 +849,7 @@ type solicitarTurnoPublicoResponse struct {
 	HoraInicio string `json:"horaInicio"`
 	HoraFin    string `json:"horaFin"`
 	// VerificacionToken — prueba de mail NUEVA para la misma identidad que
-	// acaba de sacar este turno (Fase 3, bloque 0). La que vino en el
+	// acaba de sacar este turno (Fase 3.1). La que vino en el
 	// pedido se consumió; esta permite que el cartel final ofrezca "¿querés
 	// sacar turno para otro tipo?" sin volver a pedir el código.
 	//
@@ -1069,7 +1069,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		// tiene que persistir) pero la respuesta HTTP final es un rechazo.
 		var mensajeBloqueoAbuso string
 		// Prueba de mail reemitida para que el cartel final pueda ofrecer
-		// otro turno sin volver a pedir el código (Fase 3, bloque 0). Se
+		// otro turno sin volver a pedir el código (Fase 3.1). Se
 		// llena dentro de la transacción y se lee después de que commitee:
 		// si el turno no llega a crearse, tampoco hay token que devolver.
 		var tokenReemitido string
@@ -1143,7 +1143,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				return errHorarioPublicoYaNoDisponible
 			}
 
-			// UN turno activo por DNI + TIPO DE CONSULTA (Fase 3, bloque 0
+			// UN turno activo por DNI + TIPO DE CONSULTA (Fase 3.1
 			// — pedido textual del cliente: "se quita la regla de solo UN
 			// turno por DNI en la clínica... solo será UN turno por tipo de
 			// consulta por DNI, ya que en la práctica pacientes suelen
@@ -1171,7 +1171,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 
 				// La Regla 2 de TR-107 —un paciente SIN VERIFICAR no podía
 				// sacar turno de otro tipo hasta asistir al primero— se
-				// quitó en la Fase 3 (bloque 0), por decisión explícita del
+				// quitó en la Fase 3.1, por decisión explícita del
 				// cliente. Era incompatible con el flujo nuevo: alguien que
 				// acaba de sacar su primer turno todavía no está verificado
 				// (verificado = asistió a un turno resuelto), así que el
