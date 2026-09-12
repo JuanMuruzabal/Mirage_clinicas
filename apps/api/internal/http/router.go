@@ -44,6 +44,11 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
+	// Antes del logger a propósito: este middleware es el que deja la IP
+	// REAL del visitante en X-Forwarded-For (ver ip_del_visitante.go), y
+	// todo lo que venga después —el log de la request incluido— tiene que
+	// ver esa y no la del proceso web.
+	r.Use(confiarEnIPDelBFF(deps.BFFSharedSecret))
 	// Logging estructurado (Fase B de la auditoría) — reemplaza a
 	// middleware.Logger de chi, que emitía texto plano sin request-id
 	// correlacionable ni la clínica involucrada. Ver logging.go, en

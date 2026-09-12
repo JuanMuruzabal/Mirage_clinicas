@@ -1,4 +1,5 @@
 import "server-only";
+import { headers } from "next/headers";
 import type {
   AutoreservarTurnosResponse,
   BloqueoHorario,
@@ -87,6 +88,51 @@ async function requestPaginado<T>(path: string, init?: RequestInit): Promise<Api
   return { ok: true, data: { items: res.data, total } };
 }
 
+// --- Fase 3.1.1: la IP real del visitante ---------------------------
+//
+// El navegador nunca llama a la API Go directo (CLAUDE.md, "BFF con
+// Server Actions"), así que del otro lado llega SIEMPRE la IP de este
+// proceso web — la misma para todos los visitantes de todas las clínicas.
+// El rate-limiting por IP y los tres detectores de abuso del wizard
+// público quedaban contando a todo el mundo como una sola persona: cuatro
+// pacientes distintos sacando turno la misma tarde alcanzaban para que el
+// detector de rotación por IP les borrara los turnos (pasó en QA el
+// 2026-09-12).
+//
+// Acá, en el único lugar por donde sale todo el tráfico hacia la API, se
+// adjunta la IP real. Va acompañada del secreto compartido porque la API
+// es un servicio PÚBLICO: sin esa prueba, cualquiera podría pegarle
+// directo diciendo ser la IP que quisiera. Ver la contraparte en
+// apps/api/internal/http/ip_del_visitante.go.
+const BFF_SHARED_SECRET = process.env.BFF_SHARED_SECRET ?? "";
+
+// ipDelVisitante — el ÚLTIMO valor de `x-forwarded-for`, mismo criterio
+// que `clientIP()` en Go (TR-121): con exactamente un proxy de confianza
+// adelante —el de Render— es el único que el cliente no puede falsificar,
+// porque lo agrega el proxy y no viene del navegador.
+//
+// Devuelve "" y no rompe nada si no hay contexto de request (por ejemplo
+// durante el build) o si la cabecera no está (desarrollo local, donde el
+// navegador le pega derecho a Next sin proxy en el medio). Sin IP no se
+// manda la cabecera, y la API se comporta como antes de esta fase.
+async function ipDelVisitante(): Promise<string> {
+  if (!BFF_SHARED_SECRET) return "";
+  try {
+    const crudo = (await headers()).get("x-forwarded-for");
+    if (!crudo) return "";
+    const partes = crudo.split(",");
+    return partes[partes.length - 1].trim();
+  } catch {
+    return "";
+  }
+}
+
+async function cabecerasDeIP(): Promise<Record<string, string>> {
+  const ip = await ipDelVisitante();
+  if (!ip) return {};
+  return { "X-Prisma-Client-IP": ip, "X-Prisma-Bff-Auth": BFF_SHARED_SECRET };
+}
+
 type RawResult<T> = { ok: true; data: T; headers: Headers } | { ok: false; status: number; error: string };
 
 // requestRaw — el fetch real. Existe separado de `request` solo para que
@@ -94,10 +140,13 @@ type RawResult<T> = { ok: true; data: T; headers: Headers } | { ok: false; statu
 // todo el manejo de errores/timeout.
 async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResult<T>> {
   let res: Response;
+  // Las cabeceras de IP van PRIMERO en el objeto para que un `init.headers`
+  // nunca pueda pisarlas por accidente desde un call site.
+  const deIP = await cabecerasDeIP();
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      headers: { "Content-Type": "application/json", ...deIP, ...(init?.headers ?? {}) },
       cache: "no-store",
       signal: AbortSignal.timeout(requestTimeoutMs),
     });

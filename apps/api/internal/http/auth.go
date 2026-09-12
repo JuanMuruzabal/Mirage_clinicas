@@ -116,6 +116,13 @@ type AuthDeps struct {
 	// ExponerCodigoVerificacion — nunca puede quedar prendido en
 	// producción por accidente.
 	SimularBloqueosSeguridad bool
+	// BFFSharedSecret — secreto compartido con el BFF de Next.js, que le
+	// permite decirle a esta API cuál es la IP REAL del visitante. Ver el
+	// comentario grande de ip_del_visitante.go: sin esto, todo lo que pasa
+	// por el frontend llega con la IP del proceso web, la misma para todos.
+	// Vacío = la cabecera se ignora y el comportamiento es el de antes de
+	// la Fase 3.1.1.
+	BFFSharedSecret string
 }
 
 func registerAuthRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {

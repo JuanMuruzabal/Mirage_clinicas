@@ -68,6 +68,17 @@ func main() {
 		fatal("configuración insegura", err)
 	}
 
+	// Sin este secreto el sistema no queda roto ni inseguro — queda CIEGO:
+	// el rate-limiting por IP y los detectores de abuso del wizard van a
+	// contar a todos los visitantes como si fueran uno solo, que es el
+	// problema que la Fase 3.1.1 vino a arreglar. Por eso avisa en vez de
+	// frenar el arranque: degradar a "agrupa de más" es tolerable; no
+	// poder deployar por una variable faltante, no.
+	if cfg.Env != "development" && cfg.BFFSharedSecret == "" {
+		slog.Warn("BFF_SHARED_SECRET sin configurar: la API va a ver la IP del proceso web, no la del visitante — el rate-limiting por IP y los detectores de abuso del wizard público van a agrupar a todos los visitantes bajo una sola IP",
+			slog.String("env", cfg.Env))
+	}
+
 	gormDB, err := db.Connect(cfg.DBUrl)
 	if err != nil {
 		fatal("error conectando a la base de datos", err)
@@ -211,6 +222,10 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// público sin comerse un bloqueo real (3 días de mail, turnos
 		// borrados) que hay que limpiar a mano para seguir iterando.
 		SimularBloqueosSeguridad: cfg.ResendAPIKey == "",
+		// Fase 3.1.1 — habilita que el BFF le diga a la API cuál es la IP
+		// real del visitante. Vacío: la cabecera se ignora, ver
+		// internal/http/ip_del_visitante.go.
+		BFFSharedSecret: cfg.BFFSharedSecret,
 	}
 }
 

@@ -776,6 +776,14 @@ El brief arranca con tres correcciones al wizard público que no dependen del mu
 
 Consecuencia arrastrada: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista**, no un turno — con varios activos posibles por DNI, devolver el primero era mentir.
 
+### 13.1.1 Fase 3.1.1 — la IP real del visitante (✅ 2026-09-12)
+
+Encontrada durante el QA de la 3.1: el detector de rotación por IP borró una ficha real de prueba porque `clientIP()` veía la IP del **proceso web**, no la del paciente — el navegador nunca llama a la API directo, así que todos los visitantes llegaban bajo una sola IP. Afectaba también al rate-limiting por IP de auth, la auditoría y los logs.
+
+El BFF pasa ahora la IP real en `X-Prisma-Client-IP`, acompañada de un secreto compartido (`X-Prisma-Bff-Auth`) porque la API es un servicio público y una cabecera sin prueba sería un modo de evadir todos los controles. Un middleware la valida y reescribe `X-Forwarded-For`, así los 14 lugares que preguntan por la IP se arreglan sin tocar ninguno. Decisión y alternativas en TR-134; explicación larga en `docs/Fases post MVP/Fase 3/fase3.1.1-ip-real-del-visitante.md`.
+
+Sin el secreto configurado todo se comporta como antes (agrupa de más, nunca de menos) y el proceso avisa con un WARN al arrancar. En desarrollo local sigue sin haber IP que propagar: el navegador le pega derecho a Next, sin proxy en el medio.
+
 ### 13.2 Multi-tenant propiamente dicho (pendiente)
 
 Las dos mitades del modelo nuevo, según el brief:

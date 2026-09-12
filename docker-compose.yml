@@ -59,6 +59,12 @@ services:
       DATABASE_URL: postgres://dental_mirage:dental_mirage@postgres:5432/dental_mirage?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:-dev-secret-cambiar-en-produccion}
       CORS_ALLOWED_ORIGINS: http://localhost:3000
+      # Mismo valor que el del servicio `web` de más abajo — le permite al
+      # BFF decirle a esta API cuál es la IP real del visitante (Fase
+      # 3.1.1, ver apps/api/internal/http/ip_del_visitante.go). En local
+      # casi nunca cambia nada: el navegador le pega derecho a Next, sin
+      # proxy que ponga X-Forwarded-For, así que no hay IP que propagar.
+      BFF_SHARED_SECRET: ${BFF_SHARED_SECRET:-dev-bff-secret}
     ports:
       - "8080:8080"
     depends_on:
@@ -88,6 +94,10 @@ services:
       # API — nunca la resuelve el navegador (spec §9.3, BFF sin
       # excepciones).
       API_URL: http://api:8080
+      # Tiene que ser EL MISMO valor que el del servicio `api`: si no
+      # coinciden, la API ignora la IP que manda el BFF y vuelve a ver la
+      # del proceso web para todos (Fase 3.1.1).
+      BFF_SHARED_SECRET: ${BFF_SHARED_SECRET:-dev-bff-secret}
       CONTACTO_EMAIL: ${CONTACTO_EMAIL:-hola@dentalmirage.com.ar}
     ports:
       - "3000:3000"

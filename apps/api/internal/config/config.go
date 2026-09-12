@@ -47,6 +47,21 @@ type Config struct {
 	// permanente: la protección es justamente el paso manual.
 	AllowDestructiveMigrations bool
 
+	// BFFSharedSecret — secreto compartido con el BFF de Next.js. Existe
+	// por un motivo puntual: esta API es un servicio PÚBLICO (ver
+	// render.yaml) y el navegador nunca la llama directo — todo pasa por
+	// Server Actions, así que lo que llega es siempre la IP del proceso
+	// web, no la del visitante. Con este secreto el BFF puede decir "la
+	// IP real de quien me pidió esto es tal", y la API le cree.
+	//
+	// Le cree SOLO si el secreto coincide: sin esa prueba, cualquiera
+	// podría mandarle a la API pública una IP inventada y evadir el
+	// rate-limiting y los detectores de abuso del wizard, que es
+	// exactamente lo que se quiere impedir. Vacío (dev, o mal
+	// configurado) = la cabecera se ignora por completo y todo se comporta
+	// como antes de la Fase 3.1.1.
+	BFFSharedSecret string
+
 	// CORSAllowedOrigins — orígenes desde los que el navegador puede
 	// llamar directo a la API. No afecta las llamadas server-to-server de
 	// Next.js vía Server Actions/Route Handlers (spec §9.3, BFF sin
@@ -102,6 +117,8 @@ func Load() Config {
 		Env:              getEnv("APP_ENV", "development"),
 
 		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
+
+		BFFSharedSecret: getEnv("BFF_SHARED_SECRET", ""),
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 
