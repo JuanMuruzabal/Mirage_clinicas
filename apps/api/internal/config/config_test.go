@@ -47,3 +47,40 @@ func TestLoad_EnvVacioCaeAlDefault(t *testing.T) {
 		t.Errorf("CORSAllowedOrigins = %v, esperaba el default ante env var vacía", cfg.CORSAllowedOrigins)
 	}
 }
+
+// TestLoad_BFFSharedSecretDeEjemploSeDescartaFueraDeDevelopment — el valor
+// de ejemplo está en el repo (docker-compose.yml, los .env.example), así
+// que fuera de development no puede valer como prueba de que un pedido
+// viene del BFF: con él, cualquiera declararía la IP que quisiera y
+// evadiría el rate-limiting y los detectores de abuso del wizard.
+//
+// Degradar a "sin configurar" deja a la API viendo la IP del proceso web,
+// que es exactamente como funcionaba antes de la Fase 3.1.1 — molesto,
+// pero seguro.
+func TestLoad_BFFSharedSecretDeEjemploSeDescartaFueraDeDevelopment(t *testing.T) {
+	t.Setenv("BFF_SHARED_SECRET", BFFSharedSecretDeDesarrollo)
+
+	t.Setenv("APP_ENV", "development")
+	if got := Load().BFFSharedSecret; got != BFFSharedSecretDeDesarrollo {
+		t.Errorf("en development = %q, esperaba que el valor de ejemplo sirva", got)
+	}
+
+	for _, env := range []string{"staging", "production"} {
+		t.Setenv("APP_ENV", env)
+		if got := Load().BFFSharedSecret; got != "" {
+			t.Errorf("en %s = %q, esperaba vacío — el secreto de ejemplo es público", env, got)
+		}
+	}
+}
+
+// TestLoad_BFFSharedSecretPropioSeRespeta — la otra mitad: un valor real
+// configurado no se toca en ningún entorno.
+func TestLoad_BFFSharedSecretPropioSeRespeta(t *testing.T) {
+	t.Setenv("BFF_SHARED_SECRET", "un-secreto-de-verdad")
+	for _, env := range []string{"development", "staging", "production"} {
+		t.Setenv("APP_ENV", env)
+		if got := Load().BFFSharedSecret; got != "un-secreto-de-verdad" {
+			t.Errorf("en %s = %q, esperaba el valor configurado", env, got)
+		}
+	}
+}

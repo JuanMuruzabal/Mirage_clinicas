@@ -98,8 +98,15 @@ type AuthDeps struct {
 	// Pedido del cliente para trabajar más cómodo en local — cuando está
 	// prendido, enviarVerificacionTurnoPublicoHandler devuelve el código
 	// en texto plano en la respuesta (CodigoDev) y el wizard lo muestra
-	// debajo del campo. Se apaga solo apenas se cargue RESEND_API_KEY —
-	// nunca puede quedar prendido en producción por accidente.
+	// debajo del campo.
+	//
+	// ⚠️ Su ÚNICA condición es que RESEND_API_KEY esté vacía — nada lo ata
+	// a APP_ENV. En un entorno público sin Resend cargado esto queda
+	// PRENDIDO, y entonces cualquiera puede pedir el código de un mail
+	// ajeno y leerlo en la respuesta, o sea verificarse como otra persona.
+	// El comentario anterior decía "nunca puede quedar prendido en
+	// producción por accidente": no es una garantía del código, depende de
+	// que alguien haya cargado a mano una variable no relacionada.
 	ExponerCodigoVerificacion bool
 	// SimularBloqueosSeguridad — corrección de seguridad (Fase 2.4.1),
 	// mismo criterio/señal que ExponerCodigoVerificacion de arriba (sin
@@ -108,13 +115,24 @@ type AuthDeps struct {
 	// decirme que debería estar bloqueado, así voy probando que
 	// funcionan realmente". Con esto prendido, los detectores de abuso
 	// del formulario público (turno_publico.go: tope DNI+tipo, mail con
-	// muchos DNIs, rotación por IP) NUNCA bloquean mail/IP ni borran
-	// turnos de verdad — el pedido sigue su curso normal, y lo único que
-	// pasa es que queda una fila en la auditoría (Simulado=true, visible
-	// en /panel/seguridad) diciendo qué se habría bloqueado. Se apaga
-	// solo apenas se cargue RESEND_API_KEY, igual que
-	// ExponerCodigoVerificacion — nunca puede quedar prendido en
-	// producción por accidente.
+	// muchos DNIs, rotación por IP) no bloquean el mail ni la IP, y queda
+	// una fila en la auditoría (Simulado=true, visible en
+	// /panel/seguridad) diciendo qué se habría bloqueado.
+	//
+	// ⚠️ SIMULADO NO SIGNIFICA INOFENSIVO: los dos detectores que borran
+	// turnos (bloquearMailPorAbusoDeDNIsYBorrarTurnos y
+	// bloquearIPPorRotacionYBorrarTurnos) LOS BORRAN IGUAL — está decidido
+	// a propósito en cada una de esas funciones, para poder verificar en
+	// local que el borrado hace lo que dice. Lo único que se saltea es el
+	// bloqueo persistente de mail/IP, que es lo que obligaría a limpiar la
+	// base a mano para seguir probando. Este comentario decía "ni borran
+	// turnos de verdad" y era falso: corregido tras un QA (2026-09-12) en
+	// el que el detector de rotación por IP borró turnos reales en
+	// desarrollo, con esta simulación activa.
+	//
+	// Se apaga apenas se cargue RESEND_API_KEY — pero ojo, ESA es su única
+	// condición: nada lo ata a APP_ENV. Ver el comentario de
+	// ExponerCodigoVerificacion arriba.
 	SimularBloqueosSeguridad bool
 	// BFFSharedSecret — secreto compartido con el BFF de Next.js, que le
 	// permite decirle a esta API cuál es la IP REAL del visitante. Ver el

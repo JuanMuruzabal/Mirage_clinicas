@@ -17,6 +17,15 @@ import (
 // este valor tiene que ser imposible.
 const OAuthStateSecretDeDesarrollo = "dev-secret-cambiar-en-produccion"
 
+// BFFSharedSecretDeDesarrollo — el valor de ejemplo que traen
+// docker-compose.yml y los .env.example. Igual que el de arriba, es
+// PÚBLICO: está en el repo. Por eso fuera de `development` se trata como
+// si la variable no estuviera configurada (ver Load): un secreto que
+// cualquiera puede leer en GitHub no sirve para probar que una IP viene
+// del BFF — con él, cualquiera podría declarar la IP que quisiera y
+// evadir el rate-limiting y los detectores de abuso.
+const BFFSharedSecretDeDesarrollo = "dev-bff-secret"
+
 // Config agrupa todo lo que el backend necesita para arrancar.
 type Config struct {
 	Port  string
@@ -105,6 +114,21 @@ type Config struct {
 	StoragePublicURL  string
 }
 
+// bffSharedSecret resuelve BFF_SHARED_SECRET descartando el valor de
+// ejemplo fuera de `development`. Es la misma lección de TR-125 (un
+// secreto público no es un secreto), pero con otra reacción: acá no se
+// frena el arranque, se degrada a "sin configurar". Confiar en un secreto
+// que está en el repo sería PEOR que no confiar en nada — habilitaría a
+// cualquiera a elegir su IP; no confiar en nada solo hace que la API vea
+// la IP del proceso web, que es como funcionaba antes de la Fase 3.1.1.
+func bffSharedSecret(env string) string {
+	valor := getEnv("BFF_SHARED_SECRET", "")
+	if env != "development" && valor == BFFSharedSecretDeDesarrollo {
+		return ""
+	}
+	return valor
+}
+
 // Load lee la configuración desde variables de entorno, con valores por
 // defecto razonables para desarrollo local (mismos defaults que
 // docker-compose.yml).
@@ -118,7 +142,7 @@ func Load() Config {
 
 		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
 
-		BFFSharedSecret: getEnv("BFF_SHARED_SECRET", ""),
+		BFFSharedSecret: bffSharedSecret(getEnv("APP_ENV", "development")),
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 
