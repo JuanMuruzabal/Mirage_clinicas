@@ -108,6 +108,11 @@ export const onboardingClinicaSchema = z.object({
   direccion: z.string().trim().optional().or(z.literal("")),
   ciudad: z.string().trim().optional().or(z.literal("")),
   provincia: z.string().trim().optional().or(z.literal("")),
+  // telefonoPrefijo solo vive en el formulario: la clínica guarda UNA
+  // columna de teléfono (`clinics.telefono`), a diferencia del perfil
+  // profesional, que sí tiene prefijo y número separados. El control es
+  // el mismo (CampoTelefono) y los dos valores se unen al enviar.
+  telefonoPrefijo: z.string().trim().default("+54"),
   telefono: z.string().trim().optional().or(z.literal("")),
 });
 export type OnboardingClinicaFormValues = z.infer<typeof onboardingClinicaSchema>;

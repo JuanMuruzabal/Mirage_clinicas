@@ -411,3 +411,31 @@ body {
   background: var(--color-marfil);
   transform: translateZ(0);
 }
+
+/* Scrollbar fina para el cuerpo de los modales de alta (Fase 3.2.3, ronda
+   de QA del 2026-09-13, `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`:
+   "la nativa gris de tu captura rompe el borde redondeado").
+   El cliente pidió #E6E1D4; se usa `--color-arena` (#e7dfd1), que es el
+   token que ya tiene el proyecto para ese mismo gris cálido y queda a un
+   punto de diferencia — un hex suelto habría sido un color nuevo en la
+   paleta para nada.
+   Firefox usa `scrollbar-width`/`scrollbar-color`, que no admiten grosor
+   en píxeles: ahí queda "thin", que es lo más cerca que se puede pedir. */
+.scrollbar-fina {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-arena) transparent;
+}
+
+.scrollbar-fina::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-fina::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-fina::-webkit-scrollbar-thumb {
+  background: var(--color-arena);
+  border-radius: 9999px;
+}
+

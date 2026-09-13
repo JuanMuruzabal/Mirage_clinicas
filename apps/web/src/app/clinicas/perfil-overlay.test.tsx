@@ -69,4 +69,57 @@ describe("PerfilOverlay", () => {
     expect(screen.queryByRole("button", { name: /Clínica individual/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Organización/ })).not.toBeInTheDocument();
   });
+
+  // Ronda de QA del 2026-09-13: el botón vive en el pie FIJO, fuera del
+  // <form>, y se asocia con el atributo `form=`. Si esa asociación se
+  // rompe, el modal queda sin forma de enviarse y no lo nota nadie hasta
+  // probarlo a mano.
+  it("el botón del pie sigue asociado al formulario", () => {
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    const boton = screen.getByRole("button", { name: "Continuar" });
+    const form = document.querySelector("form")!;
+    expect(boton).toHaveAttribute("form", form.id);
+    expect(form.contains(boton)).toBe(false);
+  });
+
+  it("agrupa los campos en datos personales y profesionales", () => {
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    expect(screen.getByText("Datos personales")).toBeInTheDocument();
+    expect(screen.getByText("Datos profesionales")).toBeInTheDocument();
+  });
+
+  // El país era un campo de texto editable: se podía borrar el "+54" o
+  // escribir cualquier cosa.
+  it("el país es un select, no un campo de texto", () => {
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    const pais = screen.getByLabelText("País");
+    expect(pais.tagName).toBe("SELECT");
+    expect(pais).toHaveValue("+54");
+  });
+
+  it("las especialidades elegidas quedan como chips que se pueden quitar", async () => {
+    const user = userEvent.setup();
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    await user.click(screen.getByRole("button", { name: "Ortodoncia" }));
+    const chip = screen.getByRole("button", { name: "Quitar Ortodoncia" });
+
+    await user.click(chip);
+    expect(screen.queryByRole("button", { name: "Quitar Ortodoncia" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ortodoncia" })).toBeInTheDocument();
+  });
+
+  it("la búsqueda filtra las que todavía no se eligieron", async () => {
+    const user = userEvent.setup();
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    await user.type(screen.getByLabelText("Buscar especialidad"), "perio");
+
+    expect(screen.getByRole("button", { name: "Periodoncia" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ortodoncia" })).not.toBeInTheDocument();
+  });
 });
+

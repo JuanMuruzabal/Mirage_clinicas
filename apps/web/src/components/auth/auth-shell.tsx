@@ -11,8 +11,14 @@ import Link from "next/link";
 // hoy vive copy-pasteado en sumarse-wizard.tsx y varios modales del panel.
 export const authFieldWrapClass = "flex flex-col gap-1.5 text-sm";
 export const authLabelClass = "font-medium text-grafito";
+// 10px y no `rounded-field` (12px) ni pill — Fase 3.2.3, ronda de QA del
+// 2026-09-13: *"los inputs muy redondeados hacen que el formulario
+// parezca de juguete"*. Las tarjetas y los botones conservan su radio.
 export const authInputClass =
-  "rounded-field border-[0.5px] border-arena bg-marfil px-3 py-2 text-grafito outline-none focus:border-salvia disabled:opacity-60";
+  "rounded-[10px] border-[0.5px] border-arena bg-marfil px-3 py-2.5 text-grafito outline-none focus:border-salvia disabled:opacity-60";
+// Mismo input, con lugar a la izquierda para el ícono del campo (ver
+// CampoConIcono).
+export const authInputConIconoClass = `${authInputClass} pl-10`;
 export const authSubmitClass =
   "rounded-full bg-salvia-oscuro px-4 py-3 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60";
 export const authSecondaryButtonClass =
@@ -24,13 +30,21 @@ interface AuthFieldProps {
   label: string;
   error?: string;
   hint?: string;
+  /** Marca el campo como opcional con un chip gris al lado del label, en
+   *  vez de un "(opcional)" pegado al nombre — Fase 3.2.3. */
+  opcional?: boolean;
   children: ReactNode;
 }
 
-export function AuthField({ label, error, hint, children }: AuthFieldProps) {
+export function AuthField({ label, error, hint, opcional, children }: AuthFieldProps) {
   return (
     <label className={authFieldWrapClass}>
-      <span className={authLabelClass}>{label}</span>
+      <span className="flex items-center gap-2">
+        <span className={authLabelClass}>{label}</span>
+        {opcional && (
+          <span className="rounded-full bg-hueso px-2 py-0.5 text-[11px] font-normal text-grafito/50">opcional</span>
+        )}
+      </span>
       {children}
       {hint && !error && <span className="text-xs text-grafito/50">{hint}</span>}
       {error && (
@@ -158,12 +172,37 @@ export function AuthShell({
 // pie de la página (pedido explícito del cliente, 2026-08-28: "abajo del
 // todo con un 'También ingresá con'" — mismo patrón que Alojamientos
 // Madryn, con el texto adaptado a este proyecto).
+//
+// Rediseñado en la ronda de QA del 2026-09-13: el texto en mayúsculas con
+// letter-spacing ancho "colgando" de la línea se reemplaza por una
+// etiqueta en caja sobre el hilo. El pedido original era "botones
+// sociales en dos columnas"; **hoy el único proveedor implementado es
+// Google** (spec §9), y media fila vacía al lado de un botón solo se ve
+// peor que un botón de ancho completo. Cuando exista un segundo
+// proveedor, acá va una grilla de dos columnas.
 export function AuthDivider() {
   return (
-    <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-grafito/40">
+    <div className="flex items-center gap-3">
       <span className="h-px flex-1 bg-arena" />
-      También ingresá con
+      <span className="rounded-full bg-hueso px-3 py-1 text-xs text-grafito/50">También ingresá con</span>
       <span className="h-px flex-1 bg-arena" />
     </div>
   );
 }
+
+// CampoConIcono — envuelve un input para dejarle el ícono del campo a la
+// izquierda, adentro del borde. Pedido del cliente en la ronda de QA del
+// 2026-09-13: *"íconos a la izquierda de cada campo"*. El input que va
+// adentro tiene que usar `authInputConIconoClass`, que es el mismo estilo
+// con el padding extra.
+export function CampoConIcono({ icono, children }: { icono: ReactNode; children: ReactNode }) {
+  return (
+    <span className="relative flex flex-col">
+      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-grafito/40">
+        {icono}
+      </span>
+      {children}
+    </span>
+  );
+}
+

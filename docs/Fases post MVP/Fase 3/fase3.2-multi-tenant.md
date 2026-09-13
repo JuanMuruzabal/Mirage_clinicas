@@ -441,3 +441,39 @@ Cuatro tests existentes cambiaron de expectativa a propósito, y vale dejar clar
 
 Sigue la **3.2.4 — colaboradores**: invitar por código o por mail, con los roles y sus reglas de exclusión. Es la que le da sentido al código que esta fase ya genera.
 
+### Ronda de QA del 2026-09-13 — el bug del header y el rediseño de los tres formularios
+
+Pedido del cliente sobre la entrega anterior. La fuente original es `cambios_modal.txt`, **un archivo temporal que se va a borrar**: el contenido que importaba está transcrito acá y citado en los comentarios del código que cambió, así que no queda nada colgando de él.
+
+#### El bug: "Mis clínicas" adentro de /clinicas
+
+El header ofrecía ir a la pantalla en la que la persona ya estaba parada. **Solo pasaba sin ninguna clínica cargada**, y ese "solo" es la explicación: el botón se muestra cuando la ruta no cuenta como "de herramienta", y esa condición exige **onboarding completo**. Sin clínica, el onboarding está incompleto — así que la misma pantalla cambiaba de header según el estado de la cuenta.
+
+Arreglado con dos reglas explícitas en vez de una derivada: nunca ofrecer `/clinicas` estando en `/clinicas`, y mostrar ahí el menú de configuración con cualquier sesión — es el único acceso a "Cerrar sesión", que en esa pantalla no es un detalle: el brief hace de cerrar sesión la forma deliberada de volver al sitio público, porque el nombre del producto deja de ser un link.
+
+#### Pantalla de registro
+
+- **El stepper** pasa a círculos unidos por una línea, con la etiqueta debajo y el activo relleno con el verde de la marca. Lo que había era una fila de mayúsculas con letter-spacing ancho y un guión suelto entre paso y paso, que el cliente marcó como ilegible. No era una impresión: en un stepper lo que tiene que leerse de un vistazo es **cuántos pasos hay y en cuál estoy**, y eso se ve en la forma, no en el texto.
+- **La contraseña gana un ojo y una barra de fuerza** que reemplaza al texto fijo "Mínimo 12 caracteres" — *"el requisito se comunica mejor mostrando progreso que con una regla estática"*. Mientras falta largo, el texto dice cuántos caracteres faltan: la regla sigue estando, pero como avance. Y el nivel más bajo se mantiene hasta llegar al mínimo aunque la clave tenga de todo, porque una barra llena justo antes de un error sería mentir.
+- **El repetir muestra un tilde verde cuando coinciden**, así el error no aparece recién al enviar.
+- **Íconos a la izquierda de cada campo** e inputs a 10px: *"los inputs muy redondeados hacen que el formulario parezca de juguete"*.
+- **Lo que se apartó del pedido:** "los botones sociales van en dos columnas". Hoy el único proveedor implementado es **Google** (spec §9), y media fila vacía al lado de un botón solo se ve peor que un botón de ancho completo. Lo que sí se rehizo es el divisor: la etiqueta pasa a ser un chip sobre la línea en vez de texto colgando. Cuando exista un segundo proveedor, ahí va la grilla de dos columnas.
+
+#### Modal de perfil
+
+- **Encabezado y pie fijos, con "Continuar" siempre visible.** Antes había que scrollear hasta el fondo para encontrarlo. El botón vive **fuera del `<form>`** y se asocia con el atributo `form=`: es la única forma de tener un pie fijo sin sacar el formulario de su contenedor scrolleable. Hay un test que lo verifica, porque si esa asociación se rompe el modal queda sin forma de enviarse y no lo nota nadie hasta probarlo a mano.
+- **El país deja de ser un campo de texto editable** y pasa a ser un select pegado al teléfono dentro del mismo borde: nadie puede borrar el "+54" ni escribir cualquier cosa. **Prefijo y número se siguen guardando por separado** en la base — cambia el control, no el modelo.
+- **Dos grupos con título** ("Datos personales" / "Datos profesionales") y **520px de ancho** en vez de ~900: nueve campos sueltos en una columna ancha son una lista; en dos bloques cortos son dos tareas.
+- **"(opcional)" sale del label** y pasa a ser un chip gris, y **las especialidades elegidas quedan como chips con X adentro del campo de búsqueda**: el campo pasa a mostrar el estado, no solo a filtrar.
+
+#### Modal de crear clínica
+
+- **Mismo encabezado y pie fijos**, con scroll solo en el cuerpo y una scrollbar fina de 6px — la nativa gris rompía el borde redondeado. El color pedido era `#E6E1D4`; se usó el token `--color-arena` (`#e7dfd1`), que es el gris cálido que el proyecto ya tiene y queda a un punto: un hex suelto habría sido un color nuevo en la paleta para nada.
+- **Los cuatro campos opcionales se pliegan** en "Ubicación y contacto", así el modal entra sin scroll y lo obligatorio queda en primer plano.
+- **La tarjeta elegida se marca con el verde de la marca, fondo menta y un tilde**, no con un borde negro grueso: *"el negro no existe en ningún otro lado de PRISMA, por eso saltaba"*. El ícono va arriba a la izquierda y el círculo de selección arriba a la derecha, para que se lea como un radio button aunque sea una tarjeta.
+- **Provincia pasa a select de 24 valores, y va antes que ciudad.** Campo libre ensucia la base con "Cordoba", "CBA", "córdoba" — y esa columna es la que filtra el **buscador público de clínicas**, donde tres grafías de lo mismo son tres lugares distintos.
+- **El botón nunca está deshabilitado.** Antes, sin tipo elegido, quedaba gris sin decir por qué: *"un botón gris sin explicación deja al usuario adivinando qué falta"*. Ahora se puede tocar siempre y el error aparece debajo del campo que falta.
+- El teléfono usa el mismo control unificado, con una diferencia de modelo: la clínica guarda **una sola columna** de teléfono, así que prefijo y número se unen al enviar.
+
+**Verificado:** 1060 tests frontend (25 nuevos), gates de cobertura en verde, lint 0 errores, build OK, contenedor reconstruido.
+

@@ -61,6 +61,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
 
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
+  const esClinicas = pathname === "/clinicas";
   // mostrarGear — corrección de QA (2026-09-05, textual): "saque del
   // header del panel de gestion de clinica la tuerquita de opciones, ya
   // que en el sidebar da las opciones" — en /panel/** el sidebar YA
@@ -74,8 +75,19 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // sacar el gear sin tocar `ocultarLogo`/`enRutaConSidebar`, que siguen
   // dependiendo de "es una pantalla de herramienta" en general, no de
   // "tiene gear".
-  const mostrarGear = esHerramienta && !enRutaConSidebar;
-  const mostrarMiClinica = estado !== "anonimo" && !esHerramienta;
+  //
+  // En /clinicas el gear se muestra con cualquier sesión, no solo con el
+  // onboarding completo: es el único acceso a "Cerrar sesión", y ahí eso
+  // no es un detalle — el brief hace de cerrar sesión la forma
+  // deliberada de volver al sitio público, porque el nombre del producto
+  // deja de ser un link. Sus dos ítems (Tu perfil / Cerrar sesión) valen
+  // igual sin clínica cargada.
+  const mostrarGear = (esHerramienta && !enRutaConSidebar) || (esClinicas && estado !== "anonimo");
+  // Y nunca el botón "Mis clínicas" DENTRO de /clinicas. Se colaba con el
+  // onboarding sin terminar —el caso de quien todavía no cargó ninguna—,
+  // porque `esHerramienta` exige onboarding completo: el header ofrecía
+  // ir a la pantalla en la que la persona ya estaba parada.
+  const mostrarMiClinica = estado !== "anonimo" && !esHerramienta && !esClinicas;
   const mostrarAccesosAnonimos = estado === "anonimo";
 
   // TR-075 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido explícito del
@@ -98,7 +110,6 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   //     clínicas, para ir a la página anterior de seleccionar clínica":
   //     el logo pasa a ser el camino de vuelta al selector.
   const esSeleccionarServicio = pathname === "/seleccionar-servicio";
-  const esClinicas = pathname === "/clinicas";
   const ocultarLogo = esHerramienta && !esSeleccionarServicio && !esClinicas;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el

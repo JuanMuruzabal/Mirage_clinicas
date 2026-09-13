@@ -202,5 +202,82 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     expect(screen.getByText("PR-WXYZ-1234")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
+
+  // --- Ronda de QA del 2026-09-13 (ver la bitácora de la fase) ---
+
+  // Antes el botón quedaba gris hasta elegir el tipo, sin decir por qué:
+  // "un botón gris sin explicación deja al usuario adivinando qué falta".
+  it("el botón de crear nunca está deshabilitado y el error dice qué falta", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    const crear = screen.getByRole("button", { name: "Crear mi clínica" });
+    expect(crear).toBeEnabled();
+
+    await userEvent.click(crear);
+
+    expect(await screen.findByText("Elegí el tipo de clínica.")).toBeInTheDocument();
+    expect(screen.getByText("El nombre de la clínica es obligatorio.")).toBeInTheDocument();
+    expect(onboardingClinicaActionMock).not.toHaveBeenCalled();
+  });
+
+  it("los campos opcionales arrancan plegados", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    const plegable = screen.getByRole("button", { name: /Ubicación y contacto/ });
+    expect(plegable).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Provincia")).not.toBeVisible();
+
+    await userEvent.click(plegable);
+    expect(plegable).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Provincia")).toBeVisible();
+  });
+
+  // Campo libre ensuciaba la base con "Cordoba", "CBA", "córdoba" — y esa
+  // columna es la que filtra el buscador público.
+  it("provincia es una lista cerrada, y va antes que ciudad", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Ubicación y contacto/ }));
+
+    const provincia = screen.getByLabelText("Provincia");
+    expect(provincia.tagName).toBe("SELECT");
+    await userEvent.selectOptions(provincia, "Córdoba");
+    expect(provincia).toHaveValue("Córdoba");
+
+    const ciudad = screen.getByLabelText("Ciudad");
+    expect(provincia.compareDocumentPosition(ciudad) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("la tarjeta elegida queda marcada como seleccionada", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    const individual = screen.getByRole("button", { name: /Clínica individual/ });
+    expect(individual).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(individual);
+    expect(individual).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Organización/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // El teléfono de la clínica es UNA columna en la base, así que el
+  // prefijo y el número se unen al enviar.
+  it("manda el teléfono con el prefijo del país adelante", async () => {
+    onboardingClinicaActionMock.mockResolvedValue(undefined);
+    render(<DondeTrabajas clinicas={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+    await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
+    await userEvent.click(screen.getByRole("button", { name: /Ubicación y contacto/ }));
+    await userEvent.type(screen.getByLabelText("Teléfono de contacto"), "3511234567");
+    await userEvent.click(screen.getByRole("button", { name: "Crear mi clínica" }));
+
+    await waitFor(() =>
+      expect(onboardingClinicaActionMock).toHaveBeenCalledWith(expect.objectContaining({ telefono: "+54 3511234567" })),
+    );
+  });
 });
 

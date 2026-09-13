@@ -282,6 +282,32 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
     expect(screen.getByRole("link", { name: "Mis clínicas" })).toHaveAttribute("href", "/clinicas");
   });
 
+  // Bug reportado por el cliente (2026-09-13): en /clinicas aparecía el
+  // botón "Mis clínicas", que lleva a /clinicas. Solo pasaba SIN clínica
+  // cargada, porque ahí el onboarding está incompleto y la ruta no cuenta
+  // como "de herramienta" — el header ofrecía ir a la pantalla en la que
+  // la persona ya estaba.
+  it.each(["completo", "cuentaSinTerminar"] as const)(
+    "en /clinicas con estado %s, nunca ofrece ir a /clinicas",
+    (estado) => {
+      usePathnameMock.mockReturnValue("/clinicas");
+      renderHeader(estado);
+      expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
+    },
+  );
+
+  // El gear es el único acceso a "Cerrar sesión", y ahí eso no es un
+  // detalle: cerrar sesión es la forma deliberada de volver al sitio
+  // público, porque el nombre del producto deja de ser un link.
+  it.each(["completo", "cuentaSinTerminar"] as const)(
+    "en /clinicas con estado %s, el menú de configuración sigue disponible",
+    (estado) => {
+      usePathnameMock.mockReturnValue("/clinicas");
+      renderHeader(estado);
+      expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
+    },
+  );
+
   it.each(["/", "/buscar", "/seleccionar-servicio"])(
     "con estado cuentaSinTerminar en %s, muestra 'Mis clínicas' (sin excepción de ruta)",
     (pathname) => {

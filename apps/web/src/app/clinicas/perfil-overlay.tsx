@@ -1,5 +1,4 @@
 import type { Especialidad, Me } from "@dental-mirage/shared-types";
-import { AuthShell } from "@/components/auth/auth-shell";
 import { OnboardingPerfilForm } from "@/app/sumarse/onboarding-perfil-form";
 
 interface PerfilOverlayProps {
@@ -22,21 +21,12 @@ interface PerfilOverlayProps {
 //
 // Lo que NO cambia es el perfil profesional: sin nombre ni matrícula no
 // hay nada que mostrarle a un paciente, así que este paso sigue sin
-// poderse cerrar ni saltear (`sinVolver`).
+// poderse cerrar ni saltear — el modal no tiene ninguna salida.
+//
+// El modal en sí (encabezado y pie fijos, 520px, scroll solo en el
+// cuerpo) lo arma el propio formulario con `ModalShell`, desde la ronda
+// de QA del 2026-09-13: el botón "Continuar" tiene que quedar siempre
+// visible, y para eso vive en el pie, fuera del <form>.
 export function PerfilOverlay({ me, especialidades }: PerfilOverlayProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-grafito/50 p-3 py-6 sm:p-4 sm:py-10">
-      <div className="w-full max-w-xl">
-        <AuthShell
-          title="Creá tu perfil profesional"
-          subtitle="Un último paso antes de empezar a usar PRISMA."
-          sinVolver
-          ancho="xl"
-          scrollInterno
-        >
-          <OnboardingPerfilForm especialidades={especialidades} perfilInicial={me.perfil} />
-        </AuthShell>
-      </div>
-    </div>
-  );
+  return <OnboardingPerfilForm especialidades={especialidades} perfilInicial={me.perfil} />;
 }
