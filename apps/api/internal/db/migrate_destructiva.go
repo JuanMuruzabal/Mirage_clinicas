@@ -131,9 +131,11 @@ func aplicarDestructivaUnaVez(gdb *gorm.DB, pol PoliticaDestructiva, m Migracion
 // cosas viven en ese loop.
 func migracionesDestructivasPosteriores() []MigracionDestructiva {
 	return []MigracionDestructiva{
+		migracionBorrarTablasLegacyDelMVP(),
+		migracionDropColumnaRoleDeClinicMembers(),
 		{
 			Nombre:      migracionDedupPacientesDNI,
-			Descripcion: "fichas de paciente duplicadas por (profesional_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
+			Descripcion: "fichas de paciente duplicadas por (clinic_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
 			Afectados:   contarPacientesDuplicados,
 			Aplicar:     dedupPacientesPorDNI,
 		},
@@ -159,7 +161,8 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 		},
 		{
 			// Fase C de la auditoría (2026-09-09): filas de la era anterior a
-			// TR-037, cuando `profesional_id` guardaba un `profesionales.id` y
+			// TR-037, cuando esta columna —entonces llamada `profesional_id`—
+			// guardaba un `profesionales.id` y
 			// no un `clinics.id`. El significado de la columna cambió a mitad
 			// del proyecto y estas filas nunca se migraron; nadie lo notó
 			// justamente porque no había foreign keys (ver migrate_fk.go).
@@ -167,7 +170,7 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 			// En la base de desarrollo eran 38 filas, todas del 22 al 24 de
 			// agosto de 2026 (las sanas arrancan el 27), apuntando a 8-12
 			// clínicas que no existen. Son INALCANZABLES para la aplicación:
-			// cada query del panel filtra por `profesional_id = <clínica de la
+			// cada query del panel filtra por `clinic_id = <clínica de la
 			// sesión>`, y esas clínicas no existen, así que ninguna pantalla
 			// puede mostrarlas ni ningún turno referenciarlas (verificado: 0
 			// turnos apuntan a ellas).
@@ -286,7 +289,7 @@ func migracionRebuildHorariosAtencion() MigracionDestructiva {
 }
 
 // contarPacientesDuplicados — cuántas fichas se BORRARÍAN al deduplicar:
-// por cada grupo (profesional_id, dni) con más de una ficha, todas menos la
+// por cada grupo (clinic_id, dni) con más de una ficha, todas menos la
 // más vieja. `WHERE NOT en_conflicto` por el mismo motivo que el bloque de
 // deduplicación (ver dedupPacientesPorDNI): dos fichas separadas A PROPÓSITO
 // por un conflicto sin resolver no son un duplicado.
@@ -296,7 +299,7 @@ func contarPacientesDuplicados(tx *gorm.DB) (int64, error) {
 		  SELECT COUNT(*) AS cantidad
 		  FROM pacientes
 		  WHERE NOT en_conflicto
-		  GROUP BY profesional_id, dni
+		  GROUP BY clinic_id, dni
 		  HAVING COUNT(*) > 1
 		) AS grupos`)
 }
@@ -332,4 +335,101 @@ func contarFilasSiExisteTabla(tx *gorm.DB, tabla, query string) (int64, error) {
 		return 0, nil
 	}
 	return contarFilas(tx, query)
+}
+
+// migracionBorrarTablasLegacyDelMVP — Fase 3.2.1: se van las dos tablas
+// del MVP original, cuando "profesional" y "clínica" eran la misma fila.
+//
+// `profesionales` tenía nombre, email, password_hash, nombre_clinica y slug
+// todo junto. TR-037 separó identidad (`users`) de negocio (`clinics`) y la
+// dejó atrás, pero nunca se borró.
+//
+// EL DATO QUE NADIE TENÍA: no está vacía. CLAUDE.md y TR-131 afirmaban que
+// sí; el relevamiento de la Fase 3.2 contó **12 filas**, ninguna de las
+// cuales corresponde a un `users.id` ni a un `clinics.id`. Son inalcanzables
+// para la aplicación —ningún código las consulta desde TR-037— pero ocupan
+// el nombre `clinic_id` en su tabla hija, que es exactamente el nombre
+// que la Fase 3.2 necesita liberar.
+//
+// POR QUÉ ESTO VA PRIMERO, antes del renombre: mientras estas dos tablas
+// existan, `clinic_id` significa dos cosas distintas según dónde
+// aparezca — en `profesional_especialidades` apunta a `profesionales`, y en
+// las otras nueve tablas apunta a `clinics`. Borrarlas deja un único
+// significado, y recién ahí el renombre masivo a `clinic_id` es una
+// operación mecánica en vez de una que hay que revisar caso por caso.
+//
+// El orden interno importa: primero la hija (por su foreign key), después
+// la madre.
+func migracionBorrarTablasLegacyDelMVP() MigracionDestructiva {
+	return MigracionDestructiva{
+		Nombre:      "borrar_tablas_legacy_del_mvp",
+		Descripcion: "las tablas `profesionales` y `profesional_especialidades`, de cuando profesional y clínica eran la misma fila (pre TR-037): sus filas quedaron huérfanas y son inalcanzables desde la aplicación",
+		Afectados: func(tx *gorm.DB) (int64, error) {
+			// Cuenta FILAS, no tablas: si las tablas existen pero están
+			// vacías no hay nada que perder, y el guardián tiene que dejar
+			// pasar sin pedir autorización (ver el contrato de Afectados).
+			var total int64
+			for _, tabla := range []string{"profesional_especialidades", "profesionales"} {
+				n, err := contarFilasSiExisteTabla(tx, tabla, "SELECT count(*) FROM "+tabla)
+				if err != nil {
+					return 0, err
+				}
+				total += n
+			}
+			return total, nil
+		},
+		Aplicar: func(tx *gorm.DB) error {
+			// La hija primero: `profesional_especialidades` tiene una FK
+			// contra `profesionales`.
+			return tx.Exec(`DROP TABLE IF EXISTS profesional_especialidades;
+				DROP TABLE IF EXISTS profesionales`).Error
+		},
+	}
+}
+
+// migracionDropColumnaRoleDeClinicMembers — Fase 3.2.1 (TR-137): el rol
+// dejó de ser una columna y pasó a ser filas en `clinic_member_roles`,
+// porque el brief los pide acumulables (el titular es profesional Y
+// administrador de página a la vez) y eso no cabe en una sola columna.
+//
+// EL TRASLADO Y EL BORRADO VAN JUNTOS, en ese orden, dentro de `Aplicar`.
+// La primera versión de esta migración dejaba el INSERT que copia `role` en
+// el bloque de `statements` de migrate.go, y perdió los roles de las tres
+// membresías de la base de desarrollo: ese bloque corre DESPUÉS de las
+// migraciones destructivas, así que el DROP se ejecutó primero y el INSERT
+// no encontró la columna de dónde copiar. Sin error, sin aviso: 0 filas
+// migradas y la columna borrada.
+//
+// Es exactamente el bug de orden que TR-123 y TR-132 ya habían documentado
+// —y que el comentario de migracionesDestructivasPosteriores advierte dos
+// pantallas más arriba—, cometido de nuevo. Con las dos cosas en el mismo
+// `Aplicar` el orden es imposible de equivocar y además es atómico: van en
+// la misma transacción, así que o se traslada y se borra, o no pasa nada.
+//
+// Aun así pasa por el guardián, como el DROP de las columnas `tutor_*` de
+// TR-116: GORM AutoMigrate nunca borra columnas, así que el DROP tiene que
+// ser explícito, y un DROP explícito sobre datos de clínicas reales es
+// exactamente lo que el guardián existe para frenar. Cuenta la columna, no
+// las filas, igual que aquel precedente: lo que se destruye es la columna.
+func migracionDropColumnaRoleDeClinicMembers() MigracionDestructiva {
+	return MigracionDestructiva{
+		Nombre:      "drop_columna_role_de_clinic_members",
+		Descripcion: "la columna `role` de `clinic_members`, reemplazada por la tabla `clinic_member_roles` (un miembro puede acumular roles); sus valores ya se copiaron a la tabla nueva antes de este paso",
+		Afectados: func(tx *gorm.DB) (int64, error) {
+			return contarFilas(tx, `SELECT count(*) FROM information_schema.columns
+				WHERE table_name = 'clinic_members' AND column_name = 'role'`)
+		},
+		Aplicar: func(tx *gorm.DB) error {
+			// 1) Trasladar: cada miembro conserva el rol que tenía.
+			if err := tx.Exec(`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+				SELECT gen_random_uuid(), id, role, now() FROM clinic_members
+				ON CONFLICT (clinic_member_id, rol) DO NOTHING`).Error; err != nil {
+				return err
+			}
+			// 2) Y recién ahí borrar. El índice compuesto (user_id, role) se
+			// va con la columna; el que lo reemplaza para la consulta de
+			// requireClinic vive ahora en clinic_member_roles.
+			return tx.Exec(`ALTER TABLE clinic_members DROP COLUMN IF EXISTS role`).Error
+		},
+	}
 }

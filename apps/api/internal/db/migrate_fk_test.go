@@ -18,13 +18,13 @@ import (
 // que consulta `pg_constraint` y confirma que la fila está pasa igual si la
 // constraint se creó sobre la columna equivocada, o si apunta a la tabla
 // equivocada — que es justamente el error que casi cometemos acá
-// (`profesional_id` parece apuntar a `profesionales` y en realidad guarda un
+// (`clinic_id` parece apuntar a `profesionales` y en realidad guarda un
 // `clinics.id`). La única prueba que vale es intentar la operación
 // prohibida y ver que la base la rechaza.
 
 // TestFK_RechazaTurnoDeUnaClinicaInexistente — el caso central, y el que
 // cierra el agujero que teníamos: hasta la Fase C se podía insertar un
-// turno con cualquier UUID en `profesional_id`. Así llegaron las 38 filas
+// turno con cualquier UUID en `clinic_id`. Así llegaron las 38 filas
 // huérfanas que aparecieron en la base de desarrollo.
 func TestFK_RechazaTurnoDeUnaClinicaInexistente(t *testing.T) {
 	gdb := testdb.New(t)
@@ -32,8 +32,13 @@ func TestFK_RechazaTurnoDeUnaClinicaInexistente(t *testing.T) {
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID:    uuid.New(), // no existe ninguna clínica con este id
-		Estado:           "agendado",
+		ClinicID: uuid.New(), // no existe ninguna clínica con este id
+		// `cancelada` y no `agendado` a propósito: desde la Fase 3.2.1 un
+		// turno agendado exige profesional (chk_turno_agendado_profesional)
+		// y una clínica que no existe no tiene ninguno, así que saltaría ese
+		// check antes de llegar a la foreign key. Este test es sobre la FK
+		// de la clínica, y con `cancelada` queda aislada.
+		Estado:           "cancelada",
 		Origen:           "manual",
 		NombreContacto:   "Ana",
 		ApellidoContacto: "Prueba",
@@ -59,11 +64,11 @@ func TestFK_RechazaPacienteDeUnaClinicaInexistente(t *testing.T) {
 
 	telefono := "+5493510000000"
 	p := db.Paciente{
-		ProfesionalID: uuid.New(),
-		Nombre:        "Ana",
-		Apellido:      "Prueba",
-		DNI:           "30111333",
-		Telefono:      &telefono,
+		ClinicID: uuid.New(),
+		Nombre:   "Ana",
+		Apellido: "Prueba",
+		DNI:      "30111333",
+		Telefono: &telefono,
 	}
 	err := gdb.Create(&p).Error
 	if err == nil {
@@ -80,21 +85,26 @@ func TestFK_RechazaPacienteDeUnaClinicaInexistente(t *testing.T) {
 // verdad no se puede romper.
 func TestFK_TurnoAceptaUnaClinicaReal(t *testing.T) {
 	gdb := testdb.New(t)
-	clinicaID := crearProfesionalDePrueba(t, gdb)
+	clinicaID, _ := crearProfesionalDePrueba(t, gdb)
 
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
+	atiende, err := db.OwnerDeLaClinica(gdb, clinicaID)
+	if err != nil {
+		t.Fatalf("no se pudo resolver el owner de la clínica: %v", err)
+	}
 	turno := db.Turno{
-		ProfesionalID:    clinicaID,
-		Estado:           "agendado",
-		Origen:           "manual",
-		NombreContacto:   "Ana",
-		ApellidoContacto: "Prueba",
-		DNIContacto:      "30111444",
-		TelefonoContacto: "3510000000",
-		EmailContacto:    "ana@example.com",
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
+		ClinicID:          clinicaID,
+		AtendidoPorUserID: &atiende,
+		Estado:            "agendado",
+		Origen:            "manual",
+		NombreContacto:    "Ana",
+		ApellidoContacto:  "Prueba",
+		DNIContacto:       "30111444",
+		TelefonoContacto:  "3510000000",
+		EmailContacto:     "ana@example.com",
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("un turno de una clínica REAL tiene que poder crearse: %v", err)

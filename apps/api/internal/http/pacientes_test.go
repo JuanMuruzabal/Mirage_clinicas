@@ -213,7 +213,7 @@ func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
 		HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
 	var pacientesConDNI222333 []db.Paciente
-	gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30222333").Find(&pacientesConDNI222333)
+	gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30222333").Find(&pacientesConDNI222333)
 	if len(pacientesConDNI222333) != 1 {
 		t.Fatalf("esperaba 1 paciente con DNI 30222333, encontré %d", len(pacientesConDNI222333))
 	}
@@ -227,7 +227,7 @@ func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
 	}
 	telNoVerificado := "+549"
 	noVerificado := db.Paciente{
-		ProfesionalID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: &telNoVerificado, Origen: "pagina_publica",
+		ClinicID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: &telNoVerificado, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&noVerificado).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente no verificado de prueba: %v", err)
@@ -401,7 +401,7 @@ func TestEditarPaciente_CuerpoInvalidoFalla(t *testing.T) {
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Nombre: "María Games", Email: "editapac3c@example.com", Password: "password123456", NombreClinica: "Clínica",
 	})
-	paciente := db.Paciente{ProfesionalID: uuid.MustParse(reg.Profesional.ID), Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Origen: "manual"}
+	paciente := db.Paciente{ClinicID: uuid.MustParse(reg.Profesional.ID), Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Origen: "manual"}
 	if err := gdb.Create(&paciente).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
 	}

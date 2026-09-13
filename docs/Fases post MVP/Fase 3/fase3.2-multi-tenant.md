@@ -1,6 +1,6 @@
 # Fase 3.2 — Multi-tenant
 
-**Estado:** en curso, arrancada el 2026-09-13 · **Brief:** `Fase2-fix-Fase3-Multi-tenant.docx` · **Modelo de datos:** [`../../Arquitectura y base/modelo de datos/`](../../Arquitectura%20y%20base/modelo%20de%20datos/)
+**Estado:** en curso · ✅ **3.2.1 completa (2026-09-13)**, sigue la 3.2.2 · **Brief:** `Fase2-fix-Fase3-Multi-tenant.docx` · **Modelo de datos:** [`../../Arquitectura y base/modelo de datos/`](../../Arquitectura%20y%20base/modelo%20de%20datos/)
 
 Entregable 2 del brief: el documento que explica cómo se va aplicando la fase. Se escribe **a medida que avanza**, no al final.
 
@@ -161,3 +161,136 @@ Verificado contra Postgres 16, no solo diseñado:
 Encontrado: `profesionales` tiene 12 filas huérfanas, no cero como decía la documentación.
 
 Sin tocar código todavía. Siguiente: 3.2.1.
+
+### 2026-09-13 — 3.2.1, paso 1: se van las tablas del MVP
+
+Primera acción de la subfase, y va primero por un motivo concreto: mientras `profesionales` y `profesional_especialidades` existieran, **`profesional_id` significaba dos cosas distintas según la tabla** — en la hija apuntaba a `profesionales`, en las otras nueve a `clinics`. Borrarlas deja un único significado, y recién ahí el renombre del paso 2 es una operación mecánica en vez de una que hay que revisar caso por caso.
+
+Antes de borrar, se caracterizaron las filas en vez de asumir:
+
+| Qué se preguntó | Respuesta |
+|---|---|
+| ¿Cuándo se crearon? | 22 al 24 de agosto de 2026 — mismas fechas que las 38 huérfanas que borró TR-131 |
+| ¿Son cuentas reales? | No: **las 12 con mail `@example.com`** |
+| ¿Algo las referencia? | 0 turnos, 0 pacientes |
+| ¿Hay un `users` con su mismo mail? | 0 |
+
+También se descubrió por qué nunca se migraron: `MigrateProfesionalesToUsers` se invocaba **a mano** desde `cmd/migrate-usuarios`, no desde `RunMigrations`. Nadie la corrió sobre estas filas, y a esta altura esas cuentas ya estaban muertas de todos modos — el login usa `users`.
+
+Se fue también esa herramienta, con su modelo y sus tests: ya no queda nada de dónde migrar.
+
+**Aplicado sobre la base de desarrollo:** `afectados=13`, tablas borradas, y los datos reales intactos (39 turnos, 9 pacientes, 3 clínicas, 3 usuarios). Verificado después que **ningún `profesional_id` apunta ya a otra cosa que `clinics`**, que era la condición para seguir.
+
+Un detalle del guardián que apareció al escribir el test: `aplicarDestructivaUnaVez` **registra la migración la primera vez que la evalúa aunque no haya nada que destruir**. Es deliberado (no re-evaluar en cada arranque), pero significa que un test sobre una base ya migrada nunca la ve correr — hay que desregistrarla después de plantar los datos, como ya hacía el test de los turnos `pendiente`.
+
+### 2026-09-13 — 3.2.1, paso 2: el renombre
+
+`profesional_id` → `clinic_id` en las nueve tablas que quedaban. 114 usos de `ProfesionalID` en 33 archivos Go y 188 menciones en SQL crudo, en una sola migración.
+
+**El orden dentro de `RunMigrations` es lo único delicado.** El renombre va **antes** del `AutoMigrate`: si GORM corriera primero, vería que falta `clinic_id`, la crearía **vacía** y dejaría los datos en `profesional_id` — una columna nueva sin datos y otra vieja sin usar, en las nueve tablas a la vez. Con el renombre antes, GORM se encuentra el esquema que espera y no toca nada.
+
+La migración es idempotente por tabla (pregunta por la columna vieja antes de tocarla), así que una base recién creada —donde el AutoMigrate ya la hace con el nombre nuevo— pasa de largo.
+
+**Los índices se renombran junto con la columna**, y no por prolijidad: los que GORM genera solo se llaman `idx_<tabla>_<campo>`, así que dejarlos con el nombre viejo habría hecho que el AutoMigrate creara un segundo índice idéntico con el nombre nuevo. Los que tienen nombre propio en el tag (`idx_paciente_dni_unico`, `sin_solapamiento_turno`, los `idx_turno_prof_*`) no hizo falta tocarlos: Postgres actualiza su definición interna al renombrar la columna.
+
+**El contrato con el frontend no cambió.** El renombre tocó el identificador de Go y el `column:` del tag, no los tags `json:` — así que la API sigue respondiendo exactamente lo mismo. Verificado sobre el diff, y confirmado aparte: el frontend no menciona `profesionalId` en ningún lado.
+
+**Un comentario que el `sed` volvió falso, y cómo apareció.** El renombre masivo convirtió *"la columna se llamaba `profesional_id` y guardaba un `clinics.id`"* en *"se llamaba `clinic_id` y guardaba un `clinics.id`"* — una frase que ya no dice nada. Lo mismo en `migrate_destructiva.go`, donde el comentario narra la historia de TR-037. Se corrigieron a mano después del `sed`: **un renombre automático no distingue el código del relato sobre el código**, y los comentarios que explican el pasado son justamente los que quedan mintiendo.
+
+**Aplicado sobre la base de desarrollo:**
+
+| | Antes | Después |
+|---|---|---|
+| Columnas `profesional_id` | 9 | **0** |
+| Columnas `clinic_id` | 5 | **14** |
+| Turnos con clínica válida | 39 / 39 | **39 / 39** |
+| Pacientes con clínica válida | 9 | **9** |
+| Índices `*_profesional_id` duplicados | — | **0** |
+
+Y una prueba funcional contra los contenedores reconstruidos: `/clinicas/{slug}/tipos-consulta` devuelve los tipos de la clínica y `/clinicas/{slug}/disponibilidad` responde 200 — los dos consultan por la columna renombrada.
+
+### 2026-09-13 — 3.2.1, paso 3: los roles pasan a ser tags
+
+`clinic_member_roles`, con la regla de exclusión declarada en el motor:
+
+```sql
+CREATE UNIQUE INDEX idx_rol_excluyente ON clinic_member_roles (clinic_member_id)
+  WHERE rol IN ('profesional', 'recepcion');
+```
+
+Un índice único **parcial**: `owner` y `admin` quedan fuera del `WHERE`, así que se suman libremente, pero nadie puede ser profesional y recepcionista a la vez. Cinco tests cubren las dos direcciones de la exclusión, la acumulación de tres roles, la idempotencia y el caso sin roles (un invitado que todavía no aceptó).
+
+**No quedaron dos fuentes de verdad.** La columna `role` se fue en el mismo paso, y los seis lugares que la consultaban pasaron a usar el scope `db.ConRol(...)`. Dejarla "por ahora" habría sido más rápido y habría creado exactamente la clase de trampa que esta subfase vino a evitar.
+
+**`status` suma `removed`.** La membresía no se borra nunca: la FK compuesta que viene en el paso 4 (`turnos` → `clinic_members`) bloquearía la baja de cualquier profesional con historial. Marcarla deja a la clínica sin darle acceso y al historial intacto.
+
+Ese check hubo que escribirlo en SQL crudo: **GORM AutoMigrate crea checks nuevos pero no modifica los que ya existen**, así que cambiar el tag del modelo no alcanzaba — la base se habría quedado con el check viejo, rechazando `removed` sin que nada avisara.
+
+#### El bug que me comí, que era uno ya documentado
+
+La primera versión dejaba el `INSERT` que copia `role` a la tabla nueva en el bloque de `statements` de `migrate.go`. **Ese bloque corre después de las migraciones destructivas**, así que el `DROP` se ejecutó primero y el `INSERT` no encontró la columna de dónde copiar.
+
+Resultado: **0 roles migrados, columna borrada, sin error y sin aviso.** En la base de desarrollo se llevó puestos los roles de las tres membresías.
+
+Es exactamente el bug de orden que TR-123 y TR-132 documentan, y que el comentario de `migracionesDestructivasPosteriores` advierte dos pantallas más arriba del código que escribí. Saber la regla no alcanzó.
+
+Tres cosas salieron de ahí:
+
+1. **El traslado y el borrado viven en el mismo `Aplicar`**, en ese orden. Ahora es imposible equivocar la secuencia, y además es atómico: misma transacción, o se hace todo o no pasa nada.
+2. **Una red de seguridad en `statements`:** cualquier miembro sin ningún rol que sea el dueño de su clínica recupera `owner`. Una clínica sin owner no tiene arreglo desde la aplicación — es justo el rol que `requireClinic` necesita para dejarte entrar al panel.
+3. **Un test que lo habría atajado.** No verifica que la columna desaparezca (eso lo hacía pasar la versión rota) sino que sus valores lleguen a la tabla nueva. Usa `recepcion` a propósito: con `owner` la red de seguridad repondría el rol y **enmascararía la pérdida**. Confirmado con control negativo — quitando el traslado, el test falla diciendo `rol migrado = "owner", esperaba "recepcion"`.
+
+**Aplicado sobre la base de desarrollo:** 3 membresías, 3 roles `owner` recuperados, columna `role` borrada, check de `status` aceptando `removed`, índice de exclusión creado. Contenedores reconstruidos, `web:200 api:200`.
+
+### 2026-09-13 - 3.2.1, paso 4: el profesional que atiende, y el EXCLUDE mudado
+
+El paso que toca el requisito no negociable de la spec 4.3.
+
+**`turnos.atendido_por_user_id`**, mas `user_id` en `tipos_consulta`, `horarios_atencion` y `bloqueos_horario`. Todas las filas existentes se asignaron al `owner` de su clinica - que hasta hoy era su unico profesional, asi que el estado queda identico a antes, solo que ahora escrito en la fila en vez de implicito.
+
+**La FK compuesta:**
+
+```sql
+FOREIGN KEY (clinic_id, atendido_por_user_id) REFERENCES clinic_members (clinic_id, user_id)
+```
+
+No alcanza con que el usuario exista: tiene que ser miembro de **esa** clinica. Es lo que impide, por ejemplo, que un recepcionista con dos clinicas abiertas le cargue por error un turno de una a un profesional de la otra.
+
+**Y el `EXCLUDE` se mudo**, con el `DROP` explicito antes del `ADD`: tienen el mismo nombre, asi que sin el drop el `ADD` se habria salteado en silencio por el `EXCEPTION duplicate_object` y la base se habria quedado con la regla vieja **sin que nada avisara**.
+
+#### El agujero que encontro el test del requisito no negociable
+
+Al mudar la constraint, `TestRunMigrations_RechazaSolapamientoDeTurnosAgendados` empezo a fallar: dos turnos solapados se creaban sin problema.
+
+El motivo es una propiedad de SQL facil de pasar por alto: el constraint compara `atendido_por_user_id WITH =`, y **dos NULL nunca son iguales**. Un turno agendado sin profesional quedaba *fuera* del no-solapamiento - se podian apilar todos los que se quisieran en el mismo horario.
+
+Lo cierra `chk_turno_agendado_profesional`: todo turno `agendado` tiene que decir quien lo atiende. No lo encontro una lectura del codigo sino el test de la regla que el proyecto promete desde el dia uno.
+
+#### Lo que quedo probado
+
+| Test | Que asegura |
+|---|---|
+| `...RechazaSolapamientoDeTurnosAgendados` | La regla de siempre, ahora por profesional |
+| `...TurnoAgendadoExigeProfesional` | Sin profesional no hay turno agendado - si no, el EXCLUDE no aplica |
+| `...TurnoDeOtraClinicaNoSeAsignaAlProfesional` | La FK compuesta muerde |
+| `...DosProfesionalesAtiendenALaMismaHora` | **El caso que la constraint vieja rechazaba** y que la Fase 3 vuelve normal |
+
+#### Los fixtures de test, y por que no se tocaron 60 call sites
+
+Los helpers que insertan turnos pasaron a resolver el owner de la clinica por dentro (`ownerDePrueba`), asi que los ~60 lugares que los llaman no cambiaron. Dos tests si se ajustaron a mano, y por un motivo que vale anotar: **insertan turnos de clinicas inexistentes a proposito**, para probar que las foreign keys muerden. Como una clinica que no existe no tiene profesional, ahora saltaba primero el check nuevo y el test dejaba de probar lo suyo. Se pasaron a estado `cancelada` -que no exige profesional- y cada uno volvio a aislar exactamente la constraint que le interesa.
+
+**Aplicado sobre la base de desarrollo:**
+
+| | |
+|---|---|
+| Turnos con profesional | **39 / 39** |
+| Tipos de consulta con dueno | **7 / 7** |
+| Horarios de atencion con dueno | **3 / 3** |
+| Horarios reservados con dueno | **2 / 2** |
+| `EXCLUDE` | `(atendido_por_user_id WITH =, rango_horario WITH &&) WHERE estado = 'agendado'` |
+
+Contenedores reconstruidos: `web:200 api:200`, y `/disponibilidad` respondiendo 200.
+
+---
+
+Con esto **la 3.2.1 queda completa**: el modelo soporta N profesionales por clinica y N clinicas por profesional, sin que nada haya cambiado desde la UI. Sigue la 3.2.2, roles y permisos en el backend.

@@ -109,7 +109,7 @@ func TestDestructiva_FrenaElBorradoDeTurnosPendientes(t *testing.T) {
 		t.Fatalf("no se pudo aflojar el check: %v", err)
 	}
 	prof := profesionalDePruebaMinimo(t, gdb)
-	if err := gdb.Exec(`INSERT INTO turnos (id, profesional_id, estado, origen, nombre_contacto, apellido_contacto,
+	if err := gdb.Exec(`INSERT INTO turnos (id, clinic_id, estado, origen, nombre_contacto, apellido_contacto,
 		dni_contacto, telefono_contacto, email_contacto, motivo, created_at, updated_at)
 		VALUES (?, ?, 'pendiente', 'pagina_publica', 'Ana', 'Vieja', '30111222', '3510000000', 'a@example.com', '', now(), now())`,
 		uuid.New(), prof).Error; err != nil {
@@ -199,7 +199,7 @@ func baseDescartableConMigracionesAplicadas(t *testing.T) (*gorm.DB, bool) {
 
 func profesionalDePruebaMinimo(t *testing.T, gdb *gorm.DB) uuid.UUID {
 	t.Helper()
-	// La columna `profesional_id` guarda un clinics.id, no un
+	// La columna `clinic_id` guarda un clinics.id, no un
 	// profesionales.id — ver migrate_fk.go. La tabla `profesionales` es
 	// legacy de antes de TR-037 y está vacía.
 	ownerprof := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
@@ -228,7 +228,7 @@ func columnaExiste(t *testing.T, gdb *gorm.DB, tabla, columna string) bool {
 //
 //	WARN aplicando migración destructiva autorizada afectados=10
 //	error aplicando migraciones: no se pueden crear las foreign keys:
-//	  turnos.profesional_id -> clinics: 4 fila(s) ...
+//	  turnos.clinic_id -> clinics: 4 fila(s) ...
 //	  turnos.paciente_id -> pacientes: 4 fila(s) ...
 //	  turnos.tipo_consulta_id -> tipos_consulta: 4 fila(s) ...
 //	==> Exited with status 1
@@ -265,11 +265,11 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 		t.Fatalf("no se pudo crear la clínica: %v", err)
 	}
 	tel := "+5493511111111"
-	pacienteReal := db.Paciente{ProfesionalID: clinicaReal.ID, Nombre: "Sana", Apellido: "Real", DNI: "31000001", Telefono: &tel}
+	pacienteReal := db.Paciente{ClinicID: clinicaReal.ID, Nombre: "Sana", Apellido: "Real", DNI: "31000001", Telefono: &tel}
 	if err := gdb.Create(&pacienteReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente: %v", err)
 	}
-	tipoReal := db.TipoConsulta{ProfesionalID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
+	tipoReal := db.TipoConsulta{ClinicID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
 	if err := gdb.Create(&tipoReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el tipo: %v", err)
 	}
@@ -293,10 +293,10 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 		t.Helper()
 		horas++
 		id := uuid.New()
-		if err := gdb.Exec(`INSERT INTO turnos (id, profesional_id, paciente_id, tipo_consulta_id, estado, origen,
+		if err := gdb.Exec(`INSERT INTO turnos (id, clinic_id, paciente_id, tipo_consulta_id, estado, origen,
 			nombre_contacto, apellido_contacto, dni_contacto, telefono_contacto, email_contacto, motivo,
 			hora_inicio, hora_fin, created_at, updated_at)
-			VALUES (?, ?, ?, ?, 'agendado', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
+			VALUES (?, ?, ?, ?, 'cancelada', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
 			        now() + make_interval(hours => ?), now() + make_interval(hours => ?) + interval '30 minutes',
 			        now(), now())`,
 			id, clinicaID, pacienteID, tipoID, dni, horas, horas).Error; err != nil {
@@ -372,4 +372,171 @@ func tablaDe(constraint string) string {
 		return "pacientes"
 	}
 	return "turnos"
+}
+
+// TestDestructiva_BorraLasTablasLegacyDelMVP — Fase 3.2.1. Las tablas
+// `profesionales` y `profesional_especialidades` son de cuando profesional
+// y clínica eran la misma fila; TR-037 las dejó sin uso y nunca se
+// borraron.
+//
+// El test las recrea con SQL crudo (el modelo de GORM ya no existe) para
+// probar las dos mitades del guardián sobre este caso concreto: con filas
+// adentro frena y no destruye nada, y con autorización explícita las borra
+// de verdad.
+//
+// La tabla hija se crea con su foreign key a propósito: si el DROP no
+// respetara el orden —hija primero, madre después— Postgres lo rechazaría,
+// y este test lo detectaría.
+//
+// Usa una base descartable y desregistra la migración después de plantar
+// los datos, igual que TestDestructiva_FrenaElBorradoDeTurnosPendientes: el
+// guardián registra la migración la primera vez que la evalúa aunque no
+// haya nada que destruir (ver el contrato en aplicarDestructivaUnaVez), así
+// que sobre una base ya migrada nunca se volvería a mirar.
+func TestDestructiva_BorraLasTablasLegacyDelMVP(t *testing.T) {
+	gdb, ok := baseDescartableConMigracionesAplicadas(t)
+	if !ok {
+		t.Skip("no se pudo crear una base descartable (permisos) — se saltea")
+	}
+
+	crearLegacy := func() {
+		t.Helper()
+		if err := gdb.Exec(`
+			CREATE TABLE IF NOT EXISTS profesionales (
+				id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+				nombre varchar(150) NOT NULL,
+				email varchar(255) NOT NULL,
+				password_hash varchar(255) NOT NULL,
+				nombre_clinica varchar(200) NOT NULL,
+				slug varchar(220) NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS profesional_especialidades (
+				clinic_id uuid NOT NULL REFERENCES profesionales(id),
+				especialidad_id uuid NOT NULL
+			);
+			INSERT INTO profesionales (nombre, email, password_hash, nombre_clinica, slug)
+			VALUES ('Ana Pérez', 'legacy@example.com', 'hash', 'Clínica Vieja', 'clinica-vieja-legacy');
+		`).Error; err != nil {
+			t.Fatalf("no se pudo crear el esquema legacy de prueba: %v", err)
+		}
+	}
+	crearLegacy()
+
+	if err := gdb.Exec(`DELETE FROM migraciones_una_vez WHERE nombre = 'borrar_tablas_legacy_del_mvp'`).Error; err != nil {
+		t.Fatalf("no se pudo desregistrar la migración: %v", err)
+	}
+
+	// Con datos adentro y política restrictiva: frena.
+	restrictiva := db.PoliticaDestructiva{Permitir: false, Entorno: "production"}
+	err := db.RunMigrationsConPolitica(gdb, restrictiva)
+	if err == nil {
+		t.Fatal("con filas legacy adentro, debería haber pedido autorización")
+	}
+	if !strings.Contains(err.Error(), "borrar_tablas_legacy_del_mvp") {
+		t.Errorf("el error no nombra la migración: %v", err)
+	}
+
+	// Y no destruyó nada antes de frenar: la tabla sigue ahí con su fila.
+	var quedan int64
+	if err := gdb.Raw(`SELECT count(*) FROM profesionales`).Scan(&quedan).Error; err != nil {
+		t.Fatalf("la tabla no debería haberse borrado al frenar: %v", err)
+	}
+	if quedan != 1 {
+		t.Errorf("filas = %d, esperaba 1 (no se destruye nada antes de pedir permiso)", quedan)
+	}
+
+	// Con autorización explícita: las borra de verdad, hija y madre.
+	permisiva := db.PoliticaDestructiva{Permitir: true, Entorno: "production"}
+	if err := db.RunMigrationsConPolitica(gdb, permisiva); err != nil {
+		t.Fatalf("con autorización debería correr: %v", err)
+	}
+	for _, tabla := range []string{"profesionales", "profesional_especialidades"} {
+		var existe bool
+		if err := gdb.Raw(`SELECT to_regclass(?) IS NOT NULL`, tabla).Scan(&existe).Error; err != nil {
+			t.Fatalf("no se pudo consultar %s: %v", tabla, err)
+		}
+		if existe {
+			t.Errorf("la tabla %s debería haberse borrado", tabla)
+		}
+	}
+}
+
+// TestDestructiva_TrasladaLosRolesAntesDeBorrarLaColumna — el test que
+// habría atajado un bug real de esta misma subfase.
+//
+// La primera versión de la migración dejaba el INSERT que copia `role` en
+// el bloque de `statements` de migrate.go. Ese bloque corre DESPUÉS de las
+// migraciones destructivas, así que el DROP se ejecutaba primero y el
+// INSERT no encontraba la columna: cero roles migrados, columna borrada,
+// sin error y sin aviso. En la base de desarrollo se llevó puestos los
+// roles de las tres membresías.
+//
+// Lo que este test verifica no es que la columna desaparezca —eso ya lo
+// hacía pasar la versión rota— sino que ANTES de desaparecer sus valores
+// terminen en la tabla nueva.
+func TestDestructiva_TrasladaLosRolesAntesDeBorrarLaColumna(t *testing.T) {
+	gdb, ok := baseDescartableConMigracionesAplicadas(t)
+	if !ok {
+		t.Skip("no se pudo crear una base descartable (permisos) — se saltea")
+	}
+
+	// Se repone la columna vieja con un rol que la red de seguridad NO
+	// puede adivinar: si el traslado no corre, `recepcion` se pierde para
+	// siempre (el fallback solo sabe reponer `owner` mirando clinics).
+	if err := gdb.Exec(`ALTER TABLE clinic_members ADD COLUMN IF NOT EXISTS role varchar(20)`).Error; err != nil {
+		t.Fatalf("no se pudo reponer la columna de prueba: %v", err)
+	}
+	memberID := miembroDePruebaEnDB(t, gdb)
+	if err := gdb.Exec(`UPDATE clinic_members SET role = 'recepcion' WHERE id = ?`, memberID).Error; err != nil {
+		t.Fatalf("no se pudo plantar el rol viejo: %v", err)
+	}
+	if err := gdb.Exec(`DELETE FROM clinic_member_roles WHERE clinic_member_id = ?`, memberID).Error; err != nil {
+		t.Fatalf("no se pudieron limpiar los roles nuevos: %v", err)
+	}
+	if err := gdb.Exec(`DELETE FROM migraciones_una_vez WHERE nombre = 'drop_columna_role_de_clinic_members'`).Error; err != nil {
+		t.Fatalf("no se pudo desregistrar la migración: %v", err)
+	}
+
+	if err := db.RunMigrationsConPolitica(gdb, db.PoliticaDestructiva{Permitir: true, Entorno: "staging"}); err != nil {
+		t.Fatalf("las migraciones deberían correr con autorización: %v", err)
+	}
+
+	// La columna se fue...
+	var existe bool
+	if err := gdb.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_name='clinic_members' AND column_name='role')`).Scan(&existe).Error; err != nil {
+		t.Fatalf("no se pudo consultar el esquema: %v", err)
+	}
+	if existe {
+		t.Error("la columna `role` debería haberse borrado")
+	}
+
+	// ...pero su valor quedó en la tabla nueva. Esto es lo que fallaba.
+	var rol string
+	if err := gdb.Raw(`SELECT rol FROM clinic_member_roles WHERE clinic_member_id = ?`, memberID).Scan(&rol).Error; err != nil {
+		t.Fatalf("no se pudo leer el rol migrado: %v", err)
+	}
+	if rol != db.RoleRecepcion {
+		t.Errorf("rol migrado = %q, esperaba %q — el traslado tiene que correr ANTES del DROP", rol, db.RoleRecepcion)
+	}
+}
+
+// miembroDePruebaEnDB crea usuario + clínica + membresía y devuelve el id
+// de la membresía.
+func miembroDePruebaEnDB(t *testing.T, gdb *gorm.DB) uuid.UUID {
+	t.Helper()
+	hash := "hash-de-prueba"
+	user := db.User{Email: uuid.NewString() + "@example.com", PasswordHash: &hash}
+	if err := gdb.Create(&user).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario de prueba: %v", err)
+	}
+	clinic := db.Clinic{OwnerID: user.ID, Nombre: "Clínica", Slug: "clinica-" + uuid.NewString(), Tipo: db.ClinicTipoIndividual}
+	if err := gdb.Create(&clinic).Error; err != nil {
+		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
+	}
+	member := db.ClinicMember{ClinicID: clinic.ID, UserID: user.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&member).Error; err != nil {
+		t.Fatalf("no se pudo crear la membresía de prueba: %v", err)
+	}
+	return member.ID
 }

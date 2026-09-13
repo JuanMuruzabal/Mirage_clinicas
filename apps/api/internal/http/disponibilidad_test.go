@@ -161,7 +161,8 @@ func TestDisponibilidad_TurnoAgendadoBloqueaSuFranjaMasElPostBufferDeSuPropioTip
 	inicio := fecha.Add(8 * time.Hour)             // 08:00
 	fin := fecha.Add(8*time.Hour + 30*time.Minute) // 08:30
 	turno := db.Turno{
-		ProfesionalID: clinicID, TipoConsultaID: &tipoOcupanteID, Estado: "agendado",
+		ClinicID:          clinicID,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, clinicID)), TipoConsultaID: &tipoOcupanteID, Estado: "agendado",
 		HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1", EmailContacto: "p@example.com",
 	}
@@ -192,7 +193,8 @@ func TestDisponibilidad_ExcluirTurnoIdLoDejaVerComoLibreASuPropioHorario(t *test
 	inicio := fecha.Add(9 * time.Hour)
 	fin := fecha.Add(9*time.Hour + 30*time.Minute)
 	turno := db.Turno{
-		ProfesionalID: clinicID, TipoConsultaID: &tipoID, Estado: "agendado",
+		ClinicID:          clinicID,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, clinicID)), TipoConsultaID: &tipoID, Estado: "agendado",
 		HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1", EmailContacto: "p@example.com",
 	}

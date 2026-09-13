@@ -201,7 +201,7 @@ func TestEnviarVerificacionTurnoPublico_MailBloqueadoRechaza(t *testing.T) {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 	email := "bloqueado@example.com"
-	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: email, BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour)}).Error; err != nil {
+	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: email, BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour)}).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de prueba: %v", err)
 	}
 
@@ -224,7 +224,7 @@ func TestEnviarVerificacionTurnoPublico_MailBloqueoVencidoPermite(t *testing.T) 
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 	email := "yano-bloqueado@example.com"
-	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: email, BloqueadoHasta: time.Now().Add(-time.Hour)}).Error; err != nil {
+	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: email, BloqueadoHasta: time.Now().Add(-time.Hour)}).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de prueba: %v", err)
 	}
 

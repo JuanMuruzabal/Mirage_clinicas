@@ -115,13 +115,13 @@ func TestRunMigrations_DeduplicaAntesDeCrearElIndiceUnico(t *testing.T) {
 	// Esquema mínimo SIN el índice único, para poder cargar duplicados —
 	// simula una base vieja, de antes de que ese índice existiera.
 	// User y Clinic van también: desde la Fase C hay foreign keys, y
-	// `pacientes.profesional_id` apunta a `clinics` (ver migrate_fk.go).
+	// `pacientes.clinic_id` apunta a `clinics` (ver migrate_fk.go).
 	// Sin esas dos tablas, el fixture no puede crear la clínica dueña de
 	// las fichas duplicadas.
-	if err := gdb.AutoMigrate(&db.User{}, &db.Clinic{}, &db.Profesional{}, &db.Paciente{}, &db.Turno{}); err != nil {
+	if err := gdb.AutoMigrate(&db.User{}, &db.Clinic{}, &db.Paciente{}, &db.Turno{}); err != nil {
 		t.Fatalf("automigrate parcial: %v", err)
 	}
-	// La columna `profesional_id` guarda un clinics.id, no un
+	// La columna `clinic_id` guarda un clinics.id, no un
 	// profesionales.id — ver migrate_fk.go. La tabla `profesionales` es
 	// legacy de antes de TR-037 y está vacía.
 	ownerprof := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
@@ -133,7 +133,7 @@ func TestRunMigrations_DeduplicaAntesDeCrearElIndiceUnico(t *testing.T) {
 		t.Fatalf("no se pudo crear el profesional: %v", err)
 	}
 	for i := 0; i < 2; i++ {
-		p := db.Paciente{ProfesionalID: prof.ID, Nombre: "Ficha", Apellido: "Duplicada", DNI: "30111222"}
+		p := db.Paciente{ClinicID: prof.ID, Nombre: "Ficha", Apellido: "Duplicada", DNI: "30111222"}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el duplicado %d: %v", i, err)
 		}
@@ -147,7 +147,7 @@ func TestRunMigrations_DeduplicaAntesDeCrearElIndiceUnico(t *testing.T) {
 	}
 
 	var quedan int64
-	if err := gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni = ?", prof.ID, "30111222").Count(&quedan).Error; err != nil {
+	if err := gdb.Model(&db.Paciente{}).Where("clinic_id = ? AND dni = ?", prof.ID, "30111222").Count(&quedan).Error; err != nil {
 		t.Fatalf("no se pudo contar: %v", err)
 	}
 	if quedan != 1 {

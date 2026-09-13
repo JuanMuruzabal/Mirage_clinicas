@@ -21,7 +21,8 @@ import (
 func crearTurnoDePrueba(t *testing.T, gdb *gorm.DB, clinicID, tipoID uuid.UUID, horaInicio, horaFin time.Time, estado string) db.Turno {
 	t.Helper()
 	turno := db.Turno{
-		ProfesionalID: clinicID, TipoConsultaID: &tipoID, Estado: estado,
+		ClinicID:          clinicID,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, clinicID)), TipoConsultaID: &tipoID, Estado: estado,
 		HoraInicio: &horaInicio, HoraFin: &horaFin,
 		NombreContacto: "Paciente", ApellidoContacto: "De Prueba",
 		DNIContacto: "1", TelefonoContacto: "1", EmailContacto: "paciente@example.com",

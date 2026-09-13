@@ -97,12 +97,16 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 		}
 
 		var member db.ClinicMember
-		if err := gdb.Where("user_id = ? AND role = ?", userID, db.RoleOwner).First(&member).Error; err == nil {
+		if err := gdb.Preload("Roles").Scopes(db.ConRol(db.RoleOwner)).
+			Where("user_id = ?", userID).First(&member).Error; err == nil {
 			var clinic db.Clinic
 			if err := gdb.First(&clinic, "id = ?", member.ClinicID).Error; err == nil {
 				resp.Clinica = &clinicaMeResponse{
 					ID: clinic.ID.String(), Nombre: clinic.Nombre, Slug: clinic.Slug,
-					Tipo: clinic.Tipo, Rol: member.Role,
+					// Los roles son acumulables desde la Fase 3.2.1, pero
+					// este campo del JSON es uno solo: se manda el de mayor
+					// alcance para no cambiarle el contrato al frontend.
+					Tipo: clinic.Tipo, Rol: db.RolPrincipal(member.Roles),
 				}
 			}
 		}

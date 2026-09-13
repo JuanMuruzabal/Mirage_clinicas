@@ -281,7 +281,8 @@ func TestEliminarTipoConsulta_ConTurnosAsociadosDevuelve409(t *testing.T) {
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID: clinicID, TipoConsultaID: &tipoID, Estado: "agendado", HoraInicio: &inicio, HoraFin: &fin,
+		ClinicID:          clinicID,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, clinicID)), TipoConsultaID: &tipoID, Estado: "agendado", HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {

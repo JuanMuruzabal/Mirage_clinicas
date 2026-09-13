@@ -23,7 +23,7 @@ func ipEstaBloqueada(tx *gorm.DB, profesionalID uuid.UUID, ip string) (bool, err
 	}
 	var count int64
 	err := tx.Model(&db.IPBloqueadaTurnoPublico{}).
-		Where("profesional_id = ? AND ip = ? AND bloqueado_hasta > ?", profesionalID, ip, time.Now()).
+		Where("clinic_id = ? AND ip = ? AND bloqueado_hasta > ?", profesionalID, ip, time.Now()).
 		Limit(1).
 		Count(&count).Error
 	return count > 0, err
@@ -40,10 +40,10 @@ func bloquearIP(tx *gorm.DB, profesionalID uuid.UUID, ip string, duracion time.D
 	}
 	hasta := time.Now().Add(duracion)
 	var bloqueo db.IPBloqueadaTurnoPublico
-	err := tx.Where("profesional_id = ? AND ip = ?", profesionalID, ip).First(&bloqueo).Error
+	err := tx.Where("clinic_id = ? AND ip = ?", profesionalID, ip).First(&bloqueo).Error
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		return tx.Create(&db.IPBloqueadaTurnoPublico{ProfesionalID: profesionalID, IP: ip, BloqueadoHasta: hasta}).Error
+		return tx.Create(&db.IPBloqueadaTurnoPublico{ClinicID: profesionalID, IP: ip, BloqueadoHasta: hasta}).Error
 	case err != nil:
 		return err
 	default:

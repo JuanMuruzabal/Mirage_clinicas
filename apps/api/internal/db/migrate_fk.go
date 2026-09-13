@@ -12,13 +12,13 @@ import (
 //
 // Hasta acá el esquema tenía exactamente 4 foreign keys, y las 4 las creaba
 // GORM sola en tablas de join many2many. Todas las relaciones del dominio
-// —`turnos.profesional_id`, `pacientes.profesional_id`, `turnos.paciente_id`,
+// —`turnos.clinic_id`, `pacientes.clinic_id`, `turnos.paciente_id`,
 // y ~25 más— eran columnas `uuid` sueltas, sin ninguna garantía de que
 // apuntaran a algo que existe.
 //
 // # La trampa de nombres, verificada antes de escribir una sola constraint
 //
-// `profesional_id` NO apunta a la tabla `profesionales`: guarda un
+// `clinic_id` NO apunta a la tabla `profesionales`: guarda un
 // `clinics.id`. Se confirmó empíricamente, no leyendo el nombre —
 // `profesionalIDFromRequest` (internal/http/turnos.go) devuelve el
 // `clinicID` del contexto, y el wizard público escribe `clinic.ID` en esa
@@ -66,15 +66,15 @@ func clavesForaneas() []claveForanea {
 		// que RESTRICT no bloquea nada existente y, el día que se agregue
 		// un borrado de clínica, obliga a decidir explícitamente qué pasa
 		// con los datos clínicos en vez de barrerlos en silencio.
-		{"fk_pacientes_clinica", "pacientes", "profesional_id", "clinics", "", false},
-		{"fk_turnos_clinica", "turnos", "profesional_id", "clinics", "", false},
-		{"fk_tipos_consulta_clinica", "tipos_consulta", "profesional_id", "clinics", "", false},
-		{"fk_paginas_publicas_clinica", "paginas_publicas", "profesional_id", "clinics", "", false},
-		{"fk_enlaces_turno_clinica", "enlaces_turno", "profesional_id", "clinics", "", false},
-		{"fk_conflictos_paciente_clinica", "conflictos_paciente", "profesional_id", "clinics", "", false},
-		{"fk_auditoria_bloqueos_clinica", "auditoria_bloqueos_turno_publico", "profesional_id", "clinics", "", false},
-		{"fk_emails_bloqueados_clinica", "emails_bloqueados_turno_publico", "profesional_id", "clinics", "", false},
-		{"fk_ips_bloqueadas_clinica", "ips_bloqueadas_turno_publico", "profesional_id", "clinics", "", false},
+		{"fk_pacientes_clinica", "pacientes", "clinic_id", "clinics", "", false},
+		{"fk_turnos_clinica", "turnos", "clinic_id", "clinics", "", false},
+		{"fk_tipos_consulta_clinica", "tipos_consulta", "clinic_id", "clinics", "", false},
+		{"fk_paginas_publicas_clinica", "paginas_publicas", "clinic_id", "clinics", "", false},
+		{"fk_enlaces_turno_clinica", "enlaces_turno", "clinic_id", "clinics", "", false},
+		{"fk_conflictos_paciente_clinica", "conflictos_paciente", "clinic_id", "clinics", "", false},
+		{"fk_auditoria_bloqueos_clinica", "auditoria_bloqueos_turno_publico", "clinic_id", "clinics", "", false},
+		{"fk_emails_bloqueados_clinica", "emails_bloqueados_turno_publico", "clinic_id", "clinics", "", false},
+		{"fk_ips_bloqueadas_clinica", "ips_bloqueadas_turno_publico", "clinic_id", "clinics", "", false},
 		{"fk_bloqueos_horario_clinica", "bloqueos_horario", "clinic_id", "clinics", "", false},
 		{"fk_horarios_atencion_clinica", "horarios_atencion", "clinic_id", "clinics", "", false},
 		{"fk_verificaciones_turno_clinica", "verificaciones_turno_publico", "clinic_id", "clinics", "", false},
@@ -158,7 +158,7 @@ func clavesForaneas() []claveForanea {
 // CASCADE habría borrado el historial junto con la ficha — que es justo lo
 // que la tabla existe para conservar.
 //
-// `conflictos_paciente.profesional_id` SÍ lleva FK (arriba): una clínica no
+// `conflictos_paciente.clinic_id` SÍ lleva FK (arriba): una clínica no
 // se borra nunca, así que esa referencia no queda colgada.
 
 // aplicarForeignKeys agrega las constraints que falten. Idempotente: una

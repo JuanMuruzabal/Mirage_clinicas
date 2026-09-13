@@ -81,7 +81,7 @@ func listTiposConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipos []db.TipoConsulta
-		if err := gdb.Where("profesional_id = ?", profesionalID).Order("created_at").Find(&tipos).Error; err != nil {
+		if err := gdb.Where("clinic_id = ?", profesionalID).Order("created_at").Find(&tipos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
 			return
 		}
@@ -171,7 +171,7 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		tipo := db.TipoConsulta{
-			ProfesionalID:             profesionalID,
+			ClinicID:                  profesionalID,
 			Nombre:                    req.Nombre,
 			Color:                     req.Color,
 			DuracionMinutos:           req.DuracionMinutos,
@@ -212,7 +212,7 @@ func editarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -253,7 +253,7 @@ func eliminarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}

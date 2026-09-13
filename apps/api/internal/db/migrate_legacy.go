@@ -7,7 +7,7 @@ import "gorm.io/gorm"
 // contexto completo.
 //
 // Las tres tablas raíz afectadas (`pacientes`, `tipos_consulta`,
-// `paginas_publicas`) tienen en común que su `profesional_id` apunta a una
+// `paginas_publicas`) tienen en común que su `clinic_id` apunta a una
 // clínica que no existe. Se resuelven con la misma condición, escrita una
 // sola vez acá abajo.
 
@@ -21,7 +21,7 @@ var tablasLegacySinClinica = []string{"tipos_consulta", "paginas_publicas", "pac
 // escribieran por separado, podrían desincronizarse y el reporte de impacto
 // dejaría de decir la verdad sobre lo que el borrado va a hacer.
 func condicionSinClinica(tabla string) string {
-	return "SELECT id FROM " + tabla + " h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)"
+	return "SELECT id FROM " + tabla + " h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)"
 }
 
 func contarFilasLegacySinClinica(tx *gorm.DB) (int64, error) {
@@ -73,12 +73,12 @@ func contarFilasLegacySinClinica(tx *gorm.DB) (int64, error) {
 // MISMA condición, para que el número que reporta el guardián sea el número
 // de filas que el borrado toca.
 var consultasTurnosRotos = []string{
-	`SELECT count(*) FROM turnos h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)`,
+	`SELECT count(*) FROM turnos h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)`,
 	`SELECT count(*) FROM turnos h WHERE h.paciente_id IS NOT NULL
-	   AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = h.profesional_id)
+	   AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = h.clinic_id)
 	   AND NOT EXISTS (SELECT 1 FROM pacientes p WHERE p.id = h.paciente_id)`,
 	`SELECT count(*) FROM turnos h WHERE h.tipo_consulta_id IS NOT NULL
-	   AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = h.profesional_id)
+	   AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = h.clinic_id)
 	   AND NOT EXISTS (SELECT 1 FROM tipos_consulta t WHERE t.id = h.tipo_consulta_id)`,
 }
 
@@ -129,7 +129,7 @@ func borrarFilasLegacySinClinica(tx *gorm.DB) error {
 	//    Son inalcanzables para la aplicación: cada query del panel filtra
 	//    por la clínica de la sesión, y esa clínica no existe.
 	pasos := []string{
-		`DELETE FROM turnos h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)`,
+		`DELETE FROM turnos h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)`,
 	}
 
 	// 1. Lo que cuelga de las fichas que se van a borrar. Primero los
@@ -155,9 +155,9 @@ func borrarFilasLegacySinClinica(tx *gorm.DB) error {
 		   WHERE NOT EXISTS (SELECT 1 FROM pacientes p WHERE p.id = h.paciente_id)`,
 
 		// 3. Las raíces.
-		`DELETE FROM tipos_consulta h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)`,
-		`DELETE FROM paginas_publicas h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)`,
-		`DELETE FROM pacientes h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.profesional_id)`,
+		`DELETE FROM tipos_consulta h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)`,
+		`DELETE FROM paginas_publicas h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)`,
+		`DELETE FROM pacientes h WHERE NOT EXISTS (SELECT 1 FROM clinics p WHERE p.id = h.clinic_id)`,
 	)
 
 	// 4. Lo que quedó colgando de usuarios ya borrados.

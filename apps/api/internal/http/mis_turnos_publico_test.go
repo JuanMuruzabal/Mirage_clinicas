@@ -84,7 +84,7 @@ func TestMisTurnosPublico_TurnoYaResueltoDaNotFound(t *testing.T) {
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
 		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
-	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "30111222").
+	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, "30111222").
 		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-2 * time.Hour), "hora_fin": time.Now().Add(-90 * time.Minute)}).Error; err != nil {
 		t.Fatalf("no se pudo llevar el turno al pasado: %v", err)
 	}

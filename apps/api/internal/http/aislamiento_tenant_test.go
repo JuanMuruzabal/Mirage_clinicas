@@ -17,7 +17,7 @@ import (
 //
 // Por qué existe este archivo, además de los tests de dominio que ya
 // cubren cada handler: la auditoría verificó A MANO que los ~20 lookups
-// por id de todo `internal/http` filtran por `profesional_id`, y en ese
+// por id de todo `internal/http` filtran por `clinic_id`, y en ese
 // momento estaban todos bien. Pero esa garantía es puramente humana — la
 // sostiene la disciplina de quien escribe cada endpoint nuevo, y no hay
 // nada automatizado que la haga fallar si alguien la rompe. Con más
@@ -274,7 +274,7 @@ func TestAislamiento_BloqueosDeSeguridadNoSeVenEntreClinicas(t *testing.T) {
 	// B tiene un mail bloqueado.
 	bID := uuid.MustParse(b.Profesional.ID)
 	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{
-		ProfesionalID: bID, Email: "bloqueado-en-b@example.com", BloqueadoHasta: time.Now().Add(72 * time.Hour),
+		ClinicID: bID, Email: "bloqueado-en-b@example.com", BloqueadoHasta: time.Now().Add(72 * time.Hour),
 	}).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de prueba: %v", err)
 	}

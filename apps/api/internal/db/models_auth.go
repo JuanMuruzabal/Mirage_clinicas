@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,7 +14,7 @@ import (
 // modelos (ver el plan de implementación, decisión #2: cada Clinic tipo
 // "individual" nace con el mismo UUID que tenía su Profesional de origen,
 // así que turnos/pacientes/tipos_consulta/paginas_publicas — que no
-// declaran una asociación GORM a Profesional, solo un campo ProfesionalID
+// declaran una asociación GORM a Profesional, solo un campo ClinicID
 // suelto, así que no hay FK real en la base que repuntar — siguen
 // resolviendo exactamente igual sin tocarse).
 //
@@ -107,7 +108,7 @@ const (
 // odontólogo (spec §4, Paso 2). Especialidades sigue siendo many2many
 // contra el catálogo global Especialidad (TR-004 en docs/Arquitectura y base/tradeoffs.md, sin
 // cambios) — solo cambia la tabla puente, de profesional_especialidades a
-// professional_especialidades, con FK a user_id en vez de profesional_id.
+// professional_especialidades, con FK a user_id en vez de clinic_id.
 type ProfessionalProfile struct {
 	UserID           uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
 	Nombre           string    `gorm:"type:varchar(150);not null"`
@@ -179,14 +180,50 @@ type ClinicMember struct {
 	// justo el que esa query necesita — hoy con pocas filas la diferencia
 	// no se nota, pero es la mejora de mejor relación impacto/esfuerzo de
 	// toda la auditoría.
-	UserID    uuid.UUID  `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_clinic_member;index:idx_clinic_member_user_role,priority:1"`
-	Role      string     `gorm:"type:varchar(20);not null;check:role IN ('owner','admin','profesional','recepcion');index:idx_clinic_member_user_role,priority:2"`
-	Status    string     `gorm:"type:varchar(20);not null;default:'active';check:status IN ('active','invited')"`
+	UserID uuid.UUID `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_clinic_member;index:idx_clinic_member_user_role,priority:1"`
+	// Status — Fase 3.2.1: suma "removed". La membresía NO SE BORRA NUNCA,
+	// se marca. El motivo es la foreign key compuesta de `turnos`
+	// (clinic_id, atendido_por_user_id) → clinic_members (clinic_id,
+	// user_id): si la fila se borrara, esa FK bloquearía la baja de
+	// cualquier profesional con historial. Marcarla deja a la clínica sin
+	// darle acceso y al historial intacto y auditable.
+	Status    string     `gorm:"type:varchar(20);not null;default:'active';check:status IN ('active','invited','removed')"`
 	JoinedAt  *time.Time `gorm:"column:joined_at"`
 	CreatedAt time.Time
+
+	// Roles — la columna `role` (una sola, con check constraint) vivió acá
+	// hasta la Fase 3.2.1. El brief del multi-tenant pide tratarlos como
+	// tags acumulables: el titular es profesional Y administrador de página
+	// a la vez. Eso no cabe en una columna, así que pasó a ser una tabla.
+	// Ver ClinicMemberRole abajo.
+	Roles []ClinicMemberRole `gorm:"foreignKey:ClinicMemberID"`
 }
 
 func (ClinicMember) TableName() string { return "clinic_members" }
+
+// ClinicMemberRole — un rol de un miembro dentro de una clínica. Varios por
+// miembro: el brief los pide como tags, no como una elección única.
+//
+// LA REGLA DE EXCLUSIÓN NO ESTÁ ACÁ, ESTÁ EN EL MOTOR. `recepcion` es
+// excluyente con `profesional` (un recepcionista no atiende pacientes), y
+// eso se declara con un índice único PARCIAL, creado en migrate.go:
+//
+//	CREATE UNIQUE INDEX idx_rol_excluyente ON clinic_member_roles (clinic_member_id)
+//	  WHERE rol IN ('profesional', 'recepcion');
+//
+// Con eso, `admin` y `owner` se suman libremente pero nadie puede ser
+// profesional y recepcionista a la vez — probado en las dos direcciones. Es
+// el mismo criterio que el no-solapamiento de turnos (spec §4.3): una regla
+// que no se puede violar no se valida en la aplicación, se declara en el
+// esquema.
+type ClinicMemberRole struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicMemberID uuid.UUID `gorm:"column:clinic_member_id;type:uuid;not null;uniqueIndex:idx_rol_por_miembro,priority:1"`
+	Rol            string    `gorm:"column:rol;type:varchar(20);not null;check:rol IN ('owner','admin','profesional','recepcion');uniqueIndex:idx_rol_por_miembro,priority:2"`
+	CreatedAt      time.Time
+}
+
+func (ClinicMemberRole) TableName() string { return "clinic_member_roles" }
 
 const (
 	RoleOwner       = "owner"
@@ -196,6 +233,9 @@ const (
 
 	ClinicMemberStatusActive  = "active"
 	ClinicMemberStatusInvited = "invited"
+	// ClinicMemberStatusRemoved — Fase 3.2.1: la salida de un colaborador
+	// se marca, no se borra (ver el comentario de ClinicMember.Status).
+	ClinicMemberStatusRemoved = "removed"
 )
 
 // ClinicInvitation — solo esquema y tipos (spec §9, fuera de alcance el
@@ -307,3 +347,81 @@ const (
 	AuditEventRegister        = "register"
 	AuditEventEmailVerified   = "email_verified"
 )
+
+// ConRol — scope de GORM para filtrar miembros por uno de sus roles.
+//
+// Desde la Fase 3.2.1 el rol no es una columna de `clinic_members` sino
+// filas en `clinic_member_roles`, así que "el owner de esta clínica" pasó
+// de ser `WHERE role = 'owner'` a una condición de existencia. Vive acá
+// para que los seis lugares que preguntan por un rol no repitan el mismo
+// EXISTS —y sobre todo para que el día que los permisos se vuelvan
+// interesantes (Fase 3.2.2) haya un solo lugar que cambiar—.
+//
+// Uso: gdb.Scopes(db.ConRol(db.RoleOwner)).Where("user_id = ?", id).First(&m)
+func ConRol(rol string) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where(`EXISTS (
+			SELECT 1 FROM clinic_member_roles r
+			WHERE r.clinic_member_id = clinic_members.id AND r.rol = ?
+		)`, rol)
+	}
+}
+
+// AsignarRol le suma un rol a un miembro. Idempotente: repetirlo no
+// duplica (idx_rol_por_miembro). Si el rol choca con la regla de exclusión
+// —intentar `recepcion` sobre alguien que ya es `profesional`— el índice
+// parcial lo rechaza y el error llega desde el motor, que es donde tiene
+// que estar esa decisión.
+func AsignarRol(tx *gorm.DB, clinicMemberID uuid.UUID, rol string) error {
+	return tx.Exec(`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+		VALUES (gen_random_uuid(), ?, ?, now())
+		ON CONFLICT (clinic_member_id, rol) DO NOTHING`, clinicMemberID, rol).Error
+}
+
+// jerarquiaDeRoles — de mayor a menor alcance, para elegir cuál mostrar
+// cuando hay que mostrar uno solo.
+var jerarquiaDeRoles = []string{RoleOwner, RoleAdmin, RoleProfesional, RoleRecepcion}
+
+// RolPrincipal — el de mayor alcance de un miembro.
+//
+// Existe porque los roles pasaron a ser acumulables pero varias pantallas
+// (y el JSON de /me) siguen mostrando UNO. Devuelve "" si no hay ninguno,
+// que es un estado posible: un miembro invitado que todavía no aceptó.
+func RolPrincipal(roles []ClinicMemberRole) string {
+	tiene := make(map[string]bool, len(roles))
+	for _, r := range roles {
+		tiene[r.Rol] = true
+	}
+	for _, rol := range jerarquiaDeRoles {
+		if tiene[rol] {
+			return rol
+		}
+	}
+	return ""
+}
+
+// OwnerDeLaClinica devuelve el user del owner de una clínica.
+//
+// Fase 3.2.1: todo turno tiene que decir quién lo atiende
+// (chk_turno_agendado_profesional), y hasta que el wizard y el panel dejen
+// elegir profesional —Fases 3.2.6 y 3.2.7— ese alguien es el owner, que es
+// el único profesional que cada clínica tiene hoy. Es exactamente el
+// comportamiento anterior a la fase, cuando la clínica ERA el profesional;
+// lo único que cambia es que ahora queda escrito en la fila en vez de
+// estar implícito.
+//
+// Cuando esas fases lleguen, los call sites pasan a recibir el profesional
+// elegido y esta función queda para los casos sin elección explícita.
+func OwnerDeLaClinica(tx *gorm.DB, clinicID uuid.UUID) (uuid.UUID, error) {
+	var crudo string
+	err := tx.Raw(`SELECT m.user_id::text FROM clinic_members m
+		JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = ?
+		WHERE m.clinic_id = ?`, RoleOwner, clinicID).Scan(&crudo).Error
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if crudo == "" {
+		return uuid.Nil, fmt.Errorf("la clínica %s no tiene un owner activo", clinicID)
+	}
+	return uuid.Parse(crudo)
+}

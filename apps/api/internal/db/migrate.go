@@ -172,13 +172,22 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		}
 	}
 
+	// Fase 3.2.1 (TR-137): el renombre va ACÁ, antes del AutoMigrate, y el
+	// orden no es negociable — si GORM corre primero, ve que falta
+	// `clinic_id`, la crea VACÍA y deja los datos en `clinic_id`. El
+	// resultado sería una columna nueva sin datos y otra vieja sin usar,
+	// en las nueve tablas a la vez.
+	if err := renombrarProfesionalIDaClinicID(gdb); err != nil {
+		return err
+	}
+
 	if err := gdb.AutoMigrate(
-		&Profesional{}, &Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
+		&Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
 		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
 		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
-		&Clinic{}, &ClinicMember{}, &ClinicInvitation{},
+		&Clinic{}, &ClinicMember{}, &ClinicMemberRole{}, &ClinicInvitation{},
 		&Session{}, &AuthRateCounter{}, &AuditEvent{},
 		// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 		&HorarioAtencion{}, &BloqueoHorario{},
@@ -215,6 +224,49 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	statements := []string{
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
 
+		// Fase 3.2.1 (TR-137): la regla de exclusión de roles, declarada en
+		// el motor y no validada en la aplicación.
+		//
+		// Un índice único PARCIAL sobre el miembro, limitado a los dos roles
+		// que no pueden convivir: se puede ser `profesional` o `recepcion`,
+		// nunca los dos, mientras `owner` y `admin` se suman libremente
+		// porque quedan fuera del WHERE. Probado en las dos direcciones
+		// contra Postgres 16 antes de escribirlo.
+		//
+		// Mismo criterio que el no-solapamiento de turnos (spec §4.3): una
+		// regla que no se puede violar no se valida, se declara.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_rol_excluyente
+			ON clinic_member_roles (clinic_member_id)
+			WHERE rol IN ('profesional', 'recepcion')`,
+
+		// El traslado de `role` a la tabla vive dentro de la migración
+		// destructiva que borra la columna (migrate_destructiva.go), no acá:
+		// este bloque corre DESPUÉS de las destructivas, así que un INSERT
+		// acá se ejecutaría con la columna ya borrada. Pasó — ver el
+		// comentario de migracionDropColumnaRoleDeClinicMembers.
+		//
+		// Lo que sí va acá es la RED DE SEGURIDAD: cualquier miembro que
+		// haya quedado sin ningún rol y sea el dueño de su clínica recupera
+		// `owner`. Cubre las bases donde el traslado ya falló, y cualquier
+		// estado inconsistente futuro — una clínica sin owner no tiene
+		// arreglo desde la aplicación, porque es justamente el rol que
+		// requireClinic necesita para dejarte entrar al panel.
+		`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+			SELECT gen_random_uuid(), m.id, 'owner', now()
+			FROM clinic_members m
+			JOIN clinics c ON c.id = m.clinic_id AND c.owner_id = m.user_id
+			WHERE NOT EXISTS (SELECT 1 FROM clinic_member_roles r WHERE r.clinic_member_id = m.id)
+			ON CONFLICT (clinic_member_id, rol) DO NOTHING`,
+
+		// El check de `status` suma 'removed' (la membresía se marca, no se
+		// borra — ver ClinicMember.Status). Va en SQL crudo porque GORM
+		// AutoMigrate crea checks nuevos pero NO modifica los que ya
+		// existen: el tag del modelo cambió y la base se habría quedado con
+		// el check viejo, rechazando el estado nuevo sin que nada avisara.
+		`ALTER TABLE clinic_members DROP CONSTRAINT IF EXISTS chk_clinic_members_status`,
+		`ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_members_status
+			CHECK (status IN ('active','invited','removed'))`,
+
 		// Columna generada: se recalcula sola a partir de hora_inicio/hora_fin.
 		// Con ambos NULL (turnos `pendiente`, que todavía no tienen horario
 		// asignado — spec §4.3/§4.4) da un rango vacío, que nunca conflictúa
@@ -235,15 +287,85 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		     );
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
+		// Fase 3.2.1 (TR-137): poblar el profesional de cada fila con el
+		// `owner` de su clínica, que hasta hoy era su único profesional.
+		// Va antes de la FK compuesta y del exclusion constraint, que
+		// necesitan la columna con datos.
+		//
+		// El owner se busca en clinic_member_roles (los roles dejaron de ser
+		// una columna en el paso 3). Idempotente: solo toca las filas que
+		// todavía no tienen profesional.
+		`UPDATE turnos t SET atendido_por_user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = t.clinic_id AND t.atendido_por_user_id IS NULL`,
+		`UPDATE tipos_consulta tc SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = tc.clinic_id AND tc.user_id IS NULL`,
+		`UPDATE horarios_atencion h SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = h.clinic_id AND h.user_id IS NULL`,
+		`UPDATE bloqueos_horario b SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = b.clinic_id AND b.user_id IS NULL`,
+
+		// Todo turno `agendado` tiene que decir quién lo atiende, y no es
+		// una formalidad: el exclusion constraint de más abajo compara
+		// `atendido_por_user_id WITH =`, y en SQL dos NULL nunca son
+		// iguales. Sin este check, un turno sin profesional quedaría FUERA
+		// del no-solapamiento — se podrían apilar todos los que se
+		// quisieran en el mismo horario sin que nada los rechace.
+		//
+		// Lo encontró el test del requisito no negociable (spec §4.3) al
+		// fallar tras mudar la constraint, no una lectura del código.
+		`DO $$ BEGIN
+		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_agendado_profesional
+		     CHECK (estado <> 'agendado' OR atendido_por_user_id IS NOT NULL);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// La FK COMPUESTA, que es lo que hace imposible asignarle un turno a
+		// alguien que no es miembro de esa clínica. Postgres la acepta
+		// porque `idx_clinic_member` ya es único sobre (clinic_id, user_id).
+		//
+		// Es también el motivo por el que una membresía nunca se borra: si
+		// se borrara, esta constraint bloquearía la baja de cualquier
+		// profesional con historial. Se marca `status='removed'` en su
+		// lugar.
+		`DO $$ BEGIN
+		   ALTER TABLE turnos ADD CONSTRAINT fk_turnos_profesional_de_la_clinica
+		     FOREIGN KEY (clinic_id, atendido_por_user_id)
+		     REFERENCES clinic_members (clinic_id, user_id);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
 		// La constraint central del proyecto (spec §4.3): a nivel de base de
-		// datos, dos turnos `agendado` del mismo profesional no pueden tener
+		// datos, dos turnos `agendado` del mismo PROFESIONAL no pueden tener
 		// horarios que se solapen. Un turno `cancelada` nunca conflictúa —
 		// el WHERE lo excluye del todo, aunque conserve el mismo horario que
 		// tenía antes de cancelarse.
+		//
+		// Fase 3.2.1: la columna pasó de `clinic_id` a
+		// `atendido_por_user_id`. Sobre la clínica, con N profesionales,
+		// esta regla dejaba de proteger y pasaba a estorbar: rechazaba que
+		// dos odontólogos del mismo lugar atendieran a las 10:00 en sillones
+		// distintos, que es la situación normal.
+		//
+		// Sobre el profesional gana además algo que el modelo viejo no podía
+		// ni expresar: como no lleva la clínica, impide que la misma persona
+		// tenga turnos solapados en DOS CLÍNICAS distintas. Nadie está en
+		// dos lugares a la vez.
+		//
+		// El DROP del viejo va primero y es explícito: tienen el mismo
+		// nombre, así que el ADD de abajo se saltearía en silencio por el
+		// EXCEPTION de duplicate_object y la base se quedaría con la regla
+		// equivocada, sin que nada avisara.
+		`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS sin_solapamiento_turno`,
 		`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
 		     EXCLUDE USING gist (
-		       profesional_id WITH =,
+		       atendido_por_user_id WITH =,
 		       rango_horario WITH &&
 		     )
 		     WHERE (estado = 'agendado');
@@ -332,7 +454,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// chk_turnos_estado en TR-104).
 		`DROP INDEX IF EXISTS idx_paciente_dni_unico`,
 		`CREATE UNIQUE INDEX idx_paciente_dni_unico
-		   ON pacientes (profesional_id, dni) WHERE NOT en_conflicto`,
+		   ON pacientes (clinic_id, dni) WHERE NOT en_conflicto`,
 
 		// El `DELETE FROM turnos WHERE estado = 'pendiente'` que estaba acá
 		// se movió al bloque de migraciones destructivas (Fase C de la
@@ -486,11 +608,62 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 // necesita un profesionalID que todavía no existe al migrar el esquema.
 func SeedTiposConsultaDefault(gdb *gorm.DB, profesionalID uuid.UUID) error {
 	tipos := []TipoConsulta{
-		{ProfesionalID: profesionalID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
-		{ProfesionalID: profesionalID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
+		{ClinicID: profesionalID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
+		{ClinicID: profesionalID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
 	}
 	if err := gdb.Create(&tipos).Error; err != nil {
 		return fmt.Errorf("seed de tipos_consulta falló: %w", err)
+	}
+	return nil
+}
+
+// renombrarProfesionalIDaClinicID — Fase 3.2.1 (TR-137).
+//
+// La columna se llamaba `profesional_id` y guardaba un `clinics.id` desde
+// TR-037, cuando "profesional" y "clínica" dejaron de ser la misma cosa. El
+// nombre quedó, y TR-131 lo documentó sin arreglarlo porque entonces era
+// solo una molestia estética: no existía ningún profesional distinto de la
+// clínica con el que confundirlo.
+//
+// Desde esta fase existe. `turnos` va a tener `atendido_por_user_id` —el
+// profesional de verdad— al lado de esta columna, y un
+// `WHERE clinic_id = <el user>` devolvería CERO FILAS SIN ERROR. Esa
+// es la forma de bug más cara de encontrar, y la misma clase que ya costó
+// dos rondas enteras en la auditoría de esta semana.
+//
+// Es idempotente por tabla: pregunta por la columna vieja antes de tocarla,
+// así que una base ya renombrada (o recién creada por el AutoMigrate, que
+// la hace directamente con el nombre nuevo) pasa de largo sin error.
+//
+// Los índices se renombran junto con la columna por un motivo práctico, no
+// estético: los que GORM genera solo se llaman `idx_<tabla>_<campo>`, así
+// que si quedaran con el nombre viejo el AutoMigrate crearía un segundo
+// índice idéntico con el nombre nuevo. Los que tienen nombre propio en el
+// tag (`idx_paciente_dni_unico`, `sin_solapamiento_turno`, los
+// `idx_turno_prof_*`) no hace falta tocarlos: Postgres actualiza su
+// definición interna al renombrar la columna.
+func renombrarProfesionalIDaClinicID(gdb *gorm.DB) error {
+	tablas := []string{
+		"turnos", "pacientes", "tipos_consulta", "paginas_publicas", "enlaces_turno",
+		"conflictos_paciente", "auditoria_bloqueos_turno_publico",
+		"emails_bloqueados_turno_publico", "ips_bloqueadas_turno_publico",
+	}
+	for _, tabla := range tablas {
+		sql := fmt.Sprintf(`DO $$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_name = '%[1]s' AND column_name = 'profesional_id'
+				) THEN
+					ALTER TABLE %[1]s RENAME COLUMN profesional_id TO clinic_id;
+				END IF;
+				IF to_regclass('idx_%[1]s_profesional_id') IS NOT NULL THEN
+					ALTER INDEX idx_%[1]s_profesional_id RENAME TO idx_%[1]s_clinic_id;
+				END IF;
+			END $$;`, tabla)
+		if err := gdb.Exec(sql).Error; err != nil {
+			return fmt.Errorf("renombrando profesional_id a clinic_id en %s: %w", tabla, err)
+		}
 	}
 	return nil
 }

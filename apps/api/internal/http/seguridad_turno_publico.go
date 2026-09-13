@@ -76,19 +76,19 @@ func listBloqueosSeguridadHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var mails []db.EmailBloqueadoTurnoPublico
-		if err := gdb.Where("profesional_id = ? AND bloqueado_hasta > ?", profesionalID, time.Now()).
+		if err := gdb.Where("clinic_id = ? AND bloqueado_hasta > ?", profesionalID, time.Now()).
 			Order("bloqueado_hasta DESC").Find(&mails).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron obtener los bloqueos")
 			return
 		}
 		var ips []db.IPBloqueadaTurnoPublico
-		if err := gdb.Where("profesional_id = ? AND bloqueado_hasta > ?", profesionalID, time.Now()).
+		if err := gdb.Where("clinic_id = ? AND bloqueado_hasta > ?", profesionalID, time.Now()).
 			Order("bloqueado_hasta DESC").Find(&ips).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron obtener los bloqueos")
 			return
 		}
 		var auditoria []db.AuditoriaBloqueoTurnoPublico
-		if err := gdb.Where("profesional_id = ?", profesionalID).
+		if err := gdb.Where("clinic_id = ?", profesionalID).
 			Order("created_at DESC").Limit(200).Find(&auditoria).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener la auditoría")
 			return
@@ -146,7 +146,7 @@ func desbloquearMailHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id inválido")
 			return
 		}
-		res := gdb.Where("id = ? AND profesional_id = ?", id, profesionalID).Delete(&db.EmailBloqueadoTurnoPublico{})
+		res := gdb.Where("id = ? AND clinic_id = ?", id, profesionalID).Delete(&db.EmailBloqueadoTurnoPublico{})
 		if res.Error != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo desbloquear el mail")
 			return
@@ -171,7 +171,7 @@ func desbloquearIPHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id inválido")
 			return
 		}
-		res := gdb.Where("id = ? AND profesional_id = ?", id, profesionalID).Delete(&db.IPBloqueadaTurnoPublico{})
+		res := gdb.Where("id = ? AND clinic_id = ?", id, profesionalID).Delete(&db.IPBloqueadaTurnoPublico{})
 		if res.Error != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo desbloquear la IP")
 			return
@@ -190,7 +190,7 @@ func desbloquearIPHandler(gdb *gorm.DB) http.HandlerFunc {
 // db.AuditoriaBloqueoTurnoPublico.Simulado), para que quede o todo o nada.
 func registrarAuditoriaBloqueo(tx *gorm.DB, profesionalID uuid.UUID, motivo string, email, ip *string, dnis []string, turnosBorrados int, simulado bool) error {
 	return tx.Create(&db.AuditoriaBloqueoTurnoPublico{
-		ProfesionalID:  profesionalID,
+		ClinicID:       profesionalID,
 		Motivo:         motivo,
 		Email:          email,
 		IP:             ip,

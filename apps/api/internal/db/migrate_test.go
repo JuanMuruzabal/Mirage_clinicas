@@ -14,19 +14,19 @@ import (
 func TestRunMigrations_RechazaSolapamientoDeTurnosAgendados(t *testing.T) {
 	gdb := testdb.New(t)
 
-	profesionalID := crearProfesionalDePrueba(t, gdb)
+	clinicID, userID := crearProfesionalDePrueba(t, gdb)
 
 	inicio := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
 	fin := inicio.Add(30 * time.Minute)
 
-	turno1 := turnoAgendadoDePrueba(profesionalID, inicio, fin)
+	turno1 := turnoAgendadoDePrueba(clinicID, userID, inicio, fin)
 	if err := gdb.Create(&turno1).Error; err != nil {
 		t.Fatalf("el primer turno debería poder crearse: %v", err)
 	}
 
 	// Se solapa parcialmente con el primero (empieza 15 min después, dentro
 	// del rango del anterior) — spec §4.3, regla no negociable.
-	turno2 := turnoAgendadoDePrueba(profesionalID, inicio.Add(15*time.Minute), fin.Add(15*time.Minute))
+	turno2 := turnoAgendadoDePrueba(clinicID, userID, inicio.Add(15*time.Minute), fin.Add(15*time.Minute))
 	err := gdb.Create(&turno2).Error
 	if err == nil {
 		t.Fatal("esperaba que el segundo turno solapado fallara por el exclusion constraint, pero no falló")
@@ -36,16 +36,16 @@ func TestRunMigrations_RechazaSolapamientoDeTurnosAgendados(t *testing.T) {
 func TestRunMigrations_PermiteTurnosNoSolapados(t *testing.T) {
 	gdb := testdb.New(t)
 
-	profesionalID := crearProfesionalDePrueba(t, gdb)
+	clinicID, userID := crearProfesionalDePrueba(t, gdb)
 
 	inicio := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
-	turno1 := turnoAgendadoDePrueba(profesionalID, inicio, inicio.Add(30*time.Minute))
+	turno1 := turnoAgendadoDePrueba(clinicID, userID, inicio, inicio.Add(30*time.Minute))
 	if err := gdb.Create(&turno1).Error; err != nil {
 		t.Fatalf("el primer turno debería poder crearse: %v", err)
 	}
 
 	// Arranca justo cuando termina el anterior — no se solapa.
-	turno2 := turnoAgendadoDePrueba(profesionalID, inicio.Add(30*time.Minute), inicio.Add(60*time.Minute))
+	turno2 := turnoAgendadoDePrueba(clinicID, userID, inicio.Add(30*time.Minute), inicio.Add(60*time.Minute))
 	if err := gdb.Create(&turno2).Error; err != nil {
 		t.Errorf("dos turnos consecutivos sin solapar no deberían fallar: %v", err)
 	}
@@ -64,17 +64,17 @@ func TestRunMigrations_PermiteTurnosNoSolapados(t *testing.T) {
 func TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual(t *testing.T) {
 	gdb := testdb.New(t)
 
-	profesionalID := crearProfesionalDePrueba(t, gdb)
+	clinicID, userID := crearProfesionalDePrueba(t, gdb)
 
 	inicio := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
 	fin := inicio.Add(30 * time.Minute)
 
-	agendado := turnoAgendadoDePrueba(profesionalID, inicio, fin)
+	agendado := turnoAgendadoDePrueba(clinicID, userID, inicio, fin)
 	if err := gdb.Create(&agendado).Error; err != nil {
 		t.Fatalf("el turno agendado debería poder crearse: %v", err)
 	}
 
-	cancelada := turnoAgendadoDePrueba(profesionalID, inicio, fin)
+	cancelada := turnoAgendadoDePrueba(clinicID, userID, inicio, fin)
 	cancelada.Estado = "cancelada"
 	if err := gdb.Create(&cancelada).Error; err != nil {
 		t.Errorf("un turno cancelado nunca debería chocar con el constraint, aunque tenga el mismo horario: %v", err)
@@ -86,7 +86,7 @@ func TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual(t *testin
 // de-duplicación de pacientes (Extra 2.3.5/E5.1, más arriba en
 // runMigrationsLocked) corre en CADA RunMigrations — cada reinicio/deploy
 // del contenedor `migrate`, no una sola vez — y hasta esta corrección
-// agrupaba por (profesional_id, dni) sin excluir `en_conflicto`. Eso
+// agrupaba por (clinic_id, dni) sin excluir `en_conflicto`. Eso
 // borraba en silencio, en cada deploy, cualquier ficha creada A PROPÓSITO
 // por un conflicto de pacientes sin resolver (mismo DNI, mail distinto,
 // ver crearPacientePublicoConDeteccionDeConflicto en
@@ -110,7 +110,7 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	gdb := testdb.Shared(t)
 
 	dni := "459" + uuid.NewString()[:5]
-	// `profesional_id` guarda un clinics.id — ver migrate_fk.go.
+	// `clinic_id` guarda un clinics.id — ver migrate_fk.go.
 	owner := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
 	if err := gdb.Create(&owner).Error; err != nil {
 		t.Fatalf("no se pudo crear el usuario dueño: %v", err)
@@ -121,16 +121,26 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	if err := gdb.Create(&profesional).Error; err != nil {
 		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
 	}
+	// La membresía con rol owner: desde la Fase 3.2.1 es de donde sale el
+	// profesional que atiende cada turno, y la FK compuesta exige que el
+	// par (clínica, usuario) exista.
+	miembro := db.ClinicMember{ClinicID: profesional.ID, UserID: owner.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&miembro).Error; err != nil {
+		t.Fatalf("no se pudo crear la membresía de prueba: %v", err)
+	}
+	if err := db.AsignarRol(gdb, miembro.ID, db.RoleOwner); err != nil {
+		t.Fatalf("no se pudo asignar el rol owner: %v", err)
+	}
 	t.Cleanup(func() {
-		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Turno{})
-		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Paciente{})
+		gdb.Unscoped().Where("clinic_id = ?", profesional.ID).Delete(&db.Turno{})
+		gdb.Unscoped().Where("clinic_id = ?", profesional.ID).Delete(&db.Paciente{})
 		gdb.Unscoped().Delete(&profesional)
 		gdb.Unscoped().Delete(&owner)
 	})
 
 	telVerificada := "+5493511111111"
 	verificada := db.Paciente{
-		ProfesionalID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
+		ClinicID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
 		DNI: dni, Telefono: &telVerificada, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&verificada).Error; err != nil {
@@ -138,7 +148,7 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	}
 	telEnConflicto := "+5493512222222"
 	enConflicto := db.Paciente{
-		ProfesionalID: profesional.ID, Nombre: "Juan", Apellido: "M",
+		ClinicID: profesional.ID, Nombre: "Juan", Apellido: "M",
 		DNI: dni, Telefono: &telEnConflicto, EnConflicto: true, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
@@ -147,8 +157,12 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 
 	inicio := time.Now().Add(1 * time.Hour)
 	fin := inicio.Add(30 * time.Minute)
+	atiende, err := db.OwnerDeLaClinica(gdb, profesional.ID)
+	if err != nil {
+		t.Fatalf("no se pudo resolver el owner de la clínica: %v", err)
+	}
 	turno := db.Turno{
-		ProfesionalID: profesional.ID, PacienteID: &enConflicto.ID, Estado: "agendado",
+		ClinicID: profesional.ID, AtendidoPorUserID: &atiende, PacienteID: &enConflicto.ID, Estado: "agendado",
 		HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "Juan", ApellidoContacto: "M", DNIContacto: dni,
 		TelefonoContacto: "+5493512222222", EmailContacto: "juan@example.com", Origen: "pagina_publica",
@@ -180,14 +194,14 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 
 func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 	gdb := testdb.New(t)
-	profesionalID := crearProfesionalDePrueba(t, gdb)
+	clinicID, _ := crearProfesionalDePrueba(t, gdb)
 
-	if err := db.SeedTiposConsultaDefault(gdb, profesionalID); err != nil {
+	if err := db.SeedTiposConsultaDefault(gdb, clinicID); err != nil {
 		t.Fatalf("SeedTiposConsultaDefault error inesperado: %v", err)
 	}
 
 	var tipos []db.TipoConsulta
-	if err := gdb.Where("profesional_id = ?", profesionalID).Order("nombre").Find(&tipos).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", clinicID).Order("nombre").Find(&tipos).Error; err != nil {
 		t.Fatalf("no se pudo leer tipos_consulta: %v", err)
 	}
 	if len(tipos) != 2 {
@@ -207,21 +221,26 @@ func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 }
 
 // crearProfesionalDePrueba inserta un Profesional mínimo (los tests de
-// turnos solo necesitan un profesional_id válido para el exclusion
+// turnos solo necesitan un clinic_id válido para el exclusion
 // constraint, no un flujo de registro completo).
 // crearProfesionalDePrueba devuelve el id que va en la columna
-// `profesional_id` de turnos/pacientes/tipos_consulta — que, pese al
+// `clinic_id` de turnos/pacientes/tipos_consulta — que, pese al
 // nombre, es un `clinics.id` (ver la explicación en migrate_fk.go).
 //
 // Hasta la Fase C de la auditoría este helper creaba un `db.Profesional`,
 // la tabla legacy de antes de TR-037, y devolvía SU id: los tests venían
-// escribiendo en `profesional_id` algo que la aplicación real nunca
+// escribiendo en `clinic_id` algo que la aplicación real nunca
 // escribe. Pasaban porque no había ninguna foreign key que lo
 // desmintiera. Lo destapó `fk_turnos_clinica` al agregarse, con el mismo
 // diagnóstico que las 38 filas huérfanas que aparecieron en la base de
 // desarrollo: el significado de la columna cambió a mitad del proyecto y
 // quedaron cosas atrás.
-func crearProfesionalDePrueba(t *testing.T, gdb *gorm.DB) uuid.UUID {
+// crearProfesionalDePrueba arma una clínica con su dueño y la membresía
+// que los une. Devuelve las dos ids porque desde la Fase 3.2.1 hacen falta
+// las dos para insertar un turno: `clinic_id` dice a qué clínica pertenece
+// y `atendido_por_user_id` quién lo atiende, y la FK compuesta exige que
+// ese par exista en `clinic_members`.
+func crearProfesionalDePrueba(t *testing.T, gdb *gorm.DB) (clinicID, userID uuid.UUID) {
 	t.Helper()
 	// La clínica necesita un dueño real: fk_clinics_owner apunta a users.
 	owner := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
@@ -237,23 +256,107 @@ func crearProfesionalDePrueba(t *testing.T, gdb *gorm.DB) uuid.UUID {
 	if err := gdb.Create(&clinica).Error; err != nil {
 		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
 	}
-	return clinica.ID
+	member := db.ClinicMember{ClinicID: clinica.ID, UserID: owner.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&member).Error; err != nil {
+		t.Fatalf("no se pudo crear la membresía de prueba: %v", err)
+	}
+	if err := db.AsignarRol(gdb, member.ID, db.RoleOwner); err != nil {
+		t.Fatalf("no se pudo asignar el rol owner: %v", err)
+	}
+	return clinica.ID, owner.ID
 }
 
 // turnoAgendadoDePrueba arma un Turno ya `agendado` (con horario fijo,
 // spec §4.3) listo para insertar — los campos de contacto son obligatorios
 // a nivel de esquema aunque el turno ya no esté `pendiente`.
-func turnoAgendadoDePrueba(profesionalID uuid.UUID, inicio, fin time.Time) db.Turno {
+func turnoAgendadoDePrueba(clinicID, userID uuid.UUID, inicio, fin time.Time) db.Turno {
 	return db.Turno{
-		ProfesionalID:    profesionalID,
-		Estado:           "agendado",
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
-		NombreContacto:   "Paciente",
-		ApellidoContacto: "De Prueba",
-		DNIContacto:      "30999888",
-		TelefonoContacto: "+5493511234567",
-		EmailContacto:    "paciente@example.com",
-		Origen:           "manual",
+		ClinicID: clinicID,
+		// Desde la Fase 3.2.1 el no-solapamiento es por PROFESIONAL, no por
+		// clínica: sin esta columna el exclusion constraint no aplica.
+		AtendidoPorUserID: &userID,
+		Estado:            "agendado",
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
+		NombreContacto:    "Paciente",
+		ApellidoContacto:  "De Prueba",
+		DNIContacto:       "30999888",
+		TelefonoContacto:  "+5493511234567",
+		EmailContacto:     "paciente@example.com",
+		Origen:            "manual",
+	}
+}
+
+// TestRunMigrations_TurnoAgendadoExigeProfesional — Fase 3.2.1. El
+// exclusion constraint compara `atendido_por_user_id WITH =`, y en SQL dos
+// NULL nunca son iguales: un turno agendado sin profesional quedaría FUERA
+// del no-solapamiento, y se podrían apilar todos los que se quisieran en el
+// mismo horario.
+//
+// Este agujero apareció al mudar la constraint de la clínica al
+// profesional, cuando el test del requisito no negociable empezó a pasar
+// turnos sin asignar. El check lo cierra.
+func TestRunMigrations_TurnoAgendadoExigeProfesional(t *testing.T) {
+	gdb := testdb.New(t)
+	clinicID, _ := crearProfesionalDePrueba(t, gdb)
+
+	inicio := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
+	turno := turnoAgendadoDePrueba(clinicID, uuid.Nil, inicio, inicio.Add(30*time.Minute))
+	turno.AtendidoPorUserID = nil
+
+	if err := gdb.Create(&turno).Error; err == nil {
+		t.Fatal("un turno agendado sin profesional debería ser rechazado: sin esa columna el no-solapamiento no aplica")
+	}
+}
+
+// TestRunMigrations_TurnoDeOtraClinicaNoSeAsignaAlProfesional — la FK
+// compuesta (clinic_id, atendido_por_user_id) contra clinic_members. No
+// alcanza con que el usuario exista: tiene que ser miembro de ESA clínica.
+//
+// Es lo que impide, por ejemplo, que un recepcionista con dos clínicas
+// abiertas le cargue por error un turno de una a un profesional de la otra.
+func TestRunMigrations_TurnoDeOtraClinicaNoSeAsignaAlProfesional(t *testing.T) {
+	gdb := testdb.New(t)
+	clinicA, _ := crearProfesionalDePrueba(t, gdb)
+	_, userDeB := crearProfesionalDePrueba(t, gdb)
+
+	inicio := time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)
+	turno := turnoAgendadoDePrueba(clinicA, userDeB, inicio, inicio.Add(30*time.Minute))
+
+	if err := gdb.Create(&turno).Error; err == nil {
+		t.Fatal("no se le puede asignar un turno a alguien que no es miembro de esa clínica")
+	}
+}
+
+// TestRunMigrations_DosProfesionalesAtiendenALaMismaHora — el caso que la
+// Fase 3 vuelve normal y que la constraint vieja (sobre la clínica)
+// rechazaba: dos odontólogos del mismo lugar, misma hora, sillones
+// distintos.
+func TestRunMigrations_DosProfesionalesAtiendenALaMismaHora(t *testing.T) {
+	gdb := testdb.New(t)
+	clinicID, unProfesional := crearProfesionalDePrueba(t, gdb)
+
+	// Un segundo profesional en la MISMA clínica.
+	otro := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
+	if err := gdb.Create(&otro).Error; err != nil {
+		t.Fatalf("no se pudo crear el segundo profesional: %v", err)
+	}
+	member := db.ClinicMember{ClinicID: clinicID, UserID: otro.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&member).Error; err != nil {
+		t.Fatalf("no se pudo crear su membresía: %v", err)
+	}
+	if err := db.AsignarRol(gdb, member.ID, db.RoleProfesional); err != nil {
+		t.Fatalf("no se pudo asignar el rol: %v", err)
+	}
+
+	inicio := time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC)
+	fin := inicio.Add(30 * time.Minute)
+
+	if err := gdb.Create(&[]db.Turno{turnoAgendadoDePrueba(clinicID, unProfesional, inicio, fin)}[0]).Error; err != nil {
+		t.Fatalf("el turno del primer profesional debería crearse: %v", err)
+	}
+	segundo := turnoAgendadoDePrueba(clinicID, otro.ID, inicio, fin)
+	if err := gdb.Create(&segundo).Error; err != nil {
+		t.Fatalf("dos profesionales de la misma clínica SÍ pueden atender a la misma hora: %v", err)
 	}
 }

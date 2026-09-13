@@ -55,7 +55,7 @@ type clinicaPublicaResponse struct {
 // wizard.
 func ownerProfile(gdb *gorm.DB, clinicID uuid.UUID) (db.ProfessionalProfile, bool) {
 	var member db.ClinicMember
-	if err := gdb.Where("clinic_id = ? AND role = ?", clinicID, db.RoleOwner).First(&member).Error; err != nil {
+	if err := gdb.Scopes(db.ConRol(db.RoleOwner)).Where("clinic_id = ?", clinicID).First(&member).Error; err != nil {
 		return db.ProfessionalProfile{}, false
 	}
 	var profile db.ProfessionalProfile
@@ -93,7 +93,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var pagina db.PaginaPublica
 		oculta := false
-		if err := gdb.Where("profesional_id = ?", clinic.ID).First(&pagina).Error; err == nil {
+		if err := gdb.Where("clinic_id = ?", clinic.ID).First(&pagina).Error; err == nil {
 			oculta = pagina.Oculta
 		}
 
@@ -123,7 +123,7 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 		// docs/Arquitectura y base/tradeoffs.md): join 1:1 con paginas_publicas, sin fila o con
 		// `deployada_en` nulo, no aparece en el buscador.
 		query := gdb.Model(&db.Clinic{}).
-			Joins("JOIN paginas_publicas pp ON pp.profesional_id = clinics.id AND pp.deployada_en IS NOT NULL").
+			Joins("JOIN paginas_publicas pp ON pp.clinic_id = clinics.id AND pp.deployada_en IS NOT NULL").
 			Order("clinics.nombre")
 
 		if q != "" {
@@ -132,7 +132,8 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 				`clinics.nombre ILIKE ? OR EXISTS (
 					SELECT 1 FROM clinic_members cm
 					JOIN professional_profiles prof ON prof.user_id = cm.user_id
-					WHERE cm.clinic_id = clinics.id AND cm.role = ?
+					JOIN clinic_member_roles r ON r.clinic_member_id = cm.id
+					WHERE cm.clinic_id = clinics.id AND r.rol = ?
 					  AND (prof.nombre ILIKE ? OR prof.apellido ILIKE ? OR (prof.nombre || ' ' || prof.apellido) ILIKE ?)
 				)`,
 				like, db.RoleOwner, like, like, like,
@@ -144,7 +145,8 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 					SELECT 1 FROM clinic_members cm
 					JOIN professional_especialidades pe ON pe.user_id = cm.user_id
 					JOIN especialidades e ON e.id = pe.especialidad_id
-					WHERE cm.clinic_id = clinics.id AND cm.role = ? AND e.nombre = ?
+					JOIN clinic_member_roles r ON r.clinic_member_id = cm.id
+					WHERE cm.clinic_id = clinics.id AND r.rol = ? AND e.nombre = ?
 				)`,
 				db.RoleOwner, especialidad,
 			)

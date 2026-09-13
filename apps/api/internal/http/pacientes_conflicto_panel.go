@@ -44,7 +44,7 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var conflictos []db.ConflictoPaciente
-		if err := gdb.Where("profesional_id = ? AND resuelto = false", profesionalID).
+		if err := gdb.Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Order("created_at").Find(&conflictos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
 			return
@@ -402,7 +402,7 @@ func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, pro
 	if bloquearMail {
 		if enConflicto.Email != nil {
 			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{
-				ProfesionalID:  profesionalID,
+				ClinicID:       profesionalID,
 				Email:          *enConflicto.Email,
 				BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour),
 			}).Error; err != nil {
@@ -415,7 +415,7 @@ func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, pro
 		}
 		for _, t := range tutores {
 			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{
-				ProfesionalID:  profesionalID,
+				ClinicID:       profesionalID,
 				Email:          t.Email,
 				BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour),
 			}).Error; err != nil {
@@ -471,7 +471,7 @@ func resolverConflictoPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var conflicto db.ConflictoPaciente
-		if err := gdb.Where("id = ? AND profesional_id = ?", conflictoID, profesionalID).First(&conflicto).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", conflictoID, profesionalID).First(&conflicto).Error; err != nil {
 			writeError(w, http.StatusNotFound, "conflicto no encontrado")
 			return
 		}

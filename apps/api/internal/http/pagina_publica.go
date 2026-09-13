@@ -45,14 +45,14 @@ func toPaginaPublicaResponse(p db.PaginaPublica) paginaPublicaResponse {
 // feature que llega dos sprints después.
 func getOrCrearPaginaPublica(gdb *gorm.DB, profesionalID uuid.UUID) (*db.PaginaPublica, error) {
 	var pagina db.PaginaPublica
-	err := gdb.Where("profesional_id = ?", profesionalID).First(&pagina).Error
+	err := gdb.Where("clinic_id = ?", profesionalID).First(&pagina).Error
 	if err == nil {
 		return &pagina, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	pagina = db.PaginaPublica{ProfesionalID: profesionalID}
+	pagina = db.PaginaPublica{ClinicID: profesionalID}
 	if err := gdb.Create(&pagina).Error; err != nil {
 		return nil, err
 	}

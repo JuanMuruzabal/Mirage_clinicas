@@ -59,9 +59,9 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 		}
 		expiraEn := time.Now().Add(enlaceTurnoTTL)
 		enlace := db.EnlaceTurno{
-			ProfesionalID: clinicID,
-			TokenHash:     tokenHash,
-			ExpiraEn:      expiraEn,
+			ClinicID:  clinicID,
+			TokenHash: tokenHash,
+			ExpiraEn:  expiraEn,
 		}
 		if err := gdb.Create(&enlace).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el link")
@@ -123,7 +123,7 @@ func validarEnlaceTurnoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 func buscarEnlaceTurnoVigente(tx *gorm.DB, clinicID uuid.UUID, token string) (db.EnlaceTurno, error) {
 	tokenHash := security.HashToken(token)
 	var enlace db.EnlaceTurno
-	err := tx.Where("profesional_id = ? AND token_hash = ?", clinicID, tokenHash).First(&enlace).Error
+	err := tx.Where("clinic_id = ? AND token_hash = ?", clinicID, tokenHash).First(&enlace).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.EnlaceTurno{}, errEnlaceTurnoInvalido
 	}

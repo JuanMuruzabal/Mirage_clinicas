@@ -39,7 +39,7 @@ La spec de PRISMA no trae una sección de ERD como la de Marcuzzi (§5). Se prop
 - **`turno`**: `profesional_id`, `paciente_id` (nullable hasta que se agenda), `tipo_consulta_id`, `estado` (`pendiente` / `agendado` / `cancelada`), `rango_horario` (`tstzrange`, nullable mientras está `pendiente` — recién se fija en el modal de confirmación, spec §4.3), `motivo_consulta`, `origen` (`pagina_publica` / `manual`).
 - **`pagina_publica`**: 1:1 con `profesional`. `oculta` (bool, modo mantenimiento), `deployada_en` (nullable — controla si aparece en el buscador público, spec §5.2), contenido de las 3 secciones fijas (turno / sobre nosotros / especialidades, spec §5.3).
 
-**Constraint no negociable (spec §4.3):** `EXCLUDE USING gist` sobre `(profesional_id, rango_horario)` en `turno`, activo solo para filas con `estado = 'agendado'` (las `pendiente` no tienen `rango_horario` todavía — ver TR-006). Mismo mecanismo que `TR-005`/`TR-010` de Marcuzzi_Madryn, aplicado a horas en vez de días.
+**Constraint no negociable (spec §4.3):** `EXCLUDE USING gist` sobre `(atendido_por_user_id, rango_horario)` en `turnos` —era sobre `profesional_id`, o sea la clínica, hasta la Fase 3.2.1 (TR-137)—, activo solo para filas con `estado = 'agendado'` (las `pendiente` no tienen `rango_horario` todavía — ver TR-006). Mismo mecanismo que `TR-005`/`TR-010` de Marcuzzi_Madryn, aplicado a horas en vez de días.
 
 ---
 
@@ -812,7 +812,7 @@ Documento vivo de la fase: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
 
 | # | Qué | Termina cuando |
 |---|---|---|
-| 3.2.1 | Esquema y migración (renombre `profesional_id`→`clinic_id`, roles acumulables, `atendido_por_user_id`, EXCLUDE mudado, baja de legacy) | La suite pasa sin cambios de comportamiento: nadie nota nada desde la UI |
+| 3.2.1 | Esquema y migración — ✅ **completa (2026-09-13)**. Baja de tablas legacy · renombre `profesional_id`→`clinic_id` · roles acumulables + `status=removed` · `atendido_por_user_id` con FK compuesta, columnas de agenda y EXCLUDE mudado al profesional | ✅ 12 paquetes en verde, sin cambios desde la UI |
 | 3.2.2 | Roles y permisos en el backend, con tests de aislamiento **entre profesionales de una misma clínica** | Un profesional no puede leer lo de otro, aunque la UI se lo pida |
 | 3.2.3 | Onboarding nuevo y "¿dónde trabajás hoy?" | Toda sesión arranca eligiendo clínica |
 | 3.2.4 | Colaboradores: invitar por código o mail, roles con exclusión | Se puede armar una clínica de varios |

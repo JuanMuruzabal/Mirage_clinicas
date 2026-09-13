@@ -74,7 +74,7 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 			}
 
 			var member db.ClinicMember
-			err := gdb.Where("user_id = ? AND role = ?", session.UserID, db.RoleOwner).First(&member).Error
+			err := gdb.Scopes(db.ConRol(db.RoleOwner)).Where("user_id = ?", session.UserID).First(&member).Error
 			if err != nil {
 				writeError(w, http.StatusForbidden, "completá el alta de tu clínica antes de acceder a esta sección")
 				return

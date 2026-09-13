@@ -19,7 +19,7 @@ import (
 
 // registerTurnoRoutes monta las rutas del calendario/turnero (spec §4.3,
 // §4.4) — todas autenticadas y siempre acotadas al profesional dueño del
-// token, nunca a un profesional_id que venga del body/query.
+// token, nunca a un clinic_id que venga del body/query.
 func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/turnos", listTurnosHandler(gdb))
 	r.Post("/turnos", crearTurnoManualHandler(gdb))
@@ -148,7 +148,7 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		query := gdb.Where("profesional_id = ?", profesionalID)
+		query := gdb.Where("clinic_id = ?", profesionalID)
 		if estado := r.URL.Query().Get("estado"); estado != "" {
 			query = query.Where("estado = ?", estado)
 		}
@@ -327,7 +327,14 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		paraOtro := req.ParaOtro && req.PacienteID == ""
-		turno, err := buildTurnoAgendado(profesionalID, req.NombreContacto, req.ApellidoContacto, req.DNIContacto,
+		// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
+		// profesional (Fase 3.2.6) es el owner de la clínica.
+		atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+		turno, err := buildTurnoAgendado(profesionalID, atiende, req.NombreContacto, req.ApellidoContacto, req.DNIContacto,
 			req.TelefonoContacto, req.EmailContacto, req.Motivo, req.TipoConsultaID, req.HoraInicio, req.HoraFin, paraOtro)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -378,7 +385,7 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -442,7 +449,7 @@ func cancelarTurnosSinVerificarHandler(gdb *gorm.DB) http.HandlerFunc {
 			sub := pacientesVerificadosQuery(tx, profesionalID)
 			var turnos []db.Turno
 			if err := tx.Where(
-				"profesional_id = ? AND estado = 'agendado' AND hora_fin >= now() AND (paciente_id IS NULL OR paciente_id NOT IN (?))",
+				"clinic_id = ? AND estado = 'agendado' AND hora_fin >= now() AND (paciente_id IS NULL OR paciente_id NOT IN (?))",
 				profesionalID, sub,
 			).Find(&turnos).Error; err != nil {
 				return err
@@ -512,7 +519,7 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -619,7 +626,7 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turnos []db.Turno
-		if err := gdb.Where("id IN ? AND profesional_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
+		if err := gdb.Where("id IN ? AND clinic_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron cargar los turnos")
 			return
 		}
@@ -652,7 +659,7 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 					resultados = append(resultados, item)
 					continue
 				}
-				if err := tx.Where("id = ? AND profesional_id = ?", *t.TipoConsultaID, profesionalID).First(&tipo).Error; err != nil {
+				if err := tx.Where("id = ? AND clinic_id = ?", *t.TipoConsultaID, profesionalID).First(&tipo).Error; err != nil {
 					resultados = append(resultados, item)
 					continue
 				}
@@ -774,7 +781,7 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND profesional_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -907,7 +914,10 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // buildTurnoAgendado arma (sin tocar la base) un Turno ya validado a nivel
 // de negocio, para el camino "paciente nuevo" de crearTurnoManualHandler.
-func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string, paraOtro bool) (db.Turno, error) {
+// Fase 3.2.1: recibe además `atiendeUserID`, el profesional que va a
+// atender. Hasta que el panel deje elegirlo (Fase 3.2.6) el llamador pasa
+// el owner de la clínica.
+func buildTurnoAgendado(profesionalID, atiendeUserID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string, paraOtro bool) (db.Turno, error) {
 	nombre = strings.TrimSpace(nombre)
 	apellido = strings.TrimSpace(apellido)
 	dni = strings.TrimSpace(dni)
@@ -939,17 +949,18 @@ func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono
 	}
 
 	return db.Turno{
-		ProfesionalID:    profesionalID,
-		Estado:           "agendado",
-		TipoConsultaID:   &tipoConsultaID,
-		HoraInicio:       &horaInicio,
-		HoraFin:          &horaFin,
-		NombreContacto:   nombre,
-		ApellidoContacto: apellido,
-		DNIContacto:      dni,
-		TelefonoContacto: telefono,
-		EmailContacto:    strings.TrimSpace(email),
-		Motivo:           strings.TrimSpace(motivo),
+		ClinicID:          profesionalID,
+		AtendidoPorUserID: &atiendeUserID,
+		Estado:            "agendado",
+		TipoConsultaID:    &tipoConsultaID,
+		HoraInicio:        &horaInicio,
+		HoraFin:           &horaFin,
+		NombreContacto:    nombre,
+		ApellidoContacto:  apellido,
+		DNIContacto:       dni,
+		TelefonoContacto:  telefono,
+		EmailContacto:     strings.TrimSpace(email),
+		Motivo:            strings.TrimSpace(motivo),
 	}, nil
 }
 
@@ -988,7 +999,7 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 	return gdb.Transaction(func(tx *gorm.DB) error {
 		if pacienteExistenteID != nil {
 			var paciente db.Paciente
-			if err := tx.Where("id = ? AND profesional_id = ?", *pacienteExistenteID, profesionalID).First(&paciente).Error; err != nil {
+			if err := tx.Where("id = ? AND clinic_id = ?", *pacienteExistenteID, profesionalID).First(&paciente).Error; err != nil {
 				return errPacienteNoEncontrado
 			}
 			turno.PacienteID = &paciente.ID
@@ -1029,7 +1040,7 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 // persona, en cualquiera de los dos caminos que llegan acá: "Agregar
 // turno > paciente nuevo" en el panel, y el formulario público). Los datos
 // reales de un paciente solo se corrigen a propósito desde "Editar
-// paciente", nunca de rebote al agendar. El índice único (profesional_id,
+// paciente", nunca de rebote al agendar. El índice único (clinic_id,
 // dni) de RunMigrations es la red de seguridad final contra una carrera
 // entre dos requests concurrentes con el mismo DNI — isUniqueViolation la
 // traduce a un error legible más abajo.
@@ -1040,7 +1051,7 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 	// para este DNI hasta que el profesional lo resuelva desde
 	// /panel/pacientes.
 	var existente db.Paciente
-	err := tx.Where("profesional_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
+	err := tx.Where("clinic_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
 	if err == nil {
 		// emailTipado/telefonoTipado — ronda de correcciones (2026-09-06):
 		// capturados ANTES de sincronizar (que pisa turno.EmailContacto/
@@ -1069,10 +1080,10 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 	}
 
 	paciente := db.Paciente{
-		ProfesionalID: profesionalID,
-		Nombre:        turno.NombreContacto,
-		Apellido:      turno.ApellidoContacto,
-		DNI:           turno.DNIContacto,
+		ClinicID: profesionalID,
+		Nombre:   turno.NombreContacto,
+		Apellido: turno.ApellidoContacto,
+		DNI:      turno.DNIContacto,
 		// Origen "manual" (corrección de QA, Fase 2.4.1) — esta función
 		// solo la usa el panel del profesional ("Agregar turno" con
 		// paciente nuevo) — a diferencia del formulario público
@@ -1098,7 +1109,7 @@ func crearOBuscarPacientePorDNI(tx *gorm.DB, profesionalID uuid.UUID, turno *db.
 			// paciente con este DNI, se usa ese" que si lo hubiéramos
 			// encontrado desde el principio.
 			var ganador db.Paciente
-			if err2 := tx.Where("profesional_id = ? AND dni = ?", profesionalID, turno.DNIContacto).First(&ganador).Error; err2 == nil {
+			if err2 := tx.Where("clinic_id = ? AND dni = ?", profesionalID, turno.DNIContacto).First(&ganador).Error; err2 == nil {
 				sincronizarContactoConPaciente(turno, ganador)
 				return ganador, nil
 			}
@@ -1267,7 +1278,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// pestañas en /panel/turnos).
 		var turnosHoyDB []db.Turno
 		if err := gdb.Where(
-			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
 			Order("hora_inicio").
@@ -1282,7 +1293,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// concreto, no una lista larga de semanas hacia adelante.
 		var turnosProximosDB []db.Turno
 		if err := gdb.Where(
-			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
 			profesionalID, "agendado", mañana, pasadoMañana,
 		).
 			Order("hora_inicio").
@@ -1294,7 +1305,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var totalConfirmados int64
 		if err := gdb.Model(&db.Turno{}).
-			Where("profesional_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", ahora).
+			Where("clinic_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", ahora).
 			Count(&totalConfirmados).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
@@ -1312,7 +1323,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// (hora, nombre) más el resultado.
 		var turnosResueltosDB []db.Turno
 		if err := gdb.Where(
-			"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
 			profesionalID, "agendado", hoy, mañana,
 		).
 			Order("hora_inicio").
@@ -1341,13 +1352,13 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// acumulado completo, no un pendiente por revisar.
 		var turnosAsistidos, turnosAusentes int64
 		if err := gdb.Model(&db.Turno{}).
-			Where("profesional_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "asistio").
+			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "asistio").
 			Count(&turnosAsistidos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
 		}
 		if err := gdb.Model(&db.Turno{}).
-			Where("profesional_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "ausente").
+			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "ausente").
 			Count(&turnosAusentes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
