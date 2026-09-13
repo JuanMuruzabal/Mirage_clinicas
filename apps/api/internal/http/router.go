@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 	"gorm.io/gorm"
 
+	dbpkg "dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/mail"
 	"dental-mirage/api/internal/ratelimit"
 )
@@ -92,7 +93,15 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			registerTurnoRoutes(r, db)
 			registerPacienteRoutes(r, db)
 			registerSeguridadTurnoPublicoRoutes(r, db)
-			registerPaginaPublicaRoutes(r, db)
+			// La página de la clínica la maneja el rol "administrador de
+			// página" (brief de Fase 3: "la tarjeta administrador de
+			// pagina solo la puede ver los que tienen rol de administrador
+			// de página"). Un profesional invitado ve su agenda, no toca
+			// la web de la clínica.
+			r.Group(func(r chi.Router) {
+				r.Use(requireRol(dbpkg.RoleAdmin))
+				registerPaginaPublicaRoutes(r, db)
+			})
 			// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 			registerHorarioAtencionRoutes(r, db)
 			registerBloqueoHorarioRoutes(r, db)

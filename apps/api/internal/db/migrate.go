@@ -258,6 +258,19 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 			WHERE NOT EXISTS (SELECT 1 FROM clinic_member_roles r WHERE r.clinic_member_id = m.id)
 			ON CONFLICT (clinic_member_id, rol) DO NOTHING`,
 
+		// Fase 3.2.2: los owners que ya existían recibieron solo el rol
+		// `owner` cuando se migró la columna. El brief le da al titular
+		// también `profesional` y `admin` ("la tarjeta del titular... por
+		// default siempre tiene el rol de profesional y con el rol de
+		// administrador de página"), y sin `admin` se quedarían afuera de
+		// la página de su propia clínica apenas esa ruta empezó a pedir el
+		// rol. Idempotente por el ON CONFLICT.
+		`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+			SELECT gen_random_uuid(), m.clinic_member_id, r.rol, now()
+			FROM (SELECT DISTINCT clinic_member_id FROM clinic_member_roles WHERE rol = 'owner') m
+			CROSS JOIN (VALUES ('admin'), ('profesional')) AS r(rol)
+			ON CONFLICT (clinic_member_id, rol) DO NOTHING`,
+
 		// El check de `status` suma 'removed' (la membresía se marca, no se
 		// borra — ver ClinicMember.Status). Va en SQL crudo porque GORM
 		// AutoMigrate crea checks nuevos pero NO modifica los que ya

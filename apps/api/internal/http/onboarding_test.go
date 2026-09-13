@@ -170,13 +170,25 @@ func TestOnboardingClinica_ExitosoCreaClinicMemberOwner(t *testing.T) {
 		t.Fatalf("no se creó el ClinicMember owner: %v", err)
 	}
 	// Fase 3.2.1: el rol vive en `clinic_member_roles`, no en una columna.
-	// Quien crea la clínica arranca con owner y nada más — los demás roles
-	// se suman después, desde el panel de colaboradores (Fase 3.2.4).
+	// Fase 3.2.2: quien crea la clínica arranca con LOS TRES roles que el
+	// brief le asigna — "la tarjeta del titular... por default siempre
+	// tiene el rol de profesional y con el rol de administrador de
+	// página", más `owner`, que es lo que lo habilita a invitar y repartir
+	// roles. Sin `admin` no podría entrar a la página de su propia clínica.
 	if rol := db.RolPrincipal(member.Roles); rol != db.RoleOwner {
 		t.Errorf("RolPrincipal = %q, esperaba %q", rol, db.RoleOwner)
 	}
-	if len(member.Roles) != 1 {
-		t.Errorf("roles = %d, esperaba exactamente 1 al crear la clínica", len(member.Roles))
+	tiene := map[string]bool{}
+	for _, r := range member.Roles {
+		tiene[r.Rol] = true
+	}
+	for _, esperado := range []string{db.RoleOwner, db.RoleAdmin, db.RoleProfesional} {
+		if !tiene[esperado] {
+			t.Errorf("al titular le falta el rol %q", esperado)
+		}
+	}
+	if tiene[db.RoleRecepcion] {
+		t.Error("el titular no puede ser recepcionista: es excluyente con profesional")
 	}
 	if member.Status != db.ClinicMemberStatusActive {
 		t.Errorf("Status = %q, esperaba %q", member.Status, db.ClinicMemberStatusActive)

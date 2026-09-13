@@ -294,3 +294,44 @@ Contenedores reconstruidos: `web:200 api:200`, y `/disponibilidad` respondiendo 
 ---
 
 Con esto **la 3.2.1 queda completa**: el modelo soporta N profesionales por clinica y N clinicas por profesional, sin que nada haya cambiado desde la UI. Sigue la 3.2.2, roles y permisos en el backend.
+
+## 3.2.2 - Roles y permisos en el backend
+
+### 2026-09-13 - pasos 1 y 2: quien entra, y a que
+
+**El bug que nadie habia notado, porque hasta ahora no existian los colaboradores.**
+
+`requireClinic` resolvia la clinica buscando la membresia con rol **owner**. Tenia sentido cuando cada usuario tenia exactamente una clinica y era su dueno. Pero un profesional invitado a una clinica ajena tiene membresia activa y **nunca va a ser su dueno**: el panel entero le respondia 403. No podia ver ni su propia agenda.
+
+Con el multi-tenant eso pasa de detalle a bloqueo total. Ahora vale cualquier membresia **activa**, y los roles quedan en el contexto para que las reglas de autorizacion decidan sobre ellos.
+
+Verificado con control negativo: con el `requireClinic` viejo, el test del colaborador falla con `403 completá el alta de tu clínica`.
+
+**Que clinica, cuando hay varias.** Por ahora la mas antigua, de forma determinista. La eleccion explicita llega en la 3.2.3 ("donde trabajas hoy"), que la va a guardar en la sesion; hasta entonces no cambia nada para quien tiene una sola, que es el caso de todos.
+
+**Una membresia activa sin roles no entra.** No deberia existir, pero si existiera dejaria a la persona adentro del panel sin que ninguna regla pueda decidir nada sobre ella. Se trata como onboarding incompleto.
+
+### El titular tenia menos roles de los que el brief le da
+
+El brief es explicito: *"la tarjeta del titular... por default siempre tiene el rol de profesional y con el rol de administrador de pagina"*. El onboarding le asignaba solo `owner`.
+
+Mientras nada exigiera roles, daba igual. Apenas la pagina de la clinica empezo a pedir `admin`, **el titular se habria quedado afuera de su propia web**. Ahora el alta asigna los tres, y una migracion se los repone a los owners que ya existian — sin ella, los tres titulares de la base de desarrollo habrian perdido el acceso en el mismo deploy que introdujo la regla.
+
+`owner` no es "un nivel mas alto" de los otros dos: es lo que habilita a invitar colaboradores y repartir roles. Son tags, como pide el brief.
+
+### Lo que quedo protegido
+
+| Ruta | Quien |
+|---|---|
+| `/panel/pagina*` | `admin` — *"la tarjeta administrador de pagina solo la puede ver los que tienen rol de administrador de pagina"* |
+| El resto del panel | Cualquier miembro activo con al menos un rol |
+
+El 403 de `requireRol` dice **que hace falta**, no que tiene la persona: informar los roles propios no le aporta nada a quien ya los conoce, y le confirma a quien no deberia estar ahi como esta armado el modelo de permisos.
+
+### Un test que pasaba por la razon equivocada
+
+El primero que escribi para "un admin si puede administrar la pagina" verificaba `!= 403`. La ruta que use no existia, asi que devolvia **404** y el test pasaba igual, sin haber probado nada.
+
+Se vio porque su par —el que espera 403 para el profesional— fallo con "status = 404, esperaba 403". Los dos pasan ahora exigiendo **200 explicito**. Una asercion negativa (`!= algo`) es verdadera por demasiados motivos; en un test de permisos eso es justo lo que no se puede permitir.
+
+**Aplicado sobre la base de desarrollo:** los 3 titulares pasaron de `owner` a `admin+owner+profesional`. 12 paquetes en verde, gofmt + golangci-lint 0 issues.
