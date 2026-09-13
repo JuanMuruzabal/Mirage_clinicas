@@ -17,6 +17,7 @@ type contextKey string
 const (
 	sessionContextKey  contextKey = "session"
 	clinicIDContextKey contextKey = "clinicID"
+	rolesContextKey    contextKey = "rolesEnLaClinica"
 )
 
 // requireSession exige un token de sesión válido en el header
@@ -57,13 +58,23 @@ func requireSession(gdb *gorm.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// requireClinic se encadena DESPUÉS de requireSession — resuelve la Clinic
-// del usuario autenticado (su única fila ClinicMember{Role:"owner"} en
-// este alcance: una clínica por usuario, invitaciones/multi-clínica fuera
-// de alcance, spec §9) y la deja en el contexto. Onboarding incompleto (
-// sin ClinicMember todavía) es un 403, no un 500 — distinto del guard de
-// UX del wizard en el frontend, esta es la garantía real del lado del
-// servidor.
+// requireClinic se encadena DESPUÉS de requireSession: resuelve en qué
+// clínica está trabajando el usuario y con qué roles, y deja las dos cosas
+// en el contexto. Onboarding incompleto (sin ninguna membresía todavía) es
+// un 403, no un 500 — distinto del guard de UX del wizard en el frontend,
+// esta es la garantía real del lado del servidor.
+//
+// Hasta la Fase 3.2.2 buscaba la membresía con rol OWNER, porque cada
+// usuario tenía exactamente una clínica y era su dueño. Eso tenía una
+// consecuencia que nadie había notado: **un colaborador invitado no podía
+// entrar al panel en absoluto**, porque su membresía nunca iba a decir
+// `owner`. Con el multi-tenant eso pasa de detalle a bloqueo total, así
+// que ahora vale cualquier membresía ACTIVA.
+//
+// Qué clínica, cuando hay varias: por ahora la más antigua, de forma
+// determinista. La elección explícita llega en la Fase 3.2.3 ("¿dónde
+// trabajás hoy?"), que la va a guardar en la sesión; hasta entonces esto
+// no cambia nada para quien tiene una sola, que es el caso de todos.
 func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,9 +85,21 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 			}
 
 			var member db.ClinicMember
-			err := gdb.Scopes(db.ConRol(db.RoleOwner)).Where("user_id = ?", session.UserID).First(&member).Error
+			err := gdb.Preload("Roles").
+				Where("user_id = ? AND status = ?", session.UserID, db.ClinicMemberStatusActive).
+				Order("created_at").First(&member).Error
 			if err != nil {
 				writeError(w, http.StatusForbidden, "completá el alta de tu clínica antes de acceder a esta sección")
+				return
+			}
+
+			// Una membresía activa sin ningún rol no debería existir, pero
+			// si existiera dejaría a la persona adentro del panel sin que
+			// ninguna regla de autorización pueda decidir nada sobre ella.
+			// Se trata como onboarding incompleto.
+			roles := rolesDe(member)
+			if len(roles) == 0 {
+				writeError(w, http.StatusForbidden, "tu cuenta todavía no tiene un rol asignado en esta clínica")
 				return
 			}
 
@@ -88,7 +111,56 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 			}
 
 			ctx := context.WithValue(r.Context(), clinicIDContextKey, member.ClinicID)
+			ctx = context.WithValue(ctx, rolesContextKey, roles)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// rolesDe — los roles de una membresía, como slice de strings.
+func rolesDe(member db.ClinicMember) []string {
+	roles := make([]string, 0, len(member.Roles))
+	for _, r := range member.Roles {
+		roles = append(roles, r.Rol)
+	}
+	return roles
+}
+
+// rolesFromContext — los roles del usuario en la clínica activa. Solo
+// existen después de requireClinic.
+func rolesFromContext(r *http.Request) []string {
+	roles, _ := r.Context().Value(rolesContextKey).([]string)
+	return roles
+}
+
+// tieneAlgunRol — ¿el usuario tiene al menos uno de estos roles en la
+// clínica activa?
+func tieneAlgunRol(r *http.Request, buscados ...string) bool {
+	for _, tiene := range rolesFromContext(r) {
+		for _, buscado := range buscados {
+			if tiene == buscado {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// requireRol corta el paso si el usuario no tiene ninguno de los roles
+// pedidos en la clínica activa. Se encadena DESPUÉS de requireClinic, que
+// es quien pone los roles en el contexto.
+//
+// El 403 dice qué hace falta, no qué tiene la persona: informar los roles
+// propios en un error no aporta nada a quien ya los conoce y le confirma a
+// quien no debería estar ahí cómo está armado el modelo de permisos.
+func requireRol(roles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !tieneAlgunRol(r, roles...) {
+				writeError(w, http.StatusForbidden, "no tenés permisos para esta sección de la clínica")
+				return
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }

@@ -251,10 +251,16 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			if err := tx.Create(&member).Error; err != nil {
 				return err
 			}
-			// El rol va en su propia tabla desde la Fase 3.2.1 (roles
-			// acumulables, TR-137). Quien crea la clínica es su owner.
-			if err := db.AsignarRol(tx, member.ID, db.RoleOwner); err != nil {
-				return err
+			// Los roles del titular, acumulables desde la Fase 3.2.1
+			// (TR-137). El brief es explícito: la tarjeta del titular "por
+			// default siempre tiene el rol de profesional y con el rol de
+			// administrador de página". `owner` se suma a esos dos porque
+			// es lo que lo habilita a invitar colaboradores y repartir
+			// roles — es "creador", no un nivel más alto de los otros.
+			for _, rol := range []string{db.RoleOwner, db.RoleAdmin, db.RoleProfesional} {
+				if err := db.AsignarRol(tx, member.ID, rol); err != nil {
+					return err
+				}
 			}
 			if err := db.SeedTiposConsultaDefault(tx, clinic.ID); err != nil {
 				return err

@@ -75,7 +75,7 @@ Se renombra a `clinic_id` antes de agregar la columna nueva, no después.
 
 Cada una es implementable, testeable y mergeable por su cuenta. El orden no es negociable: las de abajo dependen de las de arriba.
 
-### 3.2.1 — Esquema y migración
+### 3.2.1 — Esquema y migración ✅
 
 El cambio de modelo completo, sin tocar una sola pantalla.
 
@@ -90,7 +90,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 
 **Termina cuando:** la suite entera pasa sin cambios de comportamiento. Nadie nota nada desde la UI. Es el mejor momento para equivocarse.
 
-### 3.2.2 — Roles y permisos en el backend
+### 3.2.2 — Roles y permisos en el backend ✅
 
 - Resolver los roles de la sesión actual (qué puede hacer este usuario en esta clínica).
 - Middleware de autorización por rol, sobre los handlers que ya existen.
@@ -294,3 +294,78 @@ Contenedores reconstruidos: `web:200 api:200`, y `/disponibilidad` respondiendo 
 ---
 
 Con esto **la 3.2.1 queda completa**: el modelo soporta N profesionales por clinica y N clinicas por profesional, sin que nada haya cambiado desde la UI. Sigue la 3.2.2, roles y permisos en el backend.
+
+## 3.2.2 — Roles y permisos en el backend
+
+**Fecha:** 2026-09-13 · **Decisión:** `docs/Arquitectura y base/tradeoffs.md` TR-138 · **Código:** `internal/http/middleware.go`, `internal/http/visibilidad.go`
+
+### Pasos 1 y 2: quién entra, y a qué
+
+**El bug que nadie había notado, porque hasta ahora no existían los colaboradores.**
+
+`requireClinic` resolvía la clínica buscando la membresía con rol **owner**. Tenía sentido cuando cada usuario tenía exactamente una clínica y era su dueño. Pero un profesional invitado a una clínica ajena tiene membresía activa y **nunca va a ser su dueño**: el panel entero le respondía 403. No podía ver ni su propia agenda.
+
+Con el multi-tenant eso pasa de detalle a bloqueo total. Ahora vale cualquier membresía **activa**, y los roles quedan en el contexto para que las reglas de autorización decidan sobre ellos.
+
+Verificado con control negativo: con el `requireClinic` viejo, el test del colaborador falla con `403 completá el alta de tu clínica`.
+
+**Qué clínica, cuando hay varias.** Por ahora la más antigua, de forma determinista. La elección explícita llega en la 3.2.3 ("¿dónde trabajás hoy?"), que la va a guardar en la sesión; hasta entonces no cambia nada para quien tiene una sola, que es el caso de todos.
+
+**Una membresía activa sin roles no entra.** No debería existir, pero si existiera dejaría a la persona adentro del panel sin que ninguna regla pueda decidir nada sobre ella. Se trata como onboarding incompleto.
+
+### El titular tenía menos roles de los que el brief le da
+
+El brief es explícito: *"la tarjeta del titular... por default siempre tiene el rol de profesional y con el rol de administrador de página"*. El onboarding le asignaba solo `owner`.
+
+Mientras nada exigiera roles, daba igual. Apenas la página de la clínica empezó a pedir `admin`, **el titular se habría quedado afuera de su propia web**. Ahora el alta asigna los tres, y una migración se los repone a los owners que ya existían — sin ella, los tres titulares de la base de desarrollo habrían perdido el acceso en el mismo deploy que introdujo la regla.
+
+`owner` no es "un nivel más alto" de los otros dos: es lo que habilita a invitar colaboradores y repartir roles. Son tags, como pide el brief.
+
+### Lo que quedó protegido
+
+| Ruta | Quién |
+|---|---|
+| `/panel/pagina*` | `admin` — *"la tarjeta administrador de página solo la puede ver los que tienen rol de administrador de página"* |
+| El resto del panel | Cualquier miembro activo con al menos un rol |
+
+El 403 de `requireRol` dice **qué hace falta**, no qué tiene la persona: informar los roles propios no le aporta nada a quien ya los conoce, y le confirma a quien no debería estar ahí cómo está armado el modelo de permisos.
+
+### Un test que pasaba por la razón equivocada
+
+El primero que escribí para "un admin sí puede administrar la página" verificaba `!= 403`. La ruta que usé no existía, así que devolvía **404** y el test pasaba igual, sin haber probado nada.
+
+Se vio porque su par —el que espera 403 para el profesional— falló con "status = 404, esperaba 403". Los dos pasan ahora exigiendo **200 explícito**. Una aserción negativa (`!= algo`) es verdadera por demasiados motivos; en un test de permisos eso es justo lo que no se puede permitir.
+
+**Aplicado sobre la base de desarrollo:** los 3 titulares pasaron de `owner` a `admin+owner+profesional`. 12 paquetes en verde, gofmt + golangci-lint 0 issues.
+
+### Paso 3: el aislamiento entre colegas
+
+El brief lo pide en mayúsculas: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO DEL RESTO DE PROFESIONALES"*.
+
+Los tests de aislamiento que ya existían (TR-129) son entre **clínicas distintas**. Entre colegas de la misma clínica no había ninguno, porque hasta esta fase no había colegas.
+
+**Quién ve todo:** recepción, por definición del brief, y quien administra la clínica (owner, admin), que necesitan la vista completa para reasignar turnos y resolver conflictos.
+
+**Por qué vive en un scope y no en cada handler.** Son 17 queries de turnos y 8 de pacientes filtrando por clínica. Repetir la condición en cada una garantiza que alguna quede sin ella, y **una fuga de aislamiento no se nota mirando la pantalla**: los datos aparecen, simplemente son de más gente de la que corresponde. Concentrarlo en `soloMisTurnos` / `soloMisPacientes` (`internal/http/visibilidad.go`) deja un solo lugar que auditar, y un solo lugar que cambiar cuando la 3.2.6 sume la vista del recepcionista por profesional.
+
+**Los pacientes son de la clínica, no del profesional** (TR-137), así que "los pacientes de Lucía" no es una columna: son los que tienen algún turno con ella. Eso mantiene una sola ficha por persona —de lo que depende la detección de conflictos de identidad de la Fase 2.4— y a la vez permite la vista aislada.
+
+**La ficha de un paciente ajeno devuelve 404, no 403.** Que exista no es información que ese profesional deba tener.
+
+#### El control negativo, y el primer intento que no probaba nada
+
+Para verificar que los tests detectan una fuga, se rompió el aislamiento a propósito. El primer intento —hacer que `veTodaLaClinica` devolviera `true` siempre— dejó un import sin usar, **el paquete no compiló y los tests no corrieron**: la salida vacía parecía un "pasa igual" y era un "no se ejecutó nada".
+
+El segundo intento sumó `RoleProfesional` a la lista de quienes ven todo, que compila y reproduce exactamente la fuga. Ahí sí aparecieron los dos fallos esperados, y el body del 200 mostró lo que se filtraría: la ficha completa del paciente de un colega, con su historial de turnos.
+
+**La lección es sobre el control negativo en sí:** si al romper el código la salida queda vacía, lo primero que hay que descartar es que el test no haya corrido. Un control negativo que no falla no prueba que el test sirva; puede estar probando que no compila.
+
+**Aplicado:** 12 paquetes en verde, gofmt + golangci-lint 0 issues, contenedores reconstruidos (web:200 api:200).
+
+### Con esto la 3.2.2 queda completa
+
+Lo que cambió, en una línea: **el backend ya sabe quién es cada quien dentro de una clínica, y qué puede ver.** Un colaborador invitado entra al panel; el titular tiene los tres roles que el brief le da; la página de la clínica es de quien la administra; y un profesional ve sus turnos y sus pacientes, no los de sus colegas.
+
+Nada de esto se ve todavía desde la UI, por el mismo motivo que la 3.2.1: no hay pantalla que muestre un colaborador porque todavía no se puede invitar a ninguno. Eso llega en la 3.2.4. Lo que sí queda es que **cuando lleguen, el backend ya los aísla** — y no al revés, que es el orden en que estos errores se vuelven filtraciones de datos de pacientes.
+
+**8 tests nuevos** (`middleware_permisos_test.go`, `visibilidad_test.go`), 12 paquetes en verde. Sigue la **3.2.3 — onboarding y "¿dónde trabajás hoy?"**, que es la primera de la fase que se ve en pantalla.

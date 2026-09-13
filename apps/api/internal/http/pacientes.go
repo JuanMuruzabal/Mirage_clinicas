@@ -214,7 +214,10 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		query := gdb.Where("clinic_id = ?", profesionalID)
+		// Aislamiento entre colegas (Fase 3.2.2): la ficha es de la
+		// clínica, pero un profesional ve las de SUS pacientes — los que
+		// tienen algún turno con él.
+		query := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloMisPacientes(r))
 		if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
 			like := "%" + q + "%"
 			query = query.Where("nombre ILIKE ? OR apellido ILIKE ? OR dni ILIKE ?", like, like, like)
@@ -318,7 +321,10 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var paciente db.Paciente
-		if err := gdb.Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
+		// 404 y no 403 si la ficha es de un colega: que exista no es
+		// información que este profesional deba tener (Fase 3.2.2).
+		if err := gdb.Scopes(soloMisPacientes(r)).
+			Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "paciente no encontrado")
 			return
 		}
@@ -427,7 +433,10 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var paciente db.Paciente
-		if err := gdb.Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
+		// 404 y no 403 si la ficha es de un colega: que exista no es
+		// información que este profesional deba tener (Fase 3.2.2).
+		if err := gdb.Scopes(soloMisPacientes(r)).
+			Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "paciente no encontrado")
 			return
 		}
