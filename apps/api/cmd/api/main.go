@@ -85,7 +85,15 @@ func main() {
 			slog.String("app_base_url", cfg.AppBaseURL))
 	}
 
-	if cfg.Env != "development" && cfg.BFFSharedSecret == "" {
+	// La condición es "la app NO se sirve en localhost", no
+	// `APP_ENV != development`. Ese era el bug de este aviso: APP_ENV vale
+	// "development" en Render por decisión (TR-021), así que el WARN
+	// nunca se emitía JUSTO en el entorno donde importaba — el mismo error
+	// que TR-135 corrigió para las herramientas de desarrollo y que acá se
+	// había repetido. Se descubrió porque el aviso no apareció cuando
+	// tenía que aparecer: el log de un pedido del wizard mostraba la IP de
+	// salida del servicio web en vez de la del visitante.
+	if !cfg.SeSirveEnLocalhost() && cfg.BFFSharedSecret == "" {
 		slog.Warn("BFF_SHARED_SECRET sin configurar: la API va a ver la IP del proceso web, no la del visitante — el rate-limiting por IP y los detectores de abuso del wizard público van a agrupar a todos los visitantes bajo una sola IP",
 			slog.String("env", cfg.Env))
 	}

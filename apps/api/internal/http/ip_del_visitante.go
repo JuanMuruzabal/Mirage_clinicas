@@ -1,11 +1,21 @@
 package http
 
 import (
+	"context"
 	"crypto/subtle"
 	"net"
 	"net/http"
 	"strings"
 )
+
+// claveIPDelBFF marca en el contexto que la IP de esta request la declaró
+// el BFF con un secreto válido. Existe para que el log pueda decir
+// `ip_fuente=bff` y no `xff`: la diferencia entre "el BFF propagó la IP del
+// visitante" y "la deduje de la cadena" es exactamente lo que hay que
+// mirar para saber si la propagación está funcionando — y deducirlo del
+// valor de la IP es el tipo de trabajo detectivesco que ya costó caro dos
+// veces en este proyecto.
+type claveIPDelBFF struct{}
 
 // Fase 3.1.1 — la IP real del visitante.
 //
@@ -73,6 +83,7 @@ func confiarEnIPDelBFF(secretoCompartido string) func(http.Handler) http.Handler
 				// que venía era la cadena de proxies hasta el BFF y ninguno
 				// de esos saltos es el visitante.
 				r.Header.Set("X-Forwarded-For", ip)
+				r = r.WithContext(context.WithValue(r.Context(), claveIPDelBFF{}, ip))
 				// Y se borran las cabeceras del CDN. Esto NO es limpieza:
 				// es necesario. El pedido del BFF a esta API también viaja
 				// por la URL pública, así que Cloudflare le pone su

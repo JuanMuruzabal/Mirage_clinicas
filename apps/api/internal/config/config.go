@@ -165,7 +165,16 @@ func bffSharedSecret(env string) string {
 // además hacer que la aplicación se sirva desde localhost, que es
 // precisamente el caso en el que no hay nada expuesto.
 func (c Config) HerramientasDeDesarrolloHabilitadas() bool {
-	return c.DevTools && esLocal(c.AppBaseURL)
+	return c.DevTools && c.SeSirveEnLocalhost()
+}
+
+// SeSirveEnLocalhost — ¿la aplicación se sirve en la máquina de quien
+// desarrolla? Es LA señal para cualquier guard de seguridad de este
+// proyecto: `APP_ENV` vale "development" incluso en Render (TR-021), así
+// que no distingue nada, mientras que AppBaseURL no puede mentir — de ella
+// salen los links de los mails que reciben los usuarios.
+func (c Config) SeSirveEnLocalhost() bool {
+	return esLocal(c.AppBaseURL)
 }
 
 // esLocal — ¿esta URL apunta a la máquina de quien desarrolla? Ante

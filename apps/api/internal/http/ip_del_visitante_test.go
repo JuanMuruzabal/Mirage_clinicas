@@ -200,3 +200,51 @@ func TestSolicitarTurnoPublico_SinSecretoGuardaLaIPDeSiempre(t *testing.T) {
 		t.Error("se creyó la cabecera sin secreto configurado")
 	}
 }
+
+// TestConfiarEnIPDelBFF_MarcaLaFuenteComoBFF — el log tiene que poder
+// decir "esta IP la propagó el BFF" y no confundirla con "la deduje de la
+// cadena". La diferencia es justamente el síntoma que hay que mirar para
+// saber si la propagación funciona: cuando falta el secreto en el deploy,
+// la API cae en el CF-Connecting-IP del salto BFF→API —la IP de salida del
+// servicio web— y el log lo dice con `ip_fuente=cf` en vez de `bff`.
+func TestConfiarEnIPDelBFF_MarcaLaFuenteComoBFF(t *testing.T) {
+	var fuente string
+	h := confiarEnIPDelBFF("secreto-compartido")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, fuente = clientIPConFuente(r)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(headerAuthDelBFF, "secreto-compartido")
+	req.Header.Set(headerIPDelVisitante, "201.235.14.7")
+	req.Header.Set("CF-Connecting-IP", "74.220.48.143") // la IP del proceso web
+	req.RemoteAddr = "10.29.215.4:1234"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	if fuente != "bff" {
+		t.Errorf("ip_fuente = %q, esperaba %q", fuente, "bff")
+	}
+}
+
+// TestConfiarEnIPDelBFF_SinSecretoLaFuenteDelatraElProblema — el reverso:
+// sin secreto configurado, la IP que queda es la del salto BFF→API y la
+// fuente dice "cf". Ese par (IP que no es de nadie + ip_fuente=cf en una
+// ruta del wizard) es el síntoma exacto de "falta BFF_SHARED_SECRET en el
+// deploy", y este test lo deja escrito para que no haya que deducirlo de
+// nuevo.
+func TestConfiarEnIPDelBFF_SinSecretoLaFuenteDelatraElProblema(t *testing.T) {
+	var ip, fuente string
+	h := confiarEnIPDelBFF("")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, fuente = clientIPConFuente(r)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(headerAuthDelBFF, "lo-que-sea")
+	req.Header.Set(headerIPDelVisitante, "201.235.14.7")
+	req.Header.Set("CF-Connecting-IP", "74.220.48.143")
+	req.RemoteAddr = "10.29.215.4:1234"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	if fuente != "cf" || ip != "74.220.48.143" {
+		t.Errorf("ip=%q fuente=%q, esperaba la IP del salto BFF→API con fuente cf", ip, fuente)
+	}
+}

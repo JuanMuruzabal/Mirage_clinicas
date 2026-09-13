@@ -229,6 +229,12 @@ func clientIP(r *http.Request) string {
 // cadena), "xff-interna" (la cadena no tenía ninguna pública: desarrollo,
 // o una topología distinta de la esperada) y "remote" (sin cabeceras).
 func clientIPConFuente(r *http.Request) (string, string) {
+	// Lo primero: si el BFF declaró la IP del visitante con un secreto
+	// válido, esa gana sobre cualquier cabecera de la conexión — que
+	// describe el salto BFF→API, no al visitante.
+	if ip, ok := r.Context().Value(claveIPDelBFF{}).(string); ok && ip != "" {
+		return ip, "bff"
+	}
 	if ip := ipPublica(r.Header.Get("CF-Connecting-IP")); ip != "" {
 		return ip, "cf"
 	}

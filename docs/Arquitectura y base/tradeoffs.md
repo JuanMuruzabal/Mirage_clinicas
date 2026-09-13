@@ -1866,6 +1866,9 @@ Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se bo
   ```
 
   La IP real del visitante, y el campo nuevo diciendo de dónde salió. Antes de esta corrección, ese mismo request se registraba como `ip=10.29.215.4`. El `ip_fuente=cf` confirma además que `CF-Connecting-IP` **llega** hasta el contenedor: la rama que no se podía verificar sin un deploy es la que efectivamente se usa.
+- **Lo que la misma medición destapó, en el camino que importa.** Un pedido del wizard público (`/clinicas/{slug}/disponibilidad`, o sea visitante → BFF → API) quedó logueado como `ip=74.220.48.143 ip_fuente=cf`: la IP de salida del servicio web de Render, no la del paciente. El BFF no estaba propagando nada, así que la API cayó en el `CF-Connecting-IP` del salto BFF→API. La causa está del lado de la configuración —`BFF_SHARED_SECRET` vive en `render.yaml` y el blueprint hay que sincronizarlo para que la variable exista— pero dejó a la vista dos defectos propios:
+  1. **El aviso de arranque no avisó.** Estaba condicionado a `cfg.Env != "development"`, y `APP_ENV` vale `development` en Render por decisión (TR-021): el WARN nunca se emitía justo en el entorno donde importaba. Es exactamente el error que TR-135 había corregido para las herramientas de desarrollo, repetido acá tres commits después. Ahora la condición es `!SeSirveEnLocalhost()`, la misma señal, ya expuesta como método de `Config` para que no haya dos criterios conviviendo.
+  2. **`ip_fuente` no distinguía "lo propagó el BFF" de "lo deduje de la cadena".** Las dos daban `xff`, así que el diagnóstico exigía razonar sobre el valor de la IP —trabajo detectivesco, el mismo que ya había costado caro dos veces—. El middleware marca ahora la request en el contexto y el log dice `ip_fuente=bff`. Dos tests dejan escrito el par de síntomas: con secreto, `bff`; sin secreto, la IP del salto BFF→API con fuente `cf`, que es la firma de "falta la variable en el deploy".
 
 ---
 
