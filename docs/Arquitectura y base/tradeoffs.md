@@ -1876,7 +1876,7 @@ Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se bo
   ```
 
   La IP real del visitante, propagada por el BFF y aceptada por sobre el `CF-Connecting-IP` del salto BFF→API. Las tres lecturas de la secuencia, en orden, cuentan la historia completa: `ip=10.29.215.4` (antes de todo: el router interno de Render), `ip=74.220.48.143 ip_fuente=cf` (con la corrección pero sin el secreto cargado: la IP de salida del servicio web) y finalmente `ip=190.137.139.220 ip_fuente=bff`. Recién en la tercera el rate-limiting por IP y los detectores de abuso del wizard miden lo que dicen medir.
-- **La variable no se creó sola**, porque los servicios de Render no están conectados al blueprint: `generateValue` + `fromService` de `render.yaml` solo se aplican al sincronizarlo. Quedó `scripts/cargar-bff-secret-en-render.sh` para hacerlo por la API sin tipear el valor, y el README corregido — afirmaba que "no hay nada que cargar a mano", que era cierto solo bajo un supuesto que no se cumplía. **Esa afirmación equivocada en el README es lo que hizo perder el rastro**: se dio por hecho que la variable existía.
+- **La variable no se creó sola**, porque los servicios de Render no están conectados al blueprint: `generateValue` + `fromService` de `render.yaml` solo se aplican al sincronizarlo. Hay que cargarlo a mano en los dos servicios —generando el valor y pegándolo, nunca tipeándolo— y el README quedó corregido — afirmaba que "no hay nada que cargar a mano", que era cierto solo bajo un supuesto que no se cumplía. **Esa afirmación equivocada en el README es lo que hizo perder el rastro**: se dio por hecho que la variable existía.
 
 ---
 

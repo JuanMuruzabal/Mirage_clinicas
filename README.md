@@ -334,11 +334,11 @@ valor en los dos. En el blueprint lo genera la API y el web lo lee vía
 `fromService` — pero eso solo se aplica si los servicios están conectados al
 blueprint y se lo sincroniza; **si se crearon sueltos, la variable no
 aparece sola** (pasó: se descubrió porque el wizard seguía registrando la IP
-de salida del servicio web en vez de la del visitante). Para ese caso está
-`scripts/cargar-bff-secret-en-render.sh`, que lo genera y lo carga en los dos
-por la API de Render sin que nadie lo tipee — que es justo donde se rompe si
-se hace a mano: un carácter distinto entre servicios y la API descarta la
-cabecera en silencio. Es lo que le permite al frontend
+de salida del servicio web en vez de la del visitante). Para ese caso hay que cargarlo a
+mano en los dos servicios, **generando el valor y pegándolo**, nunca
+tipeándolo: ahí es justo donde se rompe — un carácter distinto entre
+servicios y la API descarta la cabecera en silencio, sin error y sin log,
+indistinguible de "no está configurado". Es lo que le permite al frontend
 decirle a la API cuál es la IP real del visitante — sin él, la API ve la IP
 del proceso web y el rate-limiting por IP más los detectores de abuso del
 wizard cuentan a todos los visitantes como uno solo (TR-134). Si falta, el
