@@ -86,7 +86,7 @@ func TestRunMigrations_CanceladaNuncaConflictuaAunqueElHorarioSeaIgual(t *testin
 // de-duplicación de pacientes (Extra 2.3.5/E5.1, más arriba en
 // runMigrationsLocked) corre en CADA RunMigrations — cada reinicio/deploy
 // del contenedor `migrate`, no una sola vez — y hasta esta corrección
-// agrupaba por (profesional_id, dni) sin excluir `en_conflicto`. Eso
+// agrupaba por (clinic_id, dni) sin excluir `en_conflicto`. Eso
 // borraba en silencio, en cada deploy, cualquier ficha creada A PROPÓSITO
 // por un conflicto de pacientes sin resolver (mismo DNI, mail distinto,
 // ver crearPacientePublicoConDeteccionDeConflicto en
@@ -110,7 +110,7 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	gdb := testdb.Shared(t)
 
 	dni := "459" + uuid.NewString()[:5]
-	// `profesional_id` guarda un clinics.id — ver migrate_fk.go.
+	// `clinic_id` guarda un clinics.id — ver migrate_fk.go.
 	owner := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
 	if err := gdb.Create(&owner).Error; err != nil {
 		t.Fatalf("no se pudo crear el usuario dueño: %v", err)
@@ -122,15 +122,15 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
 	}
 	t.Cleanup(func() {
-		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Turno{})
-		gdb.Unscoped().Where("profesional_id = ?", profesional.ID).Delete(&db.Paciente{})
+		gdb.Unscoped().Where("clinic_id = ?", profesional.ID).Delete(&db.Turno{})
+		gdb.Unscoped().Where("clinic_id = ?", profesional.ID).Delete(&db.Paciente{})
 		gdb.Unscoped().Delete(&profesional)
 		gdb.Unscoped().Delete(&owner)
 	})
 
 	telVerificada := "+5493511111111"
 	verificada := db.Paciente{
-		ProfesionalID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
+		ClinicID: profesional.ID, Nombre: "Jose", Apellido: "Raton",
 		DNI: dni, Telefono: &telVerificada, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&verificada).Error; err != nil {
@@ -138,7 +138,7 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	}
 	telEnConflicto := "+5493512222222"
 	enConflicto := db.Paciente{
-		ProfesionalID: profesional.ID, Nombre: "Juan", Apellido: "M",
+		ClinicID: profesional.ID, Nombre: "Juan", Apellido: "M",
 		DNI: dni, Telefono: &telEnConflicto, EnConflicto: true, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
@@ -148,7 +148,7 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 	inicio := time.Now().Add(1 * time.Hour)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID: profesional.ID, PacienteID: &enConflicto.ID, Estado: "agendado",
+		ClinicID: profesional.ID, PacienteID: &enConflicto.ID, Estado: "agendado",
 		HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "Juan", ApellidoContacto: "M", DNIContacto: dni,
 		TelefonoContacto: "+5493512222222", EmailContacto: "juan@example.com", Origen: "pagina_publica",
@@ -187,7 +187,7 @@ func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 	}
 
 	var tipos []db.TipoConsulta
-	if err := gdb.Where("profesional_id = ?", profesionalID).Order("nombre").Find(&tipos).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", profesionalID).Order("nombre").Find(&tipos).Error; err != nil {
 		t.Fatalf("no se pudo leer tipos_consulta: %v", err)
 	}
 	if len(tipos) != 2 {
@@ -207,15 +207,15 @@ func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 }
 
 // crearProfesionalDePrueba inserta un Profesional mínimo (los tests de
-// turnos solo necesitan un profesional_id válido para el exclusion
+// turnos solo necesitan un clinic_id válido para el exclusion
 // constraint, no un flujo de registro completo).
 // crearProfesionalDePrueba devuelve el id que va en la columna
-// `profesional_id` de turnos/pacientes/tipos_consulta — que, pese al
+// `clinic_id` de turnos/pacientes/tipos_consulta — que, pese al
 // nombre, es un `clinics.id` (ver la explicación en migrate_fk.go).
 //
 // Hasta la Fase C de la auditoría este helper creaba un `db.Profesional`,
 // la tabla legacy de antes de TR-037, y devolvía SU id: los tests venían
-// escribiendo en `profesional_id` algo que la aplicación real nunca
+// escribiendo en `clinic_id` algo que la aplicación real nunca
 // escribe. Pasaban porque no había ninguna foreign key que lo
 // desmintiera. Lo destapó `fk_turnos_clinica` al agregarse, con el mismo
 // diagnóstico que las 38 filas huérfanas que aparecieron en la base de
@@ -245,7 +245,7 @@ func crearProfesionalDePrueba(t *testing.T, gdb *gorm.DB) uuid.UUID {
 // a nivel de esquema aunque el turno ya no esté `pendiente`.
 func turnoAgendadoDePrueba(profesionalID uuid.UUID, inicio, fin time.Time) db.Turno {
 	return db.Turno{
-		ProfesionalID:    profesionalID,
+		ClinicID:         profesionalID,
 		Estado:           "agendado",
 		HoraInicio:       &inicio,
 		HoraFin:          &fin,

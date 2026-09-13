@@ -172,6 +172,15 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		}
 	}
 
+	// Fase 3.2.1 (TR-137): el renombre va ACÁ, antes del AutoMigrate, y el
+	// orden no es negociable — si GORM corre primero, ve que falta
+	// `clinic_id`, la crea VACÍA y deja los datos en `clinic_id`. El
+	// resultado sería una columna nueva sin datos y otra vieja sin usar,
+	// en las nueve tablas a la vez.
+	if err := renombrarProfesionalIDaClinicID(gdb); err != nil {
+		return err
+	}
+
 	if err := gdb.AutoMigrate(
 		&Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
 		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
@@ -243,7 +252,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
 		     EXCLUDE USING gist (
-		       profesional_id WITH =,
+		       clinic_id WITH =,
 		       rango_horario WITH &&
 		     )
 		     WHERE (estado = 'agendado');
@@ -332,7 +341,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// chk_turnos_estado en TR-104).
 		`DROP INDEX IF EXISTS idx_paciente_dni_unico`,
 		`CREATE UNIQUE INDEX idx_paciente_dni_unico
-		   ON pacientes (profesional_id, dni) WHERE NOT en_conflicto`,
+		   ON pacientes (clinic_id, dni) WHERE NOT en_conflicto`,
 
 		// El `DELETE FROM turnos WHERE estado = 'pendiente'` que estaba acá
 		// se movió al bloque de migraciones destructivas (Fase C de la
@@ -486,11 +495,62 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 // necesita un profesionalID que todavía no existe al migrar el esquema.
 func SeedTiposConsultaDefault(gdb *gorm.DB, profesionalID uuid.UUID) error {
 	tipos := []TipoConsulta{
-		{ProfesionalID: profesionalID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
-		{ProfesionalID: profesionalID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
+		{ClinicID: profesionalID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
+		{ClinicID: profesionalID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
 	}
 	if err := gdb.Create(&tipos).Error; err != nil {
 		return fmt.Errorf("seed de tipos_consulta falló: %w", err)
+	}
+	return nil
+}
+
+// renombrarProfesionalIDaClinicID — Fase 3.2.1 (TR-137).
+//
+// La columna se llamaba `profesional_id` y guardaba un `clinics.id` desde
+// TR-037, cuando "profesional" y "clínica" dejaron de ser la misma cosa. El
+// nombre quedó, y TR-131 lo documentó sin arreglarlo porque entonces era
+// solo una molestia estética: no existía ningún profesional distinto de la
+// clínica con el que confundirlo.
+//
+// Desde esta fase existe. `turnos` va a tener `atendido_por_user_id` —el
+// profesional de verdad— al lado de esta columna, y un
+// `WHERE clinic_id = <el user>` devolvería CERO FILAS SIN ERROR. Esa
+// es la forma de bug más cara de encontrar, y la misma clase que ya costó
+// dos rondas enteras en la auditoría de esta semana.
+//
+// Es idempotente por tabla: pregunta por la columna vieja antes de tocarla,
+// así que una base ya renombrada (o recién creada por el AutoMigrate, que
+// la hace directamente con el nombre nuevo) pasa de largo sin error.
+//
+// Los índices se renombran junto con la columna por un motivo práctico, no
+// estético: los que GORM genera solo se llaman `idx_<tabla>_<campo>`, así
+// que si quedaran con el nombre viejo el AutoMigrate crearía un segundo
+// índice idéntico con el nombre nuevo. Los que tienen nombre propio en el
+// tag (`idx_paciente_dni_unico`, `sin_solapamiento_turno`, los
+// `idx_turno_prof_*`) no hace falta tocarlos: Postgres actualiza su
+// definición interna al renombrar la columna.
+func renombrarProfesionalIDaClinicID(gdb *gorm.DB) error {
+	tablas := []string{
+		"turnos", "pacientes", "tipos_consulta", "paginas_publicas", "enlaces_turno",
+		"conflictos_paciente", "auditoria_bloqueos_turno_publico",
+		"emails_bloqueados_turno_publico", "ips_bloqueadas_turno_publico",
+	}
+	for _, tabla := range tablas {
+		sql := fmt.Sprintf(`DO $$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_name = '%[1]s' AND column_name = 'profesional_id'
+				) THEN
+					ALTER TABLE %[1]s RENAME COLUMN profesional_id TO clinic_id;
+				END IF;
+				IF to_regclass('idx_%[1]s_profesional_id') IS NOT NULL THEN
+					ALTER INDEX idx_%[1]s_profesional_id RENAME TO idx_%[1]s_clinic_id;
+				END IF;
+			END $$;`, tabla)
+		if err := gdb.Exec(sql).Error; err != nil {
+			return fmt.Errorf("renombrando profesional_id a clinic_id en %s: %w", tabla, err)
+		}
 	}
 	return nil
 }

@@ -109,7 +109,7 @@ func TestDestructiva_FrenaElBorradoDeTurnosPendientes(t *testing.T) {
 		t.Fatalf("no se pudo aflojar el check: %v", err)
 	}
 	prof := profesionalDePruebaMinimo(t, gdb)
-	if err := gdb.Exec(`INSERT INTO turnos (id, profesional_id, estado, origen, nombre_contacto, apellido_contacto,
+	if err := gdb.Exec(`INSERT INTO turnos (id, clinic_id, estado, origen, nombre_contacto, apellido_contacto,
 		dni_contacto, telefono_contacto, email_contacto, motivo, created_at, updated_at)
 		VALUES (?, ?, 'pendiente', 'pagina_publica', 'Ana', 'Vieja', '30111222', '3510000000', 'a@example.com', '', now(), now())`,
 		uuid.New(), prof).Error; err != nil {
@@ -199,7 +199,7 @@ func baseDescartableConMigracionesAplicadas(t *testing.T) (*gorm.DB, bool) {
 
 func profesionalDePruebaMinimo(t *testing.T, gdb *gorm.DB) uuid.UUID {
 	t.Helper()
-	// La columna `profesional_id` guarda un clinics.id, no un
+	// La columna `clinic_id` guarda un clinics.id, no un
 	// profesionales.id — ver migrate_fk.go. La tabla `profesionales` es
 	// legacy de antes de TR-037 y está vacía.
 	ownerprof := db.User{Email: uuid.NewString() + "@example.com", OnboardingStep: "completo"}
@@ -228,7 +228,7 @@ func columnaExiste(t *testing.T, gdb *gorm.DB, tabla, columna string) bool {
 //
 //	WARN aplicando migración destructiva autorizada afectados=10
 //	error aplicando migraciones: no se pueden crear las foreign keys:
-//	  turnos.profesional_id -> clinics: 4 fila(s) ...
+//	  turnos.clinic_id -> clinics: 4 fila(s) ...
 //	  turnos.paciente_id -> pacientes: 4 fila(s) ...
 //	  turnos.tipo_consulta_id -> tipos_consulta: 4 fila(s) ...
 //	==> Exited with status 1
@@ -265,11 +265,11 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 		t.Fatalf("no se pudo crear la clínica: %v", err)
 	}
 	tel := "+5493511111111"
-	pacienteReal := db.Paciente{ProfesionalID: clinicaReal.ID, Nombre: "Sana", Apellido: "Real", DNI: "31000001", Telefono: &tel}
+	pacienteReal := db.Paciente{ClinicID: clinicaReal.ID, Nombre: "Sana", Apellido: "Real", DNI: "31000001", Telefono: &tel}
 	if err := gdb.Create(&pacienteReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente: %v", err)
 	}
-	tipoReal := db.TipoConsulta{ProfesionalID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
+	tipoReal := db.TipoConsulta{ClinicID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
 	if err := gdb.Create(&tipoReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el tipo: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 		t.Helper()
 		horas++
 		id := uuid.New()
-		if err := gdb.Exec(`INSERT INTO turnos (id, profesional_id, paciente_id, tipo_consulta_id, estado, origen,
+		if err := gdb.Exec(`INSERT INTO turnos (id, clinic_id, paciente_id, tipo_consulta_id, estado, origen,
 			nombre_contacto, apellido_contacto, dni_contacto, telefono_contacto, email_contacto, motivo,
 			hora_inicio, hora_fin, created_at, updated_at)
 			VALUES (?, ?, ?, ?, 'agendado', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
@@ -411,7 +411,7 @@ func TestDestructiva_BorraLasTablasLegacyDelMVP(t *testing.T) {
 				slug varchar(220) NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS profesional_especialidades (
-				profesional_id uuid NOT NULL REFERENCES profesionales(id),
+				clinic_id uuid NOT NULL REFERENCES profesionales(id),
 				especialidad_id uuid NOT NULL
 			);
 			INSERT INTO profesionales (nombre, email, password_hash, nombre_clinica, slug)

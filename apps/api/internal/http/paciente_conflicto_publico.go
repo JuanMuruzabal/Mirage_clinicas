@@ -48,7 +48,7 @@ func crearPacientePublicoConDeteccionDeConflicto(tx *gorm.DB, profesionalID uuid
 	// db.Paciente.EnConflicto); esa ficha no es "la" real para este DNI
 	// hasta que el profesional decida qué hacer con ella.
 	var existente db.Paciente
-	err := tx.Where("profesional_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
+	err := tx.Where("clinic_id = ? AND dni = ? AND en_conflicto = false", profesionalID, turno.DNIContacto).First(&existente).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		nueva, err := crearFichaPacientePublico(tx, profesionalID, turno, false)
 		if err != nil {
@@ -295,8 +295,8 @@ func agregarTelefonoDeTutorSiNuevo(tx *gorm.DB, pacienteID uuid.UUID, tutorEmail
 // "asistió" más tarde — un bug real encontrado en QA.
 func generarConflictosRetroactivosPorDNI(tx *gorm.DB, pacienteVerificado db.Paciente) error {
 	var hermanas []db.Paciente
-	if err := tx.Where("profesional_id = ? AND dni = ? AND id != ?",
-		pacienteVerificado.ProfesionalID, pacienteVerificado.DNI, pacienteVerificado.ID).Find(&hermanas).Error; err != nil {
+	if err := tx.Where("clinic_id = ? AND dni = ? AND id != ?",
+		pacienteVerificado.ClinicID, pacienteVerificado.DNI, pacienteVerificado.ID).Find(&hermanas).Error; err != nil {
 		return err
 	}
 	for _, hermana := range hermanas {
@@ -340,7 +340,7 @@ func generarConflictosRetroactivosPorDNI(tx *gorm.DB, pacienteVerificado db.Paci
 		}
 
 		ticket := db.ConflictoPaciente{
-			ProfesionalID:         pacienteVerificado.ProfesionalID,
+			ClinicID:              pacienteVerificado.ClinicID,
 			PacienteVerificadoID:  pacienteVerificado.ID,
 			PacienteEnConflictoID: hermana.ID,
 			TurnoEnConflictoID:    turnoReferencia.ID,
@@ -376,11 +376,11 @@ func turnoVigenteDeTipo(tx *gorm.DB, pacienteID, tipoConsultaID uuid.UUID) (*db.
 
 func crearFichaPacientePublico(tx *gorm.DB, profesionalID uuid.UUID, turno *db.Turno, enConflicto bool) (db.Paciente, error) {
 	paciente := db.Paciente{
-		ProfesionalID: profesionalID,
-		Nombre:        turno.NombreContacto,
-		Apellido:      turno.ApellidoContacto,
-		DNI:           turno.DNIContacto,
-		EnConflicto:   enConflicto,
+		ClinicID:    profesionalID,
+		Nombre:      turno.NombreContacto,
+		Apellido:    turno.ApellidoContacto,
+		DNI:         turno.DNIContacto,
+		EnConflicto: enConflicto,
 		// Origen explícito (coincide con el default de la columna, pero
 		// declarado a mano para que quede claro en el código que ESTA
 		// ficha nace sin confiar en el DNI todavía — a diferencia de una

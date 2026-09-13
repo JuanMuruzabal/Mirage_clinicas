@@ -45,7 +45,7 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 	var ids []uuid.UUID
 	err := tx.Model(&db.Turno{}).
 		Where(
-			"profesional_id = ? AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio' AND paciente_id IS NOT NULL",
+			"clinic_id = ? AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio' AND paciente_id IS NOT NULL",
 			profesionalID,
 		).
 		Distinct("paciente_id").
@@ -60,7 +60,7 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 
 	var manualIDs []uuid.UUID
 	if err := tx.Model(&db.Paciente{}).
-		Where("profesional_id = ? AND origen = 'manual'", profesionalID).
+		Where("clinic_id = ? AND origen = 'manual'", profesionalID).
 		Pluck("id", &manualIDs).Error; err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func pacientesVerificadosQuery(gdb *gorm.DB, profesionalID uuid.UUID) *gorm.DB {
 	turnosAsistidos := gdb.Model(&db.Turno{}).Select("paciente_id").
 		Where("paciente_id IS NOT NULL AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio'")
 	return gdb.Model(&db.Paciente{}).Select("id").
-		Where("profesional_id = ? AND (origen = 'manual' OR id IN (?))", profesionalID, turnosAsistidos)
+		Where("clinic_id = ? AND (origen = 'manual' OR id IN (?))", profesionalID, turnosAsistidos)
 }
 
 // borrarPacienteNoVerificadoSiSinHistorialReal — Fase 2.4.1, regla pedida
@@ -340,7 +340,7 @@ func validarIdentidadPublicaOEnlace(gdb *gorm.DB, clinicID uuid.UUID, email, ver
 // token de "Confirmanos que sos vos" (TR-103) válido y SIN USAR para el
 // mail dado — se valida, no se consume acá (ver validarVerificacionTurnoPublico),
 // porque el paciente todavía va a necesitar esa verificación al mandar el
-// pedido final. Busca la ficha por (profesional_id, dni), chequea que
+// pedido final. Busca la ficha por (clinic_id, dni), chequea que
 // responda a ese mail y que esté VERIFICADA (pacienteEstaVerificado) —
 // si todo da bien, devuelve los datos ya censurados para la "tarjeta
 // clickeable"; si no, 404 con un mensaje que empuja de vuelta al camino
@@ -408,7 +408,7 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// de este DNI, aunque casualmente tenga turnos resueltos/asistidos
 		// (no debería, es recién creada, pero la condición queda explícita
 		// por las dudas).
-		err := gdb.Where("profesional_id = ? AND dni = ? AND en_conflicto = false", clinic.ID, dni).First(&paciente).Error
+		err := gdb.Where("clinic_id = ? AND dni = ? AND en_conflicto = false", clinic.ID, dni).First(&paciente).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeError(w, http.StatusNotFound, "no encontramos un paciente verificado con esos datos")
 			return
@@ -484,7 +484,7 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 	// duplicar la tarjeta.
 	var candidatos []db.Paciente
 	if err := gdb.Joins("JOIN paciente_tutores ON paciente_tutores.paciente_id = pacientes.id").
-		Where("pacientes.profesional_id = ? AND pacientes.en_conflicto = false AND LOWER(paciente_tutores.email) = LOWER(?)", clinic.ID, tutorEmail).
+		Where("pacientes.clinic_id = ? AND pacientes.en_conflicto = false AND LOWER(paciente_tutores.email) = LOWER(?)", clinic.ID, tutorEmail).
 		Distinct().
 		Order("pacientes.created_at").Find(&candidatos).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")

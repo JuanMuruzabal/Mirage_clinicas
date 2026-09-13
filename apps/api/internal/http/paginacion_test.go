@@ -174,11 +174,11 @@ func TestPaginacion_PacientesTambienPagina(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		telefono := "+549351123456" + strconv.Itoa(i)
 		p := db.Paciente{
-			ProfesionalID: profID,
-			Nombre:        "Paciente" + strconv.Itoa(i),
-			Apellido:      "Paginado",
-			DNI:           "4055" + strconv.Itoa(1000+i),
-			Telefono:      &telefono,
+			ClinicID: profID,
+			Nombre:   "Paciente" + strconv.Itoa(i),
+			Apellido: "Paginado",
+			DNI:      "4055" + strconv.Itoa(1000+i),
+			Telefono: &telefono,
 		}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %d: %v", i, err)
@@ -245,7 +245,7 @@ func TestPaginacion_PacientesFiltroVerificacion(t *testing.T) {
 	crear := func(dni, origen string) {
 		t.Helper()
 		telefono := "+54935112399" + dni[len(dni)-2:]
-		p := db.Paciente{ProfesionalID: profID, Nombre: "Ver" + dni, Apellido: "Ificado", DNI: dni, Telefono: &telefono, Origen: origen}
+		p := db.Paciente{ClinicID: profID, Nombre: "Ver" + dni, Apellido: "Ificado", DNI: dni, Telefono: &telefono, Origen: origen}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %s: %v", dni, err)
 		}
@@ -291,7 +291,7 @@ func TestPaginacion_PacientesSinVerificadosDevuelveTodos(t *testing.T) {
 	profID := uuid.MustParse(reg.Profesional.ID)
 	for i := 0; i < 2; i++ {
 		telefono := "+549351129900" + strconv.Itoa(i)
-		p := db.Paciente{ProfesionalID: profID, Nombre: "Nadie" + strconv.Itoa(i), Apellido: "Verificado", DNI: "4098000" + strconv.Itoa(i), Telefono: &telefono, Origen: "pagina_publica"}
+		p := db.Paciente{ClinicID: profID, Nombre: "Nadie" + strconv.Itoa(i), Apellido: "Verificado", DNI: "4098000" + strconv.Itoa(i), Telefono: &telefono, Origen: "pagina_publica"}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %d: %v", i, err)
 		}

@@ -52,7 +52,7 @@ func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var vencidos []db.Turno
 		if err := gdb.Where(
-			"profesional_id = ? AND estado = 'agendado' AND hora_fin < ? AND asistencia IS NULL",
+			"clinic_id = ? AND estado = 'agendado' AND hora_fin < ? AND asistencia IS NULL",
 			profesionalID, ahora,
 		).
 			Order("hora_fin").
@@ -66,7 +66,7 @@ func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// que ya haya pasado su hora de fin) — no hace falta filtrar por
 		// eso acá, alcanza con "todavía no vigente".
 		var proximo db.Turno
-		err := gdb.Where("profesional_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
+		err := gdb.Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
 			Order("hora_fin").
 			First(&proximo).Error
 		var proximoVencimiento *string

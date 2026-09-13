@@ -110,7 +110,7 @@ func toPacienteResponse(p db.Paciente, verificado bool, tutores []db.PacienteTut
 func tutoresPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUID][]db.PacienteTutor, error) {
 	var tutores []db.PacienteTutor
 	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_tutores.paciente_id").
-		Where("pacientes.profesional_id = ?", profesionalID).
+		Where("pacientes.clinic_id = ?", profesionalID).
 		Order("paciente_tutores.created_at").
 		Find(&tutores).Error; err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func telefonosAlternativosPorTutor(tx *gorm.DB, profesionalID uuid.UUID) (map[uu
 	var alternativos []db.PacienteTutorTelefonoAlternativo
 	if err := tx.Joins("JOIN paciente_tutores ON paciente_tutores.id = paciente_tutor_telefonos_alternativos.paciente_tutor_id").
 		Joins("JOIN pacientes ON pacientes.id = paciente_tutores.paciente_id").
-		Where("pacientes.profesional_id = ?", profesionalID).
+		Where("pacientes.clinic_id = ?", profesionalID).
 		Order("paciente_tutor_telefonos_alternativos.created_at").
 		Find(&alternativos).Error; err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func telefonosAlternativosDeTutoresDePaciente(tx *gorm.DB, pacienteID uuid.UUID)
 func alternativosDeContactoPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUID][]string, map[uuid.UUID][]string, error) {
 	var emails []db.PacienteEmailAlternativo
 	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_emails_alternativos.paciente_id").
-		Where("pacientes.profesional_id = ?", profesionalID).
+		Where("pacientes.clinic_id = ?", profesionalID).
 		Order("paciente_emails_alternativos.created_at").
 		Find(&emails).Error; err != nil {
 		return nil, nil, err
@@ -192,7 +192,7 @@ func alternativosDeContactoPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (ma
 
 	var telefonos []db.PacienteTelefonoAlternativo
 	if err := tx.Joins("JOIN pacientes ON pacientes.id = paciente_telefonos_alternativos.paciente_id").
-		Where("pacientes.profesional_id = ?", profesionalID).
+		Where("pacientes.clinic_id = ?", profesionalID).
 		Order("paciente_telefonos_alternativos.created_at").
 		Find(&telefonos).Error; err != nil {
 		return nil, nil, err
@@ -214,7 +214,7 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		query := gdb.Where("profesional_id = ?", profesionalID)
+		query := gdb.Where("clinic_id = ?", profesionalID)
 		if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
 			like := "%" + q + "%"
 			query = query.Where("nombre ILIKE ? OR apellido ILIKE ? OR dni ILIKE ?", like, like, like)
@@ -318,7 +318,7 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var paciente db.Paciente
-		if err := gdb.Where("id = ? AND profesional_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "paciente no encontrado")
 			return
 		}
@@ -427,7 +427,7 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var paciente db.Paciente
-		if err := gdb.Where("id = ? AND profesional_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", pacienteID, profesionalID).First(&paciente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "paciente no encontrado")
 			return
 		}
@@ -572,16 +572,16 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var existente db.Paciente
-		if err := gdb.Where("profesional_id = ? AND dni = ?", profesionalID, req.DNI).First(&existente).Error; err == nil {
+		if err := gdb.Where("clinic_id = ? AND dni = ?", profesionalID, req.DNI).First(&existente).Error; err == nil {
 			writeError(w, http.StatusConflict, "ya existe un paciente con ese DNI")
 			return
 		}
 
 		paciente := db.Paciente{
-			ProfesionalID: profesionalID,
-			Nombre:        req.Nombre,
-			Apellido:      req.Apellido,
-			DNI:           req.DNI,
+			ClinicID: profesionalID,
+			Nombre:   req.Nombre,
+			Apellido: req.Apellido,
+			DNI:      req.DNI,
 			// Origen "manual" (corrección de QA, Fase 2.4.1) — alta directa
 			// por el profesional, que ya tiene a la persona en frente:
 			// queda VERIFICADA de entrada (ver pacienteEstaVerificado).

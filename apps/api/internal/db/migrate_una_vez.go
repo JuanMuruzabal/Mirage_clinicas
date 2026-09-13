@@ -60,10 +60,10 @@ func registrarMigracion(gdb *gorm.DB, nombre string, fn func(tx *gorm.DB) error)
 }
 
 // Extra 2.3.5 (E5.1): antes de que existiera el índice único de abajo,
-// ya se habían cargado Paciente duplicados (mismo profesional_id+dni)
+// ya se habían cargado Paciente duplicados (mismo clinic_id+dni)
 // en desarrollo — sin producción todavía (CLAUDE.md), pero el CREATE
 // UNIQUE INDEX de abajo fallaría igual contra esos datos ya
-// cargados. Este bloque deja una sola fila por (profesional_id, dni)
+// cargados. Este bloque deja una sola fila por (clinic_id, dni)
 // — la más vieja (MIN(created_at), MIN(id) como desempate) — reasigna
 // cualquier turno que apuntara a una fila descartada hacia la que se
 // conserva, y recién después borra las descartadas. Idempotente: sin
@@ -72,7 +72,7 @@ func registrarMigracion(gdb *gorm.DB, nombre string, fn func(tx *gorm.DB) error)
 // Corrección de bug real (encontrado en QA en vivo, Fase 2.4.1):
 // este bloque corre en CADA RunMigrations (cada deploy/reinicio del
 // contenedor `migrate`), sin ningún guard de "una sola vez" — y
-// hasta acá agrupaba TODAS las fichas por (profesional_id, dni) sin
+// hasta acá agrupaba TODAS las fichas por (clinic_id, dni) sin
 // excluir `en_conflicto`. Eso significa que dos fichas separadas
 // A PROPÓSITO por un conflicto sin resolver (crearPacientePublicoConDeteccionDeConflicto,
 // paciente_conflicto_publico.go — la razón de ser de en_conflicto)
@@ -97,7 +97,7 @@ func dedupPacientesPorDNI(tx *gorm.DB) error {
 		    SELECT array_agg(id ORDER BY created_at, id) AS ids
 		    FROM pacientes
 		    WHERE NOT en_conflicto
-		    GROUP BY profesional_id, dni
+		    GROUP BY clinic_id, dni
 		    HAVING COUNT(*) > 1
 		  LOOP
 		    ids := duplicado.ids;

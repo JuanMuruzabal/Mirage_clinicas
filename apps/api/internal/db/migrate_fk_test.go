@@ -18,13 +18,13 @@ import (
 // que consulta `pg_constraint` y confirma que la fila está pasa igual si la
 // constraint se creó sobre la columna equivocada, o si apunta a la tabla
 // equivocada — que es justamente el error que casi cometemos acá
-// (`profesional_id` parece apuntar a `profesionales` y en realidad guarda un
+// (`clinic_id` parece apuntar a `profesionales` y en realidad guarda un
 // `clinics.id`). La única prueba que vale es intentar la operación
 // prohibida y ver que la base la rechaza.
 
 // TestFK_RechazaTurnoDeUnaClinicaInexistente — el caso central, y el que
 // cierra el agujero que teníamos: hasta la Fase C se podía insertar un
-// turno con cualquier UUID en `profesional_id`. Así llegaron las 38 filas
+// turno con cualquier UUID en `clinic_id`. Así llegaron las 38 filas
 // huérfanas que aparecieron en la base de desarrollo.
 func TestFK_RechazaTurnoDeUnaClinicaInexistente(t *testing.T) {
 	gdb := testdb.New(t)
@@ -32,7 +32,7 @@ func TestFK_RechazaTurnoDeUnaClinicaInexistente(t *testing.T) {
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID:    uuid.New(), // no existe ninguna clínica con este id
+		ClinicID:         uuid.New(), // no existe ninguna clínica con este id
 		Estado:           "agendado",
 		Origen:           "manual",
 		NombreContacto:   "Ana",
@@ -59,11 +59,11 @@ func TestFK_RechazaPacienteDeUnaClinicaInexistente(t *testing.T) {
 
 	telefono := "+5493510000000"
 	p := db.Paciente{
-		ProfesionalID: uuid.New(),
-		Nombre:        "Ana",
-		Apellido:      "Prueba",
-		DNI:           "30111333",
-		Telefono:      &telefono,
+		ClinicID: uuid.New(),
+		Nombre:   "Ana",
+		Apellido: "Prueba",
+		DNI:      "30111333",
+		Telefono: &telefono,
 	}
 	err := gdb.Create(&p).Error
 	if err == nil {
@@ -85,7 +85,7 @@ func TestFK_TurnoAceptaUnaClinicaReal(t *testing.T) {
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID:    clinicaID,
+		ClinicID:         clinicaID,
 		Estado:           "agendado",
 		Origen:           "manual",
 		NombreContacto:   "Ana",

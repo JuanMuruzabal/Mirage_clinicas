@@ -168,7 +168,7 @@ func TestLogger_CompletaClinicIDYUserIDEnRequestAutenticado(t *testing.T) {
 			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.Session{})
 			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.ProfessionalProfile{})
 		}
-		gdb.Unscoped().Where("profesional_id = ?", reg.Profesional.ID).Delete(&db.TipoConsulta{})
+		gdb.Unscoped().Where("clinic_id = ?", reg.Profesional.ID).Delete(&db.TipoConsulta{})
 		gdb.Unscoped().Where("clinic_id = ?", reg.Profesional.ID).Delete(&db.ClinicMember{})
 		gdb.Unscoped().Where("id = ?", reg.Profesional.ID).Delete(&db.Clinic{})
 		if user.ID != uuid.Nil {

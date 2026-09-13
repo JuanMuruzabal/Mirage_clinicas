@@ -61,7 +61,7 @@ func (Especialidad) TableName() string { return "especialidades" }
 // cliente) — de ahí que sea un puntero: puede no estar cargado todavía.
 type TipoConsulta struct {
 	ID                        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID             uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
+	ClinicID                  uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
 	Nombre                    string    `gorm:"type:varchar(80);not null"`
 	Color                     string    `gorm:"type:varchar(7);not null"`
 	DuracionMinutos           int       `gorm:"column:duracion_minutos;not null;default:30"`
@@ -94,11 +94,11 @@ const (
 // Paciente se crea automáticamente cuando un turno pendiente se agenda
 // (spec §4.5) — el esquema ya existe desde T0.3, el alta real es T2.4.
 type Paciente struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
-	Nombre        string    `gorm:"type:varchar(150);not null"`
-	Apellido      string    `gorm:"type:varchar(150);not null"`
-	DNI           string    `gorm:"type:varchar(20);not null"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	Nombre   string    `gorm:"type:varchar(150);not null"`
+	Apellido string    `gorm:"type:varchar(150);not null"`
+	DNI      string    `gorm:"type:varchar(20);not null"`
 	// Telefono — Fase 2.4.2 (`docs/FASE 2.4 - detallada y bien
 	// especificada.docx`, sección "para otro"): pasa de NOT NULL a
 	// nullable — el documento pide explícitamente que, cuando el turno lo
@@ -278,7 +278,7 @@ func (PacienteTelefonoAlternativo) TableName() string { return "paciente_telefon
 // del calendario, TR-095) y elige con cuál de las dos se queda.
 type ConflictoPaciente struct {
 	ID                    uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID         uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
+	ClinicID              uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
 	PacienteVerificadoID  uuid.UUID `gorm:"column:paciente_verificado_id;type:uuid;not null"`
 	PacienteEnConflictoID uuid.UUID `gorm:"column:paciente_en_conflicto_id;type:uuid;not null"`
 	TurnoEnConflictoID    uuid.UUID `gorm:"column:turno_en_conflicto_id;type:uuid;not null"`
@@ -298,7 +298,7 @@ func (ConflictoPaciente) TableName() string { return "conflictos_paciente" }
 // sobrevivir a ese borrado.
 type EmailBloqueadoTurnoPublico struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID  uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index:idx_email_bloqueado,priority:1"`
+	ClinicID       uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index:idx_email_bloqueado,priority:1"`
 	Email          string    `gorm:"type:varchar(255);not null;index:idx_email_bloqueado,priority:2"`
 	BloqueadoHasta time.Time `gorm:"column:bloqueado_hasta;not null"`
 	CreatedAt      time.Time
@@ -320,7 +320,7 @@ func (EmailBloqueadoTurnoPublico) TableName() string { return "emails_bloqueados
 // en la misma red, mejor que dure poco.
 type IPBloqueadaTurnoPublico struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID  uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index:idx_ip_bloqueada,priority:1"`
+	ClinicID       uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index:idx_ip_bloqueada,priority:1"`
 	IP             string    `gorm:"type:varchar(64);not null;index:idx_ip_bloqueada,priority:2"`
 	BloqueadoHasta time.Time `gorm:"column:bloqueado_hasta;not null"`
 	CreatedAt      time.Time
@@ -339,8 +339,8 @@ func (IPBloqueadaTurnoPublico) TableName() string { return "ips_bloqueadas_turno
 // este registro no quedaría ningún rastro para que el profesional
 // revise un posible falso positivo.
 type AuditoriaBloqueoTurnoPublico struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
 	// Motivo: "mail_muchos_dnis" | "ip_rotacion" | "dni_tipo_tope" — qué
 	// detector disparó esto. "dni_tipo_tope" (modo simulado únicamente,
 	// ver Simulado abajo) es el tope de turnos sin verificar por DNI+tipo
@@ -440,16 +440,16 @@ func (VerificacionTurnoPublico) TableName() string { return "verificaciones_turn
 //     tutor real puede tener varios hijos para anotar con el mismo link.
 type EnlaceTurno struct {
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	// ProfesionalID — mismo nombre histórico que Turno.ProfesionalID/
-	// TipoConsulta.ProfesionalID en todo este archivo: en realidad
+	// ClinicID — mismo nombre histórico que Turno.ClinicID/
+	// TipoConsulta.ClinicID en todo este archivo: en realidad
 	// referencia Clinic.ID, nunca cambiado por no romper el resto del
 	// esquema ya en producción.
-	ProfesionalID uuid.UUID `gorm:"column:profesional_id;type:uuid;not null;index"`
-	TokenHash     string    `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
-	ExpiraEn      time.Time `gorm:"column:expira_en;not null"`
-	UsadoParaMi   bool      `gorm:"column:usado_para_mi;not null;default:false"`
-	UsosParaOtro  int       `gorm:"column:usos_para_otro;not null;default:0"`
-	CreatedAt     time.Time
+	ClinicID     uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	TokenHash    string    `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
+	ExpiraEn     time.Time `gorm:"column:expira_en;not null"`
+	UsadoParaMi  bool      `gorm:"column:usado_para_mi;not null;default:false"`
+	UsosParaOtro int       `gorm:"column:usos_para_otro;not null;default:0"`
+	CreatedAt    time.Time
 }
 
 func (EnlaceTurno) TableName() string { return "enlaces_turno" }
@@ -480,16 +480,16 @@ func (e EnlaceTurno) Vigente(ahora time.Time) bool {
 // ningún código que lo use.
 type Turno struct {
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	// ProfesionalID — corrección de performance (N clínicas, cada una con su
+	// ClinicID — corrección de performance (N clínicas, cada una con su
 	// propio historial creciendo con los años): además del índice simple de
 	// siempre, suma 3 índices compuestos con las columnas que los
 	// detectores de abuso de turno_publico.go filtran junto con
-	// profesional_id (email_contacto/dni_contacto/ip_contacto, ninguna
+	// clinic_id (email_contacto/dni_contacto/ip_contacto, ninguna
 	// indexada por su cuenta) — hoy Postgres ya achica rápido por
-	// profesional_id solo y filtra el resto en memoria porque cada clínica
+	// clinic_id solo y filtra el resto en memoria porque cada clínica
 	// tiene pocas filas, pero eso deja de ser gratis si UNA clínica
 	// puntual acumula muchos años de turnos.
-	ProfesionalID  uuid.UUID  `gorm:"column:profesional_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1"`
+	ClinicID       uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1"`
 	PacienteID     *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
 	TipoConsultaID *uuid.UUID `gorm:"column:tipo_consulta_id;type:uuid"`
 	// Estado: 'agendado' | 'cancelada' (spec §4.4, TR-104).
@@ -577,12 +577,12 @@ func (Turno) TableName() string { return "turnos" }
 // público (spec §5.2, FR-10) — el esquema existe desde T0.3, el editor y
 // el deploy son Sprint 4.
 type PaginaPublica struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ProfesionalID uuid.UUID  `gorm:"column:profesional_id;type:uuid;not null;uniqueIndex"`
-	Oculta        bool       `gorm:"not null;default:false"`
-	DeployadaEn   *time.Time `gorm:"column:deployada_en"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID    uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;uniqueIndex"`
+	Oculta      bool       `gorm:"not null;default:false"`
+	DeployadaEn *time.Time `gorm:"column:deployada_en"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (PaginaPublica) TableName() string { return "paginas_publicas" }

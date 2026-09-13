@@ -13,7 +13,7 @@ import (
 // modelos (ver el plan de implementación, decisión #2: cada Clinic tipo
 // "individual" nace con el mismo UUID que tenía su Profesional de origen,
 // así que turnos/pacientes/tipos_consulta/paginas_publicas — que no
-// declaran una asociación GORM a Profesional, solo un campo ProfesionalID
+// declaran una asociación GORM a Profesional, solo un campo ClinicID
 // suelto, así que no hay FK real en la base que repuntar — siguen
 // resolviendo exactamente igual sin tocarse).
 //
@@ -107,7 +107,7 @@ const (
 // odontólogo (spec §4, Paso 2). Especialidades sigue siendo many2many
 // contra el catálogo global Especialidad (TR-004 en docs/Arquitectura y base/tradeoffs.md, sin
 // cambios) — solo cambia la tabla puente, de profesional_especialidades a
-// professional_especialidades, con FK a user_id en vez de profesional_id.
+// professional_especialidades, con FK a user_id en vez de clinic_id.
 type ProfessionalProfile struct {
 	UserID           uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
 	Nombre           string    `gorm:"type:varchar(150);not null"`

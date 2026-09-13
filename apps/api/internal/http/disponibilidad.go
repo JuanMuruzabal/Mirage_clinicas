@@ -77,7 +77,7 @@ func listDisponibilidadHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -276,7 +276,7 @@ func calcularDisponibilidad(
 	inicioDia := fecha
 	finDia := fecha.AddDate(0, 0, 1)
 	turnosQuery := gdb.Where(
-		"profesional_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+		"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
 		clinicID, "agendado", inicioDia, finDia,
 	)
 	if excluirTurnoID != nil {
@@ -288,7 +288,7 @@ func calcularDisponibilidad(
 	}
 
 	var todosTipos []db.TipoConsulta
-	if err := gdb.Where("profesional_id = ?", clinicID).Find(&todosTipos).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", clinicID).Find(&todosTipos).Error; err != nil {
 		return nil, err
 	}
 	tiposPorID := make(map[uuid.UUID]db.TipoConsulta, len(todosTipos))

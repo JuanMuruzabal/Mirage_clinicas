@@ -134,7 +134,7 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 		migracionBorrarTablasLegacyDelMVP(),
 		{
 			Nombre:      migracionDedupPacientesDNI,
-			Descripcion: "fichas de paciente duplicadas por (profesional_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
+			Descripcion: "fichas de paciente duplicadas por (clinic_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
 			Afectados:   contarPacientesDuplicados,
 			Aplicar:     dedupPacientesPorDNI,
 		},
@@ -160,7 +160,8 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 		},
 		{
 			// Fase C de la auditoría (2026-09-09): filas de la era anterior a
-			// TR-037, cuando `profesional_id` guardaba un `profesionales.id` y
+			// TR-037, cuando esta columna —entonces llamada `profesional_id`—
+			// guardaba un `profesionales.id` y
 			// no un `clinics.id`. El significado de la columna cambió a mitad
 			// del proyecto y estas filas nunca se migraron; nadie lo notó
 			// justamente porque no había foreign keys (ver migrate_fk.go).
@@ -168,7 +169,7 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 			// En la base de desarrollo eran 38 filas, todas del 22 al 24 de
 			// agosto de 2026 (las sanas arrancan el 27), apuntando a 8-12
 			// clínicas que no existen. Son INALCANZABLES para la aplicación:
-			// cada query del panel filtra por `profesional_id = <clínica de la
+			// cada query del panel filtra por `clinic_id = <clínica de la
 			// sesión>`, y esas clínicas no existen, así que ninguna pantalla
 			// puede mostrarlas ni ningún turno referenciarlas (verificado: 0
 			// turnos apuntan a ellas).
@@ -287,7 +288,7 @@ func migracionRebuildHorariosAtencion() MigracionDestructiva {
 }
 
 // contarPacientesDuplicados — cuántas fichas se BORRARÍAN al deduplicar:
-// por cada grupo (profesional_id, dni) con más de una ficha, todas menos la
+// por cada grupo (clinic_id, dni) con más de una ficha, todas menos la
 // más vieja. `WHERE NOT en_conflicto` por el mismo motivo que el bloque de
 // deduplicación (ver dedupPacientesPorDNI): dos fichas separadas A PROPÓSITO
 // por un conflicto sin resolver no son un duplicado.
@@ -297,7 +298,7 @@ func contarPacientesDuplicados(tx *gorm.DB) (int64, error) {
 		  SELECT COUNT(*) AS cantidad
 		  FROM pacientes
 		  WHERE NOT en_conflicto
-		  GROUP BY profesional_id, dni
+		  GROUP BY clinic_id, dni
 		  HAVING COUNT(*) > 1
 		) AS grupos`)
 }
@@ -346,11 +347,11 @@ func contarFilasSiExisteTabla(tx *gorm.DB, tabla, query string) (int64, error) {
 // sí; el relevamiento de la Fase 3.2 contó **12 filas**, ninguna de las
 // cuales corresponde a un `users.id` ni a un `clinics.id`. Son inalcanzables
 // para la aplicación —ningún código las consulta desde TR-037— pero ocupan
-// el nombre `profesional_id` en su tabla hija, que es exactamente el nombre
+// el nombre `clinic_id` en su tabla hija, que es exactamente el nombre
 // que la Fase 3.2 necesita liberar.
 //
 // POR QUÉ ESTO VA PRIMERO, antes del renombre: mientras estas dos tablas
-// existan, `profesional_id` significa dos cosas distintas según dónde
+// existan, `clinic_id` significa dos cosas distintas según dónde
 // aparezca — en `profesional_especialidades` apunta a `profesionales`, y en
 // las otras nueve tablas apunta a `clinics`. Borrarlas deja un único
 // significado, y recién ahí el renombre masivo a `clinic_id` es una

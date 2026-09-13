@@ -151,7 +151,7 @@ func sincronizarTutorDesdeFichaVerificada(tx *gorm.DB, turno *db.Turno, paciente
 //nolint:unused // superseded a propósito, ver arriba
 func turnoActivoPorDNI(tx *gorm.DB, profesionalID uuid.UUID, dni string) (*db.Turno, error) {
 	var turno db.Turno
-	err := tx.Where("profesional_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()",
+	err := tx.Where("clinic_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()",
 		profesionalID, dni).
 		Order("hora_inicio").First(&turno).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -221,7 +221,7 @@ func censurarMailParcial(email string) string {
 // que contarTurnosVigentesPorDNIYTipo, más abajo).
 func turnoActivoDelMismoTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, tipoConsultaID uuid.UUID) (*db.Turno, error) {
 	var turno db.Turno
-	err := tx.Where("profesional_id = ? AND dni_contacto = ? AND tipo_consulta_id = ? AND estado = 'agendado' AND hora_fin >= now()",
+	err := tx.Where("clinic_id = ? AND dni_contacto = ? AND tipo_consulta_id = ? AND estado = 'agendado' AND hora_fin >= now()",
 		profesionalID, dni, tipoConsultaID).
 		Order("hora_inicio").First(&turno).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -241,7 +241,7 @@ func turnoActivoDelMismoTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, t
 //nolint:unused // superseded a propósito, ver arriba
 func turnoActivoDeOtroTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, tipoConsultaID uuid.UUID) (*db.Turno, error) {
 	var turno db.Turno
-	err := tx.Where("profesional_id = ? AND dni_contacto = ? AND tipo_consulta_id <> ? AND estado = 'agendado' AND hora_fin >= now()",
+	err := tx.Where("clinic_id = ? AND dni_contacto = ? AND tipo_consulta_id <> ? AND estado = 'agendado' AND hora_fin >= now()",
 		profesionalID, dni, tipoConsultaID).
 		Order("hora_inicio").First(&turno).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -283,7 +283,7 @@ var errDemasiadosTurnosSinVerificarDelMismoTipo = errors.New(
 func contarTurnosVigentesPorDNIYTipo(tx *gorm.DB, profesionalID uuid.UUID, dni string, tipoConsultaID uuid.UUID) (int64, error) {
 	var count int64
 	err := tx.Model(&db.Turno{}).
-		Where("profesional_id = ? AND dni_contacto = ? AND tipo_consulta_id = ? AND estado = 'agendado' AND hora_fin >= now()",
+		Where("clinic_id = ? AND dni_contacto = ? AND tipo_consulta_id = ? AND estado = 'agendado' AND hora_fin >= now()",
 			profesionalID, dni, tipoConsultaID).
 		Count(&count).Error
 	return count, err
@@ -318,7 +318,7 @@ const bloqueoMailPorAbusoDeDNIsDuracion = 3 * 24 * time.Hour
 func dnisVigentesPorMail(tx *gorm.DB, profesionalID uuid.UUID, email string) ([]string, error) {
 	var dnis []string
 	err := tx.Model(&db.Turno{}).
-		Where("profesional_id = ? AND email_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", profesionalID, email).
+		Where("clinic_id = ? AND email_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", profesionalID, email).
 		Distinct("dni_contacto").
 		Pluck("dni_contacto", &dnis).Error
 	return dnis, err
@@ -370,10 +370,10 @@ func bloquearMailPorAbusoDeDNIsYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUI
 	if !simularBloqueo {
 		hasta := time.Now().Add(bloqueoMailPorAbusoDeDNIsDuracion)
 		var bloqueo db.EmailBloqueadoTurnoPublico
-		err := tx.Where("profesional_id = ? AND email = ?", profesionalID, email).First(&bloqueo).Error
+		err := tx.Where("clinic_id = ? AND email = ?", profesionalID, email).First(&bloqueo).Error
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
-			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{ProfesionalID: profesionalID, Email: email, BloqueadoHasta: hasta}).Error; err != nil {
+			if err := tx.Create(&db.EmailBloqueadoTurnoPublico{ClinicID: profesionalID, Email: email, BloqueadoHasta: hasta}).Error; err != nil {
 				return err
 			}
 		case err != nil:
@@ -389,7 +389,7 @@ func bloquearMailPorAbusoDeDNIsYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUI
 	}
 
 	var turnos []db.Turno
-	if err := tx.Where("profesional_id = ? AND email_contacto = ?", profesionalID, email).Find(&turnos).Error; err != nil {
+	if err := tx.Where("clinic_id = ? AND email_contacto = ?", profesionalID, email).Find(&turnos).Error; err != nil {
 		return err
 	}
 	dnisBorrados, cantidad, err := borrarTurnosYPacientesOrfanados(tx, turnos)
@@ -509,7 +509,7 @@ const identidadEmailSQL = "CASE WHEN es_para_otro THEN tutor_email ELSE email_co
 
 func contarDistintosPorIP(tx *gorm.DB, profesionalID uuid.UUID, ip string) (mails int, dnis int, err error) {
 	base := tx.Model(&db.Turno{}).
-		Where("profesional_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP))
+		Where("clinic_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP))
 
 	var emails []string
 	if err = base.Session(&gorm.Session{}).Distinct(identidadEmailSQL).Pluck(identidadEmailSQL, &emails).Error; err != nil {
@@ -561,7 +561,7 @@ func bloquearIPPorRotacionYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUID, ip
 	}
 
 	var turnosEnVentana []db.Turno
-	if err := tx.Where("profesional_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP)).
+	if err := tx.Where("clinic_id = ? AND ip_contacto = ? AND created_at >= ?", profesionalID, ip, time.Now().Add(-ventanaRotacionPorIP)).
 		Find(&turnosEnVentana).Error; err != nil {
 		return err
 	}
@@ -648,7 +648,7 @@ func listTiposConsultaPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipos []db.TipoConsulta
-		if err := gdb.Where("profesional_id = ?", clinic.ID).Order("nombre").Find(&tipos).Error; err != nil {
+		if err := gdb.Where("clinic_id = ?", clinic.ID).Order("nombre").Find(&tipos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
 			return
 		}
@@ -694,7 +694,7 @@ func listDisponibilidadPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -755,7 +755,7 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -1021,7 +1021,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND profesional_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -1034,7 +1034,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		horaFin := horaInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
 
 		turno := db.Turno{
-			ProfesionalID:    clinic.ID,
+			ClinicID:         clinic.ID,
 			Estado:           "agendado",
 			TipoConsultaID:   &tipo.ID,
 			HoraInicio:       &horaInicio,
@@ -1257,7 +1257,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			var conflictoConVerificado *db.Paciente
 			var conflictoMotivo string
 			if usaPacienteVerificado {
-				if err := tx.Where("id = ? AND profesional_id = ?", pacienteVerificadoID, clinic.ID).First(&paciente).Error; err != nil {
+				if err := tx.Where("id = ? AND clinic_id = ?", pacienteVerificadoID, clinic.ID).First(&paciente).Error; err != nil {
 					if errors.Is(err, gorm.ErrRecordNotFound) {
 						return errPacienteVerificadoNoEncontrado
 					}
@@ -1438,7 +1438,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 
 			if conflictoConVerificado != nil {
 				conflicto := db.ConflictoPaciente{
-					ProfesionalID:         clinic.ID,
+					ClinicID:              clinic.ID,
 					PacienteVerificadoID:  conflictoConVerificado.ID,
 					PacienteEnConflictoID: paciente.ID,
 					TurnoEnConflictoID:    turno.ID,

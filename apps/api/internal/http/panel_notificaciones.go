@@ -32,7 +32,7 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var conflictosPacientes int64
 		if err := gdb.Model(&db.ConflictoPaciente{}).
-			Where("profesional_id = ? AND resuelto = false", profesionalID).
+			Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Count(&conflictosPacientes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return
@@ -65,7 +65,7 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, profesionalID uuid.UUID) (int64, error) {
 	ahora := clock.Now()
 	var turnos []db.Turno
-	if err := gdb.Where("profesional_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
+	if err := gdb.Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
 		Find(&turnos).Error; err != nil {
 		return 0, err
 	}

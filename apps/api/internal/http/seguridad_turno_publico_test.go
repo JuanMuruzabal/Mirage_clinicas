@@ -31,22 +31,22 @@ func TestListBloqueosSeguridad_Exitoso(t *testing.T) {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 
-	mailVigente := db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: "vigente@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
+	mailVigente := db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: "vigente@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
 	if err := gdb.Create(&mailVigente).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de mail vigente: %v", err)
 	}
-	mailVencido := db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: "vencido@example.com", BloqueadoHasta: time.Now().Add(-2 * time.Hour)}
+	mailVencido := db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: "vencido@example.com", BloqueadoHasta: time.Now().Add(-2 * time.Hour)}
 	if err := gdb.Create(&mailVencido).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de mail vencido: %v", err)
 	}
-	ipVigente := db.IPBloqueadaTurnoPublico{ProfesionalID: pid, IP: "203.0.113.5", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
+	ipVigente := db.IPBloqueadaTurnoPublico{ClinicID: pid, IP: "203.0.113.5", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
 	if err := gdb.Create(&ipVigente).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de IP: %v", err)
 	}
 	email := "atacante@example.com"
 	ip := "203.0.113.5"
 	auditoria := db.AuditoriaBloqueoTurnoPublico{
-		ProfesionalID: pid, Motivo: "mail_muchos_dnis", Email: &email, IP: &ip,
+		ClinicID: pid, Motivo: "mail_muchos_dnis", Email: &email, IP: &ip,
 		DNIs: "30000001, 30000002", TurnosBorrados: 2,
 	}
 	if err := gdb.Create(&auditoria).Error; err != nil {
@@ -98,7 +98,7 @@ func TestDesbloquearMail_Exitoso(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	bloqueo := db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: "familia@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
+	bloqueo := db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: "familia@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestDesbloquearMail_DeOtroProfesionalFalla(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	bloqueo := db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: "familia@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
+	bloqueo := db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: "familia@example.com", BloqueadoHasta: time.Now().Add(2 * 24 * time.Hour)}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestDesbloquearIP_Exitoso(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	bloqueo := db.IPBloqueadaTurnoPublico{ProfesionalID: pid, IP: "203.0.113.9", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
+	bloqueo := db.IPBloqueadaTurnoPublico{ClinicID: pid, IP: "203.0.113.9", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo: %v", err)
 	}

@@ -31,7 +31,7 @@ func crearSegundoTipoConsultaDePrueba(t *testing.T, gdb *gorm.DB, profesionalID 
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	tipo := db.TipoConsulta{ProfesionalID: pid, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
+	tipo := db.TipoConsulta{ClinicID: pid, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
 	if err := gdb.Create(&tipo).Error; err != nil {
 		t.Fatalf("no se pudo crear el segundo tipo de consulta de prueba: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestSolicitarTurnoPublico_ParaOtroPrimeraVezExitoso(t *testing.T) {
 	}
 
 	var turno db.Turno
-	if err := gdb.Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "40111222").First(&turno).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, "40111222").First(&turno).Error; err != nil {
 		t.Fatalf("no se pudo releer el turno: %v", err)
 	}
 	if !turno.EsParaOtro {
@@ -210,12 +210,12 @@ func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *te
 	}
 
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, tutorEmail).First(&bloqueo).Error
+	err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, tutorEmail).First(&bloqueo).Error
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("no esperaba que el mail del tutor quedara bloqueado (err=%v)", err)
 	}
 	var count int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND tutor_email = ?", reg.Profesional.ID, tutorEmail).Count(&count)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND tutor_email = ?", reg.Profesional.ID, tutorEmail).Count(&count)
 	if count != 3 {
 		t.Errorf("count = %d, esperaba 3 (los 3 hijos, ninguno borrado)", count)
 	}
@@ -244,7 +244,7 @@ func TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto(t 
 	}
 
 	var original db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "40111222").First(&original).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "40111222").First(&original).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha original: %v", err)
 	}
 	pasado := time.Now().Add(-72 * time.Hour)
@@ -265,7 +265,7 @@ func TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto(t 
 	}
 
 	var nueva db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "40111222", original.ID).First(&nueva).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "40111222", original.ID).First(&nueva).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
 	}
 
@@ -310,7 +310,7 @@ func TestSolicitarTurnoPublico_ParaMiConTutorConfirmadoRecomiendaTutor(t *testin
 	}
 
 	var nueva db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
 	}
 	var conflicto db.ConflictoPaciente
@@ -347,7 +347,7 @@ func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.
 	}
 
 	var nueva db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, verificado.DNI, verificado.ID).First(&nueva).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
 	}
 	var conflicto db.ConflictoPaciente
@@ -403,7 +403,7 @@ func TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha(t *testi
 
 	// Una sola ficha, con los dos turnos colgando de ella.
 	var fichas []db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, req.DNIContacto).Find(&fichas).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, req.DNIContacto).Find(&fichas).Error; err != nil {
 		t.Fatalf("no se pudieron buscar las fichas: %v", err)
 	}
 	if len(fichas) != 1 {
@@ -1129,7 +1129,7 @@ func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 	// ventana llevándolo al pasado, sin marcar asistencia (si se marcara
 	// "asistió" pasaría a VERIFICADO, y ahí el camino es otro —
 	// pacienteVerificadoId, no este).
-	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
+	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
 		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-2 * time.Hour), "hora_fin": time.Now().Add(-90 * time.Minute)}).Error; err != nil {
 		t.Fatalf("no se pudo llevar el primer turno al pasado: %v", err)
 	}
@@ -1151,7 +1151,7 @@ func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 	}
 
 	var pacientes []db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Find(&pacientes).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Find(&pacientes).Error; err != nil {
 		t.Fatalf("no se pudo consultar pacientes: %v", err)
 	}
 	if len(pacientes) != 1 {
@@ -1159,7 +1159,7 @@ func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 	}
 
 	var turnos []db.Turno
-	if err := gdb.Where("profesional_id = ?", reg.Profesional.ID).Find(&turnos).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", reg.Profesional.ID).Find(&turnos).Error; err != nil {
 		t.Fatalf("no se pudo consultar turnos: %v", err)
 	}
 	if len(turnos) != 2 {
@@ -1214,7 +1214,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 	// simula esa ventana llevando el turno de Bruno al pasado, SIN tocar
 	// asistencia (si se marcara "asistio" pasaría a verificado, y eso es
 	// otro test — TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOriginalYaVerificada).
-	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
+	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
 		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-2 * time.Hour), "hora_fin": time.Now().Add(-90 * time.Minute)}).Error; err != nil {
 		t.Fatalf("no se pudo llevar el turno de Bruno al pasado: %v", err)
 	}
@@ -1236,7 +1236,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 	}
 
 	var pacientes []db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Order("created_at").Find(&pacientes).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Order("created_at").Find(&pacientes).Error; err != nil {
 		t.Fatalf("no se pudo consultar pacientes: %v", err)
 	}
 	if len(pacientes) != 2 {
@@ -1267,7 +1267,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 		t.Fatalf("fecha de prueba inválida: %v", err)
 	}
 	var turnoNuevo db.Turno
-	if err := gdb.Where("profesional_id = ? AND hora_inicio = ?", reg.Profesional.ID, combinarFechaYHora(fecha, "09:00")).
+	if err := gdb.Where("clinic_id = ? AND hora_inicio = ?", reg.Profesional.ID, combinarFechaYHora(fecha, "09:00")).
 		First(&turnoNuevo).Error; err != nil {
 		t.Fatalf("no se pudo consultar el turno: %v", err)
 	}
@@ -1292,7 +1292,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	var original db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30111222").First(&original).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30111222").First(&original).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha original: %v", err)
 	}
 	pasado := time.Now().Add(-72 * time.Hour)
@@ -1316,7 +1316,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 	}
 
 	var nueva db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "30111222", original.ID).First(&nueva).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ? AND id != ?", reg.Profesional.ID, "30111222", original.ID).First(&nueva).Error; err != nil {
 		t.Fatalf("no se pudo consultar la ficha nueva: %v", err)
 	}
 
@@ -1385,7 +1385,7 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 	turnoVigente := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &original.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -1415,7 +1415,7 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 	// Lo que reemplaza al bloqueo: una ficha aparte, marcada en conflicto.
 	var enConflicto int64
 	gdb.Model(&db.Paciente{}).
-		Where("profesional_id = ? AND dni = ? AND id != ? AND en_conflicto = true", reg.Profesional.ID, "30111222", original.ID).
+		Where("clinic_id = ? AND dni = ? AND id != ? AND en_conflicto = true", reg.Profesional.ID, "30111222", original.ID).
 		Count(&enConflicto)
 	if enConflicto != 1 {
 		t.Errorf("fichas en conflicto = %d, esperaba 1 — un mail distinto sobre el mismo DNI tiene que abrir un conflicto", enConflicto)
@@ -1424,7 +1424,7 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 	// Y el ticket para que el profesional lo resuelva.
 	var conflictos int64
 	gdb.Model(&db.ConflictoPaciente{}).
-		Where("profesional_id = ? AND resuelto = false", reg.Profesional.ID).Count(&conflictos)
+		Where("clinic_id = ? AND resuelto = false", reg.Profesional.ID).Count(&conflictos)
 	if conflictos != 1 {
 		t.Errorf("conflictos sin resolver = %d, esperaba 1", conflictos)
 	}
@@ -1445,7 +1445,7 @@ func TestSolicitarTurnoPublico_TurnoResueltoLiberaElTopeDeUnoPorDNI(t *testing.T
 
 	// El turno del primer pedido ya pasó — sin marcar asistencia, sigue sin
 	// verificar, pero ya no está vigente.
-	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
+	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND email_contacto = ?", reg.Profesional.ID, "bruno@example.com").
 		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-2 * time.Hour), "hora_fin": time.Now().Add(-90 * time.Minute)}).Error; err != nil {
 		t.Fatalf("no se pudo llevar el turno al pasado: %v", err)
 	}
@@ -1596,7 +1596,7 @@ func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNINoEsSimulable(t *testing.T) 
 	}
 
 	var count int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND email_contacto = ?", reg.Profesional.ID, "simtope2@example.com").Count(&count)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND email_contacto = ?", reg.Profesional.ID, "simtope2@example.com").Count(&count)
 	if count != 0 {
 		t.Errorf("no esperaba que se creara el turno del segundo pedido ni en modo simulado, count=%d", count)
 	}
@@ -1654,7 +1654,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 	}
 
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error; err != nil {
 		t.Fatalf("esperaba que el mail quedara bloqueado: %v", err)
 	}
 	restante := time.Until(bloqueo.BloqueadoHasta)
@@ -1666,7 +1666,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 	// que las sostenga, también se borran. El 3er DNI ni siquiera llegó a
 	// tener ficha propia (el chequeo corre antes de crearla).
 	var countPacientes int64
-	gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni IN ?", reg.Profesional.ID, dnis).Count(&countPacientes)
+	gdb.Model(&db.Paciente{}).Where("clinic_id = ? AND dni IN ?", reg.Profesional.ID, dnis).Count(&countPacientes)
 	if countPacientes != 0 {
 		t.Errorf("las fichas sin verificar de ese mail deberían haberse borrado, quedan %d", countPacientes)
 	}
@@ -1683,7 +1683,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 	// caminos" — la IP del pedido que gatilló el límite también queda
 	// bloqueada (duración más corta que la del mail).
 	var bloqueoIP db.IPBloqueadaTurnoPublico
-	if err := gdb.Where("profesional_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; err != nil {
 		t.Fatalf("esperaba que la IP quedara bloqueada: %v", err)
 	}
 	restanteIP := time.Until(bloqueoIP.BloqueadoHasta)
@@ -1704,7 +1704,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 	// registro de qué se borró y por qué, ya que los turnos en sí
 	// desaparecen.
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "mail_muchos_dnis").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "mail_muchos_dnis").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría: %v", err)
 	}
 	if auditoria.Email == nil || *auditoria.Email != email {
@@ -1767,16 +1767,16 @@ func TestSolicitarTurnoPublico_MailConMuchosDNIsSimulado(t *testing.T) {
 	}
 	// Pero el bloqueo persistente NO se aplica de verdad.
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("no esperaba que el mail quedara bloqueado de verdad (err=%v)", err)
 	}
 	var bloqueoIP db.IPBloqueadaTurnoPublico
-	if err := gdb.Where("profesional_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := gdb.Where("clinic_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("no esperaba que la IP quedara bloqueada de verdad (err=%v)", err)
 	}
 
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "mail_muchos_dnis").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "mail_muchos_dnis").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría simulada: %v", err)
 	}
 	if !auditoria.Simulado {
@@ -1844,7 +1844,7 @@ func TestSolicitarTurnoPublico_MailConDNIsCanceladosNoCuentanParaElTope(t *testi
 	}
 
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error
+	err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, email).First(&bloqueo).Error
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("no esperaba que el mail quedara bloqueado (solo 1 vigente antes del 3ro, err=%v)", err)
 	}
@@ -1900,18 +1900,18 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 	// se borran (el 5to nunca llegó a crearse, así que en total no queda
 	// ninguno).
 	var count int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ?", reg.Profesional.ID).Count(&count)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ?", reg.Profesional.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("count = %d, esperaba 0 (los 4 anteriores se borran, el 5to nunca se creó)", count)
 	}
 
 	var bloqueoIP db.IPBloqueadaTurnoPublico
-	if err := gdb.Where("profesional_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; err != nil {
+	if err := gdb.Where("clinic_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; err != nil {
 		t.Fatalf("esperaba que la IP quedara bloqueada: %v", err)
 	}
 
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría de rotación: %v", err)
 	}
 	if auditoria.TurnosBorrados != 4 {
@@ -1929,7 +1929,7 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 	// Las fichas de paciente de esos 4 turnos borrados (ninguna verificada
 	// — nunca llegaron a demostrar nada) también se borran.
 	var countPacientes int64
-	gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni IN ?", reg.Profesional.ID, dnis[:4]).Count(&countPacientes)
+	gdb.Model(&db.Paciente{}).Where("clinic_id = ? AND dni IN ?", reg.Profesional.ID, dnis[:4]).Count(&countPacientes)
 	if countPacientes != 0 {
 		t.Errorf("las fichas de los 4 turnos borrados deberían haberse borrado, quedan %d", countPacientes)
 	}
@@ -1976,7 +1976,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 	// El paciente del primer pedido queda VERIFICADO (Origen "manual" es
 	// el atajo más simple para eso, ver pacienteEstaVerificado) — nada
 	// distinto de un paciente real que ya demostró ser quien dice ser.
-	if err := gdb.Model(&db.Paciente{}).Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, dnis[0]).
+	if err := gdb.Model(&db.Paciente{}).Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, dnis[0]).
 		Update("origen", "manual").Error; err != nil {
 		t.Fatalf("no se pudo verificar al paciente de prueba: %v", err)
 	}
@@ -1999,18 +1999,18 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 	// El turno del paciente verificado (dnis[0]) sobrevive; los otros 3
 	// (sin verificar) se borran.
 	var countVerificado int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, dnis[0]).Count(&countVerificado)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, dnis[0]).Count(&countVerificado)
 	if countVerificado != 1 {
 		t.Errorf("turnos del paciente verificado = %d, esperaba 1 (no debería borrarse)", countVerificado)
 	}
 	var countResto int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[1:]).Count(&countResto)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[1:]).Count(&countResto)
 	if countResto != 0 {
 		t.Errorf("turnos de los pacientes sin verificar = %d, esperaba 0", countResto)
 	}
 
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría de rotación: %v", err)
 	}
 	if auditoria.TurnosBorrados != 3 {
@@ -2041,7 +2041,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 	if recViejo.Code != http.StatusCreated {
 		t.Fatalf("turno viejo: status = %d, esperaba %d. body=%s", recViejo.Code, http.StatusCreated, recViejo.Body.String())
 	}
-	if err := gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").
+	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").
 		Update("created_at", time.Now().Add(-2*time.Hour)).Error; err != nil {
 		t.Fatalf("no se pudo retrasar el turno viejo de prueba: %v", err)
 	}
@@ -2080,19 +2080,19 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 
 	// El turno viejo (fuera de la ventana de detección) sobrevive.
 	var countViejo int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").Count(&countViejo)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, "35000099").Count(&countViejo)
 	if countViejo != 1 {
 		t.Errorf("turno viejo (fuera de ventana) = %d, esperaba 1 (no debería borrarse)", countViejo)
 	}
 	// Los 4 de la ventana de rotación sí se borran, como siempre.
 	var countVentana int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[:4]).Count(&countVentana)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto IN ?", reg.Profesional.ID, dnis[:4]).Count(&countVentana)
 	if countVentana != 0 {
 		t.Errorf("turnos dentro de la ventana = %d, esperaba 0", countVentana)
 	}
 
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría de rotación: %v", err)
 	}
 	if auditoria.TurnosBorrados != 4 {
@@ -2145,18 +2145,18 @@ func TestSolicitarTurnoPublico_RotacionSimulada(t *testing.T) {
 	// El borrado de los 4 turnos anteriores pasa de verdad, incluso en
 	// modo simulado (el 5to nunca llegó a crearse, igual que en modo real).
 	var count int64
-	gdb.Model(&db.Turno{}).Where("profesional_id = ?", reg.Profesional.ID).Count(&count)
+	gdb.Model(&db.Turno{}).Where("clinic_id = ?", reg.Profesional.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("count = %d, esperaba 0 (el borrado pasa de verdad en modo simulado)", count)
 	}
 	// Pero la IP NO queda bloqueada de verdad.
 	var bloqueoIP db.IPBloqueadaTurnoPublico
-	if err := gdb.Where("profesional_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := gdb.Where("clinic_id = ?", reg.Profesional.ID).First(&bloqueoIP).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("no esperaba que la IP quedara bloqueada de verdad (err=%v)", err)
 	}
 
 	var auditoria db.AuditoriaBloqueoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND motivo = ?", reg.Profesional.ID, "ip_rotacion").First(&auditoria).Error; err != nil {
 		t.Fatalf("esperaba una fila de auditoría de rotación simulada: %v", err)
 	}
 	if !auditoria.Simulado {
@@ -2426,7 +2426,7 @@ func TestSolicitarTurnoPublico_DNIExistenteVerificadoConMailDistintoCreaConflict
 	}
 
 	var conflictos []db.ConflictoPaciente
-	if err := gdb.Where("profesional_id = ? AND paciente_verificado_id = ?", reg.Profesional.ID, pacienteVerificado.ID).Find(&conflictos).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND paciente_verificado_id = ?", reg.Profesional.ID, pacienteVerificado.ID).Find(&conflictos).Error; err != nil {
 		t.Fatalf("no se pudo consultar conflictos: %v", err)
 	}
 	if len(conflictos) != 1 {
@@ -2437,7 +2437,7 @@ func TestSolicitarTurnoPublico_DNIExistenteVerificadoConMailDistintoCreaConflict
 	}
 
 	var pacientes []db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Find(&pacientes).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30111222").Find(&pacientes).Error; err != nil {
 		t.Fatalf("no se pudo consultar pacientes: %v", err)
 	}
 	if len(pacientes) != 2 {
@@ -2459,7 +2459,7 @@ func TestSolicitarTurnoPublico_MailBloqueadoRechaza(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ProfesionalID: pid, Email: email, BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour)}).Error; err != nil {
+	if err := gdb.Create(&db.EmailBloqueadoTurnoPublico{ClinicID: pid, Email: email, BloqueadoHasta: time.Now().Add(7 * 24 * time.Hour)}).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de prueba: %v", err)
 	}
 
@@ -2624,7 +2624,7 @@ func TestSolicitarTurnoPublico_IPYaBloqueadaRechazaDirecto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	bloqueo := db.IPBloqueadaTurnoPublico{ProfesionalID: pid, IP: "192.0.2.1", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
+	bloqueo := db.IPBloqueadaTurnoPublico{ClinicID: pid, IP: "192.0.2.1", BloqueadoHasta: time.Now().Add(12 * time.Hour)}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
 		t.Fatalf("no se pudo crear el bloqueo de IP: %v", err)
 	}
@@ -2674,7 +2674,7 @@ func TestTurnoActivoDelMismoTipoYDeOtroTipo_Dormantes(t *testing.T) {
 	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID: pid, Estado: "agendado", TipoConsultaID: &tid, HoraInicio: &inicio, HoraFin: &fin,
+		ClinicID: pid, Estado: "agendado", TipoConsultaID: &tid, HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com", Origen: "pagina_publica",
 	}

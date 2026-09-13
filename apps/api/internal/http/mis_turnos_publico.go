@@ -88,7 +88,7 @@ func misTurnosPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 		}
 
 		var turnos []db.Turno
-		if err := gdb.Where("profesional_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", clinic.ID, dni).
+		if err := gdb.Where("clinic_id = ? AND dni_contacto = ? AND estado = 'agendado' AND hora_fin >= now()", clinic.ID, dni).
 			Order("hora_inicio").Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo buscar el turno")
 			return

@@ -93,7 +93,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var pagina db.PaginaPublica
 		oculta := false
-		if err := gdb.Where("profesional_id = ?", clinic.ID).First(&pagina).Error; err == nil {
+		if err := gdb.Where("clinic_id = ?", clinic.ID).First(&pagina).Error; err == nil {
 			oculta = pagina.Oculta
 		}
 
@@ -123,7 +123,7 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 		// docs/Arquitectura y base/tradeoffs.md): join 1:1 con paginas_publicas, sin fila o con
 		// `deployada_en` nulo, no aparece en el buscador.
 		query := gdb.Model(&db.Clinic{}).
-			Joins("JOIN paginas_publicas pp ON pp.profesional_id = clinics.id AND pp.deployada_en IS NOT NULL").
+			Joins("JOIN paginas_publicas pp ON pp.clinic_id = clinics.id AND pp.deployada_en IS NOT NULL").
 			Order("clinics.nombre")
 
 		if q != "" {

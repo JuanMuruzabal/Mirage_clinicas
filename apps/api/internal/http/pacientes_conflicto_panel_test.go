@@ -37,13 +37,13 @@ func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, t
 
 	telEnConflicto := "+5493511230000"
 	enConflicto := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        verificado.Nombre,
-		Apellido:      verificado.Apellido,
-		DNI:           dni,
-		Telefono:      &telEnConflicto,
-		Email:         &mailEnConflicto,
-		EnConflicto:   true,
+		ClinicID:    pid,
+		Nombre:      verificado.Nombre,
+		Apellido:    verificado.Apellido,
+		DNI:         dni,
+		Telefono:    &telEnConflicto,
+		Email:       &mailEnConflicto,
+		EnConflicto: true,
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
@@ -52,7 +52,7 @@ func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, t
 	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &enConflicto.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -70,7 +70,7 @@ func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, t
 	}
 
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID:         pid,
+		ClinicID:              pid,
 		PacienteVerificadoID:  verificado.ID,
 		PacienteEnConflictoID: enConflicto.ID,
 		TurnoEnConflictoID:    turno.ID,
@@ -135,7 +135,7 @@ func crearTurnoVigenteDePruebaParaPaciente(t *testing.T, gdb *gorm.DB, paciente 
 		telefono = *paciente.Telefono
 	}
 	turno := db.Turno{
-		ProfesionalID:    paciente.ProfesionalID,
+		ClinicID:         paciente.ClinicID,
 		PacienteID:       &paciente.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -431,7 +431,7 @@ func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipa
 	// Ficha verificada SIN mail/teléfono propio — verificada por un turno
 	// resuelto y asistido que llegó sin esos datos (ej. "para otro" con el
 	// teléfono/mail propio del paciente vacíos).
-	verificado := db.Paciente{ProfesionalID: pid, Nombre: "Mila", Apellido: "Pérez", DNI: "30111333"}
+	verificado := db.Paciente{ClinicID: pid, Nombre: "Mila", Apellido: "Pérez", DNI: "30111333"}
 	if err := gdb.Create(&verificado).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente verificado de prueba: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipa
 	finPasado := inicioPasado.Add(30 * time.Minute)
 	asistio := "asistio"
 	turnoVerificador := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &verificado.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -458,13 +458,13 @@ func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipa
 	telEnConflicto := "+5493511230099"
 	mailEnConflicto := "sin-datos@example.com"
 	enConflicto := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        verificado.Nombre,
-		Apellido:      verificado.Apellido,
-		DNI:           verificado.DNI,
-		Telefono:      &telEnConflicto,
-		Email:         &mailEnConflicto,
-		EnConflicto:   true,
+		ClinicID:    pid,
+		Nombre:      verificado.Nombre,
+		Apellido:    verificado.Apellido,
+		DNI:         verificado.DNI,
+		Telefono:    &telEnConflicto,
+		Email:       &mailEnConflicto,
+		EnConflicto: true,
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
@@ -472,7 +472,7 @@ func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipa
 	inicioFuturo := time.Now().Add(72 * time.Hour).Truncate(time.Second)
 	finFuturo := inicioFuturo.Add(30 * time.Minute)
 	turnoConflicto := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &enConflicto.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -489,7 +489,7 @@ func TestResolverConflictoPaciente_EsVerificadoSinDatosPropiosQuedanComoPrincipa
 		t.Fatalf("no se pudo crear el turno en conflicto de prueba: %v", err)
 	}
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID:         pid,
+		ClinicID:              pid,
 		PacienteVerificadoID:  verificado.ID,
 		PacienteEnConflictoID: enConflicto.ID,
 		TurnoEnConflictoID:    turnoConflicto.ID,
@@ -622,11 +622,11 @@ func TestResolverConflictoPaciente_EsVerificadoMigraTutores(t *testing.T) {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 	enConflicto := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        verificado.Nombre,
-		Apellido:      verificado.Apellido,
-		DNI:           verificado.DNI,
-		EnConflicto:   true,
+		ClinicID:    pid,
+		Nombre:      verificado.Nombre,
+		Apellido:    verificado.Apellido,
+		DNI:         verificado.DNI,
+		EnConflicto: true,
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto de prueba: %v", err)
@@ -642,7 +642,7 @@ func TestResolverConflictoPaciente_EsVerificadoMigraTutores(t *testing.T) {
 	fin := inicio.Add(30 * time.Minute)
 	tid, _ := uuid.Parse(tipoID)
 	turno := db.Turno{
-		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		ClinicID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
 		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
 		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
 	}
@@ -650,7 +650,7 @@ func TestResolverConflictoPaciente_EsVerificadoMigraTutores(t *testing.T) {
 		t.Fatalf("no se pudo crear el turno en conflicto de prueba: %v", err)
 	}
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		ClinicID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
 		Motivo: "un nuevo tutor (Papá de Mila) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
 	}
 	if err := gdb.Create(&conflicto).Error; err != nil {
@@ -694,7 +694,7 @@ func TestResolverConflictoPaciente_EsVerificadoConTutorYaConocidoNoDuplica(t *te
 	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40222555", "Tomás", "mama-repetida@example.com", 0)
 
 	pid, _ := uuid.Parse(reg.Profesional.ID)
-	enConflicto := db.Paciente{ProfesionalID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
+	enConflicto := db.Paciente{ClinicID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto: %v", err)
 	}
@@ -712,7 +712,7 @@ func TestResolverConflictoPaciente_EsVerificadoConTutorYaConocidoNoDuplica(t *te
 	fin := inicio.Add(30 * time.Minute)
 	tid, _ := uuid.Parse(tipoID)
 	turno := db.Turno{
-		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		ClinicID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
 		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
 		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
 	}
@@ -720,7 +720,7 @@ func TestResolverConflictoPaciente_EsVerificadoConTutorYaConocidoNoDuplica(t *te
 		t.Fatalf("no se pudo crear el turno en conflicto: %v", err)
 	}
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		ClinicID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
 		Motivo: "un nuevo tutor pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
 	}
 	if err := gdb.Create(&conflicto).Error; err != nil {
@@ -752,7 +752,7 @@ func TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor(t *testing.
 	verificado := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "40111333", "Nico", "mama-nico@example.com", 0)
 
 	pid, _ := uuid.Parse(reg.Profesional.ID)
-	enConflicto := db.Paciente{ProfesionalID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
+	enConflicto := db.Paciente{ClinicID: pid, Nombre: verificado.Nombre, Apellido: verificado.Apellido, DNI: verificado.DNI, EnConflicto: true}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto: %v", err)
 	}
@@ -767,7 +767,7 @@ func TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor(t *testing.
 	fin := inicio.Add(30 * time.Minute)
 	tid, _ := uuid.Parse(tipoID)
 	turno := db.Turno{
-		ProfesionalID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		ClinicID: pid, PacienteID: &enConflicto.ID, Estado: "agendado", TipoConsultaID: &tid,
 		HoraInicio: &inicio, HoraFin: &fin, NombreContacto: enConflicto.Nombre, ApellidoContacto: enConflicto.Apellido,
 		DNIContacto: enConflicto.DNI, Origen: "pagina_publica", EsParaOtro: true,
 	}
@@ -775,7 +775,7 @@ func TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor(t *testing.
 		t.Fatalf("no se pudo crear el turno en conflicto: %v", err)
 	}
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
+		ClinicID: pid, PacienteVerificadoID: verificado.ID, PacienteEnConflictoID: enConflicto.ID, TurnoEnConflictoID: turno.ID,
 		Motivo: "un nuevo tutor (Impostor) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
 	}
 	if err := gdb.Create(&conflicto).Error; err != nil {
@@ -788,7 +788,7 @@ func TestResolverConflictoPaciente_NoEsVerificadoBloqueaMailDelTutor(t *testing.
 	}
 
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, "impostor@example.com").First(&bloqueo).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, "impostor@example.com").First(&bloqueo).Error; err != nil {
 		t.Fatalf("esperaba un EmailBloqueadoTurnoPublico con el mail del tutor: %v", err)
 	}
 
@@ -825,13 +825,13 @@ func TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico(t *testing.T) {
 	mailEnConflicto := "otro@example.com"
 	telEnConflicto := "+5493511230000"
 	enConflicto := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        "Bruno IGNACIO",
-		Apellido:      "Iglesias",
-		DNI:           "30111222",
-		Telefono:      &telEnConflicto,
-		Email:         &mailEnConflicto,
-		EnConflicto:   true,
+		ClinicID:    pid,
+		Nombre:      "Bruno IGNACIO",
+		Apellido:    "Iglesias",
+		DNI:         "30111222",
+		Telefono:    &telEnConflicto,
+		Email:       &mailEnConflicto,
+		EnConflicto: true,
 	}
 	if err := gdb.Create(&enConflicto).Error; err != nil {
 		t.Fatalf("no se pudo crear la ficha en conflicto: %v", err)
@@ -840,7 +840,7 @@ func TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico(t *testing.T) {
 	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &enConflicto.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -858,7 +858,7 @@ func TestResolverConflictoPaciente_EsVerificadoUsaNombreCanonico(t *testing.T) {
 	}
 
 	conflicto := db.ConflictoPaciente{
-		ProfesionalID:         pid,
+		ClinicID:              pid,
 		PacienteVerificadoID:  verificado.ID,
 		PacienteEnConflictoID: enConflicto.ID,
 		TurnoEnConflictoID:    turno.ID,
@@ -916,7 +916,7 @@ func TestResolverConflictoPaciente_NoEsVerificado(t *testing.T) {
 	}
 
 	var bloqueo db.EmailBloqueadoTurnoPublico
-	if err := gdb.Where("profesional_id = ? AND email = ?", reg.Profesional.ID, "otro@example.com").First(&bloqueo).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND email = ?", reg.Profesional.ID, "otro@example.com").First(&bloqueo).Error; err != nil {
 		t.Fatalf("esperaba un EmailBloqueadoTurnoPublico: %v", err)
 	}
 	minimo := antes.Add(6*24*time.Hour + 23*time.Hour) // ~7 días, con margen

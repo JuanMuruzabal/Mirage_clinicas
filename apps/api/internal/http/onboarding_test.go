@@ -175,7 +175,7 @@ func TestOnboardingClinica_ExitosoCreaClinicMemberOwner(t *testing.T) {
 	// Sembrado de tipos de consulta default (TR-001), ahora atado a la
 	// Clinic en vez de al Profesional.
 	var count int64
-	gdb.Table("tipos_consulta").Where("profesional_id = ?", member.ClinicID).Count(&count)
+	gdb.Table("tipos_consulta").Where("clinic_id = ?", member.ClinicID).Count(&count)
 	if count != 2 {
 		t.Errorf("count de tipos_consulta sembrados = %d, esperaba 2", count)
 	}

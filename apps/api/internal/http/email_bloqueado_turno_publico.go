@@ -22,7 +22,7 @@ import (
 func emailEstaBloqueado(tx *gorm.DB, profesionalID uuid.UUID, email string) (bool, error) {
 	var count int64
 	err := tx.Model(&db.EmailBloqueadoTurnoPublico{}).
-		Where("profesional_id = ? AND email = ? AND bloqueado_hasta > ?", profesionalID, email, time.Now()).
+		Where("clinic_id = ? AND email = ? AND bloqueado_hasta > ?", profesionalID, email, time.Now()).
 		Limit(1).
 		Count(&count).Error
 	return count > 0, err

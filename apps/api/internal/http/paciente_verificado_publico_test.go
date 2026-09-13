@@ -34,12 +34,12 @@ func crearPacienteVerificadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, 
 
 	telefono := "+5493511234567"
 	paciente := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        "Bruno",
-		Apellido:      "Iglesias",
-		DNI:           dni,
-		Telefono:      &telefono,
-		Email:         &email,
+		ClinicID: pid,
+		Nombre:   "Bruno",
+		Apellido: "Iglesias",
+		DNI:      dni,
+		Telefono: &telefono,
+		Email:    &email,
 	}
 	if err := gdb.Create(&paciente).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
@@ -49,7 +49,7 @@ func crearPacienteVerificadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, 
 	fin := inicio.Add(30 * time.Minute)
 	asistio := "asistio"
 	turno := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &paciente.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -92,10 +92,10 @@ func crearPacienteVerificadoConTutorDePrueba(t *testing.T, gdb *gorm.DB, profesi
 	tutorNombre := "Tutor de " + nombre
 	tutorTelefono := "+5493511111111"
 	paciente := db.Paciente{
-		ProfesionalID: pid,
-		Nombre:        nombre,
-		Apellido:      "Iglesias",
-		DNI:           dni,
+		ClinicID: pid,
+		Nombre:   nombre,
+		Apellido: "Iglesias",
+		DNI:      dni,
 	}
 	if err := gdb.Create(&paciente).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
@@ -117,7 +117,7 @@ func crearPacienteVerificadoConTutorDePrueba(t *testing.T, gdb *gorm.DB, profesi
 	fin := inicio.Add(30 * time.Minute)
 	asistio := "asistio"
 	turno := db.Turno{
-		ProfesionalID:    pid,
+		ClinicID:         pid,
 		PacienteID:       &paciente.ID,
 		Estado:           "agendado",
 		TipoConsultaID:   &tid,
@@ -516,7 +516,7 @@ func TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceL
 	}
 
 	var paciente db.Paciente
-	if err := gdb.Where("profesional_id = ? AND dni = ?", reg.Profesional.ID, "30999888").First(&paciente).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30999888").First(&paciente).Error; err != nil {
 		t.Fatalf("no se encontró la ficha recién creada: %v", err)
 	}
 	// Se confirma el punto de partida: la ficha NO está verificada.
@@ -561,7 +561,7 @@ func TestPacienteVerificadoPublico_SinVerificarYSinTurnoActivoSigueSinAparecer(t
 	telefono := "+5493511234567"
 	pid := uuid.MustParse(reg.Profesional.ID)
 	paciente := db.Paciente{
-		ProfesionalID: pid, Nombre: "Sin", Apellido: "Turnos", DNI: "30777666",
+		ClinicID: pid, Nombre: "Sin", Apellido: "Turnos", DNI: "30777666",
 		Telefono: &telefono, Email: &email, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&paciente).Error; err != nil {

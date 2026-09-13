@@ -52,10 +52,10 @@ func TestPanelNotificaciones_ContConflictoDePacientesPendiente(t *testing.T) {
 
 	_, pacienteVerificado := crearTurnoAgendadoConPacienteDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(-2*time.Hour))
 	hermana, turnoHermana := crearFichaEnConflictoConTurnoDePrueba(t, gdb, reg.Profesional.ID, pacienteVerificado.DNI, tipoConsultaID, time.Now().Add(2*time.Hour))
-	pendiente := crearConflictoDePruebaEntre(t, gdb, hermana.ProfesionalID, pacienteVerificado, hermana, turnoHermana)
+	pendiente := crearConflictoDePruebaEntre(t, gdb, hermana.ClinicID, pacienteVerificado, hermana, turnoHermana)
 
 	hermana2, turnoHermana2 := crearFichaEnConflictoConTurnoDePrueba(t, gdb, reg.Profesional.ID, pacienteVerificado.DNI, tipoConsultaID, time.Now().Add(3*time.Hour))
-	yaResuelto := crearConflictoDePruebaEntre(t, gdb, hermana2.ProfesionalID, pacienteVerificado, hermana2, turnoHermana2)
+	yaResuelto := crearConflictoDePruebaEntre(t, gdb, hermana2.ClinicID, pacienteVerificado, hermana2, turnoHermana2)
 	if err := gdb.Model(&yaResuelto).Update("resuelto", true).Error; err != nil {
 		t.Fatalf("no se pudo marcar el segundo conflicto como resuelto: %v", err)
 	}
