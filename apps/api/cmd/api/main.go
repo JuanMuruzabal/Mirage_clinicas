@@ -74,6 +74,17 @@ func main() {
 	// problema que la Fase 3.1.1 vino a arreglar. Por eso avisa en vez de
 	// frenar el arranque: degradar a "agrupa de más" es tolerable; no
 	// poder deployar por una variable faltante, no.
+	// Que aparezca en los logs del deploy, no solo en el código: si alguna
+	// vez estas comodidades quedan activas donde no deben, el arranque lo
+	// grita en vez de que haya que deducirlo.
+	if cfg.HerramientasDeDesarrolloHabilitadas() {
+		slog.Warn("HERRAMIENTAS DE DESARROLLO ACTIVAS: el código de verificación viaja en la respuesta y los detectores de abuso no bloquean — esto solo puede pasar sirviendo la app en localhost",
+			slog.String("app_base_url", cfg.AppBaseURL))
+	} else if cfg.DevTools {
+		slog.Warn("DEV_TOOLS=true IGNORADO: la app no se sirve en localhost, así que las herramientas de desarrollo siguen apagadas",
+			slog.String("app_base_url", cfg.AppBaseURL))
+	}
+
 	if cfg.Env != "development" && cfg.BFFSharedSecret == "" {
 		slog.Warn("BFF_SHARED_SECRET sin configurar: la API va a ver la IP del proceso web, no la del visitante — el rate-limiting por IP y los detectores de abuso del wizard público van a agrupar a todos los visitantes bajo una sola IP",
 			slog.String("env", cfg.Env))
@@ -197,6 +208,8 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		pwnedChecker = security.NewHTTPPwnedChecker()
 	}
 
+	herramientasDev := cfg.HerramientasDeDesarrolloHabilitadas()
+
 	return apihttp.AuthDeps{
 		Mail:              mailSender,
 		Google:            googleExchanger,
@@ -213,15 +226,26 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// configurado Resend en Render; ver TR-051 en docs/Arquitectura y base/tradeoffs.md).
 		// Se apaga solo apenas se cargue la env var.
 		AutoVerifyEmail: cfg.ResendAPIKey == "",
-		// Mismo criterio/señal que AutoVerifyEmail — pedido del cliente
-		// para ver el código de "Confirmanos que sos vos" sin mirar los
-		// logs mientras prueba el wizard público en local.
-		ExponerCodigoVerificacion: cfg.ResendAPIKey == "",
-		// Mismo criterio/señal que las dos de arriba — pedido textual del
-		// cliente: probar en local los detectores de abuso del formulario
-		// público sin comerse un bloqueo real (3 días de mail, turnos
-		// borrados) que hay que limpiar a mano para seguir iterando.
-		SimularBloqueosSeguridad: cfg.ResendAPIKey == "",
+		// Las dos de abajo YA NO comparten la señal de AutoVerifyEmail.
+		// Son otra clase de cosa: aquella es una decisión de producto (sin
+		// forma de mandar mails, bloquear cuentas nuevas sería peor que
+		// auto-verificarlas), mientras que estas dos EXPONEN datos o
+		// APAGAN controles, y no pueden quedar activas en un entorno
+		// público ni por accidente.
+		//
+		// Antes se prendían solas con RESEND_API_KEY vacía — fail-open: la
+		// conducta peligrosa era el default y evitarla dependía de que
+		// alguien hubiera cargado a mano una variable no relacionada.
+		// Ahora pasan por HerramientasDeDesarrolloHabilitadas, que exige
+		// DEV_TOOLS=true Y que la app se sirva en localhost.
+		//
+		// ExponerCodigoVerificacion: el código de 6 dígitos viaja en el
+		// cuerpo de la respuesta — prendido en un entorno público,
+		// cualquiera pediría el código de un mail ajeno y se verificaría
+		// como esa persona. SimularBloqueosSeguridad: los detectores de
+		// abuso dejan de bloquear mail/IP.
+		ExponerCodigoVerificacion: herramientasDev,
+		SimularBloqueosSeguridad:  herramientasDev,
 		// Fase 3.1.1 — habilita que el BFF le diga a la API cuál es la IP
 		// real del visitante. Vacío: la cabecera se ignora, ver
 		// internal/http/ip_del_visitante.go.

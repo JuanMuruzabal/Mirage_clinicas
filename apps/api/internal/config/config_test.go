@@ -84,3 +84,54 @@ func TestLoad_BFFSharedSecretPropioSeRespeta(t *testing.T) {
 		}
 	}
 }
+
+// TestHerramientasDeDesarrollo_NuncaEnUnEntornoPublico — el test que
+// convierte la regla en una garantía verificada, no en una promesa de un
+// comentario.
+//
+// Recorre las combinaciones que un error humano puede producir en un
+// dashboard de deploy. La fila que importa es la tercera: alguien prende
+// DEV_TOOLS=true en Render (para debuggear, por apuro, por costumbre) y
+// AUN ASÍ las herramientas quedan apagadas, porque la app no se sirve en
+// localhost. Un guard basado en APP_ENV no atajaría ese caso: en este
+// proyecto esa variable vale "development" en Render a propósito.
+func TestHerramientasDeDesarrollo_NuncaEnUnEntornoPublico(t *testing.T) {
+	casos := []struct {
+		nombre     string
+		devTools   bool
+		appBaseURL string
+		esperado   bool
+	}{
+		{"local con DEV_TOOLS", true, "http://localhost:3000", true},
+		{"local por IP de loopback", true, "http://127.0.0.1:3000", true},
+		{"local sin DEV_TOOLS: apagadas", false, "http://localhost:3000", false},
+		{"Render con DEV_TOOLS prendido por error", true, "https://miragesoftware.online", false},
+		{"Render sin DEV_TOOLS", false, "https://miragesoftware.online", false},
+		{"subdominio onrender", true, "https://dental-mirage-web.onrender.com", false},
+		// Ante cualquier duda, apagadas: una URL rota no es "local".
+		{"URL vacía", true, "", false},
+		{"URL sin host", true, "no-es-una-url", false},
+		// Un host que solo PARECE local no alcanza — es un dominio público
+		// como cualquier otro.
+		{"dominio que contiene localhost", true, "https://localhost.atacante.com", false},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			cfg := Config{DevTools: c.devTools, AppBaseURL: c.appBaseURL}
+			if got := cfg.HerramientasDeDesarrolloHabilitadas(); got != c.esperado {
+				t.Errorf("HerramientasDeDesarrolloHabilitadas() = %v, esperaba %v (DevTools=%v, AppBaseURL=%q)",
+					got, c.esperado, c.devTools, c.appBaseURL)
+			}
+		})
+	}
+}
+
+// TestHerramientasDeDesarrollo_ApagadasPorDefault — sin tocar ninguna
+// variable, quedan apagadas. Fail-closed: lo peligroso requiere un acto
+// deliberado, no lo contrario.
+func TestHerramientasDeDesarrollo_ApagadasPorDefault(t *testing.T) {
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
+	if Load().HerramientasDeDesarrolloHabilitadas() {
+		t.Error("sin DEV_TOOLS deberían estar apagadas")
+	}
+}

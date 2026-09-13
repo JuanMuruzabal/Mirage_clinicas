@@ -2,6 +2,8 @@
 package config
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -71,6 +73,20 @@ type Config struct {
 	// como antes de la Fase 3.1.1.
 	BFFSharedSecret string
 
+	// DevTools habilita las comodidades de desarrollo que NUNCA pueden
+	// quedar activas en un entorno público: hoy, exponer el código de
+	// verificación de 6 dígitos en la respuesta HTTP
+	// (ExponerCodigoVerificacion) y no bloquear mail/IP en los detectores
+	// de abuso (SimularBloqueosSeguridad).
+	//
+	// Antes esas dos se prendían solas con RESEND_API_KEY vacía. Eso es
+	// fail-OPEN: la conducta peligrosa era el default, y evitarla dependía
+	// de que alguien hubiera cargado a mano una variable que no tiene nada
+	// que ver (`sync: false` en render.yaml). Acá se invierte — hay que
+	// pedirlas explícitamente, y aun pidiéndolas no alcanza: ver
+	// HerramientasDeDesarrolloHabilitadas.
+	DevTools bool
+
 	// CORSAllowedOrigins — orígenes desde los que el navegador puede
 	// llamar directo a la API. No afecta las llamadas server-to-server de
 	// Next.js vía Server Actions/Route Handlers (spec §9.3, BFF sin
@@ -129,6 +145,45 @@ func bffSharedSecret(env string) string {
 	return valor
 }
 
+// HerramientasDeDesarrolloHabilitadas — la única puerta por la que pasan
+// las comodidades que exponen datos. Exige DOS cosas a la vez:
+//
+//  1. DEV_TOOLS=true, un opt-in explícito que nadie pone por accidente; y
+//  2. que la app se sirva en localhost.
+//
+// El segundo es el que convierte esto en una garantía y no en una promesa.
+// No alcanza con mirar APP_ENV: en este proyecto vale "development" en
+// Render a propósito (un solo entorno mientras dure el plan free, ver
+// render.yaml), así que un guard basado en esa variable no protegería nada
+// justo donde hace falta. AppBaseURL, en cambio, no puede mentir: es la
+// URL por la que los usuarios llegan de verdad —https://miragesoftware.online
+// en Render, http://localhost:3000 en una máquina— porque de ella salen
+// los links de los mails.
+//
+// Resultado: aunque alguien prenda DEV_TOOLS=true en el dashboard de
+// Render, estas comodidades siguen apagadas. Para exponerlas habría que
+// además hacer que la aplicación se sirva desde localhost, que es
+// precisamente el caso en el que no hay nada expuesto.
+func (c Config) HerramientasDeDesarrolloHabilitadas() bool {
+	return c.DevTools && esLocal(c.AppBaseURL)
+}
+
+// esLocal — ¿esta URL apunta a la máquina de quien desarrolla? Ante
+// cualquier duda (una URL que no parsea, un host vacío) responde NO: el
+// default tiene que ser el seguro.
+func esLocal(baseURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // Load lee la configuración desde variables de entorno, con valores por
 // defecto razonables para desarrollo local (mismos defaults que
 // docker-compose.yml).
@@ -143,6 +198,8 @@ func Load() Config {
 		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
 
 		BFFSharedSecret: bffSharedSecret(getEnv("APP_ENV", "development")),
+
+		DevTools: getEnv("DEV_TOOLS", "false") == "true",
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 

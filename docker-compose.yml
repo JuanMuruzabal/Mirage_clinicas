@@ -65,6 +65,13 @@ services:
       # casi nunca cambia nada: el navegador le pega derecho a Next, sin
       # proxy que ponga X-Forwarded-For, así que no hay IP que propagar.
       BFF_SHARED_SECRET: ${BFF_SHARED_SECRET:-dev-bff-secret}
+      # Comodidades de desarrollo: el código de verificación viaja en la
+      # respuesta (para no ir a buscarlo a los logs) y los detectores de
+      # abuso avisan sin bloquear mail/IP. Acá es seguro porque el stack se
+      # sirve en localhost — y esa condición la chequea el backend, no este
+      # archivo: con APP_BASE_URL apuntando a un dominio público esto se
+      # ignora aunque diga "true" (HerramientasDeDesarrolloHabilitadas).
+      DEV_TOOLS: "true"
     ports:
       - "8080:8080"
     depends_on:
