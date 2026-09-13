@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import type { ClinicaDelUsuario, CodigoInvitacion } from "@dental-mirage/shared-types";
 import { entrarEnClinicaAction, generarCodigoInvitacionAction } from "@/app/actions/clinicas";
 import { OnboardingClinicaForm } from "@/app/sumarse/onboarding-clinica-form";
-import { AuthShell } from "@/components/auth/auth-shell";
 import { QuadrantMark } from "@/components/quadrant-mark";
 
 interface DondeTrabajasProps {
@@ -67,24 +66,17 @@ export function DondeTrabajas({ clinicas, codigoInicial }: DondeTrabajasProps) {
         </div>
       </section>
 
+      {/* El formulario trae su PROPIO modal (ModalShell: overlay, tarjeta,
+          encabezado y pie fijos) desde la ronda de QA del 2026-09-13.
+          Envolverlo además en un AuthShell dejaba una segunda tarjeta
+          rectangular asomando por detrás y dos capas de fondo oscuro
+          superpuestas. Reportado con una captura en la segunda ronda de QA. */}
       {creandoClinica && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-grafito/50 p-3 py-6 sm:p-4 sm:py-10">
-          <div className="w-full max-w-xl">
-            <AuthShell
-              title="Tu clínica"
-              subtitle="Los datos básicos. Después vas a poder cambiarlos desde el panel."
-              sinVolver
-              ancho="xl"
-              scrollInterno
-            >
-              <OnboardingClinicaForm
-                onAtras={() => setCreandoClinica(false)}
-                volverLabel="Cancelar"
-                submitLabel="Crear mi clínica"
-              />
-            </AuthShell>
-          </div>
-        </div>
+        <OnboardingClinicaForm
+          onAtras={() => setCreandoClinica(false)}
+          volverLabel="Cancelar"
+          submitLabel="Crear mi clínica"
+        />
       )}
     </>
   );

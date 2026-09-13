@@ -477,3 +477,25 @@ Arreglado con dos reglas explícitas en vez de una derivada: nunca ofrecer `/cli
 
 **Verificado:** 1060 tests frontend (25 nuevos), gates de cobertura en verde, lint 0 errores, build OK, contenedor reconstruido.
 
+### Segunda vuelta de QA del 2026-09-13 — lo que quedó mal de la primera
+
+Revisión con capturas sobre lo recién entregado. Las imágenes también eran temporales, así que lo que valía está descrito acá.
+
+- **El stepper estaba corrido a la izquierda.** El primer paso no era `flex-1` y los demás sí, así que las columnas medían distinto y el conjunto quedaba descentrado respecto a la tarjeta. Ahora todas las columnas son iguales y cada círculo lleva una línea a **cada** lado, invisible en los extremos: así el último no arrastra una línea hacia la nada y el grupo queda centrado sin depender de cuántos pasos haya.
+- **El tilde de "coinciden" parecía un segundo botón de ver la contraseña.** Estaba adentro del campo, pegado al ojo — dos íconos juntos en el mismo lugar se leen como dos controles. Pasó a ser una línea verde **debajo** del campo: dice lo mismo y no compite con el único control real.
+- **Había un modal rectangular asomando por detrás del de crear clínica.** Era mío: el formulario pasó a traer su propio `ModalShell` en la vuelta anterior, y quedó además envuelto en el `AuthShell` viejo. Dos tarjetas y dos capas de fondo oscuro superpuestas. Es el riesgo de mover el "marco" adentro del componente y no revisar quién lo estaba envolviendo antes.
+- **El nombre de la clínica y los campos opcionales aparecen recién con el tipo elegido.** El orden de la pantalla pasa a ser el de la decisión: primero qué clase de clínica es, después sus datos.
+- **El login recibe el mismo tratamiento que el alta**: ícono adentro del campo de mail y ojo para ver la contraseña. Lo que **no** lleva es la barra de fuerza: al ingresar, la clave ya existe y juzgarla no aporta nada.
+
+#### Las casillas del código, una sola vez para toda la app
+
+Pedido aparte del cliente: *"el modal de introducir código en sumate y login reutilizar el que se usa en el wizard de sacar turno, para mantener consistencia"*.
+
+Es la misma acción —copiar seis dígitos de un mail— en tres pantallas, y se veía de dos formas distintas según por dónde hubiera entrado la persona: seis casillas en el wizard público, y en el alta un campo único con placeholder `000000`, que se lee como contenido ya cargado y no muestra cuántos dígitos faltan.
+
+Las casillas salieron del wizard a `components/auth/casillas-codigo.tsx`. Lo que se unifica no es solo el aspecto: **el pegado del código entero, el borrado que vuelve a la casilla anterior, las flechas y el limpiado tras un intento fallido** son cuatro comportamientos que existían una sola vez y ahora valen para las tres pantallas. El "Autocompletar" del bloque solo-dev del wizard sigue funcionando, como una prop del componente nuevo.
+
+Los 69 tests del wizard pasaron **sin tocarlos**, que era la condición para dar la extracción por buena: si hubiera hecho falta editarlos, el componente no sería el mismo.
+
+**Verificado:** 1061 tests frontend, cobertura y lint en verde, build OK, contenedor reconstruido (`/sumarse` y `/ingresar` responden 200).
+

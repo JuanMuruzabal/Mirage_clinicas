@@ -53,18 +53,22 @@ describe("CampoPassword", () => {
     expect(screen.queryByText(/Te faltan/)).not.toBeInTheDocument();
   });
 
-  // El error de "no coinciden" aparecía recién al enviar.
-  it("el tilde de coincidencia aparece solo cuando corresponde", () => {
+  // El error de "no coinciden" aparecía recién al enviar. El aviso va
+  // DEBAJO del campo: adentro, al lado del ojo, se leía como un segundo
+  // botón para ver la contraseña (corrección de QA del 2026-09-13).
+  it("el aviso de coincidencia aparece solo cuando corresponde", () => {
     const { rerender } = render(
       <CampoPassword label="Confirmar" registro={registroFalso("confirmar")} valor="secreta12345" coincide />,
     );
-    expect(screen.getByLabelText("Las contraseñas coinciden")).toBeInTheDocument();
+    expect(screen.getByText("Las contraseñas coinciden")).toBeInTheDocument();
+    // Y un solo botón en el campo: el del ojo.
+    expect(screen.getAllByRole("button")).toHaveLength(1);
 
     rerender(<CampoPassword label="Confirmar" registro={registroFalso("confirmar")} valor="secreta12345" />);
-    expect(screen.queryByLabelText("Las contraseñas coinciden")).not.toBeInTheDocument();
+    expect(screen.queryByText("Las contraseñas coinciden")).not.toBeInTheDocument();
 
     // Ni con el campo vacío, aunque el padre diga que "coinciden".
     rerender(<CampoPassword label="Confirmar" registro={registroFalso("confirmar")} valor="" coincide />);
-    expect(screen.queryByLabelText("Las contraseñas coinciden")).not.toBeInTheDocument();
+    expect(screen.queryByText("Las contraseñas coinciden")).not.toBeInTheDocument();
   });
 });

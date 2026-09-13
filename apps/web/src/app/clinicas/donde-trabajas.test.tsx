@@ -217,13 +217,35 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     await userEvent.click(crear);
 
     expect(await screen.findByText("Elegí el tipo de clínica.")).toBeInTheDocument();
-    expect(screen.getByText("El nombre de la clínica es obligatorio.")).toBeInTheDocument();
     expect(onboardingClinicaActionMock).not.toHaveBeenCalled();
+
+    // Con el tipo elegido aparecen los campos, y el que falta avisa.
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+    await userEvent.click(crear);
+
+    expect(await screen.findByText("El nombre de la clínica es obligatorio.")).toBeInTheDocument();
+    expect(onboardingClinicaActionMock).not.toHaveBeenCalled();
+  });
+
+  // Corrección de QA del 2026-09-13: el orden de la pantalla es el de la
+  // decisión — primero qué clase de clínica es, después sus datos.
+  it("el nombre y los opcionales aparecen recién con el tipo elegido", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    expect(screen.queryByLabelText("Nombre de tu clínica o consultorio")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ubicación y contacto/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+
+    expect(screen.getByLabelText("Nombre de tu clínica o consultorio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ubicación y contacto/ })).toBeInTheDocument();
   });
 
   it("los campos opcionales arrancan plegados", async () => {
     render(<DondeTrabajas clinicas={[]} />);
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
 
     const plegable = screen.getByRole("button", { name: /Ubicación y contacto/ });
     expect(plegable).toHaveAttribute("aria-expanded", "false");
@@ -239,6 +261,7 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
   it("provincia es una lista cerrada, y va antes que ciudad", async () => {
     render(<DondeTrabajas clinicas={[]} />);
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
     await userEvent.click(screen.getByRole("button", { name: /Ubicación y contacto/ }));
 
     const provincia = screen.getByLabelText("Provincia");

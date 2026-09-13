@@ -36,12 +36,20 @@ export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actu
         const completado = i < indexActual;
         const esActual = i === indexActual;
         const alcanzado = completado || esActual;
+        // Corrección de QA (2026-09-13): antes el primer paso NO
+        // era `flex-1` y los demás sí, así que las columnas medían
+        // distinto y el grupo entero quedaba corrido a la izquierda. Con
+        // todas iguales y una línea a CADA lado del círculo —invisible en
+        // los extremos, para que el último no arrastre una hacia la
+        // nada—, cada círculo queda centrado en su columna y el conjunto
+        // centrado en la tarjeta.
         return (
-          <li key={p.id} className={`flex flex-col items-center gap-2 ${i > 0 ? "flex-1" : ""}`}>
-            <div className={`flex w-full items-center ${i > 0 ? "" : "justify-center"}`}>
-              {/* La línea de conexión va ANTES del círculo, no después:
-                  así el último paso no arrastra una línea hacia la nada. */}
-              {i > 0 && <span aria-hidden="true" className={`h-px flex-1 ${alcanzado ? "bg-salvia" : "bg-arena"}`} />}
+          <li key={p.id} className="flex flex-1 flex-col items-center gap-2">
+            <div className="flex w-full items-center">
+              <span
+                aria-hidden="true"
+                className={`h-px flex-1 ${i === 0 ? "invisible" : alcanzado ? "bg-salvia" : "bg-arena"}`}
+              />
               <span
                 aria-hidden="true"
                 className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
@@ -52,7 +60,12 @@ export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actu
               >
                 {completado ? "✓" : i + 1}
               </span>
-              {i > 0 && <span aria-hidden="true" className="flex-1" />}
+              <span
+                aria-hidden="true"
+                className={`h-px flex-1 ${
+                  i === pasos.length - 1 ? "invisible" : i < indexActual ? "bg-salvia" : "bg-arena"
+                }`}
+              />
             </div>
             <span className={`text-center text-xs ${esActual ? "font-medium text-grafito" : "text-grafito/50"}`}>
               {p.titulo}

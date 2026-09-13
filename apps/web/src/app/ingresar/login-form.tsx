@@ -6,7 +6,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { loginAction } from "@/app/actions/auth";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/auth";
-import { AuthDivider, AuthField, authErrorClass, authInputClass, authSubmitClass } from "@/components/auth/auth-shell";
+import {
+  AuthDivider,
+  AuthField,
+  CampoConIcono,
+  authErrorClass,
+  authInputConIconoClass,
+  authSubmitClass,
+} from "@/components/auth/auth-shell";
+import { CampoPassword } from "@/components/auth/campo-password";
+import { IconMail } from "@/components/icons";
 import { ConfirmarCodigoForm } from "@/components/auth/confirmar-codigo-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 
@@ -15,8 +24,15 @@ export function LoginForm() {
     register,
     handleSubmit,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  // Mismo tratamiento que /sumarse (corrección de QA del 2026-09-13,
+  // pedido textual: "en el login apliqué los mismos cambios que se le
+  // hizo al modal de sumate"): ícono adentro del campo y ojo para ver la
+  // contraseña. Acá NO va la barra de fuerza: al ingresar, la clave ya
+  // existe y juzgarla no aporta nada.
+  const password = watch("password") ?? "";
 
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   const [mailNoVerificado, setMailNoVerificado] = useState(false);
@@ -43,24 +59,24 @@ export function LoginForm() {
     <div className="flex w-full max-w-sm flex-col gap-5">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
         <AuthField label="Email" error={errors.email?.message}>
-          <input
-            type="email"
-            autoComplete="email"
-            aria-invalid={!!errors.email}
-            className={authInputClass}
-            {...register("email")}
-          />
+          <CampoConIcono icono={<IconMail className="h-[18px] w-[18px]" />}>
+            <input
+              type="email"
+              autoComplete="email"
+              aria-invalid={!!errors.email}
+              className={authInputConIconoClass}
+              {...register("email")}
+            />
+          </CampoConIcono>
         </AuthField>
 
-        <AuthField label="Contraseña" error={errors.password?.message}>
-          <input
-            type="password"
-            autoComplete="current-password"
-            aria-invalid={!!errors.password}
-            className={authInputClass}
-            {...register("password")}
-          />
-        </AuthField>
+        <CampoPassword
+          label="Contraseña"
+          registro={register("password")}
+          valor={password}
+          error={errors.password?.message}
+          autoComplete="current-password"
+        />
 
         <div className="flex justify-end">
           <Link href="/recuperar-password" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">

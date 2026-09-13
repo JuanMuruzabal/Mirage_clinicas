@@ -164,64 +164,72 @@ export function OnboardingClinicaForm({
           </p>
         )}
 
-        <AuthField label="Nombre de tu clínica o consultorio" error={errors.nombre?.message}>
-          <CampoConIcono icono={<IconClinic className="h-[18px] w-[18px]" />}>
-            <input placeholder="Consultorio Dr. Games" className={authInputConIconoClass} {...register("nombre")} />
-          </CampoConIcono>
-        </AuthField>
+        {/* El nombre y los opcionales aparecen recién con el tipo elegido
+            (corrección de QA del 2026-09-13). El orden de la
+            pantalla pasa a ser el de la decisión: primero qué clase de
+            clínica es, después sus datos. */}
+        {tipo && (
+          <AuthField label="Nombre de tu clínica o consultorio" error={errors.nombre?.message}>
+            <CampoConIcono icono={<IconClinic className="h-[18px] w-[18px]" />}>
+              <input placeholder="Consultorio Dr. Games" className={authInputConIconoClass} {...register("nombre")} />
+            </CampoConIcono>
+          </AuthField>
+        )}
 
         {/* Los cuatro opcionales, plegados. Adentro los labels van en peso
             normal y gris: eso reemplaza al "(opcional)" repetido cuatro
             veces. */}
-        <section className="rounded-[10px] border-[0.5px] border-arena">
-          <button
-            type="button"
-            onClick={() => setUbicacionAbierta((abierta) => !abierta)}
-            aria-expanded={ubicacionAbierta}
-            aria-controls="ubicacion-y-contacto"
-            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-grafito"
-          >
-            <IconMapPin className="h-[18px] w-[18px] text-grafito/40" />
-            Ubicación y contacto
-            <span className="ml-auto flex items-center gap-2 text-xs font-normal text-grafito/50">
-              opcional
-              <IconChevronDown
-                className={`h-4 w-4 transition-transform ${ubicacionAbierta ? "rotate-180" : ""}`}
+        {tipo && (
+          <section className="rounded-[10px] border-[0.5px] border-arena">
+            <button
+              type="button"
+              onClick={() => setUbicacionAbierta((abierta) => !abierta)}
+              aria-expanded={ubicacionAbierta}
+              aria-controls="ubicacion-y-contacto"
+              className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-grafito"
+            >
+              <IconMapPin className="h-[18px] w-[18px] text-grafito/40" />
+              Ubicación y contacto
+              <span className="ml-auto flex items-center gap-2 text-xs font-normal text-grafito/50">
+                opcional
+                <IconChevronDown
+                  className={`h-4 w-4 transition-transform ${ubicacionAbierta ? "rotate-180" : ""}`}
+                />
+              </span>
+            </button>
+            <div
+              id="ubicacion-y-contacto"
+              hidden={!ubicacionAbierta}
+              className="flex flex-col gap-4 border-t border-arena/70 px-4 py-4 [&_span]:font-normal [&_span]:text-grafito/70"
+            >
+              {/* Provincia ANTES que ciudad: el día que las ciudades se
+                  filtren por provincia, el orden ya va a ser el correcto. */}
+              <AuthField label="Provincia" error={errors.provincia?.message}>
+                <select className={authInputClass} defaultValue="" {...register("provincia")}>
+                  <option value="">Elegí una provincia</option>
+                  {PROVINCIAS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </AuthField>
+              <AuthField label="Ciudad" error={errors.ciudad?.message}>
+                <input className={authInputClass} {...register("ciudad")} />
+              </AuthField>
+              <AuthField label="Dirección" error={errors.direccion?.message}>
+                <input className={authInputClass} {...register("direccion")} />
+              </AuthField>
+              <CampoTelefono
+                label="Teléfono de contacto"
+                prefijo={register("telefonoPrefijo")}
+                numero={register("telefono")}
+                error={errors.telefono?.message}
+                placeholder="351 123 4567"
               />
-            </span>
-          </button>
-          <div
-            id="ubicacion-y-contacto"
-            hidden={!ubicacionAbierta}
-            className="flex flex-col gap-4 border-t border-arena/70 px-4 py-4 [&_span]:font-normal [&_span]:text-grafito/70"
-          >
-            {/* Provincia ANTES que ciudad: el día que las ciudades se
-                filtren por provincia, el orden ya va a ser el correcto. */}
-            <AuthField label="Provincia" error={errors.provincia?.message}>
-              <select className={authInputClass} defaultValue="" {...register("provincia")}>
-                <option value="">Elegí una provincia</option>
-                {PROVINCIAS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </AuthField>
-            <AuthField label="Ciudad" error={errors.ciudad?.message}>
-              <input className={authInputClass} {...register("ciudad")} />
-            </AuthField>
-            <AuthField label="Dirección" error={errors.direccion?.message}>
-              <input className={authInputClass} {...register("direccion")} />
-            </AuthField>
-            <CampoTelefono
-              label="Teléfono de contacto"
-              prefijo={register("telefonoPrefijo")}
-              numero={register("telefono")}
-              error={errors.telefono?.message}
-              placeholder="351 123 4567"
-            />
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
         {errorGlobal && (
           <p role="alert" className={authErrorClass}>

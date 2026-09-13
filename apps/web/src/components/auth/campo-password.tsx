@@ -91,14 +91,6 @@ export function CampoPassword({
           {...registro}
         />
         <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-          {/* El nombre accesible va en el span, no en el ícono: los
-              componentes de `icons.tsx` solo aceptan `className`, así que
-              un aria-label pasado ahí se descarta en silencio. */}
-          {coincide && valor.length > 0 && (
-            <span role="img" aria-label="Las contraseñas coinciden" className="flex text-salvia-oscuro">
-              <IconCheck className="h-[18px] w-[18px]" />
-            </span>
-          )}
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
@@ -132,6 +124,17 @@ export function CampoPassword({
             {fuerza.etiqueta}
           </span>
         </div>
+      )}
+
+      {/* El tilde de "coinciden" va DEBAJO del campo, no adentro.
+          Corrección de QA (2026-09-13): adentro, al lado del ojo,
+          se leía como un segundo botón para ver la contraseña. Abajo dice
+          lo mismo sin competir con el único control real del campo. */}
+      {coincide && valor.length > 0 && (
+        <span className="flex items-center gap-1.5 text-xs text-salvia-oscuro">
+          <IconCheck className="h-4 w-4" />
+          Las contraseñas coinciden
+        </span>
       )}
 
       {error && (
