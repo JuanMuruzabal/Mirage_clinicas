@@ -72,6 +72,16 @@ services:
       # y lo guarda — nadie (ni nosotros acá) llega a verlo en texto plano.
       - key: JWT_SECRET
         generateValue: true
+      # Secreto compartido con el servicio web de abajo (Fase 3.1.1). Con
+      # él, el BFF puede decirle a esta API cuál es la IP REAL del
+      # visitante; sin él, la API ve la IP del proceso web y el
+      # rate-limiting por IP más los detectores de abuso del wizard
+      # público cuentan a todos los visitantes como uno solo. Se genera
+      # acá y el servicio web lo LEE de este mismo servicio (`fromService`
+      # más abajo), para que no haya dos valores que mantener en sincronía
+      # a mano — si no coinciden, la API ignora la cabecera en silencio.
+      - key: BFF_SHARED_SECRET
+        generateValue: true
       # URL pública del servicio web de abajo. Si renombrás el servicio o
       # le conectás un dominio propio, hay que actualizar esto a mano
       # (Render no permite interpolar la URL de un servicio dentro de otro
@@ -165,6 +175,14 @@ services:
       # sobre actualizarlo a mano si cambia el nombre del servicio.
       - key: API_URL
         value: https://dental-mirage-api.onrender.com
+      # El MISMO valor que generó el servicio api (ver el comentario
+      # allá). Render lo resuelve al aplicar el blueprint: no hay que
+      # copiarlo a mano ni se puede desincronizar.
+      - key: BFF_SHARED_SECRET
+        fromService:
+          type: web
+          name: dental-mirage-api
+          envVarKey: BFF_SHARED_SECRET
       # No es un secret de seguridad — sync: false simplemente porque acá
       # no sabemos el email de contacto real del cliente, hay que cargar
       # el dato de verdad una vez (reemplaza el placeholder de desarrollo).

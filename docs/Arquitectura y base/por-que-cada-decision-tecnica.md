@@ -168,6 +168,10 @@ Es una decisión de **seguridad** antes que de arquitectura:
 
 Cada pantalla nueva necesita una Server Action; no se puede hacer `fetch` desde un Client Component. Es fricción real y deliberada — el patrón se rompe la primera vez que alguien "solo por esta vez" llama directo.
 
+Y hay un costo que no estaba escrito acá hasta que se cobró solo (Fase 3.1.1, TR-134): **si el navegador nunca habla con la API, la API tampoco sabe quién es el navegador.** Todo pedido le llega con la IP del proceso web. Eso no rompe nada visible —las pantallas andan igual— pero deja ciego a todo lo que decide *por IP*: el rate-limiting de auth contaba los intentos de todos juntos, y el detector de rotación del wizard público veía a todos los pacientes como un solo atacante rotando identidades. Llegó a borrar turnos reales antes de que se notara.
+
+La lección es más general que el bug: **un patrón que interpone una capa no solo mueve el tráfico, mueve la identidad de quien lo origina.** Cualquier control que dependa de "de dónde viene esto" hay que revisarlo al adoptar el patrón, no cuando falle. El arreglo fue que el BFF propague la IP con un secreto compartido, y no es gratis: suma una variable de entorno a mantener en dos servicios.
+
 ### Qué cambiaría la decisión
 
 Si hubiera que exponer una API pública para terceros (una app móvil nativa, integraciones). Ahí la API deja de ser interna y el BFF pasa a ser un consumidor más, no la única puerta.
@@ -196,6 +200,16 @@ Adoptarlo ahora significaría administrar un cluster, su red, sus secretos y sus
 
 > **La señal para reconsiderarlo** no es "creció el tráfico": es **necesitar más de una instancia del backend**. Ese mismo umbral activa otros tres ítems pendientes de la auditoría (migrar el rate-limiter por IP a Redis, dimensionar el pool de conexiones, PgBouncer). Cuando aparezca, se revisan los cuatro juntos, no de a uno.
 
+### Los dos servicios son públicos, y eso tiene consecuencias
+
+En el blueprint, tanto `web` como `api` son `type: web`: los dos tienen URL propia en internet. Es lo natural en Render —los servicios privados son una feature de planes pagos— y no es un descuido, pero **cambia cómo hay que escribir el backend**: la API no puede confiar en nada que le llegue por el solo hecho de llegar, ni siquiera de "su propio" frontend.
+
+Se cobró en la Fase 3.1.1 (TR-134). Para que el BFF pudiera decirle a la API cuál es la IP real del visitante, no alcanzaba con una cabecera: cualquiera puede pegarle a la URL pública y mandar la cabecera que quiera. Hizo falta un secreto compartido y una comparación en tiempo constante para algo que, con la API en una red privada, habría sido un dato más.
+
+**La alternativa —API como servicio privado— es la solución más limpia** y quedó anotada: elimina la necesidad del secreto y reduce la superficie a un solo servicio expuesto. Se descartó porque exige plan pago y deja la API sin URL para debug. Es la primera mejora de topología a hacer cuando se pague un plan, antes que cualquier otra.
+
+Mismo razonamiento, otra cara: como `APP_ENV` vale `development` incluso en Render (un solo entorno mientras dure el plan free, TR-021), **ningún guard de seguridad puede basarse en esa variable**. Por eso las comodidades de desarrollo se atan a que `APP_BASE_URL` apunte a localhost (TR-135), que es la única señal que no puede mentir sobre si la aplicación está expuesta.
+
 ### Qué se sacrifica hoy, y hay que tenerlo presente
 
 - **El plan free de Postgres se borra solo a los 30 días.** Es deliberado mientras no haya clínicas reales, y hay que subir de plan **antes** del primer profesional — no después.
@@ -204,7 +218,7 @@ Adoptarlo ahora significaría administrar un cluster, su red, sus secretos y sus
 
 ### Qué cambiaría la decisión
 
-Primero **el primer cliente que paga**: ahí hay que subir de plan y armar backups, se use Render o no. Después, **más de una instancia**: ese es el momento de mirar Fly, Kubernetes gestionado, o el plan pago de Render con escalado.
+Primero **el primer cliente que paga**: ahí hay que subir de plan y armar backups, se use Render o no —y con el plan pago, pasar la API a servicio privado—. Después, **más de una instancia**: ese es el momento de mirar Fly, Kubernetes gestionado, o el plan pago de Render con escalado.
 
 ---
 
@@ -268,7 +282,7 @@ Redis vuelve a la mesa para el rate-limiter por IP, que hoy vive en memoria del 
 | Go | El producto vire a procesamiento de datos / ML |
 | GORM | El bloque de SQL crudo de `migrate.go` supere al `AutoMigrate` |
 | Next.js + BFF | Haya que exponer una API pública (app nativa, integraciones) |
-| Render | **Primer cliente que paga** → subir plan + backups. **Más de una instancia** → mirar Fly / Kubernetes |
+| Render | **Primer cliente que paga** → subir plan + backups + **API a servicio privado**. **Más de una instancia** → mirar Fly / Kubernetes |
 | Kubernetes | Haga falta más de una instancia del backend. Se revisa junto con Redis, pool y PgBouncer |
 | Docker | Nunca; el costo es bajo y el beneficio de paridad, alto |
 | Monorepo | Equipos separados con releases independientes |

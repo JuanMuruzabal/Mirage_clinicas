@@ -2,6 +2,8 @@
 package config
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -16,6 +18,15 @@ import (
 // necesita poder comparar contra ella: fuera de development, arrancar con
 // este valor tiene que ser imposible.
 const OAuthStateSecretDeDesarrollo = "dev-secret-cambiar-en-produccion"
+
+// BFFSharedSecretDeDesarrollo — el valor de ejemplo que traen
+// docker-compose.yml y los .env.example. Igual que el de arriba, es
+// PÚBLICO: está en el repo. Por eso fuera de `development` se trata como
+// si la variable no estuviera configurada (ver Load): un secreto que
+// cualquiera puede leer en GitHub no sirve para probar que una IP viene
+// del BFF — con él, cualquiera podría declarar la IP que quisiera y
+// evadir el rate-limiting y los detectores de abuso.
+const BFFSharedSecretDeDesarrollo = "dev-bff-secret"
 
 // Config agrupa todo lo que el backend necesita para arrancar.
 type Config struct {
@@ -46,6 +57,35 @@ type Config struct {
 	// backup hecho. No tiene sentido dejarla prendida de forma
 	// permanente: la protección es justamente el paso manual.
 	AllowDestructiveMigrations bool
+
+	// BFFSharedSecret — secreto compartido con el BFF de Next.js. Existe
+	// por un motivo puntual: esta API es un servicio PÚBLICO (ver
+	// render.yaml) y el navegador nunca la llama directo — todo pasa por
+	// Server Actions, así que lo que llega es siempre la IP del proceso
+	// web, no la del visitante. Con este secreto el BFF puede decir "la
+	// IP real de quien me pidió esto es tal", y la API le cree.
+	//
+	// Le cree SOLO si el secreto coincide: sin esa prueba, cualquiera
+	// podría mandarle a la API pública una IP inventada y evadir el
+	// rate-limiting y los detectores de abuso del wizard, que es
+	// exactamente lo que se quiere impedir. Vacío (dev, o mal
+	// configurado) = la cabecera se ignora por completo y todo se comporta
+	// como antes de la Fase 3.1.1.
+	BFFSharedSecret string
+
+	// DevTools habilita las comodidades de desarrollo que NUNCA pueden
+	// quedar activas en un entorno público: hoy, exponer el código de
+	// verificación de 6 dígitos en la respuesta HTTP
+	// (ExponerCodigoVerificacion) y no bloquear mail/IP en los detectores
+	// de abuso (SimularBloqueosSeguridad).
+	//
+	// Antes esas dos se prendían solas con RESEND_API_KEY vacía. Eso es
+	// fail-OPEN: la conducta peligrosa era el default, y evitarla dependía
+	// de que alguien hubiera cargado a mano una variable que no tiene nada
+	// que ver (`sync: false` en render.yaml). Acá se invierte — hay que
+	// pedirlas explícitamente, y aun pidiéndolas no alcanza: ver
+	// HerramientasDeDesarrolloHabilitadas.
+	DevTools bool
 
 	// CORSAllowedOrigins — orígenes desde los que el navegador puede
 	// llamar directo a la API. No afecta las llamadas server-to-server de
@@ -90,6 +130,60 @@ type Config struct {
 	StoragePublicURL  string
 }
 
+// bffSharedSecret resuelve BFF_SHARED_SECRET descartando el valor de
+// ejemplo fuera de `development`. Es la misma lección de TR-125 (un
+// secreto público no es un secreto), pero con otra reacción: acá no se
+// frena el arranque, se degrada a "sin configurar". Confiar en un secreto
+// que está en el repo sería PEOR que no confiar en nada — habilitaría a
+// cualquiera a elegir su IP; no confiar en nada solo hace que la API vea
+// la IP del proceso web, que es como funcionaba antes de la Fase 3.1.1.
+func bffSharedSecret(env string) string {
+	valor := getEnv("BFF_SHARED_SECRET", "")
+	if env != "development" && valor == BFFSharedSecretDeDesarrollo {
+		return ""
+	}
+	return valor
+}
+
+// HerramientasDeDesarrolloHabilitadas — la única puerta por la que pasan
+// las comodidades que exponen datos. Exige DOS cosas a la vez:
+//
+//  1. DEV_TOOLS=true, un opt-in explícito que nadie pone por accidente; y
+//  2. que la app se sirva en localhost.
+//
+// El segundo es el que convierte esto en una garantía y no en una promesa.
+// No alcanza con mirar APP_ENV: en este proyecto vale "development" en
+// Render a propósito (un solo entorno mientras dure el plan free, ver
+// render.yaml), así que un guard basado en esa variable no protegería nada
+// justo donde hace falta. AppBaseURL, en cambio, no puede mentir: es la
+// URL por la que los usuarios llegan de verdad —https://miragesoftware.online
+// en Render, http://localhost:3000 en una máquina— porque de ella salen
+// los links de los mails.
+//
+// Resultado: aunque alguien prenda DEV_TOOLS=true en el dashboard de
+// Render, estas comodidades siguen apagadas. Para exponerlas habría que
+// además hacer que la aplicación se sirva desde localhost, que es
+// precisamente el caso en el que no hay nada expuesto.
+func (c Config) HerramientasDeDesarrolloHabilitadas() bool {
+	return c.DevTools && esLocal(c.AppBaseURL)
+}
+
+// esLocal — ¿esta URL apunta a la máquina de quien desarrolla? Ante
+// cualquier duda (una URL que no parsea, un host vacío) responde NO: el
+// default tiene que ser el seguro.
+func esLocal(baseURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // Load lee la configuración desde variables de entorno, con valores por
 // defecto razonables para desarrollo local (mismos defaults que
 // docker-compose.yml).
@@ -102,6 +196,10 @@ func Load() Config {
 		Env:              getEnv("APP_ENV", "development"),
 
 		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
+
+		BFFSharedSecret: bffSharedSecret(getEnv("APP_ENV", "development")),
+
+		DevTools: getEnv("DEV_TOOLS", "false") == "true",
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 

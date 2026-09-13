@@ -86,7 +86,8 @@ Esto levanta, en orden, con las dependencias correctas entre servicios:
 Con eso arriba: **http://localhost:3000** es el sitio,
 **http://localhost:8080** es la API.
 
-Variables opcionales en desarrollo (`JWT_SECRET`, `CONTACTO_EMAIL`):
+Variables opcionales en desarrollo (`JWT_SECRET`, `CONTACTO_EMAIL`,
+`BFF_SHARED_SECRET`, `DEV_TOOLS`):
 copiar [`.env.example`](.env.example) a `.env` en la raíz antes de
 levantar el stack si hace falta cambiar algún default.
 
@@ -103,6 +104,19 @@ levantar el stack si hace falta cambiar algún default.
 > nombre quedó de una versión anterior y no se renombra para no romper
 > deploys ya configurados; del lado de Go el campo se llama
 > `Config.OAuthStateSecret`.
+
+> **`DEV_TOOLS=true` prende las comodidades de desarrollo** que exponen
+> datos: el código de verificación de 6 dígitos viaja en la respuesta HTTP
+> (para no ir a buscarlo a los logs) y los detectores de abuso del wizard
+> avisan sin bloquear mail/IP (para no limpiar la base a mano mientras se
+> prueba). `docker compose` ya la trae puesta, así que no hay que hacer
+> nada para el flujo normal.
+>
+> **Prenderla no alcanza para exponer nada:** el backend además exige que
+> `APP_BASE_URL` apunte a localhost. Con un dominio público la variable se
+> ignora y queda un `WARN` en el log de arranque diciéndolo — a propósito
+> no se usa `APP_ENV` como señal, porque en este proyecto vale
+> `development` incluso en Render (ver el deploy más abajo). Ver TR-135.
 
 ### Migraciones que borran datos
 
@@ -310,10 +324,18 @@ retomarlo tal cual.
 **Los valores de los secrets nunca están en el repo.** `render.yaml` solo
 declara qué variables existen; cada una marcada `sync: false` se carga
 una única vez desde el dashboard de Render al aplicar el blueprint (o
-`generateValue: true` para `JWT_SECRET`, que Render genera y guarda solo,
-sin que nadie lo vea en texto plano — y que **no puede quedar vacía**: el
-backend se niega a arrancar si el valor resuelto es el de ejemplo del
-repo).
+`generateValue: true` para `JWT_SECRET` y `BFF_SHARED_SECRET`, que Render
+genera y guarda solos, sin que nadie los vea en texto plano — `JWT_SECRET`
+además **no puede quedar vacía**: el backend se niega a arrancar si el
+valor resuelto es el de ejemplo del repo).
+
+`BFF_SHARED_SECRET` es el único que vive en **dos** servicios: lo genera la
+API y el web lo lee de ella vía `fromService`, así que tampoco hay nada que
+cargar a mano ni se puede desincronizar. Es lo que le permite al frontend
+decirle a la API cuál es la IP real del visitante — sin él, la API ve la IP
+del proceso web y el rate-limiting por IP más los detectores de abuso del
+wizard cuentan a todos los visitantes como uno solo (TR-134). Si falta, el
+backend avisa con un WARN al arrancar pero no se cae.
 
 > ⚠️ **La base está en el plan `free` de Postgres a propósito**, mientras
 > no haya profesionales reales cargados — **se borra sola a los 30 días

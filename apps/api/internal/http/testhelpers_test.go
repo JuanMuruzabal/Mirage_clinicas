@@ -31,6 +31,25 @@ func newTestRouter(t *testing.T) (http.Handler, *gorm.DB) {
 	return NewRouter(gdb, "un-secret-de-test", []string{"http://localhost:3000"}), gdb
 }
 
+// doJSONConCabeceras — doJSON con cabeceras extra. Fase 3.1.1: hace falta
+// para simular lo que manda el BFF (la IP real del visitante y el secreto
+// compartido, ver ip_del_visitante.go).
+func doJSONConCabeceras(t *testing.T, router http.Handler, method, path string, body any, cabeceras map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	b, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("no se pudo serializar el body: %v", err)
+	}
+	req := httptest.NewRequest(method, path, bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range cabeceras {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
 func doJSON(t *testing.T, router http.Handler, method, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	var reader *bytes.Reader
