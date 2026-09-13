@@ -187,20 +187,84 @@ type authHandler struct {
 // abuso del formulario público (turno_publico.go) — tomar el valor
 // equivocado los deja evadibles con un solo header falso.
 //
-// Si en algún momento se suma un segundo proxy real delante de Render
-// (un CDN, por ejemplo), esta lógica deja de alcanzar — hace falta lista
-// explícita de proxies de confianza y contar desde el final cuántos
-// saltos confiables hay, no asumir siempre "el último".
+// CORRECCIÓN (Fase 3.1.2, 2026-09-13): el párrafo de arriba terminaba
+// diciendo que "si en algún momento se suma un segundo proxy real delante
+// de Render (un CDN, por ejemplo), esta lógica deja de alcanzar". Resultó
+// que ese segundo proxy ESTABA DESDE SIEMPRE: Render pone Cloudflare
+// delante de todos sus servicios (`Server: cloudflare` + `CF-RAY` en
+// cualquier respuesta, incluso en los dominios *.onrender.com), y además
+// tiene su propio router interno.
+//
+// Medido contra el deploy real: un GET a /especialidades desde una IP
+// pública conocida quedó logueado como `ip=10.29.215.4` — una dirección
+// PRIVADA, el router interno de Render. O sea que el "último valor" nunca
+// fue el visitante en producción, y todo lo que decide por IP venía
+// agrupando el tráfico entero bajo un puñado de IPs internas.
+//
+// La regla nueva no asume cuántos saltos hay, que es lo que se rompió:
+//
+//  1. `CF-Connecting-IP`, que Cloudflare SOBRESCRIBE en cada request (no
+//     es falsificable mientras el origen solo sea alcanzable a través de
+//     él, que es el caso en Render).
+//  2. Si no está, la última IP PÚBLICA de X-Forwarded-For. Sigue valiendo
+//     el razonamiento de TR-121 —el cliente solo controla el principio de
+//     la cadena— pero saltea los saltos de infraestructura del final, que
+//     son los que rompían la lectura.
+//  3. Si la cadena no tiene ninguna IP pública (desarrollo, tests, red
+//     interna), el último valor tal cual: exactamente el comportamiento
+//     anterior, para no cambiar nada donde no hacía falta.
 func clientIP(r *http.Request) string {
+	ip, _ := clientIPConFuente(r)
+	return ip
+}
+
+// clientIPConFuente devuelve además DE DÓNDE salió la IP. El logger lo
+// escribe en cada request (`ip_fuente`), y no es un detalle de debug: es
+// la única forma de saber, mirando un deploy real, si la topología de
+// proxies es la que creemos. El bug que originó esta función se vivió
+// justamente por deducir la topología en vez de medirla — un log que dice
+// "esta IP salió de CF-Connecting-IP" convierte esa pregunta en un dato.
+//
+// Valores: "cf" (CF-Connecting-IP), "xff" (última IP pública de la
+// cadena), "xff-interna" (la cadena no tenía ninguna pública: desarrollo,
+// o una topología distinta de la esperada) y "remote" (sin cabeceras).
+func clientIPConFuente(r *http.Request) (string, string) {
+	if ip := ipPublica(r.Header.Get("CF-Connecting-IP")); ip != "" {
+		return ip, "cf"
+	}
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
 		parts := strings.Split(fwd, ",")
-		return strings.TrimSpace(parts[len(parts)-1])
+		for i := len(parts) - 1; i >= 0; i-- {
+			if ip := ipPublica(parts[i]); ip != "" {
+				return ip, "xff"
+			}
+		}
+		return strings.TrimSpace(parts[len(parts)-1]), "xff-interna"
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		return r.RemoteAddr, "remote"
 	}
-	return host
+	return host, "remote"
+}
+
+// ipPublica devuelve la IP si el string es una dirección enrutable en
+// internet, o "" si no lo es. Descarta lo que no puede ser un visitante:
+// loopback, redes privadas (RFC1918 y su equivalente IPv6), link-local y
+// la dirección sin especificar — todas ellas saltos de infraestructura.
+func ipPublica(valor string) string {
+	valor = strings.TrimSpace(valor)
+	if valor == "" {
+		return ""
+	}
+	ip := net.ParseIP(valor)
+	if ip == nil {
+		return ""
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		return ""
+	}
+	return valor
 }
 
 func normalizeEmail(raw string) string {

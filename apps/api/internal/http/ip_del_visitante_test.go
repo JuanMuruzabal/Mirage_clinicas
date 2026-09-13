@@ -102,14 +102,32 @@ func TestConfiarEnIPDelBFF_SinElSecretoNoSeLeCree(t *testing.T) {
 }
 
 // TestConfiarEnIPDelBFF_SinCabecerasNoTocaNada — el tráfico que no viene
-// del BFF (o un BFF viejo, a mitad de un deploy) tiene que seguir
-// funcionando exactamente como antes de esta fase.
+// del BFF (o un BFF viejo, a mitad de un deploy) sigue resolviéndose con
+// la regla general de clientIP(): la última IP pública de la cadena, que
+// desde la Fase 3.1.2 saltea los saltos de infraestructura del final.
 func TestConfiarEnIPDelBFF_SinCabecerasNoTocaNada(t *testing.T) {
 	got := pedirConCabeceras(t, "secreto-compartido", map[string]string{
 		"X-Forwarded-For": "190.190.1.1, 10.0.0.9",
 	}, "10.0.0.9:1234")
-	if got != "10.0.0.9" {
-		t.Errorf("clientIP = %q, esperaba el último valor de X-Forwarded-For (TR-121)", got)
+	if got != "190.190.1.1" {
+		t.Errorf("clientIP = %q, esperaba la última IP pública de la cadena", got)
+	}
+}
+
+// TestConfiarEnIPDelBFF_LeGanaAlCFConnectingIP — el pedido del BFF a esta
+// API también viaja por la URL pública, así que Cloudflare le pone su
+// CF-Connecting-IP con la IP del PROCESO WEB: exactamente la que la Fase
+// 3.1.1 vino a corregir. Si esa cabecera sobreviviera, le ganaría a la IP
+// real (clientIP la prefiere) y el arreglo no serviría de nada.
+func TestConfiarEnIPDelBFF_LeGanaAlCFConnectingIP(t *testing.T) {
+	got := pedirConCabeceras(t, "secreto-compartido", map[string]string{
+		headerAuthDelBFF:     "secreto-compartido",
+		headerIPDelVisitante: "201.235.14.7",
+		"CF-Connecting-IP":   "34.10.20.30", // la IP de salida del servicio web
+		"X-Forwarded-For":    "34.10.20.30, 10.29.215.4",
+	}, "10.29.215.4:1234")
+	if got != "201.235.14.7" {
+		t.Errorf("clientIP = %q, esperaba la IP del visitante que mandó el BFF", got)
 	}
 }
 

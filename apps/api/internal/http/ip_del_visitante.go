@@ -69,12 +69,19 @@ func confiarEnIPDelBFF(secretoCompartido string) func(http.Handler) http.Handler
 			r.Header.Del(headerAuthDelBFF)
 
 			if ip != "" {
-				// Un único valor, que es el que clientIP() va a tomar por
-				// ser el último. Se reemplaza en vez de agregar: lo que
-				// venía era la cadena de proxies hasta el BFF, y su último
-				// eslabón es justamente la IP equivocada que motivó todo
-				// esto.
+				// Un único valor: se reemplaza en vez de agregar, porque lo
+				// que venía era la cadena de proxies hasta el BFF y ninguno
+				// de esos saltos es el visitante.
 				r.Header.Set("X-Forwarded-For", ip)
+				// Y se borran las cabeceras del CDN. Esto NO es limpieza:
+				// es necesario. El pedido del BFF a esta API también viaja
+				// por la URL pública, así que Cloudflare le pone su
+				// CF-Connecting-IP — con la IP del PROCESO WEB, que es
+				// justamente la que estamos corrigiendo. Como clientIP()
+				// prefiere esa cabecera, dejarla acá haría que le ganara a
+				// la IP real y el arreglo no serviría de nada.
+				r.Header.Del("CF-Connecting-IP")
+				r.Header.Del("True-Client-IP")
 			}
 
 			next.ServeHTTP(w, r)
