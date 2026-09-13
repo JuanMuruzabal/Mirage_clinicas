@@ -1,6 +1,6 @@
 # Fase 3.2 — Multi-tenant
 
-**Estado:** en curso, arrancada el 2026-09-13 · **Brief:** `Fase2-fix-Fase3-Multi-tenant.docx` · **Modelo de datos:** [`../../Arquitectura y base/modelo de datos/`](../../Arquitectura%20y%20base/modelo%20de%20datos/)
+**Estado:** en curso · ✅ **3.2.1 completa (2026-09-13)**, sigue la 3.2.2 · **Brief:** `Fase2-fix-Fase3-Multi-tenant.docx` · **Modelo de datos:** [`../../Arquitectura y base/modelo de datos/`](../../Arquitectura%20y%20base/modelo%20de%20datos/)
 
 Entregable 2 del brief: el documento que explica cómo se va aplicando la fase. Se escribe **a medida que avanza**, no al final.
 

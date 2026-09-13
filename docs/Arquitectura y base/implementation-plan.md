@@ -39,7 +39,7 @@ La spec de PRISMA no trae una sección de ERD como la de Marcuzzi (§5). Se prop
 - **`turno`**: `profesional_id`, `paciente_id` (nullable hasta que se agenda), `tipo_consulta_id`, `estado` (`pendiente` / `agendado` / `cancelada`), `rango_horario` (`tstzrange`, nullable mientras está `pendiente` — recién se fija en el modal de confirmación, spec §4.3), `motivo_consulta`, `origen` (`pagina_publica` / `manual`).
 - **`pagina_publica`**: 1:1 con `profesional`. `oculta` (bool, modo mantenimiento), `deployada_en` (nullable — controla si aparece en el buscador público, spec §5.2), contenido de las 3 secciones fijas (turno / sobre nosotros / especialidades, spec §5.3).
 
-**Constraint no negociable (spec §4.3):** `EXCLUDE USING gist` sobre `(profesional_id, rango_horario)` en `turno`, activo solo para filas con `estado = 'agendado'` (las `pendiente` no tienen `rango_horario` todavía — ver TR-006). Mismo mecanismo que `TR-005`/`TR-010` de Marcuzzi_Madryn, aplicado a horas en vez de días.
+**Constraint no negociable (spec §4.3):** `EXCLUDE USING gist` sobre `(atendido_por_user_id, rango_horario)` en `turnos` —era sobre `profesional_id`, o sea la clínica, hasta la Fase 3.2.1 (TR-137)—, activo solo para filas con `estado = 'agendado'` (las `pendiente` no tienen `rango_horario` todavía — ver TR-006). Mismo mecanismo que `TR-005`/`TR-010` de Marcuzzi_Madryn, aplicado a horas en vez de días.
 
 ---
 

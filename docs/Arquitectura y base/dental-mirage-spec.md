@@ -83,7 +83,7 @@ El wizard persiste el progreso en cada paso — cerrar sesión y volver retoma e
 - Al confirmar:
   - Si venía de turnos pendientes → el turno pasa de "pendiente" a "agendado" en el calendario, y se crea/vincula su entrada en Pacientes.
   - Si era un paciente nuevo → se crea la entrada en Pacientes en el mismo momento.
-- **Regla de negocio no negociable:** dos turnos de un mismo profesional no pueden solaparse en horario. Esto se garantiza a nivel de base de datos (Postgres, `btree_gist` + `EXCLUDE USING gist`), no solo con validación en el backend — ver sección 9.2. Cualquier intento de agendar un turno solapado debe fallar de forma predecible y mostrarse como error de validación en el modal, no como error 500.
+- **Regla de negocio no negociable:** dos turnos de un mismo profesional no pueden solaparse en horario. Esto se garantiza a nivel de base de datos (Postgres, `btree_gist` + `EXCLUDE USING gist` sobre `atendido_por_user_id`, desde la Fase 3.2.1 — antes era sobre la clínica, que coincidía mientras cada una tuviera un solo profesional), no solo con validación en el backend — ver sección 9.2. Cualquier intento de agendar un turno solapado debe fallar de forma predecible y mostrarse como error de validación en el modal, no como error 500.
 
 ### 4.4 Turnos (pedidos entrantes)
 - Lista todos los turnos a confirmar que llegan **desde la página pública deployada** del profesional.

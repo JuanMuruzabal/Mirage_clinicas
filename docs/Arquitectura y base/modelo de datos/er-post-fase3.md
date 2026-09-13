@@ -1,8 +1,10 @@
 # Modelo de datos — DESPUÉS de la Fase 3
 
-**Fecha:** 2026-09-13 · **Estado:** propuesta, sin implementar · **Punto de partida:** [`er-pre-fase3.md`](er-pre-fase3.md)
+**Fecha:** 2026-09-13 · **Estado:** ✅ **aplicado** — los 8 cambios están en la base desde la Fase 3.2.1 · **Punto de partida:** [`er-pre-fase3.md`](er-pre-fase3.md)
 
-Entregable 1 del brief de Fase 3. Este documento es una **propuesta de diseño**: ninguna de estas tablas existe todavía. Se escribe antes del código a propósito — las decisiones de acá cuestan horas en un diagrama y días a mitad de la implementación.
+Entregable 1 del brief de Fase 3. Se escribió como **propuesta de diseño, antes del código**, a propósito: las decisiones de acá cuestan horas en un diagrama y días a mitad de la implementación.
+
+Ya no es una propuesta. La Fase 3.2.1 lo implementó completo el 2026-09-13, y el diseño sobrevivió al contacto con la base sin cambios de fondo: lo único que se sumó sobre la marcha fue `chk_turno_agendado_profesional`, que el test del requisito no negociable reveló como imprescindible (el `EXCLUDE` compara `WITH =` y dos NULL nunca son iguales, así que un turno sin profesional quedaba fuera de la regla).
 
 ---
 

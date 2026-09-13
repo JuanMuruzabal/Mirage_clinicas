@@ -40,10 +40,12 @@ La regla no negociable del producto es que dos turnos del mismo profesional no p
 ```sql
 ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
   EXCLUDE USING gist (
-    profesional_id WITH =,
-    rango_horario  WITH &&      -- && = "los rangos se intersectan"
+    atendido_por_user_id WITH =,
+    rango_horario        WITH &&   -- && = "los rangos se intersectan"
   ) WHERE (estado = 'agendado');
 ```
+
+(Hasta la Fase 3.2.1 la primera columna era `profesional_id`, que guardaba la clínica. La regla escrita siempre dijo "del mismo profesional" — con una clínica de un solo odontólogo las dos lecturas coincidían, y recién el multi-tenant las separó.)
 
 La base **rechaza** el solapamiento. No hay forma de insertarlo: ni desde el panel, ni desde el formulario público, ni desde una consulta a mano, ni desde un bug futuro, ni desde dos requests simultáneas que pasen la validación al mismo tiempo.
 
