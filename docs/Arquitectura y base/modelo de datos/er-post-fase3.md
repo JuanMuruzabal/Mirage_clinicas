@@ -195,7 +195,7 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 4 | `turnos.atendido_por_user_id` + FK compuesta a la membresía | Columna + constraint |
 | 5 | `tipos_consulta.user_id`, `horarios_atencion.user_id`, `bloqueos_horario.user_id` | Columnas nuevas |
 | 6 | `sin_solapamiento_turno` se muda a `atendido_por_user_id` | Constraint |
-| 7 | `profesional_id` → `clinic_id` en 9 tablas | Renombre |
+| 7 | `profesional_id` → `clinic_id` en 9 tablas ✅ **hecho 2026-09-13** | Renombre |
 | 8 | Baja de `profesionales` y `profesional_especialidades` ✅ **hecho 2026-09-13** | Destructiva (TR-132) |
 
 **Orden obligatorio:** 7 antes que 4 (para no tener las dos columnas confusas conviviendo ni un minuto), y 5 antes que 6 (el constraint nuevo necesita la columna poblada). La migración de datos existentes —39 turnos, 7 tipos de consulta, 3 horarios— asigna todo al `owner` de cada clínica, que hoy es su único profesional.
