@@ -106,22 +106,46 @@ async function requestPaginado<T>(path: string, init?: RequestInit): Promise<Api
 // apps/api/internal/http/ip_del_visitante.go.
 const BFF_SHARED_SECRET = process.env.BFF_SHARED_SECRET ?? "";
 
-// ipDelVisitante — el ÚLTIMO valor de `x-forwarded-for`, mismo criterio
-// que `clientIP()` en Go (TR-121): con exactamente un proxy de confianza
-// adelante —el de Render— es el único que el cliente no puede falsificar,
-// porque lo agrega el proxy y no viene del navegador.
+// ipDelVisitante — mismo orden de preferencia que `clientIP()` en Go, y por
+// el mismo motivo (Fase 3.1.2).
 //
-// Devuelve "" y no rompe nada si no hay contexto de request (por ejemplo
-// durante el build) o si la cabecera no está (desarrollo local, donde el
-// navegador le pega derecho a Next sin proxy en el medio). Sin IP no se
-// manda la cabecera, y la API se comporta como antes de esta fase.
+// La primera versión tomaba el ÚLTIMO valor de `x-forwarded-for`, siguiendo
+// TR-121: con exactamente un proxy de confianza adelante, ese es el único
+// que el cliente no puede falsificar. Medido contra el deploy real, la
+// premisa era falsa: Render pone Cloudflare delante de todos sus servicios
+// y además tiene un router interno, así que el final de la cadena es
+// infraestructura. Un GET de prueba quedó logueado como `ip=10.29.215.4`,
+// una dirección privada.
+//
+//   1. `cf-connecting-ip`, que Cloudflare sobrescribe en cada request.
+//   2. Si no está, la última IP PÚBLICA de la cadena — sigue valiendo que
+//      el cliente solo controla el principio, pero saltea los saltos
+//      internos del final.
+//
+// Devuelve "" sin romper nada si no hay contexto de request (durante el
+// build) o si no hay cabeceras (desarrollo local: el navegador le pega
+// derecho a Next, sin proxy en el medio). Sin IP no se manda nada.
+function esIPPublica(valor: string): boolean {
+  const ip = valor.trim();
+  if (!ip) return false;
+  // Privadas (RFC1918), loopback, link-local y sus equivalentes IPv6.
+  return !/^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fe80:|f[cd])/i.test(ip);
+}
+
 async function ipDelVisitante(): Promise<string> {
   if (!BFF_SHARED_SECRET) return "";
   try {
-    const crudo = (await headers()).get("x-forwarded-for");
+    const h = await headers();
+    const cf = (h.get("cf-connecting-ip") ?? "").trim();
+    if (cf && esIPPublica(cf)) return cf;
+
+    const crudo = h.get("x-forwarded-for");
     if (!crudo) return "";
-    const partes = crudo.split(",");
-    return partes[partes.length - 1].trim();
+    const partes = crudo.split(",").map((p) => p.trim()).filter(Boolean);
+    for (let i = partes.length - 1; i >= 0; i--) {
+      if (esIPPublica(partes[i])) return partes[i];
+    }
+    return "";
   } catch {
     return "";
   }

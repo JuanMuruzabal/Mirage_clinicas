@@ -786,6 +786,16 @@ Sin el secreto configurado todo se comporta como antes (agrupa de más, nunca de
 
 **Auditoría de variables de entorno (TR-135), al cerrar la fase.** Nada filtrado —los `.env` reales están ignorados y nunca estuvieron en el historial, las `NEXT_PUBLIC_*` son públicas por diseño, ningún log imprime un secreto—, pero sí dos defaults peligrosos: el secreto de ejemplo del BFF (que se descarta fuera de `development`, porque confiar en un secreto público sería peor que no confiar en nada) y, sobre todo, las comodidades de desarrollo que se prendían solas con `RESEND_API_KEY` vacía. Pasan a *fail-closed*: exigen `DEV_TOOLS=true` **y** `AppBaseURL` en localhost. La señal es `AppBaseURL` y no `APP_ENV` porque esta última vale `development` en Render por decisión (TR-021), así que no puede sostener un guard. 11 casos de tabla en CI lo garantizan, incluido "alguien prende `DEV_TOOLS` en Render" → apagado.
 
+### 13.1.2 Fase 3.1.2 — la topología de proxies era otra (✅ 2026-09-13)
+
+Salió de una pregunta del cliente ("¿la app tiene Cloudflare?"): un `curl -sI` mostró `Server: cloudflare` en los dos dominios, incluido `*.onrender.com`. **Render pone Cloudflare delante de todos sus servicios.** La medición que lo cerró: un GET desde una IP pública conocida quedó logueado como `ip=10.29.215.4` — el router interno de Render.
+
+O sea que el "último valor de `X-Forwarded-For`" de TR-121 **nunca fue el visitante en producción**, y la Fase 3.1.1 heredaba el mismo error. `clientIP()` y el BFF pasan a preferir `CF-Connecting-IP` y, si no está, la última IP **pública** de la cadena. El middleware del BFF borra `CF-Connecting-IP` al aplicar la IP del visitante, o el propio pedido del BFF (que también pasa por Cloudflare) le ganaría con la IP del proceso web.
+
+Decisión y límites en TR-136 — incluido el que no se puede resolver leyendo la cadena: `172.71.x` es un rango **público** de Cloudflare, así que sin `CF-Connecting-IP` el fallback llega hasta el borde del CDN, no hasta la persona.
+
+**Pendiente de comprobación:** un `curl` contra el deploy y mirar el campo `ip_fuente` nuevo del log. Hasta hacerlo, esto es una hipótesis bien fundada, no un hecho.
+
 ### 13.2 Multi-tenant propiamente dicho (pendiente)
 
 Las dos mitades del modelo nuevo, según el brief:

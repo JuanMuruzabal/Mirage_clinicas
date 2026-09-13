@@ -106,6 +106,7 @@ func loggerMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 					patron = rctx.RoutePattern()
 				}
 
+				ipLogueada, fuenteIP := clientIPConFuente(r)
 				atributos := []slog.Attr{
 					slog.String("request_id", middleware.GetReqID(r.Context())),
 					slog.String("metodo", r.Method),
@@ -116,7 +117,13 @@ func loggerMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 					slog.Int("status", ww.Status()),
 					slog.Int64("duracion_ms", time.Since(inicio).Milliseconds()),
 					slog.Int("bytes", ww.BytesWritten()),
-					slog.String("ip", clientIP(r)),
+					slog.String("ip", ipLogueada),
+					// Fase 3.1.2: de dónde salió esa IP. Permite comprobar
+					// en un deploy real si la cadena de proxies es la que
+					// suponemos, en vez de deducirla — que fue exactamente
+					// el error que dejó a todo el sistema leyendo la IP
+					// equivocada durante meses.
+					slog.String("ip_fuente", fuenteIP),
 				}
 				// Solo presentes en requests autenticados — se omiten del
 				// todo (en vez de ir en vacío) para no ensuciar los logs de
