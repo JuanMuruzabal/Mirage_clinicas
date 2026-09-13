@@ -335,3 +335,29 @@ El primero que escribi para "un admin si puede administrar la pagina" verificaba
 Se vio porque su par —el que espera 403 para el profesional— fallo con "status = 404, esperaba 403". Los dos pasan ahora exigiendo **200 explicito**. Una asercion negativa (`!= algo`) es verdadera por demasiados motivos; en un test de permisos eso es justo lo que no se puede permitir.
 
 **Aplicado sobre la base de desarrollo:** los 3 titulares pasaron de `owner` a `admin+owner+profesional`. 12 paquetes en verde, gofmt + golangci-lint 0 issues.
+
+### 2026-09-13 - paso 3: el aislamiento entre colegas
+
+El brief lo pide en mayusculas: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO DEL RESTO DE PROFESIONALES"*.
+
+Los tests de aislamiento que ya existian (TR-129) son entre **clinicas distintas**. Entre colegas de la misma clinica no habia ninguno, porque hasta esta fase no habia colegas.
+
+**Quien ve todo:** recepcion, por definicion del brief, y quien administra la clinica (owner, admin), que necesitan la vista completa para reasignar turnos y resolver conflictos.
+
+**Por que vive en un scope y no en cada handler.** Son 17 queries de turnos y 8 de pacientes filtrando por clinica. Repetir la condicion en cada una garantiza que alguna quede sin ella, y **una fuga de aislamiento no se nota mirando la pantalla**: los datos aparecen, simplemente son de mas gente de la que corresponde. Concentrarlo en soloMisTurnos / soloMisPacientes deja un solo lugar que auditar, y un solo lugar que cambiar cuando la 3.2.6 sume la vista del recepcionista por profesional.
+
+**Los pacientes son de la clinica, no del profesional** (TR-137), asi que "los pacientes de Lucia" no es una columna: son los que tienen algun turno con ella. Eso mantiene una sola ficha por persona -de lo que depende la deteccion de conflictos de identidad de la Fase 2.4- y a la vez permite la vista aislada.
+
+**La ficha de un paciente ajeno devuelve 404, no 403.** Que exista no es informacion que ese profesional deba tener.
+
+#### El control negativo, y el primer intento que no probaba nada
+
+Para verificar que los tests detectan una fuga, se rompio el aislamiento a proposito. El primer intento -hacer que veTodaLaClinica devolviera true siempre- dejo un import sin usar, **el paquete no compilo y los tests no corrieron**: la salida vacia parecia un "pasa igual" y era un "no se ejecuto nada".
+
+El segundo intento sumo RoleProfesional a la lista de quienes ven todo, que compila y reproduce exactamente la fuga. Ahi si aparecieron los dos fallos esperados, y el body del 200 mostro lo que se filtraria: la ficha completa del paciente de un colega, con su historial de turnos.
+
+**La leccion es sobre el control negativo en si:** si al romper el codigo la salida queda vacia, lo primero que hay que descartar es que el test no haya corrido. Un control negativo que no falla no prueba que el test sirva; puede estar probando que no compila.
+
+**Aplicado:** 12 paquetes en verde, gofmt + golangci-lint 0 issues, contenedores reconstruidos (web:200 api:200).
+
+Con esto **la 3.2.2 queda completa**. Sigue la 3.2.3: onboarding nuevo y la pantalla "donde trabajas hoy".

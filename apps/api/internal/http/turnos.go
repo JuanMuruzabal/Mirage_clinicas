@@ -148,7 +148,9 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		query := gdb.Where("clinic_id = ?", profesionalID)
+		// Aislamiento entre colegas (Fase 3.2.2): un profesional ve su
+		// agenda; recepción, admin y owner ven la de toda la clínica.
+		query := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloMisTurnos(r))
 		if estado := r.URL.Query().Get("estado"); estado != "" {
 			query = query.Where("estado = ?", estado)
 		}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"dental-mirage/api/internal/db"
 
@@ -146,5 +147,129 @@ func TestPermisos_UnAdministradorDePaginaSiPuede(t *testing.T) {
 	rec := doJSONAuth(t, router, http.MethodGet, "/panel/pagina", token, nil)
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, esperaba 200: con rol admin se administra la página. body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// turnoDeColegaDePrueba crea un turno atendido por `userID` en la clínica
+// indicada, con su ficha de paciente. Devuelve las dos ids.
+func turnoDeColegaDePrueba(t *testing.T, gdb *gorm.DB, clinicID, userID uuid.UUID, dni string) (uuid.UUID, uuid.UUID) {
+	t.Helper()
+	tel := "+5493510000000"
+	paciente := db.Paciente{ClinicID: clinicID, Nombre: "Pac", Apellido: "Iente", DNI: dni, Telefono: &tel, Origen: "manual"}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
+	}
+	inicio := time.Now().Add(48 * time.Hour)
+	fin := inicio.Add(30 * time.Minute)
+	turno := db.Turno{
+		ClinicID: clinicID, AtendidoPorUserID: &userID, PacienteID: &paciente.ID,
+		Estado: "agendado", HoraInicio: &inicio, HoraFin: &fin,
+		NombreContacto: "Pac", ApellidoContacto: "Iente", DNIContacto: dni,
+		TelefonoContacto: tel, EmailContacto: "pac@example.com", Origen: "manual",
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno de prueba: %v", err)
+	}
+	return turno.ID, paciente.ID
+}
+
+// TestAislamientoEntreColegas_UnProfesionalNoVeLosTurnosDeOtro — el brief,
+// en mayúsculas: "CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO
+// DEL RESTO DE PROFESIONALES".
+//
+// Los tests de aislamiento que existían (TR-129) son entre CLÍNICAS
+// distintas. Este es entre colegas de la misma, que es un límite que hasta
+// esta fase no existía — y que no se nota mirando la pantalla si se rompe:
+// los turnos aparecen, simplemente son de más gente de la que corresponde.
+func TestAislamientoEntreColegas_UnProfesionalNoVeLosTurnosDeOtro(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-aisla@example.com", Password: "unaClaveLarga123", Nombre: "Ana Titular", NombreClinica: "Clínica Aislada",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, clinicID)
+
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-aisla@example.com", db.RoleProfesional)
+	var colega db.User
+	if err := gdb.Where("email = ?", "colega-aisla@example.com").First(&colega).Error; err != nil {
+		t.Fatalf("no se encontró al colega: %v", err)
+	}
+
+	// Un turno de cada uno, en la MISMA clínica.
+	turnoDelTitular, _ := turnoDeColegaDePrueba(t, gdb, clinicID, ownerID, "40111001")
+	turnoDelColega, _ := turnoDeColegaDePrueba(t, gdb, clinicID, colega.ID, "40111002")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos", tokenColega, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var turnos []turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &turnos)
+
+	vistos := map[string]bool{}
+	for _, tu := range turnos {
+		vistos[tu.ID] = true
+	}
+	if !vistos[turnoDelColega.String()] {
+		t.Error("el profesional no ve su propio turno")
+	}
+	if vistos[turnoDelTitular.String()] {
+		t.Error("FUGA DE AISLAMIENTO: el profesional ve el turno de un colega de la misma clínica")
+	}
+}
+
+// TestAislamientoEntreColegas_RecepcionVeTodaLaClinica — la otra mitad, y
+// la que hace útil al rol: "el recepcionista tiene acceso a todas las
+// vistas de los profesionales".
+func TestAislamientoEntreColegas_RecepcionVeTodaLaClinica(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-recep@example.com", Password: "unaClaveLarga123", Nombre: "Ana Titular", NombreClinica: "Clínica Recepción",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, clinicID)
+
+	tokenRecep := sumarColaboradorDePrueba(t, gdb, router, clinicID, "recep@example.com", db.RoleRecepcion)
+	turnoDelTitular, _ := turnoDeColegaDePrueba(t, gdb, clinicID, ownerID, "40222001")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos", tokenRecep, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var turnos []turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &turnos)
+
+	for _, tu := range turnos {
+		if tu.ID == turnoDelTitular.String() {
+			return
+		}
+	}
+	t.Error("recepción tiene que ver los turnos de todos los profesionales de la clínica")
+}
+
+// TestAislamientoEntreColegas_LaFichaDeUnPacienteAjenoDa404 — el paciente
+// es de la CLÍNICA (TR-137), pero la vista está anclada al profesional:
+// pedir por id la ficha de alguien que nunca atendió devuelve 404, no 403.
+// Que exista no es información que deba tener.
+func TestAislamientoEntreColegas_LaFichaDeUnPacienteAjenoDa404(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-ficha@example.com", Password: "unaClaveLarga123", Nombre: "Ana Titular", NombreClinica: "Clínica Ficha",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, clinicID)
+
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-ficha@example.com", db.RoleProfesional)
+	_, pacienteDelTitular := turnoDeColegaDePrueba(t, gdb, clinicID, ownerID, "40333001")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/"+pacienteDelTitular.String(), tokenColega, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba 404 para la ficha de un paciente de otro colega. body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Y el titular, que sí lo atiende, la ve.
+	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes/"+pacienteDelTitular.String(), titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, esperaba 200 para el profesional que sí atiende a ese paciente", rec.Code)
 	}
 }
