@@ -1869,6 +1869,14 @@ Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se bo
 - **Lo que la misma medición destapó, en el camino que importa.** Un pedido del wizard público (`/clinicas/{slug}/disponibilidad`, o sea visitante → BFF → API) quedó logueado como `ip=74.220.48.143 ip_fuente=cf`: la IP de salida del servicio web de Render, no la del paciente. El BFF no estaba propagando nada, así que la API cayó en el `CF-Connecting-IP` del salto BFF→API. La causa está del lado de la configuración —`BFF_SHARED_SECRET` vive en `render.yaml` y el blueprint hay que sincronizarlo para que la variable exista— pero dejó a la vista dos defectos propios:
   1. **El aviso de arranque no avisó.** Estaba condicionado a `cfg.Env != "development"`, y `APP_ENV` vale `development` en Render por decisión (TR-021): el WARN nunca se emitía justo en el entorno donde importaba. Es exactamente el error que TR-135 había corregido para las herramientas de desarrollo, repetido acá tres commits después. Ahora la condición es `!SeSirveEnLocalhost()`, la misma señal, ya expuesta como método de `Config` para que no haya dos criterios conviviendo.
   2. **`ip_fuente` no distinguía "lo propagó el BFF" de "lo deduje de la cadena".** Las dos daban `xff`, así que el diagnóstico exigía razonar sobre el valor de la IP —trabajo detectivesco, el mismo que ya había costado caro dos veces—. El middleware marca ahora la request en el contexto y el log dice `ip_fuente=bff`. Dos tests dejan escrito el par de síntomas: con secreto, `bff`; sin secreto, la IP del salto BFF→API con fuente `cf`, que es la firma de "falta la variable en el deploy".
+- **Cerrado end-to-end (2026-09-13 02:24 UTC).** Cargado el secreto en los dos servicios, un pedido del wizard público quedó logueado como:
+
+  ```
+  ruta=/clinicas/{slug} status=200 ip=190.137.139.220 ip_fuente=bff
+  ```
+
+  La IP real del visitante, propagada por el BFF y aceptada por sobre el `CF-Connecting-IP` del salto BFF→API. Las tres lecturas de la secuencia, en orden, cuentan la historia completa: `ip=10.29.215.4` (antes de todo: el router interno de Render), `ip=74.220.48.143 ip_fuente=cf` (con la corrección pero sin el secreto cargado: la IP de salida del servicio web) y finalmente `ip=190.137.139.220 ip_fuente=bff`. Recién en la tercera el rate-limiting por IP y los detectores de abuso del wizard miden lo que dicen medir.
+- **La variable no se creó sola**, porque los servicios de Render no están conectados al blueprint: `generateValue` + `fromService` de `render.yaml` solo se aplican al sincronizarlo. Quedó `scripts/cargar-bff-secret-en-render.sh` para hacerlo por la API sin tipear el valor, y el README corregido — afirmaba que "no hay nada que cargar a mano", que era cierto solo bajo un supuesto que no se cumplía. **Esa afirmación equivocada en el README es lo que hizo perder el rastro**: se dio por hecho que la variable existía.
 
 ---
 
