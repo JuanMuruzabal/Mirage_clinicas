@@ -41,6 +41,21 @@ type User struct {
 	OnboardingStep        string     `gorm:"column:onboarding_step;type:varchar(20);not null;default:'cuenta';check:onboarding_step IN ('cuenta','perfil','clinica','completo')"`
 	OnboardingCompletedAt *time.Time `gorm:"column:onboarding_completed_at"`
 
+	// CodigoInvitacion — Fase 3.2.3. El código que la persona genera para
+	// que una clínica la sume al equipo ("Unirme a otra clínica" en
+	// `/clinicas`). Vive en el usuario y no en la clínica porque la
+	// dirección del pedido es al revés que la de una invitación: acá el
+	// profesional se ofrece, y quien lo carga es la clínica (3.2.4).
+	//
+	// Es de UN SOLO valor vigente por persona: generar uno nuevo pisa el
+	// anterior, que dejar de funcionar es justamente lo que se espera de
+	// "generar otro" cuando el primero se compartió por donde no debía.
+	// Vence a las 24 horas (`CodigoInvitacionExpiraAt`) — un código sin
+	// vencimiento que alguien pegó en un chat sigue sirviendo un año
+	// después.
+	CodigoInvitacion         *string    `gorm:"column:codigo_invitacion;type:varchar(20)"`
+	CodigoInvitacionExpiraAt *time.Time `gorm:"column:codigo_invitacion_expira_at"`
+
 	// TermsAcceptedAt/TermsVersion — Ley 25.326 (spec §7): checkbox
 	// explícito de ToS/privacidad al crear la cuenta, con fecha y versión.
 	TermsAcceptedAt *time.Time `gorm:"column:terms_accepted_at"`
@@ -277,6 +292,21 @@ type Session struct {
 	RevokedAt *time.Time `gorm:"column:revoked_at"`
 	UserAgent string     `gorm:"column:user_agent;type:varchar(255)"`
 	IP        string     `gorm:"column:ip;type:varchar(64)"`
+
+	// ClinicID — la clínica elegida en "¿Dónde trabajás hoy?" (Fase
+	// 3.2.3). Nil mientras no se eligió ninguna, y ahí `requireClinic`
+	// vuelve al criterio de la 3.2.2 (la membresía activa más antigua).
+	//
+	// Vive en la SESIÓN y no en el usuario a propósito: es una elección
+	// de "dónde estoy trabajando ahora", no una preferencia de la cuenta.
+	// Dos sesiones abiertas —el consultorio y el celular— pueden estar en
+	// clínicas distintas sin pisarse, que es exactamente lo que hace un
+	// profesional que atiende en dos lugares el mismo día.
+	//
+	// Que apunte a una clínica no alcanza para entrar: `requireClinic`
+	// revalida la membresía en cada request. Si a la persona la sacaron
+	// del equipo, la elección guardada deja de valer sola.
+	ClinicID *uuid.UUID `gorm:"column:clinic_id;type:uuid;index"`
 }
 
 func (Session) TableName() string { return "sessions" }

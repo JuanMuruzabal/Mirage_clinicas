@@ -123,6 +123,14 @@ func clavesForaneas() []claveForanea {
 		{"fk_clinic_members_user", "clinic_members", "user_id", "users", "CASCADE", false},
 		{"fk_clinic_invitations_user", "clinic_invitations", "invited_by_user_id", "users", "CASCADE", false},
 
+		// La clínica elegida en "¿Dónde trabajás hoy?" (Fase 3.2.3).
+		// SET NULL, con motivo: lo que se pierde es una elección de
+		// pantalla —"estoy trabajando acá ahora"—, y perderla cuesta
+		// exactamente un click en la próxima pantalla. RESTRICT haría lo
+		// contrario de lo que corresponde: una fila de sesión vieja,
+		// posiblemente vencida, bloquearía el borrado de la clínica.
+		{"fk_sessions_clinica", "sessions", "clinic_id", "clinics", "SET NULL", true},
+
 		// audit_events es una tabla de AUDITORÍA: el registro tiene que
 		// sobrevivir al borrado del usuario, que es exactamente cuando más
 		// vale. La columna es nullable, así que SET NULL conserva el evento
@@ -137,6 +145,12 @@ func clavesForaneas() []claveForanea {
 		// qué pasa con los pacientes y los turnos, en vez de que el CASCADE
 		// de arriba se los lleve puestos en silencio.
 		{"fk_clinics_owner", "clinics", "owner_id", "users", "", false},
+
+		// Quién cargó la ficha a mano (Fase 3.2.3). SET NULL: la ficha
+		// clínica tiene que sobrevivir a la baja de la cuenta que la
+		// cargó — lo que se pierde es el dato de quién fue, no el
+		// paciente.
+		{"fk_pacientes_creado_por", "pacientes", "creado_por_user_id", "users", "SET NULL", true},
 	}
 }
 

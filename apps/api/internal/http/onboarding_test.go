@@ -203,9 +203,18 @@ func TestOnboardingClinica_ExitosoCreaClinicMemberOwner(t *testing.T) {
 	}
 }
 
-// TestOnboardingClinica_NoReentraTrasCompleto — spec §4: "onboarding
-// completo → no puede volver al wizard".
-func TestOnboardingClinica_NoReentraTrasCompleto(t *testing.T) {
+// TestOnboardingClinica_UnaSolaClinicaPropia — antes se llamaba
+// "NoReentraTrasCompleto" y esperaba 403, porque la regla era la del
+// wizard: "onboarding completo → no puede volver" (spec §4).
+//
+// Desde la Fase 3.2.3 el wizard de dos pasos quedó deconstruido y crear
+// la clínica dejó de ser un paso del onboarding: es una acción de
+// "¿Dónde trabajás hoy?" que alguien puede querer hacer meses después de
+// haber entrado a la app invitado por un colega. Lo que sigue prohibido
+// —y es lo que este test protege— es tener DOS clínicas propias. Por eso
+// el rechazo pasó a 409: el problema no es en qué paso está la persona,
+// es que ese recurso ya existe.
+func TestOnboardingClinica_UnaSolaClinicaPropia(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	token := completarPerfilDePrueba(t, router, gdb, "noreentra@example.com")
 
@@ -219,8 +228,8 @@ func TestOnboardingClinica_NoReentraTrasCompleto(t *testing.T) {
 	segunda := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Dos",
 	})
-	if segunda.Code != http.StatusForbidden {
-		t.Errorf("status = %d, esperaba %d (onboarding ya completo)", segunda.Code, http.StatusForbidden)
+	if segunda.Code != http.StatusConflict {
+		t.Errorf("status = %d, esperaba %d (ya tiene su clínica creada)", segunda.Code, http.StatusConflict)
 	}
 }
 

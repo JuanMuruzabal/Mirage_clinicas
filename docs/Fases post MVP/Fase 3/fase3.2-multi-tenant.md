@@ -99,7 +99,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 
 **Por qué antes que la UI:** si el backend no aísla, ninguna pantalla lo va a arreglar.
 
-### 3.2.3 — Onboarding y "¿dónde trabajás hoy?"
+### 3.2.3 — Onboarding y "¿dónde trabajás hoy?" ⏳
 
 - El wizard de 2 pasos se deconstruye: crear perfil, y de ahí a elegir dónde trabajar.
 - Pantalla de selección de clínica como punto de partida de toda sesión.
@@ -369,3 +369,46 @@ Lo que cambió, en una línea: **el backend ya sabe quién es cada quien dentro 
 Nada de esto se ve todavía desde la UI, por el mismo motivo que la 3.2.1: no hay pantalla que muestre un colaborador porque todavía no se puede invitar a ninguno. Eso llega en la 3.2.4. Lo que sí queda es que **cuando lleguen, el backend ya los aísla** — y no al revés, que es el orden en que estos errores se vuelven filtraciones de datos de pacientes.
 
 **8 tests nuevos** (`middleware_permisos_test.go`, `visibilidad_test.go`), 12 paquetes en verde. Sigue la **3.2.3 — onboarding y "¿dónde trabajás hoy?"**, que es la primera de la fase que se ve en pantalla.
+
+## 3.2.3 — Onboarding y "¿dónde trabajás hoy?"
+
+**Fecha:** 2026-09-13 · **Código:** `internal/http/mis_clinicas.go`, `internal/db/codigo_invitacion.go`
+
+La primera subfase de la 3.2 que se ve en pantalla. El brief la define en una línea: *"al iniciar sesión o abrir la aplicación con una sesión activa siempre me llevará a este apartado, este siempre será el inicio de partida."*
+
+### Paso 1: la clínica deja de deducirse y pasa a elegirse
+
+Hasta acá, "en qué clínica estoy" lo resolvía un `ORDER BY created_at` — la membresía activa más antigua (3.2.2). Con una clínica por persona daba igual. Con dos, equivocarse significa ver, y cargar, los pacientes de otro lugar.
+
+**La elección vive en la SESIÓN** (`sessions.clinic_id`), no en el usuario. Dos sesiones abiertas —la del consultorio y la del celular— pueden estar en clínicas distintas sin pisarse, que es exactamente lo que hace alguien que atiende en dos lugares el mismo día.
+
+**Y no se cree por sí sola.** `membresiaDeLaSesion` busca la clínica elegida *junto con* la membresía activa: si a la persona la sacaron del equipo después de elegirla, la consulta no encuentra nada y cae al criterio viejo. Sin eso, bastaría con elegir una clínica antes de que te saquen para seguir viendo sus pacientes hasta cerrar sesión. Hay un test que lo prueba.
+
+`/me` devuelve ahora la clínica **activa** y no la propia. Era lo mismo mientras cada persona tenía una sola y era su dueña; con el multi-tenant, el header del panel habría seguido mostrando la clínica propia mientras la persona trabajaba en la de un colega.
+
+### El código de invitación, y por qué vive en el usuario
+
+El mockup lo muestra como `DM-XXXX-XXXX`; acá es **`PR-`**, porque el mockup es anterior al cambio de nombre del producto.
+
+La dirección del pedido es lo que decide dónde vive: acá **el profesional se ofrece** y la clínica lo carga (3.2.4), al revés que una invitación por mail, donde la clínica convoca. Por eso es una columna de `users` y no una fila de invitación.
+
+Tres decisiones chicas, cada una por un motivo concreto:
+
+- **Alfabeto sin I, O, 0 ni 1.** El código se dicta por teléfono y se vuelve a tipear del otro lado; O/0 e I/1/l son la forma más probable de que un código válido sea rechazado. (El módulo no introduce sesgo: 256 es múltiplo exacto de 32.)
+- **Uno solo vigente por persona.** "Generar otro" invalida el anterior — es justamente lo que se espera cuando el primero se compartió por donde no debía.
+- **Vence a las 24 horas**, y uno vencido no se muestra: mostrarlo invita a compartir algo que del otro lado no va a funcionar.
+
+### El agujero que dejó la 3.2.2, encontrado por un test
+
+El test que verifica que el panel sigue la elección de clínica cargaba un paciente y lo buscaba en el listado. **No aparecía.**
+
+No era el cambio nuevo: era `soloMisPacientes` (3.2.2). "Mis pacientes" se derivaba SOLO de los turnos, y una ficha recién cargada con "+ Agregar paciente" todavía no tiene ninguno. Un profesional invitado cargaba a una persona y **la ficha desaparecía de su listado en el mismo instante**, sin ningún error: para él, el alta simplemente no había funcionado. Y el caso no es rebuscado — cargar la ficha primero y dar el turno después es el orden de cualquiera que tiene al paciente en el mostrador.
+
+Se arregla con `pacientes.creado_por_user_id`, que **no** convierte al profesional en dueño del paciente (siguen siendo de la clínica, TR-137): solo dice quién cargó la ficha, para que el scope la incluya antes de que exista el primer turno.
+
+Lo que enseña es sobre el alcance de la verificación de la 3.2.2, no sobre el scope: aquellos tests probaban que un profesional no ve lo ajeno, y ninguno probaba que **sí ve lo propio**. Una regla de aislamiento se puede cumplir al 100% dejando a todos sin ver nada.
+
+**Verificado con control negativo:** volviendo el scope a la versión de la 3.2.2 —que compila— los dos tests fallan con el mensaje correcto; el de la fuga sigue pasando, así que el arreglo no abrió el aislamiento.
+
+**Aplicado:** 12 paquetes en verde, gofmt + golangci-lint 0 issues. Un test existente cambió de expectativa a propósito: crear una segunda clínica propia ahora responde **409** en vez de 403, porque el rechazo dejó de ser "estás en el paso equivocado del wizard" y pasó a ser "ese recurso ya existe".
+

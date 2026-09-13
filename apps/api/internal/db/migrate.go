@@ -224,6 +224,21 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	statements := []string{
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
 
+		// Fase 3.2.3: el código con el que una persona se ofrece para que
+		// una clínica la sume (users.codigo_invitacion).
+		//
+		// PARCIAL, porque la enorme mayoría de los usuarios no tiene
+		// ninguno vigente y en un índice único común todos esos NULL
+		// pasarían igual (dos NULL nunca son iguales) — el WHERE deja el
+		// índice del tamaño de la gente que de verdad generó uno.
+		//
+		// Único porque el código ES la identidad con la que la clínica va
+		// a cargar a alguien en su equipo (3.2.4): dos personas con el
+		// mismo código sería sumar a la equivocada.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_codigo_invitacion
+			ON users (codigo_invitacion)
+			WHERE codigo_invitacion IS NOT NULL`,
+
 		// Fase 3.2.1 (TR-137): la regla de exclusión de roles, declarada en
 		// el motor y no validada en la aplicación.
 		//

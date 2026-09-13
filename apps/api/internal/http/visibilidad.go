@@ -49,6 +49,16 @@ func usuarioDeLaSesion(r *http.Request) (uuid.UUID, bool) {
 	return session.UserID, true
 }
 
+// usuarioDeLaSesionOpcional — el mismo dato, en la forma que esperan los
+// campos nullable del modelo.
+func usuarioDeLaSesionOpcional(r *http.Request) *uuid.UUID {
+	userID, ok := usuarioDeLaSesion(r)
+	if !ok {
+		return nil
+	}
+	return &userID
+}
+
 // soloMisTurnos — scope que acota los turnos a los del profesional de la
 // sesión, cuando corresponde. Para quien ve toda la clínica es un no-op.
 func soloMisTurnos(r *http.Request) func(*gorm.DB) *gorm.DB {
@@ -67,7 +77,14 @@ func soloMisTurnos(r *http.Request) func(*gorm.DB) *gorm.DB {
 }
 
 // soloMisPacientes — mismo criterio, derivado de los turnos: un paciente
-// es "de" un profesional si tiene algún turno con él.
+// es "de" un profesional si tiene algún turno con él… o si fue esta misma
+// persona quien cargó la ficha a mano.
+//
+// Esa segunda mitad se agregó en la Fase 3.2.3, cuando un test mostró que
+// un profesional invitado podía usar "+ Agregar paciente" y la ficha
+// desaparecía de su listado en el acto: todavía no tenía ningún turno, así
+// que el EXISTS no la encontraba. Quien acaba de cargar a una persona
+// tiene que poder verla, aunque el turno venga después.
 func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
@@ -77,9 +94,12 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if !ok {
 			return tx.Where("1 = 0")
 		}
-		return tx.Where(`EXISTS (
-			SELECT 1 FROM turnos t
-			WHERE t.paciente_id = pacientes.id AND t.atendido_por_user_id = ?
-		)`, userID)
+		return tx.Where(`(
+			EXISTS (
+				SELECT 1 FROM turnos t
+				WHERE t.paciente_id = pacientes.id AND t.atendido_por_user_id = ?
+			)
+			OR pacientes.creado_por_user_id = ?
+		)`, userID, userID)
 	}
 }

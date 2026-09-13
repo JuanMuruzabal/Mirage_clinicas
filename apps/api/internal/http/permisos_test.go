@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -271,5 +272,47 @@ func TestAislamientoEntreColegas_LaFichaDeUnPacienteAjenoDa404(t *testing.T) {
 	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes/"+pacienteDelTitular.String(), titular.Token, nil)
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, esperaba 200 para el profesional que sí atiende a ese paciente", rec.Code)
+	}
+}
+
+// TestAislamientoEntreColegas_ElPacienteQueCargoSigueSiendoSuyo — el
+// agujero que dejó la 3.2.2, encontrado por un test de la 3.2.3.
+//
+// "Mis pacientes" se derivaba SOLO de los turnos, y una ficha recién
+// cargada con "+ Agregar paciente" todavía no tiene ninguno: un
+// profesional invitado cargaba a una persona y la ficha desaparecía de su
+// listado en el mismo instante, sin ningún error. Para él, el alta
+// simplemente no había funcionado.
+//
+// El caso es normal, no rebuscado: cargar la ficha primero y darle el
+// turno después es el orden que usa cualquiera que tiene al paciente en
+// el mostrador.
+func TestAislamientoEntreColegas_ElPacienteQueCargoSigueSiendoSuyo(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-altaficha@example.com", Password: "unaClaveLarga123", Nombre: "Ana Titular", NombreClinica: "Clínica Alta Ficha",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-altaficha@example.com", db.RoleProfesional)
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", tokenColega, crearPacienteRequest{
+		Nombre: "Recien", Apellido: "Cargado", DNI: "41222333", Telefono: "3510000001", Email: "recien@example.com",
+	})
+	if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
+		t.Fatalf("crear paciente: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes", tokenColega, nil)
+	if !strings.Contains(rec.Body.String(), "Cargado") {
+		t.Fatalf("el profesional no ve la ficha que acaba de cargar: %s", rec.Body.String())
+	}
+
+	// Y el aislamiento no se aflojó: un colega que no la cargó ni la
+	// atiende no la ve. Sin esta mitad, "arreglar" el listado podría ser
+	// simplemente haber abierto el scope.
+	tokenOtro := sumarColaboradorDePrueba(t, gdb, router, clinicID, "otro-altaficha@example.com", db.RoleProfesional)
+	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes", tokenOtro, nil)
+	if strings.Contains(rec.Body.String(), "Cargado") {
+		t.Errorf("FUGA: un colega ve una ficha que no cargó ni atiende: %s", rec.Body.String())
 	}
 }

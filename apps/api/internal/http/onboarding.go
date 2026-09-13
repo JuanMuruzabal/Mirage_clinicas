@@ -204,12 +204,29 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			writeError(w, http.StatusNotFound, "usuario no encontrado")
 			return
 		}
-		if user.OnboardingStep == db.OnboardingStepCompleto {
-			writeError(w, http.StatusForbidden, "el onboarding ya está completo")
+		// Fase 3.2.3 — el wizard de dos pasos queda deconstruido en uno.
+		// Crear la clínica dejó de ser "el paso 3 del onboarding" y pasó a
+		// ser una acción de "¿Dónde trabajás hoy?", así que el estado del
+		// wizard ya no puede ser la condición: alguien que entró a la app
+		// porque lo invitaron a la clínica de un colega tiene el
+		// onboarding COMPLETO y puede, meses después, querer armar la
+		// propia. Con el guard viejo ("solo si estás en el paso clínica")
+		// esa persona no podía crearla nunca.
+		//
+		// Lo que sí sigue siendo condición es tener el perfil profesional
+		// cargado: una clínica sin un titular con nombre y matrícula no
+		// tiene de dónde salir.
+		if user.OnboardingStep == db.OnboardingStepCuenta || user.OnboardingStep == db.OnboardingStepPerfil {
+			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
 			return
 		}
-		if user.OnboardingStep != db.OnboardingStepClinica {
-			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
+		// Y una sola clínica propia por persona: el mockup dice "Mi
+		// clínica", en singular, y el resto de la app resuelve "la clínica
+		// de este usuario" con un First por owner_id. Ser parte de N
+		// clínicas es el otro lado del multi-tenant y no pasa por acá.
+		var yaPropia db.Clinic
+		if err := gdb.First(&yaPropia, "owner_id = ?", userID).Error; err == nil {
+			writeError(w, http.StatusConflict, "ya tenés tu clínica creada")
 			return
 		}
 
@@ -265,10 +282,23 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			if err := db.SeedTiposConsultaDefault(tx, clinic.ID); err != nil {
 				return err
 			}
-			return tx.Model(&user).Updates(map[string]any{
-				"onboarding_step":         db.OnboardingStepCompleto,
-				"onboarding_completed_at": now,
-			}).Error
+			if user.OnboardingStep != db.OnboardingStepCompleto {
+				if err := tx.Model(&user).Updates(map[string]any{
+					"onboarding_step":         db.OnboardingStepCompleto,
+					"onboarding_completed_at": now,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			// La clínica recién creada queda como la activa de esta
+			// sesión (Fase 3.2.3). Sin esto, quien ya trabajaba en la
+			// clínica de un colega crearía la suya y seguiría viendo la
+			// del colega, porque la elección anterior sigue guardada.
+			if session, ok := sessionFromContext(r); ok {
+				return tx.Model(&db.Session{}).Where("id = ?", session.ID).
+					Update("clinic_id", clinic.ID).Error
+			}
+			return nil
 		})
 		if err != nil {
 			if isUniqueViolation(err) {
