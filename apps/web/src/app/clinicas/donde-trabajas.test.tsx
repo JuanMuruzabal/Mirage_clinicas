@@ -3,10 +3,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ClinicaDelUsuario } from "@dental-mirage/shared-types";
 
-const { entrarEnClinicaActionMock, generarCodigoInvitacionActionMock, onboardingClinicaActionMock } = vi.hoisted(() => ({
+const {
+  entrarEnClinicaActionMock,
+  generarCodigoInvitacionActionMock,
+  onboardingClinicaActionMock,
+  onboardingPerfilActionMock,
+} = vi.hoisted(() => ({
   entrarEnClinicaActionMock: vi.fn(),
   generarCodigoInvitacionActionMock: vi.fn(),
   onboardingClinicaActionMock: vi.fn(),
+  onboardingPerfilActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/clinicas", () => ({
@@ -17,7 +23,10 @@ vi.mock("@/app/actions/clinicas", () => ({
 // El formulario de alta de clínica se renderiza DE VERDAD: desde la Fase
 // 3.2.3 vive acá adentro (antes era el paso 2 del modal de bienvenida), y
 // esta suite es la que verifica que siga funcionando en su casa nueva.
-vi.mock("@/app/actions/auth", () => ({ onboardingClinicaAction: onboardingClinicaActionMock }));
+vi.mock("@/app/actions/auth", () => ({
+  onboardingClinicaAction: onboardingClinicaActionMock,
+  onboardingPerfilAction: onboardingPerfilActionMock,
+}));
 
 const { DondeTrabajas } = await import("./donde-trabajas");
 
@@ -301,6 +310,68 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     await waitFor(() =>
       expect(onboardingClinicaActionMock).toHaveBeenCalledWith(expect.objectContaining({ telefono: "+54 3511234567" })),
     );
+  });
+
+  // --- Armar la clínica propia sin ser profesional (Fase 3.2.3) ---
+  //
+  // Quien entró a la app para hacer recepción o administrar la página no
+  // cargó matrícula, porque no se le pidió. Para tener clínica propia sí
+  // hace falta: se le piden los datos que faltan antes del alta, sin
+  // sacarlo de esta pantalla.
+  const perfilQueNoAtiende = {
+    tipoPerfil: "actividades" as const,
+    nombre: "Lucía",
+    apellido: "Mostrador",
+    telefonoPrefijo: "+54",
+    telefono: "+5493511234567",
+    matriculaTipo: "nacional" as const,
+    matriculaNumero: "",
+    especialidades: [],
+  };
+
+  it("a quien no atiende le pide primero los datos profesionales", async () => {
+    render(<DondeTrabajas clinicas={[]} perfil={perfilQueNoAtiende} especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    expect(screen.getByRole("heading", { name: "Completá tus datos profesionales" })).toBeInTheDocument();
+    // Y no el alta de la clínica todavía.
+    expect(screen.queryByRole("button", { name: /Clínica individual/ })).not.toBeInTheDocument();
+  });
+
+  it("completados los datos, sigue derecho al alta de la clínica", async () => {
+    onboardingPerfilActionMock.mockResolvedValue(undefined);
+    render(<DondeTrabajas clinicas={[]} perfil={perfilQueNoAtiende} especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.selectOptions(screen.getByLabelText("Matrícula — tipo"), "nacional");
+    await userEvent.type(screen.getByLabelText("Matrícula — número"), "MP-1");
+    await userEvent.click(screen.getByRole("button", { name: "Ortodoncia" }));
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    // El encadenado no redirige: la pantalla sigue viva y abre el modal
+    // siguiente.
+    await waitFor(() =>
+      expect(onboardingPerfilActionMock).toHaveBeenCalledWith(expect.objectContaining({ tipoPerfil: "profesional" }), {
+        redirigir: false,
+      }),
+    );
+    expect(await screen.findByRole("button", { name: /Clínica individual/ })).toBeInTheDocument();
+  });
+
+  it("quien ya es profesional va derecho al alta", async () => {
+    render(
+      <DondeTrabajas
+        clinicas={[]}
+        perfil={{ ...perfilQueNoAtiende, tipoPerfil: "profesional", matriculaNumero: "MP-1" }}
+        especialidades={[]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+
+    expect(screen.getByRole("button", { name: /Clínica individual/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Completá tus datos profesionales" })).not.toBeInTheDocument();
   });
 });
 

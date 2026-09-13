@@ -51,7 +51,16 @@ export default async function ClinicasPage() {
         </div>
 
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-12">
-          <DondeTrabajas clinicas={misClinicas.clinicas} codigoInicial={misClinicas.codigoInvitacion} />
+          {/* `perfil` y `especialidades` viajan por el encadenado de la
+              Fase 3.2.3: quien no atiende pacientes y quiere armar su
+              propia clínica completa primero la matrícula que le falta,
+              en un modal, sin salir de esta pantalla. */}
+          <DondeTrabajas
+            clinicas={misClinicas.clinicas}
+            codigoInicial={misClinicas.codigoInvitacion}
+            perfil={me.perfil}
+            especialidades={especialidades}
+          />
         </div>
       </main>
 

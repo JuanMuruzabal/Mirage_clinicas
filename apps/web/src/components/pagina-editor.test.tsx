@@ -28,6 +28,7 @@ const sesion: SesionCompleta = {
   apellido: "Games",
   telefonoPrefijo: "+54",
   telefono: "+5493511234567",
+  tipoPerfil: "profesional",
   matriculaTipo: "nacional",
   matriculaNumero: "MP-1",
   especialidades: [{ id: "esp-1", nombre: "Odontología general" }],

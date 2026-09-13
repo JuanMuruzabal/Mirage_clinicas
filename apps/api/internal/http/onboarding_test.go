@@ -291,3 +291,161 @@ func completarPerfilDePrueba(t *testing.T, router http.Handler, gdb *gorm.DB, em
 
 	return *reg.Token
 }
+
+// --- Tipo de perfil (Fase 3.2.3, ronda de QA del 2026-09-13) ---
+//
+// No todo el que entra a la app atiende pacientes: un recepcionista o
+// quien administra la página no tiene matrícula. Hasta acá el alta se la
+// pedía como obligatoria, y con las invitaciones por mail (3.2.4) esa
+// persona va a tener que crearse una cuenta — el requisito pasaba de
+// molesto a bloqueante.
+
+func TestPerfil_ActividadesDeLaClinicaNoNecesitaMatricula(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := registrarYVerificarDePrueba(t, router, gdb, "recepcion-alta@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoActividades,
+		Nombre:     "Lucía", Apellido: "Mostrador", Telefono: "+5493511234567",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba 200 sin matrícula. body=%s", rec.Code, rec.Body.String())
+	}
+
+	var perfil db.ProfessionalProfile
+	if err := gdb.Preload("Especialidades").First(&perfil, "nombre = ?", "Lucía").Error; err != nil {
+		t.Fatalf("no se guardó el perfil: %v", err)
+	}
+	if perfil.TipoPerfil != db.PerfilTipoActividades {
+		t.Errorf("tipoPerfil = %q, esperaba %q", perfil.TipoPerfil, db.PerfilTipoActividades)
+	}
+	if perfil.MatriculaTipo != "" || perfil.MatriculaNumero != "" {
+		t.Errorf("quedó matrícula cargada: %q %q", perfil.MatriculaTipo, perfil.MatriculaNumero)
+	}
+	if len(perfil.Especialidades) != 0 {
+		t.Errorf("quedaron %d especialidades, esperaba ninguna", len(perfil.Especialidades))
+	}
+}
+
+// La matrícula que mande un cliente con tipo "actividades" se DESCARTA, no
+// se guarda: son los datos con los que después la página pública decide
+// qué mostrar.
+func TestPerfil_ActividadesDescartaLaMatriculaQueLeManden(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := registrarYVerificarDePrueba(t, router, gdb, "colado@example.com")
+
+	var especialidad db.Especialidad
+	if err := gdb.Where("nombre = ?", "Odontología general").First(&especialidad).Error; err != nil {
+		t.Fatalf("no se encontró la especialidad de prueba: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoActividades,
+		Nombre:     "Ana", Apellido: "Colada", Telefono: "+5493511234567",
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-9999",
+		EspecialidadIDs: []string{especialidad.ID.String()},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var perfil db.ProfessionalProfile
+	_ = gdb.Preload("Especialidades").First(&perfil, "nombre = ?", "Ana").Error
+	if perfil.MatriculaNumero != "" || len(perfil.Especialidades) != 0 {
+		t.Errorf("se guardó matrícula/especialidades de un perfil que no atiende: %q, %d", perfil.MatriculaNumero, len(perfil.Especialidades))
+	}
+}
+
+// El camino de siempre no se aflojó: quien SÍ atiende sigue necesitando
+// matrícula.
+func TestPerfil_ProfesionalSigueNecesitandoMatricula(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := registrarYVerificarDePrueba(t, router, gdb, "sinmatricula@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoProfesional,
+		Nombre:     "Juan", Apellido: "Sin Matrícula", Telefono: "+5493511234567",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, esperaba 400 para un profesional sin matrícula", rec.Code)
+	}
+}
+
+// Sin el campo —clientes viejos, o cualquier test escrito antes de que
+// existiera— vale "profesional", que es lo que significaban todas las
+// altas hasta acá.
+func TestPerfil_SinTipoSigueSiendoProfesional(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := completarPerfilDePrueba(t, router, gdb, "sintipo@example.com")
+	_ = token
+
+	var perfil db.ProfessionalProfile
+	if err := gdb.First(&perfil, "matricula_numero <> ''").Error; err != nil {
+		t.Fatalf("no se encontró el perfil: %v", err)
+	}
+	if perfil.TipoPerfil != db.PerfilTipoProfesional {
+		t.Errorf("tipoPerfil = %q, esperaba profesional por default", perfil.TipoPerfil)
+	}
+}
+
+// Armar la clínica propia exige matrícula: una clínica sin un titular con
+// matrícula no tiene de dónde salir. El frontend pide los datos que
+// faltan antes de llegar acá; esto es la red.
+func TestOnboardingClinica_QuienNoAtiendeNoPuedeCrearLaSuya(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	token := registrarYVerificarDePrueba(t, router, gdb, "recepcion-clinica@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoActividades,
+		Nombre:     "Lucía", Apellido: "Mostrador", Telefono: "+5493511234567",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("alta del perfil: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
+		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Sin Matrícula",
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, esperaba 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Y completando la parte profesional que falta, la misma persona sí
+	// puede: es el camino que abre "Mi clínica" en la pantalla de inicio.
+	var especialidad db.Especialidad
+	_ = gdb.Where("nombre = ?", "Odontología general").First(&especialidad).Error
+	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoProfesional,
+		Nombre:     "Lucía", Apellido: "Mostrador", Telefono: "+5493511234567",
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-4321",
+		EspecialidadIDs: []string{especialidad.ID.String()},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("completar datos profesionales: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
+		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Con Matrícula",
+	})
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, esperaba 200 ya con la matrícula cargada. body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// registrarYVerificarDePrueba deja la cuenta lista para el paso de perfil
+// (registrada y con el mail verificado), sin cargar ningún perfil.
+func registrarYVerificarDePrueba(t *testing.T, router http.Handler, gdb *gorm.DB, email string) string {
+	t.Helper()
+	rec := doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: email, Password: "password123456", AceptaTerminos: true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("registro de prueba falló: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var reg registerResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &reg); err != nil || reg.Token == nil {
+		t.Fatalf("respuesta de registro inválida: %v", err)
+	}
+	marcarMailVerificadoDePrueba(t, gdb, email)
+	return *reg.Token
+}

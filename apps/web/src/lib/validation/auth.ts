@@ -82,21 +82,46 @@ export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 // Paso 2 del wizard (spec §4) — obligatorios: nombre, apellido, teléfono,
 // matrícula, al menos una especialidad. El resto opcional pero visible.
-export const onboardingPerfilSchema = z.object({
-  nombre: z.string().trim().min(1, "El nombre es obligatorio."),
-  apellido: z.string().trim().min(1, "El apellido es obligatorio."),
-  telefonoPrefijo: z.string().trim().min(1).default("+54"),
-  telefono: z.string().trim().min(6, "Ingresá un teléfono válido."),
-  documento: z.string().trim().optional().or(z.literal("")),
-  matriculaTipo: z.enum(["nacional", "provincial"], {
-    errorMap: () => ({ message: "Elegí el tipo de matrícula." }),
-  }),
-  matriculaNumero: z.string().trim().min(1, "La matrícula es obligatoria."),
-  especialidadIds: z.array(z.string()).min(1, "Elegí al menos una especialidad."),
-  aniosExperiencia: z.coerce.number().int().min(0).max(80).optional(),
-  bio: z.string().trim().max(500, "Máximo 500 caracteres.").optional().or(z.literal("")),
-  idiomas: z.array(z.string()).optional(),
-});
+// Matrícula y especialidades son obligatorias SOLO para quien atiende
+// pacientes (Fase 3.2.3): un recepcionista o quien administra la página
+// no tiene matrícula, y con las invitaciones por mail (3.2.4) esa persona
+// también va a crearse una cuenta acá. Por eso la validación es
+// condicional (`superRefine`) y no un `z.enum` obligatorio: el mismo
+// formulario sirve para los dos casos.
+export const onboardingPerfilSchema = z
+  .object({
+    tipoPerfil: z.enum(["profesional", "actividades"]).default("profesional"),
+    nombre: z.string().trim().min(1, "El nombre es obligatorio."),
+    apellido: z.string().trim().min(1, "El apellido es obligatorio."),
+    telefonoPrefijo: z.string().trim().min(1).default("+54"),
+    telefono: z.string().trim().min(6, "Ingresá un teléfono válido."),
+    documento: z.string().trim().optional().or(z.literal("")),
+    // `.or(z.literal(""))` no es decorativo: react-hook-form NO limpia el
+    // valor de un campo que se desmonta (shouldUnregister es false por
+    // default), así que si alguien empieza como profesional y cambia a
+    // "actividades", el select ya registrado deja un "" que un enum puro
+    // rechaza — y el error no tendría dónde mostrarse, porque ese campo
+    // ya no está en pantalla. Resultado: un formulario que no se envía y
+    // no dice por qué. Pasó.
+    matriculaTipo: z.enum(["nacional", "provincial"]).optional().or(z.literal("")),
+    matriculaNumero: z.string().trim().optional().or(z.literal("")),
+    especialidadIds: z.array(z.string()).default([]),
+    aniosExperiencia: z.coerce.number().int().min(0).max(80).optional(),
+    bio: z.string().trim().max(500, "Máximo 500 caracteres.").optional().or(z.literal("")),
+    idiomas: z.array(z.string()).optional(),
+  })
+  .superRefine((valores, ctx) => {
+    if (valores.tipoPerfil !== "profesional") return;
+    if (!valores.matriculaTipo) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["matriculaTipo"], message: "Elegí el tipo de matrícula." });
+    }
+    if (!valores.matriculaNumero) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["matriculaNumero"], message: "La matrícula es obligatoria." });
+    }
+    if (valores.especialidadIds.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["especialidadIds"], message: "Elegí al menos una especialidad." });
+    }
+  });
 export type OnboardingPerfilFormValues = z.infer<typeof onboardingPerfilSchema>;
 
 // Paso 3 del wizard (spec §4) — dos cards seleccionables, no un <select>.

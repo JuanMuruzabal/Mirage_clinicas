@@ -27,6 +27,10 @@ func registerOnboardingRoutes(r chi.Router, gdb *gorm.DB, sender dmmail.Sender) 
 // ---------------------------------------------------------------------
 
 type onboardingPerfilRequest struct {
+	// TipoPerfil — "profesional" (default si viene vacío) o "actividades".
+	// Ver db.PerfilTipo*: con "actividades" no se piden matrícula ni
+	// especialidades.
+	TipoPerfil       string   `json:"tipoPerfil"`
 	Nombre           string   `json:"nombre"`
 	Apellido         string   `json:"apellido"`
 	TelefonoPrefijo  string   `json:"telefonoPrefijo"`
@@ -41,6 +45,7 @@ type onboardingPerfilRequest struct {
 }
 
 type perfilResponse struct {
+	TipoPerfil       string                 `json:"tipoPerfil"`
 	Nombre           string                 `json:"nombre"`
 	Apellido         string                 `json:"apellido"`
 	TelefonoPrefijo  string                 `json:"telefonoPrefijo"`
@@ -60,7 +65,7 @@ func toPerfilResponse(p db.ProfessionalProfile) perfilResponse {
 		especialidades[i] = toEspecialidadResponse(e)
 	}
 	return perfilResponse{
-		Nombre: p.Nombre, Apellido: p.Apellido,
+		TipoPerfil: p.TipoPerfil, Nombre: p.Nombre, Apellido: p.Apellido,
 		TelefonoPrefijo: p.TelefonoPrefijo, Telefono: p.Telefono,
 		Documento: p.Documento, MatriculaTipo: p.MatriculaTipo, MatriculaNumero: p.MatriculaNumero,
 		Especialidades: especialidades, AniosExperiencia: p.AniosExperiencia, Bio: p.Bio, Idiomas: p.Idiomas,
@@ -105,22 +110,48 @@ func updateOnboardingPerfilHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "nombre, apellido y teléfono son obligatorios")
 			return
 		}
-		if req.MatriculaTipo != db.MatriculaTipoNacional && req.MatriculaTipo != db.MatriculaTipoProvincial {
-			writeError(w, http.StatusBadRequest, "elegí el tipo de matrícula")
+
+		// Tipo de perfil (Fase 3.2.3, ronda de QA): vacío = "profesional",
+		// que es lo que significaban todas las altas anteriores a este
+		// campo. Sin ese default, cualquier cliente viejo —o un test que
+		// no lo mande— pasaría a fallar.
+		tipoPerfil := strings.TrimSpace(req.TipoPerfil)
+		if tipoPerfil == "" {
+			tipoPerfil = db.PerfilTipoProfesional
+		}
+		if tipoPerfil != db.PerfilTipoProfesional && tipoPerfil != db.PerfilTipoActividades {
+			writeError(w, http.StatusBadRequest, "elegí si atendés pacientes o hacés actividades de la clínica")
 			return
 		}
-		if req.MatriculaNumero == "" {
-			writeError(w, http.StatusBadRequest, "la matrícula es obligatoria")
-			return
-		}
-		if len(req.EspecialidadIDs) == 0 {
-			writeError(w, http.StatusBadRequest, "elegí al menos una especialidad")
-			return
-		}
-		especialidades, err := loadEspecialidades(gdb, req.EspecialidadIDs)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "una de las especialidades elegidas no es válida")
-			return
+
+		var especialidades []db.Especialidad
+		if tipoPerfil == db.PerfilTipoProfesional {
+			if req.MatriculaTipo != db.MatriculaTipoNacional && req.MatriculaTipo != db.MatriculaTipoProvincial {
+				writeError(w, http.StatusBadRequest, "elegí el tipo de matrícula")
+				return
+			}
+			if req.MatriculaNumero == "" {
+				writeError(w, http.StatusBadRequest, "la matrícula es obligatoria")
+				return
+			}
+			if len(req.EspecialidadIDs) == 0 {
+				writeError(w, http.StatusBadRequest, "elegí al menos una especialidad")
+				return
+			}
+			cargadas, err := loadEspecialidades(gdb, req.EspecialidadIDs)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "una de las especialidades elegidas no es válida")
+				return
+			}
+			especialidades = cargadas
+		} else {
+			// Quien no atiende no tiene matrícula ni especialidades. Se
+			// FUERZAN vacías en vez de confiar en que el formulario no las
+			// haya mandado: son los datos que después decide qué mostrar
+			// la página pública de la clínica.
+			req.MatriculaTipo = ""
+			req.MatriculaNumero = ""
+			req.AniosExperiencia = nil
 		}
 
 		prefijo := strings.TrimSpace(req.TelefonoPrefijo)
@@ -129,26 +160,33 @@ func updateOnboardingPerfilHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		profile := db.ProfessionalProfile{
-			UserID: userID, Nombre: req.Nombre, Apellido: req.Apellido,
+			UserID: userID, TipoPerfil: tipoPerfil, Nombre: req.Nombre, Apellido: req.Apellido,
 			TelefonoPrefijo: prefijo, Telefono: req.Telefono, Documento: req.Documento,
 			MatriculaTipo: req.MatriculaTipo, MatriculaNumero: req.MatriculaNumero,
 			AniosExperiencia: req.AniosExperiencia, Bio: req.Bio, Idiomas: req.Idiomas,
 		}
 
-		err = gdb.Transaction(func(tx *gorm.DB) error {
+		err := gdb.Transaction(func(tx *gorm.DB) error {
 			// Idempotente: si el usuario vuelve atrás y edita el paso 2, se
 			// actualiza la fila existente (PK = user_id) en vez de fallar
 			// por unique violation.
 			if err := tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "user_id"}},
 				DoUpdates: clause.AssignmentColumns([]string{
-					"nombre", "apellido", "telefono_prefijo", "telefono", "documento",
+					"tipo_perfil", "nombre", "apellido", "telefono_prefijo", "telefono", "documento",
 					"matricula_tipo", "matricula_numero", "anios_experiencia", "bio", "idiomas", "updated_at",
 				}),
 			}).Create(&profile).Error; err != nil {
 				return err
 			}
-			if err := tx.Model(&profile).Association("Especialidades").Replace(&especialidades); err != nil {
+			// Con "actividades" la lista queda vacía — y si la persona
+			// ERA profesional y cambió, hay que borrar las que tenía, no
+			// dejarlas colgando.
+			if len(especialidades) == 0 {
+				if err := tx.Model(&profile).Association("Especialidades").Clear(); err != nil {
+					return err
+				}
+			} else if err := tx.Model(&profile).Association("Especialidades").Replace(&especialidades); err != nil {
 				return err
 			}
 			if user.OnboardingStep == db.OnboardingStepPerfil {
@@ -220,6 +258,22 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
 			return
 		}
+		// Armar la clínica propia exige ser profesional (Fase 3.2.3, ronda
+		// de QA). Alguien que entró a la app para hacer recepción o
+		// administrar la página no cargó matrícula —no se le pidió—, y una
+		// clínica sin un titular con matrícula no tiene de dónde salir. El
+		// frontend le muestra el modal de perfil con la parte profesional
+		// que falta antes de llegar acá; este guard es la red.
+		var perfil db.ProfessionalProfile
+		if err := gdb.First(&perfil, "user_id = ?", userID).Error; err != nil {
+			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
+			return
+		}
+		if perfil.TipoPerfil != db.PerfilTipoProfesional {
+			writeError(w, http.StatusForbidden, "completá tus datos profesionales antes de crear tu clínica")
+			return
+		}
+
 		// Y una sola clínica propia por persona: el mockup dice "Mi
 		// clínica", en singular, y el resto de la app resuelve "la clínica
 		// de este usuario" con un First por owner_id. Ser parte de N

@@ -19,7 +19,13 @@ export type MatriculaTipo = "nacional" | "provincial" | "";
 export type OnboardingStep = "cuenta" | "perfil" | "clinica" | "completo";
 
 // Espejo de perfilResponse (internal/http/onboarding.go).
+// TipoPerfil — Fase 3.2.3: no todo el que entra a la app atiende
+// pacientes. Con "actividades" (recepción, administración de la página)
+// no hay matrícula ni especialidades.
+export type TipoPerfil = "profesional" | "actividades";
+
 export interface PerfilProfesional {
+  tipoPerfil: TipoPerfil;
   nombre: string;
   apellido: string;
   telefonoPrefijo: string;
@@ -186,13 +192,17 @@ export interface ResetPasswordResponse {
 // --- Payloads de /onboarding (internal/http/onboarding.go) ---
 
 export interface OnboardingPerfilPayload {
+  // Ausente = "profesional", que es lo que significaban todas las altas
+  // anteriores a la Fase 3.2.3.
+  tipoPerfil?: TipoPerfil;
   nombre: string;
   apellido: string;
   telefonoPrefijo?: string;
   telefono: string;
   documento?: string;
-  matriculaTipo: "nacional" | "provincial";
-  matriculaNumero: string;
+  // Vacíos cuando el perfil es de "actividades": esa persona no atiende.
+  matriculaTipo?: "nacional" | "provincial";
+  matriculaNumero?: string;
   especialidadIds: string[];
   aniosExperiencia?: number;
   bio?: string;

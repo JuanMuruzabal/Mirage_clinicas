@@ -125,17 +125,28 @@ const (
 // cambios) — solo cambia la tabla puente, de profesional_especialidades a
 // professional_especialidades, con FK a user_id en vez de clinic_id.
 type ProfessionalProfile struct {
-	UserID           uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
-	Nombre           string    `gorm:"type:varchar(150);not null"`
-	Apellido         string    `gorm:"type:varchar(150);not null"`
-	TelefonoPrefijo  string    `gorm:"column:telefono_prefijo;type:varchar(6);not null;default:'+54'"`
-	Telefono         string    `gorm:"type:varchar(50);not null"`
-	Documento        *string   `gorm:"type:varchar(20)"`
-	MatriculaTipo    string    `gorm:"column:matricula_tipo;type:varchar(20);not null;default:'';check:matricula_tipo IN ('','nacional','provincial')"`
-	MatriculaNumero  string    `gorm:"column:matricula_numero;type:varchar(50);not null;default:''"`
-	AniosExperiencia *int      `gorm:"column:anios_experiencia"`
-	Bio              *string   `gorm:"type:text"`
-	FotoURL          *string   `gorm:"column:foto_url;type:varchar(500)"`
+	UserID uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
+	// TipoPerfil — Fase 3.2.3 (ronda de QA del 2026-09-13). No todo el que
+	// entra a la app atiende pacientes: un recepcionista o quien edita la
+	// página de la clínica **no tiene matrícula**, y hasta acá el alta se
+	// la pedía como obligatoria. Con las invitaciones por mail (Fase
+	// 3.2.4) esa persona va a tener que crearse una cuenta, así que el
+	// requisito pasaba de molesto a bloqueante.
+	//
+	// Con `actividades`, matrícula y especialidades quedan vacías y no se
+	// piden. El default es `profesional` para que las filas que ya existen
+	// —todas, de odontólogos— sigan significando lo mismo.
+	TipoPerfil       string  `gorm:"column:tipo_perfil;type:varchar(20);not null;default:'profesional';check:tipo_perfil IN ('profesional','actividades')"`
+	Nombre           string  `gorm:"type:varchar(150);not null"`
+	Apellido         string  `gorm:"type:varchar(150);not null"`
+	TelefonoPrefijo  string  `gorm:"column:telefono_prefijo;type:varchar(6);not null;default:'+54'"`
+	Telefono         string  `gorm:"type:varchar(50);not null"`
+	Documento        *string `gorm:"type:varchar(20)"`
+	MatriculaTipo    string  `gorm:"column:matricula_tipo;type:varchar(20);not null;default:'';check:matricula_tipo IN ('','nacional','provincial')"`
+	MatriculaNumero  string  `gorm:"column:matricula_numero;type:varchar(50);not null;default:''"`
+	AniosExperiencia *int    `gorm:"column:anios_experiencia"`
+	Bio              *string `gorm:"type:text"`
+	FotoURL          *string `gorm:"column:foto_url;type:varchar(500)"`
 	// Idiomas: sin catálogo cerrado (a diferencia de Especialidad) — lista
 	// libre corta, jsonb alcanza y sobra.
 	Idiomas        []string       `gorm:"type:jsonb;serializer:json"`
@@ -150,6 +161,16 @@ func (ProfessionalProfile) TableName() string { return "professional_profiles" }
 const (
 	MatriculaTipoNacional   = "nacional"
 	MatriculaTipoProvincial = "provincial"
+)
+
+const (
+	// PerfilTipoProfesional — atiende pacientes. Matrícula y al menos una
+	// especialidad son obligatorias.
+	PerfilTipoProfesional = "profesional"
+	// PerfilTipoActividades — trabaja en la clínica sin atender:
+	// recepción, o la administración de la página. Sin matrícula ni
+	// especialidades.
+	PerfilTipoActividades = "actividades"
 )
 
 // Clinic reemplaza los campos NombreClinica/Slug que hoy viven directo en

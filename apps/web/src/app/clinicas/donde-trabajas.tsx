@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ClinicaDelUsuario, CodigoInvitacion } from "@dental-mirage/shared-types";
+import type { ClinicaDelUsuario, CodigoInvitacion, Especialidad, PerfilProfesional } from "@dental-mirage/shared-types";
 import { entrarEnClinicaAction, generarCodigoInvitacionAction } from "@/app/actions/clinicas";
 import { OnboardingClinicaForm } from "@/app/sumarse/onboarding-clinica-form";
+import { OnboardingPerfilForm } from "@/app/sumarse/onboarding-perfil-form";
 import { QuadrantMark } from "@/components/quadrant-mark";
 
 interface DondeTrabajasProps {
   clinicas: ClinicaDelUsuario[];
   codigoInicial?: CodigoInvitacion;
+  perfil?: PerfilProfesional;
+  especialidades?: Especialidad[];
 }
 
 const ETIQUETA_ROL: Record<string, string> = {
@@ -24,10 +27,17 @@ const ETIQUETA_ROL: Record<string, string> = {
 // siempre me llevará a este apartado, este siempre será el inicio de
 // partida". De acá se entra a una clínica; todo lo demás del panel asume
 // que esa elección ya se hizo.
-export function DondeTrabajas({ clinicas, codigoInicial }: DondeTrabajasProps) {
+export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades = [] }: DondeTrabajasProps) {
   const propia = clinicas.find((c) => c.esPropia);
   const otras = clinicas.filter((c) => !c.esPropia);
-  const [creandoClinica, setCreandoClinica] = useState(false);
+  // Armar la clínica propia exige matrícula, y quien entró a la app para
+  // hacer recepción o administrar la página no la cargó — no se le pidió
+  // (Fase 3.2.3). Antes del alta se le piden los datos profesionales que
+  // faltan, en un modal encadenado, sin sacarlo de esta pantalla.
+  const [datosProfesionalesListos, setDatosProfesionalesListos] = useState(false);
+  const faltanDatosProfesionales =
+    perfil !== undefined && perfil.tipoPerfil !== "profesional" && !datosProfesionalesListos;
+  const [alta, setAlta] = useState<"no" | "datos-profesionales" | "clinica">("no");
 
   return (
     <>
@@ -36,7 +46,7 @@ export function DondeTrabajas({ clinicas, codigoInicial }: DondeTrabajasProps) {
         {propia ? (
           <TarjetaClinica clinica={propia} ancha />
         ) : (
-          <TarjetaCrearClinica onClick={() => setCreandoClinica(true)} />
+          <TarjetaCrearClinica onClick={() => setAlta(faltanDatosProfesionales ? "datos-profesionales" : "clinica")} />
         )}
       </section>
 
@@ -66,14 +76,32 @@ export function DondeTrabajas({ clinicas, codigoInicial }: DondeTrabajasProps) {
         </div>
       </section>
 
-      {/* El formulario trae su PROPIO modal (ModalShell: overlay, tarjeta,
-          encabezado y pie fijos) desde la ronda de QA del 2026-09-13.
-          Envolverlo además en un AuthShell dejaba una segunda tarjeta
-          rectangular asomando por detrás y dos capas de fondo oscuro
-          superpuestas. Reportado con una captura en la segunda ronda de QA. */}
-      {creandoClinica && (
+      {/* Los dos formularios traen su PROPIO modal (ModalShell: overlay,
+          tarjeta, encabezado y pie fijos) desde la ronda de QA del
+          2026-09-13. Envolverlos además en un AuthShell dejaba una
+          segunda tarjeta rectangular asomando por detrás y dos capas de
+          fondo oscuro superpuestas. Reportado con una captura en la
+          segunda ronda de QA. */}
+      {alta === "datos-profesionales" && (
+        <OnboardingPerfilForm
+          especialidades={especialidades}
+          perfilInicial={perfil}
+          soloProfesional
+          onCancelar={() => setAlta("no")}
+          onListo={() => {
+            // El perfil ya es profesional. Se recuerda acá en vez de
+            // refrescar la pantalla: un `router.refresh()` cerraría el
+            // modal a mitad del encadenado, y la página se va a recargar
+            // igual apenas la clínica quede creada.
+            setDatosProfesionalesListos(true);
+            setAlta("clinica");
+          }}
+        />
+      )}
+
+      {alta === "clinica" && (
         <OnboardingClinicaForm
-          onAtras={() => setCreandoClinica(false)}
+          onAtras={() => setAlta("no")}
           volverLabel="Cancelar"
           submitLabel="Crear mi clínica"
         />

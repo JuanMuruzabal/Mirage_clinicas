@@ -59,6 +59,7 @@ const meCompleto: Me = {
   onboardingStep: "completo",
   onboardingCompletado: true,
   perfil: {
+    tipoPerfil: "profesional" as const,
     nombre: "María",
     apellido: "Games",
     telefonoPrefijo: "+54",
@@ -153,6 +154,7 @@ describe("lib/session", () => {
       telefonoPrefijo: "+54",
       telefono: "+5493511234567",
       documento: undefined,
+      tipoPerfil: "profesional",
       matriculaTipo: "nacional",
       matriculaNumero: "MP-1",
       aniosExperiencia: undefined,

@@ -36,7 +36,7 @@ describe("PerfilOverlay", () => {
     const user = userEvent.setup();
     render(<PerfilOverlay me={me} especialidades={especialidades} />);
 
-    expect(screen.getByRole("heading", { name: "Creá tu perfil profesional" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Creá tu perfil" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Nombre"), "María");
     await user.type(screen.getByLabelText("Apellido"), "Games");
@@ -46,8 +46,11 @@ describe("PerfilOverlay", () => {
     await user.click(screen.getByRole("button", { name: "Ortodoncia" }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
+    // El segundo argumento es el modo de redirección (Fase 3.2.3): acá
+    // el alta termina en /clinicas, así que la acción sí redirige.
     expect(onboardingPerfilActionMock).toHaveBeenCalledWith(
-      expect.objectContaining({ nombre: "María", apellido: "Games", especialidadIds: ["esp-1"] }),
+      expect.objectContaining({ tipoPerfil: "profesional", nombre: "María", apellido: "Games", especialidadIds: ["esp-1"] }),
+      { redirigir: true },
     );
   });
 
@@ -120,6 +123,58 @@ describe("PerfilOverlay", () => {
 
     expect(screen.getByRole("button", { name: "Periodoncia" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ortodoncia" })).not.toBeInTheDocument();
+  });
+
+  // --- Tipo de perfil (Fase 3.2.3) ---
+  //
+  // No todo el que entra a la app atiende pacientes: un recepcionista o
+  // quien administra la página no tiene matrícula. Pedírsela como
+  // obligatoria lo dejaba afuera, y con las invitaciones por mail (3.2.4)
+  // ese caso pasa a ser corriente.
+
+  it("con 'Actividades de la clínica' no se piden matrícula ni especialidades", async () => {
+    const user = userEvent.setup();
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    // Arranca en "Profesional", que es lo que era el alta hasta ahora.
+    expect(screen.getByLabelText("Matrícula — tipo")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Actividades de la clínica/ }));
+
+    expect(screen.queryByLabelText("Matrícula — tipo")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Matrícula — número")).not.toBeInTheDocument();
+    expect(screen.queryByText("Especialidades")).not.toBeInTheDocument();
+  });
+
+  it("guarda el perfil de quien no atiende sin pedirle matrícula", async () => {
+    onboardingPerfilActionMock.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    await user.click(screen.getByRole("button", { name: /Actividades de la clínica/ }));
+    await user.type(screen.getByLabelText("Nombre"), "Lucía");
+    await user.type(screen.getByLabelText("Apellido"), "Mostrador");
+    await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect(onboardingPerfilActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ tipoPerfil: "actividades", nombre: "Lucía" }),
+      { redirigir: true },
+    );
+  });
+
+  // El camino de siempre no se aflojó.
+  it("como profesional, la matrícula sigue siendo obligatoria", async () => {
+    const user = userEvent.setup();
+    render(<PerfilOverlay me={me} especialidades={especialidades} />);
+
+    await user.type(screen.getByLabelText("Nombre"), "María");
+    await user.type(screen.getByLabelText("Apellido"), "Games");
+    await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect(await screen.findByText("La matrícula es obligatoria.")).toBeInTheDocument();
+    expect(onboardingPerfilActionMock).not.toHaveBeenCalled();
   });
 });
 

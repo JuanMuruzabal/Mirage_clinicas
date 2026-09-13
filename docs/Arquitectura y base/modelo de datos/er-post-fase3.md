@@ -210,6 +210,7 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 8 | Baja de `profesionales` y `profesional_especialidades` ✅ **hecho 2026-09-13** | Destructiva (TR-132) |
 | 9 | `sessions.clinic_id` — la clínica elegida en "¿Dónde trabajás hoy?", con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
 | 10 | `pacientes.creado_por_user_id` — quién cargó la ficha a mano, con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
+| 11 | `professional_profiles.tipo_perfil` — `profesional` \| `actividades`, con check ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + check |
 
 Los dos últimos no estaban en el diseño original de esta fase. El 9 lo pedía el brief desde el principio (la elección de clínica), pero **dónde** guardarla se decidió recién al implementarlo: en la sesión y no en el usuario, para que dos sesiones abiertas puedan estar en clínicas distintas. El 10 no lo pidió nadie: apareció porque un test mostró que una ficha cargada a mano desaparecía del listado de quien la cargó (TR-139).
 

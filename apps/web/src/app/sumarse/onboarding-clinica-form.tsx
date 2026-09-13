@@ -16,7 +16,8 @@ import {
 } from "@/components/auth/auth-shell";
 import { CampoTelefono } from "@/components/auth/campo-telefono";
 import { ModalShell } from "@/components/auth/modal-shell";
-import { IconCheck, IconChevronDown, IconClinic, IconInfo, IconMapPin, IconUser, IconUsers } from "@/components/icons";
+import { TarjetaOpcion } from "@/components/auth/tarjeta-opcion";
+import { IconChevronDown, IconClinic, IconInfo, IconMapPin, IconUser, IconUsers } from "@/components/icons";
 
 interface OnboardingClinicaFormProps {
   onAtras: () => void;
@@ -138,14 +139,14 @@ export function OnboardingClinicaForm({
     >
       <form id={ID_FORM} onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
         <div className="grid items-stretch gap-3 sm:grid-cols-2">
-          <TarjetaTipo
+          <TarjetaOpcion
             seleccionada={tipo === "individual"}
             onClick={() => setValue("tipo", "individual", { shouldValidate: true })}
             icono={<IconUser className="h-5 w-5" />}
             titulo="Clínica individual"
             descripcion="Trabajás solo/a en tu consultorio."
           />
-          <TarjetaTipo
+          <TarjetaOpcion
             seleccionada={tipo === "organizacion"}
             onClick={() => setValue("tipo", "organizacion", { shouldValidate: true })}
             icono={<IconUsers className="h-5 w-5" />}
@@ -238,53 +239,5 @@ export function OnboardingClinicaForm({
         )}
       </form>
     </ModalShell>
-  );
-}
-
-function TarjetaTipo({
-  seleccionada,
-  onClick,
-  icono,
-  titulo,
-  descripcion,
-}: {
-  seleccionada: boolean;
-  onClick: () => void;
-  icono: React.ReactNode;
-  titulo: string;
-  descripcion: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={seleccionada}
-      className={`flex h-full flex-col gap-2 rounded-[10px] border-[0.5px] p-4 text-left transition-colors ${
-        seleccionada ? "border-salvia bg-salvia-claro" : "border-arena bg-marfil hover:border-salvia"
-      }`}
-    >
-      {/* Ícono arriba a la izquierda y círculo de selección arriba a la
-          derecha: así la tarjeta se lee como un radio button aunque sea
-          una tarjeta. */}
-      <span className="flex items-start justify-between">
-        <span className={seleccionada ? "text-salvia-oscuro" : "text-grafito/40"}>{icono}</span>
-        <span
-          aria-hidden="true"
-          className={`flex h-5 w-5 items-center justify-center rounded-full border-[0.5px] ${
-            seleccionada ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-arena"
-          }`}
-        >
-          {seleccionada && <IconCheck className="h-3.5 w-3.5" />}
-        </span>
-      </span>
-      <span
-        className={`font-[family-name:var(--font-display)] text-lg font-medium ${
-          seleccionada ? "text-salvia-oscuro" : "text-grafito"
-        }`}
-      >
-        {titulo}
-      </span>
-      <span className="text-sm text-grafito/60">{descripcion}</span>
-    </button>
   );
 }

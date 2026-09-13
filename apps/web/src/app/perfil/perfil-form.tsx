@@ -19,6 +19,7 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
   } = useForm<OnboardingPerfilFormValues>({
     resolver: zodResolver(onboardingPerfilSchema),
     defaultValues: {
+      tipoPerfil: sesion.tipoPerfil,
       nombre: sesion.nombre,
       apellido: sesion.apellido,
       telefonoPrefijo: sesion.telefonoPrefijo || "+54",
@@ -35,6 +36,13 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
   const seleccionadas = watch("especialidadIds");
+  // Quien trabaja en la clínica sin atender (recepción, administración de
+  // la página) no tiene matrícula ni especialidades — Fase 3.2.3. Mostrarle
+  // esos campos vacíos acá sería pedirle datos que la app decidió no
+  // pedirle. El tipo no se cambia desde esta pantalla: el único camino a
+  // "profesional" es armar la clínica propia, donde la matrícula sí hace
+  // falta y se pide como parte de ese flujo.
+  const atiendePacientes = sesion.tipoPerfil === "profesional";
 
   function toggleEspecialidad(id: string) {
     setGuardado(false);
@@ -51,6 +59,9 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
       ...values,
       documento: values.documento || undefined,
       bio: values.bio || undefined,
+      // "" es lo que deja el select de matrícula cuando el campo estuvo
+      // en pantalla y dejó de estarlo; el payload espera ausencia.
+      matriculaTipo: values.matriculaTipo || undefined,
     });
     if (result?.error) {
       setError(result.error);
@@ -86,53 +97,59 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
         </AuthField>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <AuthField label="Matrícula — tipo" error={errors.matriculaTipo?.message}>
-          <select className={authInputClass} {...register("matriculaTipo")}>
-            <option value="" disabled>
-              Elegí una opción
-            </option>
-            <option value="nacional">Nacional</option>
-            <option value="provincial">Provincial</option>
-          </select>
-        </AuthField>
-        <AuthField label="Matrícula — número" error={errors.matriculaNumero?.message}>
-          <input className={authInputClass} {...register("matriculaNumero")} />
-        </AuthField>
-      </div>
+      {atiendePacientes && (
+        <div className="grid gap-5 sm:grid-cols-2">
+          <AuthField label="Matrícula — tipo" error={errors.matriculaTipo?.message}>
+            <select className={authInputClass} {...register("matriculaTipo")}>
+              <option value="" disabled>
+                Elegí una opción
+              </option>
+              <option value="nacional">Nacional</option>
+              <option value="provincial">Provincial</option>
+            </select>
+          </AuthField>
+          <AuthField label="Matrícula — número" error={errors.matriculaNumero?.message}>
+            <input className={authInputClass} {...register("matriculaNumero")} />
+          </AuthField>
+        </div>
+      )}
 
       <AuthField label="Documento" error={errors.documento?.message}>
         <input className={authInputClass} {...register("documento")} />
       </AuthField>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-grafito">Especialidades</span>
-        <div className="flex flex-wrap gap-2">
-          {catalogo.map((esp) => {
-            const activa = (seleccionadas ?? []).includes(esp.id);
-            return (
-              <button
-                key={esp.id}
-                type="button"
-                onClick={() => toggleEspecialidad(esp.id)}
-                aria-pressed={activa}
-                className={`rounded-full border-[0.5px] px-3 py-1.5 text-sm ${
-                  activa
-                    ? "border-salvia bg-salvia-claro text-salvia-oscuro"
-                    : "border-arena text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                }`}
-              >
-                {esp.nombre}
-              </button>
-            );
-          })}
-        </div>
-        {errors.especialidadIds && <p className={authErrorClass}>{errors.especialidadIds.message}</p>}
-      </div>
+      {atiendePacientes && (
+        <>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-grafito">Especialidades</span>
+            <div className="flex flex-wrap gap-2">
+              {catalogo.map((esp) => {
+                const activa = (seleccionadas ?? []).includes(esp.id);
+                return (
+                  <button
+                    key={esp.id}
+                    type="button"
+                    onClick={() => toggleEspecialidad(esp.id)}
+                    aria-pressed={activa}
+                    className={`rounded-full border-[0.5px] px-3 py-1.5 text-sm ${
+                      activa
+                        ? "border-salvia bg-salvia-claro text-salvia-oscuro"
+                        : "border-arena text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                    }`}
+                  >
+                    {esp.nombre}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.especialidadIds && <p className={authErrorClass}>{errors.especialidadIds.message}</p>}
+          </div>
 
-      <AuthField label="Años de experiencia" error={errors.aniosExperiencia?.message}>
-        <input type="number" min={0} max={80} className={authInputClass} {...register("aniosExperiencia")} />
-      </AuthField>
+          <AuthField label="Años de experiencia" error={errors.aniosExperiencia?.message}>
+            <input type="number" min={0} max={80} className={authInputClass} {...register("aniosExperiencia")} />
+          </AuthField>
+        </>
+      )}
 
       <AuthField label="Bio corta" error={errors.bio?.message}>
         <textarea rows={3} className={authInputClass} {...register("bio")} />

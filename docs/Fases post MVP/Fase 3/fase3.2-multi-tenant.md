@@ -499,3 +499,33 @@ Los 69 tests del wizard pasaron **sin tocarlos**, que era la condición para dar
 
 **Verificado:** 1061 tests frontend, cobertura y lint en verde, build OK, contenedor reconstruido (`/sumarse` y `/ingresar` responden 200).
 
+### No todo el que entra a la app atiende pacientes
+
+Pedido del cliente, y el más de fondo de las tres rondas: el alta de perfil pedía **matrícula obligatoria**, y eso alcanza mientras la única forma de entrar sea "soy odontólogo y quiero mi clínica". Deja de alcanzar en la subfase siguiente:
+
+> *"cuando uno envíe la invitación por mail a un futuro colaborador, si este colaborador no tiene cuenta, se le pedirá crear una, y no necesariamente el recepcionista tiene una matrícula de profesional, como el que se encarga de editar la página."*
+
+El perfil suma entonces un tipo: **Profesional** o **Actividades de la clínica**. Con el segundo no se piden matrícula ni especialidades — ni se guardan si un cliente las manda igual, porque son los datos con los que después la página pública decide qué mostrar.
+
+**El default es `profesional` cuando el campo no viene.** Todas las filas que ya existen son de odontólogos y todos los tests anteriores se escribieron sin el campo: sin ese default, el cambio habría roto las dos cosas a la vez y por el mismo motivo equivocado.
+
+#### Y si esa persona después quiere su propia clínica
+
+El caso lo marcó el cliente apenas visto lo anterior: *"si estos usuarios se registraron sin ser profesional... y quieren poner su propia clínica, deberán completar otra vez el modal, solo con la parte de profesional faltante."*
+
+Una clínica sin un titular con matrícula no tiene de dónde salir, así que "Crear mi clínica" pide primero los datos que faltan, **encadenado en la misma pantalla**: modal de datos profesionales → modal de la clínica, sin recargar `/clinicas` en el medio. Para eso la acción del perfil acepta no redirigir.
+
+El backend rechaza el alta de clínica de un perfil que no es profesional (403). No es redundante con la pantalla: es lo que hace que la regla valga aunque alguien le pegue directo a la API.
+
+**Un efecto que vale anotar:** con ese guard, el titular de una clínica es *siempre* profesional, así que los tres roles que el brief le da (`owner` + `admin` + `profesional`) siguen siendo coherentes por construcción. Sin él habría hecho falta decidir qué roles darle a un titular que no atiende.
+
+#### El bug que se comió el formulario en silencio
+
+Al cambiar de "Profesional" a "Actividades", el formulario **dejaba de enviarse y no decía por qué**: sin error visible, sin llamada al backend, nada.
+
+La causa: react-hook-form **no limpia el valor de un campo que se desmonta** (`shouldUnregister` es `false` por default). El select de matrícula quedaba registrado con `""`, y el `z.enum(["nacional","provincial"])` lo rechazaba — con el error apuntando a un campo **que ya no estaba en pantalla**, así que no había dónde mostrarlo.
+
+Es la peor forma de un bug de validación: el formulario no se envía y la interfaz no tiene nada que decir. El esquema ahora acepta `""` explícitamente y se normaliza a "ausente" en un solo lugar, la acción por la que pasan las dos pantallas que editan el perfil.
+
+**Verificado:** 12 paquetes de backend en verde (5 tests nuevos), 1067 tests frontend (6 nuevos), cobertura y lint en verde, build OK, contenedores reconstruidos y la columna con su check verificada contra la base real.
+
