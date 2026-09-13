@@ -209,4 +209,4 @@ Las 33 foreign keys, por tabla referenciada:
 3. **`turnos` necesita saber quién atiende**, y eso convive con `profesional_id` (que apunta a la clínica). Dos columnas parecidas con significados distintos es una trampa garantizada si no se renombra.
 4. **El `EXCLUDE USING gist` hay que rehacerlo** sobre el profesional que atiende, o deja de ser una garantía y pasa a ser un bloqueo falso.
 5. **`pacientes` se queda en la clínica** (el brief es explícito), y "los pacientes de un profesional" se deriva de sus turnos, no de una columna.
-6. **Hay basura para limpiar**: `profesionales` (12 filas huérfanas) y `profesional_especialidades`, por el guardián de TR-132.
+6. **Hay basura para limpiar**: `profesionales` (12 filas huérfanas) y `profesional_especialidades`, por el guardián de TR-132. ✅ **Hecho el 2026-09-13** (paso 1 de la 3.2.1): 13 filas borradas, datos reales intactos. Este documento conserva el estado previo a propósito — es el registro de cómo estaba el esquema cuando arrancó la fase.
