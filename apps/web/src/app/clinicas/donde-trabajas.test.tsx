@@ -1,0 +1,206 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ClinicaDelUsuario } from "@dental-mirage/shared-types";
+
+const { entrarEnClinicaActionMock, generarCodigoInvitacionActionMock, onboardingClinicaActionMock } = vi.hoisted(() => ({
+  entrarEnClinicaActionMock: vi.fn(),
+  generarCodigoInvitacionActionMock: vi.fn(),
+  onboardingClinicaActionMock: vi.fn(),
+}));
+
+vi.mock("@/app/actions/clinicas", () => ({
+  entrarEnClinicaAction: entrarEnClinicaActionMock,
+  generarCodigoInvitacionAction: generarCodigoInvitacionActionMock,
+}));
+
+// El formulario de alta de clínica se renderiza DE VERDAD: desde la Fase
+// 3.2.3 vive acá adentro (antes era el paso 2 del modal de bienvenida), y
+// esta suite es la que verifica que siga funcionando en su casa nueva.
+vi.mock("@/app/actions/auth", () => ({ onboardingClinicaAction: onboardingClinicaActionMock }));
+
+const { DondeTrabajas } = await import("./donde-trabajas");
+
+function clinica(over: Partial<ClinicaDelUsuario> = {}): ClinicaDelUsuario {
+  return {
+    id: "clinica-1",
+    nombre: "Consultorio Propio",
+    slug: "consultorio-propio",
+    tipo: "individual",
+    direccion: "Av. Colón 1240",
+    ciudad: "Córdoba",
+    provincia: "Córdoba",
+    roles: ["owner", "admin", "profesional"],
+    rolPrincipal: "owner",
+    esPropia: true,
+    profesionales: 3,
+    activa: false,
+    ...over,
+  };
+}
+
+describe("DondeTrabajas (Fase 3.2.3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("separa la clínica propia de las de colegas", () => {
+    render(
+      <DondeTrabajas
+        clinicas={[
+          clinica(),
+          clinica({ id: "clinica-2", nombre: "Clínica Del Colega", esPropia: false, rolPrincipal: "profesional" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Consultorio Propio")).toBeInTheDocument();
+    expect(screen.getByText("Titular")).toBeInTheDocument();
+    expect(screen.getByText("Clínica Del Colega")).toBeInTheDocument();
+    expect(screen.getByText("Profesional")).toBeInTheDocument();
+    expect(screen.getByText("1 clínica")).toBeInTheDocument();
+  });
+
+  it("muestra dirección y cantidad de profesionales", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+    expect(screen.getByText("Av. Colón 1240, Córdoba · 3 profesionales")).toBeInTheDocument();
+  });
+
+  // Alguien que entró a la app porque un colega lo sumó puede no tener
+  // clínica propia nunca — el lugar de "Mi clínica" lo ocupa la invitación
+  // a crearla, no un hueco.
+  it("sin clínica propia, ofrece crearla", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+
+    const crear = screen.getByRole("button", { name: /Crear mi clínica/ });
+    expect(screen.getByText("Todavía no trabajás en otras clínicas")).toBeInTheDocument();
+    expect(screen.getByText("Ninguna todavía")).toBeInTheDocument();
+
+    await userEvent.click(crear);
+    expect(screen.getByRole("button", { name: /Clínica individual/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Organización/ })).toBeInTheDocument();
+  });
+
+  it("elegir organización avisa que las invitaciones llegan después", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Organización/ }));
+
+    expect(screen.getByText(/próximamente/i)).toBeInTheDocument();
+  });
+
+  it("crea la clínica con los datos cargados", async () => {
+    onboardingClinicaActionMock.mockResolvedValue(undefined);
+    render(<DondeTrabajas clinicas={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+    await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
+    await userEvent.click(screen.getByRole("button", { name: "Crear mi clínica" }));
+
+    await waitFor(() =>
+      expect(onboardingClinicaActionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: "individual", nombre: "Clínica Games" }),
+      ),
+    );
+  });
+
+  // A diferencia del modal de bienvenida viejo, de este SÍ se sale: crear
+  // una clínica dejó de ser obligatorio.
+  it("se puede cancelar el alta y volver a la pantalla", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("button", { name: /Clínica individual/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Crear mi clínica/ })).toBeInTheDocument();
+  });
+
+  it("al entrar, manda la clínica elegida a la acción", async () => {
+    entrarEnClinicaActionMock.mockResolvedValue(undefined);
+    render(<DondeTrabajas clinicas={[clinica({ id: "la-elegida" })]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    await waitFor(() => expect(entrarEnClinicaActionMock).toHaveBeenCalledWith("la-elegida"));
+  });
+
+  it("si entrar falla, lo dice en la tarjeta y no deja la pantalla en blanco", async () => {
+    entrarEnClinicaActionMock.mockResolvedValue({ error: "no trabajás en esa clínica" });
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("no trabajás en esa clínica");
+  });
+
+  it("genera el código de invitación y después ofrece generar otro", async () => {
+    generarCodigoInvitacionActionMock.mockResolvedValue({ codigo: "PR-ABCD-EFGH", venceAt: "2026-09-14T12:00:00Z" });
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Generar mi código" }));
+
+    expect(await screen.findByText("PR-ABCD-EFGH")).toBeInTheDocument();
+    expect(screen.getByText(/Vence en 24 horas/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generar otro" })).toBeInTheDocument();
+  });
+
+  // Un código que ya estaba vigente se muestra sin tener que volver a
+  // generarlo — generar otro invalida el anterior, así que pedirlo de
+  // nuevo para verlo sería romper el que la persona ya compartió.
+  it("muestra el código que ya estaba vigente", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} codigoInicial={{ codigo: "PR-WXYZ-1234", venceAt: "2026-09-14T12:00:00Z" }} />);
+
+    expect(screen.getByText("PR-WXYZ-1234")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generar otro" })).toBeInTheDocument();
+  });
+
+  it("si generar el código falla, lo dice", async () => {
+    generarCodigoInvitacionActionMock.mockResolvedValue({ error: "no se pudo generar el código" });
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Generar mi código" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("no se pudo generar el código");
+  });
+
+  it("sin dirección cargada, muestra solo cuántos profesionales atienden", () => {
+    render(<DondeTrabajas clinicas={[clinica({ direccion: null, ciudad: null, profesionales: 1 })]} />);
+    expect(screen.getByText("1 profesional")).toBeInTheDocument();
+  });
+
+  // Los roles los define el backend; si algún día suma uno que esta
+  // pantalla no conoce, se muestra tal cual en vez de dejar el lugar
+  // vacío.
+  it("un rol desconocido se muestra tal cual", () => {
+    render(<DondeTrabajas clinicas={[clinica({ rolPrincipal: "suplente" as ClinicaDelUsuario["rolPrincipal"] })]} />);
+    expect(screen.getByText("suplente")).toBeInTheDocument();
+  });
+
+  it("copia el código al portapapeles y lo confirma", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    render(<DondeTrabajas clinicas={[clinica()]} codigoInicial={{ codigo: "PR-WXYZ-1234", venceAt: "2026-09-14T12:00:00Z" }} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Copiar" }));
+
+    expect(writeText).toHaveBeenCalledWith("PR-WXYZ-1234");
+    expect(await screen.findByRole("button", { name: "Copiado" })).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  // Sin permiso de portapapeles el código igual está a la vista: no hay
+  // nada que avisar, pero tampoco puede romperse la pantalla.
+  it("si el portapapeles falla, no rompe nada", async () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("sin permiso")) } });
+    render(<DondeTrabajas clinicas={[clinica()]} codigoInicial={{ codigo: "PR-WXYZ-1234", venceAt: "2026-09-14T12:00:00Z" }} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Copiar" }));
+
+    expect(screen.getByText("PR-WXYZ-1234")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});
+

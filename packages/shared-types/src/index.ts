@@ -42,6 +42,40 @@ export interface ClinicaSesion {
   rol: ClinicRole;
 }
 
+// Espejo de clinicaDelUsuarioResponse (internal/http/mis_clinicas.go) —
+// una de las clínicas donde esta persona trabaja, para "¿Dónde trabajás
+// hoy?" (Fase 3.2.3).
+export interface ClinicaDelUsuario {
+  id: string;
+  nombre: string;
+  slug: string;
+  tipo: ClinicTipo;
+  direccion?: string | null;
+  ciudad?: string | null;
+  provincia?: string | null;
+  roles: ClinicRole[];
+  rolPrincipal: ClinicRole;
+  // esPropia — la creó esta persona. El mockup separa "Mi clínica" de
+  // "Otras clínicas", y el rol no alcanza para distinguirlas: el titular
+  // de la suya y un invitado pueden tener los dos rol `profesional`.
+  esPropia: boolean;
+  profesionales: number;
+  activa: boolean;
+}
+
+// El código con el que una persona se ofrece para que una clínica la sume
+// al equipo (Fase 3.2.3).
+export interface CodigoInvitacion {
+  codigo: string;
+  venceAt: string;
+}
+
+export interface MisClinicas {
+  clinicas: ClinicaDelUsuario[];
+  // Ausente si nunca generó uno, o si el que tenía ya venció.
+  codigoInvitacion?: CodigoInvitacion;
+}
+
 // Espejo de meResponse (internal/http/me.go, GET /me). `perfil`/`clinica`
 // vienen ausentes mientras el onboarding no llegó a esos pasos — el
 // frontend usa justamente eso (+ `onboardingStep`) para saber a qué paso

@@ -13,10 +13,10 @@ export const PASOS_SUMARSE: readonly PasoStepper[] = [
   { id: "verificar", titulo: "Confirmar cuenta" },
 ] as const;
 
-export const PASOS_BIENVENIDA: readonly PasoStepper[] = [
-  { id: "perfil", titulo: "Tu perfil" },
-  { id: "clinica", titulo: "Tu clínica" },
-] as const;
+// PASOS_BIENVENIDA (perfil + clínica) se fue en la Fase 3.2.3: el modal
+// de bienvenida quedó en un solo paso —el perfil— porque crear la clínica
+// dejó de ser obligatorio para entrar a la app. Un stepper de un paso no
+// informa nada.
 
 export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actual: string }) {
   const indexActual = pasos.findIndex((p) => p.id === actual);

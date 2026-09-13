@@ -136,12 +136,12 @@ describe("SiteHeaderChrome — logo", () => {
 // configuración reemplaza a los tres links sueltos de antes.
 describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
   it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
-    "en %s con estado completo, muestra el botón de configuración y no 'Mi clínica'",
+    "en %s con estado completo, muestra el botón de configuración y no 'Mis clínicas'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
       renderHeader("completo");
       expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     },
   );
 
@@ -153,12 +153,12 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
   // ofrece — el gear queda redundante ahí, y "Mi clínica" tampoco
   // aparece (ese espacio lo ocupa la hamburguesa/el botón "Panel").
   it.each(["/panel", "/panel/turnos"])(
-    "en %s (con sidebar) con estado completo, NO muestra el botón de configuración ni 'Mi clínica'",
+    "en %s (con sidebar) con estado completo, NO muestra el botón de configuración ni 'Mis clínicas'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
       renderHeader("completo");
       expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     },
   );
 
@@ -186,10 +186,24 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
 // el sidebar; en el resto (desktop de /panel/**, y /perfil/
 // /personalizar-pagina en cualquier ancho) lo reemplaza un botón "Panel".
 describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-075)", () => {
-  it("en /seleccionar-servicio con estado completo, el logo sigue visible (única excepción)", () => {
+  // Fase 3.2.3: en /seleccionar-servicio el logo dejó de llevar a la home
+  // y pasó a ser el camino de vuelta al selector de clínica — pedido
+  // textual del brief ("donde dice PRISMA ahora deberá decir clínicas,
+  // para ir a la página anterior de seleccionar clínica").
+  it("en /seleccionar-servicio con estado completo, el logo lleva al selector de clínica", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
     renderHeader("completo");
-    expect(screen.getByRole("link", { name: /PRISMA/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Clínicas" })).toHaveAttribute("href", "/clinicas");
+    expect(screen.queryByRole("link", { name: /PRISMA/ })).not.toBeInTheDocument();
+  });
+
+  // En /clinicas el nombre queda como TEXTO, sin link: "una vez iniciado
+  // sesión, para volver al home se deberá cerrar sesión" (brief).
+  it("en /clinicas, el nombre no es un link a ningún lado", () => {
+    usePathnameMock.mockReturnValue("/clinicas");
+    renderHeader("completo");
+    expect(screen.getByText("PRISMA")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /PRISMA/ })).not.toBeInTheDocument();
   });
 
   it.each(["/panel", "/panel/turnos", "/perfil", "/personalizar-pagina"])(
@@ -262,26 +276,26 @@ describe("SiteHeaderChrome — logo oculto fuera de /seleccionar-servicio (TR-07
 // por detrás del formulario... y no el header correspondiente a esa
 // sección" — ya no hay excepción de ruta para /seleccionar-servicio acá.
 describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
-  it.each(["/", "/buscar"])("con estado completo en %s (fuera de una herramienta), muestra 'Mi clínica'", (pathname) => {
+  it.each(["/", "/buscar"])("con estado completo en %s (fuera de una herramienta), muestra 'Mis clínicas'", (pathname) => {
     usePathnameMock.mockReturnValue(pathname);
     renderHeader("completo");
-    expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+    expect(screen.getByRole("link", { name: "Mis clínicas" })).toHaveAttribute("href", "/clinicas");
   });
 
   it.each(["/", "/buscar", "/seleccionar-servicio"])(
-    "con estado cuentaSinTerminar en %s, muestra 'Mi clínica' (sin excepción de ruta)",
+    "con estado cuentaSinTerminar en %s, muestra 'Mis clínicas' (sin excepción de ruta)",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
       renderHeader("cuentaSinTerminar");
-      expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+      expect(screen.getByRole("link", { name: "Mis clínicas" })).toHaveAttribute("href", "/clinicas");
       expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();
     },
   );
 
-  it("con estado anónimo, nunca muestra 'Mi clínica'", () => {
+  it("con estado anónimo, nunca muestra 'Mis clínicas'", () => {
     usePathnameMock.mockReturnValue("/");
     renderHeader("anonimo");
-    expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { Stepper, PASOS_SUMARSE, PASOS_BIENVENIDA } from "./stepper";
+import { Stepper, PASOS_SUMARSE } from "./stepper";
 
 describe("Stepper", () => {
   it("marca el paso actual y los anteriores como completados", () => {
@@ -19,8 +19,10 @@ describe("Stepper", () => {
     expect(items[1]).not.toHaveTextContent("✓");
   });
 
-  it("funciona con otro juego de pasos (bienvenida: perfil + clínica)", () => {
-    render(<Stepper pasos={PASOS_BIENVENIDA} actual="clinica" />);
+  // El stepper sigue siendo genérico aunque hoy solo lo use /sumarse:
+  // este caso lo verifica con un juego de pasos cualquiera.
+  it("funciona con otro juego de pasos", () => {
+    render(<Stepper pasos={[{ id: "uno", titulo: "Uno" }, { id: "dos", titulo: "Dos" }]} actual="dos" />);
 
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(2);

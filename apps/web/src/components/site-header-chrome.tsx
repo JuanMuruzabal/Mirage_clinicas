@@ -88,8 +88,18 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // hamburguesa (abre el sidebar), y en el resto de los casos (desktop
   // de /panel/**, y las dos pantallas sin sidebar en cualquier ancho) lo
   // reemplaza un botón "Panel" que vuelve a /seleccionar-servicio.
+  // Fase 3.2.3 — el brief pide dos cosas distintas para estas dos
+  // pantallas:
+  //   - en /clinicas, "donde diga PRISMA esto quitarlo, una vez iniciado
+  //     sesión, para volver al home se deberá cerrar sesión": el nombre
+  //     queda como texto, sin link. La salida al sitio público es
+  //     deliberadamente cerrar sesión (el gear la ofrece).
+  //   - en /seleccionar-servicio, "donde dice PRISMA ahora deberá decir
+  //     clínicas, para ir a la página anterior de seleccionar clínica":
+  //     el logo pasa a ser el camino de vuelta al selector.
   const esSeleccionarServicio = pathname === "/seleccionar-servicio";
-  const ocultarLogo = esHerramienta && !esSeleccionarServicio;
+  const esClinicas = pathname === "/clinicas";
+  const ocultarLogo = esHerramienta && !esSeleccionarServicio && !esClinicas;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
   // menú al navegar: "adjusting state when a prop changes"
@@ -176,6 +186,18 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                 <span className="text-sm font-semibold">Panel</span>
               </Link>
             </>
+          ) : esClinicas ? (
+            <span className="flex items-center gap-2 text-current">
+              <QuadrantMark className="text-steel" />
+              <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
+                PRISMA
+              </span>
+            </span>
+          ) : esSeleccionarServicio ? (
+            <Link href="/clinicas" className="flex items-center gap-2 text-current" onClick={closeMenu}>
+              <QuadrantMark className="text-steel" />
+              <span className="text-sm font-semibold">Clínicas</span>
+            </Link>
           ) : (
             /* El logo siempre vuelve a la home pública, tenga sesión o no
                (pedido explícito del cliente, 2026-08-26) — antes llevaba a
@@ -205,9 +227,13 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
 
         {mostrarGear && <HeaderConfigMenu />}
 
+        {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
+            sesión. Llevar directo a /seleccionar-servicio salteaba la
+            elección de clínica — y para una cuenta sin terminar rebotaba
+            de vuelta acá. */}
         {mostrarMiClinica && (
-          <Link href="/seleccionar-servicio" className={pillLinkClass}>
-            Mi clínica
+          <Link href="/clinicas" className={pillLinkClass}>
+            Mis clínicas
           </Link>
         )}
 

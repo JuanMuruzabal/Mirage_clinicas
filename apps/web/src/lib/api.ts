@@ -6,6 +6,7 @@ import type {
   BloqueosSeguridad,
   ClinicaPublica,
   ClinicaResultado,
+  CodigoInvitacion,
   ConflictoPaciente,
   Disponibilidad,
   Especialidad,
@@ -17,6 +18,7 @@ import type {
   LoginResponse,
   Me,
   MensajeResponse,
+  MisClinicas,
   OnboardingClinicaPayload,
   OnboardingClinicaResponse,
   OnboardingPerfilPayload,
@@ -550,6 +552,27 @@ export function apiOnboardingClinica(token: string, payload: OnboardingClinicaPa
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
+  });
+}
+
+// --- Fase 3.2.3: "¿Dónde trabajás hoy?" ---
+
+export function apiMisClinicas(token: string): Promise<ApiResult<MisClinicas>> {
+  return request<MisClinicas>("/me/clinicas", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiElegirClinicaActiva(token: string, clinicaId: string): Promise<ApiResult<{ clinicaId: string }>> {
+  return request<{ clinicaId: string }>("/me/clinica-activa", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ clinicaId }),
+  });
+}
+
+export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<CodigoInvitacion>> {
+  return request<CodigoInvitacion>("/me/codigo-invitacion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

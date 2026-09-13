@@ -253,7 +253,11 @@ export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): 
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect("/seleccionar-servicio");
+  // Fase 3.2.3: el perfil es el único paso que quedó del onboarding, y
+  // termina en "¿Dónde trabajás hoy?" — crear la clínica dejó de ser el
+  // paso siguiente obligatorio y pasó a ser una de las opciones de esa
+  // pantalla.
+  redirect("/clinicas");
 }
 
 // nota: no hace falta revalidatePath("/", "layout") acá — este paso solo

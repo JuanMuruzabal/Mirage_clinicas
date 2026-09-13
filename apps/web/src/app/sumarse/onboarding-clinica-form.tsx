@@ -8,14 +8,20 @@ import { onboardingClinicaSchema, type OnboardingClinicaFormValues } from "@/lib
 import { AuthField, authErrorClass, authInputClass, authSubmitClass } from "@/components/auth/auth-shell";
 
 interface OnboardingClinicaFormProps {
+  // onAtras/volverLabel — desde la Fase 3.2.3 este formulario ya no es
+  // "el paso 3 del wizard" sino una acción que se abre desde "¿Dónde
+  // trabajás hoy?", así que el botón de la izquierda tiene que poder
+  // decir "Cancelar" y cerrar el modal, no solo "Atrás".
   onAtras: () => void;
+  volverLabel?: string;
+  submitLabel?: string;
 }
 
 // Paso 3 — Tu clínica (spec §4): elección de tipo con dos cards grandes
 // seleccionables (no un <select>), después los campos de la clínica.
 // "Organización" muestra un aviso de que invitar colaboradores llega
 // después (spec §9, fuera de alcance implementar el envío ahora).
-export function OnboardingClinicaForm({ onAtras }: OnboardingClinicaFormProps) {
+export function OnboardingClinicaForm({ onAtras, volverLabel = "Atrás", submitLabel = "Empezar a usar PRISMA" }: OnboardingClinicaFormProps) {
   const {
     register,
     handleSubmit,
@@ -104,10 +110,10 @@ export function OnboardingClinicaForm({ onAtras }: OnboardingClinicaFormProps) {
           onClick={onAtras}
           className="rounded-full border-[0.5px] border-arena bg-marfil px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
         >
-          Atrás
+          {volverLabel}
         </button>
         <button type="submit" disabled={isSubmitting || !tipo} className={authSubmitClass}>
-          {isSubmitting ? "Creando clínica…" : "Empezar a usar PRISMA"}
+          {isSubmitting ? "Creando clínica…" : submitLabel}
         </button>
       </div>
     </form>

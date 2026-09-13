@@ -99,7 +99,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 
 **Por qué antes que la UI:** si el backend no aísla, ninguna pantalla lo va a arreglar.
 
-### 3.2.3 — Onboarding y "¿dónde trabajás hoy?" ⏳
+### 3.2.3 — Onboarding y "¿dónde trabajás hoy?" ✅
 
 - El wizard de 2 pasos se deconstruye: crear perfil, y de ahí a elegir dónde trabajar.
 - Pantalla de selección de clínica como punto de partida de toda sesión.
@@ -372,7 +372,7 @@ Nada de esto se ve todavía desde la UI, por el mismo motivo que la 3.2.1: no ha
 
 ## 3.2.3 — Onboarding y "¿dónde trabajás hoy?"
 
-**Fecha:** 2026-09-13 · **Código:** `internal/http/mis_clinicas.go`, `internal/db/codigo_invitacion.go`
+**Fecha:** 2026-09-13 · **Decisión:** `docs/Arquitectura y base/tradeoffs.md` TR-139 · **Código:** `internal/http/mis_clinicas.go`, `apps/web/src/app/clinicas/`
 
 La primera subfase de la 3.2 que se ve en pantalla. El brief la define en una línea: *"al iniciar sesión o abrir la aplicación con una sesión activa siempre me llevará a este apartado, este siempre será el inicio de partida."*
 
@@ -411,4 +411,33 @@ Lo que enseña es sobre el alcance de la verificación de la 3.2.2, no sobre el 
 **Verificado con control negativo:** volviendo el scope a la versión de la 3.2.2 —que compila— los dos tests fallan con el mensaje correcto; el de la fuga sigue pasando, así que el arreglo no abrió el aislamiento.
 
 **Aplicado:** 12 paquetes en verde, gofmt + golangci-lint 0 issues. Un test existente cambió de expectativa a propósito: crear una segunda clínica propia ahora responde **409** en vez de 403, porque el rechazo dejó de ser "estás en el paso equivocado del wizard" y pasó a ser "ese recurso ya existe".
+
+### Paso 2: la pantalla, y el wizard que se deshace
+
+`/clinicas` pasa a ser el destino de todo: del login, del alta de cuenta, de abrir la app con sesión activa, y del botón del header. `/seleccionar-servicio` —que era ese destino desde TR-057— queda un paso más adelante, cuando ya se sabe en qué clínica se está trabajando.
+
+**Lo que se rompió a propósito: el modal de bienvenida.** Tenía dos pasos, perfil y clínica, y no se podía salir sin completar los dos. El perfil sigue igual —sin nombre ni matrícula no hay nada que mostrarle a un paciente—; el de la clínica se fue a la pantalla nueva como **una opción más**.
+
+El motivo no es de diseño sino de flujo: a la app también se entra porque un colega te sumó a la suya. Con el modal viejo, esa persona quedaba **encerrada creando una clínica que no quería** para poder llegar a la pantalla donde aceptar la invitación. Es un caso que no existía hasta esta fase y que la 3.2.4 vuelve corriente.
+
+**La pantalla** sigue el mockup: "Mi clínica" arriba —o la invitación a crearla, si no tiene—, "Otras clínicas" abajo con su estado vacío, y la tarjeta para generar el código. Lo único que se apartó del mockup es el prefijo del código: dice `PR-` y no `DM-`, porque el mockup es anterior al cambio de nombre del producto.
+
+### Paso 3: saber dónde estoy parado
+
+Tres cambios chicos, todos del mismo problema: con N clínicas, **entrar a la equivocada y no notarlo** es el error caro de esta fase.
+
+- `/seleccionar-servicio` muestra la clínica activa destacada, con un "Cambiar de clínica" al lado (pedido textual del brief).
+- En esa pantalla el logo deja de llevar a la home pública y pasa a decir **"Clínicas"**, volviendo al selector.
+- En `/clinicas` el nombre del producto queda como **texto, sin link**: "una vez iniciado sesión, para volver al home se deberá cerrar sesión" (brief). La salida al sitio público es deliberadamente cerrar sesión, que el menú de configuración ofrece.
+- Las tarjetas pasan a llamarse "Gestión de clínica" y "Personalización de página", y el botón del header, "Mis clínicas" → `/clinicas`. Antes llevaba directo a `/seleccionar-servicio`, salteando la elección — y para una cuenta sin terminar, rebotaba de vuelta.
+
+### Con esto la 3.2.3 queda completa
+
+**1039 tests frontend** (18 nuevos entre la pantalla, sus acciones y el modal de perfil), 12 paquetes de backend en verde, gofmt + golangci-lint 0 issues, contenedores reconstruidos y esquema verificado contra la base real (`sessions.clinic_id`, `users.codigo_invitacion`, `pacientes.creado_por_user_id`, el índice único parcial y las dos FK en `SET NULL`).
+
+Cuatro tests existentes cambiaron de expectativa a propósito, y vale dejar claro cuáles: los redirects post-auth ahora apuntan a `/clinicas`, y el logo de `/seleccionar-servicio` apunta al selector. No son ajustes para que pase la suite: son la decisión de la fase, escrita donde se verifica.
+
+**Lo que queda declarado como pendiente:** el brief pide que al crear una clínica de tipo "organización" el camino siga en la pantalla de colaboradores. Esa pantalla es la **3.2.4**; hasta entonces los dos tipos terminan igual, en `/seleccionar-servicio`.
+
+Sigue la **3.2.4 — colaboradores**: invitar por código o por mail, con los roles y sus reglas de exclusión. Es la que le da sentido al código que esta fase ya genera.
 

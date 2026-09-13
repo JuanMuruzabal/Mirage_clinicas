@@ -130,7 +130,11 @@ function toSesionCompleta(me: Me): SesionCompleta | null {
 export async function requireOnboardingComplete(): Promise<SesionCompleta> {
   const me = await requireSession();
   if (!me.onboardingCompletado) {
-    redirect("/sumarse");
+    // Fase 3.2.3: a /clinicas y no a /sumarse. Lo que falta puede ser el
+    // perfil (que /clinicas muestra como modal) o una clínica donde
+    // trabajar — y esa segunda ya no se resuelve en un wizard: se elige
+    // entre crear la propia o esperar a que un colega te sume.
+    redirect("/clinicas");
   }
   const sesion = toSesionCompleta(me);
   if (!sesion) {
@@ -151,7 +155,10 @@ export async function requireOnboardingComplete(): Promise<SesionCompleta> {
 // justamente las pantallas para quien todavía no tiene una.
 export async function redirectSiEmailVerificado(me: Me | null): Promise<void> {
   if (me?.emailVerificado) {
-    redirect("/seleccionar-servicio");
+    // Fase 3.2.3: el destino post-auth pasa a ser /clinicas. Antes era
+    // /seleccionar-servicio, que tenía sentido cuando cada persona tenía
+    // exactamente una clínica y no había nada que elegir.
+    redirect("/clinicas");
   }
 }
 

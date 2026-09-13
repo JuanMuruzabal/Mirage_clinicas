@@ -290,11 +290,14 @@ describe("onboardingPerfilAction", () => {
     await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("en éxito, redirige a /seleccionar-servicio (TR-057: el modal de bienvenida decide ahí qué paso mostrar)", async () => {
+  // Fase 3.2.3: el perfil es el único paso que quedó del onboarding y
+  // termina en "¿Dónde trabajás hoy?" — crear la clínica dejó de ser el
+  // paso siguiente obligatorio.
+  it("en éxito, redirige a /clinicas", async () => {
     getSessionTokenMock.mockResolvedValue("un-token");
     apiOnboardingPerfilMock.mockResolvedValue({ ok: true, data: {} });
 
-    await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/seleccionar-servicio");
+    await expect(onboardingPerfilAction(perfilValido)).rejects.toThrow("NEXT_REDIRECT:/clinicas");
     // TR-059: este paso no completa el onboarding (sigue en
     // onboardingStep "clinica"), así que el header no cambia — no hace
     // falta revalidar el layout raíz acá.
