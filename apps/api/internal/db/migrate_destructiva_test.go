@@ -373,3 +373,90 @@ func tablaDe(constraint string) string {
 	}
 	return "turnos"
 }
+
+// TestDestructiva_BorraLasTablasLegacyDelMVP — Fase 3.2.1. Las tablas
+// `profesionales` y `profesional_especialidades` son de cuando profesional
+// y clínica eran la misma fila; TR-037 las dejó sin uso y nunca se
+// borraron.
+//
+// El test las recrea con SQL crudo (el modelo de GORM ya no existe) para
+// probar las dos mitades del guardián sobre este caso concreto: con filas
+// adentro frena y no destruye nada, y con autorización explícita las borra
+// de verdad.
+//
+// La tabla hija se crea con su foreign key a propósito: si el DROP no
+// respetara el orden —hija primero, madre después— Postgres lo rechazaría,
+// y este test lo detectaría.
+//
+// Usa una base descartable y desregistra la migración después de plantar
+// los datos, igual que TestDestructiva_FrenaElBorradoDeTurnosPendientes: el
+// guardián registra la migración la primera vez que la evalúa aunque no
+// haya nada que destruir (ver el contrato en aplicarDestructivaUnaVez), así
+// que sobre una base ya migrada nunca se volvería a mirar.
+func TestDestructiva_BorraLasTablasLegacyDelMVP(t *testing.T) {
+	gdb, ok := baseDescartableConMigracionesAplicadas(t)
+	if !ok {
+		t.Skip("no se pudo crear una base descartable (permisos) — se saltea")
+	}
+
+	crearLegacy := func() {
+		t.Helper()
+		if err := gdb.Exec(`
+			CREATE TABLE IF NOT EXISTS profesionales (
+				id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+				nombre varchar(150) NOT NULL,
+				email varchar(255) NOT NULL,
+				password_hash varchar(255) NOT NULL,
+				nombre_clinica varchar(200) NOT NULL,
+				slug varchar(220) NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS profesional_especialidades (
+				profesional_id uuid NOT NULL REFERENCES profesionales(id),
+				especialidad_id uuid NOT NULL
+			);
+			INSERT INTO profesionales (nombre, email, password_hash, nombre_clinica, slug)
+			VALUES ('Ana Pérez', 'legacy@example.com', 'hash', 'Clínica Vieja', 'clinica-vieja-legacy');
+		`).Error; err != nil {
+			t.Fatalf("no se pudo crear el esquema legacy de prueba: %v", err)
+		}
+	}
+	crearLegacy()
+
+	if err := gdb.Exec(`DELETE FROM migraciones_una_vez WHERE nombre = 'borrar_tablas_legacy_del_mvp'`).Error; err != nil {
+		t.Fatalf("no se pudo desregistrar la migración: %v", err)
+	}
+
+	// Con datos adentro y política restrictiva: frena.
+	restrictiva := db.PoliticaDestructiva{Permitir: false, Entorno: "production"}
+	err := db.RunMigrationsConPolitica(gdb, restrictiva)
+	if err == nil {
+		t.Fatal("con filas legacy adentro, debería haber pedido autorización")
+	}
+	if !strings.Contains(err.Error(), "borrar_tablas_legacy_del_mvp") {
+		t.Errorf("el error no nombra la migración: %v", err)
+	}
+
+	// Y no destruyó nada antes de frenar: la tabla sigue ahí con su fila.
+	var quedan int64
+	if err := gdb.Raw(`SELECT count(*) FROM profesionales`).Scan(&quedan).Error; err != nil {
+		t.Fatalf("la tabla no debería haberse borrado al frenar: %v", err)
+	}
+	if quedan != 1 {
+		t.Errorf("filas = %d, esperaba 1 (no se destruye nada antes de pedir permiso)", quedan)
+	}
+
+	// Con autorización explícita: las borra de verdad, hija y madre.
+	permisiva := db.PoliticaDestructiva{Permitir: true, Entorno: "production"}
+	if err := db.RunMigrationsConPolitica(gdb, permisiva); err != nil {
+		t.Fatalf("con autorización debería correr: %v", err)
+	}
+	for _, tabla := range []string{"profesionales", "profesional_especialidades"} {
+		var existe bool
+		if err := gdb.Raw(`SELECT to_regclass(?) IS NOT NULL`, tabla).Scan(&existe).Error; err != nil {
+			t.Fatalf("no se pudo consultar %s: %v", tabla, err)
+		}
+		if existe {
+			t.Errorf("la tabla %s debería haberse borrado", tabla)
+		}
+	}
+}

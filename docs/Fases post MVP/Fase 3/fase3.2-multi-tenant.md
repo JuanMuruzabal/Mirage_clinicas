@@ -161,3 +161,24 @@ Verificado contra Postgres 16, no solo diseñado:
 Encontrado: `profesionales` tiene 12 filas huérfanas, no cero como decía la documentación.
 
 Sin tocar código todavía. Siguiente: 3.2.1.
+
+### 2026-09-13 — 3.2.1, paso 1: se van las tablas del MVP
+
+Primera acción de la subfase, y va primero por un motivo concreto: mientras `profesionales` y `profesional_especialidades` existieran, **`profesional_id` significaba dos cosas distintas según la tabla** — en la hija apuntaba a `profesionales`, en las otras nueve a `clinics`. Borrarlas deja un único significado, y recién ahí el renombre del paso 2 es una operación mecánica en vez de una que hay que revisar caso por caso.
+
+Antes de borrar, se caracterizaron las filas en vez de asumir:
+
+| Qué se preguntó | Respuesta |
+|---|---|
+| ¿Cuándo se crearon? | 22 al 24 de agosto de 2026 — mismas fechas que las 38 huérfanas que borró TR-131 |
+| ¿Son cuentas reales? | No: **las 12 con mail `@example.com`** |
+| ¿Algo las referencia? | 0 turnos, 0 pacientes |
+| ¿Hay un `users` con su mismo mail? | 0 |
+
+También se descubrió por qué nunca se migraron: `MigrateProfesionalesToUsers` se invocaba **a mano** desde `cmd/migrate-usuarios`, no desde `RunMigrations`. Nadie la corrió sobre estas filas, y a esta altura esas cuentas ya estaban muertas de todos modos — el login usa `users`.
+
+Se fue también esa herramienta, con su modelo y sus tests: ya no queda nada de dónde migrar.
+
+**Aplicado sobre la base de desarrollo:** `afectados=13`, tablas borradas, y los datos reales intactos (39 turnos, 9 pacientes, 3 clínicas, 3 usuarios). Verificado después que **ningún `profesional_id` apunta ya a otra cosa que `clinics`**, que era la condición para seguir.
+
+Un detalle del guardián que apareció al escribir el test: `aplicarDestructivaUnaVez` **registra la migración la primera vez que la evalúa aunque no haya nada que destruir**. Es deliberado (no re-evaluar en cada arranque), pero significa que un test sobre una base ya migrada nunca la ve correr — hay que desregistrarla después de plantar los datos, como ya hacía el test de los turnos `pendiente`.

@@ -131,6 +131,7 @@ func aplicarDestructivaUnaVez(gdb *gorm.DB, pol PoliticaDestructiva, m Migracion
 // cosas viven en ese loop.
 func migracionesDestructivasPosteriores() []MigracionDestructiva {
 	return []MigracionDestructiva{
+		migracionBorrarTablasLegacyDelMVP(),
 		{
 			Nombre:      migracionDedupPacientesDNI,
 			Descripcion: "fichas de paciente duplicadas por (profesional_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
@@ -332,4 +333,54 @@ func contarFilasSiExisteTabla(tx *gorm.DB, tabla, query string) (int64, error) {
 		return 0, nil
 	}
 	return contarFilas(tx, query)
+}
+
+// migracionBorrarTablasLegacyDelMVP — Fase 3.2.1: se van las dos tablas
+// del MVP original, cuando "profesional" y "clínica" eran la misma fila.
+//
+// `profesionales` tenía nombre, email, password_hash, nombre_clinica y slug
+// todo junto. TR-037 separó identidad (`users`) de negocio (`clinics`) y la
+// dejó atrás, pero nunca se borró.
+//
+// EL DATO QUE NADIE TENÍA: no está vacía. CLAUDE.md y TR-131 afirmaban que
+// sí; el relevamiento de la Fase 3.2 contó **12 filas**, ninguna de las
+// cuales corresponde a un `users.id` ni a un `clinics.id`. Son inalcanzables
+// para la aplicación —ningún código las consulta desde TR-037— pero ocupan
+// el nombre `profesional_id` en su tabla hija, que es exactamente el nombre
+// que la Fase 3.2 necesita liberar.
+//
+// POR QUÉ ESTO VA PRIMERO, antes del renombre: mientras estas dos tablas
+// existan, `profesional_id` significa dos cosas distintas según dónde
+// aparezca — en `profesional_especialidades` apunta a `profesionales`, y en
+// las otras nueve tablas apunta a `clinics`. Borrarlas deja un único
+// significado, y recién ahí el renombre masivo a `clinic_id` es una
+// operación mecánica en vez de una que hay que revisar caso por caso.
+//
+// El orden interno importa: primero la hija (por su foreign key), después
+// la madre.
+func migracionBorrarTablasLegacyDelMVP() MigracionDestructiva {
+	return MigracionDestructiva{
+		Nombre:      "borrar_tablas_legacy_del_mvp",
+		Descripcion: "las tablas `profesionales` y `profesional_especialidades`, de cuando profesional y clínica eran la misma fila (pre TR-037): sus filas quedaron huérfanas y son inalcanzables desde la aplicación",
+		Afectados: func(tx *gorm.DB) (int64, error) {
+			// Cuenta FILAS, no tablas: si las tablas existen pero están
+			// vacías no hay nada que perder, y el guardián tiene que dejar
+			// pasar sin pedir autorización (ver el contrato de Afectados).
+			var total int64
+			for _, tabla := range []string{"profesional_especialidades", "profesionales"} {
+				n, err := contarFilasSiExisteTabla(tx, tabla, "SELECT count(*) FROM "+tabla)
+				if err != nil {
+					return 0, err
+				}
+				total += n
+			}
+			return total, nil
+		},
+		Aplicar: func(tx *gorm.DB) error {
+			// La hija primero: `profesional_especialidades` tiene una FK
+			// contra `profesionales`.
+			return tx.Exec(`DROP TABLE IF EXISTS profesional_especialidades;
+				DROP TABLE IF EXISTS profesionales`).Error
+		},
+	}
 }

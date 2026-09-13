@@ -12,29 +12,18 @@ import (
 // en docs/Arquitectura y base/tradeoffs.md); Paciente/Turno/PaginaPublica se amplían en los
 // sprints que los usan (Sprint 2-4).
 
-// Profesional refleja el alta individual de un odontólogo (spec §3 — sin
-// organizaciones en el MVP, ver TR-009).
-type Profesional struct {
-	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Nombre string    `gorm:"type:varchar(150);not null"`
-	Email  string    `gorm:"type:varchar(255);not null;uniqueIndex"`
-	// PasswordHash: nunca se serializa a JSON (ver usuarioResponse en
-	// internal/http/auth.go) — bcrypt, TR-005 en docs/Arquitectura y base/tradeoffs.md.
-	PasswordHash string  `gorm:"column:password_hash;type:varchar(255);not null"`
-	Telefono     *string `gorm:"type:varchar(50)"`
-	// NombreClinica/Slug (spec §3, paso 5): Slug deriva la ruta pública
-	// /clinica-x (docs/Arquitectura y base/implementation-plan.md §2.1) — único, generado a
-	// partir de NombreClinica al registrarse.
-	NombreClinica string `gorm:"column:nombre_clinica;type:varchar(200);not null"`
-	Slug          string `gorm:"type:varchar(220);not null;uniqueIndex"`
-
-	Especialidades []Especialidad `gorm:"many2many:profesional_especialidades;"`
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (Profesional) TableName() string { return "profesionales" }
+// El modelo `Profesional` vivió acá hasta la Fase 3.2.1. Era el alta
+// individual del MVP, con el profesional y su clínica en una sola fila
+// (nombre, email, password_hash, nombre_clinica, slug). TR-037 separó
+// identidad (`users`) de negocio (`clinics`) y lo dejó sin uso; se fue del
+// todo junto con su tabla, su tabla de join `profesional_especialidades` y
+// la herramienta `cmd/migrate-usuarios` que trasladaba sus filas a `users`
+// —ya no queda nada de dónde trasladar—.
+//
+// Las 12 filas que tenía la base de desarrollo eran del 22 al 24 de agosto
+// de 2026, todas con mail `@example.com`, sin un solo turno ni paciente
+// apuntando a ellas: el mismo residuo de pruebas que las 38 que borró
+// TR-131. Ver migracionBorrarTablasLegacyDelMVP en migrate_destructiva.go.
 
 // Especialidad es un catálogo cerrado predefinido por Mirage (TR-004) —
 // el profesional selecciona de esta lista, no crea especialidades libres.

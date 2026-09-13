@@ -341,7 +341,7 @@ func TestLogin_ExitosoTrasVerificar(t *testing.T) {
 }
 
 // TestLogin_RehasheaUnHashBcryptLegacyAlLoguearseConExito — usuarios
-// migrados de internal/db.MigrateProfesionalesToUsers conservan su hash
+// migrados del MVP (ver security/password.go) conservan su hash
 // bcrypt tal cual (spec §7: rehash perezoso, nunca bloquea el login). Un
 // login exitoso con ese hash debería dejarlo reemplazado por uno argon2id.
 func TestLogin_RehasheaUnHashBcryptLegacyAlLoguearseConExito(t *testing.T) {

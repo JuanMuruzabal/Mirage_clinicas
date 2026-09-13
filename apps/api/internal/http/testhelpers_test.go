@@ -500,7 +500,7 @@ func newTestRouterWithSecurity(t *testing.T, turnstileOK bool, pwned bool) (http
 var _ security.PwnedChecker = fakePwnedChecker{}
 
 // splitNombreApellidoDePrueba replica la heurística de
-// internal/db.MigrateProfesionalesToUsers (primer token = nombre, resto =
+// la migración del MVP a `users` (primer token = nombre, resto =
 // apellido) — duplicada acá a propósito, es una función no exportada del
 // paquete db y este es solo un fixture de test.
 func splitNombreApellidoDePrueba(nombreCompleto string) (nombre, apellido string) {

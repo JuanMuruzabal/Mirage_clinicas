@@ -118,7 +118,7 @@ func TestRunMigrations_DeduplicaAntesDeCrearElIndiceUnico(t *testing.T) {
 	// `pacientes.profesional_id` apunta a `clinics` (ver migrate_fk.go).
 	// Sin esas dos tablas, el fixture no puede crear la clínica dueña de
 	// las fichas duplicadas.
-	if err := gdb.AutoMigrate(&db.User{}, &db.Clinic{}, &db.Profesional{}, &db.Paciente{}, &db.Turno{}); err != nil {
+	if err := gdb.AutoMigrate(&db.User{}, &db.Clinic{}, &db.Paciente{}, &db.Turno{}); err != nil {
 		t.Fatalf("automigrate parcial: %v", err)
 	}
 	// La columna `profesional_id` guarda un clinics.id, no un

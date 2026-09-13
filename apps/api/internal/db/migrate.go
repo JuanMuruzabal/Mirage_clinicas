@@ -173,7 +173,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	}
 
 	if err := gdb.AutoMigrate(
-		&Profesional{}, &Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
+		&Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
 		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.

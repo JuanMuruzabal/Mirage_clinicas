@@ -75,7 +75,7 @@ func HashWithParams(password string, params Argon2Params) (string, error) {
 
 // Verify compara una contraseña contra un hash existente, reconociendo
 // tanto el formato argon2id nuevo como el bcrypt legacy de usuarios
-// migrados (internal/db.MigrateProfesionalesToUsers copia el hash bcrypt
+// migrados del MVP (la herramienta que los trasladaba copiaba el hash bcrypt
 // tal cual, sin rehashear) — así ambos siguen autenticando sin fricción.
 func Verify(password, encodedHash string) (bool, error) {
 	if strings.HasPrefix(encodedHash, argon2idPrefix) {
