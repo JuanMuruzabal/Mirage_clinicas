@@ -327,7 +327,14 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		paraOtro := req.ParaOtro && req.PacienteID == ""
-		turno, err := buildTurnoAgendado(profesionalID, req.NombreContacto, req.ApellidoContacto, req.DNIContacto,
+		// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
+		// profesional (Fase 3.2.6) es el owner de la clínica.
+		atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+		turno, err := buildTurnoAgendado(profesionalID, atiende, req.NombreContacto, req.ApellidoContacto, req.DNIContacto,
 			req.TelefonoContacto, req.EmailContacto, req.Motivo, req.TipoConsultaID, req.HoraInicio, req.HoraFin, paraOtro)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -907,7 +914,10 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // buildTurnoAgendado arma (sin tocar la base) un Turno ya validado a nivel
 // de negocio, para el camino "paciente nuevo" de crearTurnoManualHandler.
-func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string, paraOtro bool) (db.Turno, error) {
+// Fase 3.2.1: recibe además `atiendeUserID`, el profesional que va a
+// atender. Hasta que el panel deje elegirlo (Fase 3.2.6) el llamador pasa
+// el owner de la clínica.
+func buildTurnoAgendado(profesionalID, atiendeUserID uuid.UUID, nombre, apellido, dni, telefono, email, motivo, tipoConsultaIDRaw, horaInicioRaw, horaFinRaw string, paraOtro bool) (db.Turno, error) {
 	nombre = strings.TrimSpace(nombre)
 	apellido = strings.TrimSpace(apellido)
 	dni = strings.TrimSpace(dni)
@@ -939,17 +949,18 @@ func buildTurnoAgendado(profesionalID uuid.UUID, nombre, apellido, dni, telefono
 	}
 
 	return db.Turno{
-		ClinicID:         profesionalID,
-		Estado:           "agendado",
-		TipoConsultaID:   &tipoConsultaID,
-		HoraInicio:       &horaInicio,
-		HoraFin:          &horaFin,
-		NombreContacto:   nombre,
-		ApellidoContacto: apellido,
-		DNIContacto:      dni,
-		TelefonoContacto: telefono,
-		EmailContacto:    strings.TrimSpace(email),
-		Motivo:           strings.TrimSpace(motivo),
+		ClinicID:          profesionalID,
+		AtendidoPorUserID: &atiendeUserID,
+		Estado:            "agendado",
+		TipoConsultaID:    &tipoConsultaID,
+		HoraInicio:        &horaInicio,
+		HoraFin:           &horaFin,
+		NombreContacto:    nombre,
+		ApellidoContacto:  apellido,
+		DNIContacto:       dni,
+		TelefonoContacto:  telefono,
+		EmailContacto:     strings.TrimSpace(email),
+		Motivo:            strings.TrimSpace(motivo),
 	}, nil
 }
 

@@ -1385,18 +1385,19 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
 	turnoVigente := db.Turno{
-		ClinicID:         pid,
-		PacienteID:       &original.ID,
-		Estado:           "agendado",
-		TipoConsultaID:   &tid,
-		HoraInicio:       &inicioVigente,
-		HoraFin:          &finVigente,
-		NombreContacto:   "Bruno",
-		ApellidoContacto: "Iglesias",
-		DNIContacto:      "30111222",
-		TelefonoContacto: "+5493511234567",
-		EmailContacto:    "bruno@example.com",
-		Origen:           "pagina_publica",
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		PacienteID:        &original.ID,
+		Estado:            "agendado",
+		TipoConsultaID:    &tid,
+		HoraInicio:        &inicioVigente,
+		HoraFin:           &finVigente,
+		NombreContacto:    "Bruno",
+		ApellidoContacto:  "Iglesias",
+		DNIContacto:       "30111222",
+		TelefonoContacto:  "+5493511234567",
+		EmailContacto:     "bruno@example.com",
+		Origen:            "pagina_publica",
 	}
 	if err := gdb.Create(&turnoVigente).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno vigente del paciente verificado: %v", err)
@@ -2674,7 +2675,8 @@ func TestTurnoActivoDelMismoTipoYDeOtroTipo_Dormantes(t *testing.T) {
 	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID: pid, Estado: "agendado", TipoConsultaID: &tid, HoraInicio: &inicio, HoraFin: &fin,
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)), Estado: "agendado", TipoConsultaID: &tid, HoraInicio: &inicio, HoraFin: &fin,
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com", Origen: "pagina_publica",
 	}

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -397,4 +398,30 @@ func RolPrincipal(roles []ClinicMemberRole) string {
 		}
 	}
 	return ""
+}
+
+// OwnerDeLaClinica devuelve el user del owner de una clínica.
+//
+// Fase 3.2.1: todo turno tiene que decir quién lo atiende
+// (chk_turno_agendado_profesional), y hasta que el wizard y el panel dejen
+// elegir profesional —Fases 3.2.6 y 3.2.7— ese alguien es el owner, que es
+// el único profesional que cada clínica tiene hoy. Es exactamente el
+// comportamiento anterior a la fase, cuando la clínica ERA el profesional;
+// lo único que cambia es que ahora queda escrito en la fila en vez de
+// estar implícito.
+//
+// Cuando esas fases lleguen, los call sites pasan a recibir el profesional
+// elegido y esta función queda para los casos sin elección explícita.
+func OwnerDeLaClinica(tx *gorm.DB, clinicID uuid.UUID) (uuid.UUID, error) {
+	var crudo string
+	err := tx.Raw(`SELECT m.user_id::text FROM clinic_members m
+		JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = ?
+		WHERE m.clinic_id = ?`, RoleOwner, clinicID).Scan(&crudo).Error
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if crudo == "" {
+		return uuid.Nil, fmt.Errorf("la clínica %s no tiene un owner activo", clinicID)
+	}
+	return uuid.Parse(crudo)
 }

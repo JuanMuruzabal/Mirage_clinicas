@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/db"
@@ -513,3 +514,37 @@ func splitNombreApellidoDePrueba(nombreCompleto string) (nombre, apellido string
 	}
 	return partes[0], strings.Join(partes[1:], " ")
 }
+
+// ownerDePrueba — el user_id del owner de una clínica.
+//
+// Desde la Fase 3.2.1 un turno necesita decir quién lo atiende
+// (chk_turno_agendado_profesional) y ese user tiene que ser miembro de la
+// clínica (fk_turnos_profesional_de_la_clinica). En los tests el owner es
+// el único profesional, igual que era antes de la fase cuando la clínica y
+// el profesional eran la misma cosa: usarlo mantiene los fixtures
+// equivalentes a como estaban, sin tocar los ~60 lugares que los llaman.
+func ownerDePrueba(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID) uuid.UUID {
+	t.Helper()
+	// Se escanea a string y se parsea: el driver devuelve el uuid como
+	// texto y un Scan directo a uuid.UUID falla.
+	var crudo string
+	err := gdb.Raw(`SELECT m.user_id::text FROM clinic_members m
+		JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+		WHERE m.clinic_id = ?`, clinicID).Scan(&crudo).Error
+	if err != nil {
+		t.Fatalf("no se pudo resolver el owner de la clínica de prueba: %v", err)
+	}
+	if crudo == "" {
+		t.Fatalf("la clínica de prueba %s no tiene owner: los fixtures necesitan uno desde la Fase 3.2.1", clinicID)
+	}
+	userID, err := uuid.Parse(crudo)
+	if err != nil {
+		t.Fatalf("el owner de la clínica de prueba no es un uuid válido: %v", err)
+	}
+	return userID
+}
+
+// ptrUUID — azúcar para los fixtures: db.Turno.AtendidoPorUserID es un
+// puntero (nullable en el esquema, obligatorio por check solo para los
+// turnos `agendado`).
+func ptrUUID(id uuid.UUID) *uuid.UUID { return &id }

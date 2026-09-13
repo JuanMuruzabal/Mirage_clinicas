@@ -56,16 +56,17 @@ func crearTurnoAgendadoDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, tipoC
 	inicio = inicio.Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID:         pid,
-		Estado:           "agendado",
-		TipoConsultaID:   &tid,
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
-		NombreContacto:   "P",
-		ApellidoContacto: "Q",
-		DNIContacto:      "1",
-		TelefonoContacto: "1",
-		Origen:           "manual",
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		Estado:            "agendado",
+		TipoConsultaID:    &tid,
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
+		NombreContacto:    "P",
+		ApellidoContacto:  "Q",
+		DNIContacto:       "1",
+		TelefonoContacto:  "1",
+		Origen:            "manual",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno agendado de prueba: %v", err)
@@ -92,18 +93,19 @@ func crearTurnoAgendadoConContactoDePrueba(t *testing.T, gdb *gorm.DB, profesion
 	inicio = inicio.Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID:         pid,
-		Estado:           "agendado",
-		TipoConsultaID:   &tid,
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
-		NombreContacto:   "Bruno",
-		ApellidoContacto: "Iglesias",
-		DNIContacto:      "30111222",
-		TelefonoContacto: "+5493511234567",
-		EmailContacto:    "bruno@example.com",
-		Motivo:           "Dolor de muela",
-		Origen:           "manual",
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		Estado:            "agendado",
+		TipoConsultaID:    &tid,
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
+		NombreContacto:    "Bruno",
+		ApellidoContacto:  "Iglesias",
+		DNIContacto:       "30111222",
+		TelefonoContacto:  "+5493511234567",
+		EmailContacto:     "bruno@example.com",
+		Motivo:            "Dolor de muela",
+		Origen:            "manual",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno agendado de prueba: %v", err)
@@ -1333,7 +1335,8 @@ func TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes(t *test
 	horaPasada := time.Now().Add(-72 * time.Hour).Truncate(time.Second)
 	finPasado := horaPasada.Add(30 * time.Minute)
 	turnoResueltoSinVerificar := db.Turno{
-		ClinicID: pid, PacienteID: &pacienteResuelto.ID, Estado: "agendado", TipoConsultaID: &tid,
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)), PacienteID: &pacienteResuelto.ID, Estado: "agendado", TipoConsultaID: &tid,
 		HoraInicio: &horaPasada, HoraFin: &finPasado,
 		NombreContacto: pacienteResuelto.Nombre, ApellidoContacto: pacienteResuelto.Apellido,
 		DNIContacto: pacienteResuelto.DNI, TelefonoContacto: telResuelto, Origen: "pagina_publica",
@@ -1762,17 +1765,18 @@ func crearTurnoAgendadoConPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesion
 	inicio = inicio.Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID:         pid,
-		PacienteID:       &paciente.ID,
-		Estado:           "agendado",
-		TipoConsultaID:   &tid,
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
-		NombreContacto:   paciente.Nombre,
-		ApellidoContacto: paciente.Apellido,
-		DNIContacto:      paciente.DNI,
-		TelefonoContacto: telPaciente,
-		Origen:           "manual",
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		PacienteID:        &paciente.ID,
+		Estado:            "agendado",
+		TipoConsultaID:    &tid,
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
+		NombreContacto:    paciente.Nombre,
+		ApellidoContacto:  paciente.Apellido,
+		DNIContacto:       paciente.DNI,
+		TelefonoContacto:  telPaciente,
+		Origen:            "manual",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno de prueba: %v", err)
@@ -1808,17 +1812,18 @@ func crearFichaEnConflictoConTurnoDePrueba(t *testing.T, gdb *gorm.DB, profesion
 	inicio = inicio.Truncate(time.Second)
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID:         pid,
-		PacienteID:       &hermana.ID,
-		Estado:           "agendado",
-		TipoConsultaID:   &tid,
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
-		NombreContacto:   hermana.Nombre,
-		ApellidoContacto: hermana.Apellido,
-		DNIContacto:      hermana.DNI,
-		TelefonoContacto: telHermana,
-		Origen:           "pagina_publica",
+		ClinicID:          pid,
+		AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		PacienteID:        &hermana.ID,
+		Estado:            "agendado",
+		TipoConsultaID:    &tid,
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
+		NombreContacto:    hermana.Nombre,
+		ApellidoContacto:  hermana.Apellido,
+		DNIContacto:       hermana.DNI,
+		TelefonoContacto:  telHermana,
+		Origen:            "pagina_publica",
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("no se pudo crear el turno de la ficha en conflicto: %v", err)

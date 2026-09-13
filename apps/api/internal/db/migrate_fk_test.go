@@ -32,8 +32,13 @@ func TestFK_RechazaTurnoDeUnaClinicaInexistente(t *testing.T) {
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
 	turno := db.Turno{
-		ClinicID:         uuid.New(), // no existe ninguna clínica con este id
-		Estado:           "agendado",
+		ClinicID: uuid.New(), // no existe ninguna clínica con este id
+		// `cancelada` y no `agendado` a propósito: desde la Fase 3.2.1 un
+		// turno agendado exige profesional (chk_turno_agendado_profesional)
+		// y una clínica que no existe no tiene ninguno, así que saltaría ese
+		// check antes de llegar a la foreign key. Este test es sobre la FK
+		// de la clínica, y con `cancelada` queda aislada.
+		Estado:           "cancelada",
 		Origen:           "manual",
 		NombreContacto:   "Ana",
 		ApellidoContacto: "Prueba",
@@ -80,21 +85,26 @@ func TestFK_RechazaPacienteDeUnaClinicaInexistente(t *testing.T) {
 // verdad no se puede romper.
 func TestFK_TurnoAceptaUnaClinicaReal(t *testing.T) {
 	gdb := testdb.New(t)
-	clinicaID := crearProfesionalDePrueba(t, gdb)
+	clinicaID, _ := crearProfesionalDePrueba(t, gdb)
 
 	inicio := hoyMasUnDia()
 	fin := inicio.Add(30 * time.Minute)
+	atiende, err := db.OwnerDeLaClinica(gdb, clinicaID)
+	if err != nil {
+		t.Fatalf("no se pudo resolver el owner de la clínica: %v", err)
+	}
 	turno := db.Turno{
-		ClinicID:         clinicaID,
-		Estado:           "agendado",
-		Origen:           "manual",
-		NombreContacto:   "Ana",
-		ApellidoContacto: "Prueba",
-		DNIContacto:      "30111444",
-		TelefonoContacto: "3510000000",
-		EmailContacto:    "ana@example.com",
-		HoraInicio:       &inicio,
-		HoraFin:          &fin,
+		ClinicID:          clinicaID,
+		AtendidoPorUserID: &atiende,
+		Estado:            "agendado",
+		Origen:            "manual",
+		NombreContacto:    "Ana",
+		ApellidoContacto:  "Prueba",
+		DNIContacto:       "30111444",
+		TelefonoContacto:  "3510000000",
+		EmailContacto:     "ana@example.com",
+		HoraInicio:        &inicio,
+		HoraFin:           &fin,
 	}
 	if err := gdb.Create(&turno).Error; err != nil {
 		t.Fatalf("un turno de una clínica REAL tiene que poder crearse: %v", err)

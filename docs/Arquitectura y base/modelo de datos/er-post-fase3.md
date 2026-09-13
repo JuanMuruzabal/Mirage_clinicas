@@ -192,9 +192,9 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 1 | `clinic_member_roles` + índice único parcial de exclusión ✅ **hecho 2026-09-13** | Tabla nueva |
 | 2 | `clinic_members.status` suma `removed` ✅ **hecho 2026-09-13** | Check |
 | 3 | `users.codigo_invitacion` | Columna nueva |
-| 4 | `turnos.atendido_por_user_id` + FK compuesta a la membresía | Columna + constraint |
-| 5 | `tipos_consulta.user_id`, `horarios_atencion.user_id`, `bloqueos_horario.user_id` | Columnas nuevas |
-| 6 | `sin_solapamiento_turno` se muda a `atendido_por_user_id` | Constraint |
+| 4 | `turnos.atendido_por_user_id` + FK compuesta a la membresía ✅ **hecho 2026-09-13** | Columna + constraint |
+| 5 | `tipos_consulta.user_id`, `horarios_atencion.user_id`, `bloqueos_horario.user_id` ✅ **hecho 2026-09-13** | Columnas nuevas |
+| 6 | `sin_solapamiento_turno` se muda a `atendido_por_user_id` ✅ **hecho 2026-09-13** | Constraint |
 | 7 | `profesional_id` → `clinic_id` en 9 tablas ✅ **hecho 2026-09-13** | Renombre |
 | 8 | Baja de `profesionales` y `profesional_especialidades` ✅ **hecho 2026-09-13** | Destructiva (TR-132) |
 

@@ -60,13 +60,20 @@ func (Especialidad) TableName() string { return "especialidades" }
 // automática de turnos encadenados, confirmado explícitamente por el
 // cliente) — de ahí que sea un puntero: puede no estar cargado todavía.
 type TipoConsulta struct {
-	ID                        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ClinicID                  uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
-	Nombre                    string    `gorm:"type:varchar(80);not null"`
-	Color                     string    `gorm:"type:varchar(7);not null"`
-	DuracionMinutos           int       `gorm:"column:duracion_minutos;not null;default:30"`
-	TiempoPostConsultaMinutos int       `gorm:"column:tiempo_post_consulta_minutos;not null;default:0"`
-	CantidadSesiones          *int      `gorm:"column:cantidad_sesiones"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	// UserID — Fase 3.2.1 (TR-137): el tipo de consulta es de UN
+	// profesional, no de la clínica. Los colegas ven los de los demás y
+	// pueden incluirlos, pero eso COPIA la fila en vez de compartirla:
+	// duración, color y preferencia horaria son configuración que cada uno
+	// ajusta a su manera, y compartir la fila haría que cambiar la duración
+	// de "Conducto" le modificara la agenda a otro.
+	UserID                    *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+	Nombre                    string     `gorm:"type:varchar(80);not null"`
+	Color                     string     `gorm:"type:varchar(7);not null"`
+	DuracionMinutos           int        `gorm:"column:duracion_minutos;not null;default:30"`
+	TiempoPostConsultaMinutos int        `gorm:"column:tiempo_post_consulta_minutos;not null;default:0"`
+	CantidadSesiones          *int       `gorm:"column:cantidad_sesiones"`
 	// PreferenciaHoraDesde/PreferenciaHoraHasta (nueva función, pedido
 	// textual del cliente, 2026-09-08): "el profesional solo quiere
 	// atender consultas generales de 8:00 a 12:00... que la disponibilidad
@@ -489,9 +496,26 @@ type Turno struct {
 	// clinic_id solo y filtra el resto en memoria porque cada clínica
 	// tiene pocas filas, pero eso deja de ser gratis si UNA clínica
 	// puntual acumula muchos años de turnos.
-	ClinicID       uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1"`
-	PacienteID     *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
-	TipoConsultaID *uuid.UUID `gorm:"column:tipo_consulta_id;type:uuid"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1"`
+	// AtendidoPorUserID — Fase 3.2.1 (TR-137): QUIÉN atiende este turno.
+	// Convive con ClinicID, que es a qué clínica pertenece — el turno vive
+	// en la clínica, lo gestiona un profesional.
+	//
+	// Apunta a `users`, NO a `clinic_members`: un turno atendido hace seis
+	// meses es un hecho histórico y no puede depender de que la relación
+	// laboral siga vigente. La coherencia la garantiza igual el motor, con
+	// una FK COMPUESTA (clinic_id, atendido_por_user_id) contra
+	// clinic_members — imposible asignarle un turno a alguien que no es
+	// miembro de esa clínica. De ahí que la membresía no se borre nunca.
+	//
+	// Es también la columna del exclusion constraint de no-solapamiento
+	// desde esta fase: dos turnos del mismo PROFESIONAL no pueden pisarse,
+	// aunque sean de clínicas distintas (una persona no puede estar en dos
+	// lugares a la vez). Sobre la clínica, esa regla rechazaba que dos
+	// odontólogos atendieran a la misma hora en sillones distintos.
+	AtendidoPorUserID *uuid.UUID `gorm:"column:atendido_por_user_id;type:uuid;index"`
+	PacienteID        *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
+	TipoConsultaID    *uuid.UUID `gorm:"column:tipo_consulta_id;type:uuid"`
 	// Estado: 'agendado' | 'cancelada' (spec §4.4, TR-104).
 	Estado string `gorm:"type:varchar(20);not null;default:agendado;check:estado IN ('agendado','cancelada')"`
 	// HoraInicio/HoraFin: siempre fijos desde TR-104 (todo turno nace

@@ -287,15 +287,85 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		     );
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
+		// Fase 3.2.1 (TR-137): poblar el profesional de cada fila con el
+		// `owner` de su clínica, que hasta hoy era su único profesional.
+		// Va antes de la FK compuesta y del exclusion constraint, que
+		// necesitan la columna con datos.
+		//
+		// El owner se busca en clinic_member_roles (los roles dejaron de ser
+		// una columna en el paso 3). Idempotente: solo toca las filas que
+		// todavía no tienen profesional.
+		`UPDATE turnos t SET atendido_por_user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = t.clinic_id AND t.atendido_por_user_id IS NULL`,
+		`UPDATE tipos_consulta tc SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = tc.clinic_id AND tc.user_id IS NULL`,
+		`UPDATE horarios_atencion h SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = h.clinic_id AND h.user_id IS NULL`,
+		`UPDATE bloqueos_horario b SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = b.clinic_id AND b.user_id IS NULL`,
+
+		// Todo turno `agendado` tiene que decir quién lo atiende, y no es
+		// una formalidad: el exclusion constraint de más abajo compara
+		// `atendido_por_user_id WITH =`, y en SQL dos NULL nunca son
+		// iguales. Sin este check, un turno sin profesional quedaría FUERA
+		// del no-solapamiento — se podrían apilar todos los que se
+		// quisieran en el mismo horario sin que nada los rechace.
+		//
+		// Lo encontró el test del requisito no negociable (spec §4.3) al
+		// fallar tras mudar la constraint, no una lectura del código.
+		`DO $$ BEGIN
+		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_agendado_profesional
+		     CHECK (estado <> 'agendado' OR atendido_por_user_id IS NOT NULL);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// La FK COMPUESTA, que es lo que hace imposible asignarle un turno a
+		// alguien que no es miembro de esa clínica. Postgres la acepta
+		// porque `idx_clinic_member` ya es único sobre (clinic_id, user_id).
+		//
+		// Es también el motivo por el que una membresía nunca se borra: si
+		// se borrara, esta constraint bloquearía la baja de cualquier
+		// profesional con historial. Se marca `status='removed'` en su
+		// lugar.
+		`DO $$ BEGIN
+		   ALTER TABLE turnos ADD CONSTRAINT fk_turnos_profesional_de_la_clinica
+		     FOREIGN KEY (clinic_id, atendido_por_user_id)
+		     REFERENCES clinic_members (clinic_id, user_id);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
 		// La constraint central del proyecto (spec §4.3): a nivel de base de
-		// datos, dos turnos `agendado` del mismo profesional no pueden tener
+		// datos, dos turnos `agendado` del mismo PROFESIONAL no pueden tener
 		// horarios que se solapen. Un turno `cancelada` nunca conflictúa —
 		// el WHERE lo excluye del todo, aunque conserve el mismo horario que
 		// tenía antes de cancelarse.
+		//
+		// Fase 3.2.1: la columna pasó de `clinic_id` a
+		// `atendido_por_user_id`. Sobre la clínica, con N profesionales,
+		// esta regla dejaba de proteger y pasaba a estorbar: rechazaba que
+		// dos odontólogos del mismo lugar atendieran a las 10:00 en sillones
+		// distintos, que es la situación normal.
+		//
+		// Sobre el profesional gana además algo que el modelo viejo no podía
+		// ni expresar: como no lleva la clínica, impide que la misma persona
+		// tenga turnos solapados en DOS CLÍNICAS distintas. Nadie está en
+		// dos lugares a la vez.
+		//
+		// El DROP del viejo va primero y es explícito: tienen el mismo
+		// nombre, así que el ADD de abajo se saltearía en silencio por el
+		// EXCEPTION de duplicate_object y la base se quedaría con la regla
+		// equivocada, sin que nada avisara.
+		`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS sin_solapamiento_turno`,
 		`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
 		     EXCLUDE USING gist (
-		       clinic_id WITH =,
+		       atendido_por_user_id WITH =,
 		       rango_horario WITH &&
 		     )
 		     WHERE (estado = 'agendado');

@@ -1033,21 +1033,32 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		}
 		horaFin := horaInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
 
+		// Fase 3.2.1: quién atiende. Hasta que el wizard deje elegir
+		// profesional (Fase 3.2.7) es el owner, que es el único que cada
+		// clínica tiene hoy — el mismo comportamiento de antes, ahora
+		// escrito en la fila en vez de implícito.
+		atiende, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+
 		turno := db.Turno{
-			ClinicID:         clinic.ID,
-			Estado:           "agendado",
-			TipoConsultaID:   &tipo.ID,
-			HoraInicio:       &horaInicio,
-			HoraFin:          &horaFin,
-			NombreContacto:   req.NombreContacto,
-			ApellidoContacto: req.ApellidoContacto,
-			DNIContacto:      req.DNIContacto,
-			TelefonoContacto: req.TelefonoContacto,
-			EmailContacto:    req.EmailContacto,
-			Motivo:           req.Motivo,
-			Origen:           "pagina_publica",
-			IPContacto:       &ip,
-			EsParaOtro:       req.ParaOtro,
+			ClinicID:          clinic.ID,
+			AtendidoPorUserID: &atiende,
+			Estado:            "agendado",
+			TipoConsultaID:    &tipo.ID,
+			HoraInicio:        &horaInicio,
+			HoraFin:           &horaFin,
+			NombreContacto:    req.NombreContacto,
+			ApellidoContacto:  req.ApellidoContacto,
+			DNIContacto:       req.DNIContacto,
+			TelefonoContacto:  req.TelefonoContacto,
+			EmailContacto:     req.EmailContacto,
+			Motivo:            req.Motivo,
+			Origen:            "pagina_publica",
+			IPContacto:        &ip,
+			EsParaOtro:        req.ParaOtro,
 		}
 		// Tutor* — Fase 2.4.2: snapshot independiente del turno (mismo
 		// criterio que el resto de los campos de contacto), solo con

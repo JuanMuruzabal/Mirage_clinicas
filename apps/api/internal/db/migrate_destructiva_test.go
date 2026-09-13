@@ -296,7 +296,7 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 		if err := gdb.Exec(`INSERT INTO turnos (id, clinic_id, paciente_id, tipo_consulta_id, estado, origen,
 			nombre_contacto, apellido_contacto, dni_contacto, telefono_contacto, email_contacto, motivo,
 			hora_inicio, hora_fin, created_at, updated_at)
-			VALUES (?, ?, ?, ?, 'agendado', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
+			VALUES (?, ?, ?, ?, 'cancelada', 'manual', 'Ana', 'Test', ?, '3510000000', 'a@example.com', '',
 			        now() + make_interval(hours => ?), now() + make_interval(hours => ?) + interval '30 minutes',
 			        now(), now())`,
 			id, clinicaID, pacienteID, tipoID, dni, horas, horas).Error; err != nil {

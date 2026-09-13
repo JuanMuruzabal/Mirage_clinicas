@@ -8,11 +8,14 @@ import (
 
 // Modelos de F2.3 ("ajustes de calendario", Fase 2) — ver TR-078 y TR-084
 // en docs/Arquitectura y base/tradeoffs.md, y docs/Arquitectura y base/implementation-plan.md §11.3. Ambas tablas
-// van por ClinicID, no por el ClinicID legacy (mismo criterio que el
-// resto del esquema post-auth: cada Clinic "individual" nace con el mismo
-// UUID que tenía su Profesional de origen, así que ClinicID en
-// Turno/TipoConsulta/Paciente ya apunta a Clinic.ID en los hechos — ver el
-// comment grande en models_auth.go).
+// van por ClinicID — la columna se llamó `profesional_id` hasta la Fase
+// 3.2.1 aunque siempre guardó un `clinics.id`; el renombre de TR-137 la
+// dejó con el nombre que corresponde.
+//
+// Desde esa misma fase llevan además UserID: el horario de atención y los
+// horarios reservados son de UN PROFESIONAL dentro de la clínica, no de la
+// clínica entera. Es lo que hace posible que dos odontólogos del mismo
+// lugar tengan agendas distintas.
 //
 // Horas de un día ("HH:MM", sin fecha) se guardan como string varchar(5),
 // no como time.Time completo — son horarios de pared, no instantes fijos
@@ -48,8 +51,15 @@ import (
 // un horario base), pero nada a nivel de base lo impide; si pasa, ese día
 // simplemente no ofrece ningún horario hasta que se corrija.
 type HorarioAtencion struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ClinicID   uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;index"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	// UserID — Fase 3.2.1 (TR-137): de qué PROFESIONAL es esta fila. La
+	// configuración de agenda baja de la clínica al profesional; la ficha
+	// del paciente se queda en la clínica. Nullable en el tag porque
+	// AutoMigrate agrega la columna sobre filas que ya existen: se puebla y
+	// se pasa a NOT NULL en el mismo RunMigrations, con SQL crudo.
+	UserID *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+
 	Alcance    string     `gorm:"type:varchar(20);not null;default:'general'"`
 	FechaDesde *time.Time `gorm:"column:fecha_desde;type:date"`
 	FechaHasta *time.Time `gorm:"column:fecha_hasta;type:date"`
@@ -87,9 +97,16 @@ const (
 // valor válido es "bloquear_horario" (el check constraint de abajo, en
 // migrate.go, lo fija así hasta que aparezca un segundo tipo de regla).
 type BloqueoHorario struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ClinicID   uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
-	Especifico bool      `gorm:"not null;default:false"`
+	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	// UserID — Fase 3.2.1 (TR-137): de qué PROFESIONAL es esta fila. La
+	// configuración de agenda baja de la clínica al profesional; la ficha
+	// del paciente se queda en la clínica. Nullable en el tag porque
+	// AutoMigrate agrega la columna sobre filas que ya existen: se puebla y
+	// se pasa a NOT NULL en el mismo RunMigrations, con SQL crudo.
+	UserID *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+
+	Especifico bool `gorm:"not null;default:false"`
 
 	// Solo si Especifico=false (regla general). varchar(20), no 10 —
 	// corrección de QA, 2026-08-30: se agregan "proxima_semana"/
