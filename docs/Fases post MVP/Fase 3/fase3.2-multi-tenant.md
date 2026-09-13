@@ -208,3 +208,36 @@ La migración es idempotente por tabla (pregunta por la columna vieja antes de t
 | Índices `*_profesional_id` duplicados | — | **0** |
 
 Y una prueba funcional contra los contenedores reconstruidos: `/clinicas/{slug}/tipos-consulta` devuelve los tipos de la clínica y `/clinicas/{slug}/disponibilidad` responde 200 — los dos consultan por la columna renombrada.
+
+### 2026-09-13 — 3.2.1, paso 3: los roles pasan a ser tags
+
+`clinic_member_roles`, con la regla de exclusión declarada en el motor:
+
+```sql
+CREATE UNIQUE INDEX idx_rol_excluyente ON clinic_member_roles (clinic_member_id)
+  WHERE rol IN ('profesional', 'recepcion');
+```
+
+Un índice único **parcial**: `owner` y `admin` quedan fuera del `WHERE`, así que se suman libremente, pero nadie puede ser profesional y recepcionista a la vez. Cinco tests cubren las dos direcciones de la exclusión, la acumulación de tres roles, la idempotencia y el caso sin roles (un invitado que todavía no aceptó).
+
+**No quedaron dos fuentes de verdad.** La columna `role` se fue en el mismo paso, y los seis lugares que la consultaban pasaron a usar el scope `db.ConRol(...)`. Dejarla "por ahora" habría sido más rápido y habría creado exactamente la clase de trampa que esta subfase vino a evitar.
+
+**`status` suma `removed`.** La membresía no se borra nunca: la FK compuesta que viene en el paso 4 (`turnos` → `clinic_members`) bloquearía la baja de cualquier profesional con historial. Marcarla deja a la clínica sin darle acceso y al historial intacto.
+
+Ese check hubo que escribirlo en SQL crudo: **GORM AutoMigrate crea checks nuevos pero no modifica los que ya existen**, así que cambiar el tag del modelo no alcanzaba — la base se habría quedado con el check viejo, rechazando `removed` sin que nada avisara.
+
+#### El bug que me comí, que era uno ya documentado
+
+La primera versión dejaba el `INSERT` que copia `role` a la tabla nueva en el bloque de `statements` de `migrate.go`. **Ese bloque corre después de las migraciones destructivas**, así que el `DROP` se ejecutó primero y el `INSERT` no encontró la columna de dónde copiar.
+
+Resultado: **0 roles migrados, columna borrada, sin error y sin aviso.** En la base de desarrollo se llevó puestos los roles de las tres membresías.
+
+Es exactamente el bug de orden que TR-123 y TR-132 documentan, y que el comentario de `migracionesDestructivasPosteriores` advierte dos pantallas más arriba del código que escribí. Saber la regla no alcanzó.
+
+Tres cosas salieron de ahí:
+
+1. **El traslado y el borrado viven en el mismo `Aplicar`**, en ese orden. Ahora es imposible equivocar la secuencia, y además es atómico: misma transacción, o se hace todo o no pasa nada.
+2. **Una red de seguridad en `statements`:** cualquier miembro sin ningún rol que sea el dueño de su clínica recupera `owner`. Una clínica sin owner no tiene arreglo desde la aplicación — es justo el rol que `requireClinic` necesita para dejarte entrar al panel.
+3. **Un test que lo habría atajado.** No verifica que la columna desaparezca (eso lo hacía pasar la versión rota) sino que sus valores lleguen a la tabla nueva. Usa `recepcion` a propósito: con `owner` la red de seguridad repondría el rol y **enmascararía la pérdida**. Confirmado con control negativo — quitando el traslado, el test falla diciendo `rol migrado = "owner", esperaba "recepcion"`.
+
+**Aplicado sobre la base de desarrollo:** 3 membresías, 3 roles `owner` recuperados, columna `role` borrada, check de `status` aceptando `removed`, índice de exclusión creado. Contenedores reconstruidos, `web:200 api:200`.

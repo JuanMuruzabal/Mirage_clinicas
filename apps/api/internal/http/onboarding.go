@@ -246,9 +246,14 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 				return err
 			}
 			member := db.ClinicMember{
-				ClinicID: clinic.ID, UserID: userID, Role: db.RoleOwner, Status: db.ClinicMemberStatusActive, JoinedAt: &now,
+				ClinicID: clinic.ID, UserID: userID, Status: db.ClinicMemberStatusActive, JoinedAt: &now,
 			}
 			if err := tx.Create(&member).Error; err != nil {
+				return err
+			}
+			// El rol va en su propia tabla desde la Fase 3.2.1 (roles
+			// acumulables, TR-137). Quien crea la clínica es su owner.
+			if err := db.AsignarRol(tx, member.ID, db.RoleOwner); err != nil {
 				return err
 			}
 			if err := db.SeedTiposConsultaDefault(tx, clinic.ID); err != nil {

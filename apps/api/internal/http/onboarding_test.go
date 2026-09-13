@@ -165,8 +165,18 @@ func TestOnboardingClinica_ExitosoCreaClinicMemberOwner(t *testing.T) {
 	var user db.User
 	gdb.Where("email = ?", "clinicaexitosa@example.com").First(&user)
 	var member db.ClinicMember
-	if err := gdb.Where("user_id = ? AND role = ?", user.ID, db.RoleOwner).First(&member).Error; err != nil {
+	if err := gdb.Preload("Roles").Scopes(db.ConRol(db.RoleOwner)).
+		Where("user_id = ?", user.ID).First(&member).Error; err != nil {
 		t.Fatalf("no se creó el ClinicMember owner: %v", err)
+	}
+	// Fase 3.2.1: el rol vive en `clinic_member_roles`, no en una columna.
+	// Quien crea la clínica arranca con owner y nada más — los demás roles
+	// se suman después, desde el panel de colaboradores (Fase 3.2.4).
+	if rol := db.RolPrincipal(member.Roles); rol != db.RoleOwner {
+		t.Errorf("RolPrincipal = %q, esperaba %q", rol, db.RoleOwner)
+	}
+	if len(member.Roles) != 1 {
+		t.Errorf("roles = %d, esperaba exactamente 1 al crear la clínica", len(member.Roles))
 	}
 	if member.Status != db.ClinicMemberStatusActive {
 		t.Errorf("Status = %q, esperaba %q", member.Status, db.ClinicMemberStatusActive)

@@ -132,6 +132,7 @@ func aplicarDestructivaUnaVez(gdb *gorm.DB, pol PoliticaDestructiva, m Migracion
 func migracionesDestructivasPosteriores() []MigracionDestructiva {
 	return []MigracionDestructiva{
 		migracionBorrarTablasLegacyDelMVP(),
+		migracionDropColumnaRoleDeClinicMembers(),
 		{
 			Nombre:      migracionDedupPacientesDNI,
 			Descripcion: "fichas de paciente duplicadas por (clinic_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
@@ -382,6 +383,53 @@ func migracionBorrarTablasLegacyDelMVP() MigracionDestructiva {
 			// contra `profesionales`.
 			return tx.Exec(`DROP TABLE IF EXISTS profesional_especialidades;
 				DROP TABLE IF EXISTS profesionales`).Error
+		},
+	}
+}
+
+// migracionDropColumnaRoleDeClinicMembers — Fase 3.2.1 (TR-137): el rol
+// dejó de ser una columna y pasó a ser filas en `clinic_member_roles`,
+// porque el brief los pide acumulables (el titular es profesional Y
+// administrador de página a la vez) y eso no cabe en una sola columna.
+//
+// EL TRASLADO Y EL BORRADO VAN JUNTOS, en ese orden, dentro de `Aplicar`.
+// La primera versión de esta migración dejaba el INSERT que copia `role` en
+// el bloque de `statements` de migrate.go, y perdió los roles de las tres
+// membresías de la base de desarrollo: ese bloque corre DESPUÉS de las
+// migraciones destructivas, así que el DROP se ejecutó primero y el INSERT
+// no encontró la columna de dónde copiar. Sin error, sin aviso: 0 filas
+// migradas y la columna borrada.
+//
+// Es exactamente el bug de orden que TR-123 y TR-132 ya habían documentado
+// —y que el comentario de migracionesDestructivasPosteriores advierte dos
+// pantallas más arriba—, cometido de nuevo. Con las dos cosas en el mismo
+// `Aplicar` el orden es imposible de equivocar y además es atómico: van en
+// la misma transacción, así que o se traslada y se borra, o no pasa nada.
+//
+// Aun así pasa por el guardián, como el DROP de las columnas `tutor_*` de
+// TR-116: GORM AutoMigrate nunca borra columnas, así que el DROP tiene que
+// ser explícito, y un DROP explícito sobre datos de clínicas reales es
+// exactamente lo que el guardián existe para frenar. Cuenta la columna, no
+// las filas, igual que aquel precedente: lo que se destruye es la columna.
+func migracionDropColumnaRoleDeClinicMembers() MigracionDestructiva {
+	return MigracionDestructiva{
+		Nombre:      "drop_columna_role_de_clinic_members",
+		Descripcion: "la columna `role` de `clinic_members`, reemplazada por la tabla `clinic_member_roles` (un miembro puede acumular roles); sus valores ya se copiaron a la tabla nueva antes de este paso",
+		Afectados: func(tx *gorm.DB) (int64, error) {
+			return contarFilas(tx, `SELECT count(*) FROM information_schema.columns
+				WHERE table_name = 'clinic_members' AND column_name = 'role'`)
+		},
+		Aplicar: func(tx *gorm.DB) error {
+			// 1) Trasladar: cada miembro conserva el rol que tenía.
+			if err := tx.Exec(`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+				SELECT gen_random_uuid(), id, role, now() FROM clinic_members
+				ON CONFLICT (clinic_member_id, rol) DO NOTHING`).Error; err != nil {
+				return err
+			}
+			// 2) Y recién ahí borrar. El índice compuesto (user_id, role) se
+			// va con la columna; el que lo reemplaza para la consulta de
+			// requireClinic vive ahora en clinic_member_roles.
+			return tx.Exec(`ALTER TABLE clinic_members DROP COLUMN IF EXISTS role`).Error
 		},
 	}
 }

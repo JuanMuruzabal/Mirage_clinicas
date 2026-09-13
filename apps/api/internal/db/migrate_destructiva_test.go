@@ -460,3 +460,83 @@ func TestDestructiva_BorraLasTablasLegacyDelMVP(t *testing.T) {
 		}
 	}
 }
+
+// TestDestructiva_TrasladaLosRolesAntesDeBorrarLaColumna — el test que
+// habría atajado un bug real de esta misma subfase.
+//
+// La primera versión de la migración dejaba el INSERT que copia `role` en
+// el bloque de `statements` de migrate.go. Ese bloque corre DESPUÉS de las
+// migraciones destructivas, así que el DROP se ejecutaba primero y el
+// INSERT no encontraba la columna: cero roles migrados, columna borrada,
+// sin error y sin aviso. En la base de desarrollo se llevó puestos los
+// roles de las tres membresías.
+//
+// Lo que este test verifica no es que la columna desaparezca —eso ya lo
+// hacía pasar la versión rota— sino que ANTES de desaparecer sus valores
+// terminen en la tabla nueva.
+func TestDestructiva_TrasladaLosRolesAntesDeBorrarLaColumna(t *testing.T) {
+	gdb, ok := baseDescartableConMigracionesAplicadas(t)
+	if !ok {
+		t.Skip("no se pudo crear una base descartable (permisos) — se saltea")
+	}
+
+	// Se repone la columna vieja con un rol que la red de seguridad NO
+	// puede adivinar: si el traslado no corre, `recepcion` se pierde para
+	// siempre (el fallback solo sabe reponer `owner` mirando clinics).
+	if err := gdb.Exec(`ALTER TABLE clinic_members ADD COLUMN IF NOT EXISTS role varchar(20)`).Error; err != nil {
+		t.Fatalf("no se pudo reponer la columna de prueba: %v", err)
+	}
+	memberID := miembroDePruebaEnDB(t, gdb)
+	if err := gdb.Exec(`UPDATE clinic_members SET role = 'recepcion' WHERE id = ?`, memberID).Error; err != nil {
+		t.Fatalf("no se pudo plantar el rol viejo: %v", err)
+	}
+	if err := gdb.Exec(`DELETE FROM clinic_member_roles WHERE clinic_member_id = ?`, memberID).Error; err != nil {
+		t.Fatalf("no se pudieron limpiar los roles nuevos: %v", err)
+	}
+	if err := gdb.Exec(`DELETE FROM migraciones_una_vez WHERE nombre = 'drop_columna_role_de_clinic_members'`).Error; err != nil {
+		t.Fatalf("no se pudo desregistrar la migración: %v", err)
+	}
+
+	if err := db.RunMigrationsConPolitica(gdb, db.PoliticaDestructiva{Permitir: true, Entorno: "staging"}); err != nil {
+		t.Fatalf("las migraciones deberían correr con autorización: %v", err)
+	}
+
+	// La columna se fue...
+	var existe bool
+	if err := gdb.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_name='clinic_members' AND column_name='role')`).Scan(&existe).Error; err != nil {
+		t.Fatalf("no se pudo consultar el esquema: %v", err)
+	}
+	if existe {
+		t.Error("la columna `role` debería haberse borrado")
+	}
+
+	// ...pero su valor quedó en la tabla nueva. Esto es lo que fallaba.
+	var rol string
+	if err := gdb.Raw(`SELECT rol FROM clinic_member_roles WHERE clinic_member_id = ?`, memberID).Scan(&rol).Error; err != nil {
+		t.Fatalf("no se pudo leer el rol migrado: %v", err)
+	}
+	if rol != db.RoleRecepcion {
+		t.Errorf("rol migrado = %q, esperaba %q — el traslado tiene que correr ANTES del DROP", rol, db.RoleRecepcion)
+	}
+}
+
+// miembroDePruebaEnDB crea usuario + clínica + membresía y devuelve el id
+// de la membresía.
+func miembroDePruebaEnDB(t *testing.T, gdb *gorm.DB) uuid.UUID {
+	t.Helper()
+	hash := "hash-de-prueba"
+	user := db.User{Email: uuid.NewString() + "@example.com", PasswordHash: &hash}
+	if err := gdb.Create(&user).Error; err != nil {
+		t.Fatalf("no se pudo crear el usuario de prueba: %v", err)
+	}
+	clinic := db.Clinic{OwnerID: user.ID, Nombre: "Clínica", Slug: "clinica-" + uuid.NewString(), Tipo: db.ClinicTipoIndividual}
+	if err := gdb.Create(&clinic).Error; err != nil {
+		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
+	}
+	member := db.ClinicMember{ClinicID: clinic.ID, UserID: user.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&member).Error; err != nil {
+		t.Fatalf("no se pudo crear la membresía de prueba: %v", err)
+	}
+	return member.ID
+}

@@ -187,7 +187,7 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
 		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
-		&Clinic{}, &ClinicMember{}, &ClinicInvitation{},
+		&Clinic{}, &ClinicMember{}, &ClinicMemberRole{}, &ClinicInvitation{},
 		&Session{}, &AuthRateCounter{}, &AuditEvent{},
 		// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 		&HorarioAtencion{}, &BloqueoHorario{},
@@ -223,6 +223,49 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 
 	statements := []string{
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
+
+		// Fase 3.2.1 (TR-137): la regla de exclusión de roles, declarada en
+		// el motor y no validada en la aplicación.
+		//
+		// Un índice único PARCIAL sobre el miembro, limitado a los dos roles
+		// que no pueden convivir: se puede ser `profesional` o `recepcion`,
+		// nunca los dos, mientras `owner` y `admin` se suman libremente
+		// porque quedan fuera del WHERE. Probado en las dos direcciones
+		// contra Postgres 16 antes de escribirlo.
+		//
+		// Mismo criterio que el no-solapamiento de turnos (spec §4.3): una
+		// regla que no se puede violar no se valida, se declara.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_rol_excluyente
+			ON clinic_member_roles (clinic_member_id)
+			WHERE rol IN ('profesional', 'recepcion')`,
+
+		// El traslado de `role` a la tabla vive dentro de la migración
+		// destructiva que borra la columna (migrate_destructiva.go), no acá:
+		// este bloque corre DESPUÉS de las destructivas, así que un INSERT
+		// acá se ejecutaría con la columna ya borrada. Pasó — ver el
+		// comentario de migracionDropColumnaRoleDeClinicMembers.
+		//
+		// Lo que sí va acá es la RED DE SEGURIDAD: cualquier miembro que
+		// haya quedado sin ningún rol y sea el dueño de su clínica recupera
+		// `owner`. Cubre las bases donde el traslado ya falló, y cualquier
+		// estado inconsistente futuro — una clínica sin owner no tiene
+		// arreglo desde la aplicación, porque es justamente el rol que
+		// requireClinic necesita para dejarte entrar al panel.
+		`INSERT INTO clinic_member_roles (id, clinic_member_id, rol, created_at)
+			SELECT gen_random_uuid(), m.id, 'owner', now()
+			FROM clinic_members m
+			JOIN clinics c ON c.id = m.clinic_id AND c.owner_id = m.user_id
+			WHERE NOT EXISTS (SELECT 1 FROM clinic_member_roles r WHERE r.clinic_member_id = m.id)
+			ON CONFLICT (clinic_member_id, rol) DO NOTHING`,
+
+		// El check de `status` suma 'removed' (la membresía se marca, no se
+		// borra — ver ClinicMember.Status). Va en SQL crudo porque GORM
+		// AutoMigrate crea checks nuevos pero NO modifica los que ya
+		// existen: el tag del modelo cambió y la base se habría quedado con
+		// el check viejo, rechazando el estado nuevo sin que nada avisara.
+		`ALTER TABLE clinic_members DROP CONSTRAINT IF EXISTS chk_clinic_members_status`,
+		`ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_members_status
+			CHECK (status IN ('active','invited','removed'))`,
 
 		// Columna generada: se recalcula sola a partir de hora_inicio/hora_fin.
 		// Con ambos NULL (turnos `pendiente`, que todavía no tienen horario
