@@ -794,7 +794,7 @@ O sea que el "último valor de `X-Forwarded-For`" de TR-121 **nunca fue el visit
 
 Decisión y límites en TR-136 — incluido el que no se puede resolver leyendo la cadena: `172.71.x` es un rango **público** de Cloudflare, así que sin `CF-Connecting-IP` el fallback llega hasta el borde del CDN, no hasta la persona.
 
-**Pendiente de comprobación:** un `curl` contra el deploy y mirar el campo `ip_fuente` nuevo del log. Hasta hacerlo, esto es una hipótesis bien fundada, no un hecho.
+**Comprobado contra el deploy (2026-09-13 01:58 UTC):** `ruta=/especialidades status=200 ip=190.137.139.220 ip_fuente=cf` — la IP real del visitante, contra el `ip=10.29.215.4` que registraba el mismo request antes. `ip_fuente=cf` confirma que `CF-Connecting-IP` llega hasta el contenedor, que era justamente la rama imposible de verificar sin desplegar.
 
 ### 13.2 Multi-tenant propiamente dicho (pendiente)
 
