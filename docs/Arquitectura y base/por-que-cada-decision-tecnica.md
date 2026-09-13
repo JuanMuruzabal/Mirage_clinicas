@@ -210,6 +210,16 @@ Se cobró en la Fase 3.1.1 (TR-134). Para que el BFF pudiera decirle a la API cu
 
 Mismo razonamiento, otra cara: como `APP_ENV` vale `development` incluso en Render (un solo entorno mientras dure el plan free, TR-021), **ningún guard de seguridad puede basarse en esa variable**. Por eso las comodidades de desarrollo se atan a que `APP_BASE_URL` apunte a localhost (TR-135), que es la única señal que no puede mentir sobre si la aplicación está expuesta.
 
+### Render trae Cloudflare incluido, y eso no estaba escrito en ningún lado
+
+Cualquier respuesta de cualquiera de los dos servicios —incluidos los dominios `*.onrender.com`— llega con `Server: cloudflare` y `CF-RAY`. **Render pone Cloudflare delante de todo lo que hospeda.** No es algo que se haya configurado en este proyecto, y no aparece en su documentación de servicios: se descubrió con un `curl -sI` mientras se revisaba otra cosa (TR-136).
+
+Es un dato de infraestructura, no de aplicación, y aun así **invalidó una decisión de seguridad**. TR-121 había elegido leer el último valor de `X-Forwarded-For` razonando sobre "un único proxy de confianza delante"; con Cloudflare **más** el router interno de Render, el final de esa cadena es infraestructura y no el visitante. Medido: un request desde una IP pública conocida quedaba logueado como `ip=10.29.215.4`, una dirección privada.
+
+**La lección para cualquier decisión futura que dependa de la topología:** un PaaS no es un servidor con menos trabajo, es un conjunto de capas que uno no eligió y que pueden cambiar sin aviso. Lo que llega al contenedor hay que **medirlo**, no deducirlo del proveedor. De ahí que el logger escriba `ip_fuente` en cada request: la pregunta "¿de dónde salió esta IP?" tiene que ser un dato consultable, no una reconstrucción.
+
+Otra consecuencia práctica, del mismo descubrimiento: los servicios de este proyecto **no están conectados al blueprint** de Render. `render.yaml` está versionado y es la referencia de qué variables existen, pero Render no lo aplica solo — una variable nueva declarada ahí no aparece hasta que alguien sincroniza el blueprint o la carga a mano. Vale leerlo como documentación de la configuración, no como su fuente de verdad, hasta que se reconecten.
+
 ### Qué se sacrifica hoy, y hay que tenerlo presente
 
 - **El plan free de Postgres se borra solo a los 30 días.** Es deliberado mientras no haya clínicas reales, y hay que subir de plan **antes** del primer profesional — no después.

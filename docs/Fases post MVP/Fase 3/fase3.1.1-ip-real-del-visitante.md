@@ -4,6 +4,8 @@
 
 Una fase corta que arregla un defecto de fondo: **el backend nunca supo quién le estaba hablando.**
 
+> ⚠️ **Este documento quedó a medias, y vale leerlo sabiéndolo.** Al día siguiente se descubrió que la premisa heredada de TR-121 —"el último valor de `X-Forwarded-For` es el visitante"— **nunca fue cierta en producción**: Render pone Cloudflare delante de todos sus servicios y además tiene un router interno, así que el final de esa cadena es infraestructura. Todo lo que este documento dice sobre *por qué* hacía falta propagar la IP sigue en pie; lo que cambió es *cómo se lee la IP* en los dos lados. La historia sigue en **[`fase3.1.2-la-topologia-era-otra.md`](fase3.1.2-la-topologia-era-otra.md)** (TR-136), que además explica por qué el error duró meses pese a estar anticipado por escrito.
+
 ---
 
 ## Cómo apareció
