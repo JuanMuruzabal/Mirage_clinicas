@@ -798,7 +798,32 @@ Decisión y límites en TR-136 — incluido el que no se puede resolver leyendo 
 
 **Comprobado contra el deploy (2026-09-13 01:58 UTC):** `ruta=/especialidades status=200 ip=190.137.139.220 ip_fuente=cf` — la IP real del visitante, contra el `ip=10.29.215.4` que registraba el mismo request antes. `ip_fuente=cf` confirma que `CF-Connecting-IP` llega hasta el contenedor, que era justamente la rama imposible de verificar sin desplegar.
 
-### 13.2 Multi-tenant propiamente dicho (pendiente)
+### 13.2 Fase 3.2 — Multi-tenant (en curso desde 2026-09-13)
+
+Documento vivo de la fase: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`. Modelo de datos (entregable 1 del brief): `docs/Arquitectura y base/modelo de datos/`, con el diagrama ER pre y post.
+
+**Lo que el relevamiento cambió respecto de lo que se suponía:**
+
+- **`clinic_members` ya existe, ya es N:M y ya tiene los cuatro roles** del brief (owner/admin/profesional/recepcion) más los estados active/invited. Viene de TR-044 y nunca se usó: hay 3 usuarios, 3 clínicas y 3 membresías, una por cabeza. La relación no hay que inventarla.
+- **`profesionales` no está vacía: tiene 12 filas** huérfanas del MVP original, contra lo que afirmaban CLAUDE.md y TR-131. Se eliminan por el guardián de TR-132.
+- **El `EXCLUDE` de no-solapamiento pasa de garantía a bug** si no se muda: hoy es sobre `profesional_id`, que es la clínica, así que rechazaría dos odontólogos atendiendo a la misma hora en sillones distintos.
+
+**Subfases, en orden obligatorio:**
+
+| # | Qué | Termina cuando |
+|---|---|---|
+| 3.2.1 | Esquema y migración (renombre `profesional_id`→`clinic_id`, roles acumulables, `atendido_por_user_id`, EXCLUDE mudado, baja de legacy) | La suite pasa sin cambios de comportamiento: nadie nota nada desde la UI |
+| 3.2.2 | Roles y permisos en el backend, con tests de aislamiento **entre profesionales de una misma clínica** | Un profesional no puede leer lo de otro, aunque la UI se lo pida |
+| 3.2.3 | Onboarding nuevo y "¿dónde trabajás hoy?" | Toda sesión arranca eligiendo clínica |
+| 3.2.4 | Colaboradores: invitar por código o mail, roles con exclusión | Se puede armar una clínica de varios |
+| 3.2.5 | Panel del profesional: selector de clínica, colaboradores, tipos compartidos | Un profesional trabaja aislado en N clínicas |
+| 3.2.6 | Vista del recepcionista en los 4 módulos (general, calendario, turnos, pacientes) | La subfase más grande |
+| 3.2.7 | Wizard público con selección de profesional e indicador de proximidad | El paciente elige con quién atenderse |
+| 3.2.8 | Tiempo real, latencia y cierre | — |
+
+**3.2.1 es el mejor momento para equivocarse** y por eso va primero: cambia el modelo entero sin tocar una sola pantalla, así que un error se ve en la suite y no en producción.
+
+**El tiempo real (3.2.8) no es una tabla**, es una decisión de transporte que interactúa con que hoy corre una sola instancia del backend — el mismo umbral que ya tienen anotado Redis para el rate-limiter, el pool de conexiones y PgBouncer (§12.3). Conviene decidirlo junto con ellos.
 
 Las dos mitades del modelo nuevo, según el brief:
 
