@@ -813,7 +813,7 @@ Documento vivo de la fase: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
 | # | Qué | Termina cuando |
 |---|---|---|
 | 3.2.1 | Esquema y migración — ✅ **completa (2026-09-13)**. Baja de tablas legacy · renombre `profesional_id`→`clinic_id` · roles acumulables + `status=removed` · `atendido_por_user_id` con FK compuesta, columnas de agenda y EXCLUDE mudado al profesional | ✅ 12 paquetes en verde, sin cambios desde la UI |
-| 3.2.2 | Roles y permisos en el backend, con tests de aislamiento **entre profesionales de una misma clínica** | Un profesional no puede leer lo de otro, aunque la UI se lo pida |
+| 3.2.2 | Roles y permisos en el backend — **en curso**. ✅ `requireClinic` acepta cualquier membresía activa (antes exigía `owner`: **un colaborador invitado no podía entrar al panel**), roles en el contexto, `requireRol` sobre la página de la clínica, y el titular arranca con los tres roles que le da el brief. Pendiente: aislamiento entre profesionales | Un profesional no puede leer lo de otro, aunque la UI se lo pida |
 | 3.2.3 | Onboarding nuevo y "¿dónde trabajás hoy?" | Toda sesión arranca eligiendo clínica |
 | 3.2.4 | Colaboradores: invitar por código o mail, roles con exclusión | Se puede armar una clínica de varios |
 | 3.2.5 | Panel del profesional: selector de clínica, colaboradores, tipos compartidos | Un profesional trabaja aislado en N clínicas |
