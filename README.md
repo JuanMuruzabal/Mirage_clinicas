@@ -87,7 +87,7 @@ Con eso arriba: **http://localhost:3000** es el sitio,
 **http://localhost:8080** es la API.
 
 Variables opcionales en desarrollo (`JWT_SECRET`, `CONTACTO_EMAIL`,
-`BFF_SHARED_SECRET`):
+`BFF_SHARED_SECRET`, `DEV_TOOLS`):
 copiar [`.env.example`](.env.example) a `.env` en la raíz antes de
 levantar el stack si hace falta cambiar algún default.
 
@@ -104,6 +104,19 @@ levantar el stack si hace falta cambiar algún default.
 > nombre quedó de una versión anterior y no se renombra para no romper
 > deploys ya configurados; del lado de Go el campo se llama
 > `Config.OAuthStateSecret`.
+
+> **`DEV_TOOLS=true` prende las comodidades de desarrollo** que exponen
+> datos: el código de verificación de 6 dígitos viaja en la respuesta HTTP
+> (para no ir a buscarlo a los logs) y los detectores de abuso del wizard
+> avisan sin bloquear mail/IP (para no limpiar la base a mano mientras se
+> prueba). `docker compose` ya la trae puesta, así que no hay que hacer
+> nada para el flujo normal.
+>
+> **Prenderla no alcanza para exponer nada:** el backend además exige que
+> `APP_BASE_URL` apunte a localhost. Con un dominio público la variable se
+> ignora y queda un `WARN` en el log de arranque diciéndolo — a propósito
+> no se usa `APP_ENV` como señal, porque en este proyecto vale
+> `development` incluso en Render (ver el deploy más abajo). Ver TR-135.
 
 ### Migraciones que borran datos
 

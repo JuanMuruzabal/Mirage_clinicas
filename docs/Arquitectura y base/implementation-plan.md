@@ -784,6 +784,8 @@ El BFF pasa ahora la IP real en `X-Prisma-Client-IP`, acompañada de un secreto 
 
 Sin el secreto configurado todo se comporta como antes (agrupa de más, nunca de menos) y el proceso avisa con un WARN al arrancar. En desarrollo local sigue sin haber IP que propagar: el navegador le pega derecho a Next, sin proxy en el medio.
 
+**Auditoría de variables de entorno (TR-135), al cerrar la fase.** Nada filtrado —los `.env` reales están ignorados y nunca estuvieron en el historial, las `NEXT_PUBLIC_*` son públicas por diseño, ningún log imprime un secreto—, pero sí dos defaults peligrosos: el secreto de ejemplo del BFF (que se descarta fuera de `development`, porque confiar en un secreto público sería peor que no confiar en nada) y, sobre todo, las comodidades de desarrollo que se prendían solas con `RESEND_API_KEY` vacía. Pasan a *fail-closed*: exigen `DEV_TOOLS=true` **y** `AppBaseURL` en localhost. La señal es `AppBaseURL` y no `APP_ENV` porque esta última vale `development` en Render por decisión (TR-021), así que no puede sostener un guard. 11 casos de tabla en CI lo garantizan, incluido "alguien prende `DEV_TOOLS` en Render" → apagado.
+
 ### 13.2 Multi-tenant propiamente dicho (pendiente)
 
 Las dos mitades del modelo nuevo, según el brief:
