@@ -189,8 +189,8 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 
 | # | Cambio | Tipo |
 |---|---|---|
-| 1 | `clinic_member_roles` + índice único parcial de exclusión | Tabla nueva |
-| 2 | `clinic_members.status` suma `removed` | Check |
+| 1 | `clinic_member_roles` + índice único parcial de exclusión ✅ **hecho 2026-09-13** | Tabla nueva |
+| 2 | `clinic_members.status` suma `removed` ✅ **hecho 2026-09-13** | Check |
 | 3 | `users.codigo_invitacion` | Columna nueva |
 | 4 | `turnos.atendido_por_user_id` + FK compuesta a la membresía | Columna + constraint |
 | 5 | `tipos_consulta.user_id`, `horarios_atencion.user_id`, `bloqueos_horario.user_id` | Columnas nuevas |

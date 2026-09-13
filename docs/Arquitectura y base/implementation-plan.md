@@ -812,7 +812,7 @@ Documento vivo de la fase: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
 
 | # | Qué | Termina cuando |
 |---|---|---|
-| 3.2.1 | Esquema y migración — **en curso**. ✅ paso 1: baja de las tablas legacy (13 filas, TR-132). ✅ paso 2: renombre `profesional_id`→`clinic_id` en 9 tablas. Pendientes: roles acumulables, `atendido_por_user_id`, EXCLUDE mudado | La suite pasa sin cambios de comportamiento: nadie nota nada desde la UI |
+| 3.2.1 | Esquema y migración — **en curso**. ✅ paso 1: baja de las tablas legacy (13 filas, TR-132). ✅ paso 2: renombre `profesional_id`→`clinic_id` en 9 tablas. ✅ paso 3: roles acumulables (`clinic_member_roles` + índice de exclusión) y `status=removed`. Pendiente: paso 4 — `atendido_por_user_id`, columnas de agenda, EXCLUDE mudado | La suite pasa sin cambios de comportamiento: nadie nota nada desde la UI |
 | 3.2.2 | Roles y permisos en el backend, con tests de aislamiento **entre profesionales de una misma clínica** | Un profesional no puede leer lo de otro, aunque la UI se lo pida |
 | 3.2.3 | Onboarding nuevo y "¿dónde trabajás hoy?" | Toda sesión arranca eligiendo clínica |
 | 3.2.4 | Colaboradores: invitar por código o mail, roles con exclusión | Se puede armar una clínica de varios |
