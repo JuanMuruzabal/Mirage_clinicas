@@ -25,12 +25,11 @@ export default async function ColaboradoresPage() {
     : { miembros: [], pendientes: [], puedeInvitar: false };
 
   return (
-    // `hueso-hondo` es el fondo de las pantallas con tarjetas claras, el
-    // mismo que "¿Qué necesitás hoy?": con `hueso` (#f6f2ea) contra el
-    // marfil de una tarjeta la diferencia es de tres puntos y no se lee
-    // dónde termina cada una. 880px de ancho porque estirado al viewport
-    // las tarjetas quedaban perdidas a la izquierda.
-    <main className="flex flex-1 flex-col gap-8 bg-hueso-hondo px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
+    // `hueso`, el mismo fondo que "¿Qué necesitás hoy?" y /clinicas. Lo
+    // que separa tarjeta de fondo es el borde de 1px en `linea`, no un
+    // fondo más oscuro. 880px de ancho porque estirado al viewport las
+    // tarjetas quedaban perdidas a la izquierda.
+    <main className="flex flex-1 flex-col gap-8 bg-hueso px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
       <div className="mx-auto w-full max-w-[880px]">
         <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
           <Link href="/clinicas" className="hover:text-salvia-oscuro">

@@ -47,11 +47,7 @@
      llevarlo a 1px con relleno `hueso` en vez de blanco: un campo se
      tiene que ver como un hueco, no como un renglón. */
   --color-linea: #dbd3c2;
-  /* --color-hueso-hondo (#e9e3d6): fondo de página cuando las tarjetas
-     son claras y hay muchas. Con `hueso` (#f6f2ea) contra `marfil`
-     (#fffdf9) la diferencia es de 3 puntos y no se lee dónde termina
-     cada tarjeta. */
-  --color-hueso-hondo: #e9e3d6;
+
 
   /* --- Formas (TR-013): el panel sube el radius respecto al resto del
      producto (Sistema Cascarón, borde duro) — cards/contenedores en
@@ -102,7 +98,6 @@
   --color-grafito: var(--color-grafito);
   --color-arena: var(--color-arena);
   --color-linea: var(--color-linea);
-  --color-hueso-hondo: var(--color-hueso-hondo);
   --radius-card: var(--radius-card);
   --radius-field: var(--radius-field);
   --shadow-soft: var(--shadow-soft);

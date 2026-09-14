@@ -113,7 +113,14 @@ export function InvitarColaboradorModal({ onCerrar }: { onCerrar: () => void }) 
     >
       {paso === 1 ? (
         <div className="flex flex-col gap-4">
-          <div className="grid items-stretch gap-3 sm:grid-cols-2">
+          {/* El contenedor se recorta a la mitad de la tercera tarjeta —
+              mismo recurso que los tipos de consulta del brief: "así se
+              ve el corte y se entiende que hay más abajo". Con las tres
+              entrando justas, nadie scrollea para buscar lo que no sabe
+              que existe, y "Administrador de página" era justamente el
+              rol que el cliente no veía. La barra va fina, no oculta: el
+              corte dice que hay más, la barra dice cuánto. */}
+          <div className="scrollbar-fina grid max-h-[13.5rem] items-stretch gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
             <TarjetaOpcion
               seleccionada={rol === "profesional"}
               onClick={() => setRol("profesional")}

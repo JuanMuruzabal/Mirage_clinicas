@@ -669,7 +669,7 @@ Dos cosas que el endpoint no deja hacer, con su motivo:
 
 Sobre un pedido con valores concretos. Lo que resolvió, en orden de importancia:
 
-**El contraste entre capas era el problema de fondo.** Fondo, tarjeta y bordes se diferenciaban en dos o tres puntos de luminosidad, así que no se leía dónde terminaba cada elemento. Ahora el fondo de la página es un escalón más oscuro (`--color-hueso-hondo`), las tarjetas quedan claras contra él, los bordes usan un gris cálido más marcado (`--color-linea`) y los avatares van en verde sólido en vez de verde pálido sobre blanco.
+**El contraste entre capas era el problema de fondo.** Fondo, tarjeta y bordes se diferenciaban en dos o tres puntos de luminosidad, así que no se leía dónde terminaba cada elemento. Se resolvió con los **bordes** —un gris cálido más marcado, `--color-linea`, a 1px— y con los avatares en verde sólido en vez de verde pálido sobre blanco. El fondo de página más oscuro que pedía el rediseño se probó y se descartó en la vuelta siguiente: el borde alcanza, y un fondo distinto por pantalla rompía la continuidad.
 
 **Cada tipo de tag tiene su color.** Eran todos del mismo gris, así que la fila de roles se leía como un bloque indistinto y había que leer palabra por palabra para saber quién es quién. El color se asigna por **nombre**, con un mapa, nunca por posición. "Sos vos" va en neutro: es una aclaración, no un rol, y no debe competir con los reales.
 
@@ -691,7 +691,7 @@ Pasan a **1px en `--color-linea`** (#dbd3c2) con relleno `hueso` en vez de blanc
 
 Tres correcciones sobre Colaboradores y el rediseño de "¿Qué necesitás hoy?".
 
-**Las correcciones.** El fondo de Colaboradores pasa a ser el mismo de "¿Qué necesitás hoy?" —que en esta misma vuelta también se muda a `hueso-hondo`—, así que las dos pantallas con tarjetas claras comparten fondo en vez de tener cada una el suyo. El botón "Invitar colaborador" se alinea con el **título** y no con el bloque entero del encabezado: con breadcrumb, título y descripción en una sola columna, quedaba a la altura del breadcrumb, que es lo más chico de los tres. Y las píldoras de estado vacío pasan a blanco.
+**Las correcciones.** Las tres pantallas con tarjetas —"¿Dónde trabajás hoy?", "¿Qué necesitás hoy?" y Colaboradores— pasan a compartir el fondo `hueso`, así que moverse entre ellas no se siente como cambiar de aplicación. El fondo más oscuro que pedían los dos rediseños se probó y se descartó: lo que separa una tarjeta de su fondo es el **borde de 1px en `linea`**, que ya se había sumado por otro motivo, y con eso el contraste alcanza sin romper la continuidad entre pantallas. El token `hueso-hondo` quedó sin uso y se borró en vez de dejarlo dando vueltas. El botón "Invitar colaborador" se alinea con el **título** y no con el bloque entero del encabezado: con breadcrumb, título y descripción en una sola columna, quedaba a la altura del breadcrumb, que es lo más chico de los tres. Y las píldoras de estado vacío pasan a blanco.
 
 **"¿Qué necesitás hoy?" tenía dos problemas distintos**, y los dos eran de jerarquía:
 
@@ -701,4 +701,12 @@ Tres correcciones sobre Colaboradores y el rediseño de "¿Qué necesitás hoy?"
 El selector hace algo que la línea anterior no podía: **cambiar de clínica sin salir de la pantalla**. Antes "Cambiar de clínica" era un link a `/clinicas`; ahora se elige del popover y se entra directo.
 
 **Verificado:** 6 tests nuevos, 1099 en total, cobertura y lint en verde, build OK, contenedor reconstruido.
+
+#### Y la coherencia entre las tres pantallas
+
+La vuelta terminó puliendo lo que el rediseño había separado sin querer. "¿Qué necesitás hoy?" venía con **1180px de ancho** y `/clinicas` con 896: dos pantallas consecutivas del mismo flujo, con el título en la misma posición pero el contenido de anchos distintos. Se nota al pasar de una a la otra, y se lee como un cambio de aplicación más que de sección. Las dos quedan en `max-w-4xl`, con el mismo `gap` entre tarjetas y el mismo tratamiento de borde.
+
+Es la contracara de pedir rediseños por pantalla: cada uno resuelve bien lo suyo —el ancho de 1180px tenía sentido para tres tarjetas— y ninguno mira a la pantalla de al lado. **La coherencia entre pantallas no la puede dar un rediseño de una sola.**
+
+En el modal de invitar, las tres tarjetas de rol entran en un contenedor recortado **a la mitad de la tercera**: el mismo recurso que el brief pide para los tipos de consulta (*"así se ve el corte y se entiende que hay más abajo"*). Con las tres entrando justas, nadie scrollea para buscar lo que no sabe que existe — y "Administrador de página" era justamente el rol que no se veía.
 

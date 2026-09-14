@@ -41,11 +41,17 @@ export default async function SeleccionarServicioPage() {
   const clinicas = clinicasResult?.ok ? clinicasResult.data.clinicas : [];
 
   return (
-    // `hueso-hondo` y no `hueso`: tarjeta y fondo eran dos cremas casi
-    // idénticos y no se veía dónde terminaba cada una. Mismo fondo que
-    // /colaboradores, que tiene el mismo problema a resolver.
-    <main className="flex flex-1 flex-col gap-12 bg-hueso-hondo px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-end justify-between gap-6">
+    // `hueso`, el mismo fondo que /clinicas: las tres pantallas con
+    // tarjetas —dónde trabajás, qué necesitás, colaboradores— comparten
+    // fondo, así que pasar de una a otra no se siente como cambiar de
+    // aplicación. Lo que separa tarjeta de fondo es el borde de 1px en
+    // `linea`, no un fondo más oscuro.
+    <main className="flex flex-1 flex-col gap-12 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
+      {/* `max-w-4xl` y no 1180px: es el ancho de /clinicas, la pantalla
+          anterior. Pasar de una a la otra no tiene que sentirse como
+          cambiar de aplicación — mismo ancho, mismo título, misma
+          posición. */}
+      <div className="mx-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-6">
         <div>
           <p className="mb-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
             Hola, {sesion.nombre}
@@ -57,7 +63,7 @@ export default async function SeleccionarServicioPage() {
         <SelectorClinica clinicas={clinicas} nombreActual={sesion.nombreClinica} />
       </div>
 
-      <div className="mx-auto grid w-full max-w-[1180px] gap-[1.6rem] sm:grid-cols-2">
+      <div className="mx-auto grid w-full max-w-4xl gap-6 sm:grid-cols-2">
         <ScrollReveal className="sm:col-span-2">
           <NavCard
             href="/panel"

@@ -170,7 +170,7 @@ export function DondeTrabajas({
             />
           ))}
           {otras.length === 0 && sinResponder.length === 0 ? (
-            <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-transparent p-8">
+            <div className="flex flex-col gap-2 rounded-card border border-dashed border-linea bg-transparent p-8">
               <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
                 Todavía no trabajás en otras clínicas
               </h3>
@@ -257,7 +257,7 @@ function TarjetaClinica({
 
   return (
     <article
-      className={`group relative flex h-full flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:shadow-lg ${
+      className={`group relative flex h-full flex-col gap-3 rounded-card border border-linea bg-marfil p-8 shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:shadow-lg ${
         ancha ? "sm:col-span-2" : ""
       }`}
     >
@@ -298,7 +298,7 @@ function TarjetaCrearClinica({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-8 text-left shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:bg-hueso hover:shadow-lg sm:p-10"
+      className="group flex flex-col gap-3 rounded-card border border-linea bg-marfil p-8 text-left shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:bg-hueso hover:shadow-lg sm:p-10"
     >
       <QuadrantMark className="text-salvia transition-transform duration-300 group-hover:scale-110 group-hover:text-salvia-oscuro" />
       <h3 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito sm:text-3xl">Crear mi clínica</h3>
@@ -323,7 +323,7 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
   const [pendiente, iniciar] = useTransition();
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-card border-[0.5px] border-dashed border-salvia bg-salvia-claro/40 p-8">
+    <article className="flex h-full flex-col gap-3 rounded-card border border-dashed border-salvia bg-salvia-claro/40 p-8">
       <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Unirme a otra clínica</h3>
       <p className="text-sm text-grafito/60">
         Generá tu código y pasáselo a la clínica para que te sumen al equipo. También podés darles el mail de tu cuenta y que te
@@ -331,7 +331,7 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
       </p>
 
       {codigo && (
-        <div className="flex flex-wrap items-center gap-3 rounded-field border-[0.5px] border-salvia bg-marfil px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-field border border-salvia bg-marfil px-4 py-3">
           <code className="font-[family-name:var(--font-mono)] text-lg tracking-widest text-grafito">{codigo.codigo}</code>
           <button
             type="button"
@@ -374,7 +374,7 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
             setCodigo(resultado);
           })
         }
-        className="mt-auto self-start rounded-full border-[0.5px] border-salvia bg-marfil px-5 py-2.5 text-sm font-medium text-salvia-oscuro hover:bg-hueso hover:text-grafito disabled:opacity-60"
+        className="mt-auto self-start rounded-full border border-salvia bg-marfil px-5 py-2.5 text-sm font-medium text-salvia-oscuro hover:bg-hueso hover:text-grafito disabled:opacity-60"
       >
         {pendiente ? "Generando…" : codigo ? "Generar otro" : "Generar mi código"}
       </button>
@@ -403,7 +403,7 @@ function TarjetaInvitacion({
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-card border-[0.5px] border-dashed border-salvia bg-salvia-claro/40 p-8">
+    <article className="flex h-full flex-col gap-3 rounded-card border border-dashed border-salvia bg-salvia-claro/40 p-8">
       <div className="flex items-start justify-between gap-4">
         <QuadrantMark className="text-salvia" />
         <span className="rounded-full bg-marfil px-3 py-1 text-xs font-medium text-salvia-oscuro">
