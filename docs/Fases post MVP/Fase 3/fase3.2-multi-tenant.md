@@ -106,7 +106,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 - Crear clínica propia vs. unirse a una existente (código de invitación).
 - `users.codigo_invitacion`.
 
-### 3.2.4 — Colaboradores
+### 3.2.4 — Colaboradores ⏳
 
 - Tarjeta nueva en "seleccionar servicio".
 - Invitar por código (inmediato) o por mail (queda `invited` hasta aceptar).
@@ -558,4 +558,37 @@ Pedido del cliente mientras cerrábamos esto, para tenerlo presente al empezar:
 O sea que "Otras clínicas" no va a listar solo membresías activas: va a mostrar también las **invitaciones sin aceptar**, con su propio estado y su acción de confirmar. El modelo ya lo soporta —`clinic_members.status` admite `invited`— y `GET /me/clinicas` hoy filtra por `status = 'active'`: ese filtro es el que va a cambiar, junto con la tarjeta.
 
 **Verificado:** 12 paquetes de backend en verde (1 test nuevo, el del recepcionista invitado a atender en otra clínica), 1070 tests frontend, cobertura y lint en verde, build OK, contenedores reconstruidos.
+
+## 3.2.4 — Colaboradores
+
+**Fecha:** 2026-09-14 · **Código:** `internal/http/equipo.go`, `internal/http/invitaciones_recibidas.go` · **Mockups:** `colaboradores.html`, `clinica-inicio.html`
+
+La subfase que estrena todo lo anterior: los roles de la 3.2.2, el código de invitación de la 3.2.3 y el perfil sin matrícula que esa misma ronda de QA hizo posible.
+
+### Paso 1: una sola mecánica para los dos caminos
+
+El brief pide dos formas de sumar a alguien —código de perfil o mail— y las describe distintas: *"si es por token/código de perfil se añadirá al instante ya que se supone que el otro usuario lo compartió; si es por mail, quedará en estado pendiente hasta que el otro profesional acepte"*.
+
+**Las dos terminan igual: pendientes de confirmar.** Lo corrigió el propio cliente al pedir que *"las clínicas a las que me han invitado o yo haya pasado el código"* se vean como pendientes. Y es lo correcto de fondo: **compartir un código es ofrecerse, no aceptar**. Nadie queda adentro de una clínica —viendo agendas y datos de pacientes— sin haber dicho que sí desde su propia pantalla.
+
+Lo que el código sí resuelve, y el mail no: **identifica a una persona, no a una dirección**. La invitación por código saca el mail del perfil de quien lo generó, así que por ese camino un error de tipeo en la dirección no existe.
+
+### Por qué `clinic_invitations` y no una membresía "invitada"
+
+El modelo tenía las dos piezas desde el auth original: `clinic_members.status` admite `invited`, y existe una tabla `clinic_invitations` sin usar. La decisión la fuerza un caso del brief: **se puede invitar a un mail que todavía no tiene cuenta**, y `clinic_members.user_id` es NOT NULL.
+
+Una invitación se dirige a una **dirección**; una membresía, a una **persona que ya existe**. Por eso las invitaciones se buscan por mail: quien se registra después con esa dirección se las encuentra esperando, sin ningún paso extra ni token que copiar.
+
+### Las decisiones chicas, y su motivo
+
+- **Ver el equipo lo puede cualquier miembro; invitar y quitar, solo el titular.** Saber con quién se trabaja no es un permiso especial —y la 3.2.5 va a mostrar esta misma lista en el header del panel—, pero repartir accesos sí: *"el creador: el responsable de asignar roles e invitar a sus colegas"*.
+- **Un código vencido responde lo mismo que uno inexistente.** Decir "existió pero venció" le confirmaría a quien prueba códigos al azar que acertó uno.
+- **Aceptar la invitación de otro da 404.** El id de una invitación no es secreto: viaja en la pantalla de quien invitó. Sin verificar que el mail de la invitación sea el de quien responde, cualquiera con sesión se metería en una clínica ajena. Hay un test que lo intenta.
+- **Reenviar renueva el vencimiento.** Si no, una invitación de hace ocho días se reenviaría vencida: un mail que no sirve para nada.
+- **Quitar a alguien marca la membresía, no la borra** (TR-137), y **al titular no se lo puede quitar**: sin él la clínica queda sin nadie que pueda invitar ni repartir roles, y de ese estado no se vuelve.
+- **Volver a sumar a quien se fue reactiva la membresía marcada**, no crea una segunda — el índice único `(clinic_id, user_id)` la rechazaría, y con razón: es la misma relación, no una nueva. Tiene test propio porque es el camino que nadie prueba a mano.
+- **Aceptar como profesional exige matrícula**, igual que crear la clínica propia o entrar a atender (3.2.3). Es la tercera puerta de la misma regla, y ahora las tres tienen su guard.
+- **El rol excluyente lo sigue impidiendo el motor**: si alguien ya es `recepcion` en esa clínica, aceptar como `profesional` choca contra el índice único parcial de la 3.2.1. El handler traduce ese 23505 a algo que se entienda.
+
+**Verificado:** 10 tests nuevos, 12 paquetes en verde, gofmt + golangci-lint 0 issues.
 

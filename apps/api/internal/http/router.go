@@ -97,6 +97,10 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			registerTurnoRoutes(r, db)
 			registerPacienteRoutes(r, db)
 			registerSeguridadTurnoPublicoRoutes(r, db)
+			// El equipo de la clínica (Fase 3.2.4). Ver quiénes son lo
+			// puede cualquier miembro; invitar y quitar, solo el titular
+			// — ese corte vive adentro de registerEquipoRoutes.
+			registerEquipoRoutes(r, db, deps.Mail, deps.AppBaseURL)
 			// La página de la clínica la maneja el rol "administrador de
 			// página" (brief de Fase 3: "la tarjeta administrador de
 			// pagina solo la puede ver los que tienen rol de administrador

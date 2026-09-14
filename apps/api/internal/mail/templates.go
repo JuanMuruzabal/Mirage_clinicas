@@ -16,11 +16,30 @@ var (
 	welcomeTpl           = template.Must(template.ParseFS(templatesFS, "templates/welcome.html"))
 	turnoVerificacionTpl = template.Must(template.ParseFS(templatesFS, "templates/turno_verificacion.html"))
 	turnoConfirmadoTpl   = template.Must(template.ParseFS(templatesFS, "templates/turno_confirmado.html"))
+	invitacionTpl        = template.Must(template.ParseFS(templatesFS, "templates/invitacion_colaborador.html"))
 )
 
 type verificationData struct{ Code string }
 type passwordResetData struct{ ResetURL string }
 type welcomeData struct{ Nombre string }
+
+// InvitacionColaboradorInfo — los datos del mail con el que una clínica
+// suma a alguien a su equipo (Fase 3.2.4). Va en un struct por el mismo
+// motivo que TurnoConfirmadoInfo: una firma con seis strings sueltos se
+// equivoca de orden tarde o temprano.
+type InvitacionColaboradorInfo struct {
+	NombreClinica string
+	// InvitadoPor — nombre de quien invita. Vacío si no se pudo resolver;
+	// el texto se adapta.
+	InvitadoPor string
+	// Rol tal como se le muestra a la persona ("Profesional",
+	// "Recepcionista"), no el valor interno.
+	Rol   string
+	Email string
+	URL   string
+	// Vence ya formateada, ej. "20 de septiembre de 2026".
+	Vence string
+}
 type turnoVerificacionData struct {
 	Code          string
 	NombreClinica string
@@ -63,6 +82,14 @@ func renderPasswordResetEmail(resetURL string) (subject, html string, err error)
 		return "", "", fmt.Errorf("no se pudo renderizar el mail de recuperación: %w", err)
 	}
 	return "Recuperá tu contraseña de PRISMA", buf.String(), nil
+}
+
+func renderInvitacionColaboradorEmail(info InvitacionColaboradorInfo) (subject, html string, err error) {
+	var buf bytes.Buffer
+	if err := invitacionTpl.Execute(&buf, info); err != nil {
+		return "", "", fmt.Errorf("no se pudo renderizar el mail de invitación: %w", err)
+	}
+	return fmt.Sprintf("Te invitaron a %s en PRISMA", info.NombreClinica), buf.String(), nil
 }
 
 func renderWelcomeEmail(nombre string) (subject, html string, err error) {
