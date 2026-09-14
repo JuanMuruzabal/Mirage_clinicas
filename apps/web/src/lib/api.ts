@@ -7,6 +7,8 @@ import type {
   ClinicaPublica,
   ClinicaResultado,
   CodigoInvitacion,
+  Equipo,
+  InvitarColaboradorPayload,
   ConflictoPaciente,
   Disponibilidad,
   Especialidad,
@@ -572,6 +574,55 @@ export function apiElegirClinicaActiva(token: string, clinicaId: string): Promis
 export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<CodigoInvitacion>> {
   return request<CodigoInvitacion>("/me/codigo-invitacion", {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// --- Fase 3.2.4: el equipo de la clínica ---
+
+export function apiEquipo(token: string): Promise<ApiResult<Equipo>> {
+  return request<Equipo>("/equipo", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiInvitarColaborador(token: string, payload: InvitarColaboradorPayload): Promise<ApiResult<unknown>> {
+  return request<unknown>("/equipo/invitaciones", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiReenviarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/equipo/invitaciones/${id}/reenviar`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiCancelarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/equipo/invitaciones/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiQuitarColaborador(token: string, userId: string): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/equipo/miembros/${userId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiAceptarInvitacion(token: string, id: string): Promise<ApiResult<{ clinicaId: string }>> {
+  return request<{ clinicaId: string }>(`/me/invitaciones/${id}/aceptar`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiRechazarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/me/invitaciones/${id}`, {
+    method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 }

@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ClinicaDelUsuario, CodigoInvitacion, Especialidad, PerfilProfesional } from "@dental-mirage/shared-types";
+import type {
+  ClinicaDelUsuario,
+  CodigoInvitacion,
+  Especialidad,
+  InvitacionRecibida,
+  PerfilProfesional,
+} from "@dental-mirage/shared-types";
 import { entrarEnClinicaAction, generarCodigoInvitacionAction } from "@/app/actions/clinicas";
+import { aceptarInvitacionAction, rechazarInvitacionAction } from "@/app/actions/equipo";
 import { OnboardingClinicaForm } from "@/app/sumarse/onboarding-clinica-form";
 import { OnboardingPerfilForm } from "@/app/sumarse/onboarding-perfil-form";
 import { QuadrantMark } from "@/components/quadrant-mark";
@@ -12,10 +19,15 @@ interface DondeTrabajasProps {
   codigoInicial?: CodigoInvitacion;
   perfil?: PerfilProfesional;
   especialidades?: Especialidad[];
+  /** Clínicas que me invitaron y todavía no confirmé (Fase 3.2.4). */
+  invitaciones?: InvitacionRecibida[];
 }
 
 // Qué hacer una vez completados los datos profesionales que faltaban.
-type Despues = { clase: "crear-clinica" } | { clase: "entrar"; clinicaId: string };
+type Despues =
+  | { clase: "crear-clinica" }
+  | { clase: "entrar"; clinicaId: string }
+  | { clase: "aceptar"; invitacionId: string };
 
 const ETIQUETA_ROL: Record<string, string> = {
   owner: "Titular",
@@ -30,7 +42,13 @@ const ETIQUETA_ROL: Record<string, string> = {
 // siempre me llevará a este apartado, este siempre será el inicio de
 // partida". De acá se entra a una clínica; todo lo demás del panel asume
 // que esa elección ya se hizo.
-export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades = [] }: DondeTrabajasProps) {
+export function DondeTrabajas({
+  clinicas,
+  codigoInicial,
+  perfil,
+  especialidades = [],
+  invitaciones = [],
+}: DondeTrabajasProps) {
   const propia = clinicas.find((c) => c.esPropia);
   const otras = clinicas.filter((c) => !c.esPropia);
   // Armar la clínica propia exige matrícula, y quien entró a la app para
@@ -50,6 +68,12 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
     { tipo: "no" } | { tipo: "datos-profesionales"; despues: Despues } | { tipo: "alta-clinica" }
   >({ tipo: "no" });
 
+  // Las invitaciones aceptadas o rechazadas se sacan de la lista en el
+  // acto: la acción revalida la página, pero el modal y la tarjeta viven
+  // acá y tienen que reaccionar sin esperar al servidor.
+  const [respondidas, setRespondidas] = useState<string[]>([]);
+  const sinResponder = invitaciones.filter((inv) => !respondidas.includes(inv.id));
+
   const [entrando, setEntrando] = useState<string | null>(null);
   const [errorEntrar, setErrorEntrar] = useState<{ clinicaId: string; mensaje: string } | null>(null);
   const [, iniciarEntrada] = useTransition();
@@ -65,6 +89,29 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
         setErrorEntrar({ clinicaId, mensaje: resultado.error });
       }
     });
+  }
+
+  function aceptar(invitacionId: string) {
+    setErrorEntrar(null);
+    iniciarEntrada(async () => {
+      const resultado = await aceptarInvitacionAction(invitacionId);
+      if (resultado.error) {
+        setErrorEntrar({ clinicaId: invitacionId, mensaje: resultado.error });
+        return;
+      }
+      setRespondidas((previas) => [...previas, invitacionId]);
+    });
+  }
+
+  // Aceptar una invitación DE PROFESIONAL es la tercera puerta de la
+  // misma regla de la 3.2.3: sin matrícula no se entra a atender. Mismo
+  // modal, mismo encadenado.
+  function pedirAceptar(invitacion: InvitacionRecibida) {
+    if (faltanDatosProfesionales && invitacion.rol === "profesional") {
+      setModal({ tipo: "datos-profesionales", despues: { clase: "aceptar", invitacionId: invitacion.id } });
+      return;
+    }
+    aceptar(invitacion.id);
   }
 
   function pedirEntrar(clinica: ClinicaDelUsuario) {
@@ -104,12 +151,25 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Otras clínicas</h2>
           <span className="text-sm text-grafito/50">
-            {otras.length === 0 ? "Ninguna todavía" : `${otras.length} ${otras.length === 1 ? "clínica" : "clínicas"}`}
+            {otras.length + sinResponder.length === 0
+              ? "Ninguna todavía"
+              : `${otras.length + sinResponder.length} ${otras.length + sinResponder.length === 1 ? "clínica" : "clínicas"}`}
           </span>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2">
-          {otras.length === 0 ? (
+          {/* Las invitaciones sin confirmar van PRIMERO: son lo único de
+              esta pantalla que espera una decisión (Fase 3.2.4). */}
+          {sinResponder.map((invitacion) => (
+            <TarjetaInvitacion
+              key={invitacion.id}
+              invitacion={invitacion}
+              onAceptar={() => pedirAceptar(invitacion)}
+              onRechazar={() => setRespondidas((previas) => [...previas, invitacion.id])}
+              error={errorEntrar?.clinicaId === invitacion.id ? errorEntrar.mensaje : undefined}
+            />
+          ))}
+          {otras.length === 0 && sinResponder.length === 0 ? (
             <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-transparent p-8">
               <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
                 Todavía no trabajás en otras clínicas
@@ -157,6 +217,10 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
               return;
             }
             setModal({ tipo: "no" });
+            if (modal.despues.clase === "aceptar") {
+              aceptar(modal.despues.invitacionId);
+              return;
+            }
             entrar(modal.despues.clinicaId);
           }}
         />
@@ -314,6 +378,80 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
       >
         {pendiente ? "Generando…" : codigo ? "Generar otro" : "Generar mi código"}
       </button>
+    </article>
+  );
+}
+
+// TarjetaInvitacion — una clínica que me invitó y todavía no confirmé.
+//
+// Va en "Otras clínicas" junto a las que ya son mías, con su estado
+// (pedido del cliente, 2026-09-13). Se ve distinta a propósito: es la
+// única tarjeta de la pantalla que no lleva a ningún lado hasta que se
+// tome una decisión.
+function TarjetaInvitacion({
+  invitacion,
+  onAceptar,
+  onRechazar,
+  error,
+}: {
+  invitacion: InvitacionRecibida;
+  onAceptar: () => void;
+  onRechazar: () => void;
+  error?: string;
+}) {
+  const [pendiente, iniciar] = useTransition();
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
+
+  return (
+    <article className="flex h-full flex-col gap-3 rounded-card border-[0.5px] border-dashed border-salvia bg-salvia-claro/40 p-8">
+      <div className="flex items-start justify-between gap-4">
+        <QuadrantMark className="text-salvia" />
+        <span className="rounded-full bg-marfil px-3 py-1 text-xs font-medium text-salvia-oscuro">
+          Pendiente a confirmar
+        </span>
+      </div>
+      <h3 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">
+        {invitacion.nombreClinica}
+      </h3>
+      <p className="text-sm text-grafito/60">
+        Te invitaron como {ETIQUETA_ROL[invitacion.rol] ?? invitacion.rol}. Hasta que confirmes, no ves nada de esa
+        clínica ni ellos de lo tuyo.
+      </p>
+
+      {(error || errorLocal) && (
+        <p role="alert" className="text-sm text-terracota-oscuro">
+          {error ?? errorLocal}
+        </p>
+      )}
+
+      <div className="mt-auto flex flex-wrap items-center gap-4 pt-2">
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={onAceptar}
+          className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+        >
+          Confirmar
+        </button>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() =>
+            iniciar(async () => {
+              setErrorLocal(null);
+              const resultado = await rechazarInvitacionAction(invitacion.id);
+              if (resultado.error) {
+                setErrorLocal(resultado.error);
+                return;
+              }
+              onRechazar();
+            })
+          }
+          className="text-sm font-medium text-grafito/60 hover:text-terracota-oscuro disabled:opacity-60"
+        >
+          Rechazar
+        </button>
+      </div>
     </article>
   );
 }

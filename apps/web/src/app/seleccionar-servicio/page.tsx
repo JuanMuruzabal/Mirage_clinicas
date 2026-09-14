@@ -48,6 +48,10 @@ export default async function SeleccionarServicioPage() {
         </h1>
       </div>
 
+      {/* La tercera tarjeta llega en la Fase 3.2.4 y **solo la ve el
+          titular**: es quien puede invitar y repartir roles (brief).
+          Mostrársela al resto sería ofrecer una pantalla que el backend
+          les va a negar. */}
       <div className="mx-auto grid w-full max-w-4xl gap-8 sm:grid-cols-2">
         <ScrollReveal>
           <NavCard
@@ -65,6 +69,16 @@ export default async function SeleccionarServicioPage() {
             size="large"
           />
         </ScrollReveal>
+        {sesion.rol === "owner" && (
+          <ScrollReveal delay={0.2}>
+            <NavCard
+              href="/colaboradores"
+              titulo="Colaboradores"
+              descripcion="Quién trabaja en la clínica, con qué rol, y a quién invitar."
+              size="large"
+            />
+          </ScrollReveal>
+        )}
       </div>
     </main>
   );

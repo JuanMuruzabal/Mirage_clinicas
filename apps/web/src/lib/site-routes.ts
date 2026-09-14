@@ -17,6 +17,7 @@ const PROFESSIONAL_ROUTE_PREFIXES = [
   "/perfil",
   "/panel",
   "/personalizar-pagina",
+  "/colaboradores",
 ];
 
 /**
@@ -34,6 +35,7 @@ const RUTAS_PROPIAS_DE_UN_SEGMENTO = [
   "perfil",
   "panel",
   "clinicas",
+  "colaboradores",
   "seleccionar-servicio",
   "personalizar-pagina",
   "recuperar-password",
@@ -104,7 +106,14 @@ export function isPanelRoute(pathname: string): boolean {
 // "/clinicas" se suma en la Fase 3.2.3: es la pantalla de partida de toda
 // sesión, así que es tan "de herramienta" como las otras cuatro — y no
 // puede caer en `/[slug]` como si fuera la página pública de una clínica.
-const HERRAMIENTA_ROUTE_PREFIXES = ["/clinicas", "/seleccionar-servicio", "/perfil", "/panel", "/personalizar-pagina"];
+const HERRAMIENTA_ROUTE_PREFIXES = [
+  "/clinicas",
+  "/seleccionar-servicio",
+  "/perfil",
+  "/panel",
+  "/personalizar-pagina",
+  "/colaboradores",
+];
 
 export function isHerramientaRoute(pathname: string): boolean {
   return HERRAMIENTA_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

@@ -106,7 +106,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 - Crear clínica propia vs. unirse a una existente (código de invitación).
 - `users.codigo_invitacion`.
 
-### 3.2.4 — Colaboradores ⏳
+### 3.2.4 — Colaboradores ✅
 
 - Tarjeta nueva en "seleccionar servicio".
 - Invitar por código (inmediato) o por mail (queda `invited` hasta aceptar).
@@ -591,4 +591,36 @@ Una invitación se dirige a una **dirección**; una membresía, a una **persona 
 - **El rol excluyente lo sigue impidiendo el motor**: si alguien ya es `recepcion` en esa clínica, aceptar como `profesional` choca contra el índice único parcial de la 3.2.1. El handler traduce ese 23505 a algo que se entienda.
 
 **Verificado:** 10 tests nuevos, 12 paquetes en verde, gofmt + golangci-lint 0 issues.
+
+### Paso 2: la pantalla del equipo
+
+`/colaboradores` es un área propia, como `/personalizar-pagina`: no vive bajo `/panel/**` porque no es una herramienta de la agenda sino de la clínica. Es la tercera tarjeta de "¿Qué necesitás hoy?", y **solo la ve el titular** — mostrársela al resto sería ofrecer una pantalla que el backend les va a negar.
+
+El orden de las secciones lo pide el brief —*"primero el creador, luego recepcionistas, y al final las tarjetas de los colegas"*— y no es estético: es el orden en que alguien busca a una persona cuando entra acá. Primero se ubica a sí mismo, después a quien atiende el teléfono, después al resto.
+
+**El modal de invitar tiene dos pasos, y el rol va primero.** El rol es lo que decide qué va a poder ver esa persona, así que se elige antes de nombrarla; al revés, termina siendo un detalle que se completa apurado sobre el final.
+
+La pantalla de éxito dice algo que el brief original no habría necesitado: *"hasta que confirme desde su pantalla de clínicas, no ve nada de la tuya"*. Con el código sumando al instante, invitar era un hecho consumado; ahora es un pedido, y la pantalla tiene que decirlo o quien invita se queda esperando que aparezca alguien que todavía no aceptó.
+
+### Paso 3: el otro lado, la confirmación
+
+En "Otras clínicas" las invitaciones sin responder van **primero**: son lo único de esa pantalla que espera una decisión. Se ven distintas a propósito —borde punteado, etiqueta "Pendiente a confirmar", sin "Entrar"— porque todavía no llevan a ningún lado.
+
+**Aceptar una invitación de profesional es la tercera puerta de la misma regla de la 3.2.3.** Sin matrícula no se entra a atender: ni creando la clínica propia, ni entrando a una donde ya sos profesional, ni aceptando una invitación. Las tres comparten el mismo modal encadenado y las tres tienen su guard en el backend. Una invitación de recepción no pide nada: ahí no se atiende a nadie.
+
+### El invitado que todavía no tiene cuenta
+
+Es el caso que decidió el modelo, y no necesitó código propio: la invitación se guarda contra una **dirección de mail**, así que quien se registra después con esa misma dirección se la encuentra esperando en su pantalla de clínicas. Sin token que copiar, sin link de un solo uso, sin un estado intermedio que mantener.
+
+Ese camino es también el que la ronda de QA de la 3.2.3 dejó listo: esa persona puede crear su perfil **sin matrícula** —*"no necesariamente el recepcionista tiene una matrícula de profesional"*— porque el alta dejó de asumir que todos atienden pacientes. Las dos decisiones se tomaron con una semana de diferencia y encajan sin costura.
+
+### Con esto la 3.2.4 queda completa
+
+Una clínica puede armar su equipo: invitar por código o por mail, ver quién está y quién falta confirmar, reenviar, cancelar y quitar. Y del otro lado, cualquiera puede ver qué clínicas lo invitaron y decidir.
+
+**Verificado:** 10 tests de backend y 19 de frontend nuevos (1089 en total), 12 paquetes en verde, gofmt + golangci-lint 0 issues, cobertura y lint del frontend en verde, contenedores reconstruidos.
+
+**Lo que queda pendiente de esta subfase, declarado:** el brief pide que al crear una clínica de tipo "organización" el alta siga directo en esta pantalla. Hoy los dos tipos terminan en `/seleccionar-servicio`, desde donde la tarjeta de colaboradores está a un click. Y el rol `admin` (administrador de página) se puede asignar por la API pero el modal todavía ofrece solo Profesional y Recepcionista, que son los dos que el mockup muestra.
+
+Sigue la **3.2.5 — panel del profesional**: el selector de clínica en el header y el componente de colaboradores, que va a reusar esta misma lista.
 

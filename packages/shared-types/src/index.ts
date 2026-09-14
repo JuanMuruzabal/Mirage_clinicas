@@ -76,10 +76,54 @@ export interface CodigoInvitacion {
   venceAt: string;
 }
 
+// Una clínica que me invitó y que todavía no confirmé (Fase 3.2.4).
+// Tanto las invitaciones por mail como las que salieron de mi código
+// pasan por acá: compartir un código es ofrecerse, no aceptar.
+export interface InvitacionRecibida {
+  id: string;
+  nombreClinica: string;
+  rol: ClinicRole;
+  venceAt: string;
+}
+
 export interface MisClinicas {
   clinicas: ClinicaDelUsuario[];
+  invitaciones: InvitacionRecibida[];
   // Ausente si nunca generó uno, o si el que tenía ya venció.
   codigoInvitacion?: CodigoInvitacion;
+}
+
+// --- El equipo de la clínica (Fase 3.2.4) ---
+
+export interface MiembroDelEquipo {
+  userId: string;
+  nombre: string;
+  email: string;
+  roles: ClinicRole[];
+  esTitular: boolean;
+  esVos: boolean;
+}
+
+export interface InvitacionPendiente {
+  id: string;
+  email: string;
+  rol: ClinicRole;
+  venceAt: string;
+}
+
+export interface Equipo {
+  miembros: MiembroDelEquipo[];
+  pendientes: InvitacionPendiente[];
+  // puedeInvitar — solo el titular. El resto ve el equipo sin poder
+  // tocarlo.
+  puedeInvitar: boolean;
+}
+
+export interface InvitarColaboradorPayload {
+  rol: ClinicRole;
+  // Uno de los dos, nunca los dos.
+  codigo?: string;
+  email?: string;
 }
 
 // Espejo de meResponse (internal/http/me.go, GET /me). `perfil`/`clinica`
