@@ -1,105 +1,164 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Equipo, InvitacionPendiente, MiembroDelEquipo } from "@dental-mirage/shared-types";
+import type { ClinicRole, Equipo, InvitacionPendiente, MiembroDelEquipo } from "@dental-mirage/shared-types";
 import {
   cancelarInvitacionAction,
   quitarColaboradorAction,
   reenviarInvitacionAction,
 } from "@/app/actions/equipo";
 import { IconUserPlus } from "@/components/icons";
+import { CambiarRolesModal } from "./cambiar-roles-modal";
 import { InvitarColaboradorModal } from "./invitar-colaborador-modal";
+import { MenuAcciones } from "./menu-acciones";
 
-const ETIQUETA_ROL: Record<string, string> = {
-  owner: "Titular",
-  admin: "Administrador de página",
-  profesional: "Profesional",
-  recepcion: "Recepción",
+// Cada tipo de tag tiene su propio color, asignado por NOMBRE y no por
+// posición — rediseño del 2026-09-14. Con todos del mismo gris, la fila
+// de roles se leía como un bloque indistinto.
+const ETIQUETA_ROL: Record<string, { texto: string; clase: string }> = {
+  owner: { texto: "Titular", clase: "tag-rol--titular" },
+  admin: { texto: "Administrador de página", clase: "tag-rol--admin" },
+  profesional: { texto: "Profesional", clase: "tag-rol--profesional" },
+  recepcion: { texto: "Recepción", clase: "tag-rol--recepcion" },
 };
 
-// El equipo de la clínica — Fase 3.2.4, mockup `colaboradores.html`.
+function TagRol({ rol }: { rol: ClinicRole }) {
+  const etiqueta = ETIQUETA_ROL[rol];
+  return <li className={`tag-rol ${etiqueta?.clase ?? "tag-rol--vos"}`}>{etiqueta?.texto ?? rol}</li>;
+}
+
+// El equipo de la clínica — Fase 3.2.4, mockup `colaboradores.html` y
+// rediseño del 2026-09-14.
 //
-// El orden lo pide el brief: "primero el creador, luego recepcionistas, y
-// al final las tarjetas de los colegas". No es estético — es el orden en
-// que alguien busca a una persona cuando entra a esta pantalla: primero
-// se ubica a sí mismo, después a quien atiende el teléfono, después al
-// resto.
+// El orden de los grupos lo pide el brief: "primero el creador, luego
+// recepcionistas, y al final las tarjetas de los colegas". No es estético
+// — es el orden en que alguien busca a una persona cuando entra acá.
 export function EquipoDeLaClinica({ equipo }: { equipo: Equipo }) {
   const [invitando, setInvitando] = useState(false);
+  const [cambiandoRoles, setCambiandoRoles] = useState<MiembroDelEquipo | null>(null);
 
   const titular = equipo.miembros.find((m) => m.esTitular);
   const recepcion = equipo.miembros.filter((m) => !m.esTitular && m.roles.includes("recepcion"));
   const profesionales = equipo.miembros.filter((m) => !m.esTitular && !m.roles.includes("recepcion"));
 
   return (
-    <div className="flex flex-col gap-10">
-      {equipo.puedeInvitar && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setInvitando(true)}
-            className="flex items-center gap-2 rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-          >
-            <IconUserPlus className="h-[18px] w-[18px]" />
-            Invitar colaborador
-          </button>
-        </div>
-      )}
-
+    <div className="flex flex-col">
       {titular && (
-        <Seccion titulo="Titular">
-          <TarjetaMiembro miembro={titular} puedeQuitar={false} />
-        </Seccion>
+        <Grupo titulo="Titular">
+          <TarjetaMiembro miembro={titular} puedeGestionar={false} />
+        </Grupo>
       )}
 
-      <Seccion titulo="Recepción" cuantos={recepcion.length}>
+      <Grupo titulo="Recepción" cuantos={recepcion.length}>
         {recepcion.length === 0 ? (
-          <Vacio>Todavía no hay nadie en recepción.</Vacio>
+          <Vacio onInvitar={equipo.puedeInvitar ? () => setInvitando(true) : undefined}>
+            Todavía no hay nadie en recepción.
+          </Vacio>
         ) : (
-          recepcion.map((m) => <TarjetaMiembro key={m.userId} miembro={m} puedeQuitar={equipo.puedeInvitar} />)
+          recepcion.map((m) => (
+            <TarjetaMiembro
+              key={m.userId}
+              miembro={m}
+              puedeGestionar={equipo.puedeInvitar}
+              onCambiarRol={() => setCambiandoRoles(m)}
+            />
+          ))
         )}
-      </Seccion>
+      </Grupo>
 
-      <Seccion titulo="Profesionales" cuantos={profesionales.length}>
+      <Grupo titulo="Profesionales" cuantos={profesionales.length}>
         {profesionales.length === 0 ? (
-          <Vacio>Todavía no hay otros profesionales en la clínica.</Vacio>
+          <Vacio onInvitar={equipo.puedeInvitar ? () => setInvitando(true) : undefined}>
+            Todavía no hay otros profesionales en la clínica.
+          </Vacio>
         ) : (
-          profesionales.map((m) => <TarjetaMiembro key={m.userId} miembro={m} puedeQuitar={equipo.puedeInvitar} />)
+          profesionales.map((m) => (
+            <TarjetaMiembro
+              key={m.userId}
+              miembro={m}
+              puedeGestionar={equipo.puedeInvitar}
+              onCambiarRol={() => setCambiandoRoles(m)}
+            />
+          ))
         )}
-      </Seccion>
+      </Grupo>
 
       {equipo.pendientes.length > 0 && (
-        <Seccion titulo="Invitaciones pendientes" cuantos={equipo.pendientes.length}>
+        <Grupo titulo="Invitaciones pendientes" cuantos={equipo.pendientes.length}>
           {equipo.pendientes.map((inv) => (
             <TarjetaPendiente key={inv.id} invitacion={inv} puedeGestionar={equipo.puedeInvitar} />
           ))}
-        </Seccion>
+        </Grupo>
       )}
 
+      <p className="pt-2 text-sm text-grafito/50">
+        Solo el titular puede invitar, cambiar roles y quitar a alguien del equipo.
+      </p>
+
       {invitando && <InvitarColaboradorModal onCerrar={() => setInvitando(false)} />}
+      {cambiandoRoles && (
+        <CambiarRolesModal miembro={cambiandoRoles} onCerrar={() => setCambiandoRoles(null)} />
+      )}
     </div>
   );
 }
 
-function Seccion({ titulo, cuantos, children }: { titulo: string; cuantos?: number; children: React.ReactNode }) {
+// EncabezadoEquipo — el botón vive en la misma fila que el título
+// (rediseño del 2026-09-14): en una fila propia dejaba una banda vacía de
+// cien píxeles antes de la primera tarjeta.
+export function EncabezadoEquipo({ puedeInvitar, children }: { puedeInvitar: boolean; children: React.ReactNode }) {
+  const [invitando, setInvitando] = useState(false);
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">{titulo}</h2>
-        {cuantos !== undefined && (
-          <span className="text-sm text-grafito/50">{cuantos === 1 ? "1 persona" : `${cuantos} personas`}</span>
+    <>
+      <div className="flex items-start justify-between gap-6">
+        {children}
+        {puedeInvitar && (
+          <button
+            type="button"
+            onClick={() => setInvitando(true)}
+            className="flex flex-shrink-0 items-center gap-2 rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+          >
+            <IconUserPlus className="h-[18px] w-[18px]" />
+            Invitar colaborador
+          </button>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+      {invitando && <InvitarColaboradorModal onCerrar={() => setInvitando(false)} />}
+    </>
+  );
+}
+
+function Grupo({ titulo, cuantos, children }: { titulo: string; cuantos?: number; children: React.ReactNode }) {
+  return (
+    <section className="mb-10 flex flex-col gap-4">
+      {/* El conteo va AL LADO del título, no empujado al extremo
+          derecho: pertenece al título, no a la fila. */}
+      <h2 className="flex items-baseline gap-3">
+        <span className="font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.15em] text-grafito/60">
+          {titulo}
+        </span>
+        {cuantos !== undefined && (
+          <span className="text-sm text-grafito/45">{cuantos === 1 ? "1 persona" : `${cuantos} personas`}</span>
+        )}
+      </h2>
+      <div className="flex flex-col gap-[0.9rem]">{children}</div>
     </section>
   );
 }
 
-function Vacio({ children }: { children: React.ReactNode }) {
+// Vacio — del alto de una tarjeta chica, con el texto a la izquierda y el
+// atajo a la derecha. Antes era una caja punteada de cien píxeles para
+// decir una sola frase.
+function Vacio({ children, onInvitar }: { children: React.ReactNode; onInvitar?: () => void }) {
   return (
-    <p className="rounded-card border-[0.5px] border-dashed border-arena px-5 py-6 text-sm text-grafito/60 sm:col-span-2">
-      {children}
-    </p>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-dashed border-linea bg-hueso px-5 py-3.5">
+      <span className="text-sm text-grafito/60">{children}</span>
+      {onInvitar && (
+        <button type="button" onClick={onInvitar} className="text-sm font-medium text-salvia-oscuro hover:underline">
+          Invitar a alguien
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -108,60 +167,64 @@ function iniciales(nombre: string) {
   return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
 }
 
-function TarjetaMiembro({ miembro, puedeQuitar }: { miembro: MiembroDelEquipo; puedeQuitar: boolean }) {
+function TarjetaMiembro({
+  miembro,
+  puedeGestionar,
+  onCambiarRol,
+}: {
+  miembro: MiembroDelEquipo;
+  puedeGestionar: boolean;
+  onCambiarRol?: () => void;
+}) {
   const [pendiente, iniciar] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const acciones = [];
+  if (onCambiarRol) acciones.push({ label: "Cambiar rol", onClick: onCambiarRol });
+  acciones.push({
+    label: "Quitar del equipo",
+    peligrosa: true,
+    onClick: () =>
+      iniciar(async () => {
+        setError(null);
+        const resultado = await quitarColaboradorAction(miembro.userId);
+        if (resultado.error) setError(resultado.error);
+      }),
+  });
+
   return (
-    <article className="flex flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-5 shadow-soft">
-      <div className="flex items-start gap-3">
+    <article className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-6 shadow-soft">
+      <div className="flex items-start gap-4">
+        {/* Avatar en verde SÓLIDO: el verde pálido sobre blanco era otra
+            capa que no se distinguía del fondo. */}
         <span
           aria-hidden="true"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-salvia-claro text-sm font-semibold text-salvia-oscuro"
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-salvia-oscuro text-base font-semibold text-marfil"
         >
           {iniciales(miembro.nombre)}
         </span>
-        <div className="min-w-0">
-          <h3 className="truncate font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-medium text-grafito">
             {miembro.nombre}
           </h3>
-          <p className="truncate text-sm text-grafito/60">{miembro.email}</p>
+          <p className="truncate text-[15.5px] text-grafito/60">{miembro.email}</p>
         </div>
+        {puedeGestionar && !miembro.esVos && <MenuAcciones nombre={miembro.nombre} acciones={acciones} />}
       </div>
 
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="mt-2 flex flex-wrap gap-2">
         {miembro.roles.map((rol) => (
-          <li key={rol} className="rounded-full bg-hueso px-2.5 py-1 text-xs text-grafito/70">
-            {ETIQUETA_ROL[rol] ?? rol}
-          </li>
+          <TagRol key={rol} rol={rol} />
         ))}
-        {/* "La tarjeta del titular... lleva un tag gris 'Sos vos'" — brief. */}
-        {miembro.esVos && <li className="rounded-full bg-arena px-2.5 py-1 text-xs text-grafito/70">Sos vos</li>}
+        {/* "La tarjeta del titular... lleva un tag gris 'Sos vos'" —
+            brief. Va en neutro: es una aclaración, no un rol. */}
+        {miembro.esVos && <li className="tag-rol tag-rol--vos">Sos vos</li>}
       </ul>
 
       {error && (
         <p role="alert" className="text-sm text-terracota-oscuro">
           {error}
         </p>
-      )}
-
-      {puedeQuitar && !miembro.esVos && (
-        <button
-          type="button"
-          disabled={pendiente}
-          onClick={() =>
-            iniciar(async () => {
-              setError(null);
-              const resultado = await quitarColaboradorAction(miembro.userId);
-              if (resultado.error) {
-                setError(resultado.error);
-              }
-            })
-          }
-          className="self-start text-sm font-medium text-terracota-oscuro hover:underline disabled:opacity-60"
-        >
-          {pendiente ? "Quitando…" : "Quitar de la clínica"}
-        </button>
       )}
     </article>
   );
@@ -190,16 +253,38 @@ function TarjetaPendiente({
     });
   }
 
+  const acciones = [
+    {
+      label: "Reenviar invitación",
+      onClick: () => correr(() => reenviarInvitacionAction(invitacion.id), () => setReenviada(true)),
+    },
+    { label: "Cancelar invitación", peligrosa: true, onClick: () => correr(() => cancelarInvitacionAction(invitacion.id)) },
+  ];
+
   return (
-    <article className="flex flex-col gap-3 rounded-card border-[0.5px] border-dashed border-arena bg-transparent p-5">
-      <div className="min-w-0">
-        <h3 className="truncate font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
-          {invitacion.email}
-        </h3>
-        <p className="text-sm text-grafito/60">
-          Invitación enviada como {ETIQUETA_ROL[invitacion.rol] ?? invitacion.rol}. Va a figurar acá hasta que la acepte.
-        </p>
+    <article className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-6 shadow-soft">
+      <div className="flex items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#c9922f] text-base font-semibold text-marfil"
+        >
+          {invitacion.email.slice(0, 2).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-medium text-grafito">
+            {invitacion.email}
+          </h3>
+          <p className="text-[15.5px] text-grafito/60">
+            Invitación enviada. Va a figurar acá hasta que la persona la confirme.
+          </p>
+        </div>
+        {puedeGestionar && <MenuAcciones nombre={invitacion.email} acciones={acciones} />}
       </div>
+
+      <ul className="mt-2 flex flex-wrap gap-2">
+        <TagRol rol={invitacion.rol} />
+        <li className="tag-rol tag-rol--pendiente">Pendiente</li>
+      </ul>
 
       {error && (
         <p role="alert" className="text-sm text-terracota-oscuro">
@@ -207,27 +292,6 @@ function TarjetaPendiente({
         </p>
       )}
       {reenviada && <p className="text-sm text-salvia-oscuro">Invitación reenviada.</p>}
-
-      {puedeGestionar && (
-        <div className="flex flex-wrap gap-4">
-          <button
-            type="button"
-            disabled={pendiente}
-            onClick={() => correr(() => reenviarInvitacionAction(invitacion.id), () => setReenviada(true))}
-            className="text-sm font-medium text-salvia-oscuro hover:underline disabled:opacity-60"
-          >
-            Reenviar invitación
-          </button>
-          <button
-            type="button"
-            disabled={pendiente}
-            onClick={() => correr(() => cancelarInvitacionAction(invitacion.id))}
-            className="text-sm font-medium text-terracota-oscuro hover:underline disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
     </article>
   );
 }

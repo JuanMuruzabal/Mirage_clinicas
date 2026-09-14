@@ -27,16 +27,16 @@ export function TarjetaOpcion({ seleccionada, onClick, icono, titulo, descripcio
       type="button"
       onClick={onClick}
       aria-pressed={seleccionada}
-      className={`flex h-full flex-col gap-2 rounded-[10px] border-[0.5px] p-4 text-left transition-colors ${
-        seleccionada ? "border-salvia bg-salvia-claro" : "border-arena bg-marfil hover:border-salvia"
+      className={`flex h-full flex-col gap-2 rounded-[10px] border p-4 text-left transition-colors ${
+        seleccionada ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-marfil hover:border-salvia"
       }`}
     >
       <span className="flex items-start justify-between">
         <span className={seleccionada ? "text-salvia-oscuro" : "text-grafito/40"}>{icono}</span>
         <span
           aria-hidden="true"
-          className={`flex h-5 w-5 items-center justify-center rounded-full border-[0.5px] ${
-            seleccionada ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-arena"
+          className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+            seleccionada ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea"
           }`}
         >
           {seleccionada && <IconCheck className="h-3.5 w-3.5" />}

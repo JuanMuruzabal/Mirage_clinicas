@@ -182,7 +182,7 @@ export function OnboardingClinicaForm({
             sí es hacer que el formulario parezca más corto de lo que es, y
             que el error aparezca en una sección cerrada. */}
         {tipo && (
-          <section className="flex flex-col gap-4 rounded-[10px] border-[0.5px] border-arena p-4">
+          <section className="flex flex-col gap-4 rounded-[10px] border border-linea p-4">
             <h3 className="flex items-center gap-2.5 text-sm font-medium text-grafito">
               <IconMapPin className="h-[18px] w-[18px] text-grafito/40" />
               Ubicación y contacto

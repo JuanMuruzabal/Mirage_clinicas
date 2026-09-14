@@ -51,7 +51,7 @@ export function CampoTelefono({ label, prefijo, numero, error, placeholder }: Ca
       {/* `focus-within` en el contenedor, y los dos controles sin borde
           propio: es lo que hace que se vea y se comporte como un campo
           solo. */}
-      <div className="flex items-center rounded-[10px] border-[0.5px] border-arena bg-marfil focus-within:border-salvia">
+      <div className="flex items-center rounded-[10px] border border-linea bg-hueso focus-within:border-salvia-oscuro">
         <select
           aria-label="País"
           className="rounded-l-[10px] bg-transparent py-2.5 pl-3 pr-1 text-grafito outline-none"
@@ -63,7 +63,7 @@ export function CampoTelefono({ label, prefijo, numero, error, placeholder }: Ca
             </option>
           ))}
         </select>
-        <span aria-hidden="true" className="h-5 w-px flex-shrink-0 bg-arena" />
+        <span aria-hidden="true" className="h-5 w-px flex-shrink-0 bg-linea" />
         <input
           id={numero.name}
           type="tel"

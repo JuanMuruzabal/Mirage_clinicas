@@ -652,3 +652,38 @@ Es la segunda vez en esta fase que una regla de aislamiento se cumple "a medias"
 
 **Verificado:** 1 test nuevo que fija la dirección que faltaba, 12 paquetes en verde, cobertura 80,3%.
 
+## Ronda del 2026-09-14 — el rol delegable, y el contraste
+
+### `admin` pasa a ser invitable y delegable
+
+Hasta acá el rol existía en el modelo y solo lo tenía el titular. Ahora aparece como tercera opción al invitar —se puede sumar a alguien **solo** para que maneje la web de la clínica— y se puede dar o quitar a quien ya está en el equipo, desde "Cambiar rol".
+
+**Se manda el juego COMPLETO de roles, no un agregado.** Con roles excluyentes entre sí, "sumale profesional" a alguien que es recepción no tiene una respuesta obvia —¿reemplaza, falla, convive?— y las tres son defendibles. Elegir qué queda no deja lugar a la duda: es exactamente lo que va a quedar.
+
+Dos cosas que el endpoint no deja hacer, con su motivo:
+
+- **`owner` no se reparte.** Se es dueño de la clínica por haberla creado, no porque alguien lo asigne; traspasarla es otra operación y todavía no existe.
+- **Pasar a alguien a `profesional` exige que tenga matrícula.** Es la **cuarta** puerta de la misma regla —crear la clínica propia, entrar a atender, aceptar una invitación de profesional, y ahora recibir el rol—. Un rol que deja a alguien atendiendo sin matrícula ni especialidades es justo lo que la página pública muestra de quien atiende.
+
+### El rediseño de la pantalla
+
+Sobre un pedido con valores concretos. Lo que resolvió, en orden de importancia:
+
+**El contraste entre capas era el problema de fondo.** Fondo, tarjeta y bordes se diferenciaban en dos o tres puntos de luminosidad, así que no se leía dónde terminaba cada elemento. Ahora el fondo de la página es un escalón más oscuro (`--color-hueso-hondo`), las tarjetas quedan claras contra él, los bordes usan un gris cálido más marcado (`--color-linea`) y los avatares van en verde sólido en vez de verde pálido sobre blanco.
+
+**Cada tipo de tag tiene su color.** Eran todos del mismo gris, así que la fila de roles se leía como un bloque indistinto y había que leer palabra por palabra para saber quién es quién. El color se asigna por **nombre**, con un mapa, nunca por posición. "Sos vos" va en neutro: es una aclaración, no un rol, y no debe competir con los reales.
+
+**Las acciones pasan a un menú de tres puntos.** Con tres opciones sueltas al pie, la tarjeta tenía más botones que datos. Adentro de un menú, la tarjeta vuelve a ser lo que es —una persona— y las acciones quedan a un click. Cierra al hacer click afuera y con Escape.
+
+**El botón de invitar sube al encabezado**, en la misma fila que el título: en una fila propia dejaba una banda vacía antes de la primera tarjeta. El contenido se acota a 880px centrados, porque estirado al ancho del viewport las tarjetas quedaban perdidas a la izquierda. Y los estados vacíos pasan de cajas de cien píxeles con una frase centrada a una línea con su atajo a la derecha.
+
+### Las píldoras de los formularios, en todo el proyecto
+
+Pedido aparte, y del mismo tipo: *"las píldoras donde el cliente completa los datos"* **se camuflan con el fondo blanco**.
+
+La causa medida: los campos tenían borde de **0,5px en `arena`** (#e7dfd1) sobre `marfil` (#fffdf9) — tres puntos de luminosidad de diferencia, a medio píxel de grosor. Un campo así no se lee como un hueco donde escribir sino como un renglón.
+
+Pasan a **1px en `--color-linea`** (#dbd3c2) con relleno `hueso` en vez de blanco: el campo contrasta con la tarjeta que lo contiene. Aplica a todo el alta —perfil, clínica, registro, login, el control de teléfono, el buscador de especialidades y las casillas del código—, no solo a esta pantalla.
+
+**Verificado:** 5 tests de backend nuevos (el cambio de roles y sus cuatro rechazos), 4 de frontend, 1093 en total, 12 paquetes en verde, cobertura y lint en verde, build OK, contenedores reconstruidos.
+

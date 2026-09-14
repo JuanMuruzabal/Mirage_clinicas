@@ -13,7 +13,7 @@ import {
 } from "@/components/auth/auth-shell";
 import { ModalShell } from "@/components/auth/modal-shell";
 import { TarjetaOpcion } from "@/components/auth/tarjeta-opcion";
-import { IconClinic, IconMail, IconUser } from "@/components/icons";
+import { IconClinic, IconMail, IconPersonalize, IconUser } from "@/components/icons";
 
 // Invitar colaborador — Fase 3.2.4, mockup `colaboradores.html`.
 //
@@ -128,11 +128,26 @@ export function InvitarColaboradorModal({ onCerrar }: { onCerrar: () => void }) 
               titulo="Recepcionista"
               descripcion="Maneja los turnos de toda la clínica."
             />
+            {/* Administrador de página — el tercer rol del brief, y el
+                único que no toca agendas: "acceso a la página web y sus
+                herramientas". Se puede invitar a alguien solo para esto
+                (quien maneja la web de la clínica), o sumárselo después a
+                un colega desde "Cambiar rol". */}
+            <TarjetaOpcion
+              seleccionada={rol === "admin"}
+              onClick={() => setRol("admin")}
+              icono={<IconPersonalize className="h-5 w-5" />}
+              titulo="Administrador de página"
+              descripcion="Edita la página pública. No ve agendas ni pacientes."
+            />
           </div>
-          {/* Los dos son excluyentes entre sí — no por una regla de la
-              pantalla sino del modelo (TR-137), y el motor lo impide
-              aunque alguien llegue por otro lado. */}
-          <p className="text-xs text-grafito/50">Profesional y recepción son excluyentes: nadie puede tener los dos.</p>
+          {/* Profesional y recepción son excluyentes entre sí — no por una
+              regla de la pantalla sino del modelo (TR-137), y el motor lo
+              impide aunque alguien llegue por otro lado. */}
+          <p className="text-xs text-grafito/50">
+            Profesional y recepción son excluyentes: nadie puede tener los dos. Administrador de página se puede sumar a
+            cualquiera de los dos después, desde “Cambiar rol”.
+          </p>
           {error && <p className={authErrorClass}>{error}</p>}
         </div>
       ) : (

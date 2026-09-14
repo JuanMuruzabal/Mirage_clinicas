@@ -550,3 +550,144 @@ func TestEquipo_QuitarAQuienNoEstaEsUn404(t *testing.T) {
 		}
 	}
 }
+
+// TestEquipo_CambiarLosRolesDeUnColaborador — la otra mitad de lo que el
+// brief le da al creador: "el responsable de ASIGNAR ROLES e invitar a sus
+// colegas". Con esto se delega la página (rol `admin`) a alguien que ya
+// está en el equipo.
+func TestEquipo_CambiarLosRolesDeUnColaborador(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-roles@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Roles",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-roles@example.com", db.RoleRecepcion)
+
+	var colega db.User
+	if err := gdb.Where("email = ?", "colega-roles@example.com").First(&colega).Error; err != nil {
+		t.Fatalf("no se encontró al colega: %v", err)
+	}
+
+	// Recepción + administración de la página: se acumulan, son tags.
+	rec := doJSONAuth(t, router, http.MethodPut, "/equipo/miembros/"+colega.ID.String()+"/roles", titular.Token,
+		cambiarRolesRequest{Roles: []string{db.RoleRecepcion, db.RoleAdmin}})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("cambiar roles: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	equipo := leerEquipo(t, router, titular.Token)
+	var roles []string
+	for _, m := range equipo.Miembros {
+		if m.UserID == colega.ID.String() {
+			roles = m.Roles
+		}
+	}
+	if len(roles) != 2 || !tieneRol(roles, db.RoleAdmin) || !tieneRol(roles, db.RoleRecepcion) {
+		t.Fatalf("roles = %v, esperaba recepcion + admin", roles)
+	}
+
+	// Y al quitarle admin, se va: se manda el juego COMPLETO, no un
+	// agregado.
+	rec = doJSONAuth(t, router, http.MethodPut, "/equipo/miembros/"+colega.ID.String()+"/roles", titular.Token,
+		cambiarRolesRequest{Roles: []string{db.RoleRecepcion}})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("quitar admin: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	equipo = leerEquipo(t, router, titular.Token)
+	for _, m := range equipo.Miembros {
+		if m.UserID == colega.ID.String() && tieneRol(m.Roles, db.RoleAdmin) {
+			t.Error("el rol admin sobrevivió a un cambio que no lo incluía")
+		}
+	}
+}
+
+func TestEquipo_CambiarRolesRechazaLoQueNoCorresponde(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-roles2@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Roles 2",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-roles2@example.com", db.RoleRecepcion)
+
+	var colega, duenio db.User
+	_ = gdb.Where("email = ?", "colega-roles2@example.com").First(&colega).Error
+	_ = gdb.Where("email = ?", "titular-roles2@example.com").First(&duenio).Error
+
+	casos := []struct {
+		nombre   string
+		userID   string
+		roles    []string
+		esperado int
+	}{
+		// Sin roles, la persona queda adentro del panel sin que ninguna
+		// regla pueda decidir nada sobre ella.
+		{"sin roles", colega.ID.String(), []string{}, http.StatusBadRequest},
+		// `owner` no se reparte: se es dueño por haber creado la clínica.
+		{"owner", colega.ID.String(), []string{db.RoleOwner}, http.StatusBadRequest},
+		{"rol inventado", colega.ID.String(), []string{"jefe"}, http.StatusBadRequest},
+		// Los excluyentes los rechaza el motor (índice único parcial).
+		{"profesional y recepción", colega.ID.String(), []string{db.RoleProfesional, db.RoleRecepcion}, http.StatusConflict},
+		// El titular no se toca.
+		{"al titular", duenio.ID.String(), []string{db.RoleRecepcion}, http.StatusForbidden},
+	}
+	for _, caso := range casos {
+		rec := doJSONAuth(t, router, http.MethodPut, "/equipo/miembros/"+caso.userID+"/roles", titular.Token,
+			cambiarRolesRequest{Roles: caso.roles})
+		if rec.Code != caso.esperado {
+			t.Errorf("%s: status = %d, esperaba %d. body=%s", caso.nombre, rec.Code, caso.esperado, rec.Body.String())
+		}
+	}
+}
+
+// TestEquipo_PasarAProfesionalExigeMatricula — la cuarta puerta de la
+// misma regla (crear la clínica propia, entrar a atender, aceptar una
+// invitación de profesional, y ahora recibir el rol). Un rol que deja a
+// alguien atendiendo sin matrícula ni especialidades es justo lo que la
+// página pública muestra de quien atiende.
+func TestEquipo_PasarAProfesionalExigeMatricula(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-roles3@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Roles 3",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+
+	// Alguien que entró a la app para hacer recepción: sin matrícula.
+	invitada := invitadoDePrueba(t, router, gdb, "recepcion-sube@example.com", db.PerfilTipoActividades)
+	_ = invitada
+	var user db.User
+	_ = gdb.Where("email = ?", "recepcion-sube@example.com").First(&user).Error
+	miembro := db.ClinicMember{ClinicID: clinicID, UserID: user.ID, Status: db.ClinicMemberStatusActive}
+	if err := gdb.Create(&miembro).Error; err != nil {
+		t.Fatalf("no se pudo sumar a la clínica: %v", err)
+	}
+	if err := db.AsignarRol(gdb, miembro.ID, db.RoleRecepcion); err != nil {
+		t.Fatalf("no se pudo asignar el rol: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPut, "/equipo/miembros/"+user.ID.String()+"/roles", titular.Token,
+		cambiarRolesRequest{Roles: []string{db.RoleProfesional}})
+	if rec.Code != http.StatusConflict {
+		t.Errorf("status = %d, esperaba 409 al hacer profesional a quien no cargó matrícula. body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// Y un colaborador cualquiera no reparte roles: es cosa del titular.
+func TestEquipo_SoloElTitularCambiaRoles(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-roles4@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Roles 4",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-roles4@example.com", db.RoleProfesional)
+	otro := sumarColaboradorDePrueba(t, gdb, router, clinicID, "otro-roles4@example.com", db.RoleRecepcion)
+	_ = otro
+
+	var victima db.User
+	_ = gdb.Where("email = ?", "otro-roles4@example.com").First(&victima).Error
+
+	rec := doJSONAuth(t, router, http.MethodPut, "/equipo/miembros/"+victima.ID.String()+"/roles", tokenColega,
+		cambiarRolesRequest{Roles: []string{db.RoleAdmin}})
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, esperaba 403 para quien no es el titular", rec.Code)
+	}
+}

@@ -38,6 +38,20 @@
   --color-terracota-oscuro: #8a4b2e;
   --color-grafito: #35312b;
   --color-arena: #e7dfd1;
+  /* --color-linea (#dbd3c2): el borde de los campos y de las tarjetas.
+     Corrección de QA del 2026-09-14, textual: las píldoras donde se
+     completan los datos "se camuflan bastante con el fondo blanco".
+     `arena` (#e7dfd1) está a tres puntos de luminosidad del marfil de un
+     modal, así que a 0,5px de grosor el borde desaparece. Este es el
+     mismo gris cálido, un escalón más oscuro, y los inputs pasan a
+     llevarlo a 1px con relleno `hueso` en vez de blanco: un campo se
+     tiene que ver como un hueco, no como un renglón. */
+  --color-linea: #dbd3c2;
+  /* --color-hueso-hondo (#e9e3d6): fondo de página cuando las tarjetas
+     son claras y hay muchas. Con `hueso` (#f6f2ea) contra `marfil`
+     (#fffdf9) la diferencia es de 3 puntos y no se lee dónde termina
+     cada tarjeta. */
+  --color-hueso-hondo: #e9e3d6;
 
   /* --- Formas (TR-013): el panel sube el radius respecto al resto del
      producto (Sistema Cascarón, borde duro) — cards/contenedores en
@@ -87,6 +101,8 @@
   --color-terracota-oscuro: var(--color-terracota-oscuro);
   --color-grafito: var(--color-grafito);
   --color-arena: var(--color-arena);
+  --color-linea: var(--color-linea);
+  --color-hueso-hondo: var(--color-hueso-hondo);
   --radius-card: var(--radius-card);
   --radius-field: var(--radius-field);
   --shadow-soft: var(--shadow-soft);
@@ -452,5 +468,58 @@ body {
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
+}
+
+/* Tags de rol (Fase 3.2.4, ronda de rediseño del 2026-09-14).
+   Cada tipo de tag lleva su propio color: hasta acá eran todos del mismo
+   gris claro, así que la fila se leía como un bloque indistinto y había
+   que leer palabra por palabra para entender quién es quién. El color se
+   asigna por TIPO, con un mapa nombre → clase, nunca por posición.
+   Todos llevan borde: un tag claro sin borde sobre una tarjeta blanca
+   desaparece. */
+.tag-rol {
+  font-size: 13.5px;
+  border-radius: 999px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.tag-rol--titular {
+  background: #d7e4ce;
+  color: #27381f;
+  border-color: #aec5a2;
+}
+
+.tag-rol--admin {
+  background: #e3dceE;
+  color: #463364;
+  border-color: #bfb2d8;
+}
+
+.tag-rol--profesional {
+  background: #f4dfc9;
+  color: #7a4413;
+  border-color: #debe96;
+}
+
+.tag-rol--recepcion {
+  background: #d5e2ee;
+  color: #2e4c68;
+  border-color: #a9c4dc;
+}
+
+/* "Sos vos" es una aclaración, no un rol: va en neutro para que no
+   compita con los roles reales. */
+.tag-rol--vos {
+  background: #e7e2d6;
+  color: #5c574c;
+  border-color: #cfc7b5;
+}
+
+.tag-rol--pendiente {
+  background: #f4e2c0;
+  color: #6b4708;
+  border-color: #ffffff;
 }
 

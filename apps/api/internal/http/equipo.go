@@ -54,6 +54,7 @@ func registerEquipoRoutes(r chi.Router, gdb *gorm.DB, sender dmmail.Sender, appB
 		r.Post("/equipo/invitaciones", invitarColaboradorHandler(gdb, sender, appBaseURL))
 		r.Post("/equipo/invitaciones/{id}/reenviar", reenviarInvitacionHandler(gdb, sender, appBaseURL))
 		r.Delete("/equipo/invitaciones/{id}", cancelarInvitacionHandler(gdb))
+		r.Put("/equipo/miembros/{userId}/roles", cambiarRolesHandler(gdb))
 		r.Delete("/equipo/miembros/{userId}", quitarColaboradorHandler(gdb))
 	})
 }
@@ -408,6 +409,113 @@ func quitarColaboradorHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		if session, ok := sessionFromContext(r); ok {
 			recordAuditEvent(gdb, &session.UserID, db.AuditEventColaboradorQuitado, clientIP(r), r.UserAgent())
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+type cambiarRolesRequest struct {
+	Roles []string `json:"roles"`
+}
+
+// cambiarRolesHandler — repartir roles entre los que ya están, que es la
+// otra mitad de lo que el brief le da al creador: *"el responsable de
+// asignar roles e invitar a sus colegas"*. Invitar ya estaba; esto es
+// poder delegar la página, o pasar a alguien de recepción a profesional.
+//
+// Reemplaza el juego completo de roles en vez de sumar o restar de a uno:
+// con roles excluyentes entre sí, un "agregá profesional" sobre alguien
+// que es recepción no tiene una respuesta obvia —¿reemplaza, falla,
+// convive?— y las tres son defendibles. Mandar el juego entero no deja
+// lugar a la duda: es exactamente lo que va a quedar.
+func cambiarRolesHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "esa persona no trabaja en esta clínica")
+			return
+		}
+
+		var req cambiarRolesRequest
+		if err := decodeJSON(w, r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+
+		// Sin ningún rol, la persona queda adentro del panel sin que
+		// ninguna regla pueda decidir nada sobre ella (ver requireClinic).
+		if len(req.Roles) == 0 {
+			writeError(w, http.StatusBadRequest, "elegí al menos un rol")
+			return
+		}
+		for _, rol := range req.Roles {
+			if rol != db.RoleProfesional && rol != db.RoleRecepcion && rol != db.RoleAdmin {
+				// `owner` no se reparte: se es dueño de la clínica por
+				// haberla creado, no porque alguien lo asigne. Traspasarla
+				// es otra operación, y todavía no existe.
+				writeError(w, http.StatusBadRequest, "ese rol no se puede asignar")
+				return
+			}
+		}
+
+		var clinica db.Clinic
+		if err := gdb.First(&clinica, "id = ?", clinicID).Error; err != nil {
+			writeError(w, http.StatusNotFound, "clínica no encontrada")
+			return
+		}
+		if clinica.OwnerID == userID {
+			writeError(w, http.StatusForbidden, "los roles del titular no se cambian")
+			return
+		}
+
+		var miembro db.ClinicMember
+		if err := gdb.Where("clinic_id = ? AND user_id = ? AND status = ?",
+			clinicID, userID, db.ClinicMemberStatusActive).First(&miembro).Error; err != nil {
+			writeError(w, http.StatusNotFound, "esa persona no trabaja en esta clínica")
+			return
+		}
+
+		// Pasar a alguien a `profesional` exige que tenga matrícula, igual
+		// que en las otras tres puertas (crear la clínica propia, entrar a
+		// atender, aceptar una invitación de profesional). Si no, el rol
+		// lo dejaría atendiendo pacientes sin datos que mostrar.
+		if tieneRol(req.Roles, db.RoleProfesional) {
+			var perfil db.ProfessionalProfile
+			if err := gdb.First(&perfil, "user_id = ?", userID).Error; err != nil ||
+				perfil.TipoPerfil != db.PerfilTipoProfesional {
+				writeError(w, http.StatusConflict, "esa persona todavía no cargó sus datos profesionales")
+				return
+			}
+		}
+
+		err = gdb.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Where("clinic_member_id = ?", miembro.ID).Delete(&db.ClinicMemberRole{}).Error; err != nil {
+				return err
+			}
+			for _, rol := range req.Roles {
+				if err := db.AsignarRol(tx, miembro.ID, rol); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			// El índice único parcial de la 3.2.1: profesional y recepción
+			// no conviven. Lo impide el motor; acá se traduce.
+			if isUniqueViolation(err) {
+				writeError(w, http.StatusConflict, "no se puede ser profesional y recepción en la misma clínica")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "no se pudieron cambiar los roles")
+			return
+		}
+
+		if session, ok := sessionFromContext(r); ok {
+			recordAuditEvent(gdb, &session.UserID, db.AuditEventRoleChanged, clientIP(r), r.UserAgent())
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}

@@ -606,6 +606,14 @@ export function apiCancelarInvitacion(token: string, id: string): Promise<ApiRes
   });
 }
 
+export function apiCambiarRoles(token: string, userId: string, roles: string[]): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/equipo/miembros/${userId}/roles`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ roles }),
+  });
+}
+
 export function apiQuitarColaborador(token: string, userId: string): Promise<ApiResult<unknown>> {
   return request<unknown>(`/equipo/miembros/${userId}`, {
     method: "DELETE",

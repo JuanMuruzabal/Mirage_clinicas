@@ -14,8 +14,14 @@ export const authLabelClass = "font-medium text-grafito";
 // 10px y no `rounded-field` (12px) ni pill — Fase 3.2.3, ronda de QA del
 // 2026-09-13: *"los inputs muy redondeados hacen que el formulario
 // parezca de juguete"*. Las tarjetas y los botones conservan su radio.
+//
+// Borde de 1px en `linea` y relleno `hueso` en vez de 0,5px en `arena`
+// sobre blanco — ronda del 2026-09-14, textual: las píldoras "se
+// camuflan bastante con el fondo blanco". Un campo tiene que leerse como
+// un hueco donde escribir, y para eso necesita contrastar con la tarjeta
+// que lo contiene, no igualarla.
 export const authInputClass =
-  "rounded-[10px] border-[0.5px] border-arena bg-marfil px-3 py-2.5 text-grafito outline-none focus:border-salvia disabled:opacity-60";
+  "rounded-[10px] border border-linea bg-hueso px-3 py-2.5 text-grafito outline-none focus:border-salvia-oscuro disabled:opacity-60";
 // Mismo input, con lugar a la izquierda para el ícono del campo (ver
 // CampoConIcono).
 export const authInputConIconoClass = `${authInputClass} pl-10`;

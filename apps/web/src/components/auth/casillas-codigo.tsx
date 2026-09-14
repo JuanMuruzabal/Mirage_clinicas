@@ -132,7 +132,7 @@ export function CasillasCodigo({ error, onCambio, idPrefijo = "codigo", autocomp
           onChange={(e) => manejarCambio(i, e.target.value)}
           onKeyDown={(e) => manejarTecla(i, e)}
           onPaste={manejarPaste}
-          className="h-14 w-full max-w-14 rounded-field border-[1.5px] border-transparent bg-hueso text-center font-mono text-[22px] text-grafito outline-none focus:border-salvia-oscuro focus:bg-marfil"
+          className="h-14 w-full max-w-14 rounded-field border-[1.5px] border-linea bg-hueso text-center font-mono text-[22px] text-grafito outline-none focus:border-salvia-oscuro focus:bg-marfil"
         />
       ))}
     </div>

@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { InvitarColaboradorPayload } from "@dental-mirage/shared-types";
+import type { ClinicRole, InvitarColaboradorPayload } from "@dental-mirage/shared-types";
 import {
   apiAceptarInvitacion,
+  apiCambiarRoles,
   apiCancelarInvitacion,
   apiInvitarColaborador,
   apiQuitarColaborador,
@@ -50,6 +51,19 @@ export async function reenviarInvitacionAction(id: string): Promise<ResultadoEqu
 export async function cancelarInvitacionAction(id: string): Promise<ResultadoEquipo> {
   const token = await tokenOIngresar();
   const result = await apiCancelarInvitacion(token, id);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/colaboradores");
+  return {};
+}
+
+// cambiarRolesAction — se manda el juego COMPLETO de roles, no un
+// agregado: con roles excluyentes entre sí, "sumale profesional" a quien
+// es recepción no tiene una respuesta obvia.
+export async function cambiarRolesAction(userId: string, roles: ClinicRole[]): Promise<ResultadoEquipo> {
+  const token = await tokenOIngresar();
+  const result = await apiCambiarRoles(token, userId, roles);
   if (!result.ok) {
     return { error: result.error };
   }

@@ -1957,6 +1957,7 @@ Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se bo
 - **Volver a sumar a quien se fue reactiva su membresía marcada**, no crea una nueva: el índice único `(clinic_id, user_id)` la rechazaría, y con razón — es la misma relación, no otra. Es el camino que nadie prueba a mano y por eso tiene test propio.
 - **Al titular no se lo puede quitar.** Sin él la clínica queda sin nadie que pueda invitar ni repartir roles: un estado del que no se vuelve.
 - **La tercera puerta de la misma regla.** Aceptar una invitación de profesional exige matrícula, igual que crear la clínica propia (TR-139) y que entrar a una clínica con rol de profesional. Las tres comparten el modal encadenado y las tres tienen su guard en el backend; una invitación de recepción no pide nada.
+- **Addendum (2026-09-14) — `admin` pasa a ser invitable y delegable.** El rol existía en el modelo y solo lo tenía el titular. Ahora se puede invitar a alguien **solo** para que maneje la web de la clínica, y dárselo o quitárselo a quien ya está en el equipo. **Se manda el juego COMPLETO de roles, no un agregado:** con roles excluyentes entre sí, "sumale profesional" a quien es recepción no tiene una respuesta obvia —¿reemplaza, falla, convive?— y las tres son defendibles; mandar el juego entero no deja lugar a la duda. `owner` no se reparte (se es dueño por haber creado la clínica; traspasarla es otra operación que no existe), y pasar a alguien a `profesional` exige matrícula — la **cuarta** puerta de esa misma regla.
 
 ---
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { apiEquipo } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
-import { EquipoDeLaClinica } from "./equipo-de-la-clinica";
+import { EncabezadoEquipo, EquipoDeLaClinica } from "./equipo-de-la-clinica";
 
 export const metadata: Metadata = { title: "Colaboradores — PRISMA" };
 
@@ -25,20 +25,28 @@ export default async function ColaboradoresPage() {
     : { miembros: [], pendientes: [], puedeInvitar: false };
 
   return (
-    <main className="flex flex-1 flex-col gap-6 bg-hueso px-8 py-10 pt-[calc(var(--header-height)+2.5rem)]">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-1">
-        <p className="flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-          <Link href="/clinicas" className="hover:text-salvia-oscuro">
-            Clínicas
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span>{sesion.nombreClinica}</span>
-        </p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
-        <p className="text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
+    // `hueso-hondo` y no `hueso`: con tarjetas claras y muchas, el fondo
+    // tiene que estar netamente más oscuro o no se lee dónde termina cada
+    // una (rediseño del 2026-09-14). Y 880px de ancho: el contenido
+    // estirado al viewport dejaba las tarjetas perdidas a la izquierda.
+    <main className="flex flex-1 flex-col gap-8 bg-hueso-hondo px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
+      <div className="mx-auto w-full max-w-[880px]">
+        <EncabezadoEquipo puedeInvitar={equipo.puedeInvitar}>
+          <div className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
+              <Link href="/clinicas" className="hover:text-salvia-oscuro">
+                Clínicas
+              </Link>
+              <span aria-hidden="true">/</span>
+              <span>{sesion.nombreClinica}</span>
+            </p>
+            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
+            <p className="text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
+          </div>
+        </EncabezadoEquipo>
       </div>
 
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-[880px]">
         <EquipoDeLaClinica equipo={equipo} />
       </div>
     </main>
