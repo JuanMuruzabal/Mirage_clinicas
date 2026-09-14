@@ -708,5 +708,7 @@ La vuelta terminó puliendo lo que el rediseño había separado sin querer. "¿Q
 
 Es la contracara de pedir rediseños por pantalla: cada uno resuelve bien lo suyo —el ancho de 1180px tenía sentido para tres tarjetas— y ninguno mira a la pantalla de al lado. **La coherencia entre pantallas no la puede dar un rediseño de una sola.**
 
-En el modal de invitar, las tres tarjetas de rol entran en un contenedor recortado **a la mitad de la tercera**: el mismo recurso que el brief pide para los tipos de consulta (*"así se ve el corte y se entiende que hay más abajo"*). Con las tres entrando justas, nadie scrollea para buscar lo que no sabe que existe — y "Administrador de página" era justamente el rol que no se veía.
+En el modal de invitar, los tres roles van en una fila que scrollea en **horizontal**, con la tercera tarjeta cortada al borde: el mismo recurso que el brief pide para los tipos de consulta (*"así se ve el corte y se entiende que hay más"*). Con las tres entrando justas en una grilla, nadie busca lo que no sabe que existe — y "Administrador de página" era justamente el rol que no se veía.
+
+Primero lo hice vertical, y estaba mal por una razón que se ve apenas se prueba: **las tarjetas son anchas y bajas**, así que el corte horizontal se comía media tarjeta y dejaba un bloque de texto suelto sin su título. Cortada al costado, en cambio, se ve el ícono y el principio del nombre — que es lo que hace entender que hay otra opción.
 

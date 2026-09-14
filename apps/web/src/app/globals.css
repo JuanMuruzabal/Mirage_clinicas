@@ -439,6 +439,7 @@ body {
 
 .scrollbar-fina::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scrollbar-fina::-webkit-scrollbar-track {

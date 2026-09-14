@@ -113,40 +113,49 @@ export function InvitarColaboradorModal({ onCerrar }: { onCerrar: () => void }) 
     >
       {paso === 1 ? (
         <div className="flex flex-col gap-4">
-          {/* El contenedor se recorta a la mitad de la tercera tarjeta —
-              mismo recurso que los tipos de consulta del brief: "así se
-              ve el corte y se entiende que hay más abajo". Con las tres
-              entrando justas, nadie scrollea para buscar lo que no sabe
-              que existe, y "Administrador de página" era justamente el
-              rol que el cliente no veía. La barra va fina, no oculta: el
-              corte dice que hay más, la barra dice cuánto. */}
-          <div className="scrollbar-fina grid max-h-[13.5rem] items-stretch gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-            <TarjetaOpcion
-              seleccionada={rol === "profesional"}
-              onClick={() => setRol("profesional")}
-              icono={<IconUser className="h-5 w-5" />}
-              titulo="Profesional"
-              descripcion="Ve y atiende su propia agenda, y sus pacientes."
-            />
-            <TarjetaOpcion
-              seleccionada={rol === "recepcion"}
-              onClick={() => setRol("recepcion")}
-              icono={<IconClinic className="h-5 w-5" />}
-              titulo="Recepcionista"
-              descripcion="Maneja los turnos de toda la clínica."
-            />
+          {/* Los tres roles en una fila que scrollea en HORIZONTAL, con
+              la tercera tarjeta cortada al borde: mismo recurso que los
+              tipos de consulta del brief, "así se ve el corte y se
+              entiende que hay más". Con las tres entrando justas en una
+              grilla, nadie busca lo que no sabe que existe — y
+              "Administrador de página" era justamente el rol que no se
+              veía.
+              Horizontal y no vertical porque las tarjetas son anchas y
+              bajas: apiladas, el corte se comía media tarjeta y quedaba
+              un bloque de texto suelto sin su título. */}
+          <div className="scrollbar-fina -mx-1 flex items-stretch gap-3 overflow-x-auto px-1 pb-2">
+            <div className="w-[62%] flex-shrink-0">
+              <TarjetaOpcion
+                seleccionada={rol === "profesional"}
+                onClick={() => setRol("profesional")}
+                icono={<IconUser className="h-5 w-5" />}
+                titulo="Profesional"
+                descripcion="Ve y atiende su propia agenda, y sus pacientes."
+              />
+            </div>
+            <div className="w-[62%] flex-shrink-0">
+              <TarjetaOpcion
+                seleccionada={rol === "recepcion"}
+                onClick={() => setRol("recepcion")}
+                icono={<IconClinic className="h-5 w-5" />}
+                titulo="Recepcionista"
+                descripcion="Maneja los turnos de toda la clínica."
+              />
+            </div>
             {/* Administrador de página — el tercer rol del brief, y el
                 único que no toca agendas: "acceso a la página web y sus
                 herramientas". Se puede invitar a alguien solo para esto
                 (quien maneja la web de la clínica), o sumárselo después a
                 un colega desde "Cambiar rol". */}
-            <TarjetaOpcion
-              seleccionada={rol === "admin"}
-              onClick={() => setRol("admin")}
-              icono={<IconPersonalize className="h-5 w-5" />}
-              titulo="Administrador de página"
-              descripcion="Edita la página pública. No ve agendas ni pacientes."
-            />
+            <div className="w-[62%] flex-shrink-0">
+              <TarjetaOpcion
+                seleccionada={rol === "admin"}
+                onClick={() => setRol("admin")}
+                icono={<IconPersonalize className="h-5 w-5" />}
+                titulo="Administrador de página"
+                descripcion="Edita la página pública. No ve agendas ni pacientes."
+              />
+            </div>
           </div>
           {/* Profesional y recepción son excluyentes entre sí — no por una
               regla de la pantalla sino del modelo (TR-137), y el motor lo
