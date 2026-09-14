@@ -119,6 +119,8 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 - Componente de colaboradores (sin tiempo real todavía: lista y estado).
 - Tipos de consulta compartidos entre colegas, con fuzzy matching sobre el nombre.
 
+> **Lo planeado cambió en un punto, y para bien.** El segundo ítem decía *"sin tiempo real todavía"*, porque el tiempo real vivía en la 3.2.8 como una decisión de transporte trabada por correr una sola instancia del backend. El cliente pidió adelantar la presencia y, al implementarla, esa decisión **no existía**: `sessions` ya tenía todo lo necesario. El popover salió con presencia real y la 3.2.8 se quedó sin su ítem más pesado. Ver la sección de la 3.2.5 más abajo.
+
 ### 3.2.6 — Vista del recepcionista
 
 La subfase más grande: cuatro módulos del panel con vista general + por profesional.
@@ -824,3 +826,15 @@ El fuzzy matching sobre el nombre **avisa, no bloquea**: normaliza (sin acentos,
 ### El topbar
 
 El selector de clínica es **el mismo componente** de "¿Qué necesitás hoy?" con una variante compacta — lo que cambia es la caja, no lo que hace. Y el header pide las clínicas y el equipo **solo dentro de `/panel`**: es uno solo para toda la app, y sin acotarlo serían dos llamadas a la API por página en todo el sitio. La ruta la pone el middleware en `x-pathname`, que es la única forma de decidirlo del lado del servidor sin romper el patrón BFF.
+
+### Con esto la 3.2.5 queda completa
+
+Un profesional entra al panel, ve en el topbar en qué clínica está parado y puede cambiarse sin salir; ve quién más de su equipo está trabajando en ese momento; y arma su lista de tipos de consulta copiando los que su colega ya tiene configurados, sin pisarle la agenda a nadie.
+
+**Verificado:** 11 tests de backend y 19 de frontend nuevos (1118 en total), 12 paquetes en verde, `gofmt` + `golangci-lint` 0 issues, cobertura 80,4% backend y 82,1% frontend, contenedores reconstruidos.
+
+**Lo que esta subfase le sacó a otra:** la 3.2.8 ya no incluye el tiempo real. Lo que le queda —latencia y cierre— sigue igual, y las condiciones de activación de Redis para el rate-limiter, el pool de conexiones y PgBouncer (§12.3 del plan) tampoco se movieron: la presencia no agrega estado compartido en memoria, que era el motivo por el que se iban a decidir juntas.
+
+**Lo que queda pendiente, declarado:** la presencia no distingue *"tiene el panel abierto"* de *"estuvo activo hace cuatro minutos"* — con el umbral de 5 minutos, las dos cosas se ven igual. Alcanza para la pregunta del brief (*"¿quién está atendiendo hoy?"*) y no alcanzaría para un indicador de escritura en vivo, que hoy no existe en ninguna pantalla. Si alguna vez hiciera falta, ahí sí entra un transporte con conexión.
+
+Sigue la **3.2.6 — vista del recepcionista**: la subfase más grande, con los cuatro módulos del panel en vista general y por profesional. Es la primera que va a consumir de verdad el aislamiento de la 3.2.2 en la dirección contraria — hasta ahora todo fue *"cada uno ve lo suyo"*, y ahí aparece el rol que ve todo.
