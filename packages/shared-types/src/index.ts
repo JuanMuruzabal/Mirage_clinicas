@@ -106,6 +106,46 @@ export interface MiembroDelEquipo {
   roles: ClinicRole[];
   esTitular: boolean;
   esVos: boolean;
+  /** Presencia (Fase 3.2.5). Null para quien no tiene ninguna sesión viva
+   *  en esta clínica. Es el instante y no un booleano porque la pantalla
+   *  muestra "hace 20 min". */
+  ultimaActividad: string | null;
+  enLinea: boolean;
+}
+
+// --- Tipos de consulta de un colega (Fase 3.2.5) ---
+//
+// Incluir uno COPIA la fila, no la comparte: duración, color y
+// preferencia horaria son configuración de agenda que cada profesional
+// ajusta a su manera. Ver apps/api/internal/http/tipos_consulta_colegas.go.
+
+export interface TipoConsultaDeColega extends TipoConsulta {
+  deUserId: string;
+  deNombre: string;
+  /** Si alguno de los tuyos se le parece por nombre. Avisa, no bloquea. */
+  yaTenesUnoParecido: boolean;
+}
+
+// --- Presencia de colaboradores (Fase 3.2.5) ---
+//
+// Sale de `sessions` (last_seen_at + clinic_id), sin WebSocket ni tabla
+// nueva — ver apps/api/internal/http/presencia.go. El panel abierto la
+// vuelve a pedir cada `latidoSegundos`, y pedirla es también avisar que
+// uno sigue ahí.
+
+export interface PresenciaMiembro {
+  userId: string;
+  ultimaActividad: string | null;
+  enLinea: boolean;
+}
+
+export interface Presencia {
+  miembros: PresenciaMiembro[];
+  /** Cuánto vale un latido antes de pasar a "hace un rato". */
+  enLineaSegundos: number;
+  /** Cada cuánto volver a preguntar. Lo decide el backend para que el
+   *  intervalo y el umbral no queden desalineados en dos archivos. */
+  latidoSegundos: number;
 }
 
 export interface InvitacionPendiente {

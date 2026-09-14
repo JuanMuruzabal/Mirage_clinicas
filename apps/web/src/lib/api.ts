@@ -8,6 +8,8 @@ import type {
   ClinicaResultado,
   CodigoInvitacion,
   Equipo,
+  Presencia,
+  TipoConsultaDeColega,
   InvitarColaboradorPayload,
   ConflictoPaciente,
   Disponibilidad,
@@ -582,6 +584,30 @@ export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<Cod
 
 export function apiEquipo(token: string): Promise<ApiResult<Equipo>> {
   return request<Equipo>("/equipo", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiTiposConsultaDeColegas(token: string): Promise<ApiResult<TipoConsultaDeColega[]>> {
+  return request<TipoConsultaDeColega[]>("/tipos-consulta/de-colegas", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiIncluirTipoConsultaDeColega(token: string, id: string): Promise<ApiResult<TipoConsulta>> {
+  return request<TipoConsulta>(`/tipos-consulta/de-colegas/${id}/incluir`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiPresencia — quién está trabajando ahora en la clínica activa. La
+// llamada es también el latido de quien pregunta (ver presencia.go), así
+// que no hay un endpoint aparte para "avisar que sigo acá".
+export function apiPresencia(token: string): Promise<ApiResult<Presencia>> {
+  return request<Presencia>("/equipo/presencia", {
+    headers: { Authorization: `Bearer ${token}` },
+    // Nunca cacheada: una presencia cacheada es una presencia falsa.
+    cache: "no-store",
+  });
 }
 
 export function apiInvitarColaborador(token: string, payload: InvitarColaboradorPayload): Promise<ApiResult<unknown>> {

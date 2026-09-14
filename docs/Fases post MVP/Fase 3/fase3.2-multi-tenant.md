@@ -782,3 +782,45 @@ Tres cambios chicos con una sola idea atrás: **elegir "Organización" es decir 
 
 Color: el mismo verde (`salvia-oscuro` sobre `marfil`) que el resto de los botones de acción de la app. La primera versión lo hizo secundario —borde sobre fondo claro— y quedaba como un enlace más, no como la salida de la pantalla.
 
+## 3.2.5 — Panel del profesional (2026-09-14, TR-142)
+
+Tres piezas: el selector de clínica en el topbar, el popover de colaboradores **con presencia real**, y los tipos de consulta compartidos entre colegas.
+
+### La presencia llegó tres subfases antes, y sin infraestructura
+
+El plan la ponía en la **3.2.8** y la trataba como *"una decisión de transporte"* trabada por correr una sola instancia del backend. El cliente pidió adelantarla; al implementarla, **la decisión no existía**.
+
+`sessions` ya guarda `last_seen_at`, y desde la 3.2.3 también `clinic_id`. "Quién está en esta clínica ahora" es esta query:
+
+```sql
+SELECT user_id, MAX(last_seen_at) FROM sessions
+WHERE clinic_id = ? AND revoked_at IS NULL AND expires_at > now()
+GROUP BY user_id
+```
+
+Sin WebSocket, sin SSE, sin tabla nueva. Y el bloqueo que la postergaba **desaparece**: lo que hace difícil el tiempo real es que el estado viva en la memoria de un proceso, y acá vive en Postgres — igual que la sesión y el rate-limiting. Funciona con N instancias sin sticky sessions.
+
+Cuatro decisiones que hacen que el dato signifique algo:
+
+| Decisión | Por qué |
+|---|---|
+| El latido y la lectura son **una sola llamada** | Preguntar *es* avisar. Y el latido va **antes** de leer: si no, el panel se ve a sí mismo ausente hasta el ciclo siguiente |
+| Saltea el throttle de 5 min de `TouchSession` | Ese existe para que no haya un UPDATE por clic; acá el ritmo lo fija el endpoint — una escritura por minuto y por panel abierto |
+| El umbral es de **5 minutos** | Lo impone el modelo: `last_seen_at` se reescribe cada 5 min como mucho, así que menos marcaría ausente a quien está trabajando |
+| Los dos números los **sirve el backend** | El intervalo del latido y el umbral son la misma decisión mirada de dos lados; en dos archivos se desincronizan |
+
+Lo que **no** es, dicho: instantánea. Quien cierra la pestaña sigue en línea hasta que vence el umbral. Para "¿quién está atendiendo hoy?" alcanza.
+
+Y el corte que la hace verdadera: **una sesión parada en otra clínica no es presencia en esta**, ni una revocada, ni una vencida. Sin eso, alguien atendiendo en su otra clínica aparecería trabajando acá. Los tres casos tienen test.
+
+### Los tipos de consulta se copian
+
+Incluir el de un colega **crea una fila nueva**. La regla estaba escrita en el modelo desde la 3.2.1 y acá se implementa: un tipo lleva duración, color y preferencia horaria, y con una fila común, que alguien acortara "Conducto" de 60 a 45 minutos **le movería los huecos del día a todos los demás**. Eso no se nota mirando la pantalla; se nota cuando se superpone un turno.
+
+El fuzzy matching sobre el nombre **avisa, no bloquea**: normaliza (sin acentos, sin mayúsculas, sin puntuación) y compara por distancia de edición con umbral 0.8 — pasa "conducto"/"conductos", corta en "control"/"consulta". Se testea en las dos direcciones, porque un umbral que junta todo avisaría siempre, y avisar siempre es no avisar.
+
+**De paso cerró un hueco abierto desde la 3.2.1:** `GET /tipos-consulta` filtraba solo por clínica aunque la columna `user_id` ya existía — con dos odontólogos, cada uno veía en su configuración de agenda los tipos del otro **y podía editárselos**. Y el seed les pone dueño: los creaba sin `user_id`, así que una clínica recién creada tenía dos tipos de nadie, que habrían quedado invisibles para su propio titular apenas el listado pasó a filtrar por profesional. Ese bug no existía antes de este cambio: lo habría creado él.
+
+### El topbar
+
+El selector de clínica es **el mismo componente** de "¿Qué necesitás hoy?" con una variante compacta — lo que cambia es la caja, no lo que hace. Y el header pide las clínicas y el equipo **solo dentro de `/panel`**: es uno solo para toda la app, y sin acotarlo serían dos llamadas a la API por página en todo el sitio. La ruta la pone el middleware en `x-pathname`, que es la única forma de decidirlo del lado del servidor sin romper el patrón BFF.

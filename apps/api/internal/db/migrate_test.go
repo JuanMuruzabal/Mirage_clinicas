@@ -194,9 +194,9 @@ func TestRunMigrations_NoMergeaFichasEnConflictoDeVerdad(t *testing.T) {
 
 func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 	gdb := testdb.New(t)
-	clinicID, _ := crearProfesionalDePrueba(t, gdb)
+	clinicID, ownerID := crearProfesionalDePrueba(t, gdb)
 
-	if err := db.SeedTiposConsultaDefault(gdb, clinicID); err != nil {
+	if err := db.SeedTiposConsultaDefault(gdb, clinicID, ownerID); err != nil {
 		t.Fatalf("SeedTiposConsultaDefault error inesperado: %v", err)
 	}
 
@@ -206,6 +206,14 @@ func TestSeedTiposConsultaDefault_CreaLosDosTiposConSusColores(t *testing.T) {
 	}
 	if len(tipos) != 2 {
 		t.Fatalf("len(tipos) = %d, esperaba 2", len(tipos))
+	}
+	// Con dueño desde el alta (Fase 3.2.5): sin esto nacían huérfanos y
+	// quedaban invisibles para su propio titular apenas el listado pasó a
+	// filtrar por profesional.
+	for _, tc := range tipos {
+		if tc.UserID == nil || *tc.UserID != ownerID {
+			t.Errorf("%q quedó sin dueño (user_id=%v, esperaba %v)", tc.Nombre, tc.UserID, ownerID)
+		}
 	}
 
 	byName := map[string]string{}

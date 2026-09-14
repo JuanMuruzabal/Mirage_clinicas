@@ -354,7 +354,7 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 					return err
 				}
 			}
-			if err := db.SeedTiposConsultaDefault(tx, clinic.ID); err != nil {
+			if err := db.SeedTiposConsultaDefault(tx, clinic.ID, userID); err != nil {
 				return err
 			}
 			if user.OnboardingStep != db.OnboardingStepCompleto {

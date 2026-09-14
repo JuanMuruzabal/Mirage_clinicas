@@ -40,6 +40,9 @@ function miembro(over: Partial<MiembroDelEquipo> = {}): MiembroDelEquipo {
     roles: ["owner", "admin", "profesional"],
     esTitular: true,
     esVos: true,
+    // Presencia (Fase 3.2.5): por default, alguien que estuvo recién.
+    ultimaActividad: new Date().toISOString(),
+    enLinea: true,
     ...over,
   };
 }

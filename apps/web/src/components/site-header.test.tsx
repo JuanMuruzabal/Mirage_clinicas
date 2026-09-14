@@ -3,14 +3,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
-const { cookiesMock, apiMeMock, usePathnameMock } = vi.hoisted(() => ({
-  cookiesMock: vi.fn(),
-  apiMeMock: vi.fn(),
-  usePathnameMock: vi.fn(() => "/buscar"),
-}));
+const { cookiesMock, headersMock, apiMeMock, apiMisClinicasMock, apiEquipoMock, usePathnameMock } = vi.hoisted(
+  () => ({
+    cookiesMock: vi.fn(),
+    headersMock: vi.fn(),
+    apiMeMock: vi.fn(),
+    apiMisClinicasMock: vi.fn(),
+    apiEquipoMock: vi.fn(),
+    usePathnameMock: vi.fn(() => "/buscar"),
+  }),
+);
 
-vi.mock("next/headers", () => ({ cookies: cookiesMock }));
-vi.mock("@/lib/api", () => ({ apiMe: apiMeMock }));
+// `x-pathname` lo pone el middleware (Fase 3.2.5): es lo que deja a este
+// Server Component saber si está dentro de /panel/** y solo ahí pedir las
+// clínicas y el equipo. Por default estos tests no están en el panel, así
+// que el header se comporta como siempre.
+vi.mock("next/headers", () => ({ cookies: cookiesMock, headers: headersMock }));
+vi.mock("@/lib/api", () => ({
+  apiMe: apiMeMock,
+  apiMisClinicas: apiMisClinicasMock,
+  apiEquipo: apiEquipoMock,
+}));
+// El popover de colaboradores late apenas se monta (Fase 3.2.5). Acá no
+// se prueba el latido —eso vive en equipo-popover.test.tsx—, pero sin
+// esto la llamada real quedaría como un rechazo sin atender.
+vi.mock("@/app/actions/presencia", () => ({ presenciaAction: vi.fn(async () => null) }));
 // HeaderFrame (dentro de SiteHeader) usa usePathname — "/buscar" en todos
 // estos tests por default (no Home) así el header queda siempre sólido/
 // predecible; header-frame.test.tsx cubre la lógica de transparencia
@@ -42,6 +59,9 @@ function renderConProvider(ui: ReactNode) {
 // "de herramienta" (`isHerramientaRoute`) o no.
 describe("SiteHeader", () => {
   beforeEach(() => {
+  headersMock.mockResolvedValue(new Headers({ "x-pathname": "/buscar" }));
+  apiMisClinicasMock.mockResolvedValue({ ok: true, data: { clinicas: [], invitaciones: [] } });
+  apiEquipoMock.mockResolvedValue({ ok: true, data: { miembros: [], pendientes: [], puedeInvitar: false } });
     vi.clearAllMocks();
     usePathnameMock.mockReturnValue("/buscar");
   });
@@ -221,5 +241,66 @@ describe("SiteHeader", () => {
         expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
       },
     );
+  });
+
+  // Fase 3.2.5 — el topbar del panel suma el selector de clínica y el
+  // popover de colaboradores. Las dos direcciones importan: que aparezcan
+  // donde tienen que aparecer, y que el resto del sitio NO pague dos
+  // llamadas a la API por página para no mostrarlos.
+  describe("dentro de /panel/** (Fase 3.2.5)", () => {
+    beforeEach(() => {
+      usePathnameMock.mockReturnValue("/panel");
+      headersMock.mockResolvedValue(new Headers({ "x-pathname": "/panel" }));
+      apiMisClinicasMock.mockResolvedValue({
+        ok: true,
+        data: {
+          clinicas: [
+            { id: "c1", nombre: "Clínica Norte", slug: "norte", rolPrincipal: "profesional", activa: true },
+            { id: "c2", nombre: "Clínica Sur", slug: "sur", rolPrincipal: "recepcion", activa: false },
+          ],
+          invitaciones: [],
+        },
+      });
+      apiEquipoMock.mockResolvedValue({
+        ok: true,
+        data: {
+          miembros: [
+            {
+              userId: "u1",
+              nombre: "Ana Titular",
+              email: "ana@example.com",
+              roles: ["owner"],
+              esTitular: true,
+              esVos: true,
+              ultimaActividad: new Date().toISOString(),
+              enLinea: true,
+            },
+          ],
+          pendientes: [],
+          puedeInvitar: true,
+        },
+      });
+    });
+
+    it("muestra el selector de clínica con la clínica activa y el popover de colaboradores", async () => {
+      mockMe({ emailVerificado: true, onboardingCompletado: true });
+
+      renderConProvider(await SiteHeader());
+
+      expect(screen.getByRole("button", { name: "Cambiar de clínica" })).toHaveTextContent("Clínica Norte");
+      expect(screen.getByRole("button", { name: "Ver colaboradores" })).toHaveTextContent("1 en línea");
+    });
+
+    it("fuera del panel no pide las clínicas ni el equipo", async () => {
+      usePathnameMock.mockReturnValue("/buscar");
+      headersMock.mockResolvedValue(new Headers({ "x-pathname": "/buscar" }));
+      mockMe({ emailVerificado: true, onboardingCompletado: true });
+
+      renderConProvider(await SiteHeader());
+
+      expect(apiMisClinicasMock).not.toHaveBeenCalled();
+      expect(apiEquipoMock).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Ver colaboradores" })).not.toBeInTheDocument();
+    });
   });
 });
