@@ -687,3 +687,18 @@ Pasan a **1px en `--color-linea`** (#dbd3c2) con relleno `hueso` en vez de blanc
 
 **Verificado:** 5 tests de backend nuevos (el cambio de roles y sus cuatro rechazos), 4 de frontend, 1093 en total, 12 paquetes en verde, cobertura y lint en verde, build OK, contenedores reconstruidos.
 
+### Segunda vuelta del rediseño — el inicio de una clínica
+
+Tres correcciones sobre Colaboradores y el rediseño de "¿Qué necesitás hoy?".
+
+**Las correcciones.** El fondo de Colaboradores pasa a ser el mismo de "¿Qué necesitás hoy?" —que en esta misma vuelta también se muda a `hueso-hondo`—, así que las dos pantallas con tarjetas claras comparten fondo en vez de tener cada una el suyo. El botón "Invitar colaborador" se alinea con el **título** y no con el bloque entero del encabezado: con breadcrumb, título y descripción en una sola columna, quedaba a la altura del breadcrumb, que es lo más chico de los tres. Y las píldoras de estado vacío pasan a blanco.
+
+**"¿Qué necesitás hoy?" tenía dos problemas distintos**, y los dos eran de jerarquía:
+
+- **Las tres tarjetas eran del mismo tamaño.** La acción principal no se distinguía, y la tercera quedaba sola dejando media pantalla vacía. Ahora "Gestión de clínica" ocupa las dos columnas **con otra composición**: horizontal, con el texto a la izquierda y un botón sólido a la derecha. Que sea otra composición y no la misma tarjeta estirada es el punto: una tarjeta estirada sin cambiar de forma no justifica su ancho, y queda peor que antes de agrandarla.
+- **"Estás en [píldora] Cambiar de clínica" eran tres tratamientos visuales para una sola idea**, apretados abajo del saludo. Pasa a ser un control único a la derecha del título —punto verde, "ESTÁS EN", el nombre de la clínica y un chevron— que abre la lista de clínicas con su rol, la actual marcada, y un enlace a la pantalla completa. Además llena el costado derecho del encabezado, que estaba vacío.
+
+El selector hace algo que la línea anterior no podía: **cambiar de clínica sin salir de la pantalla**. Antes "Cambiar de clínica" era un link a `/clinicas`; ahora se elige del popover y se entra directo.
+
+**Verificado:** 6 tests nuevos, 1099 en total, cobertura y lint en verde, build OK, contenedor reconstruido.
+

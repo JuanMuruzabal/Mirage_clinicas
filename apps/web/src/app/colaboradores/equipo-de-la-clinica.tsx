@@ -110,7 +110,7 @@ export function EncabezadoEquipo({ puedeInvitar, children }: { puedeInvitar: boo
   const [invitando, setInvitando] = useState(false);
   return (
     <>
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex items-center justify-between gap-6">
         {children}
         {puedeInvitar && (
           <button
@@ -151,7 +151,7 @@ function Grupo({ titulo, cuantos, children }: { titulo: string; cuantos?: number
 // decir una sola frase.
 function Vacio({ children, onInvitar }: { children: React.ReactNode; onInvitar?: () => void }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-dashed border-linea bg-hueso px-5 py-3.5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-dashed border-linea bg-marfil px-5 py-3.5">
       <span className="text-sm text-grafito/60">{children}</span>
       {onInvitar && (
         <button type="button" onClick={onInvitar} className="text-sm font-medium text-salvia-oscuro hover:underline">

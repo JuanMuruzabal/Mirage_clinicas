@@ -25,25 +25,28 @@ export default async function ColaboradoresPage() {
     : { miembros: [], pendientes: [], puedeInvitar: false };
 
   return (
-    // `hueso-hondo` y no `hueso`: con tarjetas claras y muchas, el fondo
-    // tiene que estar netamente más oscuro o no se lee dónde termina cada
-    // una (rediseño del 2026-09-14). Y 880px de ancho: el contenido
-    // estirado al viewport dejaba las tarjetas perdidas a la izquierda.
+    // `hueso-hondo` es el fondo de las pantallas con tarjetas claras, el
+    // mismo que "¿Qué necesitás hoy?": con `hueso` (#f6f2ea) contra el
+    // marfil de una tarjeta la diferencia es de tres puntos y no se lee
+    // dónde termina cada una. 880px de ancho porque estirado al viewport
+    // las tarjetas quedaban perdidas a la izquierda.
     <main className="flex flex-1 flex-col gap-8 bg-hueso-hondo px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
       <div className="mx-auto w-full max-w-[880px]">
+        <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
+          <Link href="/clinicas" className="hover:text-salvia-oscuro">
+            Clínicas
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span>{sesion.nombreClinica}</span>
+        </p>
+        {/* El botón se alinea con el TÍTULO, no con el bloque entero: con
+            el encabezado como una sola columna (breadcrumb + h1 +
+            descripción) quedaba a la altura del breadcrumb, que es lo más
+            chico de los tres. */}
         <EncabezadoEquipo puedeInvitar={equipo.puedeInvitar}>
-          <div className="flex flex-col gap-1">
-            <p className="flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-              <Link href="/clinicas" className="hover:text-salvia-oscuro">
-                Clínicas
-              </Link>
-              <span aria-hidden="true">/</span>
-              <span>{sesion.nombreClinica}</span>
-            </p>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
-            <p className="text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
-          </div>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
         </EncabezadoEquipo>
+        <p className="mt-1 text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
       </div>
 
       <div className="mx-auto w-full max-w-[880px]">
