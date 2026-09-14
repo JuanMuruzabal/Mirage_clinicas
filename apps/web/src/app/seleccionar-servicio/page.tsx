@@ -79,12 +79,14 @@ export default async function SeleccionarServicioPage() {
             ¿Qué necesitás hoy?
           </h1>
         </div>
-        {/* `self-end` en mobile: al envolverse, el selector quedaba
+        {/* `ml-auto` y no `self-end`: al envolverse, el selector quedaba
             pegado a la IZQUIERDA y su popover —anclado a la derecha del
-            botón— se salía de la pantalla (corrección del 2026-09-14,
-            con captura). Contra el borde derecho, el popover cae hacia
-            adentro. */}
-        <div className="self-end">
+            botón— se salía de la pantalla (reportado con captura).
+            `self-end` no servía porque en un flex ROW alinea en el eje
+            vertical; lo que empuja hacia la derecha en su propia línea es
+            el margen automático. Contra el borde derecho, el popover cae
+            hacia adentro. */}
+        <div className="ml-auto">
           <SelectorClinica clinicas={clinicas} nombreActual={sesion.nombreClinica} />
         </div>
       </div>

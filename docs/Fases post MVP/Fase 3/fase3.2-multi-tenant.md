@@ -733,7 +733,8 @@ Con los tres roles —el caso del titular— se ven las tres. Y si alguien **sol
 **Las dos correcciones de mobile**, las dos reportadas con captura:
 
 - El botón "Invitar colaborador" quedaba **pegado al borde derecho y encima del título**. En pantalla angosta pasa debajo de la descripción; en ancha vuelve a la fila del título.
-- El popover del selector de clínica **se salía de la pantalla**: está anclado a la derecha de su botón, y al envolverse el encabezado el botón quedaba a la izquierda del todo. Ahora el selector se alinea a la derecha cuando baja de línea, y el popover además se acota a `100vw - 3rem` para un teléfono angosto.
+- El popover del selector de clínica **se salía de la pantalla**: está anclado a la derecha de su botón, y al envolverse el encabezado el botón quedaba a la izquierda del todo. Ahora el selector se empuja al borde derecho con `ml-auto` cuando baja de línea, y el popover se acota a `100vw - 3rem` para un teléfono angosto.
+  - **Primero lo intenté con `self-end`, y no movió nada.** En un flex con dirección `row`, `self-*` alinea en el eje **cruzado** —el vertical—, no en el horizontal; lo que empuja un ítem hacia el final de su propia línea es el margen automático. El error no se ve leyendo el código, se ve en la pantalla: la clase estaba puesta y el botón seguía a la izquierda.
 
 La causa de fondo de las dos es la misma: un layout pensado en pantalla ancha, donde el orden y la alineación los da `justify-between`, y que al envolverse pierde las dos cosas a la vez.
 
