@@ -48,6 +48,29 @@ function clinica(over: Partial<ClinicaDelUsuario> = {}): ClinicaDelUsuario {
   };
 }
 
+const perfilQueNoAtiende = {
+  tipoPerfil: "actividades" as const,
+  nombre: "Lucía",
+  apellido: "Mostrador",
+  telefonoPrefijo: "+54",
+  telefono: "+5493511234567",
+  matriculaTipo: "nacional" as const,
+  matriculaNumero: "",
+  especialidades: [],
+};
+
+// Ubicación y contacto son obligatorios desde la ronda de QA del
+// 2026-09-13: son los datos que la página pública muestra y por los que el
+// buscador encuentra a la clínica.
+async function completarClinica(nombre: string) {
+  await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+  await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), nombre);
+  await userEvent.selectOptions(screen.getByLabelText("Provincia"), "Córdoba");
+  await userEvent.type(screen.getByLabelText("Ciudad"), "Córdoba");
+  await userEvent.type(screen.getByLabelText("Dirección"), "Av. Colón 1240");
+  await userEvent.type(screen.getByLabelText("Teléfono de contacto"), "3511234567");
+}
+
 describe("DondeTrabajas (Fase 3.2.3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -104,15 +127,36 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     render(<DondeTrabajas clinicas={[]} />);
 
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
-    await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
+    await completarClinica("Clínica Games");
     await userEvent.click(screen.getByRole("button", { name: "Crear mi clínica" }));
 
     await waitFor(() =>
       expect(onboardingClinicaActionMock).toHaveBeenCalledWith(
-        expect.objectContaining({ tipo: "individual", nombre: "Clínica Games" }),
+        expect.objectContaining({
+          tipo: "individual",
+          nombre: "Clínica Games",
+          provincia: "Córdoba",
+          ciudad: "Córdoba",
+          direccion: "Av. Colón 1240",
+        }),
       ),
     );
+  });
+
+  // Sin ubicación ni contacto el alta no pasa, y cada campo dice lo suyo.
+  it("ubicación y contacto son obligatorios", async () => {
+    render(<DondeTrabajas clinicas={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
+    await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
+    await userEvent.click(screen.getByRole("button", { name: "Crear mi clínica" }));
+
+    expect(await screen.findByText("Elegí la provincia.")).toBeInTheDocument();
+    expect(screen.getByText("La ciudad es obligatoria.")).toBeInTheDocument();
+    expect(screen.getByText("La dirección es obligatoria.")).toBeInTheDocument();
+    expect(screen.getByText("Ingresá un teléfono válido.")).toBeInTheDocument();
+    expect(onboardingClinicaActionMock).not.toHaveBeenCalled();
   });
 
   // A diferencia del modal de bienvenida viejo, de este SÍ se sale: crear
@@ -238,31 +282,17 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
 
   // Corrección de QA del 2026-09-13: el orden de la pantalla es el de la
   // decisión — primero qué clase de clínica es, después sus datos.
-  it("el nombre y los opcionales aparecen recién con el tipo elegido", async () => {
+  it("los datos de la clínica aparecen recién con el tipo elegido", async () => {
     render(<DondeTrabajas clinicas={[]} />);
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
 
     expect(screen.queryByLabelText("Nombre de tu clínica o consultorio")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Ubicación y contacto/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Provincia")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
 
     expect(screen.getByLabelText("Nombre de tu clínica o consultorio")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ubicación y contacto/ })).toBeInTheDocument();
-  });
-
-  it("los campos opcionales arrancan plegados", async () => {
-    render(<DondeTrabajas clinicas={[]} />);
-    await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
-
-    const plegable = screen.getByRole("button", { name: /Ubicación y contacto/ });
-    expect(plegable).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByLabelText("Provincia")).not.toBeVisible();
-
-    await userEvent.click(plegable);
-    expect(plegable).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Provincia")).toBeVisible();
+    expect(screen.getByLabelText("Provincia")).toBeInTheDocument();
   });
 
   // Campo libre ensuciaba la base con "Cordoba", "CBA", "córdoba" — y esa
@@ -271,7 +301,6 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     render(<DondeTrabajas clinicas={[]} />);
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
     await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Ubicación y contacto/ }));
 
     const provincia = screen.getByLabelText("Provincia");
     expect(provincia.tagName).toBe("SELECT");
@@ -301,10 +330,7 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     render(<DondeTrabajas clinicas={[]} />);
 
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Clínica individual/ }));
-    await userEvent.type(screen.getByLabelText("Nombre de tu clínica o consultorio"), "Clínica Games");
-    await userEvent.click(screen.getByRole("button", { name: /Ubicación y contacto/ }));
-    await userEvent.type(screen.getByLabelText("Teléfono de contacto"), "3511234567");
+    await completarClinica("Clínica Games");
     await userEvent.click(screen.getByRole("button", { name: "Crear mi clínica" }));
 
     await waitFor(() =>
@@ -318,17 +344,6 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
   // cargó matrícula, porque no se le pidió. Para tener clínica propia sí
   // hace falta: se le piden los datos que faltan antes del alta, sin
   // sacarlo de esta pantalla.
-  const perfilQueNoAtiende = {
-    tipoPerfil: "actividades" as const,
-    nombre: "Lucía",
-    apellido: "Mostrador",
-    telefonoPrefijo: "+54",
-    telefono: "+5493511234567",
-    matriculaTipo: "nacional" as const,
-    matriculaNumero: "",
-    especialidades: [],
-  };
-
   it("a quien no atiende le pide primero los datos profesionales", async () => {
     render(<DondeTrabajas clinicas={[]} perfil={perfilQueNoAtiende} especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]} />);
 
@@ -371,6 +386,58 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
 
     expect(screen.getByRole("button", { name: /Clínica individual/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Completá tus datos profesionales" })).not.toBeInTheDocument();
+  });
+
+  // El mismo modal, el otro camino: entrar a una clínica donde el rol es
+  // profesional. Es el caso que trae la 3.2.4 — alguien se registra para
+  // hacer recepción en una clínica y otra lo invita a atender pacientes.
+  it("antes de entrar como profesional pide los datos que faltan", async () => {
+    const comoProfesional = clinica({ id: "la-que-atiende", esPropia: false, roles: ["profesional"], rolPrincipal: "profesional" });
+    render(
+      <DondeTrabajas
+        clinicas={[comoProfesional]}
+        perfil={perfilQueNoAtiende}
+        especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(screen.getByRole("heading", { name: "Completá tus datos profesionales" })).toBeInTheDocument();
+    expect(entrarEnClinicaActionMock).not.toHaveBeenCalled();
+  });
+
+  it("completados los datos, entra sin pedirlos de nuevo", async () => {
+    onboardingPerfilActionMock.mockResolvedValue(undefined);
+    entrarEnClinicaActionMock.mockResolvedValue(undefined);
+    const comoProfesional = clinica({ id: "la-que-atiende", esPropia: false, roles: ["profesional"], rolPrincipal: "profesional" });
+    render(
+      <DondeTrabajas
+        clinicas={[comoProfesional]}
+        perfil={perfilQueNoAtiende}
+        especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    await userEvent.selectOptions(screen.getByLabelText("Matrícula — tipo"), "nacional");
+    await userEvent.type(screen.getByLabelText("Matrícula — número"), "MP-1");
+    await userEvent.click(screen.getByRole("button", { name: "Ortodoncia" }));
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await waitFor(() => expect(entrarEnClinicaActionMock).toHaveBeenCalledWith("la-que-atiende"));
+  });
+
+  // Donde NO atiende no se le pide nada: ahí la matrícula no hace falta.
+  it("a una clínica donde hace recepción entra derecho", async () => {
+    entrarEnClinicaActionMock.mockResolvedValue(undefined);
+    const deRecepcion = clinica({ id: "la-del-mostrador", esPropia: false, roles: ["recepcion"], rolPrincipal: "recepcion" });
+    render(<DondeTrabajas clinicas={[deRecepcion]} perfil={perfilQueNoAtiende} especialidades={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    await waitFor(() => expect(entrarEnClinicaActionMock).toHaveBeenCalledWith("la-del-mostrador"));
     expect(screen.queryByRole("heading", { name: "Completá tus datos profesionales" })).not.toBeInTheDocument();
   });
 });

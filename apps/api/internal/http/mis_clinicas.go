@@ -146,13 +146,33 @@ func elegirClinicaActivaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var miembro db.ClinicMember
-		if err := gdb.Where("user_id = ? AND clinic_id = ? AND status = ?",
+		if err := gdb.Preload("Roles").Where("user_id = ? AND clinic_id = ? AND status = ?",
 			session.UserID, clinicaID, db.ClinicMemberStatusActive).First(&miembro).Error; err != nil {
 			// 404 y no 403: que esa clínica exista no es información que le
 			// corresponda a quien no trabaja en ella. Mismo criterio que la
 			// ficha de un paciente ajeno (Fase 3.2.2, TR-138).
 			writeError(w, http.StatusNotFound, "no trabajás en esa clínica")
 			return
+		}
+
+		// Entrar a una clínica CON ROL DE PROFESIONAL exige tener los datos
+		// de un profesional (Fase 3.2.3, ronda de QA). El caso es real y
+		// lo va a traer la 3.2.4: alguien se registra como recepcionista
+		// de una clínica —sin matrícula, porque no se le pidió— y otra lo
+		// invita a atender pacientes. Sin esto entraría a una agenda
+		// propia sin matrícula ni especialidades, que es justamente lo
+		// que la página pública muestra de quien atiende.
+		//
+		// El frontend le pide los datos que faltan antes de llegar acá;
+		// esto es la red, y lo que hace que la regla valga también contra
+		// un cliente que le pegue derecho a la API.
+		if tieneRol(rolesDe(miembro), db.RoleProfesional) {
+			var perfil db.ProfessionalProfile
+			if err := gdb.First(&perfil, "user_id = ?", session.UserID).Error; err != nil ||
+				perfil.TipoPerfil != db.PerfilTipoProfesional {
+				writeError(w, http.StatusForbidden, "completá tus datos profesionales para entrar a esta clínica como profesional")
+				return
+			}
 		}
 
 		if err := gdb.Model(&db.Session{}).Where("id = ?", session.ID).

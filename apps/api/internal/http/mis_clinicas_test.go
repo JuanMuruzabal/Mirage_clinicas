@@ -297,3 +297,92 @@ func TestCodigoInvitacion_VencidoNoSeMuestra(t *testing.T) {
 		t.Errorf("un código vencido no se muestra: %+v", resp.CodigoInvitacion)
 	}
 }
+
+// TestClinicaActiva_EntrarComoProfesionalExigeDatosDeProfesional — el caso
+// que trae la Fase 3.2.4, escrito antes de que exista: alguien se registra
+// para hacer recepcion en una clinica —sin matricula, porque no se le
+// pide— y OTRA clinica lo invita a atender pacientes.
+//
+// Sin este guard entraria a una agenda propia sin matricula ni
+// especialidades, que es justo lo que la pagina publica muestra de quien
+// atiende.
+func TestClinicaActiva_EntrarComoProfesionalExigeDatosDeProfesional(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+
+	// Una persona que entro a la app para hacer actividades de la clinica.
+	token := registrarYVerificarDePrueba(t, router, gdb, "recepcion-invitada@example.com")
+	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoActividades,
+		Nombre:     "Lucía", Apellido: "Mostrador", Telefono: "+5493511234567",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("alta del perfil: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Dos clinicas la suman: en una hace recepcion, en la otra la quieren
+	// atendiendo pacientes.
+	deRecepcion := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-recepcion@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Mostrador",
+	})
+	deProfesional := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-atiende@example.com", Password: "unaClaveLarga123", Nombre: "Otra", NombreClinica: "Clínica Atiende",
+	})
+
+	var user db.User
+	if err := gdb.Where("email = ?", "recepcion-invitada@example.com").First(&user).Error; err != nil {
+		t.Fatalf("no se encontró al usuario: %v", err)
+	}
+	sumar := func(clinicID uuid.UUID, rol string) {
+		t.Helper()
+		member := db.ClinicMember{ClinicID: clinicID, UserID: user.ID, Status: db.ClinicMemberStatusActive}
+		if err := gdb.Create(&member).Error; err != nil {
+			t.Fatalf("no se pudo sumar a la clínica: %v", err)
+		}
+		if err := db.AsignarRol(gdb, member.ID, rol); err != nil {
+			t.Fatalf("no se pudo asignar el rol: %v", err)
+		}
+	}
+	sumar(uuid.MustParse(deRecepcion.Profesional.ID), db.RoleRecepcion)
+	sumar(uuid.MustParse(deProfesional.Profesional.ID), db.RoleProfesional)
+
+	// A la de recepción entra sin problema: ahí no atiende a nadie.
+	rec = doJSONAuth(t, router, http.MethodPut, "/me/clinica-activa", token,
+		elegirClinicaActivaRequest{ClinicaID: deRecepcion.Profesional.ID})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("entrar como recepción: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// A la otra no, hasta completar los datos que le faltan.
+	rec = doJSONAuth(t, router, http.MethodPut, "/me/clinica-activa", token,
+		elegirClinicaActivaRequest{ClinicaID: deProfesional.Profesional.ID})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, esperaba 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Y la sesión NO cambió de clínica por el intento fallido.
+	rec = doJSONAuth(t, router, http.MethodGet, "/me", token, nil)
+	var me meResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &me)
+	if me.Clinica == nil || me.Clinica.Nombre != "Clínica Mostrador" {
+		t.Errorf("la sesión se movió pese al rechazo: %+v", me.Clinica)
+	}
+
+	// Completa la matrícula y ahora sí.
+	var especialidad db.Especialidad
+	_ = gdb.Where("nombre = ?", "Odontología general").First(&especialidad).Error
+	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, onboardingPerfilRequest{
+		TipoPerfil: db.PerfilTipoProfesional,
+		Nombre:     "Lucía", Apellido: "Mostrador", Telefono: "+5493511234567",
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-7788",
+		EspecialidadIDs: []string{especialidad.ID.String()},
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("completar datos profesionales: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSONAuth(t, router, http.MethodPut, "/me/clinica-activa", token,
+		elegirClinicaActivaRequest{ClinicaID: deProfesional.Profesional.ID})
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, esperaba 200 ya con la matrícula cargada. body=%s", rec.Code, rec.Body.String())
+	}
+}

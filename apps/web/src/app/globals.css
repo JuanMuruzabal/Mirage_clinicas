@@ -439,3 +439,18 @@ body {
   border-radius: 9999px;
 }
 
+/* El ojo duplicado en los campos de contraseña (corrección de QA del
+   2026-09-13, reportado dos veces).
+   La primera vez lo atribuí al tilde de "coinciden" y lo moví abajo del
+   campo; el duplicado siguió apareciendo en el login, donde ese tilde no
+   existe. El segundo ícono es el control NATIVO de Edge
+   (`::-ms-reveal`), que aparece solo cuando el campo tiene contenido y
+   foco — por eso se veía en el campo recién tipeado y no en el otro, que
+   es justo lo que me hizo buscar en el lugar equivocado.
+   Se oculta el nativo y queda el nuestro, que es el que sabe del estado
+   del formulario y se ve igual en todos los navegadores. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+

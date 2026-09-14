@@ -318,9 +318,18 @@ describe("onboardingClinicaAction", () => {
     getSessionTokenMock.mockResolvedValue("un-token");
     apiOnboardingClinicaMock.mockResolvedValue({ ok: true, data: { clinicId: "c1", slug: "clinica", onboardingStep: "completo" } });
 
-    await expect(onboardingClinicaAction({ tipo: "individual", nombre: "Clínica" })).rejects.toThrow(
-      "NEXT_REDIRECT:/seleccionar-servicio",
-    );
+    // Ubicación y contacto son obligatorios desde la ronda de QA del
+    // 2026-09-13: sin ellos la acción rechaza antes de llamar a la API.
+    await expect(
+      onboardingClinicaAction({
+        tipo: "individual",
+        nombre: "Clínica",
+        provincia: "Córdoba",
+        ciudad: "Córdoba",
+        direccion: "Av. Colón 1240",
+        telefono: "+54 3511234567",
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT:/seleccionar-servicio");
     // TR-059: este paso SÍ completa el onboarding — el header pasa de
     // "Mi clínica" al botón de configuración (TR-060), hace falta
     // revalidar el layout raíz para que se vea sin un refresh manual.

@@ -130,14 +130,17 @@ export const onboardingClinicaSchema = z.object({
     errorMap: () => ({ message: "Elegí el tipo de clínica." }),
   }),
   nombre: z.string().trim().min(1, "El nombre de la clínica es obligatorio."),
-  direccion: z.string().trim().optional().or(z.literal("")),
-  ciudad: z.string().trim().optional().or(z.literal("")),
-  provincia: z.string().trim().optional().or(z.literal("")),
+  // Ubicación y contacto dejaron de ser opcionales (Fase 3.2.3, ronda de
+  // QA): son los datos que la página pública muestra y por los que el
+  // buscador encuentra a la clínica.
+  direccion: z.string().trim().min(1, "La dirección es obligatoria."),
+  ciudad: z.string().trim().min(1, "La ciudad es obligatoria."),
+  provincia: z.string().trim().min(1, "Elegí la provincia."),
   // telefonoPrefijo solo vive en el formulario: la clínica guarda UNA
   // columna de teléfono (`clinics.telefono`), a diferencia del perfil
   // profesional, que sí tiene prefijo y número separados. El control es
   // el mismo (CampoTelefono) y los dos valores se unen al enviar.
   telefonoPrefijo: z.string().trim().default("+54"),
-  telefono: z.string().trim().optional().or(z.literal("")),
+  telefono: z.string().trim().min(6, "Ingresá un teléfono válido."),
 });
 export type OnboardingClinicaFormValues = z.infer<typeof onboardingClinicaSchema>;

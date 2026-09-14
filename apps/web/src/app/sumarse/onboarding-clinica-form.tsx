@@ -17,7 +17,7 @@ import {
 import { CampoTelefono } from "@/components/auth/campo-telefono";
 import { ModalShell } from "@/components/auth/modal-shell";
 import { TarjetaOpcion } from "@/components/auth/tarjeta-opcion";
-import { IconChevronDown, IconClinic, IconInfo, IconMapPin, IconUser, IconUsers } from "@/components/icons";
+import { IconClinic, IconInfo, IconMapPin, IconUser, IconUsers } from "@/components/icons";
 
 interface OnboardingClinicaFormProps {
   onAtras: () => void;
@@ -99,7 +99,6 @@ export function OnboardingClinicaForm({
     },
   });
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
-  const [ubicacionAbierta, setUbicacionAbierta] = useState(false);
   const tipo = watch("tipo");
 
   async function onSubmit(values: OnboardingClinicaFormValues) {
@@ -107,14 +106,14 @@ export function OnboardingClinicaForm({
     // El teléfono de la CLÍNICA es una sola columna (`clinics.telefono`),
     // a diferencia del perfil profesional, que guarda prefijo y número
     // por separado. El control es el mismo; acá se unen al enviar.
-    const telefono = values.telefono ? `${values.telefonoPrefijo} ${values.telefono}`.trim() : "";
+    const telefono = `${values.telefonoPrefijo} ${values.telefono}`.trim();
     const result = await onboardingClinicaAction({
       tipo: values.tipo,
       nombre: values.nombre,
-      direccion: values.direccion || undefined,
-      ciudad: values.ciudad || undefined,
-      provincia: values.provincia || undefined,
-      telefono: telefono || undefined,
+      direccion: values.direccion,
+      ciudad: values.ciudad,
+      provincia: values.provincia,
+      telefono,
     });
     // Si tuvo éxito, la acción ya redirigió y esta línea no se alcanza.
     if (result?.error) {
@@ -177,58 +176,42 @@ export function OnboardingClinicaForm({
           </AuthField>
         )}
 
-        {/* Los cuatro opcionales, plegados. Adentro los labels van en peso
-            normal y gris: eso reemplaza al "(opcional)" repetido cuatro
-            veces. */}
+        {/* Ubicación y contacto — obligatorios desde la ronda de QA del
+            2026-09-13. Dejaron de estar plegados por eso mismo: esconder
+            detrás de un acordeón cuatro campos que hay que completar sí o
+            sí es hacer que el formulario parezca más corto de lo que es, y
+            que el error aparezca en una sección cerrada. */}
         {tipo && (
-          <section className="rounded-[10px] border-[0.5px] border-arena">
-            <button
-              type="button"
-              onClick={() => setUbicacionAbierta((abierta) => !abierta)}
-              aria-expanded={ubicacionAbierta}
-              aria-controls="ubicacion-y-contacto"
-              className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-grafito"
-            >
+          <section className="flex flex-col gap-4 rounded-[10px] border-[0.5px] border-arena p-4">
+            <h3 className="flex items-center gap-2.5 text-sm font-medium text-grafito">
               <IconMapPin className="h-[18px] w-[18px] text-grafito/40" />
               Ubicación y contacto
-              <span className="ml-auto flex items-center gap-2 text-xs font-normal text-grafito/50">
-                opcional
-                <IconChevronDown
-                  className={`h-4 w-4 transition-transform ${ubicacionAbierta ? "rotate-180" : ""}`}
-                />
-              </span>
-            </button>
-            <div
-              id="ubicacion-y-contacto"
-              hidden={!ubicacionAbierta}
-              className="flex flex-col gap-4 border-t border-arena/70 px-4 py-4 [&_span]:font-normal [&_span]:text-grafito/70"
-            >
-              {/* Provincia ANTES que ciudad: el día que las ciudades se
-                  filtren por provincia, el orden ya va a ser el correcto. */}
-              <AuthField label="Provincia" error={errors.provincia?.message}>
-                <select className={authInputClass} defaultValue="" {...register("provincia")}>
-                  <option value="">Elegí una provincia</option>
-                  {PROVINCIAS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </AuthField>
-              <AuthField label="Ciudad" error={errors.ciudad?.message}>
-                <input className={authInputClass} {...register("ciudad")} />
-              </AuthField>
-              <AuthField label="Dirección" error={errors.direccion?.message}>
-                <input className={authInputClass} {...register("direccion")} />
-              </AuthField>
-              <CampoTelefono
-                label="Teléfono de contacto"
-                prefijo={register("telefonoPrefijo")}
-                numero={register("telefono")}
-                error={errors.telefono?.message}
-                placeholder="351 123 4567"
-              />
-            </div>
+            </h3>
+            {/* Provincia ANTES que ciudad: el día que las ciudades se
+                filtren por provincia, el orden ya va a ser el correcto. */}
+            <AuthField label="Provincia" error={errors.provincia?.message}>
+              <select className={authInputClass} defaultValue="" {...register("provincia")}>
+                <option value="">Elegí una provincia</option>
+                {PROVINCIAS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </AuthField>
+            <AuthField label="Ciudad" error={errors.ciudad?.message}>
+              <input className={authInputClass} {...register("ciudad")} />
+            </AuthField>
+            <AuthField label="Dirección" error={errors.direccion?.message}>
+              <input className={authInputClass} {...register("direccion")} />
+            </AuthField>
+            <CampoTelefono
+              label="Teléfono de contacto"
+              prefijo={register("telefonoPrefijo")}
+              numero={register("telefono")}
+              error={errors.telefono?.message}
+              placeholder="351 123 4567"
+            />
           </section>
         )}
 

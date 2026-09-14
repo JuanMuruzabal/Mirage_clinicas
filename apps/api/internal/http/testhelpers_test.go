@@ -172,6 +172,7 @@ func registrarProfesionalDePrueba(t *testing.T, gdb *gorm.DB, router http.Handle
 
 	clinicaRec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", *reg.Token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: in.NombreClinica,
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if clinicaRec.Code != http.StatusOK {
 		t.Fatalf("no se pudo crear la clínica de prueba: status=%d body=%s", clinicaRec.Code, clinicaRec.Body.String())
@@ -548,3 +549,7 @@ func ownerDePrueba(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID) uuid.UUID {
 // puntero (nullable en el esquema, obligatorio por check solo para los
 // turnos `agendado`).
 func ptrUUID(id uuid.UUID) *uuid.UUID { return &id }
+
+// ptr — los campos opcionales del request de clínica son punteros; en los
+// tests se arman con esto en vez de una variable por campo.
+func ptr(s string) *string { return &s }

@@ -130,6 +130,18 @@ func rolesFromContext(r *http.Request) []string {
 	return roles
 }
 
+// tieneRol — ¿esta lista de roles incluye el buscado? Trabaja sobre una
+// lista suelta, no sobre el contexto: sirve para decidir sobre una
+// membresía que todavía no es la activa (elegir clínica, por ejemplo).
+func tieneRol(roles []string, buscado string) bool {
+	for _, rol := range roles {
+		if rol == buscado {
+			return true
+		}
+	}
+	return false
+}
+
 // tieneAlgunRol — ¿el usuario tiene al menos uno de estos roles en la
 // clínica activa?
 func tieneAlgunRol(r *http.Request, buscados ...string) bool {

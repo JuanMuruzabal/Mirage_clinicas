@@ -230,6 +230,11 @@ type onboardingClinicaResponse struct {
 // ClinicMember{Role:"owner"} (Paso 3) — completa el onboarding. Rechaza si
 // ya está completo (spec §4: "onboarding completo → no puede volver al
 // wizard").
+// vacio — un campo opcional del request que no llegó, o llegó en blanco.
+func vacio(valor *string) bool {
+	return valor == nil || strings.TrimSpace(*valor) == ""
+}
+
 func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := userIDFromRequest(w, r)
@@ -296,6 +301,16 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 		}
 		if req.Nombre == "" {
 			writeError(w, http.StatusBadRequest, "el nombre de la clínica es obligatorio")
+			return
+		}
+		// Ubicación y contacto pasan a ser obligatorios (Fase 3.2.3, ronda
+		// de QA del 2026-09-13). Son los datos que la página pública de la
+		// clínica le muestra al paciente y por los que el buscador la
+		// encuentra: una clínica sin dirección ni teléfono existe en la
+		// base pero no sirve para lo que la app promete. Nacieron
+		// opcionales cuando la página pública todavía no existía.
+		if vacio(req.Provincia) || vacio(req.Ciudad) || vacio(req.Direccion) || vacio(req.Telefono) {
+			writeError(w, http.StatusBadRequest, "la provincia, la ciudad, la dirección y el teléfono son obligatorios")
 			return
 		}
 

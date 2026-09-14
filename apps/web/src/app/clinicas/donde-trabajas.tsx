@@ -14,6 +14,9 @@ interface DondeTrabajasProps {
   especialidades?: Especialidad[];
 }
 
+// Qué hacer una vez completados los datos profesionales que faltaban.
+type Despues = { clase: "crear-clinica" } | { clase: "entrar"; clinicaId: string };
+
 const ETIQUETA_ROL: Record<string, string> = {
   owner: "Titular",
   admin: "Administrador de página",
@@ -37,16 +40,63 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
   const [datosProfesionalesListos, setDatosProfesionalesListos] = useState(false);
   const faltanDatosProfesionales =
     perfil !== undefined && perfil.tipoPerfil !== "profesional" && !datosProfesionalesListos;
-  const [alta, setAlta] = useState<"no" | "datos-profesionales" | "clinica">("no");
+
+  // Un solo modal de "completá tus datos profesionales" para los dos
+  // caminos que necesitan lo mismo: armar la clínica propia, y ENTRAR a
+  // una clínica donde el rol es `profesional`. El segundo es el caso que
+  // trae la 3.2.4 — alguien se registra para hacer recepción en una
+  // clínica y otra lo invita a atender pacientes.
+  const [modal, setModal] = useState<
+    { tipo: "no" } | { tipo: "datos-profesionales"; despues: Despues } | { tipo: "alta-clinica" }
+  >({ tipo: "no" });
+
+  const [entrando, setEntrando] = useState<string | null>(null);
+  const [errorEntrar, setErrorEntrar] = useState<{ clinicaId: string; mensaje: string } | null>(null);
+  const [, iniciarEntrada] = useTransition();
+
+  function entrar(clinicaId: string) {
+    setErrorEntrar(null);
+    setEntrando(clinicaId);
+    iniciarEntrada(async () => {
+      const resultado = await entrarEnClinicaAction(clinicaId);
+      // Si salió bien la acción ya redirigió y esto no se alcanza.
+      setEntrando(null);
+      if (resultado?.error) {
+        setErrorEntrar({ clinicaId, mensaje: resultado.error });
+      }
+    });
+  }
+
+  function pedirEntrar(clinica: ClinicaDelUsuario) {
+    if (faltanDatosProfesionales && clinica.roles.includes("profesional")) {
+      setModal({ tipo: "datos-profesionales", despues: { clase: "entrar", clinicaId: clinica.id } });
+      return;
+    }
+    entrar(clinica.id);
+  }
+
+  function pedirCrearClinica() {
+    setModal(
+      faltanDatosProfesionales
+        ? { tipo: "datos-profesionales", despues: { clase: "crear-clinica" } }
+        : { tipo: "alta-clinica" },
+    );
+  }
 
   return (
     <>
       <section className="flex flex-col gap-4">
         <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Mi clínica</h2>
         {propia ? (
-          <TarjetaClinica clinica={propia} ancha />
+          <TarjetaClinica
+            clinica={propia}
+            ancha
+            onEntrar={() => pedirEntrar(propia)}
+            pendiente={entrando === propia.id}
+            error={errorEntrar?.clinicaId === propia.id ? errorEntrar.mensaje : undefined}
+          />
         ) : (
-          <TarjetaCrearClinica onClick={() => setAlta(faltanDatosProfesionales ? "datos-profesionales" : "clinica")} />
+          <TarjetaCrearClinica onClick={pedirCrearClinica} />
         )}
       </section>
 
@@ -70,7 +120,15 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
               </p>
             </div>
           ) : (
-            otras.map((clinica) => <TarjetaClinica key={clinica.id} clinica={clinica} />)
+            otras.map((clinica) => (
+              <TarjetaClinica
+                key={clinica.id}
+                clinica={clinica}
+                onEntrar={() => pedirEntrar(clinica)}
+                pendiente={entrando === clinica.id}
+                error={errorEntrar?.clinicaId === clinica.id ? errorEntrar.mensaje : undefined}
+              />
+            ))
           )}
           <Unirme codigoInicial={codigoInicial} />
         </div>
@@ -82,26 +140,31 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
           segunda tarjeta rectangular asomando por detrás y dos capas de
           fondo oscuro superpuestas. Reportado con una captura en la
           segunda ronda de QA. */}
-      {alta === "datos-profesionales" && (
+      {modal.tipo === "datos-profesionales" && (
         <OnboardingPerfilForm
           especialidades={especialidades}
           perfilInicial={perfil}
           soloProfesional
-          onCancelar={() => setAlta("no")}
+          onCancelar={() => setModal({ tipo: "no" })}
           onListo={() => {
             // El perfil ya es profesional. Se recuerda acá en vez de
             // refrescar la pantalla: un `router.refresh()` cerraría el
             // modal a mitad del encadenado, y la página se va a recargar
-            // igual apenas la clínica quede creada.
+            // igual apenas se entre a la clínica o se cree la propia.
             setDatosProfesionalesListos(true);
-            setAlta("clinica");
+            if (modal.despues.clase === "crear-clinica") {
+              setModal({ tipo: "alta-clinica" });
+              return;
+            }
+            setModal({ tipo: "no" });
+            entrar(modal.despues.clinicaId);
           }}
         />
       )}
 
-      {alta === "clinica" && (
+      {modal.tipo === "alta-clinica" && (
         <OnboardingClinicaForm
-          onAtras={() => setAlta("no")}
+          onAtras={() => setModal({ tipo: "no" })}
           volverLabel="Cancelar"
           submitLabel="Crear mi clínica"
         />
@@ -110,10 +173,21 @@ export function DondeTrabajas({ clinicas, codigoInicial, perfil, especialidades 
   );
 }
 
-function TarjetaClinica({ clinica, ancha = false }: { clinica: ClinicaDelUsuario; ancha?: boolean }) {
-  const [pendiente, iniciar] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
+// TarjetaClinica no decide si se puede entrar: avisa al padre, que es
+// quien sabe si antes hay que pedir los datos profesionales que faltan.
+function TarjetaClinica({
+  clinica,
+  ancha = false,
+  onEntrar,
+  pendiente = false,
+  error,
+}: {
+  clinica: ClinicaDelUsuario;
+  ancha?: boolean;
+  onEntrar: () => void;
+  pendiente?: boolean;
+  error?: string;
+}) {
   const ubicacion = [clinica.direccion, clinica.ciudad].filter(Boolean).join(", ");
   const cuantos = `${clinica.profesionales} ${clinica.profesionales === 1 ? "profesional" : "profesionales"}`;
 
@@ -146,16 +220,7 @@ function TarjetaClinica({ clinica, ancha = false }: { clinica: ClinicaDelUsuario
       <button
         type="button"
         disabled={pendiente}
-        onClick={() =>
-          iniciar(async () => {
-            setError(null);
-            const resultado = await entrarEnClinicaAction(clinica.id);
-            // Si salió bien la acción ya redirigió y esto no se alcanza.
-            if (resultado?.error) {
-              setError(resultado.error);
-            }
-          })
-        }
+        onClick={onEntrar}
         className="mt-2 self-start text-sm font-medium text-salvia-oscuro transition-transform duration-300 hover:translate-x-1 hover:text-grafito disabled:opacity-60"
       >
         {pendiente ? "Entrando…" : "Entrar"}

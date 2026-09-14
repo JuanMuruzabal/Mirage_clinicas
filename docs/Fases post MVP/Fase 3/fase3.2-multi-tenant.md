@@ -529,3 +529,33 @@ Es la peor forma de un bug de validación: el formulario no se envía y la inter
 
 **Verificado:** 12 paquetes de backend en verde (5 tests nuevos), 1067 tests frontend (6 nuevos), cobertura y lint en verde, build OK, contenedores reconstruidos y la columna con su check verificada contra la base real.
 
+### Tercera vuelta: el mismo pedido, el otro camino
+
+**Completar los datos profesionales también al ENTRAR a una clínica.** El caso lo planteó el cliente completo: *"en una clínica lo invitaron como recepcionista y se registró con esto, pero en otra clínica lo hacen con el rol de profesional"*. Antes de entrar a esa segunda, hay que pedirle la matrícula.
+
+Los dos caminos —armar la clínica propia y entrar a una donde el rol es `profesional`— **necesitan exactamente lo mismo**, así que comparten el modal: `TarjetaClinica` dejó de resolver la entrada por su cuenta y avisa al padre, que es el único que sabe si antes hay que interponer algo. Donde el rol es `recepcion` no se pide nada: ahí la matrícula no hace falta.
+
+El backend lo verifica en `PUT /me/clinica-activa`, no solo la pantalla. Sin eso, entrar con rol de profesional sin matrícula sería cuestión de saltear el frontend — y esa persona tendría agenda propia sin matrícula ni especialidades, que es justo lo que la página pública muestra de quien atiende.
+
+**Ubicación y contacto pasan a ser obligatorios para crear la clínica.** Nacieron opcionales cuando la página pública todavía no existía; hoy son los datos que esa página le muestra al paciente y por los que el buscador encuentra a la clínica. Una clínica sin dirección ni teléfono existe en la base pero no sirve para lo que la app promete.
+
+Como consecuencia, **la sección dejó de estar plegada**: esconder detrás de un acordeón cuatro campos que hay que completar sí o sí es hacer que el formulario parezca más corto de lo que es, y que un error aparezca dentro de una sección cerrada. Lo que la ronda anterior plegó por ser opcional, esta lo despliega por dejar de serlo.
+
+#### El ojo duplicado, que no era lo que yo creí
+
+Reportado dos veces, y la primera lo arreglé mal. Lo atribuí al tilde de "coinciden" y lo moví abajo del campo; el duplicado siguió apareciendo en el login, donde ese tilde ni existe.
+
+El segundo ícono era el control **nativo de Edge** (`::-ms-reveal`), que aparece solo cuando el campo tiene contenido y foco — por eso se veía en el campo recién tipeado y no en el otro, y por eso me mandó a buscar donde no era. Se oculta por CSS y queda el nuestro, que es el que sabe del estado del formulario y se ve igual en todos los navegadores.
+
+**La lección no es sobre el navegador:** tenía dos elementos sospechosos en el mismo lugar —mi ícono y uno del sistema— y elegí el que yo había escrito sin comprobar cuál era cuál. Bastaba abrir el inspector una vez.
+
+### Anotado para la 3.2.4
+
+Pedido del cliente mientras cerrábamos esto, para tenerlo presente al empezar:
+
+> *"las clínicas a las que me han invitado o yo haya pasado el código, se verán en 'otras clínicas' como estado **pendiente a confirmar** (por el mismo usuario)."*
+
+O sea que "Otras clínicas" no va a listar solo membresías activas: va a mostrar también las **invitaciones sin aceptar**, con su propio estado y su acción de confirmar. El modelo ya lo soporta —`clinic_members.status` admite `invited`— y `GET /me/clinicas` hoy filtra por `status = 'active'`: ese filtro es el que va a cambiar, junto con la tarjeta.
+
+**Verificado:** 12 paquetes de backend en verde (1 test nuevo, el del recepcionista invitado a atender en otra clínica), 1070 tests frontend, cobertura y lint en verde, build OK, contenedores reconstruidos.
+

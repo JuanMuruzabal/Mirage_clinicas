@@ -140,6 +140,7 @@ func TestOnboardingClinica_RechazaSiPerfilIncompleto(t *testing.T) {
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", *reg.Token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Mi Clínica",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("status = %d, esperaba %d (perfil incompleto)", rec.Code, http.StatusForbidden)
@@ -152,6 +153,7 @@ func TestOnboardingClinica_ExitosoCreaClinicMemberOwner(t *testing.T) {
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Exitosa",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -220,6 +222,7 @@ func TestOnboardingClinica_UnaSolaClinicaPropia(t *testing.T) {
 
 	primera := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Uno",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if primera.Code != http.StatusOK {
 		t.Fatalf("primera creación falló: status=%d body=%s", primera.Code, primera.Body.String())
@@ -227,6 +230,7 @@ func TestOnboardingClinica_UnaSolaClinicaPropia(t *testing.T) {
 
 	segunda := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Dos",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if segunda.Code != http.StatusConflict {
 		t.Errorf("status = %d, esperaba %d (ya tiene su clínica creada)", segunda.Code, http.StatusConflict)
@@ -239,6 +243,7 @@ func TestOnboardingClinica_TipoInvalido(t *testing.T) {
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: "no-es-un-tipo", Nombre: "Clínica",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
@@ -251,6 +256,7 @@ func TestOnboardingClinica_TipoOrganizacionPermitido(t *testing.T) {
 
 	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoOrganizacion, Nombre: "Clínica Organización",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s — organizaciones ya no están fuera de alcance (esta feature revierte TR-009)", rec.Code, http.StatusOK, rec.Body.String())
@@ -405,6 +411,7 @@ func TestOnboardingClinica_QuienNoAtiendeNoPuedeCrearLaSuya(t *testing.T) {
 
 	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Sin Matrícula",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, esperaba 403 body=%s", rec.Code, rec.Body.String())
@@ -426,6 +433,7 @@ func TestOnboardingClinica_QuienNoAtiendeNoPuedeCrearLaSuya(t *testing.T) {
 
 	rec = doJSONAuth(t, router, http.MethodPatch, "/onboarding/clinica", token, onboardingClinicaRequest{
 		Tipo: db.ClinicTipoIndividual, Nombre: "Clínica Con Matrícula",
+		Provincia: ptr("Córdoba"), Ciudad: ptr("Córdoba"), Direccion: ptr("Av. Colón 1240"), Telefono: ptr("+5493511234567"),
 	})
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, esperaba 200 ya con la matrícula cargada. body=%s", rec.Code, rec.Body.String())
