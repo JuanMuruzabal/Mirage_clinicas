@@ -301,3 +301,36 @@ func TestMe_CuentaSinVerificarRecienCreadaNoSeBorraTodavia(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d (todavía dentro del TTL)", meRec.Code, http.StatusOK)
 	}
 }
+
+// TestMe_DevuelveTodosLosRolesDeLaClinica — corrección del 2026-09-14.
+//
+// `/me` devolvía un solo rol, el de mayor alcance. Alcanzaba mientras el
+// frontend solo quisiera etiquetar a la persona; desde la Fase 3.2.4
+// decide qué tarjetas mostrar en "¿Qué necesitás hoy?", y ahí "es owner"
+// no dice si además administra la página. Son tags acumulables: el
+// titular tiene tres.
+func TestMe_DevuelveTodosLosRolesDeLaClinica(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "roles-me@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Roles Me",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/me", titular.Token, nil)
+	var me meResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil || me.Clinica == nil {
+		t.Fatalf("GET /me: %v body=%s", err, rec.Body.String())
+	}
+
+	if len(me.Clinica.Roles) != 3 {
+		t.Fatalf("roles = %v, esperaba los tres del titular", me.Clinica.Roles)
+	}
+	for _, esperado := range []string{db.RoleOwner, db.RoleAdmin, db.RoleProfesional} {
+		if !tieneRol(me.Clinica.Roles, esperado) {
+			t.Errorf("falta el rol %q en %v", esperado, me.Clinica.Roles)
+		}
+	}
+	// Y el campo viejo sigue estando, con el de mayor alcance.
+	if me.Clinica.Rol != db.RoleOwner {
+		t.Errorf("rol = %q, esperaba owner", me.Clinica.Rol)
+	}
+}

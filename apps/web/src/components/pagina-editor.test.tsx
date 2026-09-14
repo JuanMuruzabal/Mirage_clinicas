@@ -37,6 +37,7 @@ const sesion: SesionCompleta = {
   clinicaId: "c1",
   clinicaTipo: "individual",
   rol: "owner",
+  roles: ["owner", "admin", "profesional"],
 };
 
 describe("PaginaEditor", () => {

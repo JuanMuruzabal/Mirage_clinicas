@@ -75,8 +75,10 @@ export function SelectorClinica({ clinicas, nombreActual }: { clinicas: ClinicaD
         <IconChevronDown className={`h-4 w-4 flex-shrink-0 text-grafito/40 ${abierto ? "rotate-180" : ""}`} />
       </button>
 
+      {/* `max-w-[calc(100vw-3rem)]`: en un teléfono angosto, 288px fijos
+          se salen igual aunque el ancla esté a la derecha. */}
       {abierto && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-72 flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
           <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
             Cambiar de clínica
           </p>

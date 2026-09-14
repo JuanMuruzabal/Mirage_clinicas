@@ -68,7 +68,14 @@ const meCompleto: Me = {
     matriculaNumero: "MP-1",
     especialidades: [{ id: "e1", nombre: "Odontología general" }],
   },
-  clinica: { id: "c1", nombre: "Clínica Games", slug: "clinica-games", tipo: "individual", rol: "owner" },
+  clinica: {
+    id: "c1",
+    nombre: "Clínica Games",
+    slug: "clinica-games",
+    tipo: "individual",
+    rol: "owner",
+    roles: ["owner", "admin", "profesional"],
+  },
 };
 
 describe("lib/session", () => {
@@ -166,6 +173,7 @@ describe("lib/session", () => {
       clinicaId: "c1",
       clinicaTipo: "individual",
       rol: "owner",
+      roles: ["owner", "admin", "profesional"],
     });
   });
 

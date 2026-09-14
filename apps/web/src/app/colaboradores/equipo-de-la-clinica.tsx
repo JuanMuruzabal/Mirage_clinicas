@@ -110,13 +110,17 @@ export function EncabezadoEquipo({ puedeInvitar, children }: { puedeInvitar: boo
   const [invitando, setInvitando] = useState(false);
   return (
     <>
-      <div className="flex items-center justify-between gap-6">
-        {children}
+      {/* En mobile el botón va DEBAJO del texto, no al lado: ahí arriba
+          quedaba pegado al borde derecho y encima del título (corrección
+          del 2026-09-14, con captura). En pantalla ancha vuelve a la fila
+          del título, centrado contra el bloque de texto. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="flex flex-col gap-1">{children}</div>
         {puedeInvitar && (
           <button
             type="button"
             onClick={() => setInvitando(true)}
-            className="flex flex-shrink-0 items-center gap-2 rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+            className="flex flex-shrink-0 items-center gap-2 self-start rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 sm:self-auto"
           >
             <IconUserPlus className="h-[18px] w-[18px]" />
             Invitar colaborador

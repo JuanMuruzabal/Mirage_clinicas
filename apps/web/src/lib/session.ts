@@ -106,7 +106,10 @@ export interface SesionCompleta {
   slug: string;
   clinicaId: string;
   clinicaTipo: ClinicTipo;
+  /** El de mayor alcance, para mostrarlo como etiqueta. */
   rol: ClinicRole;
+  /** Todos. Lo que decide qué ve y qué puede hacer (Fase 3.2.4). */
+  roles: ClinicRole[];
 }
 
 function toSesionCompleta(me: Me): SesionCompleta | null {
@@ -131,6 +134,10 @@ function toSesionCompleta(me: Me): SesionCompleta | null {
     clinicaId: me.clinica.id,
     clinicaTipo: me.clinica.tipo,
     rol: me.clinica.rol,
+    // `?? [me.clinica.rol]` para una sesión servida por una API anterior
+    // a este campo: se degrada al rol principal en vez de dejar a la
+    // persona sin ninguno, que la sacaría de todas las pantallas.
+    roles: me.clinica.roles ?? [me.clinica.rol],
   };
 }
 

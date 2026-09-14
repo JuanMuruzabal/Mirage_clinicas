@@ -44,8 +44,8 @@ export default async function ColaboradoresPage() {
             chico de los tres. */}
         <EncabezadoEquipo puedeInvitar={equipo.puedeInvitar}>
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
+          <p className="text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
         </EncabezadoEquipo>
-        <p className="mt-1 text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
       </div>
 
       <div className="mx-auto w-full max-w-[880px]">

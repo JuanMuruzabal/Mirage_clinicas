@@ -32,10 +32,29 @@ export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" }
 // Los dos destinos originales (/panel, /personalizar-pagina) son áreas
 // separadas a propósito (pedido explícito del cliente, 2026-08-23:
 // "personalizar pagina es una pagina aparte por fuera de gestion
-// clinica"). La tercera tarjeta, Colaboradores, llegó con la Fase 3.2.4 y
-// **solo la ve el titular**: es quien puede invitar y repartir roles.
+// clinica").
+//
+// CADA TARJETA DEPENDE DE UN ROL (corrección del 2026-09-14). Antes esta
+// pantalla mostraba las tres a cualquiera con la clínica cargada, así que
+// un profesional invitado veía "Personalización de página" — una pantalla
+// donde el backend le iba a rechazar cada acción (requireRol(admin),
+// Fase 3.2.2). Ofrecer una puerta que del otro lado está cerrada es peor
+// que no ofrecerla.
+//
+//   - **Gestión de clínica**: `profesional` o `recepcion`, que son los
+//     que trabajan con la agenda.
+//   - **Personalización de página**: `admin`, el administrador de PÁGINA
+//     — el brief: "la tarjeta administrador de pagina solo la puede ver
+//     los que tienen rol de administrador de página".
+//   - **Colaboradores**: `owner`, que es quien invita y reparte roles.
+//
+// Con los tres roles —el caso del titular— se ven las tres. La regla real
+// vive en el backend; acá solo se decide qué se dibuja.
 export default async function SeleccionarServicioPage() {
   const sesion = await requireOnboardingComplete();
+  const tiene = (rol: string) => sesion.roles.includes(rol as (typeof sesion.roles)[number]);
+  const gestionaAgenda = tiene("profesional") || tiene("recepcion");
+  const administraPagina = tiene("admin");
   const token = await getSessionToken();
   const clinicasResult = token ? await apiMisClinicas(token) : null;
   const clinicas = clinicasResult?.ok ? clinicasResult.data.clinicas : [];
@@ -60,27 +79,42 @@ export default async function SeleccionarServicioPage() {
             ¿Qué necesitás hoy?
           </h1>
         </div>
-        <SelectorClinica clinicas={clinicas} nombreActual={sesion.nombreClinica} />
+        {/* `self-end` en mobile: al envolverse, el selector quedaba
+            pegado a la IZQUIERDA y su popover —anclado a la derecha del
+            botón— se salía de la pantalla (corrección del 2026-09-14,
+            con captura). Contra el borde derecho, el popover cae hacia
+            adentro. */}
+        <div className="self-end">
+          <SelectorClinica clinicas={clinicas} nombreActual={sesion.nombreClinica} />
+        </div>
       </div>
 
       <div className="mx-auto grid w-full max-w-4xl gap-6 sm:grid-cols-2">
-        <ScrollReveal className="sm:col-span-2">
-          <NavCard
-            href="/panel"
-            variante="principal"
-            titulo="Gestión de clínica"
-            descripcion="La agenda de hoy, los pedidos pendientes y el resto de tu día a día."
-          />
-        </ScrollReveal>
-        <ScrollReveal delay={0.1}>
-          <NavCard
-            href="/personalizar-pagina"
-            titulo="Personalización de página"
-            descripcion="Especialidades, secciones y el enlace que compartís con tus pacientes."
-            size="large"
-          />
-        </ScrollReveal>
-        {sesion.rol === "owner" && (
+        {gestionaAgenda && (
+          <ScrollReveal className="sm:col-span-2">
+            <NavCard
+              href="/panel"
+              variante="principal"
+              titulo="Gestión de clínica"
+              descripcion="La agenda de hoy, los pedidos pendientes y el resto de tu día a día."
+            />
+          </ScrollReveal>
+        )}
+        {administraPagina && (
+          // Sin la tarjeta principal —alguien que SOLO administra la
+          // página— esta pasa a ocupar el ancho completo: una tarjeta
+          // sola en media grilla deja el otro medio vacío.
+          <ScrollReveal delay={0.1} className={gestionaAgenda ? undefined : "sm:col-span-2"}>
+            <NavCard
+              href="/personalizar-pagina"
+              variante={gestionaAgenda ? "normal" : "principal"}
+              titulo="Personalización de página"
+              descripcion="Especialidades, secciones y el enlace que compartís con tus pacientes."
+              size="large"
+            />
+          </ScrollReveal>
+        )}
+        {tiene("owner") && (
           <ScrollReveal delay={0.2}>
             <NavCard
               href="/colaboradores"

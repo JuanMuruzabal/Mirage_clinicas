@@ -45,7 +45,11 @@ export interface ClinicaSesion {
   nombre: string;
   slug: string;
   tipo: ClinicTipo;
+  /** El de mayor alcance, para etiquetar en una palabra. */
   rol: ClinicRole;
+  /** Todos los que tiene en esta clínica — son tags acumulables. Es lo
+   *  que decide qué puede hacer cada uno (Fase 3.2.4). */
+  roles: ClinicRole[];
 }
 
 // Espejo de clinicaDelUsuarioResponse (internal/http/mis_clinicas.go) —

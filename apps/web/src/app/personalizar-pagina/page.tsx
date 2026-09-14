@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { apiGetPaginaPublica } from "@/lib/api";
+import { redirect } from "next/navigation";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PaginaEditor } from "@/components/pagina-editor";
 
@@ -17,6 +18,14 @@ export const metadata: Metadata = { title: "Tu página — PRISMA" };
 // en vez de heredarlo de un layout compartido.
 export default async function PersonalizarPaginaPage() {
   const sesion = await requireOnboardingComplete();
+  // El rol se verifica en la PANTALLA, no solo en la tarjeta que lleva
+  // acá (corrección del 2026-09-14). El backend ya rechaza cada acción
+  // de quien no es `admin`, pero sin esto un profesional podía abrir el
+  // editor por URL y ver la página entera antes de que nada fallara —
+  // esconder el botón nunca fue cerrar la puerta.
+  if (!sesion.roles.includes("admin")) {
+    redirect("/seleccionar-servicio");
+  }
   const token = await getSessionToken();
   const paginaResult = token ? await apiGetPaginaPublica(token) : null;
   const pagina = paginaResult?.ok ? paginaResult.data : { oculta: false, deployadaEn: null };

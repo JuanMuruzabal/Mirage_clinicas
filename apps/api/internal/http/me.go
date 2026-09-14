@@ -32,6 +32,12 @@ type clinicaMeResponse struct {
 	Slug   string `json:"slug"`
 	Tipo   string `json:"tipo"`
 	Rol    string `json:"rol"`
+	// Roles — TODOS los que tiene en esta clínica, no solo el de mayor
+	// alcance. `Rol` alcanzaba mientras el frontend solo quisiera
+	// etiquetar a la persona; desde la Fase 3.2.4 decide qué tarjetas
+	// mostrar, y para eso "es owner" no dice si además administra la
+	// página. Son tags acumulables (TR-137): el titular tiene tres.
+	Roles []string `json:"roles"`
 }
 
 func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
@@ -110,10 +116,10 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 				if err := gdb.First(&clinic, "id = ?", member.ClinicID).Error; err == nil {
 					resp.Clinica = &clinicaMeResponse{
 						ID: clinic.ID.String(), Nombre: clinic.Nombre, Slug: clinic.Slug,
-						// Los roles son acumulables desde la Fase 3.2.1, pero
-						// este campo del JSON es uno solo: se manda el de mayor
-						// alcance para no cambiarle el contrato al frontend.
-						Tipo: clinic.Tipo, Rol: db.RolPrincipal(member.Roles),
+						// `Rol` es el de mayor alcance, para etiquetar en una
+						// palabra; `Roles` son todos, que es lo que hace falta
+						// para decidir qué puede hacer cada uno.
+						Tipo: clinic.Tipo, Rol: db.RolPrincipal(member.Roles), Roles: rolesDe(member),
 					}
 				}
 			}

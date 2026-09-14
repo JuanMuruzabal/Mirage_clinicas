@@ -712,3 +712,28 @@ En el modal de invitar, los tres roles van en una fila que scrollea en **horizon
 
 Primero lo hice vertical, y estaba mal por una razón que se ve apenas se prueba: **las tarjetas son anchas y bajas**, así que el corte horizontal se comía media tarjeta y dejaba un bloque de texto suelto sin su título. Cortada al costado, en cambio, se ve el ícono y el principio del nombre — que es lo que hace entender que hay otra opción.
 
+### Cada tarjeta detrás de su rol, y dos correcciones de mobile
+
+**El hallazgo, reportado por el cliente: un profesional veía "Personalización de página".** La pantalla mostraba las tres tarjetas a cualquiera con la clínica cargada. El backend ya rechazaba cada acción de quien no es `admin` desde la 3.2.2, así que no había fuga de datos — pero ofrecer una puerta que del otro lado está cerrada es peor que no ofrecerla.
+
+Ahora cada tarjeta depende de un rol, como pide el brief:
+
+| Tarjeta | Quién la ve |
+|---|---|
+| Gestión de clínica | `profesional` o `recepcion` — los que trabajan con la agenda |
+| Personalización de página | `admin`, el administrador de **página** |
+| Colaboradores | `owner`, que es quien invita y reparte roles |
+
+Con los tres roles —el caso del titular— se ven las tres. Y si alguien **solo** administra la página, esa tarjeta pasa a ocupar el ancho completo: una tarjeta sola en media grilla deja el otro medio vacío.
+
+**Lo que hizo falta para eso:** `/me` devolvía **un solo rol**, el de mayor alcance. Alcanzaba mientras el frontend solo quisiera etiquetar a la persona; para decidir qué mostrar no sirve, porque "es owner" no dice si además administra la página. Ahora devuelve los tres, y el campo viejo queda como estaba.
+
+**Y el guard en la pantalla, no solo en la tarjeta.** `/personalizar-pagina` verifica el rol y redirige: sin eso, un profesional podía abrir el editor por URL y ver la página entera antes de que ninguna acción fallara. Es exactamente el hueco que había quedado anotado al hablar del rol `admin` — *"el frontend no lo verifica; hoy no se nota porque el único admin es el titular"*. Dejó de no notarse.
+
+**Las dos correcciones de mobile**, las dos reportadas con captura:
+
+- El botón "Invitar colaborador" quedaba **pegado al borde derecho y encima del título**. En pantalla angosta pasa debajo de la descripción; en ancha vuelve a la fila del título.
+- El popover del selector de clínica **se salía de la pantalla**: está anclado a la derecha de su botón, y al envolverse el encabezado el botón quedaba a la izquierda del todo. Ahora el selector se alinea a la derecha cuando baja de línea, y el popover además se acota a `100vw - 3rem` para un teléfono angosto.
+
+La causa de fondo de las dos es la misma: un layout pensado en pantalla ancha, donde el orden y la alineación los da `justify-between`, y que al envolverse pierde las dos cosas a la vez.
+
