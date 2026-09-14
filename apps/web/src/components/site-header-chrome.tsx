@@ -10,6 +10,9 @@ import { IconMenu, IconX } from "./icons";
 import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
+import type { ClinicaDelUsuario, Equipo } from "@dental-mirage/shared-types";
+import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
+import { EquipoPopover } from "@/components/panel/equipo-popover";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -54,10 +57,25 @@ import { usePanelSidebar } from "@/lib/panel-sidebar-context";
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
+export function SiteHeaderChrome({
+  estado,
+  clinicas,
+  equipo,
+}: {
+  estado: EstadoHeaderSesion;
+  /** Fase 3.2.5 — solo llegan dentro de /panel/**, donde se usan. En el
+   *  resto del sitio vienen vacías y este header no cambia en nada. El
+   *  Server Component decide con `x-pathname` (ver site-header.tsx). */
+  clinicas?: ClinicaDelUsuario[];
+  equipo?: Equipo | null;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
+
+  // La clínica activa sale de la lista misma y no de una prop aparte:
+  // una sola fuente para "cuál es" y "cuáles hay" no puede desincronizarse.
+  const clinicaActual = clinicas?.find((c) => c.activa)?.nombre ?? null;
 
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
@@ -196,6 +214,27 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                 <QuadrantMark className="text-steel" />
                 <span className="text-sm font-semibold">Panel</span>
               </Link>
+              {/* El selector de clínica, pegado al logo (Fase 3.2.5,
+                  mockup `panel-profesional.html`). Va acá y no a la
+                  derecha porque contesta "¿dónde estoy parado?", que es
+                  contexto del lugar, no una acción.
+
+                  Oculto en pantalla angosta: en mobile este renglón ya
+                  tiene la hamburguesa y el popover de colaboradores, y la
+                  clínica activa se ve igual en /clinicas. */}
+              {clinicaActual && clinicas && clinicas.length > 0 && (
+                <>
+                  <span aria-hidden="true" className="hidden h-6 w-px flex-shrink-0 bg-linea md:block" />
+                  <div className="hidden md:block">
+                    <SelectorClinica
+                      clinicas={clinicas}
+                      nombreActual={clinicaActual}
+                      variante="compacto"
+                      alineacion="izquierda"
+                    />
+                  </div>
+                </>
+              )}
             </>
           ) : esClinicas ? (
             <span className="flex items-center gap-2 text-current">
@@ -235,6 +274,12 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
             </Link>
           </nav>
         )}
+
+        {/* Colaboradores, a la derecha del todo (Fase 3.2.5, mockup
+            `panel-profesional.html`): quién trabaja en esta clínica y
+            quién está ahora. Al otro extremo que el selector de clínica
+            a propósito — uno dice dónde estás, el otro con quién. */}
+        {equipo && <EquipoPopover equipo={equipo} />}
 
         {mostrarGear && <HeaderConfigMenu />}
 

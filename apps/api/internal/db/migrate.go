@@ -674,10 +674,16 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 // profesional, no global) — llamado una sola vez desde el handler de
 // registro (internal/http/auth.go), no desde RunMigrations, porque
 // necesita un profesionalID que todavía no existe al migrar el esquema.
-func SeedTiposConsultaDefault(gdb *gorm.DB, profesionalID uuid.UUID) error {
+func SeedTiposConsultaDefault(gdb *gorm.DB, profesionalID uuid.UUID, ownerID uuid.UUID) error {
+	// Con dueño desde el alta (Fase 3.2.5). Nacían sin `user_id` —la
+	// columna llegó en la 3.2.1 pero el seed no se actualizó— y quedaban
+	// huérfanos hasta que la migración idempotente del arranque siguiente
+	// se los asignara al owner. Una clínica recién creada tenía, en el
+	// medio, dos tipos que no eran de nadie: invisibles para su propio
+	// titular apenas el listado pasó a filtrar por profesional.
 	tipos := []TipoConsulta{
-		{ClinicID: profesionalID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
-		{ClinicID: profesionalID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
+		{ClinicID: profesionalID, UserID: &ownerID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
+		{ClinicID: profesionalID, UserID: &ownerID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
 	}
 	if err := gdb.Create(&tipos).Error; err != nil {
 		return fmt.Errorf("seed de tipos_consulta falló: %w", err)

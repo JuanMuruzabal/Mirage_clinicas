@@ -47,6 +47,12 @@ func registerEquipoRoutes(r chi.Router, gdb *gorm.DB, sender dmmail.Sender, appB
 	// en el header del panel.
 	r.Get("/equipo", listarEquipoHandler(gdb))
 
+	// La presencia se lee con el mismo permiso que el equipo, y por el
+	// mismo motivo: saber quién está trabajando ahora no es más privado
+	// que saber quiénes son. Ver presencia.go — es también el latido de
+	// quien pregunta.
+	r.Get("/equipo/presencia", presenciaHandler(gdb))
+
 	// Invitar y quitar, solo el titular. El brief: "el creador: el
 	// responsable de asignar roles e invitar a sus colegas".
 	r.Group(func(r chi.Router) {
@@ -68,6 +74,11 @@ type miembroDelEquipoResponse struct {
 	// ("no te podés quitar a vos mismo", brief) y va primero.
 	EsTitular bool `json:"esTitular"`
 	EsVos     bool `json:"esVos"`
+	// Presencia (Fase 3.2.5). Viene ya en esta respuesta, además de en
+	// /equipo/presencia, para que la primera pintura del popover no
+	// muestre a todo el mundo ausente hasta el primer latido.
+	UltimaActividad *time.Time `json:"ultimaActividad"`
+	EnLinea         bool       `json:"enLinea"`
 }
 
 type invitacionPendienteResponse struct {
@@ -105,6 +116,9 @@ func listarEquipoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		ultimaPorUsuario := presenciaDeLaClinica(gdb, clinicID)
+		corteDePresencia := time.Now().Add(-PresenciaEnLinea)
+
 		resp := equipoResponse{
 			Miembros:     []miembroDelEquipoResponse{},
 			Pendientes:   []invitacionPendienteResponse{},
@@ -120,12 +134,18 @@ func listarEquipoHandler(gdb *gorm.DB) http.HandlerFunc {
 			if err := gdb.First(&perfil, "user_id = ?", miembro.UserID).Error; err == nil {
 				nombre = strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido)
 			}
-			resp.Miembros = append(resp.Miembros, miembroDelEquipoResponse{
+			fila := miembroDelEquipoResponse{
 				UserID: miembro.UserID.String(), Nombre: nombre, Email: user.Email,
 				Roles:     rolesDe(miembro),
 				EsTitular: clinica.OwnerID == miembro.UserID,
 				EsVos:     session != nil && session.UserID == miembro.UserID,
-			})
+			}
+			if ultima, hay := ultimaPorUsuario[miembro.UserID]; hay {
+				copia := ultima
+				fila.UltimaActividad = &copia
+				fila.EnLinea = ultima.After(corteDePresencia)
+			}
+			resp.Miembros = append(resp.Miembros, fila)
 		}
 
 		var invitaciones []db.ClinicInvitation

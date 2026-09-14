@@ -68,6 +68,9 @@ func toTipoConsultaResponse(t db.TipoConsulta) tipoConsultaResponse {
 // (SeedTiposConsultaDefault), sin forma de gestionarlo desde la UI.
 func registerTipoConsultaRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/tipos-consulta", listTiposConsultaHandler(gdb))
+	// Los de los colegas, y el alta por copia — ver
+	// tipos_consulta_colegas.go.
+	registerTiposConsultaDeColegasRoutes(r, gdb)
 	r.Post("/tipos-consulta", crearTipoConsultaHandler(gdb))
 	r.Patch("/tipos-consulta/{id}", editarTipoConsultaHandler(gdb))
 	r.Delete("/tipos-consulta/{id}", eliminarTipoConsultaHandler(gdb))
@@ -80,8 +83,26 @@ func listTiposConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// LOS TUYOS, no los de la clínica (Fase 3.2.5). La columna
+		// `user_id` existe desde la 3.2.1 —"el tipo de consulta es de UN
+		// profesional", ver el comentario en db.TipoConsulta— pero este
+		// listado seguía filtrando solo por clínica: con dos odontólogos,
+		// cada uno veía en su configuración de agenda los tipos del otro y
+		// podía editárselos.
+		//
+		// `user_id IS NULL` entra igual: son las filas anteriores a la
+		// 3.2.1 que la migración todavía no asignó. Dejarlas afuera le
+		// vaciaría la pantalla a una clínica vieja; incluirlas no le
+		// muestra a nadie nada ajeno, porque la migración se las da al
+		// owner y en una clínica de uno solo el owner es el único que hay.
+		session, hay := sessionFromContext(r)
+		if !hay {
+			writeError(w, http.StatusUnauthorized, "sesión inválida")
+			return
+		}
 		var tipos []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ?", profesionalID).Order("created_at").Find(&tipos).Error; err != nil {
+		if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", profesionalID, session.UserID).
+			Order("created_at").Find(&tipos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
 			return
 		}
@@ -170,8 +191,16 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Con dueño: lo que se crea en "mi configuración de agenda" es mío.
+		session, hay := sessionFromContext(r)
+		if !hay {
+			writeError(w, http.StatusUnauthorized, "sesión inválida")
+			return
+		}
+		userID := session.UserID
 		tipo := db.TipoConsulta{
 			ClinicID:                  profesionalID,
+			UserID:                    &userID,
 			Nombre:                    req.Nombre,
 			Color:                     req.Color,
 			DuracionMinutos:           req.DuracionMinutos,

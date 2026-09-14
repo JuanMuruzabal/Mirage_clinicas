@@ -1977,6 +1977,39 @@ Arreglo: **`borrarFichaPacienteConSusHijas` es ahora el único lugar donde se bo
 
 ---
 
+## TR-142: Presencia sin transporte nuevo, y un tipo de consulta que se copia en vez de compartirse
+
+- **Fecha:** 2026-09-14
+- **Fase:** 3.2.5 — panel del profesional. Bitácora en `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`. Mockup: `Fase 3/Mockups/panel-profesional.html`.
+
+### La presencia no necesitaba una decisión de transporte
+
+El plan la ponía en la **3.2.8** y la describía como *"una decisión de transporte (WebSocket / SSE / polling) que interactúa con que hoy corre una sola instancia del backend"*. El cliente pidió adelantarla, y al ir a implementarla resultó que **la decisión no existía**: `sessions` ya guarda `last_seen_at`, y desde la 3.2.3 también `clinic_id` — la clínica elegida en esa sesión. Con esas dos columnas, "quién está en esta clínica ahora" es una query.
+
+**Cero tablas nuevas, cero infraestructura, y el bloqueo que la postergaba desaparece:** lo que hacía difícil el tiempo real era que el estado viviera en la memoria de un proceso, y acá vive en Postgres, igual que la sesión y el rate-limiting (CLAUDE.md). Funciona con N instancias sin sticky sessions ni canal compartido.
+
+- **El latido y la lectura son la misma llamada.** `GET /equipo/presencia` refresca el `last_seen_at` de quien pregunta **antes** de leer, y devuelve la foto. No hay un endpoint de "sigo acá": preguntar *es* avisar. Sin ese orden, el panel se vería a sí mismo ausente hasta el ciclo siguiente — tiene test.
+- **Saltea el throttle de 5 minutos a propósito.** `auth.TouchSession` lo tiene para que no haya un UPDATE por cada request de la app; acá el ritmo lo fija el propio endpoint: **una escritura por minuto y por panel abierto**, acotada y deliberada, no una por clic.
+- **El umbral es de 5 minutos, y lo impone el modelo, no el gusto.** Como `last_seen_at` se reescribe cada 5 minutos como mucho, la actividad normal de alguien que está usando la app puede tener esa antigüedad. Un umbral más corto marcaría ausente a quien está trabajando, solo que en una pantalla que no late.
+- **Los dos números los sirve el backend** (`enLineaSegundos`, `latidoSegundos`) en vez de vivir como constantes del frontend: el intervalo del latido y el umbral de "en línea" son la misma decisión mirada de dos lados, y en dos archivos distintos se desincronizan.
+- **Lo que se pierde, dicho:** la presencia no es instantánea. Quien cierra la pestaña sigue en línea hasta que vence el umbral. Para *"¿quién está atendiendo hoy?"* alcanza; para un "está escribiendo" no alcanzaría, y ese caso no existe. **Alternativa descartada:** WebSocket/SSE — resuelve un problema que acá no hay, y trae uno que sí (mantener viva una conexión por pestaña en un plan free que duerme el servicio).
+- **Una sesión parada en OTRA clínica no es presencia en esta**, y tampoco una revocada ni una vencida. Es el corte que hace que el dato signifique algo: sin él, alguien atendiendo en su otra clínica aparecería trabajando acá. Los tres casos tienen test.
+
+### Un tipo de consulta se COPIA, no se comparte
+
+La regla ya estaba escrita en el modelo desde la 3.2.1; acá se implementa. Incluir el tipo de un colega **crea una fila nueva**: un tipo lleva duración, color, tiempo post-consulta y preferencia horaria, que son configuración de agenda. Con una fila común, que un colega acortara "Conducto" de 60 a 45 minutos le **movería los huecos del día a todos los demás** — y eso no se ve en la pantalla, se ve cuando se superpone un turno. Lo que se comparte es la sugerencia, no la fila.
+
+- **El fuzzy matching avisa, no bloquea.** Normaliza (sin acentos, sin mayúsculas, sin puntuación) y compara por distancia de edición con un umbral de 0.8: deja pasar plural/singular y un tipeo ("conducto"/"conductos"), y corta antes de juntar cosas distintas ("control" y "consulta" quedan afuera). Tener dos tipos parecidos es redundante pero no ilegal, y quien decide es la persona. **Se testea en las dos direcciones**: un umbral que junta todo avisaría siempre, y avisar siempre es no avisar.
+- **De paso cerró un hueco abierto desde la 3.2.1.** `GET /tipos-consulta` filtraba solo por clínica, aunque la columna `user_id` existía: con dos odontólogos, **cada uno veía en su configuración de agenda los tipos del otro y podía editárselos**. Ahora devuelve los propios. Las filas con `user_id` nulo entran igual —son las anteriores a la 3.2.1 que la migración todavía no asignó—: dejarlas afuera le vaciaría la pantalla a una clínica vieja, e incluirlas no muestra nada ajeno, porque la migración se las da al owner.
+- **Y el seed les pone dueño.** `SeedTiposConsultaDefault` los creaba sin `user_id`: una clínica recién creada tenía dos tipos que no eran de nadie, invisibles para su propio titular apenas el listado pasó a filtrar por profesional. El bug no existía antes de este cambio — lo habría creado él.
+
+### El topbar del panel
+
+- **El selector de clínica es el mismo componente de "¿Qué necesitás hoy?"**, con una variante compacta. Lo que cambia es la caja, no lo que hace ni lo que sabe.
+- **El header pide las clínicas y el equipo SOLO dentro de `/panel/**`.** El header es uno solo para toda la app; sin acotarlo, serían dos llamadas a la API por página en todo el sitio. La ruta la pone el middleware en `x-pathname` — es la única forma de decidirlo del lado del servidor, porque `usePathname` solo existe en el cliente y pedirlo desde ahí rompería el patrón BFF. **Tiene test en las dos direcciones**: que aparezcan donde corresponde, y que fuera del panel no se pida nada.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

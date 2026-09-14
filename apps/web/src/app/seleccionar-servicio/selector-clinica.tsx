@@ -22,7 +22,25 @@ const ETIQUETA_ROL: Record<string, string> = {
 //
 // Que además llene ese costado no es decoración: el encabezado tenía todo
 // el peso a la izquierda y la mitad derecha vacía.
-export function SelectorClinica({ clinicas, nombreActual }: { clinicas: ClinicaDelUsuario[]; nombreActual: string }) {
+//
+// Desde la Fase 3.2.5 tiene una segunda vida en el topbar de /panel/**,
+// donde el espacio es otro: ahí va la variante `compacto` (punto + nombre
+// + chevron, sin el rótulo "Estás en") y el popover se alinea a la
+// izquierda, porque el control vive pegado al logo y no al borde derecho.
+// Es el mismo componente y no una copia: lo que cambia es la caja, no lo
+// que hace ni lo que sabe.
+export function SelectorClinica({
+  clinicas,
+  nombreActual,
+  variante = "tarjeta",
+  alineacion = "derecha",
+}: {
+  clinicas: ClinicaDelUsuario[];
+  nombreActual: string;
+  variante?: "tarjeta" | "compacto";
+  alineacion?: "izquierda" | "derecha";
+}) {
+  const compacto = variante === "compacto";
   const [abierto, setAbierto] = useState(false);
   const [entrando, setEntrando] = useState<string | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -61,24 +79,34 @@ export function SelectorClinica({ clinicas, nombreActual }: { clinicas: ClinicaD
         aria-expanded={abierto}
         aria-label="Cambiar de clínica"
         onClick={() => setAbierto((a) => !a)}
-        className="flex items-center gap-3 rounded-[12px] border border-linea bg-marfil px-4 py-2.5 text-left transition-colors hover:border-salvia"
+        className={`flex items-center border border-linea bg-marfil text-left transition-colors hover:border-salvia ${
+          compacto ? "gap-2 rounded-full px-3 py-1.5" : "gap-3 rounded-[12px] px-4 py-2.5"
+        }`}
       >
         <span aria-hidden="true" className="h-[9px] w-[9px] flex-shrink-0 rounded-full bg-salvia-oscuro" />
-        <span className="flex flex-col">
-          <span className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
-            Estás en
+        {compacto ? (
+          <span className="max-w-[9rem] truncate text-sm font-medium text-grafito sm:max-w-[14rem]">{nombreActual}</span>
+        ) : (
+          <span className="flex flex-col">
+            <span className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+              Estás en
+            </span>
+            <span className="font-[family-name:var(--font-display)] text-[17px] font-semibold text-grafito">
+              {nombreActual}
+            </span>
           </span>
-          <span className="font-[family-name:var(--font-display)] text-[17px] font-semibold text-grafito">
-            {nombreActual}
-          </span>
-        </span>
+        )}
         <IconChevronDown className={`h-4 w-4 flex-shrink-0 text-grafito/40 ${abierto ? "rotate-180" : ""}`} />
       </button>
 
       {/* `max-w-[calc(100vw-3rem)]`: en un teléfono angosto, 288px fijos
           se salen igual aunque el ancla esté a la derecha. */}
       {abierto && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
+        <div
+          className={`absolute top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft ${
+            alineacion === "izquierda" ? "left-0" : "right-0"
+          }`}
+        >
           <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
             Cambiar de clínica
           </p>
