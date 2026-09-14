@@ -99,7 +99,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 
 **Por qué antes que la UI:** si el backend no aísla, ninguna pantalla lo va a arreglar.
 
-### 3.2.3 — Onboarding y "¿dónde trabajás hoy?"
+### 3.2.3 — Onboarding y "¿dónde trabajás hoy?" ✅
 
 - El wizard de 2 pasos se deconstruye: crear perfil, y de ahí a elegir dónde trabajar.
 - Pantalla de selección de clínica como punto de partida de toda sesión.
@@ -369,3 +369,193 @@ Lo que cambió, en una línea: **el backend ya sabe quién es cada quien dentro 
 Nada de esto se ve todavía desde la UI, por el mismo motivo que la 3.2.1: no hay pantalla que muestre un colaborador porque todavía no se puede invitar a ninguno. Eso llega en la 3.2.4. Lo que sí queda es que **cuando lleguen, el backend ya los aísla** — y no al revés, que es el orden en que estos errores se vuelven filtraciones de datos de pacientes.
 
 **8 tests nuevos** (`middleware_permisos_test.go`, `visibilidad_test.go`), 12 paquetes en verde. Sigue la **3.2.3 — onboarding y "¿dónde trabajás hoy?"**, que es la primera de la fase que se ve en pantalla.
+
+## 3.2.3 — Onboarding y "¿dónde trabajás hoy?"
+
+**Fecha:** 2026-09-13 · **Decisión:** `docs/Arquitectura y base/tradeoffs.md` TR-139 · **Código:** `internal/http/mis_clinicas.go`, `apps/web/src/app/clinicas/`
+
+La primera subfase de la 3.2 que se ve en pantalla. El brief la define en una línea: *"al iniciar sesión o abrir la aplicación con una sesión activa siempre me llevará a este apartado, este siempre será el inicio de partida."*
+
+### Paso 1: la clínica deja de deducirse y pasa a elegirse
+
+Hasta acá, "en qué clínica estoy" lo resolvía un `ORDER BY created_at` — la membresía activa más antigua (3.2.2). Con una clínica por persona daba igual. Con dos, equivocarse significa ver, y cargar, los pacientes de otro lugar.
+
+**La elección vive en la SESIÓN** (`sessions.clinic_id`), no en el usuario. Dos sesiones abiertas —la del consultorio y la del celular— pueden estar en clínicas distintas sin pisarse, que es exactamente lo que hace alguien que atiende en dos lugares el mismo día.
+
+**Y no se cree por sí sola.** `membresiaDeLaSesion` busca la clínica elegida *junto con* la membresía activa: si a la persona la sacaron del equipo después de elegirla, la consulta no encuentra nada y cae al criterio viejo. Sin eso, bastaría con elegir una clínica antes de que te saquen para seguir viendo sus pacientes hasta cerrar sesión. Hay un test que lo prueba.
+
+`/me` devuelve ahora la clínica **activa** y no la propia. Era lo mismo mientras cada persona tenía una sola y era su dueña; con el multi-tenant, el header del panel habría seguido mostrando la clínica propia mientras la persona trabajaba en la de un colega.
+
+### El código de invitación, y por qué vive en el usuario
+
+El mockup lo muestra como `DM-XXXX-XXXX`; acá es **`PR-`**, porque el mockup es anterior al cambio de nombre del producto.
+
+La dirección del pedido es lo que decide dónde vive: acá **el profesional se ofrece** y la clínica lo carga (3.2.4), al revés que una invitación por mail, donde la clínica convoca. Por eso es una columna de `users` y no una fila de invitación.
+
+Tres decisiones chicas, cada una por un motivo concreto:
+
+- **Alfabeto sin I, O, 0 ni 1.** El código se dicta por teléfono y se vuelve a tipear del otro lado; O/0 e I/1/l son la forma más probable de que un código válido sea rechazado. (El módulo no introduce sesgo: 256 es múltiplo exacto de 32.)
+- **Uno solo vigente por persona.** "Generar otro" invalida el anterior — es justamente lo que se espera cuando el primero se compartió por donde no debía.
+- **Vence a las 24 horas**, y uno vencido no se muestra: mostrarlo invita a compartir algo que del otro lado no va a funcionar.
+
+### El agujero que dejó la 3.2.2, encontrado por un test
+
+El test que verifica que el panel sigue la elección de clínica cargaba un paciente y lo buscaba en el listado. **No aparecía.**
+
+No era el cambio nuevo: era `soloMisPacientes` (3.2.2). "Mis pacientes" se derivaba SOLO de los turnos, y una ficha recién cargada con "+ Agregar paciente" todavía no tiene ninguno. Un profesional invitado cargaba a una persona y **la ficha desaparecía de su listado en el mismo instante**, sin ningún error: para él, el alta simplemente no había funcionado. Y el caso no es rebuscado — cargar la ficha primero y dar el turno después es el orden de cualquiera que tiene al paciente en el mostrador.
+
+Se arregla con `pacientes.creado_por_user_id`, que **no** convierte al profesional en dueño del paciente (siguen siendo de la clínica, TR-137): solo dice quién cargó la ficha, para que el scope la incluya antes de que exista el primer turno.
+
+Lo que enseña es sobre el alcance de la verificación de la 3.2.2, no sobre el scope: aquellos tests probaban que un profesional no ve lo ajeno, y ninguno probaba que **sí ve lo propio**. Una regla de aislamiento se puede cumplir al 100% dejando a todos sin ver nada.
+
+**Verificado con control negativo:** volviendo el scope a la versión de la 3.2.2 —que compila— los dos tests fallan con el mensaje correcto; el de la fuga sigue pasando, así que el arreglo no abrió el aislamiento.
+
+**Aplicado:** 12 paquetes en verde, gofmt + golangci-lint 0 issues. Un test existente cambió de expectativa a propósito: crear una segunda clínica propia ahora responde **409** en vez de 403, porque el rechazo dejó de ser "estás en el paso equivocado del wizard" y pasó a ser "ese recurso ya existe".
+
+### Paso 2: la pantalla, y el wizard que se deshace
+
+`/clinicas` pasa a ser el destino de todo: del login, del alta de cuenta, de abrir la app con sesión activa, y del botón del header. `/seleccionar-servicio` —que era ese destino desde TR-057— queda un paso más adelante, cuando ya se sabe en qué clínica se está trabajando.
+
+**Lo que se rompió a propósito: el modal de bienvenida.** Tenía dos pasos, perfil y clínica, y no se podía salir sin completar los dos. El perfil sigue igual —sin nombre ni matrícula no hay nada que mostrarle a un paciente—; el de la clínica se fue a la pantalla nueva como **una opción más**.
+
+El motivo no es de diseño sino de flujo: a la app también se entra porque un colega te sumó a la suya. Con el modal viejo, esa persona quedaba **encerrada creando una clínica que no quería** para poder llegar a la pantalla donde aceptar la invitación. Es un caso que no existía hasta esta fase y que la 3.2.4 vuelve corriente.
+
+**La pantalla** sigue el mockup: "Mi clínica" arriba —o la invitación a crearla, si no tiene—, "Otras clínicas" abajo con su estado vacío, y la tarjeta para generar el código. Lo único que se apartó del mockup es el prefijo del código: dice `PR-` y no `DM-`, porque el mockup es anterior al cambio de nombre del producto.
+
+### Paso 3: saber dónde estoy parado
+
+Tres cambios chicos, todos del mismo problema: con N clínicas, **entrar a la equivocada y no notarlo** es el error caro de esta fase.
+
+- `/seleccionar-servicio` muestra la clínica activa destacada, con un "Cambiar de clínica" al lado (pedido textual del brief).
+- En esa pantalla el logo deja de llevar a la home pública y pasa a decir **"Clínicas"**, volviendo al selector.
+- En `/clinicas` el nombre del producto queda como **texto, sin link**: "una vez iniciado sesión, para volver al home se deberá cerrar sesión" (brief). La salida al sitio público es deliberadamente cerrar sesión, que el menú de configuración ofrece.
+- Las tarjetas pasan a llamarse "Gestión de clínica" y "Personalización de página", y el botón del header, "Mis clínicas" → `/clinicas`. Antes llevaba directo a `/seleccionar-servicio`, salteando la elección — y para una cuenta sin terminar, rebotaba de vuelta.
+
+### Con esto la 3.2.3 queda completa
+
+**1039 tests frontend** (18 nuevos entre la pantalla, sus acciones y el modal de perfil), 12 paquetes de backend en verde, gofmt + golangci-lint 0 issues, contenedores reconstruidos y esquema verificado contra la base real (`sessions.clinic_id`, `users.codigo_invitacion`, `pacientes.creado_por_user_id`, el índice único parcial y las dos FK en `SET NULL`).
+
+Cuatro tests existentes cambiaron de expectativa a propósito, y vale dejar claro cuáles: los redirects post-auth ahora apuntan a `/clinicas`, y el logo de `/seleccionar-servicio` apunta al selector. No son ajustes para que pase la suite: son la decisión de la fase, escrita donde se verifica.
+
+**Lo que queda declarado como pendiente:** el brief pide que al crear una clínica de tipo "organización" el camino siga en la pantalla de colaboradores. Esa pantalla es la **3.2.4**; hasta entonces los dos tipos terminan igual, en `/seleccionar-servicio`.
+
+Sigue la **3.2.4 — colaboradores**: invitar por código o por mail, con los roles y sus reglas de exclusión. Es la que le da sentido al código que esta fase ya genera.
+
+### Ronda de QA del 2026-09-13 — el bug del header y el rediseño de los tres formularios
+
+Pedido del cliente sobre la entrega anterior. La fuente original es `cambios_modal.txt`, **un archivo temporal que se va a borrar**: el contenido que importaba está transcrito acá y citado en los comentarios del código que cambió, así que no queda nada colgando de él.
+
+#### El bug: "Mis clínicas" adentro de /clinicas
+
+El header ofrecía ir a la pantalla en la que la persona ya estaba parada. **Solo pasaba sin ninguna clínica cargada**, y ese "solo" es la explicación: el botón se muestra cuando la ruta no cuenta como "de herramienta", y esa condición exige **onboarding completo**. Sin clínica, el onboarding está incompleto — así que la misma pantalla cambiaba de header según el estado de la cuenta.
+
+Arreglado con dos reglas explícitas en vez de una derivada: nunca ofrecer `/clinicas` estando en `/clinicas`, y mostrar ahí el menú de configuración con cualquier sesión — es el único acceso a "Cerrar sesión", que en esa pantalla no es un detalle: el brief hace de cerrar sesión la forma deliberada de volver al sitio público, porque el nombre del producto deja de ser un link.
+
+#### Pantalla de registro
+
+- **El stepper** pasa a círculos unidos por una línea, con la etiqueta debajo y el activo relleno con el verde de la marca. Lo que había era una fila de mayúsculas con letter-spacing ancho y un guión suelto entre paso y paso, que el cliente marcó como ilegible. No era una impresión: en un stepper lo que tiene que leerse de un vistazo es **cuántos pasos hay y en cuál estoy**, y eso se ve en la forma, no en el texto.
+- **La contraseña gana un ojo y una barra de fuerza** que reemplaza al texto fijo "Mínimo 12 caracteres" — *"el requisito se comunica mejor mostrando progreso que con una regla estática"*. Mientras falta largo, el texto dice cuántos caracteres faltan: la regla sigue estando, pero como avance. Y el nivel más bajo se mantiene hasta llegar al mínimo aunque la clave tenga de todo, porque una barra llena justo antes de un error sería mentir.
+- **El repetir muestra un tilde verde cuando coinciden**, así el error no aparece recién al enviar.
+- **Íconos a la izquierda de cada campo** e inputs a 10px: *"los inputs muy redondeados hacen que el formulario parezca de juguete"*.
+- **Lo que se apartó del pedido:** "los botones sociales van en dos columnas". Hoy el único proveedor implementado es **Google** (spec §9), y media fila vacía al lado de un botón solo se ve peor que un botón de ancho completo. Lo que sí se rehizo es el divisor: la etiqueta pasa a ser un chip sobre la línea en vez de texto colgando. Cuando exista un segundo proveedor, ahí va la grilla de dos columnas.
+
+#### Modal de perfil
+
+- **Encabezado y pie fijos, con "Continuar" siempre visible.** Antes había que scrollear hasta el fondo para encontrarlo. El botón vive **fuera del `<form>`** y se asocia con el atributo `form=`: es la única forma de tener un pie fijo sin sacar el formulario de su contenedor scrolleable. Hay un test que lo verifica, porque si esa asociación se rompe el modal queda sin forma de enviarse y no lo nota nadie hasta probarlo a mano.
+- **El país deja de ser un campo de texto editable** y pasa a ser un select pegado al teléfono dentro del mismo borde: nadie puede borrar el "+54" ni escribir cualquier cosa. **Prefijo y número se siguen guardando por separado** en la base — cambia el control, no el modelo.
+- **Dos grupos con título** ("Datos personales" / "Datos profesionales") y **520px de ancho** en vez de ~900: nueve campos sueltos en una columna ancha son una lista; en dos bloques cortos son dos tareas.
+- **"(opcional)" sale del label** y pasa a ser un chip gris, y **las especialidades elegidas quedan como chips con X adentro del campo de búsqueda**: el campo pasa a mostrar el estado, no solo a filtrar.
+
+#### Modal de crear clínica
+
+- **Mismo encabezado y pie fijos**, con scroll solo en el cuerpo y una scrollbar fina de 6px — la nativa gris rompía el borde redondeado. El color pedido era `#E6E1D4`; se usó el token `--color-arena` (`#e7dfd1`), que es el gris cálido que el proyecto ya tiene y queda a un punto: un hex suelto habría sido un color nuevo en la paleta para nada.
+- **Los cuatro campos opcionales se pliegan** en "Ubicación y contacto", así el modal entra sin scroll y lo obligatorio queda en primer plano.
+- **La tarjeta elegida se marca con el verde de la marca, fondo menta y un tilde**, no con un borde negro grueso: *"el negro no existe en ningún otro lado de PRISMA, por eso saltaba"*. El ícono va arriba a la izquierda y el círculo de selección arriba a la derecha, para que se lea como un radio button aunque sea una tarjeta.
+- **Provincia pasa a select de 24 valores, y va antes que ciudad.** Campo libre ensucia la base con "Cordoba", "CBA", "córdoba" — y esa columna es la que filtra el **buscador público de clínicas**, donde tres grafías de lo mismo son tres lugares distintos.
+- **El botón nunca está deshabilitado.** Antes, sin tipo elegido, quedaba gris sin decir por qué: *"un botón gris sin explicación deja al usuario adivinando qué falta"*. Ahora se puede tocar siempre y el error aparece debajo del campo que falta.
+- El teléfono usa el mismo control unificado, con una diferencia de modelo: la clínica guarda **una sola columna** de teléfono, así que prefijo y número se unen al enviar.
+
+**Verificado:** 1060 tests frontend (25 nuevos), gates de cobertura en verde, lint 0 errores, build OK, contenedor reconstruido.
+
+### Segunda vuelta de QA del 2026-09-13 — lo que quedó mal de la primera
+
+Revisión con capturas sobre lo recién entregado. Las imágenes también eran temporales, así que lo que valía está descrito acá.
+
+- **El stepper estaba corrido a la izquierda.** El primer paso no era `flex-1` y los demás sí, así que las columnas medían distinto y el conjunto quedaba descentrado respecto a la tarjeta. Ahora todas las columnas son iguales y cada círculo lleva una línea a **cada** lado, invisible en los extremos: así el último no arrastra una línea hacia la nada y el grupo queda centrado sin depender de cuántos pasos haya.
+- **El tilde de "coinciden" parecía un segundo botón de ver la contraseña.** Estaba adentro del campo, pegado al ojo — dos íconos juntos en el mismo lugar se leen como dos controles. Pasó a ser una línea verde **debajo** del campo: dice lo mismo y no compite con el único control real.
+- **Había un modal rectangular asomando por detrás del de crear clínica.** Era mío: el formulario pasó a traer su propio `ModalShell` en la vuelta anterior, y quedó además envuelto en el `AuthShell` viejo. Dos tarjetas y dos capas de fondo oscuro superpuestas. Es el riesgo de mover el "marco" adentro del componente y no revisar quién lo estaba envolviendo antes.
+- **El nombre de la clínica y los campos opcionales aparecen recién con el tipo elegido.** El orden de la pantalla pasa a ser el de la decisión: primero qué clase de clínica es, después sus datos.
+- **El login recibe el mismo tratamiento que el alta**: ícono adentro del campo de mail y ojo para ver la contraseña. Lo que **no** lleva es la barra de fuerza: al ingresar, la clave ya existe y juzgarla no aporta nada.
+
+#### Las casillas del código, una sola vez para toda la app
+
+Pedido aparte del cliente: *"el modal de introducir código en sumate y login reutilizar el que se usa en el wizard de sacar turno, para mantener consistencia"*.
+
+Es la misma acción —copiar seis dígitos de un mail— en tres pantallas, y se veía de dos formas distintas según por dónde hubiera entrado la persona: seis casillas en el wizard público, y en el alta un campo único con placeholder `000000`, que se lee como contenido ya cargado y no muestra cuántos dígitos faltan.
+
+Las casillas salieron del wizard a `components/auth/casillas-codigo.tsx`. Lo que se unifica no es solo el aspecto: **el pegado del código entero, el borrado que vuelve a la casilla anterior, las flechas y el limpiado tras un intento fallido** son cuatro comportamientos que existían una sola vez y ahora valen para las tres pantallas. El "Autocompletar" del bloque solo-dev del wizard sigue funcionando, como una prop del componente nuevo.
+
+Los 69 tests del wizard pasaron **sin tocarlos**, que era la condición para dar la extracción por buena: si hubiera hecho falta editarlos, el componente no sería el mismo.
+
+**Verificado:** 1061 tests frontend, cobertura y lint en verde, build OK, contenedor reconstruido (`/sumarse` y `/ingresar` responden 200).
+
+### No todo el que entra a la app atiende pacientes
+
+Pedido del cliente, y el más de fondo de las tres rondas: el alta de perfil pedía **matrícula obligatoria**, y eso alcanza mientras la única forma de entrar sea "soy odontólogo y quiero mi clínica". Deja de alcanzar en la subfase siguiente:
+
+> *"cuando uno envíe la invitación por mail a un futuro colaborador, si este colaborador no tiene cuenta, se le pedirá crear una, y no necesariamente el recepcionista tiene una matrícula de profesional, como el que se encarga de editar la página."*
+
+El perfil suma entonces un tipo: **Profesional** o **Actividades de la clínica**. Con el segundo no se piden matrícula ni especialidades — ni se guardan si un cliente las manda igual, porque son los datos con los que después la página pública decide qué mostrar.
+
+**El default es `profesional` cuando el campo no viene.** Todas las filas que ya existen son de odontólogos y todos los tests anteriores se escribieron sin el campo: sin ese default, el cambio habría roto las dos cosas a la vez y por el mismo motivo equivocado.
+
+#### Y si esa persona después quiere su propia clínica
+
+El caso lo marcó el cliente apenas visto lo anterior: *"si estos usuarios se registraron sin ser profesional... y quieren poner su propia clínica, deberán completar otra vez el modal, solo con la parte de profesional faltante."*
+
+Una clínica sin un titular con matrícula no tiene de dónde salir, así que "Crear mi clínica" pide primero los datos que faltan, **encadenado en la misma pantalla**: modal de datos profesionales → modal de la clínica, sin recargar `/clinicas` en el medio. Para eso la acción del perfil acepta no redirigir.
+
+El backend rechaza el alta de clínica de un perfil que no es profesional (403). No es redundante con la pantalla: es lo que hace que la regla valga aunque alguien le pegue directo a la API.
+
+**Un efecto que vale anotar:** con ese guard, el titular de una clínica es *siempre* profesional, así que los tres roles que el brief le da (`owner` + `admin` + `profesional`) siguen siendo coherentes por construcción. Sin él habría hecho falta decidir qué roles darle a un titular que no atiende.
+
+#### El bug que se comió el formulario en silencio
+
+Al cambiar de "Profesional" a "Actividades", el formulario **dejaba de enviarse y no decía por qué**: sin error visible, sin llamada al backend, nada.
+
+La causa: react-hook-form **no limpia el valor de un campo que se desmonta** (`shouldUnregister` es `false` por default). El select de matrícula quedaba registrado con `""`, y el `z.enum(["nacional","provincial"])` lo rechazaba — con el error apuntando a un campo **que ya no estaba en pantalla**, así que no había dónde mostrarlo.
+
+Es la peor forma de un bug de validación: el formulario no se envía y la interfaz no tiene nada que decir. El esquema ahora acepta `""` explícitamente y se normaliza a "ausente" en un solo lugar, la acción por la que pasan las dos pantallas que editan el perfil.
+
+**Verificado:** 12 paquetes de backend en verde (5 tests nuevos), 1067 tests frontend (6 nuevos), cobertura y lint en verde, build OK, contenedores reconstruidos y la columna con su check verificada contra la base real.
+
+### Tercera vuelta: el mismo pedido, el otro camino
+
+**Completar los datos profesionales también al ENTRAR a una clínica.** El caso lo planteó el cliente completo: *"en una clínica lo invitaron como recepcionista y se registró con esto, pero en otra clínica lo hacen con el rol de profesional"*. Antes de entrar a esa segunda, hay que pedirle la matrícula.
+
+Los dos caminos —armar la clínica propia y entrar a una donde el rol es `profesional`— **necesitan exactamente lo mismo**, así que comparten el modal: `TarjetaClinica` dejó de resolver la entrada por su cuenta y avisa al padre, que es el único que sabe si antes hay que interponer algo. Donde el rol es `recepcion` no se pide nada: ahí la matrícula no hace falta.
+
+El backend lo verifica en `PUT /me/clinica-activa`, no solo la pantalla. Sin eso, entrar con rol de profesional sin matrícula sería cuestión de saltear el frontend — y esa persona tendría agenda propia sin matrícula ni especialidades, que es justo lo que la página pública muestra de quien atiende.
+
+**Ubicación y contacto pasan a ser obligatorios para crear la clínica.** Nacieron opcionales cuando la página pública todavía no existía; hoy son los datos que esa página le muestra al paciente y por los que el buscador encuentra a la clínica. Una clínica sin dirección ni teléfono existe en la base pero no sirve para lo que la app promete.
+
+Como consecuencia, **la sección dejó de estar plegada**: esconder detrás de un acordeón cuatro campos que hay que completar sí o sí es hacer que el formulario parezca más corto de lo que es, y que un error aparezca dentro de una sección cerrada. Lo que la ronda anterior plegó por ser opcional, esta lo despliega por dejar de serlo.
+
+#### El ojo duplicado, que no era lo que yo creí
+
+Reportado dos veces, y la primera lo arreglé mal. Lo atribuí al tilde de "coinciden" y lo moví abajo del campo; el duplicado siguió apareciendo en el login, donde ese tilde ni existe.
+
+El segundo ícono era el control **nativo de Edge** (`::-ms-reveal`), que aparece solo cuando el campo tiene contenido y foco — por eso se veía en el campo recién tipeado y no en el otro, y por eso me mandó a buscar donde no era. Se oculta por CSS y queda el nuestro, que es el que sabe del estado del formulario y se ve igual en todos los navegadores.
+
+**La lección no es sobre el navegador:** tenía dos elementos sospechosos en el mismo lugar —mi ícono y uno del sistema— y elegí el que yo había escrito sin comprobar cuál era cuál. Bastaba abrir el inspector una vez.
+
+### Anotado para la 3.2.4
+
+Pedido del cliente mientras cerrábamos esto, para tenerlo presente al empezar:
+
+> *"las clínicas a las que me han invitado o yo haya pasado el código, se verán en 'otras clínicas' como estado **pendiente a confirmar** (por el mismo usuario)."*
+
+O sea que "Otras clínicas" no va a listar solo membresías activas: va a mostrar también las **invitaciones sin aceptar**, con su propio estado y su acción de confirmar. El modelo ya lo soporta —`clinic_members.status` admite `invited`— y `GET /me/clinicas` hoy filtra por `status = 'active'`: ese filtro es el que va a cambiar, junto con la tarjeta.
+
+**Verificado:** 12 paquetes de backend en verde (1 test nuevo, el del recepcionista invitado a atender en otra clínica), 1070 tests frontend, cobertura y lint en verde, build OK, contenedores reconstruidos.
+

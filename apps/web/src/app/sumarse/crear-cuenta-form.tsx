@@ -10,10 +10,13 @@ import {
   AuthCheckboxField,
   AuthDivider,
   AuthField,
+  CampoConIcono,
   authErrorClass,
-  authInputClass,
+  authInputConIconoClass,
   authSubmitClass,
 } from "@/components/auth/auth-shell";
+import { CampoPassword } from "@/components/auth/campo-password";
+import { IconMail } from "@/components/icons";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 
@@ -26,6 +29,7 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CrearCuentaFormValues>({
     resolver: zodResolver(registerFormSchema),
@@ -37,6 +41,11 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
   // mandarlo al paso de código (que generaba confusión real, "no es el
   // estándar").
   const [cuentaExistente, setCuentaExistente] = useState(false);
+  // Se observan los dos campos para la barra de fuerza y el tilde de
+  // coincidencia — el feedback tiene que aparecer mientras se tipea, no
+  // al enviar (ronda de QA del 2026-09-13).
+  const password = watch("password") ?? "";
+  const confirmar = watch("confirmarPassword") ?? "";
 
   async function onSubmit(values: CrearCuentaFormValues) {
     setErrorGlobal(null);
@@ -80,21 +89,28 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
         <AuthField label="Email" error={errors.email?.message}>
-          <input type="email" autoComplete="email" className={authInputClass} {...register("email")} />
+          <CampoConIcono icono={<IconMail className="h-[18px] w-[18px]" />}>
+            <input type="email" autoComplete="email" className={authInputConIconoClass} {...register("email")} />
+          </CampoConIcono>
         </AuthField>
 
-        <AuthField label="Contraseña" error={errors.password?.message} hint="Mínimo 12 caracteres.">
-          <input type="password" autoComplete="new-password" className={authInputClass} {...register("password")} />
-        </AuthField>
+        {/* El "Mínimo 12 caracteres." fijo se fue: lo dice la barra de
+            fuerza mientras se tipea (ver CampoPassword). */}
+        <CampoPassword
+          label="Contraseña"
+          registro={register("password")}
+          valor={password}
+          error={errors.password?.message}
+          conFuerza
+        />
 
-        <AuthField label="Confirmar contraseña" error={errors.confirmarPassword?.message}>
-          <input
-            type="password"
-            autoComplete="new-password"
-            className={authInputClass}
-            {...register("confirmarPassword")}
-          />
-        </AuthField>
+        <CampoPassword
+          label="Confirmar contraseña"
+          registro={register("confirmarPassword")}
+          valor={confirmar}
+          error={errors.confirmarPassword?.message}
+          coincide={confirmar.length > 0 && confirmar === password}
+        />
 
         <TurnstileWidget onToken={(token) => setValue("captchaToken", token)} />
 

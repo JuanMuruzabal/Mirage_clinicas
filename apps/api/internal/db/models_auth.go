@@ -41,6 +41,21 @@ type User struct {
 	OnboardingStep        string     `gorm:"column:onboarding_step;type:varchar(20);not null;default:'cuenta';check:onboarding_step IN ('cuenta','perfil','clinica','completo')"`
 	OnboardingCompletedAt *time.Time `gorm:"column:onboarding_completed_at"`
 
+	// CodigoInvitacion — Fase 3.2.3. El código que la persona genera para
+	// que una clínica la sume al equipo ("Unirme a otra clínica" en
+	// `/clinicas`). Vive en el usuario y no en la clínica porque la
+	// dirección del pedido es al revés que la de una invitación: acá el
+	// profesional se ofrece, y quien lo carga es la clínica (3.2.4).
+	//
+	// Es de UN SOLO valor vigente por persona: generar uno nuevo pisa el
+	// anterior, que dejar de funcionar es justamente lo que se espera de
+	// "generar otro" cuando el primero se compartió por donde no debía.
+	// Vence a las 24 horas (`CodigoInvitacionExpiraAt`) — un código sin
+	// vencimiento que alguien pegó en un chat sigue sirviendo un año
+	// después.
+	CodigoInvitacion         *string    `gorm:"column:codigo_invitacion;type:varchar(20)"`
+	CodigoInvitacionExpiraAt *time.Time `gorm:"column:codigo_invitacion_expira_at"`
+
 	// TermsAcceptedAt/TermsVersion — Ley 25.326 (spec §7): checkbox
 	// explícito de ToS/privacidad al crear la cuenta, con fecha y versión.
 	TermsAcceptedAt *time.Time `gorm:"column:terms_accepted_at"`
@@ -110,17 +125,28 @@ const (
 // cambios) — solo cambia la tabla puente, de profesional_especialidades a
 // professional_especialidades, con FK a user_id en vez de clinic_id.
 type ProfessionalProfile struct {
-	UserID           uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
-	Nombre           string    `gorm:"type:varchar(150);not null"`
-	Apellido         string    `gorm:"type:varchar(150);not null"`
-	TelefonoPrefijo  string    `gorm:"column:telefono_prefijo;type:varchar(6);not null;default:'+54'"`
-	Telefono         string    `gorm:"type:varchar(50);not null"`
-	Documento        *string   `gorm:"type:varchar(20)"`
-	MatriculaTipo    string    `gorm:"column:matricula_tipo;type:varchar(20);not null;default:'';check:matricula_tipo IN ('','nacional','provincial')"`
-	MatriculaNumero  string    `gorm:"column:matricula_numero;type:varchar(50);not null;default:''"`
-	AniosExperiencia *int      `gorm:"column:anios_experiencia"`
-	Bio              *string   `gorm:"type:text"`
-	FotoURL          *string   `gorm:"column:foto_url;type:varchar(500)"`
+	UserID uuid.UUID `gorm:"column:user_id;type:uuid;primaryKey"`
+	// TipoPerfil — Fase 3.2.3 (ronda de QA del 2026-09-13). No todo el que
+	// entra a la app atiende pacientes: un recepcionista o quien edita la
+	// página de la clínica **no tiene matrícula**, y hasta acá el alta se
+	// la pedía como obligatoria. Con las invitaciones por mail (Fase
+	// 3.2.4) esa persona va a tener que crearse una cuenta, así que el
+	// requisito pasaba de molesto a bloqueante.
+	//
+	// Con `actividades`, matrícula y especialidades quedan vacías y no se
+	// piden. El default es `profesional` para que las filas que ya existen
+	// —todas, de odontólogos— sigan significando lo mismo.
+	TipoPerfil       string  `gorm:"column:tipo_perfil;type:varchar(20);not null;default:'profesional';check:tipo_perfil IN ('profesional','actividades')"`
+	Nombre           string  `gorm:"type:varchar(150);not null"`
+	Apellido         string  `gorm:"type:varchar(150);not null"`
+	TelefonoPrefijo  string  `gorm:"column:telefono_prefijo;type:varchar(6);not null;default:'+54'"`
+	Telefono         string  `gorm:"type:varchar(50);not null"`
+	Documento        *string `gorm:"type:varchar(20)"`
+	MatriculaTipo    string  `gorm:"column:matricula_tipo;type:varchar(20);not null;default:'';check:matricula_tipo IN ('','nacional','provincial')"`
+	MatriculaNumero  string  `gorm:"column:matricula_numero;type:varchar(50);not null;default:''"`
+	AniosExperiencia *int    `gorm:"column:anios_experiencia"`
+	Bio              *string `gorm:"type:text"`
+	FotoURL          *string `gorm:"column:foto_url;type:varchar(500)"`
 	// Idiomas: sin catálogo cerrado (a diferencia de Especialidad) — lista
 	// libre corta, jsonb alcanza y sobra.
 	Idiomas        []string       `gorm:"type:jsonb;serializer:json"`
@@ -135,6 +161,16 @@ func (ProfessionalProfile) TableName() string { return "professional_profiles" }
 const (
 	MatriculaTipoNacional   = "nacional"
 	MatriculaTipoProvincial = "provincial"
+)
+
+const (
+	// PerfilTipoProfesional — atiende pacientes. Matrícula y al menos una
+	// especialidad son obligatorias.
+	PerfilTipoProfesional = "profesional"
+	// PerfilTipoActividades — trabaja en la clínica sin atender:
+	// recepción, o la administración de la página. Sin matrícula ni
+	// especialidades.
+	PerfilTipoActividades = "actividades"
 )
 
 // Clinic reemplaza los campos NombreClinica/Slug que hoy viven directo en
@@ -277,6 +313,21 @@ type Session struct {
 	RevokedAt *time.Time `gorm:"column:revoked_at"`
 	UserAgent string     `gorm:"column:user_agent;type:varchar(255)"`
 	IP        string     `gorm:"column:ip;type:varchar(64)"`
+
+	// ClinicID — la clínica elegida en "¿Dónde trabajás hoy?" (Fase
+	// 3.2.3). Nil mientras no se eligió ninguna, y ahí `requireClinic`
+	// vuelve al criterio de la 3.2.2 (la membresía activa más antigua).
+	//
+	// Vive en la SESIÓN y no en el usuario a propósito: es una elección
+	// de "dónde estoy trabajando ahora", no una preferencia de la cuenta.
+	// Dos sesiones abiertas —el consultorio y el celular— pueden estar en
+	// clínicas distintas sin pisarse, que es exactamente lo que hace un
+	// profesional que atiende en dos lugares el mismo día.
+	//
+	// Que apunte a una clínica no alcanza para entrar: `requireClinic`
+	// revalida la membresía en cada request. Si a la persona la sacaron
+	// del equipo, la elección guardada deja de valer sola.
+	ClinicID *uuid.UUID `gorm:"column:clinic_id;type:uuid;index"`
 }
 
 func (Session) TableName() string { return "sessions" }

@@ -59,6 +59,7 @@ const meCompleto: Me = {
   onboardingStep: "completo",
   onboardingCompletado: true,
   perfil: {
+    tipoPerfil: "profesional" as const,
     nombre: "María",
     apellido: "Games",
     telefonoPrefijo: "+54",
@@ -132,10 +133,13 @@ describe("lib/session", () => {
     await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("requireOnboardingComplete redirige a /sumarse con onboarding incompleto", async () => {
+  // Fase 3.2.3: a /clinicas y no a /sumarse — lo que falta puede ser el
+  // perfil (que /clinicas muestra como modal) o una clínica donde
+  // trabajar, que ya no se resuelve con un wizard.
+  it("requireOnboardingComplete redirige a /clinicas con onboarding incompleto", async () => {
     fakeCookieStore("un-token");
     apiMeMock.mockResolvedValue({ ok: true, data: meIncompleto });
-    await expect(requireOnboardingComplete()).rejects.toThrow("NEXT_REDIRECT:/sumarse");
+    await expect(requireOnboardingComplete()).rejects.toThrow("NEXT_REDIRECT:/clinicas");
   });
 
   it("requireOnboardingComplete devuelve la sesión aplanada con onboarding completo", async () => {
@@ -150,6 +154,7 @@ describe("lib/session", () => {
       telefonoPrefijo: "+54",
       telefono: "+5493511234567",
       documento: undefined,
+      tipoPerfil: "profesional",
       matriculaTipo: "nacional",
       matriculaNumero: "MP-1",
       aniosExperiencia: undefined,
@@ -169,12 +174,12 @@ describe("lib/session", () => {
     await expect(requireOnboardingComplete()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("redirectSiEmailVerificado redirige a /seleccionar-servicio con el mail ya verificado (aunque el onboarding no haya terminado)", async () => {
+  it("redirectSiEmailVerificado redirige a /clinicas con el mail ya verificado (aunque el onboarding no haya terminado)", async () => {
     await expect(redirectSiEmailVerificado(meIncompleto)).rejects.toThrow(
-      "NEXT_REDIRECT:/seleccionar-servicio",
+      "NEXT_REDIRECT:/clinicas",
     );
     await expect(redirectSiEmailVerificado(meCompleto)).rejects.toThrow(
-      "NEXT_REDIRECT:/seleccionar-servicio",
+      "NEXT_REDIRECT:/clinicas",
     );
   });
 

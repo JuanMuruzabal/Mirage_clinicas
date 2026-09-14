@@ -4,11 +4,14 @@ import { useState } from "react";
 import { verificarEmailAction, reenviarVerificacionAction } from "@/app/actions/auth";
 import {
   AuthField,
+  CampoConIcono,
   authErrorClass,
-  authInputClass,
+  authInputConIconoClass,
   authSubmitClass,
   authSuccessClass,
 } from "@/components/auth/auth-shell";
+import { CasillasCodigo, LARGO_CODIGO } from "@/components/auth/casillas-codigo";
+import { IconMail } from "@/components/icons";
 
 interface ConfirmarCodigoFormProps {
   /** Mail al que se mandó (o se va a mandar) el código. */
@@ -27,6 +30,13 @@ interface ConfirmarCodigoFormProps {
 // solo componente compartido por las tres pantallas donde hace falta
 // confirmar una cuenta (RevisaCorreo en /sumarse, el aviso de "mail no
 // verificado" en /ingresar, y /verificar-mail como acceso directo).
+//
+// Las casillas son las MISMAS que las del wizard público de sacar turno
+// desde la ronda de QA del 2026-09-13 (ver CasillasCodigo): es la misma
+// acción —copiar seis dígitos de un mail— y hasta acá se veía de dos
+// formas distintas según por dónde hubiera entrado la persona. Acá el
+// campo era uno solo con placeholder "000000", que se lee como contenido
+// ya cargado y no muestra cuántos dígitos faltan.
 export function ConfirmarCodigoForm({ email: emailInicial, emailFijo = true }: ConfirmarCodigoFormProps) {
   const [email, setEmail] = useState(emailInicial);
   const [codigo, setCodigo] = useState("");
@@ -70,30 +80,20 @@ export function ConfirmarCodigoForm({ email: emailInicial, emailFijo = true }: C
           </p>
         ) : (
           <AuthField label="Email">
-            <input
-              type="email"
-              autoComplete="email"
-              className={authInputClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <CampoConIcono icono={<IconMail className="h-[18px] w-[18px]" />}>
+              <input
+                type="email"
+                autoComplete="email"
+                className={authInputConIconoClass}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </CampoConIcono>
           </AuthField>
         )}
 
-        <AuthField label="Código de confirmación">
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            placeholder="000000"
-            className={`${authInputClass} text-center text-lg tracking-[0.3em]`}
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            required
-          />
-        </AuthField>
+        <CasillasCodigo error={error} onCambio={setCodigo} idPrefijo="codigo-cuenta" />
 
         {error && (
           <p role="alert" className={authErrorClass}>
@@ -101,7 +101,7 @@ export function ConfirmarCodigoForm({ email: emailInicial, emailFijo = true }: C
           </p>
         )}
 
-        <button type="submit" disabled={pending || codigo.length !== 6} className={authSubmitClass}>
+        <button type="submit" disabled={pending || codigo.length !== LARGO_CODIGO} className={authSubmitClass}>
           {pending ? "Confirmando…" : "Confirmar mi cuenta"}
         </button>
       </form>

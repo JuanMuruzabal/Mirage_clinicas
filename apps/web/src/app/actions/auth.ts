@@ -26,6 +26,7 @@ import type {
   VerificarEmailPayload,
 } from "@dental-mirage/shared-types";
 import { clearSessionCookie, getSessionToken, setSessionCookie } from "@/lib/session";
+import type { OnboardingPerfilFormValues } from "@/lib/validation/auth";
 import {
   loginSchema,
   onboardingClinicaSchema,
@@ -239,7 +240,23 @@ export async function logoutAction(): Promise<void> {
 // /seleccionar-servicio, así que redirige ahí — la próxima carga de esa
 // página ya refleja `onboardingStep: "clinica"` y muestra el paso 2 del
 // modal.
-export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): Promise<ActionResult | undefined> {
+// sinMatriculaVacia — el select de matrícula deja "" cuando el campo
+// estuvo en pantalla y dejó de estarlo (react-hook-form no limpia los
+// campos desmontados). El backend distingue "no vino" de "vino vacío":
+// el segundo no es un tipo de matrícula válido. Se normaliza en un solo
+// lugar, que es por donde pasan las dos pantallas que editan el perfil.
+function sinMatriculaVacia(valores: OnboardingPerfilFormValues): OnboardingPerfilPayload {
+  return { ...valores, matriculaTipo: valores.matriculaTipo || undefined };
+}
+
+export async function onboardingPerfilAction(
+  payload: OnboardingPerfilPayload,
+  // redirigir=false cuando el flujo sigue en la misma pantalla: quien no
+  // atiende pacientes y quiere armar su propia clinica completa aca los
+  // datos profesionales que le faltan y sigue derecho al alta de la
+  // clinica, sin recargar /clinicas en el medio (Fase 3.2.3).
+  opciones?: { redirigir?: boolean },
+): Promise<ActionResult | undefined> {
   const parsed = onboardingPerfilSchema.safeParse(payload);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -249,11 +266,21 @@ export async function onboardingPerfilAction(payload: OnboardingPerfilPayload): 
     redirect("/ingresar");
   }
 
-  const result = await apiOnboardingPerfil(token, parsed.data);
+  const result = await apiOnboardingPerfil(token, sinMatriculaVacia(parsed.data));
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect("/seleccionar-servicio");
+  if (opciones?.redirigir === false) {
+    // El layout lee `me.perfil` para saber si el onboarding esta
+    // completo: sin invalidarlo, la pantalla sigue creyendo que falta.
+    revalidatePath("/", "layout");
+    return;
+  }
+  // Fase 3.2.3: el perfil es el único paso que quedó del onboarding, y
+  // termina en "¿Dónde trabajás hoy?" — crear la clínica dejó de ser el
+  // paso siguiente obligatorio y pasó a ser una de las opciones de esa
+  // pantalla.
+  redirect("/clinicas");
 }
 
 // nota: no hace falta revalidatePath("/", "layout") acá — este paso solo
@@ -297,7 +324,7 @@ export async function updateMeAction(payload: OnboardingPerfilPayload): Promise<
     redirect("/ingresar");
   }
 
-  const result = await apiUpdateMe(token, parsed.data);
+  const result = await apiUpdateMe(token, sinMatriculaVacia(parsed.data));
   if (!result.ok) {
     return { error: result.error };
   }

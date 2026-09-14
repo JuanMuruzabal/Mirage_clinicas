@@ -96,17 +96,25 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 			resp.Perfil = &perfil
 		}
 
-		var member db.ClinicMember
-		if err := gdb.Preload("Roles").Scopes(db.ConRol(db.RoleOwner)).
-			Where("user_id = ?", userID).First(&member).Error; err == nil {
-			var clinic db.Clinic
-			if err := gdb.First(&clinic, "id = ?", member.ClinicID).Error; err == nil {
-				resp.Clinica = &clinicaMeResponse{
-					ID: clinic.ID.String(), Nombre: clinic.Nombre, Slug: clinic.Slug,
-					// Los roles son acumulables desde la Fase 3.2.1, pero
-					// este campo del JSON es uno solo: se manda el de mayor
-					// alcance para no cambiarle el contrato al frontend.
-					Tipo: clinic.Tipo, Rol: db.RolPrincipal(member.Roles),
+		// La clínica que devuelve /me es la ACTIVA de esta sesión, no la
+		// propia (Fase 3.2.3). Antes se buscaba la membresía con rol
+		// `owner`, que era lo mismo mientras cada persona tenía
+		// exactamente una clínica y era su dueña; con el multi-tenant deja
+		// de serlo, y todo el panel —que lee `me.clinica` para saber dónde
+		// está parado— mostraría la clínica propia aunque la persona haya
+		// elegido entrar a la de un colega. Misma resolución que usa
+		// `requireClinic`, para que las dos digan siempre lo mismo.
+		if session, ok := sessionFromContext(r); ok {
+			if member, hay := membresiaDeLaSesion(gdb, session); hay {
+				var clinic db.Clinic
+				if err := gdb.First(&clinic, "id = ?", member.ClinicID).Error; err == nil {
+					resp.Clinica = &clinicaMeResponse{
+						ID: clinic.ID.String(), Nombre: clinic.Nombre, Slug: clinic.Slug,
+						// Los roles son acumulables desde la Fase 3.2.1, pero
+						// este campo del JSON es uno solo: se manda el de mayor
+						// alcance para no cambiarle el contrato al frontend.
+						Tipo: clinic.Tipo, Rol: db.RolPrincipal(member.Roles),
+					}
 				}
 			}
 		}

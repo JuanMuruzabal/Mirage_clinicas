@@ -13,6 +13,15 @@ vi.mock("@/app/actions/auth", () => ({
 
 const { ConfirmarCodigoForm } = await import("./confirmar-codigo-form");
 
+// Las seis casillas se completan de a un dígito, como lo haría una
+// persona: el foco salta solo.
+async function escribirCodigo(user: ReturnType<typeof userEvent.setup>, codigo: string) {
+  const casillas = screen.getAllByLabelText(/^Dígito /);
+  for (let i = 0; i < codigo.length; i++) {
+    await user.type(casillas[i], codigo[i]);
+  }
+}
+
 describe("ConfirmarCodigoForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -29,14 +38,23 @@ describe("ConfirmarCodigoForm", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
-  it("solo permite dígitos en el código y lo trunca a 6 caracteres", async () => {
+  // Desde la ronda de QA del 2026-09-13 el código se carga en las mismas
+  // seis casillas que el wizard público de sacar turno (CasillasCodigo),
+  // no en un campo de texto único con placeholder "000000".
+  it("son seis casillas y solo aceptan dígitos", async () => {
     const user = userEvent.setup();
     render(<ConfirmarCodigoForm email="maria@example.com" />);
 
-    const input = screen.getByLabelText("Código de confirmación");
-    await user.type(input, "ab12cd34ef");
+    const casillas = screen.getAllByLabelText(/^Dígito /);
+    expect(casillas).toHaveLength(6);
 
-    expect(input).toHaveValue("1234");
+    await user.type(casillas[0], "a");
+    expect(casillas[0]).toHaveValue("");
+
+    await user.type(casillas[0], "4");
+    expect(casillas[0]).toHaveValue("4");
+    // Y el foco salta sola a la siguiente.
+    expect(casillas[1]).toHaveFocus();
   });
 
   it("el botón de confirmar queda deshabilitado hasta completar los 6 dígitos", async () => {
@@ -46,7 +64,7 @@ describe("ConfirmarCodigoForm", () => {
     const boton = screen.getByRole("button", { name: "Confirmar mi cuenta" });
     expect(boton).toBeDisabled();
 
-    await user.type(screen.getByLabelText("Código de confirmación"), "482913");
+    await escribirCodigo(user, "482913");
     expect(boton).toBeEnabled();
   });
 
@@ -55,7 +73,7 @@ describe("ConfirmarCodigoForm", () => {
     const user = userEvent.setup();
     render(<ConfirmarCodigoForm email="maria@example.com" />);
 
-    await user.type(screen.getByLabelText("Código de confirmación"), "482913");
+    await escribirCodigo(user, "482913");
     await user.click(screen.getByRole("button", { name: "Confirmar mi cuenta" }));
 
     expect(verificarEmailActionMock).toHaveBeenCalledWith({ email: "maria@example.com", codigo: "482913" });
@@ -66,7 +84,7 @@ describe("ConfirmarCodigoForm", () => {
     const user = userEvent.setup();
     render(<ConfirmarCodigoForm email="maria@example.com" />);
 
-    await user.type(screen.getByLabelText("Código de confirmación"), "000000");
+    await escribirCodigo(user, "000000");
     await user.click(screen.getByRole("button", { name: "Confirmar mi cuenta" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("código incorrecto o vencido");

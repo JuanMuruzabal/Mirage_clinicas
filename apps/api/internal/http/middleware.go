@@ -84,11 +84,8 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 
-			var member db.ClinicMember
-			err := gdb.Preload("Roles").
-				Where("user_id = ? AND status = ?", session.UserID, db.ClinicMemberStatusActive).
-				Order("created_at").First(&member).Error
-			if err != nil {
+			member, ok := membresiaDeLaSesion(gdb, session)
+			if !ok {
 				writeError(w, http.StatusForbidden, "completá el alta de tu clínica antes de acceder a esta sección")
 				return
 			}
@@ -133,6 +130,18 @@ func rolesFromContext(r *http.Request) []string {
 	return roles
 }
 
+// tieneRol — ¿esta lista de roles incluye el buscado? Trabaja sobre una
+// lista suelta, no sobre el contexto: sirve para decidir sobre una
+// membresía que todavía no es la activa (elegir clínica, por ejemplo).
+func tieneRol(roles []string, buscado string) bool {
+	for _, rol := range roles {
+		if rol == buscado {
+			return true
+		}
+	}
+	return false
+}
+
 // tieneAlgunRol — ¿el usuario tiene al menos uno de estos roles en la
 // clínica activa?
 func tieneAlgunRol(r *http.Request, buscados ...string) bool {
@@ -163,6 +172,40 @@ func requireRol(roles ...string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// membresiaDeLaSesion resuelve en qué clínica está trabajando esta
+// sesión — Fase 3.2.3.
+//
+// Primero, la elegida en "¿Dónde trabajás hoy?" (`sessions.clinic_id`).
+// La elección NO se cree por sí sola: se busca junto con la membresía
+// activa, así que si a la persona la sacaron del equipo desde que eligió,
+// la consulta no encuentra nada y se cae al criterio de abajo. Una
+// elección guardada no puede sobrevivir a la membresía que la habilitaba.
+//
+// Si no eligió ninguna —sesión vieja, primer ingreso, o un cliente que le
+// pega a la API sin pasar por la pantalla— vale la membresía activa más
+// antigua, que es lo que hacía la 3.2.2 y sigue siendo correcto para
+// quien tiene una sola clínica, o sea todos hasta que existan las
+// invitaciones (3.2.4).
+func membresiaDeLaSesion(gdb *gorm.DB, session *db.Session) (db.ClinicMember, bool) {
+	activas := func() *gorm.DB {
+		return gdb.Preload("Roles").
+			Where("user_id = ? AND status = ?", session.UserID, db.ClinicMemberStatusActive)
+	}
+
+	if session.ClinicID != nil {
+		var elegida db.ClinicMember
+		if err := activas().Where("clinic_id = ?", *session.ClinicID).First(&elegida).Error; err == nil {
+			return elegida, true
+		}
+	}
+
+	var masAntigua db.ClinicMember
+	if err := activas().Order("created_at").First(&masAntigua).Error; err != nil {
+		return db.ClinicMember{}, false
+	}
+	return masAntigua, true
 }
 
 func sessionFromContext(r *http.Request) (*db.Session, bool) {

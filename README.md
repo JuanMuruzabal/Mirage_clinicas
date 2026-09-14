@@ -474,6 +474,19 @@ he venido antes", detección de conflictos, 3 detectores anti-abuso,
 "sacar turno para otro" con tutor) quedan implementados, aprobados por el
 cliente y mergeados a `dev`.
 
+**Fase 3 — multi-tenant, en curso (desde 2026-09-12).** N profesionales por clínica y N clínicas por profesional. Brief del cliente y bitácoras en `docs/Fases post MVP/Fase 3/`; modelo de datos con los diagramas ER de antes y después en `docs/Arquitectura y base/modelo de datos/`; plan por subfases en `implementation-plan.md` §13; decisiones en `tradeoffs.md` TR-133 a TR-139.
+
+| Subfase | Estado |
+|---|---|
+| 3.1 — cambios al wizard público (1 turno activo por DNI **y tipo de consulta**, "ya he venido antes" con turno activo, repetir turno de otro tipo) | ✅ 2026-09-12 (TR-133) |
+| 3.1.1 / 3.1.2 — la IP real del visitante, y la topología que no era la que decía la documentación | ✅ 2026-09-13 (TR-134, TR-136) |
+| 3.2.1 — esquema y migración: el modelo soporta N↔N sin que cambie una sola pantalla | ✅ 2026-09-13 (TR-137) |
+| 3.2.2 — roles y permisos en el backend, y el aislamiento entre colegas | ✅ 2026-09-13 (TR-138) |
+| 3.2.3 — onboarding y "¿dónde trabajás hoy?": la clínica activa se elige y vive en la sesión; el perfil deja de asumir que todos atienden pacientes (quien no tiene matrícula la completa antes de crear su clínica o de entrar a una como profesional) | ✅ 2026-09-13 (TR-139) |
+| 3.2.4 a 3.2.8 — colaboradores, panel del profesional, vista del recepcionista, wizard con selección de profesional, tiempo real | pendientes |
+
+Dos cosas de esta fase valen para cualquiera que toque el código: **la columna que apunta a la clínica se llama `clinic_id`** en todo el esquema (antes `profesional_id`, que ya guardaba un `clinics.id`), y **el aislamiento entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en cada query — ver CLAUDE.md.
+
 **Primera radiografía técnica completada (2026-09-09):** con la Fase 2
 cerrada, el sistema pasó por una auditoría completa de seguridad,
 complejidad y rendimiento antes de escalar a N profesionales / N clínicas.

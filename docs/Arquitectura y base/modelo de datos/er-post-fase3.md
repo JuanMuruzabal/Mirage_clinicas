@@ -1,6 +1,6 @@
 # Modelo de datos — DESPUÉS de la Fase 3
 
-**Fecha:** 2026-09-13 · **Estado:** ✅ **aplicado** — los 8 cambios están en la base desde la Fase 3.2.1 · **Punto de partida:** [`er-pre-fase3.md`](er-pre-fase3.md)
+**Fecha:** 2026-09-13 · **Estado:** ✅ **aplicado** — los 8 cambios del diseño original están en la base desde la Fase 3.2.1, más 3 columnas que sumaron las subfases siguientes · **Punto de partida:** [`er-pre-fase3.md`](er-pre-fase3.md)
 
 Entregable 1 del brief de Fase 3. Se escribió como **propuesta de diseño, antes del código**, a propósito: las decisiones de acá cuestan horas en un diagrama y días a mitad de la implementación.
 
@@ -39,17 +39,29 @@ erDiagram
     clinics ||--o{ clinic_members : "tiene"
     clinic_members ||--|{ clinic_member_roles : "acumula"
     users ||--o| professional_profiles : "perfil"
+    users ||--o{ sessions : "abre"
+    clinics ||--o{ sessions : "clínica activa de"
 
     users {
         uuid id PK
         string email UK
         string codigo_invitacion UK "NUEVO: para sumarse sin mail"
+        timestamp codigo_invitacion_expira_at "NUEVO: vence a las 24 h"
+    }
+    sessions {
+        uuid id PK
+        uuid user_id FK
+        uuid clinic_id FK "NUEVO: la clínica elegida, nullable"
     }
     clinics {
         uuid id PK
         uuid owner_id FK
         string slug UK
         string tipo "individual|organizacion"
+        string provincia "nullable en la base, exigida al crear"
+        string ciudad "idem"
+        string direccion "idem"
+        string telefono "idem"
     }
     clinic_members {
         uuid id PK
@@ -116,6 +128,7 @@ erDiagram
     pacientes {
         uuid id PK
         uuid clinic_id FK "RENOMBRADA"
+        uuid creado_por_user_id FK "NUEVO: quién cargó la ficha, nullable"
         string dni "único por clínica"
     }
 ```
@@ -193,12 +206,19 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 |---|---|---|
 | 1 | `clinic_member_roles` + índice único parcial de exclusión ✅ **hecho 2026-09-13** | Tabla nueva |
 | 2 | `clinic_members.status` suma `removed` ✅ **hecho 2026-09-13** | Check |
-| 3 | `users.codigo_invitacion` | Columna nueva |
+| 3 | `users.codigo_invitacion` + `codigo_invitacion_expira_at`, con índice único parcial ✅ **hecho 2026-09-13 (3.2.3)** | Columnas nuevas |
 | 4 | `turnos.atendido_por_user_id` + FK compuesta a la membresía ✅ **hecho 2026-09-13** | Columna + constraint |
 | 5 | `tipos_consulta.user_id`, `horarios_atencion.user_id`, `bloqueos_horario.user_id` ✅ **hecho 2026-09-13** | Columnas nuevas |
 | 6 | `sin_solapamiento_turno` se muda a `atendido_por_user_id` ✅ **hecho 2026-09-13** | Constraint |
 | 7 | `profesional_id` → `clinic_id` en 9 tablas ✅ **hecho 2026-09-13** | Renombre |
 | 8 | Baja de `profesionales` y `profesional_especialidades` ✅ **hecho 2026-09-13** | Destructiva (TR-132) |
+| 9 | `sessions.clinic_id` — la clínica elegida en "¿Dónde trabajás hoy?", con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
+| 10 | `pacientes.creado_por_user_id` — quién cargó la ficha a mano, con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
+| 11 | `professional_profiles.tipo_perfil` — `profesional` \| `actividades`, con check ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + check |
+
+**Una diferencia a propósito entre la app y la base:** desde la ronda de QA del 2026-09-13, crear una clínica exige provincia, ciudad, dirección y teléfono, pero esas cuatro columnas **siguen siendo nullable**. Las clínicas que ya existen no los tienen, y volverlas `NOT NULL` obligaría a inventar valores para datos reales que nadie cargó. La regla vive donde entra el dato nuevo (el handler del alta); el día que todas las filas estén completas, la constraint se puede agregar sin inventar nada.
+
+Los dos últimos no estaban en el diseño original de esta fase. El 9 lo pedía el brief desde el principio (la elección de clínica), pero **dónde** guardarla se decidió recién al implementarlo: en la sesión y no en el usuario, para que dos sesiones abiertas puedan estar en clínicas distintas. El 10 no lo pidió nadie: apareció porque un test mostró que una ficha cargada a mano desaparecía del listado de quien la cargó (TR-139).
 
 **Orden obligatorio:** 7 antes que 4 (para no tener las dos columnas confusas conviviendo ni un minuto), y 5 antes que 6 (el constraint nuevo necesita la columna poblada). La migración de datos existentes —39 turnos, 7 tipos de consulta, 3 horarios— asigna todo al `owner` de cada clínica, que hoy es su único profesional.
 
@@ -206,4 +226,4 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 
 - **Presencia en tiempo real** de colaboradores (requisito no funcional del brief). No es una tabla: es una decisión de transporte (WebSocket / SSE / polling) que conviene tomar aparte, y que interactúa con el hecho de que hoy corre **una sola instancia** del backend.
 - **Reasignar un turno entre profesionales** (el brief se lo da al administrador). El modelo lo permite —cambiar `atendido_por_user_id`—, pero hay que decidir qué pasa con el `EXCLUDE` si el destino ya tiene ese horario ocupado, y si queda registro del cambio.
-- **Qué ve un profesional de los pacientes de otro.** Los pacientes son de la clínica, así que el aislamiento de las *vistas* es una regla de la aplicación, no del esquema. Merece tests de aislamiento propios, como los que ya existen entre clínicas (TR-129).
+- ~~**Qué ve un profesional de los pacientes de otro.**~~ **Resuelto en la Fase 3.2.2** (TR-138), como decía este párrafo: es una regla de la aplicación, no del esquema, y vive en `soloMisTurnos`/`soloMisPacientes` con sus propios tests de aislamiento entre colegas. La Fase 3.2.3 le sumó `pacientes.creado_por_user_id` — la única parte de esa regla que sí necesitaba una columna, porque una ficha recién cargada todavía no tiene turnos de los que derivar a quién pertenece la vista.

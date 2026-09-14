@@ -19,7 +19,13 @@ export type MatriculaTipo = "nacional" | "provincial" | "";
 export type OnboardingStep = "cuenta" | "perfil" | "clinica" | "completo";
 
 // Espejo de perfilResponse (internal/http/onboarding.go).
+// TipoPerfil — Fase 3.2.3: no todo el que entra a la app atiende
+// pacientes. Con "actividades" (recepción, administración de la página)
+// no hay matrícula ni especialidades.
+export type TipoPerfil = "profesional" | "actividades";
+
 export interface PerfilProfesional {
+  tipoPerfil: TipoPerfil;
   nombre: string;
   apellido: string;
   telefonoPrefijo: string;
@@ -40,6 +46,40 @@ export interface ClinicaSesion {
   slug: string;
   tipo: ClinicTipo;
   rol: ClinicRole;
+}
+
+// Espejo de clinicaDelUsuarioResponse (internal/http/mis_clinicas.go) —
+// una de las clínicas donde esta persona trabaja, para "¿Dónde trabajás
+// hoy?" (Fase 3.2.3).
+export interface ClinicaDelUsuario {
+  id: string;
+  nombre: string;
+  slug: string;
+  tipo: ClinicTipo;
+  direccion?: string | null;
+  ciudad?: string | null;
+  provincia?: string | null;
+  roles: ClinicRole[];
+  rolPrincipal: ClinicRole;
+  // esPropia — la creó esta persona. El mockup separa "Mi clínica" de
+  // "Otras clínicas", y el rol no alcanza para distinguirlas: el titular
+  // de la suya y un invitado pueden tener los dos rol `profesional`.
+  esPropia: boolean;
+  profesionales: number;
+  activa: boolean;
+}
+
+// El código con el que una persona se ofrece para que una clínica la sume
+// al equipo (Fase 3.2.3).
+export interface CodigoInvitacion {
+  codigo: string;
+  venceAt: string;
+}
+
+export interface MisClinicas {
+  clinicas: ClinicaDelUsuario[];
+  // Ausente si nunca generó uno, o si el que tenía ya venció.
+  codigoInvitacion?: CodigoInvitacion;
 }
 
 // Espejo de meResponse (internal/http/me.go, GET /me). `perfil`/`clinica`
@@ -152,13 +192,17 @@ export interface ResetPasswordResponse {
 // --- Payloads de /onboarding (internal/http/onboarding.go) ---
 
 export interface OnboardingPerfilPayload {
+  // Ausente = "profesional", que es lo que significaban todas las altas
+  // anteriores a la Fase 3.2.3.
+  tipoPerfil?: TipoPerfil;
   nombre: string;
   apellido: string;
   telefonoPrefijo?: string;
   telefono: string;
   documento?: string;
-  matriculaTipo: "nacional" | "provincial";
-  matriculaNumero: string;
+  // Vacíos cuando el perfil es de "actividades": esa persona no atiende.
+  matriculaTipo?: "nacional" | "provincial";
+  matriculaNumero?: string;
   especialidadIds: string[];
   aniosExperiencia?: number;
   bio?: string;

@@ -82,6 +82,10 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 		r.Get("/me", meHandler(db, deps.AutoVerifyEmail))
 		r.Patch("/me", updateMeHandler(db))
 		registerOnboardingRoutes(r, db, deps.Mail)
+		// "¿Dónde trabajás hoy?" (Fase 3.2.3) — acá, y no en el subgrupo
+		// de abajo: la pantalla existe también para quien todavía no
+		// tiene ninguna clínica.
+		registerMisClinicasRoutes(r, db)
 		registerProtectedAuthRoutes(r, db)
 
 		// Subgrupo: además de sesión, exige una Clinic ya creada (spec §4,

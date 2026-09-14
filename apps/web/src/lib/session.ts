@@ -1,7 +1,14 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { Especialidad, ClinicRole, ClinicTipo, Me, MatriculaTipo } from "@dental-mirage/shared-types";
+import type {
+  ClinicRole,
+  ClinicTipo,
+  Especialidad,
+  MatriculaTipo,
+  Me,
+  TipoPerfil,
+} from "@dental-mirage/shared-types";
 import { apiMe } from "./api";
 
 // Token de sesión opaco en cookie httpOnly de primera parte — nunca en
@@ -85,6 +92,10 @@ export interface SesionCompleta {
   telefonoPrefijo: string;
   telefono: string;
   documento?: string | null;
+  // tipoPerfil — "actividades" es quien trabaja en la clínica sin
+  // atender (recepción, administración de la página): no tiene matrícula
+  // ni especialidades. Ver Fase 3.2.3.
+  tipoPerfil: TipoPerfil;
   matriculaTipo: MatriculaTipo;
   matriculaNumero: string;
   aniosExperiencia?: number | null;
@@ -108,6 +119,7 @@ function toSesionCompleta(me: Me): SesionCompleta | null {
     telefonoPrefijo: me.perfil.telefonoPrefijo,
     telefono: me.perfil.telefono,
     documento: me.perfil.documento,
+    tipoPerfil: me.perfil.tipoPerfil,
     matriculaTipo: me.perfil.matriculaTipo,
     matriculaNumero: me.perfil.matriculaNumero,
     aniosExperiencia: me.perfil.aniosExperiencia,
@@ -130,7 +142,11 @@ function toSesionCompleta(me: Me): SesionCompleta | null {
 export async function requireOnboardingComplete(): Promise<SesionCompleta> {
   const me = await requireSession();
   if (!me.onboardingCompletado) {
-    redirect("/sumarse");
+    // Fase 3.2.3: a /clinicas y no a /sumarse. Lo que falta puede ser el
+    // perfil (que /clinicas muestra como modal) o una clínica donde
+    // trabajar — y esa segunda ya no se resuelve en un wizard: se elige
+    // entre crear la propia o esperar a que un colega te sume.
+    redirect("/clinicas");
   }
   const sesion = toSesionCompleta(me);
   if (!sesion) {
@@ -151,7 +167,10 @@ export async function requireOnboardingComplete(): Promise<SesionCompleta> {
 // justamente las pantallas para quien todavía no tiene una.
 export async function redirectSiEmailVerificado(me: Me | null): Promise<void> {
   if (me?.emailVerificado) {
-    redirect("/seleccionar-servicio");
+    // Fase 3.2.3: el destino post-auth pasa a ser /clinicas. Antes era
+    // /seleccionar-servicio, que tenía sentido cuando cada persona tenía
+    // exactamente una clínica y no había nada que elegir.
+    redirect("/clinicas");
   }
 }
 

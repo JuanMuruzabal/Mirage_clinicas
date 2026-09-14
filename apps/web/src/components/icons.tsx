@@ -282,3 +282,76 @@ export function IconPlus({ className }: IconProps) {
     </svg>
   );
 }
+
+// --- Íconos de formulario (Fase 3.2.3, ronda de QA del 2026-09-13) ---
+// El cliente pidió un ícono a la izquierda de cada campo en el registro y
+// en los dos modales del alta (ver la bitácora de la fase (`docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`)). Van todos a 20x20
+// como el resto del set.
+
+export function IconLock({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <rect x="4" y="8.5" width="12" height="8" rx="2" />
+      <path d="M7 8.5V6.5a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
+
+// IconEye / IconEyeOff — mostrar u ocultar la contraseña.
+export function IconEye({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M1.8 10S4.6 5 10 5s8.2 5 8.2 5-2.8 5-8.2 5-8.2-5-8.2-5Z" />
+      <circle cx="10" cy="10" r="2.2" />
+    </svg>
+  );
+}
+
+export function IconEyeOff({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M8 5.3A7.5 7.5 0 0 1 10 5c5.4 0 8.2 5 8.2 5a14 14 0 0 1-2.4 3" />
+      <path d="M4.7 6.6A13.6 13.6 0 0 0 1.8 10s2.8 5 8.2 5c1.4 0 2.6-.3 3.7-.8" />
+      <path d="m2.5 2.5 15 15" />
+    </svg>
+  );
+}
+
+// IconCheck — el tilde suelto (contraseñas que coinciden, tarjeta de tipo
+// de clínica elegida). Distinto de IconCheckBadge, que trae su círculo.
+export function IconCheck({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <polyline points="4 10.5 8 14.5 16 6" />
+    </svg>
+  );
+}
+
+export function IconMapPin({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M10 17.5s5.5-4.8 5.5-9a5.5 5.5 0 1 0-11 0c0 4.2 5.5 9 5.5 9Z" />
+      <circle cx="10" cy="8.3" r="2" />
+    </svg>
+  );
+}
+
+export function IconInfo({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 9.2v4.3M10 6.6h.01" />
+    </svg>
+  );
+}
+
+// IconBriefcase — el grupo "Datos profesionales" del modal de perfil.
+export function IconBriefcase({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <rect x="2.8" y="6.5" width="14.4" height="9.5" rx="2" />
+      <path d="M7.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 12.5 5v1.5" />
+    </svg>
+  );
+}
+

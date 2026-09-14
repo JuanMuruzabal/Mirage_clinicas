@@ -54,7 +54,7 @@ describe("SiteHeader", () => {
 
     expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "PRISMA" })).toHaveAttribute("href", "/");
   });
 
@@ -126,11 +126,11 @@ describe("SiteHeader", () => {
   // los tres links sueltos, como si esa fuera la pantalla correcta para
   // navegar entre herramientas.
   describe("con onboarding completo, fuera de una pantalla de herramienta", () => {
-    it("muestra 'Mi clínica' hacia /seleccionar-servicio, no los links sueltos", async () => {
+    it("muestra 'Mis clínicas' hacia /clinicas, no los links sueltos", async () => {
       mockMe({ emailVerificado: true, onboardingCompletado: true });
       renderConProvider(await SiteHeader());
 
-      expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+      expect(screen.getByRole("link", { name: "Mis clínicas" })).toHaveAttribute("href", "/clinicas");
       expect(screen.queryByRole("link", { name: "Gestionar tu clínica" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
     });
@@ -140,7 +140,7 @@ describe("SiteHeader", () => {
   // botón de configuración reemplaza a los tres links sueltos de antes.
   describe("con onboarding completo, en una pantalla de herramienta", () => {
     it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
-      "en %s, muestra el botón de configuración (no 'Mi clínica')",
+      "en %s, muestra el botón de configuración (no 'Mis clínicas')",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);
         mockMe({ emailVerificado: true, onboardingCompletado: true });
@@ -148,7 +148,7 @@ describe("SiteHeader", () => {
         renderConProvider(await SiteHeader());
 
         expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
-        expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
       },
     );
 
@@ -157,20 +157,20 @@ describe("SiteHeader", () => {
     // sidebar da las opciones" — /panel/** es la única pantalla de
     // herramienta CON sidebar propio, así que ahí el botón de
     // configuración queda redundante (ni "Mi clínica" tampoco aparece).
-    it("en /panel, NO muestra el botón de configuración ni 'Mi clínica' (el sidebar ya da esas opciones)", async () => {
+    it("en /panel, NO muestra el botón de configuración ni 'Mis clínicas' (el sidebar ya da esas opciones)", async () => {
       usePathnameMock.mockReturnValue("/panel");
       mockMe({ emailVerificado: true, onboardingCompletado: true });
 
       renderConProvider(await SiteHeader());
 
       expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     });
 
     // TR-061 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
     // 2026-08-26): "Volver al inicio" se sacó del header — con el logo
     // ya yendo siempre a "/", era redundante.
-    it("en /seleccionar-servicio, el único link es el logo — sin 'Volver al inicio'", async () => {
+    it("en /seleccionar-servicio, el único link es el de volver al selector de clínica", async () => {
       usePathnameMock.mockReturnValue("/seleccionar-servicio");
       mockMe({ emailVerificado: true, onboardingCompletado: true });
 
@@ -180,7 +180,7 @@ describe("SiteHeader", () => {
         .getAllByRole("link")
         .map((el) => el.textContent);
 
-      expect(nombresDeLinks).toEqual(["PRISMA"]);
+      expect(nombresDeLinks).toEqual(["Clínicas"]);
       expect(within(header).getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
     });
   });
@@ -191,13 +191,13 @@ describe("SiteHeader", () => {
   // estuviera lista — esos links redirigen de vuelta a /sumarse
   // (requireOnboardingComplete), no llevan a nada usable.
   describe("con mail sin verificar (estado anónimo)", () => {
-    it("se comporta como sin sesión (Ingresar/Sumate, no Mi clínica ni el botón de configuración)", async () => {
+    it("se comporta como sin sesión (Ingresar/Sumate, no Mis clínicas ni el botón de configuración)", async () => {
       mockMe({ emailVerificado: false, onboardingCompletado: false });
       renderConProvider(await SiteHeader());
 
       expect(screen.getByRole("link", { name: "Ingresar" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Sumate" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Mi clínica" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
     });
   });
@@ -209,14 +209,14 @@ describe("SiteHeader", () => {
   // formulario... y no el header correspondiente a esa sección").
   describe("con mail verificado pero onboarding incompleto (cuentaSinTerminar)", () => {
     it.each(["/", "/buscar", "/seleccionar-servicio"])(
-      "en %s, muestra 'Mi clínica', nunca Ingresar/Sumate ni el botón de configuración",
+      "en %s, muestra 'Mis clínicas', nunca Ingresar/Sumate ni el botón de configuración",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);
         mockMe({ emailVerificado: true, onboardingCompletado: false });
 
         renderConProvider(await SiteHeader());
 
-        expect(screen.getByRole("link", { name: "Mi clínica" })).toHaveAttribute("href", "/seleccionar-servicio");
+        expect(screen.getByRole("link", { name: "Mis clínicas" })).toHaveAttribute("href", "/clinicas");
         expect(screen.queryByRole("link", { name: "Ingresar" })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
       },

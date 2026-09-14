@@ -27,6 +27,10 @@ func registerOnboardingRoutes(r chi.Router, gdb *gorm.DB, sender dmmail.Sender) 
 // ---------------------------------------------------------------------
 
 type onboardingPerfilRequest struct {
+	// TipoPerfil — "profesional" (default si viene vacío) o "actividades".
+	// Ver db.PerfilTipo*: con "actividades" no se piden matrícula ni
+	// especialidades.
+	TipoPerfil       string   `json:"tipoPerfil"`
 	Nombre           string   `json:"nombre"`
 	Apellido         string   `json:"apellido"`
 	TelefonoPrefijo  string   `json:"telefonoPrefijo"`
@@ -41,6 +45,7 @@ type onboardingPerfilRequest struct {
 }
 
 type perfilResponse struct {
+	TipoPerfil       string                 `json:"tipoPerfil"`
 	Nombre           string                 `json:"nombre"`
 	Apellido         string                 `json:"apellido"`
 	TelefonoPrefijo  string                 `json:"telefonoPrefijo"`
@@ -60,7 +65,7 @@ func toPerfilResponse(p db.ProfessionalProfile) perfilResponse {
 		especialidades[i] = toEspecialidadResponse(e)
 	}
 	return perfilResponse{
-		Nombre: p.Nombre, Apellido: p.Apellido,
+		TipoPerfil: p.TipoPerfil, Nombre: p.Nombre, Apellido: p.Apellido,
 		TelefonoPrefijo: p.TelefonoPrefijo, Telefono: p.Telefono,
 		Documento: p.Documento, MatriculaTipo: p.MatriculaTipo, MatriculaNumero: p.MatriculaNumero,
 		Especialidades: especialidades, AniosExperiencia: p.AniosExperiencia, Bio: p.Bio, Idiomas: p.Idiomas,
@@ -105,22 +110,48 @@ func updateOnboardingPerfilHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "nombre, apellido y teléfono son obligatorios")
 			return
 		}
-		if req.MatriculaTipo != db.MatriculaTipoNacional && req.MatriculaTipo != db.MatriculaTipoProvincial {
-			writeError(w, http.StatusBadRequest, "elegí el tipo de matrícula")
+
+		// Tipo de perfil (Fase 3.2.3, ronda de QA): vacío = "profesional",
+		// que es lo que significaban todas las altas anteriores a este
+		// campo. Sin ese default, cualquier cliente viejo —o un test que
+		// no lo mande— pasaría a fallar.
+		tipoPerfil := strings.TrimSpace(req.TipoPerfil)
+		if tipoPerfil == "" {
+			tipoPerfil = db.PerfilTipoProfesional
+		}
+		if tipoPerfil != db.PerfilTipoProfesional && tipoPerfil != db.PerfilTipoActividades {
+			writeError(w, http.StatusBadRequest, "elegí si atendés pacientes o hacés actividades de la clínica")
 			return
 		}
-		if req.MatriculaNumero == "" {
-			writeError(w, http.StatusBadRequest, "la matrícula es obligatoria")
-			return
-		}
-		if len(req.EspecialidadIDs) == 0 {
-			writeError(w, http.StatusBadRequest, "elegí al menos una especialidad")
-			return
-		}
-		especialidades, err := loadEspecialidades(gdb, req.EspecialidadIDs)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "una de las especialidades elegidas no es válida")
-			return
+
+		var especialidades []db.Especialidad
+		if tipoPerfil == db.PerfilTipoProfesional {
+			if req.MatriculaTipo != db.MatriculaTipoNacional && req.MatriculaTipo != db.MatriculaTipoProvincial {
+				writeError(w, http.StatusBadRequest, "elegí el tipo de matrícula")
+				return
+			}
+			if req.MatriculaNumero == "" {
+				writeError(w, http.StatusBadRequest, "la matrícula es obligatoria")
+				return
+			}
+			if len(req.EspecialidadIDs) == 0 {
+				writeError(w, http.StatusBadRequest, "elegí al menos una especialidad")
+				return
+			}
+			cargadas, err := loadEspecialidades(gdb, req.EspecialidadIDs)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "una de las especialidades elegidas no es válida")
+				return
+			}
+			especialidades = cargadas
+		} else {
+			// Quien no atiende no tiene matrícula ni especialidades. Se
+			// FUERZAN vacías en vez de confiar en que el formulario no las
+			// haya mandado: son los datos que después decide qué mostrar
+			// la página pública de la clínica.
+			req.MatriculaTipo = ""
+			req.MatriculaNumero = ""
+			req.AniosExperiencia = nil
 		}
 
 		prefijo := strings.TrimSpace(req.TelefonoPrefijo)
@@ -129,26 +160,33 @@ func updateOnboardingPerfilHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		profile := db.ProfessionalProfile{
-			UserID: userID, Nombre: req.Nombre, Apellido: req.Apellido,
+			UserID: userID, TipoPerfil: tipoPerfil, Nombre: req.Nombre, Apellido: req.Apellido,
 			TelefonoPrefijo: prefijo, Telefono: req.Telefono, Documento: req.Documento,
 			MatriculaTipo: req.MatriculaTipo, MatriculaNumero: req.MatriculaNumero,
 			AniosExperiencia: req.AniosExperiencia, Bio: req.Bio, Idiomas: req.Idiomas,
 		}
 
-		err = gdb.Transaction(func(tx *gorm.DB) error {
+		err := gdb.Transaction(func(tx *gorm.DB) error {
 			// Idempotente: si el usuario vuelve atrás y edita el paso 2, se
 			// actualiza la fila existente (PK = user_id) en vez de fallar
 			// por unique violation.
 			if err := tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "user_id"}},
 				DoUpdates: clause.AssignmentColumns([]string{
-					"nombre", "apellido", "telefono_prefijo", "telefono", "documento",
+					"tipo_perfil", "nombre", "apellido", "telefono_prefijo", "telefono", "documento",
 					"matricula_tipo", "matricula_numero", "anios_experiencia", "bio", "idiomas", "updated_at",
 				}),
 			}).Create(&profile).Error; err != nil {
 				return err
 			}
-			if err := tx.Model(&profile).Association("Especialidades").Replace(&especialidades); err != nil {
+			// Con "actividades" la lista queda vacía — y si la persona
+			// ERA profesional y cambió, hay que borrar las que tenía, no
+			// dejarlas colgando.
+			if len(especialidades) == 0 {
+				if err := tx.Model(&profile).Association("Especialidades").Clear(); err != nil {
+					return err
+				}
+			} else if err := tx.Model(&profile).Association("Especialidades").Replace(&especialidades); err != nil {
 				return err
 			}
 			if user.OnboardingStep == db.OnboardingStepPerfil {
@@ -192,6 +230,11 @@ type onboardingClinicaResponse struct {
 // ClinicMember{Role:"owner"} (Paso 3) — completa el onboarding. Rechaza si
 // ya está completo (spec §4: "onboarding completo → no puede volver al
 // wizard").
+// vacio — un campo opcional del request que no llegó, o llegó en blanco.
+func vacio(valor *string) bool {
+	return valor == nil || strings.TrimSpace(*valor) == ""
+}
+
 func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := userIDFromRequest(w, r)
@@ -204,12 +247,45 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			writeError(w, http.StatusNotFound, "usuario no encontrado")
 			return
 		}
-		if user.OnboardingStep == db.OnboardingStepCompleto {
-			writeError(w, http.StatusForbidden, "el onboarding ya está completo")
+		// Fase 3.2.3 — el wizard de dos pasos queda deconstruido en uno.
+		// Crear la clínica dejó de ser "el paso 3 del onboarding" y pasó a
+		// ser una acción de "¿Dónde trabajás hoy?", así que el estado del
+		// wizard ya no puede ser la condición: alguien que entró a la app
+		// porque lo invitaron a la clínica de un colega tiene el
+		// onboarding COMPLETO y puede, meses después, querer armar la
+		// propia. Con el guard viejo ("solo si estás en el paso clínica")
+		// esa persona no podía crearla nunca.
+		//
+		// Lo que sí sigue siendo condición es tener el perfil profesional
+		// cargado: una clínica sin un titular con nombre y matrícula no
+		// tiene de dónde salir.
+		if user.OnboardingStep == db.OnboardingStepCuenta || user.OnboardingStep == db.OnboardingStepPerfil {
+			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
 			return
 		}
-		if user.OnboardingStep != db.OnboardingStepClinica {
+		// Armar la clínica propia exige ser profesional (Fase 3.2.3, ronda
+		// de QA). Alguien que entró a la app para hacer recepción o
+		// administrar la página no cargó matrícula —no se le pidió—, y una
+		// clínica sin un titular con matrícula no tiene de dónde salir. El
+		// frontend le muestra el modal de perfil con la parte profesional
+		// que falta antes de llegar acá; este guard es la red.
+		var perfil db.ProfessionalProfile
+		if err := gdb.First(&perfil, "user_id = ?", userID).Error; err != nil {
 			writeError(w, http.StatusForbidden, "completá tu perfil profesional antes de este paso")
+			return
+		}
+		if perfil.TipoPerfil != db.PerfilTipoProfesional {
+			writeError(w, http.StatusForbidden, "completá tus datos profesionales antes de crear tu clínica")
+			return
+		}
+
+		// Y una sola clínica propia por persona: el mockup dice "Mi
+		// clínica", en singular, y el resto de la app resuelve "la clínica
+		// de este usuario" con un First por owner_id. Ser parte de N
+		// clínicas es el otro lado del multi-tenant y no pasa por acá.
+		var yaPropia db.Clinic
+		if err := gdb.First(&yaPropia, "owner_id = ?", userID).Error; err == nil {
+			writeError(w, http.StatusConflict, "ya tenés tu clínica creada")
 			return
 		}
 
@@ -225,6 +301,16 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 		}
 		if req.Nombre == "" {
 			writeError(w, http.StatusBadRequest, "el nombre de la clínica es obligatorio")
+			return
+		}
+		// Ubicación y contacto pasan a ser obligatorios (Fase 3.2.3, ronda
+		// de QA del 2026-09-13). Son los datos que la página pública de la
+		// clínica le muestra al paciente y por los que el buscador la
+		// encuentra: una clínica sin dirección ni teléfono existe en la
+		// base pero no sirve para lo que la app promete. Nacieron
+		// opcionales cuando la página pública todavía no existía.
+		if vacio(req.Provincia) || vacio(req.Ciudad) || vacio(req.Direccion) || vacio(req.Telefono) {
+			writeError(w, http.StatusBadRequest, "la provincia, la ciudad, la dirección y el teléfono son obligatorios")
 			return
 		}
 
@@ -265,10 +351,23 @@ func updateOnboardingClinicaHandler(gdb *gorm.DB, sender dmmail.Sender) http.Han
 			if err := db.SeedTiposConsultaDefault(tx, clinic.ID); err != nil {
 				return err
 			}
-			return tx.Model(&user).Updates(map[string]any{
-				"onboarding_step":         db.OnboardingStepCompleto,
-				"onboarding_completed_at": now,
-			}).Error
+			if user.OnboardingStep != db.OnboardingStepCompleto {
+				if err := tx.Model(&user).Updates(map[string]any{
+					"onboarding_step":         db.OnboardingStepCompleto,
+					"onboarding_completed_at": now,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			// La clínica recién creada queda como la activa de esta
+			// sesión (Fase 3.2.3). Sin esto, quien ya trabajaba en la
+			// clínica de un colega crearía la suya y seguiría viendo la
+			// del colega, porque la elección anterior sigue guardada.
+			if session, ok := sessionFromContext(r); ok {
+				return tx.Model(&db.Session{}).Where("id = ?", session.ID).
+					Update("clinic_id", clinic.ID).Error
+			}
+			return nil
 		})
 		if err != nil {
 			if isUniqueViolation(err) {

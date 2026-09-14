@@ -588,9 +588,13 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		paciente := db.Paciente{
 			ClinicID: profesionalID,
-			Nombre:   req.Nombre,
-			Apellido: req.Apellido,
-			DNI:      req.DNI,
+			// Quién la cargó — lo que hace que siga siendo visible para esa
+			// persona antes de que exista el primer turno (Fase 3.2.3, ver
+			// soloMisPacientes).
+			CreadoPorUserID: usuarioDeLaSesionOpcional(r),
+			Nombre:          req.Nombre,
+			Apellido:        req.Apellido,
+			DNI:             req.DNI,
 			// Origen "manual" (corrección de QA, Fase 2.4.1) — alta directa
 			// por el profesional, que ya tiene a la persona en frente:
 			// queda VERIFICADA de entrada (ver pacienteEstaVerificado).

@@ -149,9 +149,20 @@ type Paciente struct {
 	// verdad de "quién creó esta ficha" tiene que sobrevivir aunque el
 	// turno que la originó se cancele/borre después. Ver
 	// pacienteEstaVerificado (paciente_verificado_publico.go).
-	Origen    string `gorm:"type:varchar(20);not null;default:pagina_publica;check:origen IN ('pagina_publica','manual')"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Origen string `gorm:"type:varchar(20);not null;default:pagina_publica;check:origen IN ('pagina_publica','manual')"`
+	// CreadoPorUserID — quién dio de alta esta ficha a mano desde el panel
+	// (Fase 3.2.3). Nil para las que llegaron por el formulario público.
+	//
+	// NO es dueño del paciente: los pacientes siguen siendo de la CLÍNICA
+	// (TR-137). Existe por el aislamiento entre colegas: `soloMisPacientes`
+	// deriva "mis pacientes" de los turnos, y una ficha recién cargada con
+	// "+ Agregar paciente" todavía no tiene ninguno — sin esta columna, un
+	// profesional invitado cargaba una ficha y desaparecía de su propio
+	// listado en el mismo instante. Lo encontró un test de la 3.2.3, no la
+	// pantalla.
+	CreadoPorUserID *uuid.UUID `gorm:"column:creado_por_user_id;type:uuid;index"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (Paciente) TableName() string { return "pacientes" }
