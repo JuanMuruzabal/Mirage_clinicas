@@ -17,7 +17,7 @@ import {
 import { CampoTelefono } from "@/components/auth/campo-telefono";
 import { ModalShell } from "@/components/auth/modal-shell";
 import { TarjetaOpcion } from "@/components/auth/tarjeta-opcion";
-import { IconClinic, IconInfo, IconMapPin, IconUser, IconUsers } from "@/components/icons";
+import { IconClinic, IconMapPin, IconUser, IconUsers } from "@/components/icons";
 
 interface OnboardingClinicaFormProps {
   onAtras: () => void;
@@ -155,14 +155,11 @@ export function OnboardingClinicaForm({
         </div>
         {errors.tipo && <p className={authErrorClass}>{errors.tipo.message}</p>}
 
-        {/* Banner con ícono, separado de las tarjetas: pegado abajo de una
-            parecía parte de ella. */}
-        {tipo === "organizacion" && (
-          <p className="flex items-start gap-2.5 rounded-[10px] border-[0.5px] border-salvia bg-salvia-claro px-4 py-3 text-sm text-salvia-oscuro">
-            <IconInfo className="mt-0.5 h-[18px] w-[18px] flex-shrink-0" />
-            <span>Vas a poder invitar colaboradores con distintos roles desde el panel, próximamente.</span>
-          </p>
-        )}
+        {/* Acá había un aviso de que invitar colaboradores llegaba
+            "próximamente". Se sacó el 2026-09-14: llegó en la Fase 3.2.4,
+            y elegir "Organización" ahora TERMINA en esa pantalla. Un
+            cartel que promete para más adelante algo que pasa a
+            continuación es peor que no decir nada. */}
 
         {/* El nombre y los opcionales aparecen recién con el tipo elegido
             (corrección de QA del 2026-09-13). El orden de la

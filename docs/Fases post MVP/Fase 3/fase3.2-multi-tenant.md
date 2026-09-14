@@ -768,3 +768,15 @@ La base de Render se vació de datos de usuario en la misma jornada, a pedido de
 
 Se tomó un dump completo antes de tocar nada.
 
+### Crear una organización termina en Colaboradores (2026-09-14)
+
+Tres cambios chicos con una sola idea atrás: **elegir "Organización" es decir "somos varios", y el paso siguiente es sumar a esos varios.**
+
+**Fuera el aviso de "próximamente".** Al elegir Organización, el modal de alta mostraba *"Vas a poder invitar colaboradores con distintos roles desde el panel, próximamente."* Llegó en la 3.2.4 — el cartel quedó primero desactualizado y ahora, con el redirect de abajo, directamente **contradictorio**: prometía para más adelante lo que pasa a continuación.
+
+**El formulario redirige según el tipo.** Una organización termina en `/colaboradores`; una clínica individual sigue yendo a "¿Qué necesitás hoy?", porque ahí no hay nadie a quien invitar. **Las dos ramas tienen test**: un redirect fijo a `/colaboradores` pasaría el test de la organización y mandaría también a la individual — la misma lección de las dos direcciones que ya apareció dos veces en esta fase.
+
+**Y Colaboradores gana una salida.** Hasta ahora era un desvío desde "¿Qué necesitás hoy?", al que se llegaba y del que se volvía; desde este cambio es también un **punto de llegada**, y quien acaba de crear su clínica quedaba mirando un equipo vacío sin nada que lo llevara adelante. El botón "Ir al panel de gestión" va al final de la pantalla, después del equipo: primero lo que se vino a hacer, después la salida.
+
+Está **detrás del mismo rol que la tarjeta "Gestión de clínica"** (`profesional` o `recepcion`). El panel es la agenda: a alguien que solo administra la página pública no le sirve de nada, y ofrecer una puerta que del otro lado no lleva a ningún lado es exactamente el error que se corrigió con las tarjetas.
+

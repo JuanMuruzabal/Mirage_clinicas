@@ -122,13 +122,17 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     expect(screen.getByRole("button", { name: /Organización/ })).toBeInTheDocument();
   });
 
-  it("elegir organización avisa que las invitaciones llegan después", async () => {
+  // Hasta el 2026-09-14 este test comprobaba lo contrario: que elegir
+  // "Organización" avisaba que invitar colaboradores llegaba
+  // "próximamente". Llegó (Fase 3.2.4) y además es adonde va a parar el
+  // formulario, así que el aviso pasó de desactualizado a contradictorio.
+  it("elegir organización ya no promete las invitaciones para más adelante", async () => {
     render(<DondeTrabajas clinicas={[]} />);
 
     await userEvent.click(screen.getByRole("button", { name: /Crear mi clínica/ }));
     await userEvent.click(screen.getByRole("button", { name: /Organización/ }));
 
-    expect(screen.getByText(/próximamente/i)).toBeInTheDocument();
+    expect(screen.queryByText(/próximamente/i)).not.toBeInTheDocument();
   });
 
   it("crea la clínica con los datos cargados", async () => {

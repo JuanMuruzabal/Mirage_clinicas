@@ -335,6 +335,29 @@ describe("onboardingClinicaAction", () => {
     // revalidar el layout raíz para que se vea sin un refresh manual.
     expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
   });
+
+  // La otra dirección de la misma regla (2026-09-14). Elegir
+  // "organización" es decir "somos varios": el paso siguiente es sumar a
+  // esos varios, así que el formulario termina en Colaboradores. Se
+  // testean las DOS ramas porque un redirect fijo a /colaboradores
+  // pasaría este test y mandaría también a la clínica individual, que no
+  // tiene a nadie a quien invitar.
+  it("en éxito, una ORGANIZACIÓN redirige a /colaboradores", async () => {
+    getSessionTokenMock.mockResolvedValue("un-token");
+    apiOnboardingClinicaMock.mockResolvedValue({ ok: true, data: { clinicId: "c1", slug: "clinica", onboardingStep: "completo" } });
+
+    await expect(
+      onboardingClinicaAction({
+        tipo: "organizacion",
+        nombre: "Clínica",
+        provincia: "Córdoba",
+        ciudad: "Córdoba",
+        direccion: "Av. Colón 1240",
+        telefono: "+54 3511234567",
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT:/colaboradores");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
+  });
 });
 
 describe("updateMeAction", () => {

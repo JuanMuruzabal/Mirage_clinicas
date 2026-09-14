@@ -309,7 +309,12 @@ export async function onboardingClinicaAction(payload: OnboardingClinicaPayload)
   // falta invalidar el layout raíz igual que en TR-059, o quedaría
   // mostrando "Mi clínica" hasta un refresh.
   revalidatePath("/", "layout");
-  redirect("/seleccionar-servicio");
+  // Una ORGANIZACIÓN termina en Colaboradores, no en "¿Qué necesitás
+  // hoy?" (2026-09-14). Elegir "organización" es decir "somos varios":
+  // el paso siguiente es sumar a esos varios, y mandarla a la pantalla
+  // de servicios la obliga a buscar por dónde se hace. Una clínica
+  // individual sigue como estaba — ahí no hay nadie a quien invitar.
+  redirect(parsed.data.tipo === "organizacion" ? "/colaboradores" : "/seleccionar-servicio");
 }
 
 // updateMeAction — edición del perfil ya completo desde /perfil (no el
