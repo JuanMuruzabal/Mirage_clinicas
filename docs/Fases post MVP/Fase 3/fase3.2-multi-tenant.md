@@ -778,5 +778,7 @@ Tres cambios chicos con una sola idea atrás: **elegir "Organización" es decir 
 
 **Y Colaboradores gana una salida.** Hasta ahora era un desvío desde "¿Qué necesitás hoy?", al que se llegaba y del que se volvía; desde este cambio es también un **punto de llegada**, y quien acaba de crear su clínica quedaba mirando un equipo vacío sin nada que lo llevara adelante. El botón "Ir al panel de gestión" va al final de la pantalla, después del equipo: primero lo que se vino a hacer, después la salida.
 
-Está **detrás del mismo rol que la tarjeta "Gestión de clínica"** (`profesional` o `recepcion`). El panel es la agenda: a alguien que solo administra la página pública no le sirve de nada, y ofrecer una puerta que del otro lado no lleva a ningún lado es exactamente el error que se corrigió con las tarjetas.
+**Va a "¿Qué necesitás hoy?", no directo a `/panel`** (corregido por el cliente en la misma jornada). La primera versión apuntaba al panel y por eso llevaba candado por rol: a alguien que solo administra la página pública, la agenda no le sirve. Apuntando a `/seleccionar-servicio` el candado sobra — **esa pantalla ya decide por su cuenta qué tarjetas mostrarle a cada uno**, y es la única que sirve para todos los roles por igual. El destino correcto se llevó puesta la regla que hacía falta para el destino equivocado.
+
+Color: el mismo verde (`salvia-oscuro` sobre `marfil`) que el resto de los botones de acción de la app. La primera versión lo hizo secundario —borde sobre fondo claro— y quedaba como un enlace más, no como la salida de la pantalla.
 

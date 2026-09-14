@@ -59,22 +59,20 @@ export default async function ColaboradoresPage() {
           clínica queda mirando un equipo vacío sin nada que lo lleve
           adelante.
 
-          Detrás del mismo rol que la tarjeta "Gestión de clínica"
-          (Fase 3.2.4): el panel es la agenda, y a alguien que SOLO
-          administra la página pública no le sirve de nada. Ofrecer una
-          puerta que del otro lado no lleva a ningún lado es el mismo
-          error que se corrigió con las tarjetas. */}
-      {(sesion.roles.includes("profesional") || sesion.roles.includes("recepcion")) && (
-        <div className="mx-auto flex w-full max-w-[880px] justify-center">
-          <Link
-            href="/panel"
-            className="inline-flex items-center gap-2 rounded-full border border-linea bg-marfil px-6 py-3 text-sm font-semibold text-grafito transition-colors hover:border-salvia hover:text-salvia-oscuro"
-          >
-            Ir al panel de gestión
-            <span aria-hidden="true">&rarr;</span>
-          </Link>
-        </div>
-      )}
+          Va a "¿Qué necesitás hoy?" y no directo a /panel, así que NO
+          lleva candado por rol: esa pantalla ya decide por su cuenta qué
+          tarjetas mostrarle a cada uno, y es la única que sirve para
+          todos los roles por igual. Mismo verde que el resto de los
+          botones de acción de la app. */}
+      <div className="mx-auto flex w-full max-w-[880px] justify-center">
+        <Link
+          href="/seleccionar-servicio"
+          className="inline-flex items-center gap-2 rounded-full bg-salvia-oscuro px-6 py-3 text-sm font-semibold text-marfil hover:brightness-95"
+        >
+          Ir al panel de gestión
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
+      </div>
     </main>
   );
 }
