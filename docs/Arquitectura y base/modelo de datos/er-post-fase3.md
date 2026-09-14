@@ -215,10 +215,27 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 9 | `sessions.clinic_id` — la clínica elegida en "¿Dónde trabajás hoy?", con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
 | 10 | `pacientes.creado_por_user_id` — quién cargó la ficha a mano, con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
 | 11 | `professional_profiles.tipo_perfil` — `profesional` \| `actividades`, con check ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + check |
+| 12 | `idx_matricula_unica` — índice único **parcial** sobre `professional_profiles (matricula_tipo, matricula_numero)` ✅ **hecho 2026-09-14 (TR-141)** | Índice |
 
 **Una diferencia a propósito entre la app y la base:** desde la ronda de QA del 2026-09-13, crear una clínica exige provincia, ciudad, dirección y teléfono, pero esas cuatro columnas **siguen siendo nullable**. Las clínicas que ya existen no los tienen, y volverlas `NOT NULL` obligaría a inventar valores para datos reales que nadie cargó. La regla vive donde entra el dato nuevo (el handler del alta); el día que todas las filas estén completas, la constraint se puede agregar sin inventar nada.
 
-Los dos últimos no estaban en el diseño original de esta fase. El 9 lo pedía el brief desde el principio (la elección de clínica), pero **dónde** guardarla se decidió recién al implementarlo: en la sesión y no en el usuario, para que dos sesiones abiertas puedan estar en clínicas distintas. El 10 no lo pidió nadie: apareció porque un test mostró que una ficha cargada a mano desaparecía del listado de quien la cargó (TR-139).
+Los últimos cuatro no estaban en el diseño original de esta fase. El 9 lo pedía el brief desde el principio (la elección de clínica), pero **dónde** guardarla se decidió recién al implementarlo: en la sesión y no en el usuario, para que dos sesiones abiertas puedan estar en clínicas distintas. El 10 no lo pidió nadie: apareció porque un test mostró que una ficha cargada a mano desaparecía del listado de quien la cargó (TR-139). El 12 tampoco: apareció revisando la base de DEV por un motivo distinto (TR-141).
+
+### 12 — La matrícula no se puede repetir (2026-09-14, TR-141)
+
+```sql
+CREATE UNIQUE INDEX idx_matricula_unica
+  ON professional_profiles (matricula_tipo, matricula_numero)
+  WHERE matricula_numero <> '';
+```
+
+Tampoco lo pidió nadie: apareció revisando la base de DEV por otro motivo, con **la misma matrícula nacional en cuatro cuentas**. La matrícula es el número con el que un odontólogo está habilitado ante su colegio —identifica a una persona— y es lo que el paciente ve en la página pública para comprobar que quien lo va a atender puede atenderlo.
+
+Tres decisiones dentro de tres líneas:
+
+- **Parcial.** Los perfiles de tipo `actividades` (TR-139) guardan la matrícula como cadena vacía, no NULL. Sin el `WHERE`, todas esas cadenas vacías chocarían entre sí y **solo podría existir una recepcionista en todo el sistema**.
+- **El tipo va en la clave.** `nacional 1234` y `provincial 1234` los emiten organismos distintos y no tienen por qué ser la misma persona.
+- **La provincia no está, y se sabe.** Una matrícula provincial es única dentro de su provincia; el perfil no guarda cuál. Dos odontólogos de provincias distintas con el mismo número se bloquearían entre sí. Se acepta mientras el producto sea de Córdoba (spec §1); cuando aparezca el primero de otra provincia, la provincia entra en la clave.
 
 **Orden obligatorio:** 7 antes que 4 (para no tener las dos columnas confusas conviviendo ni un minuto), y 5 antes que 6 (el constraint nuevo necesita la columna poblada). La migración de datos existentes —39 turnos, 7 tipos de consulta, 3 horarios— asigna todo al `owner` de cada clínica, que hoy es su único profesional.
 

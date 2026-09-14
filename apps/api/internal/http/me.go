@@ -196,6 +196,10 @@ func updateMeHandler(gdb *gorm.DB) http.HandlerFunc {
 			return tx.Model(&existing).Association("Especialidades").Replace(&especialidades)
 		})
 		if err != nil {
+			if esMatriculaDuplicada(err) {
+				writeError(w, http.StatusConflict, errMatriculaDuplicada)
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el perfil")
 			return
 		}

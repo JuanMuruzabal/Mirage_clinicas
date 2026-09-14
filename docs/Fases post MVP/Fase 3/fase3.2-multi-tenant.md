@@ -738,3 +738,33 @@ Con los tres roles —el caso del titular— se ven las tres. Y si alguien **sol
 
 La causa de fondo de las dos es la misma: un layout pensado en pantalla ancha, donde el orden y la alineación los da `justify-between`, y que al envolverse pierde las dos cosas a la vez.
 
+### La alarma que resultó falsa, y lo que encontró de paso (2026-09-14)
+
+**El reporte:** una clínica llamada JUAN, creada por `2213345@…` — y un colega que, al iniciar sesión con **otro** mail, *"aparece como titular de la clínica como si él la hubiera creado con los datos de mi perfil"*. Contra la base de DEV en Render, quince consultas de solo lectura.
+
+**No había ningún dato cruzado.** Son **dos clínicas distintas que se llaman igual**:
+
+| Nombre en pantalla | slug | Titular | Creada |
+|---|---|---|---|
+| JUAN | `juan` | `2213345@ucc.edu.ar` | 26/08 04:47 |
+| JUAN | `juan-2` | `burnert1200@gmail.com` | 26/08 20:31 |
+
+El sufijo lo puso `uniqueSlug` al detectar que `juan` ya estaba tomado — el mecanismo funcionando exactamente como debe. La cronología del colega es la de un alta normal hecha por él mismo: cuenta 20:25 → perfil 20:26 → clínica 20:31.
+
+Y el nombre repetido en pantalla es literal: **los dos perfiles dicen "JUAN Muruzabal"**, cargados así por la misma persona en cuentas de prueba distintas. En la base hay siete. Sumado a que ese día el colega aceptó una invitación a la clínica del otro, su selector muestra "JUAN" y "JUAN", y la pantalla de Colaboradores muestra dos filas con el mismo nombre. Indistinguibles a ojo, correctas en la base.
+
+Los siete chequeos de integridad dieron todos vacío: sin mails repetidos, sin dos cuentas colgadas de la misma identidad de Google, sin rol `owner` en clínica ajena, sin clínica sin titular activo, sin membresías duplicadas, sin códigos de invitación repetidos.
+
+**Lo que sí encontró: la misma matrícula nacional en cuatro cuentas.** Nada lo impedía. Se corrigió en la misma jornada — ver TR-141. El resumen: índice único parcial sobre `(matricula_tipo, matricula_numero)`, 409 con mensaje legible en los dos caminos de escritura del perfil, y la limitación de la matrícula provincial (no guardamos la provincia) escrita con su condición de cambio.
+
+**Una conclusión que no es sobre el bug.** Lo que hizo verosímil la alarma fue la pantalla, no los datos: dos clínicas homónimas son indistinguibles en el selector, y dos personas homónimas lo son en Colaboradores. La base tenía toda la información para separarlas —slug, id, mail— y la interfaz no mostraba ninguna. **No se cambió nada por ahora**, porque en producción real dos clínicas del mismo dueño con idéntico nombre es un caso raro y las siete cuentas homónimas son de prueba; queda anotado como candidato si vuelve a aparecer.
+
+### Limpieza de la base de DEV (2026-09-14)
+
+La base de Render se vació de datos de usuario en la misma jornada, a pedido del cliente. **Dos tablas quedaron intactas y el motivo importa:**
+
+- `especialidades` — catálogo semilla. Se repuebla solo, pero no hay razón para hacerlo pasar por eso.
+- `migraciones_una_vez` — el registro de qué migraciones de DATOS ya corrieron (TR-123). **Borrarlo las haría correr todas de nuevo en el próximo arranque**, incluidas las destructivas. Es la tabla que parece descartable y es la única que no lo es.
+
+Se tomó un dump completo antes de tocar nada.
+

@@ -634,6 +634,44 @@ Cambiar `APP_ENV` a `staging` es seguro: se revisó **todo** lo que depende de e
 
 El costo es un paso manual la primera vez: con el guardián activo, el próximo deploy **frena** hasta que alguien autorice la limpieza de filas legacy con `DB_ALLOW_DESTRUCTIVE=true`. Eso es exactamente lo que la protección existe para hacer, sobre una base que ya no es de desarrollo — y el momento correcto para hacer un backup, que hoy no existe.
 
+## 18. Pendiente de investigar: una IP interna de Render en `sessions.ip` (2026-09-14)
+
+**Estado: ABIERTO.** No se arregló nada acá — queda anotado con la evidencia para la próxima ronda, antes de que se pierda.
+
+### Qué se vio
+
+Revisando la base de DEV por otro motivo (la alarma de la clínica "JUAN", ver `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`), las sesiones vivas mostraban esto:
+
+| Cuándo | `sessions.ip` | Qué es |
+|---|---|---|
+| 2026-09-14 17:05:10 | `10.31.110.3` | **Dirección privada** — red interna de Render |
+| 2026-09-14 17:05:09 | `190.3.95.105` | IP real de un visitante |
+| 2026-09-14 17:03:32 | `181.31.120.226` | IP real de un visitante |
+| 2026-09-14 16:22:57 | `190.137.139.220` | IP real de un visitante |
+| 2026-08-26 (todas) | `74.220.48.143` | Una sola para todo el mundo — el proceso web |
+
+Las dos primeras filas están **a un segundo de distancia**. No es que el reenvío de IP esté apagado: funciona, y en esa request no funcionó.
+
+### Por qué importa
+
+Es el mismo síntoma que motivó TR-136 y TR-134. `clientIP()` alimenta el rate-limiting de auth y los tres detectores de abuso del wizard público. Una IP interna es **compartida por todo lo que pase por ese router**: las requests que caigan ahí se cuentan entre sí. Ya pasó una vez —el detector de rotación por IP borró turnos reales en QA el 2026-09-12— y ese caso era con TODO el tráfico colapsado en una IP. Este es intermitente, que es peor de encontrar.
+
+La fila de 2026-08-26 con `74.220.48.143` repetida para todos es el estado **anterior** a TR-134 y no es parte del problema: es la foto de por qué se hizo.
+
+### Lo que hay que mirar, en este orden
+
+1. **El campo `ip_fuente` del logger en un deploy real.** Vale `cf` / `xff` / `xff-interna` / `remote` y dice cuál de las cuatro ramas de `clientIP()` tomó la decisión. Si en la request de las 17:05:10 dice `xff-interna`, el `X-Forwarded-For` llegó con puras direcciones privadas; si dice `remote`, no llegó ninguna cabecera. **Son dos causas distintas y el arreglo no es el mismo.** CLAUDE.md ya lo dice y hay que respetarlo: mirar el campo en un deploy real, no deducir.
+2. **Si `BFF_SHARED_SECRET` está cargado y con el MISMO valor en los dos servicios.** Si el secreto no coincide, `confiarEnIPDelBFF` descarta la cabecera del BFF **en silencio** y se cae a lo que haya puesto el proxy — que es exactamente el síntoma. Un valor distinto entre servicios, o vacío en uno, produce esto sin ningún error visible.
+3. **Si el patrón se correlaciona con algo**: arranque en frío del contenedor (plan free, el servicio se duerme), una ruta puntual, o un reintento interno de Render.
+
+### Por qué no se arregló ahora
+
+Hay una sola muestra, y la base donde estaba se vació el mismo día. Tocar `clientIP()` con un caso aislado y sin saber cuál de las cuatro ramas disparó es cambiar código a ciegas sobre un mecanismo que ya se corrigió dos veces por deducir en vez de medir. **Lo que falta no es una decisión, son datos** — y el paso 1 los da sin tocar nada.
+
+La evidencia original quedó en el dump que se tomó antes de vaciar la base.
+
+---
+
 ---
 
 ---

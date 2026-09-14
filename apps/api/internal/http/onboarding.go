@@ -195,6 +195,12 @@ func updateOnboardingPerfilHandler(gdb *gorm.DB) http.HandlerFunc {
 			return nil
 		})
 		if err != nil {
+			// 409, no 500: la matrícula repetida es un dato que la persona
+			// puede corregir, no una falla del servidor.
+			if esMatriculaDuplicada(err) {
+				writeError(w, http.StatusConflict, errMatriculaDuplicada)
+				return
+			}
 			writeError(w, http.StatusInternalServerError, "no se pudo guardar tu perfil")
 			return
 		}
