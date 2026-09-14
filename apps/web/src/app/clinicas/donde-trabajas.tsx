@@ -13,6 +13,7 @@ import { aceptarInvitacionAction, rechazarInvitacionAction } from "@/app/actions
 import { OnboardingClinicaForm } from "@/app/sumarse/onboarding-clinica-form";
 import { OnboardingPerfilForm } from "@/app/sumarse/onboarding-perfil-form";
 import { QuadrantMark } from "@/components/quadrant-mark";
+import { ScrollReveal } from "@/components/scroll-reveal";
 
 interface DondeTrabajasProps {
   clinicas: ClinicaDelUsuario[];
@@ -134,17 +135,25 @@ export function DondeTrabajas({
     <>
       <section className="flex flex-col gap-4">
         <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Mi clínica</h2>
-        {propia ? (
-          <TarjetaClinica
-            clinica={propia}
-            ancha
-            onEntrar={() => pedirEntrar(propia)}
-            pendiente={entrando === propia.id}
-            error={errorEntrar?.clinicaId === propia.id ? errorEntrar.mensaje : undefined}
-          />
-        ) : (
-          <TarjetaCrearClinica onClick={pedirCrearClinica} />
-        )}
+        {/* Las tarjetas entran con el mismo fade + desplazamiento que
+            las de "¿Qué necesitás hoy?" (corrección del 2026-09-14).
+            /clinicas es la pantalla ANTERIOR a esa en el recorrido de
+            toda sesión, y era la única de las dos que aparecía de golpe:
+            el cambio de una a otra se notaba como un salto de estilo.
+            `ScrollReveal` respeta `prefers-reduced-motion` solo. */}
+        <ScrollReveal>
+          {propia ? (
+            <TarjetaClinica
+              clinica={propia}
+              ancha
+              onEntrar={() => pedirEntrar(propia)}
+              pendiente={entrando === propia.id}
+              error={errorEntrar?.clinicaId === propia.id ? errorEntrar.mensaje : undefined}
+            />
+          ) : (
+            <TarjetaCrearClinica onClick={pedirCrearClinica} />
+          )}
+        </ScrollReveal>
       </section>
 
       <section className="flex flex-col gap-4">
@@ -160,17 +169,18 @@ export function DondeTrabajas({
         <div className="grid gap-6 sm:grid-cols-2">
           {/* Las invitaciones sin confirmar van PRIMERO: son lo único de
               esta pantalla que espera una decisión (Fase 3.2.4). */}
-          {sinResponder.map((invitacion) => (
-            <TarjetaInvitacion
-              key={invitacion.id}
-              invitacion={invitacion}
-              onAceptar={() => pedirAceptar(invitacion)}
-              onRechazar={() => setRespondidas((previas) => [...previas, invitacion.id])}
-              error={errorEntrar?.clinicaId === invitacion.id ? errorEntrar.mensaje : undefined}
-            />
+          {sinResponder.map((invitacion, i) => (
+            <ScrollReveal key={invitacion.id} delay={i * 0.06} className="h-full">
+              <TarjetaInvitacion
+                invitacion={invitacion}
+                onAceptar={() => pedirAceptar(invitacion)}
+                onRechazar={() => setRespondidas((previas) => [...previas, invitacion.id])}
+                error={errorEntrar?.clinicaId === invitacion.id ? errorEntrar.mensaje : undefined}
+              />
+            </ScrollReveal>
           ))}
           {otras.length === 0 && sinResponder.length === 0 ? (
-            <div className="flex flex-col gap-2 rounded-card border border-dashed border-linea bg-transparent p-8">
+            <ScrollReveal className="flex flex-col gap-2 rounded-card border border-dashed border-linea bg-transparent p-8">
               <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
                 Todavía no trabajás en otras clínicas
               </h3>
@@ -178,19 +188,22 @@ export function DondeTrabajas({
                 Cuando un colega te invite, o cuando uses un código de invitación, la clínica va a aparecer acá y vas a poder
                 cambiar de una a otra sin cerrar sesión.
               </p>
-            </div>
+            </ScrollReveal>
           ) : (
-            otras.map((clinica) => (
-              <TarjetaClinica
-                key={clinica.id}
-                clinica={clinica}
-                onEntrar={() => pedirEntrar(clinica)}
-                pendiente={entrando === clinica.id}
-                error={errorEntrar?.clinicaId === clinica.id ? errorEntrar.mensaje : undefined}
-              />
+            otras.map((clinica, i) => (
+              <ScrollReveal key={clinica.id} delay={(sinResponder.length + i) * 0.06} className="h-full">
+                <TarjetaClinica
+                  clinica={clinica}
+                  onEntrar={() => pedirEntrar(clinica)}
+                  pendiente={entrando === clinica.id}
+                  error={errorEntrar?.clinicaId === clinica.id ? errorEntrar.mensaje : undefined}
+                />
+              </ScrollReveal>
             ))
           )}
-          <Unirme codigoInicial={codigoInicial} />
+          <ScrollReveal delay={(sinResponder.length + otras.length) * 0.06} className="h-full">
+            <Unirme codigoInicial={codigoInicial} />
+          </ScrollReveal>
         </div>
       </section>
 

@@ -838,3 +838,18 @@ Un profesional entra al panel, ve en el topbar en qué clínica está parado y p
 **Lo que queda pendiente, declarado:** la presencia no distingue *"tiene el panel abierto"* de *"estuvo activo hace cuatro minutos"* — con el umbral de 5 minutos, las dos cosas se ven igual. Alcanza para la pregunta del brief (*"¿quién está atendiendo hoy?"*) y no alcanzaría para un indicador de escritura en vivo, que hoy no existe en ninguna pantalla. Si alguna vez hiciera falta, ahí sí entra un transporte con conexión.
 
 Sigue la **3.2.6 — vista del recepcionista**: la subfase más grande, con los cuatro módulos del panel en vista general y por profesional. Es la primera que va a consumir de verdad el aislamiento de la 3.2.2 en la dirección contraria — hasta ahora todo fue *"cada uno ve lo suyo"*, y ahí aparece el rol que ve todo.
+
+### Ronda de QA de la 3.2.5 (2026-09-14)
+
+**El selector de clínica no aparecía, y el motivo era mío.** Lo dibujaba solo si encontraba una clínica con `activa: true` en la lista de `/me/clinicas`, y ese flag vale `true` **únicamente cuando la sesión eligió esa clínica a mano** (`sessions.clinic_id`). Quien entró al panel por el fallback de `membresiaDeLaSesion` —"la más antigua", porque nunca tocó una clínica en `/clinicas`— tiene todas en `false`: el selector no se dibujaba nunca, sin error ni aviso.
+
+La clínica correcta la dice `/me`, que resuelve ese fallback y es justamente lo que el panel está usando. Ahora el header saca de ahí el nombre del botón **y** marca la lista contra ese id, así el tilde y el título dicen lo mismo. Quedó con test: ninguna clínica marcada, y el selector igual aparece.
+
+Es un caso que no se ve leyendo el código —el flag existe y parece la fuente natural— y aparece apenas alguien usa la app sin elegir clínica, que es el camino más común de todos.
+
+**La separación entre las tarjetas de rol parecía inconsistente** (reportado con captura: el hueco a la izquierda de "Recepcionista" era la mitad del de su derecha). Lo que variaba no era la separación sino **el ancho de las tarjetas**: `TarjetaOpcion` es un `<button>`, y un botón encoge a su contenido aunque su contenedor reserve más ancho. "Recepcionista / Maneja los turnos de toda la clínica" entra en una línea y quedaba más angosta que su contenedor del 62%; "Administrador de página", con dos líneas, lo llenaba entero. El sobrante de la primera se leía como espacio entre las dos. Un `w-full` en el botón, y las tres miden lo mismo.
+
+Vale para todas las pantallas que usan esa tarjeta, no solo para el modal de invitar: el alta de clínica (individual / organización) tenía el mismo desajuste, más difícil de notar porque ahí son dos y están en una grilla.
+
+**Las tarjetas de `/clinicas` no tenían animación** y las de "¿Qué necesitás hoy?" sí. Son pantallas consecutivas en el recorrido de toda sesión, así que el salto se notaba como un cambio de estilo. Ahora entran con el mismo `ScrollReveal` —fade y desplazamiento—, escalonadas de a 60 ms y respetando `prefers-reduced-motion`. El `h-full` va en el `ScrollReveal`, que pasó a ser la celda de la grilla: sin eso, las tarjetas dejaban de tener todas el mismo alto.
+

@@ -51,10 +51,29 @@ export async function SiteHeader() {
   // vuelta completa a la API al pintado del panel.
   const [clinicasResult, equipoResult] = await Promise.all([apiMisClinicas(token), apiEquipo(token)]);
 
+  // CUÁL ES LA ACTIVA LA DICE /me, NO EL FLAG DE LA LISTA (corrección del
+  // 2026-09-14, reportada porque el selector no aparecía).
+  //
+  // `clinica.activa` de /me/clinicas vale true solo cuando la sesión
+  // ELIGIÓ esa clínica (`sessions.clinic_id`). Quien entró al panel por
+  // el fallback de `membresiaDeLaSesion` —"la más antigua", cuando nunca
+  // tocó una clínica en /clinicas— tiene todas en false, y el selector,
+  // que se dibujaba solo si encontraba una activa, no se dibujaba nunca.
+  //
+  // /me devuelve la clínica en la que el panel está trabajando de verdad,
+  // fallback incluido. Marcar la lista contra ESE id deja las dos cosas
+  // diciendo lo mismo: el nombre del botón y el tilde de la lista.
+  const clinicaDeLaSesion = me?.ok === true ? me.data.clinica : null;
+  const clinicas = (clinicasResult.ok ? clinicasResult.data.clinicas : []).map((clinica) => ({
+    ...clinica,
+    activa: clinicaDeLaSesion ? clinica.id === clinicaDeLaSesion.id : clinica.activa,
+  }));
+
   return (
     <SiteHeaderChrome
       estado={estado}
-      clinicas={clinicasResult.ok ? clinicasResult.data.clinicas : []}
+      clinicas={clinicas}
+      nombreClinicaActual={clinicaDeLaSesion?.nombre ?? null}
       equipo={equipoResult.ok ? equipoResult.data : null}
     />
   );

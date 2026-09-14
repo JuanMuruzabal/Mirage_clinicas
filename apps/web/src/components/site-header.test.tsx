@@ -43,7 +43,14 @@ function fakeCookieStore(value?: string) {
   });
 }
 
-function mockMe(data: { emailVerificado?: boolean; onboardingCompletado?: boolean }) {
+function mockMe(data: {
+  emailVerificado?: boolean;
+  onboardingCompletado?: boolean;
+  // La clínica donde la sesión está trabajando. Es lo que /me resuelve
+  // —incluido el fallback de "la más antigua"— y de donde el header saca
+  // cuál mostrar en el selector (Fase 3.2.5).
+  clinica?: { id: string; nombre: string } | null;
+}) {
   fakeCookieStore("un-token");
   apiMeMock.mockResolvedValue({ ok: true, data: { id: "1", email: "a@example.com", ...data } });
 }
@@ -283,12 +290,36 @@ describe("SiteHeader", () => {
     });
 
     it("muestra el selector de clínica con la clínica activa y el popover de colaboradores", async () => {
-      mockMe({ emailVerificado: true, onboardingCompletado: true });
+      mockMe({ emailVerificado: true, onboardingCompletado: true, clinica: { id: "c1", nombre: "Clínica Norte" } });
 
       renderConProvider(await SiteHeader());
 
       expect(screen.getByRole("button", { name: "Cambiar de clínica" })).toHaveTextContent("Clínica Norte");
       expect(screen.getByRole("button", { name: "Ver colaboradores" })).toHaveTextContent("1 en línea");
+    });
+
+    // EL BUG QUE SE ESCAPÓ (reportado el 2026-09-14: "no se ven las
+    // adiciones al header"). `clinica.activa` de /me/clinicas vale true
+    // solo cuando la sesión ELIGIÓ esa clínica; quien entró al panel por
+    // el fallback de "la más antigua" tiene todas en false. El selector
+    // se dibujaba solo si encontraba una activa — o sea, nunca, para esa
+    // persona. La clínica correcta la dice /me, que resuelve el fallback.
+    it("muestra el selector aunque ninguna clínica esté marcada como activa", async () => {
+      apiMisClinicasMock.mockResolvedValue({
+        ok: true,
+        data: {
+          clinicas: [
+            { id: "c1", nombre: "Clínica Norte", slug: "norte", rolPrincipal: "profesional", activa: false },
+            { id: "c2", nombre: "Clínica Sur", slug: "sur", rolPrincipal: "recepcion", activa: false },
+          ],
+          invitaciones: [],
+        },
+      });
+      mockMe({ emailVerificado: true, onboardingCompletado: true, clinica: { id: "c1", nombre: "Clínica Norte" } });
+
+      renderConProvider(await SiteHeader());
+
+      expect(screen.getByRole("button", { name: "Cambiar de clínica" })).toHaveTextContent("Clínica Norte");
     });
 
     it("fuera del panel no pide las clínicas ni el equipo", async () => {

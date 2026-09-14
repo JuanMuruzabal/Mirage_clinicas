@@ -60,6 +60,7 @@ export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 export function SiteHeaderChrome({
   estado,
   clinicas,
+  nombreClinicaActual,
   equipo,
 }: {
   estado: EstadoHeaderSesion;
@@ -67,15 +68,19 @@ export function SiteHeaderChrome({
    *  resto del sitio vienen vacías y este header no cambia en nada. El
    *  Server Component decide con `x-pathname` (ver site-header.tsx). */
   clinicas?: ClinicaDelUsuario[];
+  /** La clínica donde el panel está trabajando, según /me — que resuelve
+   *  el fallback de "la más antigua". No se deriva de `clinicas`: el flag
+   *  `activa` de esa lista vale solo cuando la sesión eligió una a mano. */
+  nombreClinicaActual?: string | null;
   equipo?: Equipo | null;
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
 
-  // La clínica activa sale de la lista misma y no de una prop aparte:
-  // una sola fuente para "cuál es" y "cuáles hay" no puede desincronizarse.
-  const clinicaActual = clinicas?.find((c) => c.activa)?.nombre ?? null;
+  // Quién es la activa lo dice /me (ver site-header.tsx), con la lista
+  // como red: si por lo que sea /me no trajo clínica, se cae al flag.
+  const clinicaActual = nombreClinicaActual ?? clinicas?.find((c) => c.activa)?.nombre ?? null;
 
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
