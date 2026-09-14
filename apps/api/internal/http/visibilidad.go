@@ -15,10 +15,28 @@ import (
 // PROFESIONAL, ES AISLADO DEL RESTO DE PROFESIONALES". Un odontólogo ve su
 // agenda y sus pacientes; no los del colega del sillón de al lado.
 //
-// QUIÉN VE TODO. Recepción, por definición del brief ("el recepcionista
-// tiene acceso a todas las vistas de los profesionales"), y quien
-// administra la clínica —`owner` y `admin`—, que necesitan la vista
-// completa para reasignar turnos y resolver conflictos.
+// QUIÉN VE TODO: SOLO RECEPCIÓN. El brief no deja lugar a otra cosa —
+// "Recepcionista: tiene acceso a todas las vistas de los N profesionales
+// dentro de la aplicación"— y el resto de los roles se definen por lo
+// contrario: el profesional está "aislado de las demás vistas de
+// profesionales", y el administrador de página tiene "acceso a la página
+// web y sus herramientas", nada más.
+//
+// CORRECCIÓN DEL 2026-09-14. Hasta acá esta función también incluía
+// `owner` y `admin`, y eso era una interpretación mía, no una regla del
+// cliente: la saqué de una línea de las Aclaraciones del brief ("un
+// administrador tendrá la capacidad de acceder a cada una de las vistas
+// de cada profesional y reasignación de turnos ENTRE profesionales").
+// Esa línea aclara "(ver más adelante en roles)", y más adelante el
+// administrador es **de la página**. Estiré la palabra hasta un rol que
+// significa otra cosa.
+//
+// Lo que se rompía con eso: el titular de la clínica es
+// `owner`+`admin`+`profesional`, así que veía TODOS los turnos de la
+// clínica — justo lo que el requisito en mayúsculas del brief prohíbe
+// ("CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO DEL RESTO
+// DE PROFESIONALES"). El titular atiende pacientes como cualquier otro:
+// ve los suyos.
 //
 // POR QUÉ ESTO VIVE EN UN SCOPE Y NO EN CADA HANDLER. Son 17 queries de
 // turnos y 8 de pacientes filtrando por clínica. Repetir la condición en
@@ -36,7 +54,7 @@ import (
 
 // veTodaLaClinica — ¿este usuario ve la clínica entera, o solo lo suyo?
 func veTodaLaClinica(r *http.Request) bool {
-	return tieneAlgunRol(r, db.RoleRecepcion, db.RoleAdmin, db.RoleOwner)
+	return tieneAlgunRol(r, db.RoleRecepcion)
 }
 
 // usuarioDeLaSesion — el user autenticado. Solo existe después de

@@ -170,15 +170,23 @@ func TestPaginacion_PacientesTambienPagina(t *testing.T) {
 	// falta que estén verificadas, y crearPacienteVerificadoDePrueba les
 	// arma un turno resuelto con hora casi idéntica — cuatro seguidos
 	// chocan contra el exclusion constraint de no-solapamiento.
+	//
+	// `CreadoPorUserID` no es decorativo desde la corrección del
+	// 2026-09-14 (solo recepción ve toda la clínica): una ficha sin
+	// turno y sin creador no es de nadie, y el titular —que es un
+	// profesional más— no la vería. Cargarla a mano desde el panel es
+	// justamente la forma real de que exista una ficha sin turno.
 	profID := uuid.MustParse(reg.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, profID)
 	for i := 0; i < 4; i++ {
 		telefono := "+549351123456" + strconv.Itoa(i)
 		p := db.Paciente{
-			ClinicID: profID,
-			Nombre:   "Paciente" + strconv.Itoa(i),
-			Apellido: "Paginado",
-			DNI:      "4055" + strconv.Itoa(1000+i),
-			Telefono: &telefono,
+			ClinicID:        profID,
+			CreadoPorUserID: &ownerID,
+			Nombre:          "Paciente" + strconv.Itoa(i),
+			Apellido:        "Paginado",
+			DNI:             "4055" + strconv.Itoa(1000+i),
+			Telefono:        &telefono,
 		}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %d: %v", i, err)
@@ -239,13 +247,17 @@ func TestPaginacion_PacientesFiltroVerificacion(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pag-verif@example.com")
 	profID := uuid.MustParse(reg.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, profID)
 
 	// origen=manual ya alcanza para que una ficha cuente como verificada
 	// (pacienteEstaVerificado) — no hace falta armarle un turno asistido.
 	crear := func(dni, origen string) {
 		t.Helper()
 		telefono := "+54935112399" + dni[len(dni)-2:]
-		p := db.Paciente{ClinicID: profID, Nombre: "Ver" + dni, Apellido: "Ificado", DNI: dni, Telefono: &telefono, Origen: origen}
+		p := db.Paciente{
+			ClinicID: profID, CreadoPorUserID: &ownerID,
+			Nombre: "Ver" + dni, Apellido: "Ificado", DNI: dni, Telefono: &telefono, Origen: origen,
+		}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %s: %v", dni, err)
 		}
@@ -289,9 +301,14 @@ func TestPaginacion_PacientesSinVerificadosDevuelveTodos(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pag-noverif@example.com")
 	profID := uuid.MustParse(reg.Profesional.ID)
+	ownerID := ownerDePrueba(t, gdb, profID)
 	for i := 0; i < 2; i++ {
 		telefono := "+549351129900" + strconv.Itoa(i)
-		p := db.Paciente{ClinicID: profID, Nombre: "Nadie" + strconv.Itoa(i), Apellido: "Verificado", DNI: "4098000" + strconv.Itoa(i), Telefono: &telefono, Origen: "pagina_publica"}
+		p := db.Paciente{
+			ClinicID: profID, CreadoPorUserID: &ownerID,
+			Nombre: "Nadie" + strconv.Itoa(i), Apellido: "Verificado",
+			DNI: "4098000" + strconv.Itoa(i), Telefono: &telefono, Origen: "pagina_publica",
+		}
 		if err := gdb.Create(&p).Error; err != nil {
 			t.Fatalf("no se pudo crear el paciente %d: %v", i, err)
 		}

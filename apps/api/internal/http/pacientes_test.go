@@ -221,13 +221,20 @@ func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
 
 	// Ficha genuinamente NO verificada — "llegada" por el formulario
 	// público, sin ningún turno todavía.
+	//
+	// Lleva `CreadoPorUserID` desde la corrección del 2026-09-14 (solo
+	// recepción ve toda la clínica): sin turno ni creador, esta ficha no
+	// es de nadie y el titular —un profesional más— no la vería. Lo que
+	// se prueba acá es el estado VERIFICADO, no la visibilidad.
 	profesionalID, err := uuid.Parse(reg.Profesional.ID)
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
+	ownerID := ownerDePrueba(t, gdb, profesionalID)
 	telNoVerificado := "+549"
 	noVerificado := db.Paciente{
-		ClinicID: profesionalID, Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: &telNoVerificado, Origen: "pagina_publica",
+		ClinicID: profesionalID, CreadoPorUserID: &ownerID,
+		Nombre: "Carla", Apellido: "Núñez", DNI: "30333444", Telefono: &telNoVerificado, Origen: "pagina_publica",
 	}
 	if err := gdb.Create(&noVerificado).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente no verificado de prueba: %v", err)

@@ -344,7 +344,7 @@ El brief lo pide en mayúsculas: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL
 
 Los tests de aislamiento que ya existían (TR-129) son entre **clínicas distintas**. Entre colegas de la misma clínica no había ninguno, porque hasta esta fase no había colegas.
 
-**Quién ve todo:** recepción, por definición del brief, y quien administra la clínica (owner, admin), que necesitan la vista completa para reasignar turnos y resolver conflictos.
+**Quién ve todo:** ~~recepción, y quien administra la clínica (owner, admin)~~ → **solo recepción**. Ver la corrección del 2026-09-14 al final de esta bitácora: incluir a `owner` y `admin` fue una interpretación mía que contradecía el propio brief.
 
 **Por qué vive en un scope y no en cada handler.** Son 17 queries de turnos y 8 de pacientes filtrando por clínica. Repetir la condición en cada una garantiza que alguna quede sin ella, y **una fuga de aislamiento no se nota mirando la pantalla**: los datos aparecen, simplemente son de más gente de la que corresponde. Concentrarlo en `soloMisTurnos` / `soloMisPacientes` (`internal/http/visibilidad.go`) deja un solo lugar que auditar, y un solo lugar que cambiar cuando la 3.2.6 sume la vista del recepcionista por profesional.
 
@@ -629,4 +629,26 @@ Un endpoint que solo prueba el frontend con un mock no está probado: el mock de
 **Lo que queda pendiente de esta subfase, declarado:** el brief pide que al crear una clínica de tipo "organización" el alta siga directo en esta pantalla. Hoy los dos tipos terminan en `/seleccionar-servicio`, desde donde la tarjeta de colaboradores está a un click. Y el rol `admin` (administrador de página) se puede asignar por la API pero el modal todavía ofrece solo Profesional y Recepcionista, que son los dos que el mockup muestra.
 
 Sigue la **3.2.5 — panel del profesional**: el selector de clínica en el header y el componente de colaboradores, que va a reusar esta misma lista.
+
+## Corrección del 2026-09-14 — quién ve toda la clínica
+
+Salió de una pregunta del cliente sobre el rol `admin`, y terminó en un bug de aislamiento que llevaba dos subfases adentro.
+
+**De dónde salía `admin`.** El rol existe en el brief —*"Administrador de la página: acceso a la página web y sus herramientas"*— y como constante es anterior a la Fase 3: viene del modelo de auth original (`0b5a9aa`, agosto), con el check `IN ('owner','admin','profesional','recepcion')`. Eso no estaba en discusión.
+
+**Lo que sí era mío: que `admin` y `owner` vieran todos los turnos.** Lo escribí en la 3.2.2 apoyándome en una línea de las Aclaraciones del brief:
+
+> *"Un administrador (ver más adelante en roles) tendrá la capacidad de acceder a cada una de las vistas de cada profesional y reasignación de turnos ENTRE profesionales si se da el caso."*
+
+La propia línea dice **"(ver más adelante en roles)"**, y más adelante el administrador es **de la página**. Estiré esa palabra hasta un rol que significa otra cosa — y el cliente lo marcó con precisión: *"el admin NO puede ver todos los turnos porque es PROFESIONAL"*, y *"administrador de la página se refiere a la parte de personalizar página, no administrador de la clínica"*.
+
+**Qué rompía.** El titular es `owner` + `admin` + `profesional`, así que veía **todos los turnos y pacientes de su clínica**. Es exactamente lo que el requisito en mayúsculas del mismo brief prohíbe: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO DEL RESTO DE PROFESIONALES"*. Hoy `veTodaLaClinica` es solo `recepcion`.
+
+**Cómo se coló, que es la parte que vale.** Los tests de aislamiento de la 3.2.2 probaban **una sola dirección**: que un colega no viera lo del titular. Esa es justo la dirección que el bug no rompía. La inversa —que el titular no vea lo del colega— no tenía test, así que el error pasó CI, la revisión y dos subfases sin que nada lo marcara.
+
+Es la segunda vez en esta fase que una regla de aislamiento se cumple "a medias" sin que la suite lo note: la primera fue en la 3.2.3, cuando ningún test verificaba que un profesional **sí viera lo propio**. Las dos veces el patrón fue el mismo — probar una dirección de una regla que tiene dos.
+
+**Efecto lateral en los fixtures.** Cuatro tests creaban fichas directo en la base, sin turno, y las leían como titular. Sin `veTodaLaClinica` abierto, esas fichas no son de nadie: ahora llevan `creado_por_user_id`, que es la forma real de que exista una ficha sin turno (alta a mano desde el panel).
+
+**Verificado:** 1 test nuevo que fija la dirección que faltaba, 12 paquetes en verde, cobertura 80,3%.
 
