@@ -8,11 +8,20 @@ const {
   generarCodigoInvitacionActionMock,
   onboardingClinicaActionMock,
   onboardingPerfilActionMock,
+  aceptarInvitacionActionMock,
+  rechazarInvitacionActionMock,
 } = vi.hoisted(() => ({
   entrarEnClinicaActionMock: vi.fn(),
   generarCodigoInvitacionActionMock: vi.fn(),
   onboardingClinicaActionMock: vi.fn(),
   onboardingPerfilActionMock: vi.fn(),
+  aceptarInvitacionActionMock: vi.fn(),
+  rechazarInvitacionActionMock: vi.fn(),
+}));
+
+vi.mock("@/app/actions/equipo", () => ({
+  aceptarInvitacionAction: aceptarInvitacionActionMock,
+  rechazarInvitacionAction: rechazarInvitacionActionMock,
 }));
 
 vi.mock("@/app/actions/clinicas", () => ({
@@ -439,6 +448,87 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
 
     await waitFor(() => expect(entrarEnClinicaActionMock).toHaveBeenCalledWith("la-del-mostrador"));
     expect(screen.queryByRole("heading", { name: "Completá tus datos profesionales" })).not.toBeInTheDocument();
+  });
+
+  // --- Invitaciones pendientes (Fase 3.2.4) ---
+  //
+  // Pedido del cliente: "las clínicas a las que me han invitado o yo haya
+  // pasado el código, se verán en 'otras clínicas' como estado pendiente
+  // a confirmar". Nadie queda adentro de una clínica sin decir que sí.
+  const invitacion = {
+    id: "inv-1",
+    nombreClinica: "Clínica Que Invita",
+    rol: "recepcion" as const,
+    venceAt: "2026-09-21T12:00:00Z",
+  };
+
+  it("muestra las invitaciones sin confirmar junto a las otras clínicas", () => {
+    render(<DondeTrabajas clinicas={[]} invitaciones={[invitacion]} />);
+
+    expect(screen.getByText("Clínica Que Invita")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente a confirmar")).toBeInTheDocument();
+    // No hay "Entrar": todavía no es una clínica suya.
+    expect(screen.queryByRole("button", { name: "Entrar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+  });
+
+  it("confirmar la saca de pendientes", async () => {
+    aceptarInvitacionActionMock.mockResolvedValue({});
+    render(<DondeTrabajas clinicas={[]} invitaciones={[invitacion]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(aceptarInvitacionActionMock).toHaveBeenCalledWith("inv-1"));
+    await waitFor(() => expect(screen.queryByText("Pendiente a confirmar")).not.toBeInTheDocument());
+  });
+
+  it("rechazar también la saca, sin entrar a ningún lado", async () => {
+    rechazarInvitacionActionMock.mockResolvedValue({});
+    render(<DondeTrabajas clinicas={[]} invitaciones={[invitacion]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Rechazar" }));
+
+    await waitFor(() => expect(rechazarInvitacionActionMock).toHaveBeenCalledWith("inv-1"));
+    await waitFor(() => expect(screen.queryByText("Clínica Que Invita")).not.toBeInTheDocument());
+    expect(aceptarInvitacionActionMock).not.toHaveBeenCalled();
+  });
+
+  // La tercera puerta de la misma regla de la 3.2.3: sin matrícula no se
+  // entra a atender, tampoco aceptando una invitación.
+  it("aceptar como profesional pide antes los datos que faltan", async () => {
+    render(
+      <DondeTrabajas
+        clinicas={[]}
+        invitaciones={[{ ...invitacion, rol: "profesional" }]}
+        perfil={perfilQueNoAtiende}
+        especialidades={[{ id: "esp-1", nombre: "Ortodoncia" }]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(screen.getByRole("heading", { name: "Completá tus datos profesionales" })).toBeInTheDocument();
+    expect(aceptarInvitacionActionMock).not.toHaveBeenCalled();
+  });
+
+  // Pero una invitación de RECEPCIÓN no pide nada: ahí no se atiende.
+  it("aceptar como recepción no pide matrícula", async () => {
+    aceptarInvitacionActionMock.mockResolvedValue({});
+    render(<DondeTrabajas clinicas={[]} invitaciones={[invitacion]} perfil={perfilQueNoAtiende} especialidades={[]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(aceptarInvitacionActionMock).toHaveBeenCalledWith("inv-1"));
+    expect(screen.queryByRole("heading", { name: "Completá tus datos profesionales" })).not.toBeInTheDocument();
+  });
+
+  it("si confirmar falla, lo dice en la tarjeta", async () => {
+    aceptarInvitacionActionMock.mockResolvedValue({ error: "invitación no encontrada" });
+    render(<DondeTrabajas clinicas={[]} invitaciones={[invitacion]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("invitación no encontrada");
   });
 });
 

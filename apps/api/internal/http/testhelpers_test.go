@@ -215,6 +215,7 @@ type capturingMailSender struct {
 	resetURLs         map[string]string
 	turnoVerifyCodes  map[string]string
 	turnosConfirmados map[string]mail.TurnoConfirmadoInfo
+	invitaciones      map[string]mail.InvitacionColaboradorInfo
 }
 
 func newCapturingMailSender() *capturingMailSender {
@@ -223,6 +224,7 @@ func newCapturingMailSender() *capturingMailSender {
 		resetURLs:         map[string]string{},
 		turnoVerifyCodes:  map[string]string{},
 		turnosConfirmados: map[string]mail.TurnoConfirmadoInfo{},
+		invitaciones:      map[string]mail.InvitacionColaboradorInfo{},
 	}
 }
 
@@ -261,6 +263,27 @@ func (c *capturingMailSender) SendTurnoConfirmadoEmail(_ context.Context, to str
 	defer c.mu.Unlock()
 	c.turnosConfirmados[to] = info
 	return nil
+}
+
+// SendInvitacionColaboradorEmail — Fase 3.2.4: la invitación puede ir a
+// un mail SIN cuenta en la app, así que este es el único rastro de que se
+// mandó.
+func (c *capturingMailSender) SendInvitacionColaboradorEmail(_ context.Context, to string, info mail.InvitacionColaboradorInfo) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.invitaciones[to] = info
+	return nil
+}
+
+// invitacionEnviadaA — nil si nunca se invitó a ese mail.
+func (c *capturingMailSender) invitacionEnviadaA(email string) *mail.InvitacionColaboradorInfo {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	info, ok := c.invitaciones[email]
+	if !ok {
+		return nil
+	}
+	return &info
 }
 
 // turnoConfirmadoEnviadoA — nil si nunca se llamó a SendTurnoConfirmadoEmail

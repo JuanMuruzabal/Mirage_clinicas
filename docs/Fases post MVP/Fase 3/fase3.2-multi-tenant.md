@@ -106,7 +106,7 @@ El cambio de modelo completo, sin tocar una sola pantalla.
 - Crear clínica propia vs. unirse a una existente (código de invitación).
 - `users.codigo_invitacion`.
 
-### 3.2.4 — Colaboradores
+### 3.2.4 — Colaboradores ✅
 
 - Tarjeta nueva en "seleccionar servicio".
 - Invitar por código (inmediato) o por mail (queda `invited` hasta aceptar).
@@ -344,7 +344,7 @@ El brief lo pide en mayúsculas: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL
 
 Los tests de aislamiento que ya existían (TR-129) son entre **clínicas distintas**. Entre colegas de la misma clínica no había ninguno, porque hasta esta fase no había colegas.
 
-**Quién ve todo:** recepción, por definición del brief, y quien administra la clínica (owner, admin), que necesitan la vista completa para reasignar turnos y resolver conflictos.
+**Quién ve todo:** ~~recepción, y quien administra la clínica (owner, admin)~~ → **solo recepción**. Ver la corrección del 2026-09-14 al final de esta bitácora: incluir a `owner` y `admin` fue una interpretación mía que contradecía el propio brief.
 
 **Por qué vive en un scope y no en cada handler.** Son 17 queries de turnos y 8 de pacientes filtrando por clínica. Repetir la condición en cada una garantiza que alguna quede sin ella, y **una fuga de aislamiento no se nota mirando la pantalla**: los datos aparecen, simplemente son de más gente de la que corresponde. Concentrarlo en `soloMisTurnos` / `soloMisPacientes` (`internal/http/visibilidad.go`) deja un solo lugar que auditar, y un solo lugar que cambiar cuando la 3.2.6 sume la vista del recepcionista por profesional.
 
@@ -558,4 +558,155 @@ Pedido del cliente mientras cerrábamos esto, para tenerlo presente al empezar:
 O sea que "Otras clínicas" no va a listar solo membresías activas: va a mostrar también las **invitaciones sin aceptar**, con su propio estado y su acción de confirmar. El modelo ya lo soporta —`clinic_members.status` admite `invited`— y `GET /me/clinicas` hoy filtra por `status = 'active'`: ese filtro es el que va a cambiar, junto con la tarjeta.
 
 **Verificado:** 12 paquetes de backend en verde (1 test nuevo, el del recepcionista invitado a atender en otra clínica), 1070 tests frontend, cobertura y lint en verde, build OK, contenedores reconstruidos.
+
+## 3.2.4 — Colaboradores
+
+**Fecha:** 2026-09-14 · **Código:** `internal/http/equipo.go`, `internal/http/invitaciones_recibidas.go` · **Mockups:** `colaboradores.html`, `clinica-inicio.html`
+
+La subfase que estrena todo lo anterior: los roles de la 3.2.2, el código de invitación de la 3.2.3 y el perfil sin matrícula que esa misma ronda de QA hizo posible.
+
+### Paso 1: una sola mecánica para los dos caminos
+
+El brief pide dos formas de sumar a alguien —código de perfil o mail— y las describe distintas: *"si es por token/código de perfil se añadirá al instante ya que se supone que el otro usuario lo compartió; si es por mail, quedará en estado pendiente hasta que el otro profesional acepte"*.
+
+**Las dos terminan igual: pendientes de confirmar.** Lo corrigió el propio cliente al pedir que *"las clínicas a las que me han invitado o yo haya pasado el código"* se vean como pendientes. Y es lo correcto de fondo: **compartir un código es ofrecerse, no aceptar**. Nadie queda adentro de una clínica —viendo agendas y datos de pacientes— sin haber dicho que sí desde su propia pantalla.
+
+Lo que el código sí resuelve, y el mail no: **identifica a una persona, no a una dirección**. La invitación por código saca el mail del perfil de quien lo generó, así que por ese camino un error de tipeo en la dirección no existe.
+
+### Por qué `clinic_invitations` y no una membresía "invitada"
+
+El modelo tenía las dos piezas desde el auth original: `clinic_members.status` admite `invited`, y existe una tabla `clinic_invitations` sin usar. La decisión la fuerza un caso del brief: **se puede invitar a un mail que todavía no tiene cuenta**, y `clinic_members.user_id` es NOT NULL.
+
+Una invitación se dirige a una **dirección**; una membresía, a una **persona que ya existe**. Por eso las invitaciones se buscan por mail: quien se registra después con esa dirección se las encuentra esperando, sin ningún paso extra ni token que copiar.
+
+### Las decisiones chicas, y su motivo
+
+- **Ver el equipo lo puede cualquier miembro; invitar y quitar, solo el titular.** Saber con quién se trabaja no es un permiso especial —y la 3.2.5 va a mostrar esta misma lista en el header del panel—, pero repartir accesos sí: *"el creador: el responsable de asignar roles e invitar a sus colegas"*.
+- **Un código vencido responde lo mismo que uno inexistente.** Decir "existió pero venció" le confirmaría a quien prueba códigos al azar que acertó uno.
+- **Aceptar la invitación de otro da 404.** El id de una invitación no es secreto: viaja en la pantalla de quien invitó. Sin verificar que el mail de la invitación sea el de quien responde, cualquiera con sesión se metería en una clínica ajena. Hay un test que lo intenta.
+- **Reenviar renueva el vencimiento.** Si no, una invitación de hace ocho días se reenviaría vencida: un mail que no sirve para nada.
+- **Quitar a alguien marca la membresía, no la borra** (TR-137), y **al titular no se lo puede quitar**: sin él la clínica queda sin nadie que pueda invitar ni repartir roles, y de ese estado no se vuelve.
+- **Volver a sumar a quien se fue reactiva la membresía marcada**, no crea una segunda — el índice único `(clinic_id, user_id)` la rechazaría, y con razón: es la misma relación, no una nueva. Tiene test propio porque es el camino que nadie prueba a mano.
+- **Aceptar como profesional exige matrícula**, igual que crear la clínica propia o entrar a atender (3.2.3). Es la tercera puerta de la misma regla, y ahora las tres tienen su guard.
+- **El rol excluyente lo sigue impidiendo el motor**: si alguien ya es `recepcion` en esa clínica, aceptar como `profesional` choca contra el índice único parcial de la 3.2.1. El handler traduce ese 23505 a algo que se entienda.
+
+**Verificado:** 10 tests nuevos, 12 paquetes en verde, gofmt + golangci-lint 0 issues.
+
+### Paso 2: la pantalla del equipo
+
+`/colaboradores` es un área propia, como `/personalizar-pagina`: no vive bajo `/panel/**` porque no es una herramienta de la agenda sino de la clínica. Es la tercera tarjeta de "¿Qué necesitás hoy?", y **solo la ve el titular** — mostrársela al resto sería ofrecer una pantalla que el backend les va a negar.
+
+El orden de las secciones lo pide el brief —*"primero el creador, luego recepcionistas, y al final las tarjetas de los colegas"*— y no es estético: es el orden en que alguien busca a una persona cuando entra acá. Primero se ubica a sí mismo, después a quien atiende el teléfono, después al resto.
+
+**El modal de invitar tiene dos pasos, y el rol va primero.** El rol es lo que decide qué va a poder ver esa persona, así que se elige antes de nombrarla; al revés, termina siendo un detalle que se completa apurado sobre el final.
+
+La pantalla de éxito dice algo que el brief original no habría necesitado: *"hasta que confirme desde su pantalla de clínicas, no ve nada de la tuya"*. Con el código sumando al instante, invitar era un hecho consumado; ahora es un pedido, y la pantalla tiene que decirlo o quien invita se queda esperando que aparezca alguien que todavía no aceptó.
+
+### Paso 3: el otro lado, la confirmación
+
+En "Otras clínicas" las invitaciones sin responder van **primero**: son lo único de esa pantalla que espera una decisión. Se ven distintas a propósito —borde punteado, etiqueta "Pendiente a confirmar", sin "Entrar"— porque todavía no llevan a ningún lado.
+
+**Aceptar una invitación de profesional es la tercera puerta de la misma regla de la 3.2.3.** Sin matrícula no se entra a atender: ni creando la clínica propia, ni entrando a una donde ya sos profesional, ni aceptando una invitación. Las tres comparten el mismo modal encadenado y las tres tienen su guard en el backend. Una invitación de recepción no pide nada: ahí no se atiende a nadie.
+
+### El invitado que todavía no tiene cuenta
+
+Es el caso que decidió el modelo, y no necesitó código propio: la invitación se guarda contra una **dirección de mail**, así que quien se registra después con esa misma dirección se la encuentra esperando en su pantalla de clínicas. Sin token que copiar, sin link de un solo uso, sin un estado intermedio que mantener.
+
+Ese camino es también el que la ronda de QA de la 3.2.3 dejó listo: esa persona puede crear su perfil **sin matrícula** —*"no necesariamente el recepcionista tiene una matrícula de profesional"*— porque el alta dejó de asumir que todos atienden pacientes. Las dos decisiones se tomaron con una semana de diferencia y encajan sin costura.
+
+### Con esto la 3.2.4 queda completa
+
+Una clínica puede armar su equipo: invitar por código o por mail, ver quién está y quién falta confirmar, reenviar, cancelar y quitar. Y del otro lado, cualquiera puede ver qué clínicas lo invitaron y decidir.
+
+**Verificado:** 14 tests de backend y 19 de frontend nuevos (1089 en total), 12 paquetes en verde, gofmt + golangci-lint 0 issues, cobertura y lint del frontend en verde, contenedores reconstruidos.
+
+#### Los cuatro tests que agregó el gate de cobertura
+
+La primera corrida de CI falló por cobertura: 79,5% en `internal/http`, con `cancelarInvitacionHandler` en **9%** y `reenviarInvitacionHandler` en **7%**. No era ruido del gate — eran dos endpoints **sin ningún test de backend**: los había probado solo del lado de la pantalla, con la acción mockeada.
+
+Un endpoint que solo prueba el frontend con un mock no está probado: el mock devuelve lo que uno le dice, así que verifica el botón, no el handler. Los tests nuevos cubren reenviar (y que **renueve el vencimiento**, si no se reenviaría un mail ya vencido), cancelar (y que libere el "ya tiene una invitación pendiente"), que ninguna de las dos cosas se pueda hacer sobre la invitación **de otra clínica**, y los rechazos de forma al invitar.
+
+**Lo que queda pendiente de esta subfase, declarado:** el brief pide que al crear una clínica de tipo "organización" el alta siga directo en esta pantalla. Hoy los dos tipos terminan en `/seleccionar-servicio`, desde donde la tarjeta de colaboradores está a un click. Y el rol `admin` (administrador de página) se puede asignar por la API pero el modal todavía ofrece solo Profesional y Recepcionista, que son los dos que el mockup muestra.
+
+Sigue la **3.2.5 — panel del profesional**: el selector de clínica en el header y el componente de colaboradores, que va a reusar esta misma lista.
+
+## Corrección del 2026-09-14 — quién ve toda la clínica
+
+Salió de una pregunta del cliente sobre el rol `admin`, y terminó en un bug de aislamiento que llevaba dos subfases adentro.
+
+**De dónde salía `admin`.** El rol existe en el brief —*"Administrador de la página: acceso a la página web y sus herramientas"*— y como constante es anterior a la Fase 3: viene del modelo de auth original (`0b5a9aa`, agosto), con el check `IN ('owner','admin','profesional','recepcion')`. Eso no estaba en discusión.
+
+**Lo que sí era mío: que `admin` y `owner` vieran todos los turnos.** Lo escribí en la 3.2.2 apoyándome en una línea de las Aclaraciones del brief:
+
+> *"Un administrador (ver más adelante en roles) tendrá la capacidad de acceder a cada una de las vistas de cada profesional y reasignación de turnos ENTRE profesionales si se da el caso."*
+
+La propia línea dice **"(ver más adelante en roles)"**, y más adelante el administrador es **de la página**. Estiré esa palabra hasta un rol que significa otra cosa — y el cliente lo marcó con precisión: *"el admin NO puede ver todos los turnos porque es PROFESIONAL"*, y *"administrador de la página se refiere a la parte de personalizar página, no administrador de la clínica"*.
+
+**Qué rompía.** El titular es `owner` + `admin` + `profesional`, así que veía **todos los turnos y pacientes de su clínica**. Es exactamente lo que el requisito en mayúsculas del mismo brief prohíbe: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO DEL RESTO DE PROFESIONALES"*. Hoy `veTodaLaClinica` es solo `recepcion`.
+
+**Cómo se coló, que es la parte que vale.** Los tests de aislamiento de la 3.2.2 probaban **una sola dirección**: que un colega no viera lo del titular. Esa es justo la dirección que el bug no rompía. La inversa —que el titular no vea lo del colega— no tenía test, así que el error pasó CI, la revisión y dos subfases sin que nada lo marcara.
+
+Es la segunda vez en esta fase que una regla de aislamiento se cumple "a medias" sin que la suite lo note: la primera fue en la 3.2.3, cuando ningún test verificaba que un profesional **sí viera lo propio**. Las dos veces el patrón fue el mismo — probar una dirección de una regla que tiene dos.
+
+**Efecto lateral en los fixtures.** Cuatro tests creaban fichas directo en la base, sin turno, y las leían como titular. Sin `veTodaLaClinica` abierto, esas fichas no son de nadie: ahora llevan `creado_por_user_id`, que es la forma real de que exista una ficha sin turno (alta a mano desde el panel).
+
+**Verificado:** 1 test nuevo que fija la dirección que faltaba, 12 paquetes en verde, cobertura 80,3%.
+
+## Ronda del 2026-09-14 — el rol delegable, y el contraste
+
+### `admin` pasa a ser invitable y delegable
+
+Hasta acá el rol existía en el modelo y solo lo tenía el titular. Ahora aparece como tercera opción al invitar —se puede sumar a alguien **solo** para que maneje la web de la clínica— y se puede dar o quitar a quien ya está en el equipo, desde "Cambiar rol".
+
+**Se manda el juego COMPLETO de roles, no un agregado.** Con roles excluyentes entre sí, "sumale profesional" a alguien que es recepción no tiene una respuesta obvia —¿reemplaza, falla, convive?— y las tres son defendibles. Elegir qué queda no deja lugar a la duda: es exactamente lo que va a quedar.
+
+Dos cosas que el endpoint no deja hacer, con su motivo:
+
+- **`owner` no se reparte.** Se es dueño de la clínica por haberla creado, no porque alguien lo asigne; traspasarla es otra operación y todavía no existe.
+- **Pasar a alguien a `profesional` exige que tenga matrícula.** Es la **cuarta** puerta de la misma regla —crear la clínica propia, entrar a atender, aceptar una invitación de profesional, y ahora recibir el rol—. Un rol que deja a alguien atendiendo sin matrícula ni especialidades es justo lo que la página pública muestra de quien atiende.
+
+### El rediseño de la pantalla
+
+Sobre un pedido con valores concretos. Lo que resolvió, en orden de importancia:
+
+**El contraste entre capas era el problema de fondo.** Fondo, tarjeta y bordes se diferenciaban en dos o tres puntos de luminosidad, así que no se leía dónde terminaba cada elemento. Se resolvió con los **bordes** —un gris cálido más marcado, `--color-linea`, a 1px— y con los avatares en verde sólido en vez de verde pálido sobre blanco. El fondo de página más oscuro que pedía el rediseño se probó y se descartó en la vuelta siguiente: el borde alcanza, y un fondo distinto por pantalla rompía la continuidad.
+
+**Cada tipo de tag tiene su color.** Eran todos del mismo gris, así que la fila de roles se leía como un bloque indistinto y había que leer palabra por palabra para saber quién es quién. El color se asigna por **nombre**, con un mapa, nunca por posición. "Sos vos" va en neutro: es una aclaración, no un rol, y no debe competir con los reales.
+
+**Las acciones pasan a un menú de tres puntos.** Con tres opciones sueltas al pie, la tarjeta tenía más botones que datos. Adentro de un menú, la tarjeta vuelve a ser lo que es —una persona— y las acciones quedan a un click. Cierra al hacer click afuera y con Escape.
+
+**El botón de invitar sube al encabezado**, en la misma fila que el título: en una fila propia dejaba una banda vacía antes de la primera tarjeta. El contenido se acota a 880px centrados, porque estirado al ancho del viewport las tarjetas quedaban perdidas a la izquierda. Y los estados vacíos pasan de cajas de cien píxeles con una frase centrada a una línea con su atajo a la derecha.
+
+### Las píldoras de los formularios, en todo el proyecto
+
+Pedido aparte, y del mismo tipo: *"las píldoras donde el cliente completa los datos"* **se camuflan con el fondo blanco**.
+
+La causa medida: los campos tenían borde de **0,5px en `arena`** (#e7dfd1) sobre `marfil` (#fffdf9) — tres puntos de luminosidad de diferencia, a medio píxel de grosor. Un campo así no se lee como un hueco donde escribir sino como un renglón.
+
+Pasan a **1px en `--color-linea`** (#dbd3c2) con relleno `hueso` en vez de blanco: el campo contrasta con la tarjeta que lo contiene. Aplica a todo el alta —perfil, clínica, registro, login, el control de teléfono, el buscador de especialidades y las casillas del código—, no solo a esta pantalla.
+
+**Verificado:** 5 tests de backend nuevos (el cambio de roles y sus cuatro rechazos), 4 de frontend, 1093 en total, 12 paquetes en verde, cobertura y lint en verde, build OK, contenedores reconstruidos.
+
+### Segunda vuelta del rediseño — el inicio de una clínica
+
+Tres correcciones sobre Colaboradores y el rediseño de "¿Qué necesitás hoy?".
+
+**Las correcciones.** Las tres pantallas con tarjetas —"¿Dónde trabajás hoy?", "¿Qué necesitás hoy?" y Colaboradores— pasan a compartir el fondo `hueso`, así que moverse entre ellas no se siente como cambiar de aplicación. El fondo más oscuro que pedían los dos rediseños se probó y se descartó: lo que separa una tarjeta de su fondo es el **borde de 1px en `linea`**, que ya se había sumado por otro motivo, y con eso el contraste alcanza sin romper la continuidad entre pantallas. El token `hueso-hondo` quedó sin uso y se borró en vez de dejarlo dando vueltas. El botón "Invitar colaborador" se alinea con el **título** y no con el bloque entero del encabezado: con breadcrumb, título y descripción en una sola columna, quedaba a la altura del breadcrumb, que es lo más chico de los tres. Y las píldoras de estado vacío pasan a blanco.
+
+**"¿Qué necesitás hoy?" tenía dos problemas distintos**, y los dos eran de jerarquía:
+
+- **Las tres tarjetas eran del mismo tamaño.** La acción principal no se distinguía, y la tercera quedaba sola dejando media pantalla vacía. Ahora "Gestión de clínica" ocupa las dos columnas **con otra composición**: horizontal, con el texto a la izquierda y un botón sólido a la derecha. Que sea otra composición y no la misma tarjeta estirada es el punto: una tarjeta estirada sin cambiar de forma no justifica su ancho, y queda peor que antes de agrandarla.
+- **"Estás en [píldora] Cambiar de clínica" eran tres tratamientos visuales para una sola idea**, apretados abajo del saludo. Pasa a ser un control único a la derecha del título —punto verde, "ESTÁS EN", el nombre de la clínica y un chevron— que abre la lista de clínicas con su rol, la actual marcada, y un enlace a la pantalla completa. Además llena el costado derecho del encabezado, que estaba vacío.
+
+El selector hace algo que la línea anterior no podía: **cambiar de clínica sin salir de la pantalla**. Antes "Cambiar de clínica" era un link a `/clinicas`; ahora se elige del popover y se entra directo.
+
+**Verificado:** 6 tests nuevos, 1099 en total, cobertura y lint en verde, build OK, contenedor reconstruido.
+
+#### Y la coherencia entre las tres pantallas
+
+La vuelta terminó puliendo lo que el rediseño había separado sin querer. "¿Qué necesitás hoy?" venía con **1180px de ancho** y `/clinicas` con 896: dos pantallas consecutivas del mismo flujo, con el título en la misma posición pero el contenido de anchos distintos. Se nota al pasar de una a la otra, y se lee como un cambio de aplicación más que de sección. Las dos quedan en `max-w-4xl`, con el mismo `gap` entre tarjetas y el mismo tratamiento de borde.
+
+Es la contracara de pedir rediseños por pantalla: cada uno resuelve bien lo suyo —el ancho de 1180px tenía sentido para tres tarjetas— y ninguno mira a la pantalla de al lado. **La coherencia entre pantallas no la puede dar un rediseño de una sola.**
+
+En el modal de invitar, las tres tarjetas de rol entran en un contenedor recortado **a la mitad de la tercera**: el mismo recurso que el brief pide para los tipos de consulta (*"así se ve el corte y se entiende que hay más abajo"*). Con las tres entrando justas, nadie scrollea para buscar lo que no sabe que existe — y "Administrador de página" era justamente el rol que no se veía.
 

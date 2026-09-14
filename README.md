@@ -483,7 +483,8 @@ cliente y mergeados a `dev`.
 | 3.2.1 — esquema y migración: el modelo soporta N↔N sin que cambie una sola pantalla | ✅ 2026-09-13 (TR-137) |
 | 3.2.2 — roles y permisos en el backend, y el aislamiento entre colegas | ✅ 2026-09-13 (TR-138) |
 | 3.2.3 — onboarding y "¿dónde trabajás hoy?": la clínica activa se elige y vive en la sesión; el perfil deja de asumir que todos atienden pacientes (quien no tiene matrícula la completa antes de crear su clínica o de entrar a una como profesional) | ✅ 2026-09-13 (TR-139) |
-| 3.2.4 a 3.2.8 — colaboradores, panel del profesional, vista del recepcionista, wizard con selección de profesional, tiempo real | pendientes |
+| 3.2.4 — colaboradores: invitar por código o mail, confirmar del otro lado, roles con exclusión | ✅ 2026-09-14 (TR-140) |
+| 3.2.5 a 3.2.8 — panel del profesional, vista del recepcionista, wizard con selección de profesional, tiempo real | pendientes |
 
 Dos cosas de esta fase valen para cualquiera que toque el código: **la columna que apunta a la clínica se llama `clinic_id`** en todo el esquema (antes `profesional_id`, que ya guardaba un `clinics.id`), y **el aislamiento entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en cada query — ver CLAUDE.md.
 

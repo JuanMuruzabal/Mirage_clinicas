@@ -228,7 +228,7 @@ export function OnboardingPerfilForm({
               {/* Las elegidas viven ADENTRO del mismo control que la
                   búsqueda: un solo borde que contiene los chips y el campo
                   de texto. */}
-              <div className="flex flex-col gap-2 rounded-[10px] border-[0.5px] border-arena bg-marfil p-2 focus-within:border-salvia">
+              <div className="flex flex-col gap-2 rounded-[10px] border border-linea bg-hueso p-2 focus-within:border-salvia-oscuro">
                 {elegidas.length > 0 && (
                   <ul className="flex flex-wrap gap-1.5">
                     {elegidas.map((esp) => (

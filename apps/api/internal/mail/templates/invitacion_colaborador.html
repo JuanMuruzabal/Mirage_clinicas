@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Te invitaron a una clínica en PRISMA</title></head>
+<body style="margin:0;padding:0;background-color:#f6f2ea;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f2ea;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#fffdf9;border-radius:18px;padding:40px;">
+          <tr>
+            <td style="font-size:13px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;color:#6e8f72;padding-bottom:16px;">
+              PRISMA
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size:22px;font-weight:bold;color:#35312b;padding-bottom:16px;">
+              Te invitaron a {{.NombreClinica}}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size:15px;line-height:1.6;color:#35312b;padding-bottom:24px;">
+              {{if .InvitadoPor}}{{.InvitadoPor}} te sumó{{else}}Te sumaron{{end}} al equipo de <b>{{.NombreClinica}}</b> como <b>{{.Rol}}</b>.
+              La invitación queda esperándote: entrá a PRISMA y confirmala desde tu pantalla de clínicas.
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:24px;">
+              <a href="{{.URL}}" style="display:inline-block;background-color:#3f5943;color:#fffdf9;font-size:15px;font-weight:bold;text-decoration:none;padding:14px 28px;border-radius:9999px;">
+                Ver la invitación
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;line-height:1.5;color:#6b6459;padding-bottom:16px;">
+              Si todavía no tenés cuenta, creala con este mismo mail ({{.Email}}) y la invitación te va a estar esperando adentro.
+            </td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;line-height:1.5;color:#6b6459;">
+              La invitación vence el {{.Vence}}. Si no esperabas esto, ignorá este mail: sin tu confirmación nadie accede a nada tuyo.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -397,6 +397,12 @@ const (
 	AuditEventLogout          = "logout"
 	AuditEventRegister        = "register"
 	AuditEventEmailVerified   = "email_verified"
+	// Fase 3.2.4 — el equipo de la clínica. Quién invitó a quién y quién
+	// aceptó es exactamente lo que hay que poder reconstruir el día que
+	// alguien pregunte por qué una persona tenía acceso a una agenda.
+	AuditEventColaboradorInvitado = "colaborador_invitado"
+	AuditEventColaboradorAceptado = "colaborador_aceptado"
+	AuditEventColaboradorQuitado  = "colaborador_quitado"
 )
 
 // ConRol — scope de GORM para filtrar miembros por uno de sus roles.

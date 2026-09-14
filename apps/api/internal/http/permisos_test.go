@@ -316,3 +316,53 @@ func TestAislamientoEntreColegas_ElPacienteQueCargoSigueSiendoSuyo(t *testing.T)
 		t.Errorf("FUGA: un colega ve una ficha que no cargó ni atiende: %s", rec.Body.String())
 	}
 }
+
+// TestAislamientoEntreColegas_ElTitularTampocoVeLoDeLosDemas —
+// corrección del 2026-09-14, y la mitad que faltaba del aislamiento.
+//
+// `veTodaLaClinica` incluía `owner` y `admin` además de `recepcion`. Eso
+// era una interpretación mía de una línea suelta del brief, no una regla
+// del cliente, y chocaba de frente con el requisito que el brief pone en
+// mayúsculas: "CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL, ES AISLADO
+// DEL RESTO DE PROFESIONALES".
+//
+// El titular es `owner` + `admin` + `profesional`. Que sea el dueño de la
+// clínica y el administrador de su página no lo convierte en alguien que
+// ve las agendas de sus colegas: atiende pacientes como cualquier otro y
+// ve los suyos. El único rol con la vista completa es `recepcion`
+// ("acceso a todas las vistas de los N profesionales", brief).
+//
+// Los tests de aislamiento anteriores probaban una sola dirección —que un
+// colega no vea lo del titular—, que es la que el bug no rompía.
+func TestAislamientoEntreColegas_ElTitularTampocoVeLoDeLosDemas(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-aislado@example.com", Password: "unaClaveLarga123", Nombre: "Ana Titular", NombreClinica: "Clínica Aislada",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+
+	// Un colega con su propio turno y su propio paciente.
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-aislado@example.com", db.RoleProfesional)
+	var colega db.User
+	if err := gdb.Where("email = ?", "colega-aislado@example.com").First(&colega).Error; err != nil {
+		t.Fatalf("no se encontró al colega: %v", err)
+	}
+	turnoDelColega, pacienteDelColega := turnoDeColegaDePrueba(t, gdb, clinicID, colega.ID, "40555001")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos", titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var turnos []turnoResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &turnos)
+	for _, tu := range turnos {
+		if tu.ID == turnoDelColega.String() {
+			t.Fatal("FUGA: el titular ve el turno de un colega — ser dueño de la clínica no es ver las agendas ajenas")
+		}
+	}
+
+	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes/"+pacienteDelColega.String(), titular.Token, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, esperaba 404 para la ficha de un paciente que el titular no atiende", rec.Code)
+	}
+}

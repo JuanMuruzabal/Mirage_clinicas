@@ -31,7 +31,9 @@ export default async function ClinicasPage() {
   ]);
 
   const especialidades = especialidadesResult.ok ? especialidadesResult.data : [];
-  const misClinicas = clinicasResult?.ok ? clinicasResult.data : { clinicas: [], codigoInvitacion: undefined };
+  const misClinicas = clinicasResult?.ok
+    ? clinicasResult.data
+    : { clinicas: [], invitaciones: [], codigoInvitacion: undefined };
 
   return (
     <>
@@ -57,6 +59,7 @@ export default async function ClinicasPage() {
               en un modal, sin salir de esta pantalla. */}
           <DondeTrabajas
             clinicas={misClinicas.clinicas}
+            invitaciones={misClinicas.invitaciones}
             codigoInicial={misClinicas.codigoInvitacion}
             perfil={me.perfil}
             especialidades={especialidades}

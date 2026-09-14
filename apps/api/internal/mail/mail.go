@@ -46,6 +46,11 @@ type Sender interface {
 	// envío que falla nunca tumba el request que lo dispara), tanto para
 	// el camino "primera vez" como "ya he venido antes".
 	SendTurnoConfirmadoEmail(ctx context.Context, to string, info TurnoConfirmadoInfo) error
+	// SendInvitacionColaboradorEmail — Fase 3.2.4: una clínica suma a
+	// alguien a su equipo por mail. Puede ir a una dirección SIN cuenta en
+	// la app: el mail es, en ese caso, la única forma de que esa persona
+	// se entere.
+	SendInvitacionColaboradorEmail(ctx context.Context, to string, info InvitacionColaboradorInfo) error
 }
 
 // TurnoConfirmadoInfo — agrupa los datos del turno para el mail de
@@ -83,6 +88,11 @@ func (LogSender) SendWelcomeEmail(_ context.Context, to, nombre string) error {
 
 func (LogSender) SendTurnoVerificationEmail(_ context.Context, to, code, nombreClinica string) error {
 	log.Printf("[mail:dev] código de verificación de turno (%s) para %s: %s", nombreClinica, to, code)
+	return nil
+}
+
+func (LogSender) SendInvitacionColaboradorEmail(_ context.Context, to string, info InvitacionColaboradorInfo) error {
+	log.Printf("[mail:dev] invitación a %s (%s) para %s — %s", info.NombreClinica, info.Rol, to, info.URL)
 	return nil
 }
 
@@ -186,6 +196,14 @@ func (s *ResendSender) SendPasswordResetEmail(ctx context.Context, to, resetURL 
 
 func (s *ResendSender) SendWelcomeEmail(ctx context.Context, to, nombre string) error {
 	subject, html, err := renderWelcomeEmail(nombre)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, to, subject, html)
+}
+
+func (s *ResendSender) SendInvitacionColaboradorEmail(ctx context.Context, to string, info InvitacionColaboradorInfo) error {
+	subject, html, err := renderInvitacionColaboradorEmail(info)
 	if err != nil {
 		return err
 	}

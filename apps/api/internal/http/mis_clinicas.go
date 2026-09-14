@@ -26,6 +26,12 @@ func registerMisClinicasRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/me/clinicas", misClinicasHandler(gdb))
 	r.Put("/me/clinica-activa", elegirClinicaActivaHandler(gdb))
 	r.Post("/me/codigo-invitacion", generarCodigoInvitacionHandler(gdb))
+	// Las invitaciones se aceptan o se rechazan desde acá, la pantalla de
+	// partida de toda sesión — no desde un link de un solo uso en el mail
+	// (Fase 3.2.4). Aceptar es una decisión que se toma con sesión
+	// iniciada, viendo de qué clínica se trata y con qué rol.
+	r.Post("/me/invitaciones/{id}/aceptar", aceptarInvitacionHandler(gdb))
+	r.Delete("/me/invitaciones/{id}", rechazarInvitacionHandler(gdb))
 }
 
 type clinicaDelUsuarioResponse struct {
@@ -55,8 +61,22 @@ type codigoInvitacionResponse struct {
 	VenceAt time.Time `json:"venceAt"`
 }
 
+// invitacionRecibidaResponse — una clínica que me invitó y que todavía
+// no confirmé. Se muestra junto a las otras clínicas, con su estado
+// (pedido del cliente, 2026-09-13: "las clínicas a las que me han
+// invitado o yo haya pasado el código, se verán en 'otras clínicas' como
+// estado pendiente a confirmar").
+type invitacionRecibidaResponse struct {
+	ID            string    `json:"id"`
+	NombreClinica string    `json:"nombreClinica"`
+	Rol           string    `json:"rol"`
+	VenceAt       time.Time `json:"venceAt"`
+}
+
 type misClinicasResponse struct {
 	Clinicas []clinicaDelUsuarioResponse `json:"clinicas"`
+	// Invitaciones — las que llegaron a MI mail y siguen sin responder.
+	Invitaciones []invitacionRecibidaResponse `json:"invitaciones"`
 	// CodigoInvitacion es nil si nunca generó uno o si el que tenía ya
 	// venció — un código vencido no se muestra, porque mostrarlo invita a
 	// compartir algo que no va a funcionar.
@@ -79,7 +99,10 @@ func misClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		resp := misClinicasResponse{Clinicas: []clinicaDelUsuarioResponse{}}
+		resp := misClinicasResponse{
+			Clinicas:     []clinicaDelUsuarioResponse{},
+			Invitaciones: []invitacionRecibidaResponse{},
+		}
 		for _, miembro := range miembros {
 			var clinica db.Clinic
 			if err := gdb.First(&clinica, "id = ?", miembro.ClinicID).Error; err != nil {
@@ -107,6 +130,24 @@ func misClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 				time.Now().Before(*user.CodigoInvitacionExpiraAt) {
 				resp.CodigoInvitacion = &codigoInvitacionResponse{
 					Codigo: *user.CodigoInvitacion, VenceAt: *user.CodigoInvitacionExpiraAt,
+				}
+			}
+
+			// Las invitaciones se buscan por MAIL, no por user_id: se
+			// mandan a una dirección, que puede no tener cuenta todavía
+			// (Fase 3.2.4). Quien se registra después con ese mismo mail
+			// se las encuentra esperando, sin ningún paso extra.
+			var invitaciones []db.ClinicInvitation
+			if err := gdb.Where("email = ? AND accepted_at IS NULL AND expires_at > ?", user.Email, time.Now()).
+				Order("created_at").Find(&invitaciones).Error; err == nil {
+				for _, inv := range invitaciones {
+					var clinica db.Clinic
+					if err := gdb.First(&clinica, "id = ?", inv.ClinicID).Error; err != nil {
+						continue
+					}
+					resp.Invitaciones = append(resp.Invitaciones, invitacionRecibidaResponse{
+						ID: inv.ID.String(), NombreClinica: clinica.Nombre, Rol: inv.Role, VenceAt: inv.ExpiresAt,
+					})
 				}
 			}
 		}
