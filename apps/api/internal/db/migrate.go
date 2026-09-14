@@ -239,6 +239,46 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 			ON users (codigo_invitacion)
 			WHERE codigo_invitacion IS NOT NULL`,
 
+		// La matrícula identifica a UNA persona ante su colegio: dos
+		// odontólogos no pueden compartirla. Hasta hoy nada lo impedía —
+		// se encontró revisando la base de DEV el 2026-09-14, con la misma
+		// matrícula repartida en cuatro cuentas (ver TR-141).
+		//
+		// No es cosmético: la matrícula es lo que el paciente ve en la
+		// página pública para comprobar que quien lo va a atender está
+		// habilitado. Repetida, deja de probar nada.
+		//
+		// PARCIAL sobre `matricula_numero <> ''`, porque los perfiles de
+		// tipo `actividades` (recepción / administración de página, Fase
+		// 3.2.3) la guardan vacía a propósito: en un índice único común
+		// todas esas cadenas vacías chocarían entre sí y solo podría
+		// existir UNA persona sin matrícula en todo el sistema. Se usa la
+		// cadena vacía y no NULL porque así está declarado el modelo
+		// (`not null;default:''`).
+		//
+		// La clave lleva el TIPO además del número: `nacional 1234` y
+		// `provincial 1234` son dos registros distintos, emitidos por
+		// organismos distintos, y no tienen por qué ser la misma persona.
+		//
+		// Limitación conocida y aceptada (TR-141): una matrícula provincial
+		// es única dentro de SU provincia, y el perfil no guarda cuál es.
+		// Dos odontólogos de provincias distintas con el mismo número
+		// provincial se bloquearían entre sí. Se acepta porque el producto
+		// apunta a Córdoba (spec §1) y hoy `provincial` significa Córdoba;
+		// la condición para cambiarlo está escrita en el tradeoff: cuando
+		// haya un profesional de otra provincia, la provincia entra en la
+		// clave.
+		//
+		// Si esta migración falla con "could not create unique index", la
+		// base tiene matrículas repetidas de antes: el error de Postgres
+		// nombra el valor duplicado, y hay que resolver a mano cuál de las
+		// cuentas se queda con ella. Es a propósito que corte el arranque
+		// — una regla de identidad que se aplica "salvo para las filas que
+		// ya estaban mal" no es una regla.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_matricula_unica
+			ON professional_profiles (matricula_tipo, matricula_numero)
+			WHERE matricula_numero <> ''`,
+
 		// Fase 3.2.1 (TR-137): la regla de exclusión de roles, declarada en
 		// el motor y no validada en la aplicación.
 		//

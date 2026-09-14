@@ -47,7 +47,7 @@ func invitadoDePrueba(t *testing.T, router http.Handler, gdb *gorm.DB, email str
 			t.Fatalf("no se encontró la especialidad de prueba: %v", err)
 		}
 		req.MatriculaTipo = db.MatriculaTipoNacional
-		req.MatriculaNumero = "MP-" + email[:3]
+		req.MatriculaNumero = matriculaDePrueba(email)
 		req.EspecialidadIDs = []string{especialidad.ID.String()}
 	}
 	rec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", token, req)

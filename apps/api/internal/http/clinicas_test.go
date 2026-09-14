@@ -168,7 +168,7 @@ func TestGetClinicaPublica_DevuelveDatosIncluyendoTelefono(t *testing.T) {
 	telefono := "+5493511234568"
 	recMe := doJSONAuth(t, router, http.MethodPatch, "/me", reg.Token, updateMeRequest{
 		Nombre: "María", Apellido: "Games", TelefonoPrefijo: "+54", Telefono: telefono,
-		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-12345",
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: matriculaDePrueba("publicaslug1@example.com"),
 	})
 	if recMe.Code != http.StatusOK {
 		t.Fatalf("no se pudo setear teléfono: status=%d body=%s", recMe.Code, recMe.Body.String())

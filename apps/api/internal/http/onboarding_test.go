@@ -288,7 +288,12 @@ func completarPerfilDePrueba(t *testing.T, router http.Handler, gdb *gorm.DB, em
 
 	perfilRec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", *reg.Token, onboardingPerfilRequest{
 		Nombre: "Test", Apellido: "Apellido", Telefono: "+5493511234567",
-		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-1",
+		// La matrícula se deriva del mail y no es una constante: es ÚNICA
+		// en todo el sistema desde el 2026-09-14 (idx_matricula_unica, ver
+		// TR-141), y varios tests arman dos personas —un titular y un
+		// colaborador— dentro de la misma transacción. Con un "MP-1" fijo,
+		// la segunda llamada a este helper se llevaba un 409.
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: matriculaDePrueba(email),
 		EspecialidadIDs: []string{especialidad.ID.String()},
 	})
 	if perfilRec.Code != http.StatusOK {

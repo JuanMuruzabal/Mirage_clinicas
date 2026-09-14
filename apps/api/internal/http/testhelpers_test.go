@@ -163,7 +163,10 @@ func registrarProfesionalDePrueba(t *testing.T, gdb *gorm.DB, router http.Handle
 	}
 	perfilRec := doJSONAuth(t, router, http.MethodPatch, "/onboarding/perfil", *reg.Token, onboardingPerfilRequest{
 		Nombre: nombre, Apellido: apellido, TelefonoPrefijo: "+54", Telefono: "+5493511234567",
-		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: "MP-12345",
+		// Derivada del mail y no constante: la matricula es unica en todo
+		// el sistema (idx_matricula_unica, TR-141) y este fixture se llama
+		// dos veces en cada test de aislamiento, una por clinica.
+		MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: matriculaDePrueba(in.Email),
 		EspecialidadIDs: especialidadIDs,
 	})
 	if perfilRec.Code != http.StatusOK {

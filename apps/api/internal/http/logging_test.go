@@ -166,6 +166,14 @@ func TestLogger_CompletaClinicIDYUserIDEnRequestAutenticado(t *testing.T) {
 		if err := gdb.Where("id = (SELECT user_id FROM clinic_members WHERE clinic_id = ?)", reg.Profesional.ID).First(&user).Error; err == nil {
 			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.VerificationToken{})
 			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.Session{})
+			// Las especialidades van ANTES que el perfil. La tabla puente
+			// tiene FK contra professional_profiles, así que con filas
+			// vivas el DELETE del perfil rebota con 23503 — y como acá los
+			// errores se ignoran, rebotaba EN SILENCIO: el perfil quedaba,
+			// corrida tras corrida. Inofensivo hasta que la matrícula pasó
+			// a ser única (TR-141): el residuo empezó a chocar contra las
+			// altas de otros tests.
+			gdb.Exec("DELETE FROM professional_especialidades WHERE user_id = ?", user.ID)
 			gdb.Unscoped().Where("user_id = ?", user.ID).Delete(&db.ProfessionalProfile{})
 		}
 		gdb.Unscoped().Where("clinic_id = ?", reg.Profesional.ID).Delete(&db.TipoConsulta{})
