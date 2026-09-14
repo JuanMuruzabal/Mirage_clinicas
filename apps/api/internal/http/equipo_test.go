@@ -409,3 +409,144 @@ func TestEquipo_RechazarBorraLaInvitacion(t *testing.T) {
 		t.Errorf("status = %d, esperaba poder volver a invitar tras un rechazo", rec.Code)
 	}
 }
+
+// TestEquipo_CancelarYReenviarUnaInvitacion — los dos botones de la
+// tarjeta pendiente. Estaban probados del lado de la pantalla (con la
+// acción mockeada) y no del lado del backend: el gate de cobertura fue el
+// que lo marcó, con 9% y 7% en esos dos handlers. Un endpoint que solo
+// prueba el frontend con un mock no está probado.
+func TestEquipo_CancelarYReenviarUnaInvitacion(t *testing.T) {
+	router, gdb, sender := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-cancelar@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Cancelar",
+	})
+
+	invitar := func(email string) string {
+		t.Helper()
+		rec := doJSONAuth(t, router, http.MethodPost, "/equipo/invitaciones", titular.Token, invitarColaboradorRequest{
+			Rol: db.RoleRecepcion, Email: email,
+		})
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("invitar: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		var resp invitarColaboradorResponse
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		return resp.ID
+	}
+
+	id := invitar("pendiente@example.com")
+
+	// Reenviar renueva el vencimiento: si no, una invitación de hace ocho
+	// días se reenviaría vencida, y la persona recibiría un mail que no
+	// sirve para nada.
+	viejo := time.Now().Add(2 * time.Hour)
+	if err := gdb.Model(&db.ClinicInvitation{}).Where("id = ?", id).Update("expires_at", viejo).Error; err != nil {
+		t.Fatalf("no se pudo acortar el vencimiento: %v", err)
+	}
+	rec := doJSONAuth(t, router, http.MethodPost, "/equipo/invitaciones/"+id+"/reenviar", titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reenviar: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var invitacion db.ClinicInvitation
+	_ = gdb.First(&invitacion, "id = ?", id).Error
+	if !invitacion.ExpiresAt.After(viejo.Add(time.Hour)) {
+		t.Errorf("reenviar no renovó el vencimiento: %v", invitacion.ExpiresAt)
+	}
+	if sender.invitacionEnviadaA("pendiente@example.com") == nil {
+		t.Error("reenviar no mandó el mail")
+	}
+
+	// Cancelar la saca de la lista, y libera el "ya tiene una invitación
+	// pendiente" — por si fue un error de mail.
+	rec = doJSONAuth(t, router, http.MethodDelete, "/equipo/invitaciones/"+id, titular.Token, nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("cancelar: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if equipo := leerEquipo(t, router, titular.Token); len(equipo.Pendientes) != 0 {
+		t.Errorf("la invitación cancelada sigue pendiente: %+v", equipo.Pendientes)
+	}
+	invitar("pendiente@example.com")
+}
+
+// TestEquipo_NoSeTocaLaInvitacionDeOtraClinica — el id de una invitación
+// no dice de qué clínica es. Sin acotar la búsqueda a la clínica activa,
+// el titular de una podría cancelar las invitaciones de otra.
+func TestEquipo_NoSeTocaLaInvitacionDeOtraClinica(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	unaClinica := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-una@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Una",
+	})
+	otraClinica := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-otra@example.com", Password: "unaClaveLarga123", Nombre: "Otra", NombreClinica: "Clínica Otra",
+	})
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/equipo/invitaciones", unaClinica.Token, invitarColaboradorRequest{
+		Rol: db.RoleRecepcion, Email: "invitada-de-una@example.com",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("invitar: status=%d", rec.Code)
+	}
+	var resp invitarColaboradorResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+
+	for _, caso := range []struct {
+		nombre string
+		metodo string
+		ruta   string
+	}{
+		{"cancelar", http.MethodDelete, "/equipo/invitaciones/" + resp.ID},
+		{"reenviar", http.MethodPost, "/equipo/invitaciones/" + resp.ID + "/reenviar"},
+	} {
+		rec := doJSONAuth(t, router, caso.metodo, caso.ruta, otraClinica.Token, nil)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s desde otra clínica: status = %d, esperaba 404", caso.nombre, rec.Code)
+		}
+	}
+
+	// Y sigue ahí.
+	if equipo := leerEquipo(t, router, unaClinica.Token); len(equipo.Pendientes) != 1 {
+		t.Errorf("la invitación desapareció: %+v", equipo.Pendientes)
+	}
+}
+
+// TestEquipo_InvitarConDatosIncompletos — los rechazos de forma. Sin esto,
+// un rol vacío crearía una invitación que nadie puede aceptar (el motor
+// rechaza el rol al asignarlo, recién al final del recorrido).
+func TestEquipo_InvitarConDatosIncompletos(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-forma@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica Forma",
+	})
+
+	casos := []struct {
+		nombre string
+		req    invitarColaboradorRequest
+	}{
+		{"sin rol", invitarColaboradorRequest{Email: "alguien@example.com"}},
+		{"rol inventado", invitarColaboradorRequest{Rol: "jefe", Email: "alguien@example.com"}},
+		{"sin código ni mail", invitarColaboradorRequest{Rol: db.RoleRecepcion}},
+		{"código Y mail", invitarColaboradorRequest{Rol: db.RoleRecepcion, Codigo: "PR-ABCD-EFGH", Email: "alguien@example.com"}},
+	}
+	for _, caso := range casos {
+		rec := doJSONAuth(t, router, http.MethodPost, "/equipo/invitaciones", titular.Token, caso.req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, esperaba 400", caso.nombre, rec.Code)
+		}
+	}
+}
+
+// TestEquipo_QuitarAQuienNoEstaEsUn404 — y a un id que ni siquiera es un
+// uuid, también: la ruta no puede reventar con lo que le manden.
+func TestEquipo_QuitarAQuienNoEstaEsUn404(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "titular-404@example.com", Password: "unaClaveLarga123", Nombre: "Ana", NombreClinica: "Clínica 404",
+	})
+
+	for _, id := range []string{uuid.New().String(), "no-es-un-uuid"} {
+		rec := doJSONAuth(t, router, http.MethodDelete, "/equipo/miembros/"+id, titular.Token, nil)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("quitar %q: status = %d, esperaba 404", id, rec.Code)
+		}
+	}
+}

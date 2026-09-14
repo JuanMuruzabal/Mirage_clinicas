@@ -618,7 +618,13 @@ Ese camino es también el que la ronda de QA de la 3.2.3 dejó listo: esa person
 
 Una clínica puede armar su equipo: invitar por código o por mail, ver quién está y quién falta confirmar, reenviar, cancelar y quitar. Y del otro lado, cualquiera puede ver qué clínicas lo invitaron y decidir.
 
-**Verificado:** 10 tests de backend y 19 de frontend nuevos (1089 en total), 12 paquetes en verde, gofmt + golangci-lint 0 issues, cobertura y lint del frontend en verde, contenedores reconstruidos.
+**Verificado:** 14 tests de backend y 19 de frontend nuevos (1089 en total), 12 paquetes en verde, gofmt + golangci-lint 0 issues, cobertura y lint del frontend en verde, contenedores reconstruidos.
+
+#### Los cuatro tests que agregó el gate de cobertura
+
+La primera corrida de CI falló por cobertura: 79,5% en `internal/http`, con `cancelarInvitacionHandler` en **9%** y `reenviarInvitacionHandler` en **7%**. No era ruido del gate — eran dos endpoints **sin ningún test de backend**: los había probado solo del lado de la pantalla, con la acción mockeada.
+
+Un endpoint que solo prueba el frontend con un mock no está probado: el mock devuelve lo que uno le dice, así que verifica el botón, no el handler. Los tests nuevos cubren reenviar (y que **renueve el vencimiento**, si no se reenviaría un mail ya vencido), cancelar (y que libere el "ya tiene una invitación pendiente"), que ninguna de las dos cosas se pueda hacer sobre la invitación **de otra clínica**, y los rechazos de forma al invitar.
 
 **Lo que queda pendiente de esta subfase, declarado:** el brief pide que al crear una clínica de tipo "organización" el alta siga directo en esta pantalla. Hoy los dos tipos terminan en `/seleccionar-servicio`, desde donde la tarjeta de colaboradores está a un click. Y el rol `admin` (administrador de página) se puede asignar por la API pero el modal todavía ofrece solo Profesional y Recepcionista, que son los dos que el mockup muestra.
 
