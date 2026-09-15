@@ -91,9 +91,8 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 
 		resp := meResponse{
 			ID: user.ID.String(), Email: user.Email,
-			EmailVerificado:      user.EmailVerifiedAt != nil,
-			OnboardingStep:       user.OnboardingStep,
-			OnboardingCompletado: user.OnboardingStep == db.OnboardingStepCompleto,
+			EmailVerificado: user.EmailVerifiedAt != nil,
+			OnboardingStep:  user.OnboardingStep,
 		}
 
 		var profile db.ProfessionalProfile
@@ -124,6 +123,27 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 				}
 			}
 		}
+
+		// ONBOARDING COMPLETO = TIENE PERFIL Y TIENE DÓNDE TRABAJAR
+		// (corregido el 2026-09-14, reportado por el cliente).
+		//
+		// Salía solo de `onboarding_step == "completo"`, y ese paso se
+		// marca ÚNICAMENTE al crear una clínica propia (onboarding.go).
+		// Pero desde la 3.2.3 crear clínica dejó de ser obligatorio: a la
+		// app también se entra porque un colega te sumó a la suya. El paso
+		// nunca se actualizó para eso, así que un profesional invitado
+		// quedaba para siempre en `clinica`, el guard del frontend lo
+		// rebotaba a /clinicas, y solo podía entrar creando una clínica que
+		// no quería — exactamente lo que la 3.2.3 quiso evitar.
+		//
+		// Se DERIVA en vez de arreglar la columna con una migración: la
+		// pregunta que hace el frontend es "¿puede usar la app?", y eso es
+		// tener perfil y una clínica activa, que es lo que `resp.Clinica`
+		// ya resolvió arriba con la misma lógica que `requireClinic`. La
+		// columna sigue existiendo para saber en qué paso retomar el
+		// wizard, que es otra pregunta.
+		resp.OnboardingCompletado = user.OnboardingStep == db.OnboardingStepCompleto ||
+			(resp.Perfil != nil && resp.Clinica != nil)
 
 		writeJSON(w, http.StatusOK, resp)
 	}

@@ -889,3 +889,35 @@ El problema de la versión anterior no era dónde vivía el botón: era que **co
 - **El avatar de colaboradores quedaba pegado a la píldora de la clínica.** En mobile el selector se estira para ocupar el renglón, y `justify-between` no deja aire cuando un elemento ya llenó su lado. El contenedor del header en el panel suma un `gap-3`, que actúa de piso.
 - **Con el menú lateral de mobile desplegado, los dos controles no se despliegan.** Quedan debajo del drawer: abrirlos dejaría un popover tapado, o tapando el menú. Los botones pasan a `disabled` mientras el drawer está abierto, y tiene test.
 
+### Dos provisorios que caducaron sin que nadie los mirara (2026-09-14)
+
+Los encontró el cliente probando con un colega de verdad. **Los dos comparten una causa de forma:** eran simplificaciones correctas cuando una clínica tenía exactamente un profesional —su dueño— y dejaron de serlo **apenas la 3.2.4 permitió invitar a un segundo**. Ninguna se nota mirando la pantalla propia; se notan en la del otro.
+
+#### El grave: el turno del colega se lo llevaba el titular
+
+Un profesional invitado cargaba un turno y el turno **se le asignaba al titular**. Le aparecía en la agenda al titular y no en la suya — y el paciente detrás también, porque "los pacientes de X" se derivan de sus turnos.
+
+El código lo decía con todas las letras:
+
+```go
+// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
+// profesional (Fase 3.2.6) es el owner de la clínica.
+atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+```
+
+**Era verdad en la 3.2.1 y dejó de serlo en la 3.2.4**, sin que el comentario ni el código cambiaran. Y no es un detalle de UI pendiente: es **exactamente la fuga que el aislamiento de la 3.2.2 existe para impedir**, entrando por la puerta de al lado — no por una query que filtra mal, sino por el dato que esas queries leen. `soloMisTurnos` y `soloMisPacientes` funcionaban perfecto; lo que estaba mal era `atendido_por_user_id`.
+
+La regla ahora: **si quien carga el turno es `profesional` de esta clínica, el turno es suyo.** Si no atiende —recepción cargando para el equipo— sigue cayendo al owner hasta la 3.2.6, que trae el selector de profesional en el modal. La diferencia es que el provisorio cubre solo al caso que no tiene respuesta mejor, en vez de a todos.
+
+#### El otro: el invitado no podía entrar hasta crear una clínica que no quería
+
+Un profesional invitado veía una pantalla en blanco y volvía a `/clinicas`. Solo podía entrar **después de crear su propia clínica**.
+
+`onboardingCompletado` salía de `onboarding_step == "completo"`, y ese paso se marca **únicamente al crear una clínica propia**. Pero la 3.2.3 decidió que crear clínica dejaba de ser obligatorio —*"a la app también se entra porque un colega te sumó a la suya"*— y **el paso nunca se actualizó para eso**. El invitado quedaba en `clinica` para siempre y el guard del frontend lo rebotaba.
+
+Se **deriva** en vez de arreglar la columna con una migración: la pregunta que hace el frontend es *"¿puede usar la app?"*, y eso es tener perfil y una clínica activa — lo que `/me` ya resuelve con la misma lógica que `requireClinic`. La columna sigue existiendo para saber en qué paso retomar el wizard, que es otra pregunta.
+
+#### Lo que esto deja como lección
+
+**Un provisorio con fecha de vencimiento escrita en un comentario no vence solo.** Los dos decían en qué subfase dejarían de servir, y las dos subfases pasaron sin que nadie volviera. Los tests nuevos los reproducen: con los arreglos revertidos, el del turno falla en las **dos direcciones** —el colega ve 0 turnos propios y el titular ve 1 que no es suyo— y el del onboarding falla al pedir `/me`.
+

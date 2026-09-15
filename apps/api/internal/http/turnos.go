@@ -329,9 +329,26 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		paraOtro := req.ParaOtro && req.PacienteID == ""
-		// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
-		// profesional (Fase 3.2.6) es el owner de la clínica.
-		atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+		// QUIÉN ATIENDE ES QUIEN LO CARGA, si atiende (corregido el
+		// 2026-09-14, reportado por el cliente).
+		//
+		// Hasta acá era SIEMPRE el owner de la clínica. Era una
+		// simplificación correcta en la 3.2.1 —cuando toda clínica tenía
+		// exactamente un profesional, su dueño— y quedó escrita como
+		// "hasta que el modal deje elegir profesional (Fase 3.2.6)". Dejó
+		// de ser cierta en la 3.2.4, apenas se pudo invitar a un segundo:
+		// un colega cargaba un turno y el turno —y con él el paciente, que
+		// se deriva de sus turnos— aparecía en la agenda del titular y no
+		// en la suya. Eso no es un detalle de UI pendiente: es la fuga
+		// exacta que el aislamiento de la 3.2.2 existe para impedir, y no
+		// se nota mirando la pantalla propia, se nota en la del otro.
+		//
+		// La regla: si quien carga el turno es `profesional` de esta
+		// clínica, el turno es suyo. Si no —recepción cargando para el
+		// equipo—, sigue cayendo al owner hasta que la 3.2.6 traiga el
+		// selector de profesional, que es el caso que de verdad lo
+		// necesita.
+		atiende, err := profesionalQueAtiende(gdb, r, profesionalID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
 			return

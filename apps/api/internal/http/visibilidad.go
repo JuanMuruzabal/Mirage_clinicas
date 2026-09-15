@@ -121,3 +121,25 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 		)`, userID, userID)
 	}
 }
+
+// profesionalQueAtiende — a quién se le asigna un turno cargado desde el
+// panel (Fase 3.2.5, corrección del 2026-09-14).
+//
+// Si quien lo carga atiende pacientes en esta clínica, el turno es SUYO:
+// es su agenda la que se está llenando, y `soloMisTurnos`/`soloMisPacientes`
+// derivan de esta columna. Asignárselo a otro lo saca de su propia vista y
+// lo mete en la ajena — las dos mitades del mismo error.
+//
+// Si no atiende (recepción cargando para el equipo), cae al owner. Es la
+// conducta anterior, y sigue siendo provisoria: el caso que de verdad
+// necesita elegir profesional es este, y lo resuelve la 3.2.6 con el
+// selector en el modal. La diferencia es que ahora el provisorio cubre
+// solo al que no tiene respuesta mejor, en vez de a todos.
+func profesionalQueAtiende(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID) (uuid.UUID, error) {
+	if tieneAlgunRol(r, db.RoleProfesional) {
+		if session, ok := sessionFromContext(r); ok {
+			return session.UserID, nil
+		}
+	}
+	return db.OwnerDeLaClinica(gdb, clinicID)
+}
