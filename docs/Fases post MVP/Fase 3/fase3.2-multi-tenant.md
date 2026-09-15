@@ -1056,3 +1056,105 @@ Faltaba auditar el frontend con el mismo rigor que el backend. Hasta acá la afi
 
 **Lo que se sumó:** dos tests del lado del frontend para el historial, que no tenía ninguno: que la columna Profesional aparezca con el nombre de cada uno, y que el turno ajeno vaya sin link. Las dos tablas de la ficha —"Turnos activos" e "Historial de turnos"— usan el mismo componente, así que las cubre a las dos.
 
+### La identidad del paciente, el doble turno y la tabla en mobile (2026-09-15)
+
+Tres correcciones del cliente que empujan la misma idea desde ángulos distintos: **el paciente es una persona, no un registro de cada profesional.**
+
+#### Los pacientes conocidos se buscan en toda la clínica
+
+El selector de "paciente conocido" al cargar un turno mostraba solo los propios. El resultado era el peor de los dos mundos: un profesional tipeaba de nuevo a alguien que **ya existía**, el índice único de DNI rechazaba el alta, y desde esa pantalla no había forma de enganchar la ficha existente.
+
+Ahora `GET /pacientes/de-la-clinica` busca en toda la clínica. **Son dos preguntas distintas y por eso son dos endpoints:**
+
+| Pregunta | Endpoint | Alcance |
+|---|---|---|
+| "¿A quiénes atiendo yo?" | `/pacientes` | Acotado — es la pantalla de trabajo |
+| "¿Esta persona ya está cargada?" | `/pacientes/de-la-clinica` | Toda la clínica — es el registro de identidad |
+
+Un endpoint aparte y no un `?alcance=clinica` sobre `/pacientes`: mezclarlas dejaría el aislamiento del listado a merced de un parámetro que cualquiera puede mandar. Lo que devuelve es deliberadamente **mínimo** —lo justo para reconocer a la persona y vincular la ficha—, no la ficha completa de un colega. Cada resultado dice además si ya es paciente de quien busca (`esMio`).
+
+**Y se sumó a la lista del test de auditoría**, con el motivo. Si no, un archivo nuevo quedaba fuera del barrido — exactamente el modo de falla que ese test existe para evitar.
+
+#### Un paciente no puede estar en dos sillones a la vez
+
+El exclusion constraint de la base protege al **profesional**: no le permite dos turnos encimados. **No dice nada del paciente**, y desde que una clínica tiene varios profesionales eso dejó un hueco: dos agendas pueden ofrecer el mismo horario —correctamente, son dos sillones— y la misma persona terminar citada en las dos.
+
+No se resuelve con otro constraint: dos turnos del mismo paciente con profesionales distintos son válidos **mientras no se pisen**, así que la regla es sobre el rango y no sobre la fila. La validación va **dentro de la misma transacción** que el insert: chequear afuera dejaría la ventana en la que el colega agenda entre el chequeo y el insert.
+
+El mensaje es la mitad del valor: *"este paciente ya tiene un turno con Lucía Ferrer a las 10:00 del 23/09"*. Decir solo "ya tiene un turno" obliga a salir a buscar con quién. Si el colega todavía no cargó perfil se lo nombra por su mail — nunca un genérico.
+
+**Se testea en las dos direcciones:** encimado se rechaza, y pegado pero sin encimarse se agenda. Un bloqueo que rechaza todo no distingue nada.
+
+Pendiente declarado: **esto mismo va al wizard público**, donde el paciente saca turno sin ver las otras agendas. Queda para cuando se toque ese flujo.
+
+#### La tabla de la ficha, rota en mobile
+
+La columna "Profesional" que se sumó el día anterior desbordaba en pantalla angosta. La causa no era el CSS de la columna: esta tabla **no scrollea en horizontal en mobile a propósito** (pedido explícito, está en el comentario del contenedor), así que una quinta columna no se acomoda — se corta.
+
+Se resuelve como ya se resolvía "Motivo": la columna se esconde en mobile y el dato **baja debajo del tipo de consulta**, junto con el "solo lectura". No se pierde nada; cambia dónde está.
+
+### Los tipos de consulta: globales en nombre, propios en color (2026-09-15)
+
+Tres síntomas que el cliente reportó como cosas distintas y resultaron ser el mismo agujero: **nunca se había decidido si dos filas con el mismo nombre son dos tipos o uno solo.** La aclaración del cliente cierra la pregunta — *"son globales en nombre, la configuración y color, etc son propios de cada profesional"*. Decisión completa en TR-145.
+
+#### El mismo tipo no se crea dos veces
+
+Se podía tener "Consulta general" repetido en la propia lista, y después había que elegir entre dos opciones idénticas cada vez que se cargaba un turno. Ahora el alta devuelve **409** si ya tenés uno con ese nombre.
+
+El primer intento reusó `seParecen` —el fuzzy que ya usaba el listado— y **falló en el primer test**: `"Tipo de prueba 1"` y `"Tipo de prueba 2"` dan 0.94 de similitud. Rechazar el alta ahí le diría a alguien que no puede crear un tipo que no tiene.
+
+Eso expuso un error de diseño, no un umbral mal puesto: **esconder y bloquear no pueden compartir criterio.** Esconder de más cuesta una sugerencia; bloquear de más es una pared. El bloqueo pasa a igualdad exacta normalizada; el listado sigue con el fuzzy.
+
+#### Lo que ya tenés no se ofrece
+
+Se listaba igual, con un cartel *"ya tenés uno parecido"*. Además de ser ruido —ofrecer como punto de partida algo que ya está en tu lista no ahorra nada— el cartel **afirmaba algo falso**: dos "Consulta general" en colores distintos son el MISMO tipo. El color es preferencia de cada agenda, no identidad. Se filtra en el backend: la lista que viaja ya viene sin lo tuyo.
+
+#### El repertorio odontológico
+
+Con una clínica recién creada la sección quedaba vacía: la función existía pero no tenía de dónde sacar nada. Se sumaron 14 tipos reales —Consulta general, Urgencia, Limpieza dental, Arreglo, Endodoncia, Extracción, Control, Ortodoncia, Prótesis, Implante, Blanqueamiento, Periodoncia, Radiografía, Primera consulta— ordenados por frecuencia de consultorio, no alfabéticamente: la lista se scrollea en horizontal y lo que queda al final casi no se ve.
+
+**No es un seed.** Elegir uno rellena el formulario y el tipo se crea por el alta de siempre, así que nace propio y editable. Como semilla, toda clínica arrancaría con quince tipos que nadie pidió.
+
+La pantalla los agrupa en **"En esta clínica"** y **"Más habituales"**, en ese orden: si un colega ya lo usa, copiarlo deja las dos agendas diciendo lo mismo para lo mismo.
+
+#### El "—" del historial
+
+En "Turnos activos" e "Historial de turnos" el turno de un colega mostraba **"—"** como tipo, aunque fuera del mismo tipo que uno propio. La ficha resolvía el tipo contra `tiposConsulta`, que son los **míos**: el turno del colega referencia el id del tipo de **él**, el lookup fallaba.
+
+No se arregla mapeando el id ajeno a un tipo propio — eso sería inventar una equivalencia, y se rompe en cuanto el colega tiene uno que vos no tenés. El turno viaja con el **nombre resuelto**, en el mismo lote donde ya se resuelve el nombre del profesional (no un N+1 sobre una lista que se pinta entera).
+
+**El color no viaja.** La primera entrega lo mandaba junto al nombre, y el cliente lo marcó enseguida: *"si mi colega tiene consulta general en verde y yo en beige, yo desde la ficha del paciente debo ver Consulta general y el color beige"*. Tenía razón, y además contradecía la regla que esta misma ronda estaba fijando — si el color es preferencia de cada agenda, el de él no tiene nada que hacer en mi pantalla. En mi tabla, un punto de un color significa lo que yo decidí que significa.
+
+Se resuelve en el frontend contra **mis** tipos, por nombre. Si no tengo ese tipo, el nombre se muestra igual y el punto queda neutro: no tengo preferencia de color para algo que no uso. Del lado del backend la consulta pide `SELECT id, nombre` — lo único que se expone de la fila del colega, escrito en la query.
+
+Por lo mismo, el **filtro de esa tabla compara por nombre normalizado** y sus opciones salen de los turnos, no de mis tipos: filtrando por el id de mi "Limpieza dental" desaparecían los turnos del colega de ese mismo tipo, y un tipo que solo usa él no aparecía ni como opción.
+
+El test del backend se verificó **sacándole el arreglo**: sin el nombre en la respuesta, falla nombrando los dos turnos.
+
+### Un turno activo por tipo, y el aviso que dice hasta cuándo (2026-09-15)
+
+Tres correcciones de la misma vuelta, todas sobre la misma idea: **las reglas que protegen al paciente tienen que valer en los dos caminos, el público y el manual.**
+
+#### La regla del tipo único llega a los turnos cargados a mano
+
+*"1 turno activo por DNI y tipo de consulta"* existía desde la Fase 3.1, pero **solo en el wizard público** y ahí como control de abuso sobre el paciente sin verificar. Cargando a mano no se aplicaba ninguna: la misma persona podía juntar dos "Consulta general" pendientes, una por profesional, cada uno sin ver la del otro.
+
+Ahora se aplica en el alta del panel, **en toda la clínica**, y **comparando por nombre** — que es lo que la ronda anterior acaba de decidir que identifica a un tipo. Por `tipo_consulta_id` la regla no vería nunca el turno del colega, porque él tiene su propia fila para "Consulta general": el caso reportado es justo el que el id no puede ver.
+
+Se busca por `paciente_id` y no por `dni_contacto`: el DNI del turno es un snapshot de lo tipeado, la ficha es la identidad. Y la comparación de nombres se hace en Go, no en SQL — `normalizarNombreTipo` saca acentos y colapsa espacios, y no hay equivalente portable en Postgres sin `unaccent`; son los turnos activos de una sola persona, el costo es nulo.
+
+El mensaje nombra el tipo, el profesional y la fecha, y dice **"con vos"** cuando el turno que choca es de quien está cargando.
+
+#### El aviso de solapamiento, con la hora de cierre
+
+*"Ya tiene un turno con Lucía Ferrer a las 10:00"* decía que choca pero no cuándo se libera la persona, y la agenda del colega no se ve desde ahí: para elegir otro horario había que ir probando. Ahora dice **"de 10:00 a 10:30 del 23/09"**.
+
+#### Un hueco de la ronda anterior: mover también cuenta
+
+Al escribir lo anterior apareció: el alta controlaba que el paciente no quedara en dos sillones a la vez, **reprogramar no**. Se podía agendar en un hueco libre y después arrastrar el turno encima del que esa persona tiene con un colega. La misma regla; lo que cambiaba era por qué puerta se entra. Va en una transacción, como en el alta.
+
+#### Seis tests rotos que eran la regla funcionando
+
+Seis fixtures creaban dos turnos activos de la MISMA persona y el MISMO tipo — exactamente lo que se acaba de prohibir. No se aflojó la regla: se les dio un segundo tipo de consulta (`otroTipoDePrueba`), salvo al test del exclusion constraint, que pasó a usar **dos pacientes distintos** porque lo que mide es que el PROFESIONAL no tenga dos turnos encimados, sean de quien sean. Un test que se arregla relajando lo que prueba deja de probar algo.
+
+Las tres reglas se verificaron **sacándoles el arreglo**: sin cada una, su test falla.

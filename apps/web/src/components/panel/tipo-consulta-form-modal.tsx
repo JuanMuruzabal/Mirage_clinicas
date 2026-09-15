@@ -91,13 +91,16 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
   }, [tipoExistente]);
 
   function partirDe(tipo: TipoConsultaDeColega) {
+    // Los del repertorio no tienen id —todavía no son una fila de
+    // nadie—, así que la clave combina origen y nombre.
+    const clave = tipo.id || `${tipo.origen}-${tipo.nombre}`;
     // Se puede des-elegir: volver a tocar el mismo deja el formulario
     // como estaba, sin tener que borrar el nombre a mano.
-    if (partidaElegida === tipo.id) {
+    if (partidaElegida === clave) {
       setPartidaElegida(null);
       return;
     }
-    setPartidaElegida(tipo.id);
+    setPartidaElegida(clave);
     setNombre(tipo.nombre);
     setColor(tipo.color);
     setDuracionMinutos(tipo.duracionMinutos ?? 30);
@@ -178,31 +181,54 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
                 Tipos de consulta ya creados
               </p>
               <p className="text-xs text-grafito">
-                Partí de uno que ya usa la clínica. Los tiempos los configurás vos acá abajo.
+                Partí de uno que ya usa la clínica, o de los más habituales. Los tiempos los configurás vos acá abajo.
               </p>
-              <div className="scrollbar-fina -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-                {yaCreados.map((tipo) => (
-                  <button
-                    key={tipo.id}
-                    type="button"
-                    onClick={() => partirDe(tipo)}
-                    aria-pressed={partidaElegida === tipo.id}
-                    className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                      partidaElegida === tipo.id
-                        ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro"
-                        : "border-linea bg-marfil text-grafito hover:border-salvia"
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: tipo.color }}
-                    />
-                    {tipo.nombre}
-                    {tipo.yaTenesUnoParecido && <span className="text-xs text-grafito/45">· ya tenés uno parecido</span>}
-                  </button>
-                ))}
-              </div>
+              {/* Dos grupos, y en este orden: "esto ya se usa acá" pesa
+                  más que "esto se suele usar" — si un colega ya lo tiene,
+                  copiarlo deja los dos calendarios de la clínica con el
+                  mismo nombre para lo mismo.
+
+                  Lo que YA tenés no aparece: lo filtra el backend. Antes
+                  se listaba con un cartel "ya tenés uno parecido", que era
+                  ruido y además engañoso — dos "Consulta general" en
+                  colores distintos son el MISMO tipo, el color es
+                  preferencia de cada agenda. */}
+              {(["colega", "catalogo"] as const).map((origen) => {
+                const grupo = yaCreados.filter((t) => t.origen === origen);
+                if (grupo.length === 0) return null;
+                return (
+                  <div key={origen} className="flex flex-col gap-1.5">
+                    <p className="text-[11px] uppercase tracking-wide text-grafito/45">
+                      {origen === "colega" ? "En esta clínica" : "Más habituales"}
+                    </p>
+                    <div className="scrollbar-fina -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                      {grupo.map((tipo) => {
+                        const clave = tipo.id || `${origen}-${tipo.nombre}`;
+                        return (
+                          <button
+                            key={clave}
+                            type="button"
+                            onClick={() => partirDe(tipo)}
+                            aria-pressed={partidaElegida === clave}
+                            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                              partidaElegida === clave
+                                ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro"
+                                : "border-linea bg-marfil text-grafito hover:border-salvia"
+                            }`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                              style={{ backgroundColor: tipo.color }}
+                            />
+                            {tipo.nombre}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </section>
           )}
 

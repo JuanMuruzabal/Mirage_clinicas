@@ -17,6 +17,9 @@ import (
 // autenticadas, acotadas al profesional del token.
 func registerPacienteRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/pacientes", listPacientesHandler(gdb))
+	// La búsqueda a nivel CLÍNICA, para enganchar la ficha de un paciente
+	// que ya cargó un colega — ver pacientes_de_la_clinica.go.
+	registerPacientesDeLaClinicaRoutes(r, gdb)
 	r.Post("/pacientes", crearPacienteHandler(gdb))
 	r.Get("/pacientes/{id}", getPacienteHandler(gdb))
 	r.Patch("/pacientes/{id}", editarPacienteHandler(gdb))

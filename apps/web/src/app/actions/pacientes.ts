@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ConflictoPaciente, Paciente } from "@dental-mirage/shared-types";
+import type { ConflictoPaciente, Paciente, PacienteConocido } from "@dental-mirage/shared-types";
 import {
   apiCrearPaciente,
   apiEditarPaciente,
   apiListConflictosPaciente,
   apiListPacientes,
+  apiPacientesDeLaClinica,
   apiListPacientesPaginado,
   apiResolverConflictoPaciente,
   type CrearPacientePayload,
@@ -22,17 +23,27 @@ export interface PacienteActionResult {
 }
 
 // listPacientesAction — camino "Paciente conocido" del modal "+ Agregar
-// turno" (2026-08-23): busca entre los pacientes ya cargados del
-// profesional para agendarles un turno nuevo sin volver a tipear sus
-// datos. Mismo patrón que listTurnosAction: el cliente HTTP es
-// server-only, así que esta Server Action es la única vía desde un Client
-// Component.
-export async function listPacientesAction(q?: string): Promise<Paciente[]> {
+// turno" (2026-08-23): busca una ficha ya cargada para agendarle un turno
+// nuevo sin volver a tipear sus datos. Mismo patrón que listTurnosAction:
+// el cliente HTTP es server-only, así que esta Server Action es la única
+// vía desde un Client Component.
+//
+// Busca en TODA LA CLÍNICA desde la Fase 3.2.5 (pedido del cliente,
+// 2026-09-15): la identidad de un paciente es de la clínica —una persona,
+// una ficha, un DNI— así que quien va a cargarle un turno tiene que poder
+// encontrarla la haya cargado quien la haya cargado. Antes buscaba solo
+// entre los propios, y el resultado era que un profesional tipeaba de
+// nuevo a alguien que ya existía: el índice único de DNI rechazaba el
+// alta y no había forma de engancharla desde esta pantalla.
+//
+// El listado de /panel/pacientes NO cambia: sigue siendo "a quiénes
+// atiendo yo", que es otra pregunta.
+export async function listPacientesAction(q?: string): Promise<PacienteConocido[]> {
   const token = await getSessionToken();
   if (!token) {
     redirect("/ingresar");
   }
-  const result = await apiListPacientes(token, q);
+  const result = await apiPacientesDeLaClinica(token, q);
   return result.ok ? result.data : [];
 }
 

@@ -8,6 +8,7 @@ import type {
   ClinicaResultado,
   CodigoInvitacion,
   Equipo,
+  PacienteConocido,
   Presencia,
   TipoConsultaDeColega,
   InvitarColaboradorPayload,
@@ -584,6 +585,16 @@ export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<Cod
 
 export function apiEquipo(token: string): Promise<ApiResult<Equipo>> {
   return request<Equipo>("/equipo", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// apiPacientesDeLaClinica — las fichas de TODA la clínica, para el
+// selector de "paciente conocido" al cargar un turno. El listado de
+// /panel/pacientes sigue siendo el propio: son dos preguntas distintas.
+export function apiPacientesDeLaClinica(token: string, q?: string): Promise<ApiResult<PacienteConocido[]>> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  return request<PacienteConocido[]>(`/pacientes/de-la-clinica${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function apiTiposConsultaDeColegas(token: string): Promise<ApiResult<TipoConsultaDeColega[]>> {

@@ -113,6 +113,21 @@ export interface MiembroDelEquipo {
   enLinea: boolean;
 }
 
+/** Una ficha de la clínica, para engancharla al cargar un turno
+ *  (Fase 3.2.5). Deliberadamente mínima: lo justo para reconocer a la
+ *  persona, no la ficha completa de un colega. */
+export interface PacienteConocido {
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  /** Si ya tiene turnos conmigo. "Un paciente mío" y "alguien que ya
+   *  atiende la clínica" son dos cosas distintas para quien carga. */
+  esMio: boolean;
+}
+
 // --- Tipos de consulta de un colega (Fase 3.2.5) ---
 //
 // Incluir uno COPIA la fila, no la comparte: duración, color y
@@ -120,10 +135,14 @@ export interface MiembroDelEquipo {
 // ajusta a su manera. Ver apps/api/internal/http/tipos_consulta_colegas.go.
 
 export interface TipoConsultaDeColega extends TipoConsulta {
+  /** Vacíos cuando viene del repertorio: no es de nadie todavía. */
   deUserId: string;
   deNombre: string;
-  /** Si alguno de los tuyos se le parece por nombre. Avisa, no bloquea. */
-  yaTenesUnoParecido: boolean;
+  /** De dónde sale la sugerencia. `colega`: alguien de la clínica ya lo
+   *  usa. `catalogo`: es del repertorio odontológico. La pantalla los
+   *  agrupa distinto — uno dice "esto ya se usa acá", el otro "esto se
+   *  suele usar". Lo que YA tenés no llega: se filtra en el backend. */
+  origen: "colega" | "catalogo";
 }
 
 // --- Presencia de colaboradores (Fase 3.2.5) ---
@@ -433,6 +452,12 @@ export interface Turno {
    *  fila dice con quién fue o va a ser. */
   atendidoPorUserId?: string;
   atendidoPorNombre?: string;
+  /** El NOMBRE del tipo, además del id, y NADA MÁS. La ficha muestra
+   *  turnos de varios profesionales y el id del tipo de un colega no está
+   *  en la lista propia: sin esto salía "—". El color no viaja a
+   *  propósito — es preferencia de cada agenda, así que la pantalla lo
+   *  resuelve contra los tipos PROPIOS buscando por este nombre. */
+  tipoConsultaNombre?: string;
   /** Si el turno es de quien está mirando. Lo decide el backend: la
    *  pantalla lo usa para saber qué puede tocar, y eso es una decisión de
    *  permisos, no de presentación. */

@@ -10,12 +10,73 @@ import { VerTextoBoton } from "../ver-texto-boton";
 import { ClickableTableRow } from "./clickable-table-row";
 import { FiltrosSheet } from "./filtros-sheet";
 
+// El tipo de consulta de un turno de esta tabla, que puede ser de otro
+// profesional (corrección del 2026-09-15, reportada por el cliente:
+// "el tipo de consulta del turno hecho por otro profesional aparece
+// como '-'").
+//
+// La ficha muestra los turnos de TODOS los profesionales que atendieron
+// al paciente, y hasta acá se resolvía el tipo contra `tiposConsulta`,
+// que son los MÍOS: el turno de un colega referencia el id del tipo de
+// ÉL, el lookup fallaba y salía "—". Un historial que no dice qué se
+// hizo no es un historial.
+//
+// El backend manda el NOMBRE del tipo en el turno (`tipoConsultaNombre`)
+// y nada más. **El color no viaja, y se resuelve acá contra los tipos
+// PROPIOS** (corrección del 2026-09-15, segunda vuelta, pedido textual
+// del cliente: *"si mi colega tiene consulta general en verde y yo en
+// beige, yo desde la ficha del paciente debo ver Consulta general y el
+// color beige"*).
+//
+// Es la misma regla mirada desde la pantalla: el nombre es lo compartido
+// en la clínica, el color es preferencia de MI agenda. Pintar el turno
+// del colega con el color de él rompería la lectura de un vistazo — en
+// mi tabla, un punto verde significa lo que yo decidí que significa.
+//
+// Si el tipo no está entre los míos, el nombre igual se muestra y el
+// punto queda neutro: no tengo una preferencia de color para algo que no
+// uso, e inventarle una sería peor que no pintarlo.
+//
+// El lookup por id queda como respaldo para respuestas viejas en caché y
+// para los fixtures de test que arman un Turno sin `tipoConsultaNombre`.
+function tipoDelTurno(
+  t: Turno,
+  tipoPorId: Map<string, TipoConsulta>,
+  tipoPorNombre: Map<string, TipoConsulta>,
+): { nombre: string; color: string } | undefined {
+  if (t.tipoConsultaNombre) {
+    const mio = tipoPorNombre.get(claveTipo(t.tipoConsultaNombre));
+    return { nombre: t.tipoConsultaNombre, color: mio?.color ?? "" };
+  }
+  const mio = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+  return mio ? { nombre: mio.nombre, color: mio.color } : undefined;
+}
+
+// El filtro compara por NOMBRE, no por id, por la misma razón: dos
+// profesionales tienen su propia fila para "Limpieza dental", y filtrar
+// por el id de la mía escondió los turnos del colega que son de ese
+// mismo tipo. Normalizado, porque "Consulta General" y "consulta
+// general" son lo mismo escrito distinto.
+function claveTipo(nombre: string): string {
+  return nombre.trim().toLowerCase();
+}
+
 // aplicaFiltro — extraída para poder aplicarse dos veces: contra el
 // estado YA CONFIRMADO (la tabla de abajo) y contra el estado BORRADOR
 // (el conteo en vivo del botón "Ver X turnos" de FiltrosSheet, mientras
 // la hoja sigue abierta y todavía no se confirmó nada).
-function aplicaFiltro(t: Turno, tipoId: string, desde: string, hasta: string): boolean {
-  if (tipoId !== "todos" && t.tipoConsultaId !== tipoId) return false;
+function aplicaFiltro(
+  t: Turno,
+  tipoPorId: Map<string, TipoConsulta>,
+  tipoPorNombre: Map<string, TipoConsulta>,
+  tipo: string,
+  desde: string,
+  hasta: string,
+): boolean {
+  if (tipo !== "todos") {
+    const suyo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
+    if (!suyo || claveTipo(suyo.nombre) !== tipo) return false;
+  }
   if (!t.horaInicio) return desde === "" && hasta === "";
   const fecha = t.horaInicio.slice(0, 10);
   if (desde && fecha < desde) return false;
@@ -91,18 +152,37 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
   const [draftHasta, setDraftHasta] = useState(hasta);
 
   const tipoPorId = useMemo(() => new Map(tiposConsulta.map((t) => [t.id, t])), [tiposConsulta]);
+  // Mis tipos por nombre normalizado: es cómo se le pone MI color al
+  // turno de un colega que es de ese mismo tipo (ver tipoDelTurno).
+  const tipoPorNombre = useMemo(
+    () => new Map(tiposConsulta.map((t) => [claveTipo(t.nombre), t])),
+    [tiposConsulta],
+  );
+  // Las opciones salen de los TURNOS, no de mis tipos: en esta tabla hay
+  // turnos de colegas, y un tipo que solo usa el colega tiene que poder
+  // filtrarse igual. Deduplicado por nombre normalizado — si los dos
+  // tenemos "Limpieza dental", es una sola opción.
   const tiposUsados = useMemo(() => {
-    const ids = new Set(turnos.map((t) => t.tipoConsultaId).filter((id): id is string => Boolean(id)));
-    return tiposConsulta.filter((t) => ids.has(t.id));
-  }, [turnos, tiposConsulta]);
+    const porClave = new Map<string, string>();
+    for (const t of turnos) {
+      const suyo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
+      if (suyo && !porClave.has(claveTipo(suyo.nombre))) porClave.set(claveTipo(suyo.nombre), suyo.nombre);
+    }
+    return [...porClave.entries()]
+      .map(([clave, nombre]) => ({ clave, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [turnos, tipoPorId, tipoPorNombre]);
 
-  const filtrados = useMemo(() => turnos.filter((t) => aplicaFiltro(t, tipoId, desde, hasta)), [turnos, tipoId, desde, hasta]);
+  const filtrados = useMemo(
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoPorNombre, tipoId, desde, hasta)),
+    [turnos, tipoPorId, tipoPorNombre, tipoId, desde, hasta],
+  );
   // draftFiltrados — puramente para el conteo en vivo del botón de la
   // hoja ("Ver X turnos"); la tabla real sigue mostrando `filtrados`
   // (confirmado) hasta que se toca ese botón.
   const draftFiltrados = useMemo(
-    () => turnos.filter((t) => aplicaFiltro(t, draftTipoId, draftDesde, draftHasta)),
-    [turnos, draftTipoId, draftDesde, draftHasta],
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoPorNombre, draftTipoId, draftDesde, draftHasta)),
+    [turnos, tipoPorId, tipoPorNombre, draftTipoId, draftDesde, draftHasta],
   );
 
   const hayFiltrosActivos = tipoId !== "todos" || desde !== "" || hasta !== "";
@@ -174,7 +254,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
               >
                 <option value="todos">Todos los tipos</option>
                 {tiposUsados.map((t) => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.clave} value={t.clave}>
                     {t.nombre}
                   </option>
                 ))}
@@ -262,14 +342,21 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 <th className="panel-th-sticky px-4 py-3">Estado</th>
                 {/* Con quién (Fase 3.2.5): la ficha muestra TODOS los
                     turnos del paciente —es de la clínica— así que sin esta
-                    columna el historial mezcla profesionales sin decirlo. */}
-                <th className="panel-th-sticky px-4 py-3">Profesional</th>
+                    columna el historial mezcla profesionales sin decirlo.
+
+                    `max-md:hidden` como Motivo (corrección del
+                    2026-09-15, con captura): esta tabla NO scrollea en
+                    horizontal en mobile (pedido explícito, ver el
+                    comentario del contenedor), así que una quinta columna
+                    no se acomoda — se corta. En pantalla angosta el dato
+                    no se pierde: baja debajo del tipo de consulta. */}
+                <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>
                 <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
               </tr>
             </thead>
             <tbody>
               {filtrados.map((t) => {
-                const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+                const tipo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
                 // resuelto: mismo criterio derivado que TurnosTable/
                 // TurnoDetalle (TR-074 en docs/Arquitectura y base/tradeoffs.md) — no es un
                 // estado real, agendado + horaFin ya pasado.
@@ -311,6 +398,16 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                           color de la columna de al lado se sigue viendo
                           siempre, sea cual sea el nombre. */}
                       {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} /> : (tipo?.nombre ?? "—")}
+                      {/* El profesional, en mobile, debajo del tipo: la
+                          columna propia no entra sin scroll horizontal, y
+                          el dato no puede perderse — es lo que distingue
+                          un turno propio de uno de un colega. */}
+                      {t.atendidoPorNombre && (
+                        <span className="mt-0.5 block text-xs text-grafito/50 md:hidden">
+                          {t.atendidoPorNombre}
+                          {t.esMio === false && " · solo lectura"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
@@ -333,7 +430,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-grafito/70">
+                    <td className="max-md:hidden px-4 py-3 text-grafito/70">
                       {t.atendidoPorNombre ?? "—"}
                       {t.esMio === false && (
                         <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 text-[11px] text-grafito/50">

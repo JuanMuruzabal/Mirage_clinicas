@@ -197,6 +197,39 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "sesión inválida")
 			return
 		}
+		// NO DOS VECES EL MISMO TIPO (corrección del 2026-09-15,
+		// reportada por el cliente). Tener "Consulta general" dos veces en
+		// la propia lista no es una elección: es un error de tipeo o un
+		// clic de más, y después hay que elegir entre dos opciones
+		// idénticas cada vez que se carga un turno.
+		//
+		// Se compara por nombre NORMALIZADO (sin acentos, sin mayúsculas,
+		// sin puntuación): "consulta general" y "Consulta General" son el
+		// mismo tipo. El color y la duración no entran — son configuración
+		// de la agenda, no identidad del tipo.
+		//
+		// IGUALDAD EXACTA y no `seParecen`, a diferencia del filtro de
+		// sugerencias. Bloquear y ocultar no merecen el mismo criterio:
+		// ocultar de más solo quita una sugerencia, bloquear de más impide
+		// escribir un nombre legítimo. Con el umbral difuso, "Control 1" y
+		// "Control 2" quedan a un carácter de distancia y el segundo sería
+		// irrechazable — y eso lo decide el profesional, no nosotros.
+		//
+		// Solo contra los PROPIOS: que un colega tenga "Consulta general"
+		// no impide tener la tuya, con tus tiempos. Ese es justamente el
+		// sentido de copiar en vez de compartir (TR-142).
+		var mios []db.TipoConsulta
+		if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", profesionalID, session.UserID).
+			Find(&mios).Error; err == nil {
+			for _, mio := range mios {
+				if normalizarNombreTipo(mio.Nombre) == normalizarNombreTipo(req.Nombre) {
+					writeError(w, http.StatusConflict,
+						"ya tenés un tipo de consulta llamado \""+mio.Nombre+"\"")
+					return
+				}
+			}
+		}
+
 		userID := session.UserID
 		tipo := db.TipoConsulta{
 			ClinicID:                  profesionalID,

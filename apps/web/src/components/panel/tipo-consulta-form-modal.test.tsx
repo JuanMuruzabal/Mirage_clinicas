@@ -206,7 +206,7 @@ describe("TipoConsultaFormModal", () => {
       tiempoPostConsultaMinutos: 0,
       deUserId: "u2",
       deNombre: "Lucía Ferrer",
-      yaTenesUnoParecido: false,
+      origen: "colega" as const,
     };
 
     it("elegir uno rellena el formulario en vez de guardarlo de una", async () => {

@@ -186,7 +186,11 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByRole("cell", { name: "Consulta general" })).toBeInTheDocument();
 
     await abrirFiltros(user);
-    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "tc-1");
+    // El valor de la opción es el NOMBRE normalizado, no el id: cada
+    // profesional tiene su propia fila para "Consulta general", y filtrar
+    // por el id de la mía escondía los turnos del colega que son de ese
+    // mismo tipo (corrección del 2026-09-15).
+    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "consulta general");
     expect(screen.getByRole("button", { name: "Ver 1 turno" })).toBeInTheDocument();
     await confirmarFiltros(user);
 
@@ -301,8 +305,81 @@ describe("PacienteTurnosTable", () => {
       render(<PacienteTurnosTable turnos={[mio, ajeno]} tiposConsulta={tiposConsulta} vacio="" />);
 
       expect(screen.getByRole("columnheader", { name: "Profesional" })).toBeInTheDocument();
-      expect(screen.getByRole("cell", { name: /Ana Gómez/ })).toBeInTheDocument();
-      expect(screen.getByRole("cell", { name: /Beto Colega/ })).toBeInTheDocument();
+      // El nombre aparece dos veces a propósito: en su columna (escritorio)
+      // y debajo del tipo de consulta (mobile, donde la columna no entra
+      // sin scroll horizontal). Las dos las pinta el mismo render; el CSS
+      // decide cuál se ve.
+      expect(screen.getAllByText("Ana Gómez").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Beto Colega/).length).toBeGreaterThan(0);
+    });
+
+    // Corrección del 2026-09-15, reportada por el cliente: "el tipo de
+    // consulta del turno hecho por otro profesional aparece como '-',
+    // aunque haga referencia al mismo tipo de consulta".
+    //
+    // El turno del colega referencia el id del tipo de ÉL, que no está
+    // en `tiposConsulta` (los míos). El backend manda el NOMBRE en el
+    // turno, y la tabla lo usa.
+    const ajenoDeUnTipoQueTengo = {
+      ...ajeno,
+      tipoConsultaId: "tc-del-colega",
+      // El colega lo tiene en verde; yo tengo "Consulta general" en
+      // beige (#E7D9BE, ver `tiposConsulta`).
+      tipoConsultaNombre: "Consulta general",
+    };
+    const ajenoDeUnTipoQueNoTengo = {
+      ...ajeno,
+      tipoConsultaId: "tc-del-colega-2",
+      tipoConsultaNombre: "Limpieza dental",
+    };
+
+    it("el turno de un colega muestra su tipo de consulta, no —", () => {
+      render(<PacienteTurnosTable turnos={[ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />);
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+    });
+
+    // Segunda vuelta de la misma corrección, pedido textual: "si mi
+    // colega tiene consulta general en verde y yo en beige, yo desde la
+    // ficha del paciente debo ver Consulta general y el color beige".
+    //
+    // El color NO viaja en el turno: se resuelve contra mis tipos por
+    // nombre. En mi tabla, un punto de un color significa lo que YO
+    // decidí que significa.
+    it("el tipo de un colega se pinta con MI color, no con el de él", () => {
+      const { container } = render(
+        <PacienteTurnosTable turnos={[ajenoDeUnTipoQueTengo]} tiposConsulta={tiposConsulta} vacio="" />,
+      );
+
+      expect(screen.getByRole("cell", { name: /Consulta general/ })).toBeInTheDocument();
+      const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
+      expect(punto).toHaveStyle({ background: "rgb(231, 217, 190)" });
+    });
+
+    // Y si no tengo ese tipo, no tengo una preferencia de color para él:
+    // el nombre se muestra igual y el punto queda neutro. Inventarle un
+    // color sería peor que no pintarlo.
+    it("un tipo que no tengo muestra el nombre y el punto neutro", () => {
+      const { container } = render(
+        <PacienteTurnosTable turnos={[ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />,
+      );
+
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+      const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
+      expect(punto).toHaveStyle({ background: "var(--color-arena)" });
+    });
+
+    // La otra mitad: el tipo del colega tiene que poder filtrarse. Si las
+    // opciones salieran de mis tipos, un tipo que solo usa él no estaría.
+    it("el tipo de un colega se puede elegir en el filtro", async () => {
+      const user = userEvent.setup();
+      render(<PacienteTurnosTable turnos={[mio, ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />);
+
+      await abrirFiltros(user);
+      await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "limpieza dental");
+      await confirmarFiltros(user);
+
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+      expect(screen.queryByRole("cell", { name: /Urgencia/ })).not.toBeInTheDocument();
     });
 
     it("el ajeno va en solo lectura y sin link; el propio conserva el suyo", () => {

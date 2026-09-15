@@ -5,6 +5,7 @@ const {
   revalidatePathMock,
   apiEditarPacienteMock,
   apiListPacientesMock,
+  apiPacientesDeLaClinicaMock,
   apiListConflictosPacienteMock,
   apiResolverConflictoPacienteMock,
   getSessionTokenMock,
@@ -15,6 +16,7 @@ const {
   revalidatePathMock: vi.fn(),
   apiEditarPacienteMock: vi.fn(),
   apiListPacientesMock: vi.fn(),
+  apiPacientesDeLaClinicaMock: vi.fn(),
   apiListConflictosPacienteMock: vi.fn(),
   apiResolverConflictoPacienteMock: vi.fn(),
   getSessionTokenMock: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/api", () => ({
   apiEditarPaciente: apiEditarPacienteMock,
   apiListPacientes: apiListPacientesMock,
+  apiPacientesDeLaClinica: apiPacientesDeLaClinicaMock,
   apiListConflictosPaciente: apiListConflictosPacienteMock,
   apiResolverConflictoPaciente: apiResolverConflictoPacienteMock,
 }));
@@ -75,15 +78,19 @@ describe("listPacientesAction", () => {
 
   it("devuelve la lista en éxito, pasando q a la API", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiListPacientesMock.mockResolvedValue({ ok: true, data: [{ id: "pac-1" }] });
+    apiPacientesDeLaClinicaMock.mockResolvedValue({ ok: true, data: [{ id: "pac-1" }] });
 
     await expect(listPacientesAction("Bruno")).resolves.toEqual([{ id: "pac-1" }]);
-    expect(apiListPacientesMock).toHaveBeenCalledWith("un-jwt", "Bruno");
+    // Busca en TODA la clínica desde la Fase 3.2.5: la identidad de un
+    // paciente es de la clínica, así que quien va a cargarle un turno
+    // tiene que poder encontrar su ficha la haya cargado quien la haya
+    // cargado.
+    expect(apiPacientesDeLaClinicaMock).toHaveBeenCalledWith("un-jwt", "Bruno");
   });
 
   it("devuelve [] si la API falla", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiListPacientesMock.mockResolvedValue({ ok: false, status: 500, error: "error" });
+    apiPacientesDeLaClinicaMock.mockResolvedValue({ ok: false, status: 500, error: "error" });
 
     await expect(listPacientesAction()).resolves.toEqual([]);
   });
