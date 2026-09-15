@@ -122,6 +122,50 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 	}
 }
 
+// soloMisTiposDeConsulta — el tipo de consulta es de un profesional desde
+// la Fase 3.2.1, y el listado ya lo respetaba; esto cierra la escritura
+// por id, que seguía abierta.
+func soloMisTiposDeConsulta(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
+}
+
+// soloMisConflictos — un conflicto de identidad lo resuelve el profesional
+// que lo tiene (Fase 3.2.5, 2026-09-14).
+//
+// `conflictos_paciente` no tiene `user_id` y no se lo agrego: el conflicto
+// SIEMPRE nace de un turno, y ese turno ya sabe quién atiende. Derivarlo
+// del turno tiene dos ventajas sobre una columna nueva — no hace falta
+// migrar las filas que ya existen, y no puede desincronizarse del turno
+// que le dio origen.
+//
+// El brief pide que lo resuelva quien lo tiene: es su paciente el que
+// aparece dos veces, y es él quien sabe si son la misma persona.
+func soloMisConflictos(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where(`EXISTS (
+			SELECT 1 FROM turnos t
+			WHERE t.id = conflictos_paciente.turno_en_conflicto_id
+			  AND t.atendido_por_user_id = ?
+		)`, userID)
+	}
+}
+
 // soloMiAgenda — el horario de atención y los horarios reservados son de
 // UN profesional, igual que sus turnos (Fase 3.2.5, corrección del
 // 2026-09-14).

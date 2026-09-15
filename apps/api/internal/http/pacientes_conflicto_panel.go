@@ -44,7 +44,9 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var conflictos []db.ConflictoPaciente
-		if err := gdb.Where("clinic_id = ? AND resuelto = false", profesionalID).
+		// Cada uno resuelve los suyos: es su paciente el que aparece dos
+		// veces, y es él quien sabe si son la misma persona.
+		if err := gdb.Scopes(soloMisConflictos(r)).Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Order("created_at").Find(&conflictos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
 			return
@@ -471,7 +473,8 @@ func resolverConflictoPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var conflicto db.ConflictoPaciente
-		if err := gdb.Where("id = ? AND clinic_id = ?", conflictoID, profesionalID).First(&conflicto).Error; err != nil {
+		if err := gdb.Scopes(soloMisConflictos(r)).
+			Where("id = ? AND clinic_id = ?", conflictoID, profesionalID).First(&conflicto).Error; err != nil {
 			writeError(w, http.StatusNotFound, "conflicto no encontrado")
 			return
 		}

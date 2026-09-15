@@ -1052,11 +1052,18 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		}
 		horaFin := horaInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
 
-		// Fase 3.2.1: quién atiende. Hasta que el wizard deje elegir
-		// profesional (Fase 3.2.7) es el owner, que es el único que cada
-		// clínica tiene hoy — el mismo comportamiento de antes, ahora
-		// escrito en la fila en vez de implícito.
-		atiende, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		// QUIÉN ATIENDE.
+		//
+		// Con ENLACE, el dueño del enlace (Fase 3.2.5): un profesional lo
+		// generó para llenar SU agenda —es la tercera pestaña de su
+		// "+ Agregar turno"— así que el turno que salga de ahí es suyo.
+		// Mandarlo al owner haría que compartir el link le cargara turnos
+		// a otro, que es exactamente lo contrario de para qué se comparte.
+		//
+		// Sin enlace, desde la página pública, sigue siendo el owner hasta
+		// que el wizard deje elegir profesional (Fase 3.2.7): el paciente
+		// todavía no tiene con quién elegir.
+		atiende, err := profesionalDelTurnoPublico(gdb, clinic.ID, req.EnlaceToken)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
 			return

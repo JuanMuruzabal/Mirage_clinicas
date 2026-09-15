@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 )
@@ -335,4 +338,190 @@ func slotsDePrueba(t *testing.T, router http.Handler, token, tipoID string, dia 
 		t.Fatalf("respuesta inválida: %v", err)
 	}
 	return resp.Slots
+}
+
+// --- El barrido completo de "gestión de clínica" --------------------
+//
+// Pedido del cliente el 2026-09-14: "TODA la lógica que se maneja en
+// gestión de clínica debería ser individual para cada profesional".
+//
+// Lo que estos tests cubren es la ESCRITURA sobre datos ajenos, que es
+// donde el daño es real: ver de más se corrige mirando, marcar la
+// asistencia de un turno ajeno no se deshace (TR-092).
+
+// turnoDePrueba deja un turno cargado por `token` y devuelve su id.
+func turnoDePrueba(t *testing.T, router http.Handler, gdb *gorm.DB, clinicID uuid.UUID, token, email, dni string) string {
+	t.Helper()
+	userID := userIDDelMail(t, gdb, email)
+	tipo := tipoDe(t, gdb, clinicID, userID, "Tipo de "+dni, 30)
+	inicio := time.Now().Add(72 * time.Hour).Truncate(time.Hour)
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", token, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "De Prueba", "dniContacto": dni,
+		"telefonoContacto": "+5493511234567", "emailContacto": "p" + dni + "@example.com",
+		"tipoConsultaId": tipo.ID.String(),
+		"horaInicio":     inicio.Format(time.RFC3339),
+		"horaFin":        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear turno: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var creado struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &creado); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return creado.ID
+}
+
+// TestColega_NoSePuedeTocarElTurnoDeOtro — las cuatro escrituras que
+// estaban abiertas con solo tener el id: ver, cancelar, reprogramar y
+// marcar asistencia. 404 y no 403, mismo criterio que la ficha ajena.
+func TestColega_NoSePuedeTocarElTurnoDeOtro(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "esc-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Escrituras",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "esc-colega@example.com", db.RoleProfesional)
+
+	// Un turno DEL COLEGA, y el titular intentando tocarlo.
+	turnoID := turnoDePrueba(t, router, gdb, clinicID, tokenColega, "esc-colega@example.com", "42111222")
+
+	casos := []struct {
+		nombre string
+		ruta   string
+		cuerpo any
+	}{
+		{"cancelar", "/turnos/" + turnoID + "/cancelar", map[string]any{}},
+		{"reprogramar", "/turnos/" + turnoID + "/hora", map[string]any{
+			"horaInicio": time.Now().Add(96 * time.Hour).Format(time.RFC3339),
+			"horaFin":    time.Now().Add(96*time.Hour + 30*time.Minute).Format(time.RFC3339),
+		}},
+		{"marcar asistencia", "/turnos/" + turnoID + "/asistencia", map[string]any{"asistencia": "asistio"}},
+	}
+	for _, c := range casos {
+		rec := doJSONAuth(t, router, http.MethodPatch, c.ruta, titular.Token, c.cuerpo)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s el turno del colega: status=%d, esperaba %d. body=%s",
+				c.nombre, rec.Code, http.StatusNotFound, rec.Body.String())
+		}
+	}
+
+	// Y el dueño sí puede cancelarlo: sin esto, el test pasaría con el
+	// endpoint roto para todos.
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turnoID+"/cancelar", tokenColega, map[string]any{})
+	if rec.Code != http.StatusOK {
+		t.Errorf("el dueño no puede cancelar su propio turno: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestColega_LosPendientesDeAsistenciaSonLosPropios — el listado que
+// invita a marcar asistencia. Con los del colega adentro, la primera
+// acción del día podía ser cerrarle un turno ajeno.
+func TestColega_LosPendientesDeAsistenciaSonLosPropios(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "pend-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Pendientes",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "pend-colega@example.com", db.RoleProfesional)
+
+	turnoID := turnoDePrueba(t, router, gdb, clinicID, tokenColega, "pend-colega@example.com", "43111222")
+	// Se lo empuja al pasado para que quede pendiente de marcar.
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turnoID).
+		Updates(map[string]any{
+			"hora_inicio": time.Now().Add(-2 * time.Hour),
+			"hora_fin":    time.Now().Add(-90 * time.Minute),
+		}).Error; err != nil {
+		t.Fatalf("no se pudo envejecer el turno: %v", err)
+	}
+
+	if n := len(pendientesDePrueba(t, router, tokenColega)); n != 1 {
+		t.Errorf("el colega ve %d pendientes propios, esperaba 1", n)
+	}
+	if n := len(pendientesDePrueba(t, router, titular.Token)); n != 0 {
+		t.Errorf("el titular ve %d pendientes del colega, esperaba 0", n)
+	}
+}
+
+func pendientesDePrueba(t *testing.T, router http.Handler, token string) []map[string]any {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos/pendientes-asistencia", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /turnos/pendientes-asistencia: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Vencidos []map[string]any `json:"vencidos"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return out.Vencidos
+}
+
+// TestColega_NoSePuedeEditarElTipoDeConsultaDeOtro — el listado ya
+// mostraba solo los propios, pero con el id a mano la escritura seguía
+// abierta: cambiarle la duración a un tipo ajeno le mueve los huecos del
+// día a su dueño.
+func TestColega_NoSePuedeEditarElTipoDeConsultaDeOtro(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "tipo-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Tipos Ajenos",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "tipo-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "tipo-colega@example.com")
+	delColega := tipoDe(t, gdb, clinicID, colegaID, "Conducto del colega", 60)
+
+	rec := doJSONAuth(t, router, http.MethodPatch, "/tipos-consulta/"+delColega.ID.String(), titular.Token,
+		tipoConsultaRequest{Nombre: "Robado", Color: "#E7D9BE", DuracionMinutos: 15})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("editar el tipo del colega: status=%d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+	rec = doJSONAuth(t, router, http.MethodDelete, "/tipos-consulta/"+delColega.ID.String(), titular.Token, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("borrar el tipo del colega: status=%d, esperaba %d", rec.Code, http.StatusNotFound)
+	}
+
+	// Y sigue intacto.
+	var despues db.TipoConsulta
+	if err := gdb.First(&despues, "id = ?", delColega.ID).Error; err != nil {
+		t.Fatalf("el tipo del colega desapareció: %v", err)
+	}
+	if despues.DuracionMinutos != 60 || despues.Nombre != "Conducto del colega" {
+		t.Errorf("le cambiaron el tipo al colega: %+v", despues)
+	}
+}
+
+// TestColega_ElEnlaceCompartidoLlenaLaAgendaDeQuienLoGenero — el link es
+// la tercera pestaña de "+ Agregar turno" de un profesional: existe para
+// llenar SU agenda. Mandando el turno al owner, compartirlo le cargaría
+// turnos a otro.
+func TestColega_ElEnlaceCompartidoLlenaLaAgendaDeQuienLoGenero(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "enl-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Enlaces",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "enl-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "enl-colega@example.com")
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/enlaces-turno", tokenColega, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("generar enlace: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var enlace db.EnlaceTurno
+	if err := gdb.Where("clinic_id = ?", clinicID).First(&enlace).Error; err != nil {
+		t.Fatalf("no se encontró el enlace: %v", err)
+	}
+	if enlace.UserID == nil || *enlace.UserID != colegaID {
+		t.Fatalf("el enlace quedó a nombre de %v, esperaba el colega %v que lo generó", enlace.UserID, colegaID)
+	}
 }

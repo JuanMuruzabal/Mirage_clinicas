@@ -379,6 +379,13 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 			FROM clinic_members m
 			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
 			WHERE m.clinic_id = b.clinic_id AND b.user_id IS NULL`,
+		// Los enlaces para compartir calendario, con el mismo criterio
+		// (Fase 3.2.5): hasta ahora eran de la clínica, y la clínica tenía
+		// un solo profesional. Los que ya existen quedan del owner.
+		`UPDATE enlaces_turno e SET user_id = m.user_id
+			FROM clinic_members m
+			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
+			WHERE m.clinic_id = e.clinic_id AND e.user_id IS NULL`,
 
 		// Todo turno `agendado` tiene que decir quién lo atiende, y no es
 		// una formalidad: el exclusion constraint de más abajo compara

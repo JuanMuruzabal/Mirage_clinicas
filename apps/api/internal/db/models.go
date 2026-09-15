@@ -462,11 +462,17 @@ type EnlaceTurno struct {
 	// TipoConsulta.ClinicID en todo este archivo: en realidad
 	// referencia Clinic.ID, nunca cambiado por no romper el resto del
 	// esquema ya en producción.
-	ClinicID     uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
-	TokenHash    string    `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
-	ExpiraEn     time.Time `gorm:"column:expira_en;not null"`
-	UsadoParaMi  bool      `gorm:"column:usado_para_mi;not null;default:false"`
-	UsosParaOtro int       `gorm:"column:usos_para_otro;not null;default:0"`
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	// UserID — de QUIÉN es este enlace (Fase 3.2.5, 2026-09-14). Un
+	// enlace lo genera un profesional para su propia agenda, y decide a
+	// qué agenda entran los turnos que se saquen con él. Nullable por los
+	// enlaces anteriores a esta columna, que la migración le asigna al
+	// owner igual que el resto de la agenda.
+	UserID       *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+	TokenHash    string     `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
+	ExpiraEn     time.Time  `gorm:"column:expira_en;not null"`
+	UsadoParaMi  bool       `gorm:"column:usado_para_mi;not null;default:false"`
+	UsosParaOtro int        `gorm:"column:usos_para_otro;not null;default:0"`
 	CreatedAt    time.Time
 }
 

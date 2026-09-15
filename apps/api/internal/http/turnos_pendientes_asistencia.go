@@ -50,8 +50,11 @@ func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		ahora := clock.Now()
 
+		// Los MÍOS: marcar asistencia es irreversible, y este listado es
+		// el que invita a hacerlo. Con los del colega adentro, la primera
+		// acción del día podía ser cerrarle un turno ajeno.
 		var vencidos []db.Turno
-		if err := gdb.Where(
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = 'agendado' AND hora_fin < ? AND asistencia IS NULL",
 			profesionalID, ahora,
 		).

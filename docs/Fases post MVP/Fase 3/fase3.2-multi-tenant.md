@@ -941,3 +941,35 @@ Arreglar a quién se le asigna un turno dejaba el aislamiento **a medias**: los 
 
 **Lo que esto deja como método:** cuando una columna nueva del esquema no se usa en ningún handler, no está "pendiente de cablear" — está creando la ilusión de que la regla existe. Las tres tablas tenían la columna desde la 3.2.1 y las tres se comportaban como antes de la 3.2.1.
 
+### El barrido completo de gestión de clínica (2026-09-14)
+
+Pedido del cliente, textual: *"TODA la lógica que se maneja en gestión de clínica debería ser individual para cada profesional"*. Inventario de **todas** las consultas del panel filtradas solo por clínica, y cierre una por una.
+
+#### Lo que estaba abierto, y qué permitía
+
+| Dónde | Qué se podía hacer con el turno/dato de un colega |
+|---|---|
+| Detalle, cancelar, reprogramar, marcar asistencia | **Cancelarlo de verdad.** Con solo tener el id — y marcar asistencia es irreversible (TR-092) |
+| Pendientes de asistencia | Los del colega aparecían en el listado que invita a cerrarlos |
+| Editar / borrar tipo de consulta | **Borrárselo.** El listado ya mostraba solo los propios; la escritura por id seguía abierta |
+| Conflictos de paciente (listar y resolver) | Resolver el conflicto de identidad de un paciente ajeno |
+| Tarjetas de "General" | Contaban conflictos y turnos del colega — incluidos "conflictos" entre el turno de uno y el horario reservado del otro, que no existen |
+| Enlace para compartir | Los turnos que entraban por él iban al **owner**, no a quien lo generó |
+
+Lo de los tipos y el cancelar no son hipótesis: revirtiendo los arreglos, los tests devuelven `200` con `"estado":"cancelada"` y un `204` seguido de *"el tipo del colega desapareció: record not found"*.
+
+#### Dos scopes nuevos, y por qué de esa forma
+
+- **`soloMisConflictos` se deriva del turno**, no de una columna nueva. `conflictos_paciente` no tiene `user_id`, y un conflicto **siempre** nace de un turno, que ya sabe quién atiende. Derivarlo evita migrar las filas existentes y no puede desincronizarse de su origen.
+- **`enlaces_turno` sí necesitó columna.** Un enlace no cuelga de ningún turno previo — los **crea** — así que no hay de dónde derivar el dueño. Y el dueño importa más acá que en otras tablas: el enlace decide a qué agenda entran los turnos que salgan de él. La tercera pestaña de "+ Agregar turno" existe para llenar la agenda de quien la abre; mandar esos turnos al owner haría que compartir el link le cargara trabajo a otro.
+
+#### Lo que queda clínica-wide, a propósito
+
+No todo lo del panel es individual, y conviene que esté dicho: los **bloqueos de mail e IP** del formulario público (`seguridad_turno_publico.go`) protegen la página de la clínica, que es una sola. La **unicidad de DNI por clínica** (TR-100) también: una persona tiene una ficha, la atienda quien la atienda.
+
+#### La corrección incómoda
+
+`CLAUDE.md` afirmaba que los scopes cubrían *"17 queries de turnos y 8 de pacientes"*. **Los reales eran 1 y 3.** Ese número se escribió describiendo la intención y nadie lo volvió a medir — y es lo que me hizo dar por cubierto el aislamiento de turnos al responder que "los pacientes sí, los turnos también".
+
+Los de ahora están contados, no estimados: **6 turnos · 3 pacientes · 8 agenda · 3 conflictos · 3 tipos**. Si alguien agrega una query, que actualice el número contando, no recordando.
+

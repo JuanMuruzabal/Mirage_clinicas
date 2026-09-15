@@ -404,7 +404,13 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -538,7 +544,13 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -811,7 +823,13 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}

@@ -77,7 +77,11 @@ func listDisponibilidadHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
+		// El tipo tiene que ser MÍO: calcular la disponibilidad para el
+		// tipo de un colega mezclaría su duración y su preferencia horaria
+		// con mi agenda, y el resultado no sería la de ninguno.
+		if err := gdb.Scopes(soloMisTiposDeConsulta(r)).
+			Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
