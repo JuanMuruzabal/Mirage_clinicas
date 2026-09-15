@@ -428,6 +428,15 @@ export interface Turno {
   // en TurnoDetalle. Opcional (igual que `asistencia`) para no romper los
   // fixtures de test existentes que construyen un Turno sin este campo.
   autoreservado?: boolean;
+  /** Quién atiende este turno (Fase 3.2.5). La ficha de un paciente
+   *  muestra TODOS sus turnos —el paciente es de la clínica— así que cada
+   *  fila dice con quién fue o va a ser. */
+  atendidoPorUserId?: string;
+  atendidoPorNombre?: string;
+  /** Si el turno es de quien está mirando. Lo decide el backend: la
+   *  pantalla lo usa para saber qué puede tocar, y eso es una decisión de
+   *  permisos, no de presentación. */
+  esMio?: boolean;
   // pacienteVerificado (corrección de seguridad, Fase 2.4.1) — mismo
   // criterio que Paciente.verificado: false si no hay paciente vinculado.
   // Opcional por lo mismo que autoreservado — no romper fixtures viejos.
@@ -630,6 +639,13 @@ export interface ConflictoPaciente {
   // consulta que `turno`, viene acá: resolver "es la persona verificada"
   // NO migra `turno` en ese caso (lo cancela, prevalece este).
   turnoVigenteDelMismoTipo?: Turno;
+  /** Cuántos turnos de OTROS profesionales alcanza esta resolución
+   *  (Fase 3.2.5). Resolver el conflicto cancela o migra los turnos de la
+   *  ficha que pierde, y esa ficha puede tener turnos con un colega: el
+   *  paciente es de la clínica. El alcance es correcto —dejar vivos los
+   *  turnos de una ficha que se determinó que no existe sería peor— pero
+   *  quien aprieta el botón tiene que saberlo. */
+  turnosDeOtrosProfesionales?: number;
 }
 
 // Espejo de mailBloqueadoResponse/ipBloqueadaResponse/auditoriaBloqueoResponse

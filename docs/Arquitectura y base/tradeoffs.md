@@ -2010,6 +2010,59 @@ La regla ya estaba escrita en el modelo desde la 3.2.1; acá se implementa. Incl
 
 ---
 
+## TR-143: El aislamiento no se rompió por la regla, se rompió por cómo se verificaba
+
+- **Fecha:** 2026-09-14/15
+- **Fase:** 3.2.5, ronda de QA. Bitácora en `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
+- **De dónde salió:** el cliente probando con un colega real. Primero un turno que se cargaba a nombre del titular; después, al tirar del hilo, todo lo demás.
+
+### Lo que estaba roto
+
+El brief lo pide en mayúsculas desde el principio: *"CADA COMPONENTE DEL PANEL DE CADA PROFESIONAL ES AISLADO DEL RESTO"*. Estaba escrito en `CLAUDE.md` desde la 3.2.2 y aun así, con dos profesionales en una clínica:
+
+- El **turno que cargaba un colega** se asignaba al titular — y el paciente lo seguía, porque "los pacientes de X" se derivan de sus turnos.
+- El **horario de atención** era uno solo por clínica: guardar el propio le pisaba el del otro. El índice único lo imponía en el motor.
+- Los **horarios reservados** de uno aparecían en el calendario del otro.
+- La **disponibilidad** contaba los turnos de toda la clínica: el turno del colega a las 10 bloqueaba las 10 propias.
+- Las **siete consultas** del resumen de "General" contaban lo de todos.
+- Se podía **cancelar, reprogramar y marcar asistencia** de un turno ajeno con solo tener el id; **borrar** el tipo de consulta de un colega; **autoreservarle** turnos; y **cancelarle la agenda entera** con el botón de cancelación masiva.
+- Un **invitado sin clínica propia** no podía entrar: el paso de onboarding solo se marcaba al crear una clínica, y desde la 3.2.3 eso dejó de ser obligatorio.
+
+### La causa, que no es "faltó código"
+
+**Tres tablas tenían la columna `user_id` desde la 3.2.1 y ningún handler la usaba.** `tipos_consulta`, `horarios_atencion` y `bloqueos_horario` se comportaron exactamente como antes de la 3.2.1 durante cuatro subfases. La columna creaba la ilusión de que la regla existía.
+
+**Varios provisorios tenían su fecha de vencimiento escrita en un comentario, y no vencieron solos.** `db.OwnerDeLaClinica` decía *"hasta que el modal deje elegir profesional (Fase 3.2.6)"*: era cierto en la 3.2.1 y dejó de serlo en la 3.2.4, sin que nadie volviera.
+
+**Y la verificación tenía el mismo defecto que el código.** Se buscaba por patrón (`clinic_id = ?` abriendo un `Where`) en vez de por ruta, así que `id IN ? AND clinic_id = ?` y los `Where` partidos en varias líneas no aparecían. El primer script de auditoría miraba solo hacia atrás buscando `Scopes(...)`, que en una cadena de GORM puede estar en la línea siguiente. **`CLAUDE.md` afirmaba una cobertura de "17 queries de turnos y 8 de pacientes" cuando las reales eran 1 y 3** — un número escrito describiendo la intención, nunca medido, que hizo dar por hecho el trabajo.
+
+### La decisión: la regla se verifica, no se recuerda
+
+`TestAislamiento_NingunaConsultaDelPanelSinAcotar` lee los 14 archivos del panel y **falla** si aparece una consulta que filtra por clínica sin acotar por profesional. Para agregar una nueva hay dos caminos, los dos legítimos: acotarla con un scope de `visibilidad.go`, o sumarla a la lista `clinicaWide` del test **con el motivo**. Lo que deja de ser posible es no elegir.
+
+Es el mismo criterio que el proyecto ya aplica en la base (spec §4.3): **una regla que no se puede violar no se valida, se declara.** Acá no hay motor donde declararla, así que se declara en un test que lee el código. **Alternativa descartada:** confiar en la revisión — es exactamente lo que falló cuatro veces seguidas.
+
+La lista de excepciones se indexa por **fragmento de la consulta y no por número de línea**: un número se desactualiza con cualquier edición y convertiría el test en ruido que se termina ignorando.
+
+### Los dos scopes nuevos, y por qué de esa forma
+
+- **`soloMisConflictos` se deriva del turno**, no de una columna nueva. `conflictos_paciente` no tiene `user_id`, y un conflicto **siempre** nace de un turno que ya sabe quién atiende: derivarlo evita migrar filas existentes y no puede desincronizarse de su origen.
+- **`enlaces_turno` sí necesitó columna.** Un enlace no cuelga de ningún turno previo — los **crea** — así que no hay de dónde derivar el dueño. Y ahí el dueño decide a qué agenda entran esos turnos: la tercera pestaña de "+ Agregar turno" existe para llenar la agenda de quien la abre.
+
+### Lo que NO se aisló, y por qué
+
+**Una cosa es que un dato sea ajeno, y otra que una operación legítima tenga consecuencias sobre lo ajeno.** Lo primero se corta; lo segundo se declara.
+
+- **El historial del paciente se ve entero.** El paciente es de la clínica: un historial partido por profesional no sirve como historial. Cada turno dice de quién es (`atendidoPorNombre`, `esMio`) y los ajenos van en solo lectura, sin link — el destino está acotado, así que no encontraría nada.
+- **Resolver un conflicto de identidad alcanza turnos de otros profesionales**, y eso es correcto: dejar vivos los turnos de una ficha que se determinó que no existe sería peor. No se restringe la acción —restringirla dejaría conflictos que nadie puede resolver—, se avisa cuántos alcanza.
+- **Quedan clínica-wide a propósito**: la ficha y el DNI del paciente, el token de un enlace (es la autorización), los bloqueos de mail/IP del formulario público, la página pública y el catálogo de especialidades.
+
+### Estado, medido
+
+**39 consultas acotadas · 13 clínica-wide justificadas · 0 sin justificar.** Los 18 endpoints de panel que consume el frontend son todos de los acotados. Cada arreglo tiene su test, y cada test se verificó **revirtiendo el arreglo**: sin ellos, el titular cancela el turno del colega (200, `"estado":"cancelada"`) y le borra su tipo de consulta (204, *"record not found"*).
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

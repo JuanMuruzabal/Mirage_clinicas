@@ -889,3 +889,170 @@ El problema de la versión anterior no era dónde vivía el botón: era que **co
 - **El avatar de colaboradores quedaba pegado a la píldora de la clínica.** En mobile el selector se estira para ocupar el renglón, y `justify-between` no deja aire cuando un elemento ya llenó su lado. El contenedor del header en el panel suma un `gap-3`, que actúa de piso.
 - **Con el menú lateral de mobile desplegado, los dos controles no se despliegan.** Quedan debajo del drawer: abrirlos dejaría un popover tapado, o tapando el menú. Los botones pasan a `disabled` mientras el drawer está abierto, y tiene test.
 
+### Dos provisorios que caducaron sin que nadie los mirara (2026-09-14)
+
+Los encontró el cliente probando con un colega de verdad. **Los dos comparten una causa de forma:** eran simplificaciones correctas cuando una clínica tenía exactamente un profesional —su dueño— y dejaron de serlo **apenas la 3.2.4 permitió invitar a un segundo**. Ninguna se nota mirando la pantalla propia; se notan en la del otro.
+
+#### El grave: el turno del colega se lo llevaba el titular
+
+Un profesional invitado cargaba un turno y el turno **se le asignaba al titular**. Le aparecía en la agenda al titular y no en la suya — y el paciente detrás también, porque "los pacientes de X" se derivan de sus turnos.
+
+El código lo decía con todas las letras:
+
+```go
+// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
+// profesional (Fase 3.2.6) es el owner de la clínica.
+atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+```
+
+**Era verdad en la 3.2.1 y dejó de serlo en la 3.2.4**, sin que el comentario ni el código cambiaran. Y no es un detalle de UI pendiente: es **exactamente la fuga que el aislamiento de la 3.2.2 existe para impedir**, entrando por la puerta de al lado — no por una query que filtra mal, sino por el dato que esas queries leen. `soloMisTurnos` y `soloMisPacientes` funcionaban perfecto; lo que estaba mal era `atendido_por_user_id`.
+
+La regla ahora: **si quien carga el turno es `profesional` de esta clínica, el turno es suyo.** Si no atiende —recepción cargando para el equipo— sigue cayendo al owner hasta la 3.2.6, que trae el selector de profesional en el modal. La diferencia es que el provisorio cubre solo al caso que no tiene respuesta mejor, en vez de a todos.
+
+#### El otro: el invitado no podía entrar hasta crear una clínica que no quería
+
+Un profesional invitado veía una pantalla en blanco y volvía a `/clinicas`. Solo podía entrar **después de crear su propia clínica**.
+
+`onboardingCompletado` salía de `onboarding_step == "completo"`, y ese paso se marca **únicamente al crear una clínica propia**. Pero la 3.2.3 decidió que crear clínica dejaba de ser obligatorio —*"a la app también se entra porque un colega te sumó a la suya"*— y **el paso nunca se actualizó para eso**. El invitado quedaba en `clinica` para siempre y el guard del frontend lo rebotaba.
+
+Se **deriva** en vez de arreglar la columna con una migración: la pregunta que hace el frontend es *"¿puede usar la app?"*, y eso es tener perfil y una clínica activa — lo que `/me` ya resuelve con la misma lógica que `requireClinic`. La columna sigue existiendo para saber en qué paso retomar el wizard, que es otra pregunta.
+
+#### Lo que esto deja como lección
+
+**Un provisorio con fecha de vencimiento escrita en un comentario no vence solo.** Los dos decían en qué subfase dejarían de servir, y las dos subfases pasaron sin que nadie volviera. Los tests nuevos los reproducen: con los arreglos revertidos, el del turno falla en las **dos direcciones** —el colega ve 0 turnos propios y el titular ve 1 que no es suyo— y el del onboarding falla al pedir `/me`.
+
+### La agenda también era de la clínica, no de cada uno (2026-09-14)
+
+Arreglar a quién se le asigna un turno dejaba el aislamiento **a medias**: los turnos dejaban de cruzarse, pero los huecos donde entran seguían saliendo de datos mezclados. Barrido completo de lo que quedaba.
+
+**Las columnas estaban desde la 3.2.1; los handlers nunca las usaron.** `horarios_atencion.user_id` y `bloqueos_horario.user_id` se agregaron con el resto del esquema multi-tenant y ninguna consulta las escribió ni las leyó — exactamente el mismo caso que `tipos_consulta`, corregido horas antes en esta misma subfase. Tres tablas, el mismo olvido.
+
+| Qué estaba mal | Qué pasaba con dos profesionales |
+|---|---|
+| Horario de atención filtrado solo por clínica | El `PUT` encontraba la fila `general` del colega y **la pisaba**: guardar el propio le cambiaba el horario al otro |
+| Horarios reservados filtrados solo por clínica | El almuerzo de uno aparecía en el calendario del otro |
+| `calcularDisponibilidad` contaba los turnos de **toda la clínica** | El turno del colega a las 10 bloqueaba las 10 propias |
+
+**El tercero es el que más dice.** Es el mismo bug que la 3.2.1 sacó del exclusion constraint al mudarlo de la clínica a `atendido_por_user_id` —*"sobre la clínica rechazaría dos turnos simultáneos en sillones distintos: pasa de garantía a bug"*— **reaparecido un nivel más arriba**: el motor ya los dejaba convivir, pero la pantalla no los ofrecía. La corrección de abajo no arrastró a la de arriba.
+
+**Y había una regla vieja escrita en el motor.** El índice `idx_horario_atencion_general_unico` imponía *una fila general por CLÍNICA*. No era una red de seguridad: era la regla de cuando había un solo profesional. El segundo que guardaba su horario se llevaba un **500 crudo** por querer decir a qué hora abre. Ahora es por `(clinic_id, user_id)`, con `COALESCE` para que las filas anteriores a la 3.2.1 —que tienen `user_id` nulo— no se multipliquen: en un índice único dos NULL nunca son iguales.
+
+`calcularDisponibilidad` pasa a recibir el profesional además de la clínica. Sus seis llamadores lo resuelven donde corresponde: el panel con quien pregunta, autoreservar con el dueño del turno que mueve, y el wizard público con el owner —**el mismo** al que después le asigna el turno, que es lo que importa: ofrecer los horarios de uno y agendar con otro sería peor que cualquiera de los dos bugs.
+
+**Lo que esto deja como método:** cuando una columna nueva del esquema no se usa en ningún handler, no está "pendiente de cablear" — está creando la ilusión de que la regla existe. Las tres tablas tenían la columna desde la 3.2.1 y las tres se comportaban como antes de la 3.2.1.
+
+### El barrido completo de gestión de clínica (2026-09-14)
+
+Pedido del cliente, textual: *"TODA la lógica que se maneja en gestión de clínica debería ser individual para cada profesional"*. Inventario de **todas** las consultas del panel filtradas solo por clínica, y cierre una por una.
+
+#### Lo que estaba abierto, y qué permitía
+
+| Dónde | Qué se podía hacer con el turno/dato de un colega |
+|---|---|
+| Detalle, cancelar, reprogramar, marcar asistencia | **Cancelarlo de verdad.** Con solo tener el id — y marcar asistencia es irreversible (TR-092) |
+| Pendientes de asistencia | Los del colega aparecían en el listado que invita a cerrarlos |
+| Editar / borrar tipo de consulta | **Borrárselo.** El listado ya mostraba solo los propios; la escritura por id seguía abierta |
+| Conflictos de paciente (listar y resolver) | Resolver el conflicto de identidad de un paciente ajeno |
+| Tarjetas de "General" | Contaban conflictos y turnos del colega — incluidos "conflictos" entre el turno de uno y el horario reservado del otro, que no existen |
+| Enlace para compartir | Los turnos que entraban por él iban al **owner**, no a quien lo generó |
+
+Lo de los tipos y el cancelar no son hipótesis: revirtiendo los arreglos, los tests devuelven `200` con `"estado":"cancelada"` y un `204` seguido de *"el tipo del colega desapareció: record not found"*.
+
+#### Dos scopes nuevos, y por qué de esa forma
+
+- **`soloMisConflictos` se deriva del turno**, no de una columna nueva. `conflictos_paciente` no tiene `user_id`, y un conflicto **siempre** nace de un turno, que ya sabe quién atiende. Derivarlo evita migrar las filas existentes y no puede desincronizarse de su origen.
+- **`enlaces_turno` sí necesitó columna.** Un enlace no cuelga de ningún turno previo — los **crea** — así que no hay de dónde derivar el dueño. Y el dueño importa más acá que en otras tablas: el enlace decide a qué agenda entran los turnos que salgan de él. La tercera pestaña de "+ Agregar turno" existe para llenar la agenda de quien la abre; mandar esos turnos al owner haría que compartir el link le cargara trabajo a otro.
+
+#### Lo que queda clínica-wide, a propósito
+
+No todo lo del panel es individual, y conviene que esté dicho: los **bloqueos de mail e IP** del formulario público (`seguridad_turno_publico.go`) protegen la página de la clínica, que es una sola. La **unicidad de DNI por clínica** (TR-100) también: una persona tiene una ficha, la atienda quien la atienda.
+
+#### La corrección incómoda
+
+`CLAUDE.md` afirmaba que los scopes cubrían *"17 queries de turnos y 8 de pacientes"*. **Los reales eran 1 y 3.** Ese número se escribió describiendo la intención y nadie lo volvió a medir — y es lo que me hizo dar por cubierto el aislamiento de turnos al responder que "los pacientes sí, los turnos también".
+
+Los de ahora están contados, no estimados: **6 turnos · 3 pacientes · 8 agenda · 3 conflictos · 3 tipos**. Si alguien agrega una query, que actualice el número contando, no recordando.
+
+### El barrido riguroso, y por qué hicieron falta cuatro rondas (2026-09-14)
+
+Cuatro rondas para cerrar el aislamiento. Cada una encontró lo que la anterior no había mirado. Vale la pena dejar escrito **por qué**, porque la causa no fue el código.
+
+#### Lo que faltaba en esta última pasada
+
+| Dónde | Qué permitía |
+|---|---|
+| Las **7 consultas** del resumen de "General" | Cada tarjeta contaba lo de toda la clínica. Es la primera pantalla del panel |
+| Autoreservar | **Mover de día** los turnos de un colega, en lote |
+| Cancelación masiva de turnos sin verificar | **Limpiarle la agenda entera** a un colega, de un botón |
+| "Próximo vencimiento" del cartel de asistencia | El del colega |
+
+Las dos de en medio son escrituras **en lote**, que es lo peor: nadie revisa uno por uno lo que mandó.
+
+#### Por qué se me pasaron
+
+No fue que la regla no estuviera escrita. Estaba en `CLAUDE.md` desde la 3.2.2, en mayúsculas. Fueron tres cosas, y ninguna es "me olvidé":
+
+1. **Busqué por patrón en vez de por ruta.** Mis greps buscaban `clinic_id = ?` al principio de un `Where`. Autoreservar usa `id IN ? AND clinic_id = ?` y la cancelación masiva parte el `Where` en varias líneas: no aparecían. **El inventario correcto empieza por las 38 rutas del panel, no por una cadena de texto.**
+2. **Mis propias verificaciones tenían el mismo defecto que el código.** El primer script de auditoría miraba 3 líneas hacia atrás buscando `Scopes(...)`; varias cadenas de GORM lo tienen en la línea **siguiente**. Daba por acotadas consultas que no lo estaban, y por sin acotar otras que sí.
+3. **La documentación afirmaba una cobertura que nadie midió.** *"17 queries de turnos y 8 de pacientes"* — eran 1 y 3. Ese número me hizo dar por hecho el trabajo al responder que el aislamiento estaba resuelto.
+
+#### El arreglo de fondo: la regla se verifica, no se recuerda
+
+`TestAislamiento_NingunaConsultaDelPanelSinAcotar` lee el código de los 14 archivos del panel y **falla** si aparece una consulta que filtra por clínica sin acotar por profesional. Para agregar una nueva hay dos caminos, los dos legítimos: acotarla con un scope, o sumarla a la lista `clinicaWide` del test **con el motivo**. Lo que deja de ser posible es no elegir.
+
+Verificado que sirve: quitándole el scope a `listTurnosHandler`, el test falla nombrando archivo, línea y consulta.
+
+Es el mismo criterio que el proyecto ya usa en la base (spec §4.3): **una regla que no se puede violar no se valida, se declara**. Acá no se puede declarar en el motor, así que se declara en un test que lee el código.
+
+#### El estado, medido
+
+**39 consultas acotadas** por profesional. **18 clínica-wide a propósito**, cada una con su motivo escrito en el test: la ficha del paciente y su DNI (el paciente es de la clínica), el token de un enlace (es la autorización), los bloqueos de mail/IP del formulario público, la página pública y el catálogo de especialidades. **Cero sin justificar.**
+
+### El historial completo, y el alcance de resolver un conflicto (2026-09-14)
+
+Dos cosas que el aislamiento **no** debía cortar, y una que faltaba declarar.
+
+#### El historial del paciente se ve entero, con su dueño
+
+El paciente es de la **clínica**: un historial partido por profesional no sirve como historial — el que atiende hoy necesita saber qué le hicieron antes, se lo haya hecho quien se lo haya hecho. La ficha ya los traía todos; lo que faltaba era decir **de quién es cada uno**.
+
+Cada turno ahora informa `atendidoPorNombre` y `esMio`. En la ficha aparece una columna **Profesional**, y los turnos ajenos:
+
+- llevan una etiqueta **"solo lectura"**,
+- y dejan de ser clickeables. No es una restricción decorativa: el destino del link —`/panel/turnos`— está acotado al profesional, así que para un turno ajeno **no encontraría nada**. Un link que no lleva a ningún lado es peor que no ofrecerlo.
+
+`esMio` lo decide el backend y no el frontend comparando ids: la pantalla lo usa para saber qué puede tocar, y eso es una decisión de permisos, no de presentación.
+
+#### Resolver un conflicto alcanza turnos de otros, y ahora lo dice
+
+Resolver un conflicto de identidad **cancela o migra todos los turnos de la ficha que pierde**, y esa ficha puede tener turnos con un colega.
+
+Ese alcance es **correcto**: el conflicto es sobre la identidad de una persona, no sobre una agenda — dejar vivos los turnos de una ficha que se determinó que no existe sería peor. Pero era invisible: quien apretaba el botón le cancelaba turnos a otro sin enterarse.
+
+**No se restringe la acción, se declara su alcance.** Restringirla —*"solo puede resolver quien tenga turnos de las dos fichas"*— dejaría conflictos que nadie puede resolver. El modal avisa ahora *"esta ficha tiene N turnos de otros profesionales; resolver el conflicto también los alcanza"*.
+
+Es la misma distinción que atraviesa toda esta subfase: **una cosa es que un dato sea ajeno, y otra que una operación legítima tenga consecuencias sobre lo ajeno.** Lo primero se corta; lo segundo se declara.
+
+### La pasada del frontend (2026-09-14)
+
+Faltaba auditar el frontend con el mismo rigor que el backend. Hasta acá la afirmación *"el frontend está cubierto porque la API está acotada"* era un razonamiento, no una medición.
+
+**Método:** enumerar las 6 pantallas del panel y los 2 componentes globales que sondean solos, y verificar contra qué endpoint pide cada uno.
+
+| Pantalla / componente | Pide | Estado |
+|---|---|---|
+| General | `/panel/resumen` | Acotado |
+| Calendario | `/turnos`, `/tipos-consulta` | Acotado |
+| Turnos | `/turnos`, `/tipos-consulta` | Acotado |
+| Pacientes | `/pacientes`, `/pacientes/conflictos`, `/tipos-consulta` | Acotado |
+| Ficha de paciente | `/pacientes/{id}` | Acotado (historial completo y etiquetado, a propósito) |
+| Seguridad | `/pacientes/seguridad/bloqueos` | Clínica-wide a propósito |
+| Cartel de asistencia (global) | `/turnos/pendientes-asistencia` | Acotado |
+| Notificaciones de conflicto (global) | `/panel/notificaciones` | Acotado |
+
+**Los 18 endpoints de panel que consume `api.ts` son todos de los que se acotaron.** No quedó ninguno pidiendo algo clínica-wide sin motivo.
+
+**El segundo riesgo, que es el que de verdad importaba:** que la UI ofrezca una acción sobre un recurso ajeno. El único lugar donde se muestran datos de otro profesional es el historial de la ficha, y ahí las acciones ya están cortadas —"solo lectura", sin link—. En el resto de las pantallas todo lo que se ve es propio por construcción, así que no hay acción ajena que ofrecer.
+
+**Lo que se sumó:** dos tests del lado del frontend para el historial, que no tenía ninguno: que la columna Profesional aparezca con el nombre de cada uno, y que el turno ajeno vaya sin link. Las dos tablas de la ficha —"Turnos activos" e "Historial de turnos"— usan el mismo componente, así que las cubre a las dos.
+

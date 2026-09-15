@@ -121,3 +121,103 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 		)`, userID, userID)
 	}
 }
+
+// soloMisTiposDeConsulta — el tipo de consulta es de un profesional desde
+// la Fase 3.2.1, y el listado ya lo respetaba; esto cierra la escritura
+// por id, que seguía abierta.
+func soloMisTiposDeConsulta(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
+}
+
+// soloMisConflictos — un conflicto de identidad lo resuelve el profesional
+// que lo tiene (Fase 3.2.5, 2026-09-14).
+//
+// `conflictos_paciente` no tiene `user_id` y no se lo agrego: el conflicto
+// SIEMPRE nace de un turno, y ese turno ya sabe quién atiende. Derivarlo
+// del turno tiene dos ventajas sobre una columna nueva — no hace falta
+// migrar las filas que ya existen, y no puede desincronizarse del turno
+// que le dio origen.
+//
+// El brief pide que lo resuelva quien lo tiene: es su paciente el que
+// aparece dos veces, y es él quien sabe si son la misma persona.
+func soloMisConflictos(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where(`EXISTS (
+			SELECT 1 FROM turnos t
+			WHERE t.id = conflictos_paciente.turno_en_conflicto_id
+			  AND t.atendido_por_user_id = ?
+		)`, userID)
+	}
+}
+
+// soloMiAgenda — el horario de atención y los horarios reservados son de
+// UN profesional, igual que sus turnos (Fase 3.2.5, corrección del
+// 2026-09-14).
+//
+// Las columnas `user_id` de `horarios_atencion` y `bloqueos_horario`
+// existen desde la 3.2.1 y los handlers nunca las escribieron ni las
+// leyeron: filtraban solo por clínica. Con dos profesionales eso significa
+// que los horarios reservados de uno aparecían en el calendario del otro,
+// y —peor— que el horario de atención era UNO SOLO para la clínica: el PUT
+// buscaba la fila `general` de ese `clinic_id` y la pisaba, así que
+// guardar el propio le cambiaba el horario al colega.
+//
+// No es un caso de borde: es la agenda sobre la que se apoyan los turnos.
+// Arreglar quién atiende cada turno sin arreglar esto deja el aislamiento
+// a medias — los turnos dejan de cruzarse, pero los huecos donde entran
+// siguen saliendo de datos mezclados.
+//
+// `user_id IS NULL` entra igual, por la misma razón que en
+// `/tipos-consulta`: son las filas anteriores a la 3.2.1, que la migración
+// le asigna al owner. Dejarlas afuera le vaciaría la agenda a una clínica
+// vieja de un solo profesional.
+func soloMiAgenda(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
+}
+
+// profesionalQueAtiende — a quién se le asigna un turno cargado desde el
+// panel (Fase 3.2.5, corrección del 2026-09-14).
+//
+// Si quien lo carga atiende pacientes en esta clínica, el turno es SUYO:
+// es su agenda la que se está llenando, y `soloMisTurnos`/`soloMisPacientes`
+// derivan de esta columna. Asignárselo a otro lo saca de su propia vista y
+// lo mete en la ajena — las dos mitades del mismo error.
+//
+// Si no atiende (recepción cargando para el equipo), cae al owner. Es la
+// conducta anterior, y sigue siendo provisoria: el caso que de verdad
+// necesita elegir profesional es este, y lo resuelve la 3.2.6 con el
+// selector en el modal. La diferencia es que ahora el provisorio cubre
+// solo al que no tiene respuesta mejor, en vez de a todos.
+func profesionalQueAtiende(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID) (uuid.UUID, error) {
+	if tieneAlgunRol(r, db.RoleProfesional) {
+		if session, ok := sessionFromContext(r); ok {
+			return session.UserID, nil
+		}
+	}
+	return db.OwnerDeLaClinica(gdb, clinicID)
+}

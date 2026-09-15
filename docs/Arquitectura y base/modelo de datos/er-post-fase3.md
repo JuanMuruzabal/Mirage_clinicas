@@ -216,6 +216,8 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 10 | `pacientes.creado_por_user_id` — quién cargó la ficha a mano, con FK en `SET NULL` ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + constraint |
 | 11 | `professional_profiles.tipo_perfil` — `profesional` \| `actividades`, con check ✅ **hecho 2026-09-13 (3.2.3, TR-139)** | Columna + check |
 | 12 | `idx_matricula_unica` — índice único **parcial** sobre `professional_profiles (matricula_tipo, matricula_numero)` ✅ **hecho 2026-09-14 (TR-141)** | Índice |
+| 13 | `enlaces_turno.user_id` — de quién es el link para compartir ✅ **hecho 2026-09-14 (TR-143)** | Columna |
+| 14 | `idx_horario_atencion_general_por_profesional` reemplaza a `idx_horario_atencion_general_unico` ✅ **hecho 2026-09-14 (TR-143)** | Índice |
 
 **Una diferencia a propósito entre la app y la base:** desde la ronda de QA del 2026-09-13, crear una clínica exige provincia, ciudad, dirección y teléfono, pero esas cuatro columnas **siguen siendo nullable**. Las clínicas que ya existen no los tienen, y volverlas `NOT NULL` obligaría a inventar valores para datos reales que nadie cargó. La regla vive donde entra el dato nuevo (el handler del alta); el día que todas las filas estén completas, la constraint se puede agregar sin inventar nada.
 
@@ -236,6 +238,23 @@ Tres decisiones dentro de tres líneas:
 - **Parcial.** Los perfiles de tipo `actividades` (TR-139) guardan la matrícula como cadena vacía, no NULL. Sin el `WHERE`, todas esas cadenas vacías chocarían entre sí y **solo podría existir una recepcionista en todo el sistema**.
 - **El tipo va en la clave.** `nacional 1234` y `provincial 1234` los emiten organismos distintos y no tienen por qué ser la misma persona.
 - **La provincia no está, y se sabe.** Una matrícula provincial es única dentro de su provincia; el perfil no guarda cuál. Dos odontólogos de provincias distintas con el mismo número se bloquearían entre sí. Se acepta mientras el producto sea de Córdoba (spec §1); cuando aparezca el primero de otra provincia, la provincia entra en la clave.
+
+### 13 y 14 — La agenda es de cada profesional (2026-09-14, TR-143)
+
+Las dos salieron del mismo hallazgo: el esquema decía una cosa y los handlers hacían otra.
+
+```sql
+ALTER TABLE enlaces_turno ADD COLUMN user_id uuid;
+
+DROP INDEX idx_horario_atencion_general_unico;
+CREATE UNIQUE INDEX idx_horario_atencion_general_por_profesional
+  ON horarios_atencion (clinic_id, COALESCE(user_id, '00000000-...'::uuid))
+  WHERE alcance = 'general';
+```
+
+**El enlace necesitaba dueño** porque no cuelga de ningún turno previo — los **crea** —, así que no hay de dónde derivarlo. Y decide a qué agenda entran esos turnos: sin la columna, compartir el link le cargaba trabajo al owner.
+
+**El índice del horario general era la regla vieja escrita en el motor.** Imponía *una fila general por CLÍNICA*, que era correcto cuando cada clínica tenía un profesional. Con dos, el segundo que guardaba su horario se llevaba un **500 crudo** por querer decir a qué hora abre. El `COALESCE` está porque `user_id` es nullable —las filas anteriores a la 3.2.1— y en un índice único dos NULL nunca son iguales: sin él, una clínica vieja podría juntar varias filas generales huérfanas, que es justo lo que este índice evita.
 
 **Orden obligatorio:** 7 antes que 4 (para no tener las dos columnas confusas conviviendo ni un minuto), y 5 antes que 6 (el constraint nuevo necesita la columna poblada). La migración de datos existentes —39 turnos, 7 tipos de consulta, 3 horarios— asigna todo al `owner` de cada clínica, que hoy es su único profesional.
 

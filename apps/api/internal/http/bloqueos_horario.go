@@ -75,7 +75,10 @@ func listBloqueosHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		query := gdb.Where("clinic_id = ?", clinicID)
+		// Los MÍOS: un horario reservado es de un profesional, no de la
+		// clínica (ver soloMiAgenda en visibilidad.go). Recepción los ve
+		// todos, que es lo que su rol necesita.
+		query := gdb.Where("clinic_id = ?", clinicID).Scopes(soloMiAgenda(r))
 		if v := r.URL.Query().Get("especifico"); v != "" {
 			especifico, err := strconv.ParseBool(v)
 			if err != nil {
@@ -271,6 +274,9 @@ func crearBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		bloqueo.ClinicID = clinicID
+		// Con dueño: el horario que reservo es MÍO. Sin esto la fila nace
+		// huérfana y la ve toda la clínica.
+		bloqueo.UserID = usuarioDeLaSesionOpcional(r)
 
 		if err := gdb.Create(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la regla")
@@ -311,7 +317,10 @@ func editarBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var bloqueo db.BloqueoHorario
-		if err := gdb.Where("id = ? AND clinic_id = ?", bloqueoID, clinicID).First(&bloqueo).Error; err != nil {
+		// El de un colega no se edita: 404, no 403 — mismo criterio que la
+		// ficha de un paciente ajeno (TR-138).
+		if err := gdb.Where("id = ? AND clinic_id = ?", bloqueoID, clinicID).
+			Scopes(soloMiAgenda(r)).First(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "regla no encontrada")
 			return
 		}
@@ -348,7 +357,8 @@ func eliminarBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		result := gdb.Where("id = ? AND clinic_id = ?", bloqueoID, clinicID).Delete(&db.BloqueoHorario{})
+		result := gdb.Where("id = ? AND clinic_id = ?", bloqueoID, clinicID).
+			Scopes(soloMiAgenda(r)).Delete(&db.BloqueoHorario{})
 		if result.Error != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo eliminar la regla")
 			return

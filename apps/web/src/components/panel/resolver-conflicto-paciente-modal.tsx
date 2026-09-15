@@ -116,6 +116,22 @@ export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClo
               </p>
             )}
 
+            {/* El alcance real de resolver (Fase 3.2.5): la ficha que
+                pierde puede tener turnos con un colega, y resolver se los
+                va a tocar. No se restringe la acción —restringirla dejaría
+                conflictos que nadie puede resolver— se declara su
+                alcance. */}
+            {(conflicto.turnosDeOtrosProfesionales ?? 0) > 0 && (
+              <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+                Esta ficha tiene{" "}
+                <span className="font-semibold">
+                  {conflicto.turnosDeOtrosProfesionales}{" "}
+                  {conflicto.turnosDeOtrosProfesionales === 1 ? "turno" : "turnos"} de otros profesionales
+                </span>
+                . Resolver el conflicto también los alcanza: se cancelan o se migran junto con el resto.
+              </p>
+            )}
+
             {error && (
               <p role="alert" className="text-sm text-terracota-oscuro">
                 {error}

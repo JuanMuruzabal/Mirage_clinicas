@@ -699,7 +699,17 @@ func listDisponibilidadPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		slots, err := calcularDisponibilidad(gdb, clinic.ID, tipo, fecha, nil)
+		// El paciente todavía no elige profesional (eso llega en la
+		// 3.2.7): los huecos son los del owner, que es a quien se le va a
+		// asignar el turno unas líneas más abajo. Lo importante es que las
+		// DOS cosas usen el mismo, o se ofrecerían horarios de uno y se
+		// agendaría con otro.
+		atiendePublico, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+		slots, err := calcularDisponibilidad(gdb, clinic.ID, atiendePublico, tipo, fecha, nil)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad")
 			return
@@ -760,6 +770,15 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Mismo profesional que el endpoint de horarios de un día: hasta
+		// la 3.2.7 el paciente no elige, y los días con hueco tienen que
+		// ser los de quien después va a atender.
+		atiendePublico, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+
 		hoy := clock.Today()
 		ultimoDiaDelMes := primerDia.AddDate(0, 1, -1).Day()
 		dias := make([]string, 0)
@@ -768,7 +787,7 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			if fecha.Before(hoy) {
 				continue
 			}
-			slots, err := calcularDisponibilidad(gdb, clinic.ID, tipo, fecha, nil)
+			slots, err := calcularDisponibilidad(gdb, clinic.ID, atiendePublico, tipo, fecha, nil)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
 				return
@@ -1033,11 +1052,18 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		}
 		horaFin := horaInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
 
-		// Fase 3.2.1: quién atiende. Hasta que el wizard deje elegir
-		// profesional (Fase 3.2.7) es el owner, que es el único que cada
-		// clínica tiene hoy — el mismo comportamiento de antes, ahora
-		// escrito en la fila en vez de implícito.
-		atiende, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		// QUIÉN ATIENDE.
+		//
+		// Con ENLACE, el dueño del enlace (Fase 3.2.5): un profesional lo
+		// generó para llenar SU agenda —es la tercera pestaña de su
+		// "+ Agregar turno"— así que el turno que salga de ahí es suyo.
+		// Mandarlo al owner haría que compartir el link le cargara turnos
+		// a otro, que es exactamente lo contrario de para qué se comparte.
+		//
+		// Sin enlace, desde la página pública, sigue siendo el owner hasta
+		// que el wizard deje elegir profesional (Fase 3.2.7): el paciente
+		// todavía no tiene con quién elegir.
+		atiende, err := profesionalDelTurnoPublico(gdb, clinic.ID, req.EnlaceToken)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
 			return
@@ -1139,7 +1165,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// es la garantía final a nivel de base; este chequeo es lo que
 			// convierte esa carrera en un mensaje legible ("elegí otro
 			// horario") en vez del genérico de más abajo.
-			slots, err := calcularDisponibilidad(tx, clinic.ID, tipo, fecha, nil)
+			slots, err := calcularDisponibilidad(tx, clinic.ID, atiende, tipo, fecha, nil)
 			if err != nil {
 				return err
 			}

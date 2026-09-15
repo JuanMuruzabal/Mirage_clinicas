@@ -77,12 +77,23 @@ func listDisponibilidadHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
+		// El tipo tiene que ser MÍO: calcular la disponibilidad para el
+		// tipo de un colega mezclaría su duración y su preferencia horaria
+		// con mi agenda, y el resultado no sería la de ninguno.
+		if err := gdb.Scopes(soloMisTiposDeConsulta(r)).
+			Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
 
-		slots, err := calcularDisponibilidad(gdb, clinicID, tipo, fecha, excluirTurnoID)
+		// Los huecos de quien pregunta, si atiende. Misma regla que para
+		// asignar un turno nuevo (ver profesionalQueAtiende).
+		profesionalID, err := profesionalQueAtiende(gdb, r, clinicID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			return
+		}
+		slots, err := calcularDisponibilidad(gdb, clinicID, profesionalID, tipo, fecha, excluirTurnoID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad")
 			return
@@ -227,9 +238,28 @@ func bloqueosDelDia(fecha time.Time, generales, especificas []db.BloqueoHorario)
 // goroutines sumaría sincronización (mutex o channels para juntar
 // resultados) sin ninguna ganancia medible, el mismo criterio que
 // TR-079 en docs/Arquitectura y base/tradeoffs.md ya dejó asentado para esta cuenta.
+// calcularDisponibilidad — los huecos de UN profesional, no de la clínica
+// (corregido el 2026-09-14).
+//
+// Hasta acá leía el horario de atención, los horarios reservados Y los
+// turnos ocupados filtrando solo por `clinic_id`. Con un profesional por
+// clínica daba igual; con dos, cada una de las tres cosas estaba mal:
+//
+//   - El horario y los bloqueos de un colega recortaban la agenda del
+//     otro.
+//   - Y los turnos ajenos ocupaban sus horarios: el turno del colega a las
+//     10 bloqueaba las 10 propias. Eso es EXACTAMENTE el bug que la 3.2.1
+//     sacó del exclusion constraint al mudarlo de la clínica a
+//     `atendido_por_user_id` —"sobre la clínica rechazaría dos turnos
+//     simultáneos en sillones distintos"— reaparecido un nivel más arriba:
+//     el motor ya los dejaba convivir, pero la pantalla no los ofrecía.
+//
+// `user_id IS NULL` entra igual que en soloMiAgenda: son las filas
+// anteriores a la 3.2.1, que la migración le asigna al owner.
 func calcularDisponibilidad(
 	gdb *gorm.DB,
 	clinicID uuid.UUID,
+	profesionalID uuid.UUID,
 	tipo db.TipoConsulta,
 	fecha time.Time,
 	excluirTurnoID *uuid.UUID,
@@ -238,7 +268,8 @@ func calcularDisponibilidad(
 	// "puede que un profesional tenga horarios de atención variable") —
 	// ver horarioAtencionEfectivo más arriba para la prioridad exacta.
 	var horariosAtencion []db.HorarioAtencion
-	if err := gdb.Where("clinic_id = ?", clinicID).Find(&horariosAtencion).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", clinicID, profesionalID).
+		Find(&horariosAtencion).Error; err != nil {
 		return nil, err
 	}
 	efectivo := horarioAtencionEfectivo(horariosAtencion, fecha)
@@ -257,10 +288,12 @@ func calcularDisponibilidad(
 	}
 
 	var generales, especificas []db.BloqueoHorario
-	if err := gdb.Where("clinic_id = ? AND especifico = ?", clinicID, false).Find(&generales).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
+		clinicID, false, profesionalID).Find(&generales).Error; err != nil {
 		return nil, err
 	}
-	if err := gdb.Where("clinic_id = ? AND especifico = ?", clinicID, true).Find(&especificas).Error; err != nil {
+	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
+		clinicID, true, profesionalID).Find(&especificas).Error; err != nil {
 		return nil, err
 	}
 	bloqueosAplicables := bloqueosDelDia(fecha, generales, especificas)
@@ -276,8 +309,8 @@ func calcularDisponibilidad(
 	inicioDia := fecha
 	finDia := fecha.AddDate(0, 0, 1)
 	turnosQuery := gdb.Where(
-		"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
-		clinicID, "agendado", inicioDia, finDia,
+		"clinic_id = ? AND atendido_por_user_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+		clinicID, profesionalID, "agendado", inicioDia, finDia,
 	)
 	if excluirTurnoID != nil {
 		turnosQuery = turnosQuery.Where("id <> ?", *excluirTurnoID)

@@ -241,7 +241,11 @@ func editarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
+		// El tipo de un colega no se edita ni se borra: el listado ya
+		// mostraba solo los propios, pero con el id a mano la escritura
+		// seguía abierta.
+		if err := gdb.Scopes(soloMisTiposDeConsulta(r)).
+			Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
@@ -282,7 +286,11 @@ func eliminarTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
+		// El tipo de un colega no se edita ni se borra: el listado ya
+		// mostraba solo los propios, pero con el id a mano la escritura
+		// seguía abierta.
+		if err := gdb.Scopes(soloMisTiposDeConsulta(r)).
+			Where("id = ? AND clinic_id = ?", tipoID, profesionalID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}

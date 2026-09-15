@@ -73,8 +73,13 @@ func listHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// EL MÍO. El horario de atención es de un profesional, no de la
+		// clínica (ver soloMiAgenda en visibilidad.go): con dos
+		// odontólogos, uno abre a las 8 y el otro a las 14, y mezclarlos
+		// da un horario que no es el de ninguno.
 		var horarios []db.HorarioAtencion
-		if err := gdb.Where("clinic_id = ?", clinicID).Order("created_at").Find(&horarios).Error; err != nil {
+		if err := gdb.Where("clinic_id = ?", clinicID).Scopes(soloMiAgenda(r)).
+			Order("created_at").Find(&horarios).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener el horario de atención")
 			return
 		}
@@ -131,8 +136,14 @@ func putHorarioAtencionGeneralHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// UNO POR PROFESIONAL, no uno por clínica (corrección del
+		// 2026-09-14). Sin el filtro por dueño, este PUT encontraba la
+		// fila `general` del colega y la pisaba: guardar el horario propio
+		// le cambiaba el horario de atención al otro, y ninguno de los dos
+		// se enteraba hasta que el calendario ofrecía huecos equivocados.
 		var existente db.HorarioAtencion
-		err := gdb.Where("clinic_id = ? AND alcance = ?", clinicID, db.HorarioAtencionAlcanceGeneral).First(&existente).Error
+		err := gdb.Where("clinic_id = ? AND alcance = ?", clinicID, db.HorarioAtencionAlcanceGeneral).
+			Scopes(soloMiAgenda(r)).First(&existente).Error
 		if err == nil {
 			existente.HoraDesde, existente.HoraHasta = &req.HoraDesde, &req.HoraHasta
 			if err := gdb.Save(&existente).Error; err != nil {
@@ -145,6 +156,7 @@ func putHorarioAtencionGeneralHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		nuevo := db.HorarioAtencion{
 			ClinicID:  clinicID,
+			UserID:    usuarioDeLaSesionOpcional(r),
 			Alcance:   db.HorarioAtencionAlcanceGeneral,
 			HoraDesde: &req.HoraDesde,
 			HoraHasta: &req.HoraHasta,
@@ -252,6 +264,7 @@ func crearHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		horario.ClinicID = clinicID
+		horario.UserID = usuarioDeLaSesionOpcional(r)
 
 		if err := gdb.Create(&horario).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el horario de atención")
@@ -277,7 +290,8 @@ func editarHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var existente db.HorarioAtencion
-		if err := gdb.Where("id = ? AND clinic_id = ?", id, clinicID).First(&existente).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", id, clinicID).
+			Scopes(soloMiAgenda(r)).First(&existente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "horario de atención no encontrado")
 			return
 		}
@@ -327,7 +341,8 @@ func eliminarHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var existente db.HorarioAtencion
-		if err := gdb.Where("id = ? AND clinic_id = ?", id, clinicID).First(&existente).Error; err != nil {
+		if err := gdb.Where("id = ? AND clinic_id = ?", id, clinicID).
+			Scopes(soloMiAgenda(r)).First(&existente).Error; err != nil {
 			writeError(w, http.StatusNotFound, "horario de atención no encontrado")
 			return
 		}

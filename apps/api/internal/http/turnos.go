@@ -51,6 +51,17 @@ type turnoResponse struct {
 	EmailContacto    string  `json:"emailContacto"`
 	Motivo           string  `json:"motivo"`
 	CreatedAt        string  `json:"createdAt"`
+	// Quién atiende este turno (Fase 3.2.5, 2026-09-14). La ficha de un
+	// paciente muestra TODOS sus turnos —el paciente es de la clínica, y
+	// un historial partido por profesional no sirve como historial— así
+	// que cada fila tiene que decir con quién fue o va a ser.
+	//
+	// `EsMio` lo decide el backend y no el frontend comparando ids: la
+	// pantalla lo usa para saber qué puede tocar, y esa es una decisión
+	// de permisos, no de presentación.
+	AtendidoPorUserID *string `json:"atendidoPorUserId,omitempty"`
+	AtendidoPorNombre string  `json:"atendidoPorNombre,omitempty"`
+	EsMio             bool    `json:"esMio"`
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
@@ -76,6 +87,55 @@ type turnoResponse struct {
 	TutorNombre   *string `json:"tutorNombre,omitempty"`
 	TutorTelefono *string `json:"tutorTelefono,omitempty"`
 	TutorEmail    *string `json:"tutorEmail,omitempty"`
+}
+
+// completarProfesionalDeTurnos rellena, para un lote de turnos, quién
+// atiende cada uno y si es de quien mira.
+//
+// En un lote y no por fila: resolver el nombre turno por turno sería N+1
+// sobre una lista que se pinta entera, el mismo criterio que ya usa
+// nombresDeLosMiembros para los tipos de consulta.
+func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Turno, out []turnoResponse) {
+	yo, _ := usuarioDeLaSesion(r)
+
+	ids := make([]uuid.UUID, 0, len(turnos))
+	vistos := make(map[uuid.UUID]bool, len(turnos))
+	for _, t := range turnos {
+		if t.AtendidoPorUserID != nil && !vistos[*t.AtendidoPorUserID] {
+			vistos[*t.AtendidoPorUserID] = true
+			ids = append(ids, *t.AtendidoPorUserID)
+		}
+	}
+	nombres := make(map[uuid.UUID]string, len(ids))
+	if len(ids) > 0 {
+		var perfiles []db.ProfessionalProfile
+		_ = gdb.Where("user_id IN ?", ids).Find(&perfiles).Error
+		for _, p := range perfiles {
+			nombres[p.UserID] = strings.TrimSpace(p.Nombre + " " + p.Apellido)
+		}
+		// Quien todavía no cargó perfil, por su mail — nunca un id crudo.
+		var users []db.User
+		_ = gdb.Where("id IN ?", ids).Find(&users).Error
+		for _, u := range users {
+			if nombres[u.ID] == "" {
+				nombres[u.ID] = u.Email
+			}
+		}
+	}
+
+	for i := range out {
+		if i >= len(turnos) {
+			break
+		}
+		id := turnos[i].AtendidoPorUserID
+		if id == nil {
+			continue
+		}
+		s := id.String()
+		out[i].AtendidoPorUserID = &s
+		out[i].AtendidoPorNombre = nombres[*id]
+		out[i].EsMio = *id == yo
+	}
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {
@@ -329,9 +389,26 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		paraOtro := req.ParaOtro && req.PacienteID == ""
-		// Fase 3.2.1: quién atiende. Hasta que el modal deje elegir
-		// profesional (Fase 3.2.6) es el owner de la clínica.
-		atiende, err := db.OwnerDeLaClinica(gdb, profesionalID)
+		// QUIÉN ATIENDE ES QUIEN LO CARGA, si atiende (corregido el
+		// 2026-09-14, reportado por el cliente).
+		//
+		// Hasta acá era SIEMPRE el owner de la clínica. Era una
+		// simplificación correcta en la 3.2.1 —cuando toda clínica tenía
+		// exactamente un profesional, su dueño— y quedó escrita como
+		// "hasta que el modal deje elegir profesional (Fase 3.2.6)". Dejó
+		// de ser cierta en la 3.2.4, apenas se pudo invitar a un segundo:
+		// un colega cargaba un turno y el turno —y con él el paciente, que
+		// se deriva de sus turnos— aparecía en la agenda del titular y no
+		// en la suya. Eso no es un detalle de UI pendiente: es la fuga
+		// exacta que el aislamiento de la 3.2.2 existe para impedir, y no
+		// se nota mirando la pantalla propia, se nota en la del otro.
+		//
+		// La regla: si quien carga el turno es `profesional` de esta
+		// clínica, el turno es suyo. Si no —recepción cargando para el
+		// equipo—, sigue cayendo al owner hasta que la 3.2.6 traiga el
+		// selector de profesional, que es el caso que de verdad lo
+		// necesita.
+		atiende, err := profesionalQueAtiende(gdb, r, profesionalID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
 			return
@@ -387,7 +464,13 @@ func cancelarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -448,9 +531,15 @@ func cancelarTurnosSinVerificarHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var cancelados int
 		err := gdb.Transaction(func(tx *gorm.DB) error {
+			// Los MÍOS, y acá importa más que en ningún otro lado: esto
+			// cancela EN MASA, de un botón, sin elegir cuáles. Sin el
+			// scope, un profesional le limpiaba la agenda entera a su
+			// colega —todos sus turnos vigentes de pacientes sin
+			// verificar— y del otro lado no quedaba ni un aviso, solo
+			// turnos cancelados que nadie canceló.
 			sub := pacientesVerificadosQuery(tx, profesionalID)
 			var turnos []db.Turno
-			if err := tx.Where(
+			if err := tx.Scopes(soloMisTurnos(r)).Where(
 				"clinic_id = ? AND estado = 'agendado' AND hora_fin >= now() AND (paciente_id IS NULL OR paciente_id NOT IN (?))",
 				profesionalID, sub,
 			).Find(&turnos).Error; err != nil {
@@ -521,7 +610,13 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -627,8 +722,14 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			ids = append(ids, id)
 		}
 
+		// Los MÍOS. Autoreservar MUEVE turnos de día: sin el scope, un
+		// profesional podía reprogramarle la agenda a un colega pasándole
+		// los ids. Es la misma escritura que /turnos/{id}/hora, pero en
+		// lote — y en lote es peor, porque nadie revisa uno por uno lo que
+		// mandó.
 		var turnos []db.Turno
-		if err := gdb.Where("id IN ? AND clinic_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id IN ? AND clinic_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron cargar los turnos")
 			return
 		}
@@ -676,7 +777,18 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 				encontrado := false
 				for d := 0; d < autoreservarBusquedaMaxDias; d++ {
 					fechaCandidata := dia.AddDate(0, 0, d)
-					slots, err := calcularDisponibilidad(tx, profesionalID, tipo, fechaCandidata, &t.ID)
+					// El del turno que se está reprogramando: autoreservar
+					// mueve el turno de alguien, no lo cambia de dueño.
+					// Todo turno `agendado` tiene profesional
+					// (chk_turno_agendado_profesional), pero la columna es
+					// nullable en el modelo: sin el chequeo, un dato
+					// inconsistente calcularía la disponibilidad del uuid
+					// cero y devolvería cualquier cosa.
+					if t.AtendidoPorUserID == nil {
+						continue
+					}
+					atiendeEste := *t.AtendidoPorUserID
+					slots, err := calcularDisponibilidad(tx, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
 					if err != nil {
 						return err
 					}
@@ -783,7 +895,13 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turno db.Turno
-		if err := gdb.Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
+		// El de un colega NO: 404 y no 403, mismo criterio que la ficha de
+		// un paciente ajeno (TR-138). Sin el scope, cualquier profesional
+		// podía abrir, cancelar, reprogramar y marcar la asistencia de un
+		// turno ajeno con solo tener el id — y marcar asistencia es
+		// IRREVERSIBLE (TR-092).
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id = ? AND clinic_id = ?", turnoID, profesionalID).First(&turno).Error; err != nil {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
@@ -1279,7 +1397,12 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// "Turnos resueltos", no acá (mismo criterio que separa esas dos
 		// pestañas en /panel/turnos).
 		var turnosHoyDB []db.Turno
-		if err := gdb.Where(
+		// TODO el resumen es de LO PROPIO (corrección del 2026-09-14).
+		// "General" es la primera pantalla del panel, y hasta acá cada
+		// tarjeta —turnos de hoy, próximos, resueltos, asistidos,
+		// ausentes, horarios reservados— contaba lo de toda la clínica.
+		// Un profesional entraba y veía como suyo el día de su colega.
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
@@ -1294,7 +1417,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// "hoy" ya tiene su propia tarjeta, esta muestra el día siguiente
 		// concreto, no una lista larga de semanas hacia adelante.
 		var turnosProximosDB []db.Turno
-		if err := gdb.Where(
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
 			profesionalID, "agendado", mañana, pasadoMañana,
 		).
@@ -1306,7 +1429,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var totalConfirmados int64
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", ahora).
 			Count(&totalConfirmados).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
@@ -1324,7 +1447,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// (asistio/ausente), en el mismo formato que "Turnos de hoy"
 		// (hora, nombre) más el resultado.
 		var turnosResueltosDB []db.Turno
-		if err := gdb.Where(
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
 			profesionalID, "agendado", hoy, mañana,
 		).
@@ -1340,7 +1463,9 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// del dashboard, no la fuente de verdad de disponibilidad) y
 		// generales cuya ventana (fecha_hasta) no venció.
 		var bloqueos []db.BloqueoHorario
-		if err := gdb.Where(
+		// Los horarios reservados van por soloMiAgenda, no por
+		// soloMisTurnos: son otra tabla y otro dueño.
+		if err := gdb.Scopes(soloMiAgenda(r)).Where(
 			"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
 			profesionalID, hoy, hoy,
 		).Find(&bloqueos).Error; err != nil {
@@ -1353,13 +1478,13 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// fecha — a diferencia de las listas de arriba, acá interesa el
 		// acumulado completo, no un pendiente por revisar.
 		var turnosAsistidos, turnosAusentes int64
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "asistio").
 			Count(&turnosAsistidos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
 		}
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "ausente").
 			Count(&turnosAusentes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")

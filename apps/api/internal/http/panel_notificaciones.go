@@ -32,13 +32,13 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var conflictosPacientes int64
 		if err := gdb.Model(&db.ConflictoPaciente{}).
-			Where("clinic_id = ? AND resuelto = false", profesionalID).
+			Scopes(soloMisConflictos(r)).Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Count(&conflictosPacientes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return
 		}
 
-		conflictosCalendario, err := contarTurnosEnConflictoConBloqueos(gdb, profesionalID)
+		conflictosCalendario, err := contarTurnosEnConflictoConBloqueos(gdb, r, profesionalID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return
@@ -62,10 +62,16 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 // un tercer lugar del código. TR-090: un conflicto cuyo turno ya pasó
 // deja de contar como activo — de ahí el filtro `hora_fin >= ahora`,
 // igual que el banner del calendario.
-func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, profesionalID uuid.UUID) (int64, error) {
+// Recibe `r` además de la clínica desde la Fase 3.2.5: el conteo es de
+// LOS TURNOS PROPIOS contra LOS BLOQUEOS PROPIOS. Con los dos conjuntos
+// mezclados, la tarjeta de "General" avisaba de conflictos entre el turno
+// de uno y el horario reservado del otro — un conflicto que no existe, y
+// que además no se puede resolver desde ninguna de las dos pantallas.
+func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, r *http.Request, profesionalID uuid.UUID) (int64, error) {
 	ahora := clock.Now()
 	var turnos []db.Turno
-	if err := gdb.Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
+	if err := gdb.Scopes(soloMisTurnos(r)).
+		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
 		Find(&turnos).Error; err != nil {
 		return 0, err
 	}
@@ -75,7 +81,7 @@ func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, profesionalID uuid.UUID) (
 
 	hoy := clock.Today()
 	var bloqueos []db.BloqueoHorario
-	if err := gdb.Where(
+	if err := gdb.Scopes(soloMiAgenda(r)).Where(
 		"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
 		profesionalID, hoy, hoy,
 	).Find(&bloqueos).Error; err != nil {

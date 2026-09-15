@@ -330,6 +330,15 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var turnos []db.Turno
+		// TODOS los turnos del paciente, no solo los míos (Fase 3.2.5,
+		// 2026-09-14). El paciente es de la clínica: un historial clínico
+		// partido por profesional no sirve como historial — el que atiende
+		// hoy necesita saber qué le hicieron antes, se lo haya hecho quien
+		// se lo haya hecho.
+		//
+		// Lo que cambia es que cada fila dice DE QUIÉN es
+		// (`atendidoPorNombre`) y si es de quien mira (`esMio`), y la
+		// pantalla no deja tocar los ajenos. Ver toTurnoResponse.
 		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at DESC").Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener el historial de turnos")
 			return
@@ -338,6 +347,9 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		for i, t := range turnos {
 			turnosOut[i] = toTurnoResponse(t)
 		}
+		// Quién atiende cada turno, para que el historial diga con quién
+		// fue cada uno y cuáles puede tocar quien mira.
+		completarProfesionalDeTurnos(gdb, r, turnos, turnosOut)
 
 		verificado, err := pacienteEstaVerificado(gdb, paciente)
 		if err != nil {

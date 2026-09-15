@@ -58,7 +58,10 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 			return
 		}
 		expiraEn := time.Now().Add(enlaceTurnoTTL)
+		// Con dueño: el enlace es de quien lo genera, y es lo que decide a
+		// qué agenda entran los turnos que se saquen con él (Fase 3.2.5).
 		enlace := db.EnlaceTurno{
+			UserID:    usuarioDeLaSesionOpcional(r),
 			ClinicID:  clinicID,
 			TokenHash: tokenHash,
 			ExpiraEn:  expiraEn,
@@ -167,4 +170,28 @@ func consumirEnlaceTurno(tx *gorm.DB, clinicID uuid.UUID, token string, esParaOt
 		enlace.UsadoParaMi = true
 	}
 	return tx.Save(&enlace).Error
+}
+
+// profesionalDelTurnoPublico — a qué agenda entra un turno sacado desde
+// la página pública (Fase 3.2.5).
+//
+// Con enlace, el profesional que lo generó: la tercera pestaña de su
+// "+ Agregar turno" existe para llenar SU agenda, y si el turno fuera a
+// parar al owner, compartir el link le cargaría turnos a otro.
+//
+// Sin enlace, el owner, hasta que la 3.2.7 deje al paciente elegir
+// profesional. Ahí este helper es el único lugar que hay que tocar.
+//
+// Un enlace sin dueño —los anteriores a esta columna, que la migración le
+// asigna al owner de todos modos— cae al owner igual, y un token que no
+// resuelve también: la validez del enlace la decide el flujo del turno
+// unas líneas más abajo, no esta función, y adelantarse a rechazarlo acá
+// daría un 500 donde corresponde un mensaje.
+func profesionalDelTurnoPublico(gdb *gorm.DB, clinicID uuid.UUID, enlaceToken string) (uuid.UUID, error) {
+	if enlaceToken != "" {
+		if enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken); err == nil && enlace.UserID != nil {
+			return *enlace.UserID, nil
+		}
+	}
+	return db.OwnerDeLaClinica(gdb, clinicID)
 }
