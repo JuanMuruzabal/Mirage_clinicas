@@ -2183,6 +2183,60 @@ Las filas siguen siendo una por profesional. **Globales en nombre, propias en co
 
 ---
 
+## TR-146: El wizard público elige profesional — primero el tipo, después quién
+
+- **Contexto:** Fase 3.2.7, 2026-09-15. Se adelanta a la 3.2.6 (vista del recepcionista) por decisión del cliente.
+- **De dónde salió:** el cliente, textual — *"los profesionales como se explicó, según el tipo de consulta aparecerán los profesionales a elegir, si no hay un tipo de turno asociado al menos a un profesional no ponerlo en el wizard"*.
+
+### El orden no es una preferencia de pantalla
+
+**Tipo primero, profesional después.** Es el orden real de la decisión de un paciente —"necesito una limpieza" viene antes que "con quién"— pero además es el único que se puede resolver: **el tipo determina la duración, y la duración es lo que define los huecos**. Al revés habría que ofrecer profesionales sin saber cuánto dura la consulta, y después recalcular todo.
+
+De ahí sale, sin agregar nada, la regla que pidió el cliente: **un tipo que no atiende ningún profesional activo no se muestra.** Ofrecerlo llevaría a una pantalla sin nadie a quien elegir. Quedan afuera los tipos sin dueño —las filas anteriores a la 3.2.1— y los de quien ya no está en el equipo (la membresía se marca `removed`, nunca se borra, así que sus filas siguen ahí).
+
+### La lista de tipos deja de tener id y duración
+
+`GET /clinicas/{slug}/tipos-consulta` devolvía una fila por tipo de la clínica. Con dos profesionales eso mostraba **"Consulta general" dos veces**, indistinguibles para el paciente: difieren en color y duración, que son configuración interna de cada agenda (TR-145).
+
+Ahora devuelve **nombres, deduplicados**. El cambio de forma —se van `id`, `color` y `duracionMinutos`— no es una poda cosmética: con N profesionales **no existe** "el id del tipo" ni "la duración del tipo"; existe la fila de cada uno. La duración aparece en la tarjeta del profesional, que es donde pasa a ser cierta.
+
+El id concreto vuelve a aparecer en `GET /clinicas/{slug}/profesionales?tipo=<nombre>`, donde cada profesional trae **su** `tipoConsultaId`. Así la disponibilidad y el alta siguen trabajando con filas reales, y la resolución por nombre —el lugar donde dos profesionales que lo escribieron distinto se vuelven un problema— ocurre una sola vez.
+
+### El indicador de proximidad, y por qué está acotado
+
+Cada tarjeta dice el primer día con hueco. Es lo que vuelve real la elección: entre dos nombres que el paciente no conoce, **con qué rapidez lo atienden es casi siempre el criterio que usa**; sin eso, elegir es tirar una moneda.
+
+Se escanean **30 días como máximo**, y no "hasta encontrar". El endpoint es público y sin sesión, y cada día mirado es una consulta por profesional: con el tope, el peor caso de una clínica de cinco es del mismo orden que `/disponibilidad-mes`, que ya escanea hasta 31 días sin autenticar. Que alguien no tenga hueco en 30 días es información útil por sí misma — la tarjeta lo dice, en vez de mentir con una fecha lejana.
+
+El orden de la lista es por proximidad y no alfabético, por lo mismo: dejar cuarto a quien puede atender mañana obliga a comparar a mano lo que el servidor ya sabe.
+
+### Un mail nunca se publica
+
+`nombresDeLosMiembros` cae al mail de quien todavía no cargó perfil. Está bien **dentro del panel**, entre colegas de la misma clínica, y sería publicar la dirección de correo de una persona en una página abierta a internet. La versión pública usa un genérico. En la práctica el caso no se da —sumarse como `profesional` exige matrícula, y eso pasa por el perfil— pero el fallback tiene que ser seguro igual: si algún día aparece una fila rara, el error ya es irreversible.
+
+### Un error que estaba desde la 3.2.5
+
+Con **enlace** compartido, la disponibilidad se calculaba con el OWNER y el turno entraba en la agenda del **dueño del enlace**: se mostraban los huecos de uno y se agendaba con otro. Lo tapaba que las dos resoluciones vivieran en lugares distintos.
+
+Ahora hay **una sola función** (`tipoPublicoDelPedido`) que devuelve el tipo y el profesional juntos, y la usan los tres endpoints: horarios de un día, días del mes y alta del turno. Con enlace manda el dueño del enlace y se ignora cualquier profesional que venga en el cuerpo — su "Compartir link" existe para llenar SU agenda. Y la lista de tipos, con enlace, se acota a los suyos: elegir "Ortodoncia" para enterarse al confirmar de que ahí no la atiende nadie es una pared.
+
+### Las dos reglas del paciente, que faltaban acá
+
+Estaban declaradas como pendientes desde la 3.2.5 (TR-144/145): viven en el alta del panel y faltaban en el wizard. Mientras todo caía en la agenda del owner no cambiaban nada; **desde que el paciente elige, este es el único lugar donde alguien puede darse cuenta de la colisión** — él no ve ninguna agenda, y el profesional que va a atenderlo tampoco ve la del otro.
+
+1. **No puede quedar encimado con un turno suyo de otro profesional.** Mensaje en segunda persona, con el nombre y de qué hora a qué hora.
+2. **No puede tener dos turnos activos del mismo tipo en la clínica**, comparado por nombre.
+
+**La segunda es un cambio de comportamiento que conviene mirar:** la regla existía en el wizard solo para el paciente **sin verificar** y por `tipo_consulta_id`. Ahora aplica a todos y por nombre. Es lo que pidió el cliente para el panel —*"ya sea conmigo mismo o con otro profesional"*— y sin esto la puerta pública quedaba abierta justo donde nadie mira. Si un paciente verificado tuviera que poder apilar dos turnos del mismo tipo (controles de ortodoncia, por ejemplo), es un `if` y queda anotado acá.
+
+### Lo que este cambio rompió, y no se tapó
+
+Seis fixtures del backend creaban el segundo tipo de consulta **sin dueño**. Bajo la regla nueva eso es un tipo que no atiende nadie, así que dejaron de ofrecerse — la regla funcionando, no un daño colateral. Se les puso dueño en vez de relajar la regla.
+
+Aparte, la suite destapó que `PurgeAuthGarbage` **reventaba entera** cuando una cuenta abandonada era dueña de una clínica: la FK `fk_clinics_owner` devuelve 23503 y ese error tumbaba la transacción, así que un solo caso raro dejaba de limpiar también las sesiones vencidas y los tokens usados de todo el sistema. Se saltean, que además es lo correcto por sí mismo: una cuenta con clínica tiene datos reales, no es basura.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

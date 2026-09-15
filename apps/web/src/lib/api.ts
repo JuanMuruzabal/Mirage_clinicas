@@ -233,28 +233,77 @@ export function apiGetClinicaPublica(slug: string): Promise<ApiResult<ClinicaPub
   return request<ClinicaPublica>(`/clinicas/${slug}`);
 }
 
-// TipoConsultaPublico — Extra 2.3.5 (E5.2/E5.3): versión reducida de
-// TipoConsulta para el wizard público, sin tiempo post-consulta/cantidad de
-// sesiones/preferencia de atención — detalles internos del cálculo de
-// disponibilidad, no algo que el paciente elija o necesite ver.
+// TipoConsultaPublico — lo que el wizard necesita para el primer paso.
+//
+// Sin `id` ni `duracionMinutos` desde la Fase 3.2.7, y no es una poda
+// cosmética: con N profesionales **no existe** un id ni una duración del
+// tipo — existe la fila de cada uno (TR-145). El paciente elige un
+// NOMBRE; la duración aparece recién en la tarjeta del profesional, que
+// es donde pasa a ser cierta.
 export interface TipoConsultaPublico {
-  id: string;
   nombre: string;
-  color: string;
-  duracionMinutos: number;
+  /** Cuántos profesionales lo atienden. Con uno solo no hay nada que elegir. */
+  profesionales: number;
 }
 
 // Primer paso de datos del wizard público después de los datos de
-// contacto: qué tipos de consulta ofrece la clínica (E5.3).
-export function apiListTiposConsultaPublico(slug: string): Promise<ApiResult<TipoConsultaPublico[]>> {
-  return request<TipoConsultaPublico[]>(`/clinicas/${slug}/tipos-consulta`);
+// contacto: qué tipos de consulta ofrece la clínica (E5.3). Un tipo que
+// no atiende ningún profesional activo no viene — ofrecerlo llevaría a
+// una pantalla sin nadie a quien elegir.
+export function apiListTiposConsultaPublico(slug: string, enlaceToken?: string): Promise<ApiResult<TipoConsultaPublico[]>> {
+  // Con enlace, solo los tipos de quien lo generó: el enlace ya decide con
+  // quién es el turno, y ofrecer uno que esa persona no atiende mandaría
+  // al paciente contra una pared recién al confirmar.
+  const query = enlaceToken ? `?${new URLSearchParams({ enlaceToken }).toString()}` : "";
+  return request<TipoConsultaPublico[]>(`/clinicas/${slug}/tipos-consulta${query}`);
+}
+
+// ProfesionalPublico — una tarjeta de "¿con quién te atendés?" (Fase
+// 3.2.7). `tipoConsultaId` es la fila de ESE profesional para el tipo
+// elegido: es la que después usan la disponibilidad y el alta.
+export interface ProfesionalPublico {
+  userId: string;
+  nombre: string;
+  tipoConsultaId: string;
+  duracionMinutos: number;
+  /** Primer día con un hueco (YYYY-MM-DD), o ausente si no hay ninguno en 30 días. */
+  proximoDisponible?: string;
+}
+
+export function apiListProfesionalesPublico(slug: string, tipo: string): Promise<ApiResult<ProfesionalPublico[]>> {
+  const query = new URLSearchParams({ tipo });
+  return request<ProfesionalPublico[]>(`/clinicas/${slug}/profesionales?${query.toString()}`);
+}
+
+// DisponibilidadPublicaParams — el tipo (por nombre) y con quién.
+//
+// Las dos cosas juntas porque los huecos dependen de la duración, y la
+// duración es la que ESE profesional le puso a ESE tipo: pedir los
+// horarios de uno y agendar con otro fue un bug real del camino con
+// enlace hasta la Fase 3.2.7.
+export interface DisponibilidadPublicaParams {
+  tipo: string;
+  profesionalId?: string;
+  enlaceToken?: string;
+}
+
+function queryDisponibilidad(p: DisponibilidadPublicaParams): URLSearchParams {
+  const query = new URLSearchParams({ tipo: p.tipo });
+  if (p.profesionalId) query.set("profesionalId", p.profesionalId);
+  if (p.enlaceToken) query.set("enlaceToken", p.enlaceToken);
+  return query;
 }
 
 // Mismo cálculo que apiListDisponibilidad (autenticado, lo usa el
 // profesional) — acá resuelto por slug público en vez de por sesión, y sin
 // excluirTurnoId (el wizard público siempre pide un turno nuevo).
-export function apiListDisponibilidadPublica(slug: string, tipoConsultaId: string, fecha: string): Promise<ApiResult<Disponibilidad>> {
-  const query = new URLSearchParams({ tipoConsultaId, fecha });
+export function apiListDisponibilidadPublica(
+  slug: string,
+  params: DisponibilidadPublicaParams,
+  fecha: string,
+): Promise<ApiResult<Disponibilidad>> {
+  const query = queryDisponibilidad(params);
+  query.set("fecha", fecha);
   return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
 }
 
@@ -266,8 +315,13 @@ export interface DisponibilidadMes {
   dias: string[];
 }
 
-export function apiListDisponibilidadMesPublica(slug: string, tipoConsultaId: string, mes: string): Promise<ApiResult<DisponibilidadMes>> {
-  const query = new URLSearchParams({ tipoConsultaId, mes });
+export function apiListDisponibilidadMesPublica(
+  slug: string,
+  params: DisponibilidadPublicaParams,
+  mes: string,
+): Promise<ApiResult<DisponibilidadMes>> {
+  const query = queryDisponibilidad(params);
+  query.set("mes", mes);
   return request<DisponibilidadMes>(`/clinicas/${slug}/disponibilidad-mes?${query.toString()}`);
 }
 
@@ -319,7 +373,13 @@ export interface SolicitarTurnoPublicoPayload {
   // confirmar — el turno nace `agendado`, con horario real, nunca más
   // `pendiente` (TR-006 queda solo para turnos ya viejos hasta que Extra
   // 2.3.3 saque el estado del todo).
-  tipoConsultaId: string;
+  /** El NOMBRE del tipo, no un id: con N profesionales cada uno tiene su
+   *  propia fila, y el backend resuelve la de `profesionalId` — la que
+   *  tiene la duración con la que se calcularon los huecos que se vieron. */
+  tipo: string;
+  /** Con quién. Vacío en una clínica de una sola persona y con enlace
+   *  (ahí manda el dueño del enlace). */
+  profesionalId?: string;
   fecha: string;
   hora: string;
   // verificacionToken (E5.6, "Confirmanos que sos vos") — token opaco que

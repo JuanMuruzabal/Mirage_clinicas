@@ -6,6 +6,7 @@ import { act, type ComponentProps } from "react";
 const {
   solicitarTurnoPublicoActionMock,
   listTiposConsultaPublicoActionMock,
+  listProfesionalesPublicoActionMock,
   listDisponibilidadPublicaActionMock,
   enviarVerificacionEmailActionMock,
   confirmarVerificacionEmailActionMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   solicitarTurnoPublicoActionMock: vi.fn(),
   listTiposConsultaPublicoActionMock: vi.fn(),
+  listProfesionalesPublicoActionMock: vi.fn(),
   listDisponibilidadPublicaActionMock: vi.fn(),
   enviarVerificacionEmailActionMock: vi.fn(),
   confirmarVerificacionEmailActionMock: vi.fn(),
@@ -23,6 +25,7 @@ const {
 vi.mock("@/app/actions/turno-publico", () => ({
   solicitarTurnoPublicoAction: solicitarTurnoPublicoActionMock,
   listTiposConsultaPublicoAction: listTiposConsultaPublicoActionMock,
+  listProfesionalesPublicoAction: listProfesionalesPublicoActionMock,
   listDisponibilidadPublicaAction: listDisponibilidadPublicaActionMock,
   enviarVerificacionEmailAction: enviarVerificacionEmailActionMock,
   confirmarVerificacionEmailAction: confirmarVerificacionEmailActionMock,
@@ -32,7 +35,14 @@ vi.mock("@/app/actions/turno-publico", () => ({
 
 const { PedirTurnoForm } = await import("./pedir-turno-form");
 
-const tiposConsulta = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30 }];
+const tiposConsulta = [{ nombre: "Consulta general", profesionales: 1 }];
+
+// Un solo profesional: es el caso de la clínica de siempre, y el que hace
+// que el wizard no pregunte nada nuevo (Fase 3.2.7 — con uno solo se
+// auto-elige y se muestra "Te atiende…", sin pedir un clic que no decide).
+const profesionalesDePrueba = [
+  { userId: "u-1", nombre: "Ana Gómez", tipoConsultaId: "tc-1", duracionMinutos: 30, proximoDisponible: "2030-06-15" },
+];
 
 // renderForm — todo test necesita `onClose` (rediseño §3.1: la [×] ahora
 // vive adentro de cada pantalla, ver pedir-turno-form.tsx) — se provee un
@@ -96,6 +106,7 @@ describe("PedirTurnoForm", () => {
     vi.clearAllMocks();
     localStorage.clear();
     listTiposConsultaPublicoActionMock.mockResolvedValue(tiposConsulta);
+    listProfesionalesPublicoActionMock.mockResolvedValue(profesionalesDePrueba);
     listDisponibilidadPublicaActionMock.mockResolvedValue({ slots: ["10:00", "10:15"] });
     enviarVerificacionEmailActionMock.mockResolvedValue({ ok: true });
     confirmarVerificacionEmailActionMock.mockResolvedValue({ token: "token-de-prueba" });
@@ -252,7 +263,8 @@ describe("PedirTurnoForm", () => {
         telefonoContacto: "+5493511234567",
         emailContacto: "bruno@example.com",
         motivo: undefined,
-        tipoConsultaId: "tc-1",
+        tipo: "Consulta general",
+        profesionalId: "u-1",
         hora: "10:00",
         verificacionToken: "token-de-prueba",
       }),
@@ -391,8 +403,15 @@ describe("PedirTurnoForm", () => {
 
     await avanzarHastaTurno(user);
 
-    expect(listTiposConsultaPublicoActionMock).toHaveBeenCalledWith("clinica-x");
-    expect(listDisponibilidadPublicaActionMock).toHaveBeenCalledWith("clinica-x", "tc-1", expect.any(String));
+    expect(listTiposConsultaPublicoActionMock).toHaveBeenCalledWith("clinica-x", undefined);
+    // El tipo va por NOMBRE y con quién aparte (Fase 3.2.7): los huecos
+    // dependen de la duración, y la duración es la que ESE profesional le
+    // puso a ESE tipo.
+    expect(listDisponibilidadPublicaActionMock).toHaveBeenCalledWith(
+      "clinica-x",
+      expect.objectContaining({ tipo: "Consulta general", profesionalId: "u-1" }),
+      expect.any(String),
+    );
   });
 
   // Corrección de QA, pedido textual del documento: "si el paciente...
@@ -457,7 +476,8 @@ describe("PedirTurnoForm", () => {
           pacienteVerificadoId: "pac-1",
           emailContacto: "bruno@example.com",
           verificacionToken: "token-de-prueba",
-          tipoConsultaId: "tc-1",
+          tipo: "Consulta general",
+          profesionalId: "u-1",
         }),
       );
       const llamada = solicitarTurnoPublicoActionMock.mock.calls[0][1];
@@ -528,7 +548,11 @@ describe("PedirTurnoForm", () => {
       renderForm({ slug: "clinica-x", nombreClinica: "Clínica X", telefonoClinica: null });
 
       expect(await screen.findByText("Tipo de consulta")).toBeInTheDocument();
-      expect(listDisponibilidadPublicaActionMock).toHaveBeenCalledWith("clinica-x", "tc-1", expect.any(String));
+      expect(listDisponibilidadPublicaActionMock).toHaveBeenCalledWith(
+        "clinica-x",
+        expect.objectContaining({ tipo: "Consulta general" }),
+        expect.any(String),
+      );
     });
 
     it("con progreso guardado de OTRA clínica (otro slug), no lo mezcla — arranca de cero", async () => {
@@ -568,7 +592,8 @@ describe("PedirTurnoForm", () => {
           emailEnVerificacion: "bruno@example.com",
           verificacionToken: "token-viejo",
           pacienteVerificado: null,
-          tipoConsultaId: "tc-1",
+          tipoNombre: "Consulta general",
+          profesionalId: "u-1",
           fecha: "2030-06-03",
           hora: "10:00",
         }),

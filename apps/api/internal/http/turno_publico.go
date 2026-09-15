@@ -64,6 +64,46 @@ func (e *errTurnoPublicoDuplicado) Error() string {
 	return "ya tenés un turno agendado para el " + fecha + " para este tipo de consulta"
 }
 
+// errPacienteOcupadoPublico / errYaTenesEseTipoEnLaClinica — las dos
+// reglas que protegen al PACIENTE, que hasta la Fase 3.2.7 existían solo
+// del lado del panel (TR-144/145).
+//
+// Mientras el wizard mandaba todo a la agenda del owner, ninguna de las
+// dos podía dispararse acá: no había un segundo profesional con quien
+// chocar. Dejar al paciente elegir es lo que las vuelve necesarias — y
+// las vuelve necesarias JUSTO en el lugar donde quien decide no ve
+// ninguna agenda.
+//
+// Los mensajes son de segunda persona porque los lee el paciente, no
+// quien carga: "ya tenés", no "este paciente ya tiene". Y nombran al
+// profesional porque es un turno propio — no se le está contando nada
+// que no sepa.
+type errPacienteOcupadoPublico struct {
+	profesional string
+	desde       time.Time
+	hasta       time.Time
+}
+
+func (e *errPacienteOcupadoPublico) Error() string {
+	return "ya tenés un turno con " + e.profesional +
+		" de " + clock.In(e.desde).Format("15:04") + " a " + clock.In(e.hasta).Format("15:04") +
+		" del " + clock.In(e.desde).Format("02/01") + ". Elegí otro horario."
+}
+
+type errYaTenesEseTipoEnLaClinica struct {
+	tipo        string
+	profesional string
+	desde       time.Time
+}
+
+func (e *errYaTenesEseTipoEnLaClinica) Error() string {
+	msg := "ya tenés un turno de " + e.tipo + " con " + e.profesional
+	if !e.desde.IsZero() {
+		msg += " el " + clock.In(e.desde).Format("02/01") + " a las " + clock.In(e.desde).Format("15:04")
+	}
+	return msg + ". Por cualquier cambio, contactate con la clínica."
+}
+
 // errYaTieneUnTurnoActivo — corrección de QA sobre TR-107, pedido
 // textual del cliente: "sea paciente verificado o no verificado solo
 // puede tener un turno activo con el mismo dni, sea el tipo de consulta
@@ -608,6 +648,9 @@ func bloquearIPPorRotacionYBorrarTurnos(tx *gorm.DB, profesionalID uuid.UUID, ip
 // registerAuthRoutes, ninguna nueva.
 func registerTurnoPublicoRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
 	r.Get("/clinicas/{slug}/tipos-consulta", listTiposConsultaPublicoHandler(gdb))
+	// Fase 3.2.7: quiénes atienden el tipo elegido — ver
+	// profesionales_publico.go.
+	r.Get("/clinicas/{slug}/profesionales", listProfesionalesPublicoHandler(gdb))
 	r.Get("/clinicas/{slug}/disponibilidad", listDisponibilidadPublicaHandler(gdb))
 	r.Get("/clinicas/{slug}/disponibilidad-mes", listDisponibilidadMesPublicaHandler(gdb))
 	// Fase 2, ítem 5 ("compartir calendario").
@@ -620,45 +663,6 @@ func registerTurnoPublicoRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {
 	// Pedido textual del cliente: botón "Mis turnos" de la página
 	// pública — ver mis_turnos_publico.go.
 	r.Get("/clinicas/{slug}/mis-turnos", misTurnosPublicoHandler(gdb, deps))
-}
-
-// tipoConsultaPublicoResponse — versión reducida de tipoConsultaResponse
-// (tipos_consulta.go) para el wizard público: nada de tiempo post-consulta,
-// cantidad de sesiones ni preferencia de atención — son detalles internos
-// del cálculo de disponibilidad, no algo que el paciente necesite ver o
-// pueda elegir.
-type tipoConsultaPublicoResponse struct {
-	ID              string `json:"id"`
-	Nombre          string `json:"nombre"`
-	Color           string `json:"color"`
-	DuracionMinutos int    `json:"duracionMinutos"`
-}
-
-// listTiposConsultaPublicoHandler — GET /clinicas/{slug}/tipos-consulta
-// (E5.2): primer paso de datos que necesita el wizard público después de
-// los datos de contacto, para poder pedir la disponibilidad del tipo
-// elegido.
-func listTiposConsultaPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		slug := chi.URLParam(r, "slug")
-		var clinic db.Clinic
-		if err := gdb.Where("slug = ?", slug).First(&clinic).Error; err != nil {
-			writeError(w, http.StatusNotFound, "clínica no encontrada")
-			return
-		}
-
-		var tipos []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ?", clinic.ID).Order("nombre").Find(&tipos).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
-			return
-		}
-
-		out := make([]tipoConsultaPublicoResponse, len(tipos))
-		for i, t := range tipos {
-			out[i] = tipoConsultaPublicoResponse{ID: t.ID.String(), Nombre: t.Nombre, Color: t.Color, DuracionMinutos: t.DuracionMinutos}
-		}
-		writeJSON(w, http.StatusOK, out)
-	}
 }
 
 // listDisponibilidadPublicaHandler — GET /clinicas/{slug}/disponibilidad
@@ -676,15 +680,9 @@ func listDisponibilidadPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		tipoConsultaIDStr := strings.TrimSpace(r.URL.Query().Get("tipoConsultaId"))
 		fechaStr := strings.TrimSpace(r.URL.Query().Get("fecha"))
-		if tipoConsultaIDStr == "" || fechaStr == "" {
-			writeError(w, http.StatusBadRequest, "tipoConsultaId y fecha son obligatorios")
-			return
-		}
-		tipoConsultaID, err := uuid.Parse(tipoConsultaIDStr)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "tipoConsultaId inválido")
+		if fechaStr == "" {
+			writeError(w, http.StatusBadRequest, "la fecha es obligatoria")
 			return
 		}
 		fecha, err := clock.ParseDate(fechaStr)
@@ -693,20 +691,18 @@ func listDisponibilidadPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
-			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
-			return
-		}
-
-		// El paciente todavía no elige profesional (eso llega en la
-		// 3.2.7): los huecos son los del owner, que es a quien se le va a
-		// asignar el turno unas líneas más abajo. Lo importante es que las
-		// DOS cosas usen el mismo, o se ofrecerían horarios de uno y se
-		// agendaría con otro.
-		atiendePublico, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		// EL TIPO Y QUIÉN ATIENDE SE RESUELVEN JUNTOS (Fase 3.2.7). Los
+		// huecos dependen de la duración, y la duración es la que ese
+		// profesional le puso a ese tipo: calcular con la fila de otro
+		// ofrecería horarios que no son.
+		tipo, atiendePublico, err := tipoPublicoDelPedido(
+			gdb, clinic.ID,
+			strings.TrimSpace(r.URL.Query().Get("enlaceToken")),
+			strings.TrimSpace(r.URL.Query().Get("profesionalId")),
+			strings.TrimSpace(r.URL.Query().Get("tipo")),
+		)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			writeDisponibilidadPublicaError(w, err)
 			return
 		}
 		slots, err := calcularDisponibilidad(gdb, clinic.ID, atiendePublico, tipo, fecha, nil)
@@ -747,15 +743,9 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		tipoConsultaIDStr := strings.TrimSpace(r.URL.Query().Get("tipoConsultaId"))
 		mesStr := strings.TrimSpace(r.URL.Query().Get("mes"))
-		if tipoConsultaIDStr == "" || mesStr == "" {
-			writeError(w, http.StatusBadRequest, "tipoConsultaId y mes son obligatorios")
-			return
-		}
-		tipoConsultaID, err := uuid.Parse(tipoConsultaIDStr)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "tipoConsultaId inválido")
+		if mesStr == "" {
+			writeError(w, http.StatusBadRequest, "el mes es obligatorio")
 			return
 		}
 		primerDia, err := clock.ParseMonth(mesStr)
@@ -764,18 +754,17 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
-			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
-			return
-		}
-
-		// Mismo profesional que el endpoint de horarios de un día: hasta
-		// la 3.2.7 el paciente no elige, y los días con hueco tienen que
-		// ser los de quien después va a atender.
-		atiendePublico, err := db.OwnerDeLaClinica(gdb, clinic.ID)
+		// Mismo criterio que el endpoint de horarios de un día: el tipo y
+		// el profesional se resuelven juntos, y los días con hueco tienen
+		// que ser los de quien después va a atender.
+		tipo, atiendePublico, err := tipoPublicoDelPedido(
+			gdb, clinic.ID,
+			strings.TrimSpace(r.URL.Query().Get("enlaceToken")),
+			strings.TrimSpace(r.URL.Query().Get("profesionalId")),
+			strings.TrimSpace(r.URL.Query().Get("tipo")),
+		)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
+			writeDisponibilidadPublicaError(w, err)
 			return
 		}
 
@@ -814,9 +803,19 @@ type solicitarTurnoPublicoRequest struct {
 	// agendara a mano (TR-006). Ahora el paciente elige tipo de consulta,
 	// fecha y horario disponible en el propio formulario (E5.3) y el turno
 	// nace `agendado`, con horario real, de punta a punta.
-	TipoConsultaID string `json:"tipoConsultaId"`
-	Fecha          string `json:"fecha"`
-	Hora           string `json:"hora"`
+	// Tipo — el NOMBRE del tipo de consulta, no un id (Fase 3.2.7).
+	//
+	// Con N profesionales no existe "el id del tipo": existe la fila de
+	// cada uno. El paciente elige "Limpieza dental" y después con quién,
+	// y el backend resuelve la fila de ESE profesional — la que tiene la
+	// duración con la que se calcularon los huecos que vio.
+	Tipo string `json:"tipo"`
+	// ProfesionalID — con quién se atiende. Vacío en una clínica de una
+	// sola persona (el wizard no pregunta) y también con enlace, donde
+	// manda el dueño del enlace.
+	ProfesionalID string `json:"profesionalId"`
+	Fecha         string `json:"fecha"`
+	Hora          string `json:"hora"`
 	// VerificacionToken (E5.6, "Confirmanos que sos vos") — token opaco
 	// emitido por POST /clinicas/{slug}/verificacion-email/confirmar tras
 	// validar el código de 6 dígitos mandado a EmailContacto. Sin un token
@@ -933,7 +932,8 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		req.TelefonoContacto = strings.TrimSpace(req.TelefonoContacto)
 		req.EmailContacto = strings.TrimSpace(strings.ToLower(req.EmailContacto))
 		req.Motivo = strings.TrimSpace(req.Motivo)
-		req.TipoConsultaID = strings.TrimSpace(req.TipoConsultaID)
+		req.Tipo = strings.TrimSpace(req.Tipo)
+		req.ProfesionalID = strings.TrimSpace(req.ProfesionalID)
 		req.Fecha = strings.TrimSpace(req.Fecha)
 		req.Hora = strings.TrimSpace(req.Hora)
 		req.VerificacionToken = strings.TrimSpace(req.VerificacionToken)
@@ -1024,11 +1024,6 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				}
 			}
 		}
-		tipoConsultaID, err := uuid.Parse(req.TipoConsultaID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "el tipo de consulta no es válido")
-			return
-		}
 		fecha, err := clock.ParseDate(req.Fecha)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "la fecha debe tener el formato YYYY-MM-DD")
@@ -1039,9 +1034,21 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			return
 		}
 
-		var tipo db.TipoConsulta
-		if err := gdb.Where("id = ? AND clinic_id = ?", tipoConsultaID, clinic.ID).First(&tipo).Error; err != nil {
-			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
+		// QUIÉN ATIENDE, Y CON QUÉ FILA DEL TIPO (Fase 3.2.7).
+		//
+		// Las dos cosas de una sola vez y en el mismo helper que usa la
+		// disponibilidad: si se resolvieran por separado se podrían
+		// ofrecer los horarios de uno y agendar con otro, que es
+		// exactamente el error que tenía el camino con enlace.
+		//
+		// Con enlace manda el dueño del enlace —su "Compartir link" existe
+		// para llenar SU agenda— y se ignora cualquier profesional que
+		// venga en el cuerpo.
+		tipo, atiende, err := tipoPublicoDelPedido(
+			gdb, clinic.ID, req.EnlaceToken, req.ProfesionalID, req.Tipo,
+		)
+		if err != nil {
+			writeDisponibilidadPublicaError(w, err)
 			return
 		}
 
@@ -1051,23 +1058,6 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			return
 		}
 		horaFin := horaInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
-
-		// QUIÉN ATIENDE.
-		//
-		// Con ENLACE, el dueño del enlace (Fase 3.2.5): un profesional lo
-		// generó para llenar SU agenda —es la tercera pestaña de su
-		// "+ Agregar turno"— así que el turno que salga de ahí es suyo.
-		// Mandarlo al owner haría que compartir el link le cargara turnos
-		// a otro, que es exactamente lo contrario de para qué se comparte.
-		//
-		// Sin enlace, desde la página pública, sigue siendo el owner hasta
-		// que el wizard deje elegir profesional (Fase 3.2.7): el paciente
-		// todavía no tiene con quién elegir.
-		atiende, err := profesionalDelTurnoPublico(gdb, clinic.ID, req.EnlaceToken)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
-			return
-		}
 
 		turno := db.Turno{
 			ClinicID:          clinic.ID,
@@ -1469,6 +1459,40 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			}
 
 			turno.PacienteID = &paciente.ID
+
+			// LAS DOS REGLAS DEL PACIENTE, TAMBIÉN ACÁ (Fase 3.2.7).
+			//
+			// Estaban declaradas como pendientes desde la 3.2.5: viven en
+			// el alta del panel y faltaban en el wizard. Mientras todo
+			// caía en la agenda del owner no cambiaban nada; desde que el
+			// paciente elige profesional, son el único lugar donde alguien
+			// puede darse cuenta de la colisión — él no ve ninguna agenda,
+			// y el profesional que va a atenderlo tampoco ve la del otro.
+			//
+			// Van acá, con la ficha ya resuelta y dentro de la misma
+			// transacción que el insert, por el mismo motivo que en el
+			// panel: afuera quedaría la ventana entre el chequeo y el
+			// Create.
+			if turno.HoraInicio != nil && turno.HoraFin != nil && turno.AtendidoPorUserID != nil {
+				if choca, quien := turnoSuperpuestoDeOtroProfesional(
+					tx, clinic.ID, paciente.ID, *turno.AtendidoPorUserID,
+					*turno.HoraInicio, *turno.HoraFin, nil,
+				); choca != nil {
+					return &errPacienteOcupadoPublico{
+						profesional: quien, desde: *choca.HoraInicio, hasta: *choca.HoraFin,
+					}
+				}
+			}
+			if choca, quien, nombreTipo := turnoActivoDelMismoTipoEnLaClinica(
+				tx, clinic.ID, paciente.ID, tipo.ID, nil,
+			); choca != nil {
+				e := &errYaTenesEseTipoEnLaClinica{tipo: nombreTipo, profesional: quien}
+				if choca.HoraInicio != nil {
+					e.desde = *choca.HoraInicio
+				}
+				return e
+			}
+
 			if err := tx.Create(&turno).Error; err != nil {
 				return err
 			}
@@ -1528,6 +1552,16 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			var errOtroTipoActivo *errYaTieneOtroTipoActivo
 			if errors.As(err, &errOtroTipoActivo) {
 				writeError(w, http.StatusConflict, errOtroTipoActivo.Error())
+				return
+			}
+			var errOcupado *errPacienteOcupadoPublico
+			if errors.As(err, &errOcupado) {
+				writeError(w, http.StatusConflict, errOcupado.Error())
+				return
+			}
+			var errMismoTipo *errYaTenesEseTipoEnLaClinica
+			if errors.As(err, &errMismoTipo) {
+				writeError(w, http.StatusConflict, errMismoTipo.Error())
 				return
 			}
 			if errors.Is(err, errDemasiadosTurnosSinVerificarDelMismoTipo) {

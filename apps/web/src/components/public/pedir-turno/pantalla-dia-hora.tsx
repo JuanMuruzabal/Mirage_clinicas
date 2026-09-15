@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { TipoConsultaPublico } from "@/lib/api";
+import type { ProfesionalPublico, TipoConsultaPublico } from "@/lib/api";
 import { fechaISOLocal, parseFechaISOLocal } from "@/lib/calendar-utils";
 import { IconCalendar, IconCheckBadge } from "@/components/icons";
 import { CampoSelect, ModalFooter, ModalShell } from "./shared";
@@ -62,10 +62,32 @@ function franjaDeHora(hora: string): Franja {
 
 const ANCHO_SCROLL_HORARIOS = 220;
 
+// etiquetaProximidad — "Primer turno: mañana", "Primer turno: mar 23/9".
+//
+// Es lo que vuelve real la elección de profesional: entre dos nombres que
+// el paciente no conoce, con qué rapidez lo atienden es casi siempre el
+// criterio que usa. Sin esto, elegir sería tirar una moneda.
+function etiquetaProximidad(iso: string | undefined): string {
+  if (!iso) return "Sin turnos en los próximos 30 días";
+  const offset = offsetDias(iso);
+  if (offset === 0) return "Primer turno: hoy";
+  if (offset === 1) return "Primer turno: mañana";
+  const d = parseFechaISOLocal(iso);
+  return `Primer turno: ${new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "numeric", month: "numeric" }).format(d)}`;
+}
+
 interface PantallaDiaHoraProps {
   tipos: TipoConsultaPublico[];
-  tipoConsultaId: string;
-  onTipoConsultaChange: (id: string) => void;
+  /** El tipo se elige por NOMBRE: con N profesionales cada uno tiene su propia fila (Fase 3.2.7). */
+  tipoNombre: string;
+  onTipoNombreChange: (nombre: string) => void;
+  /** Quiénes atienden el tipo elegido, ya ordenados por quién puede antes. */
+  profesionales: ProfesionalPublico[];
+  profesionalId: string;
+  cargandoProfesionales: boolean;
+  onProfesionalChange: (userId: string) => void;
+  /** Con enlace no se pregunta: el turno es de quien lo generó. */
+  mostrarProfesionales: boolean;
   fecha: string;
   onFechaChange: (iso: string) => void;
   slots: string[];
@@ -89,8 +111,13 @@ interface PantallaDiaHoraProps {
 
 export function PantallaDiaHora({
   tipos,
-  tipoConsultaId,
-  onTipoConsultaChange,
+  tipoNombre,
+  onTipoNombreChange,
+  profesionales,
+  profesionalId,
+  cargandoProfesionales,
+  onProfesionalChange,
+  mostrarProfesionales,
   fecha,
   onFechaChange,
   slots,
@@ -191,18 +218,67 @@ export function PantallaDiaHora({
           actionLabel={confirmando ? "Confirmando…" : "Confirmar turno"}
           onBack={onBack}
           onAction={onConfirmar}
-          actionDisabled={!tipoConsultaId || !hora || confirmando}
+          actionDisabled={!tipoNombre || !hora || confirmando || (mostrarProfesionales && !profesionalId)}
         />
       }
     >
       <div className="flex flex-col gap-5">
-        <CampoSelect id="dh-tipo" label="Tipo de consulta" value={tipoConsultaId} onChange={(e) => onTipoConsultaChange(e.target.value)} disabled={tipos.length === 0}>
+        {/* El tipo, sin duración al lado (Fase 3.2.7): con N
+            profesionales la duración es la que cada uno le puso, así que
+            acá no hay UNA — aparece en la tarjeta del profesional, que es
+            donde pasa a ser cierta. */}
+        <CampoSelect id="dh-tipo" label="Tipo de consulta" value={tipoNombre} onChange={(e) => onTipoNombreChange(e.target.value)} disabled={tipos.length === 0}>
           {tipos.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nombre} — {t.duracionMinutos} min
+            <option key={t.nombre} value={t.nombre}>
+              {t.nombre}
             </option>
           ))}
         </CampoSelect>
+
+        {mostrarProfesionales && (
+          <div className="flex flex-col gap-2">
+            <span className="text-[13px] text-grafito/70">¿Con quién te querés atender?</span>
+            {cargandoProfesionales ? (
+              <p className="text-sm text-grafito/60">Buscando profesionales…</p>
+            ) : profesionales.length === 0 ? (
+              <p className="text-sm text-grafito/60">
+                Por ahora nadie de la clínica atiende este tipo de consulta. Probá con otro.
+              </p>
+            ) : profesionales.length === 1 ? (
+              // Con uno solo no hay nada que elegir: se dice quién es y se
+              // sigue. Un selector de una sola opción pide un clic que no
+              // decide nada.
+              <p className="rounded-field bg-hueso px-3 py-2.5 text-sm text-grafito">
+                Te atiende <span className="font-medium">{profesionales[0].nombre}</span>
+                <span className="text-grafito/60"> · {profesionales[0].duracionMinutos} min</span>
+              </p>
+            ) : (
+              <div role="radiogroup" aria-label="Profesional" className="flex flex-col gap-2">
+                {profesionales.map((p) => {
+                  const elegido = p.userId === profesionalId;
+                  return (
+                    <button
+                      key={p.userId}
+                      type="button"
+                      role="radio"
+                      aria-checked={elegido}
+                      onClick={() => onProfesionalChange(p.userId)}
+                      className={`flex items-center justify-between gap-3 rounded-field border px-3 py-2.5 text-left transition-colors ${
+                        elegido ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-hueso hover:border-salvia"
+                      }`}
+                    >
+                      <span className="flex flex-col">
+                        <span className="text-sm font-medium text-grafito">{p.nombre}</span>
+                        <span className="text-xs text-grafito/60">{etiquetaProximidad(p.proximoDisponible)}</span>
+                      </span>
+                      <span className="shrink-0 text-xs text-grafito/60">{p.duracionMinutos} min</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
