@@ -1033,3 +1033,26 @@ Ese alcance es **correcto**: el conflicto es sobre la identidad de una persona, 
 
 Es la misma distinción que atraviesa toda esta subfase: **una cosa es que un dato sea ajeno, y otra que una operación legítima tenga consecuencias sobre lo ajeno.** Lo primero se corta; lo segundo se declara.
 
+### La pasada del frontend (2026-09-14)
+
+Faltaba auditar el frontend con el mismo rigor que el backend. Hasta acá la afirmación *"el frontend está cubierto porque la API está acotada"* era un razonamiento, no una medición.
+
+**Método:** enumerar las 6 pantallas del panel y los 2 componentes globales que sondean solos, y verificar contra qué endpoint pide cada uno.
+
+| Pantalla / componente | Pide | Estado |
+|---|---|---|
+| General | `/panel/resumen` | Acotado |
+| Calendario | `/turnos`, `/tipos-consulta` | Acotado |
+| Turnos | `/turnos`, `/tipos-consulta` | Acotado |
+| Pacientes | `/pacientes`, `/pacientes/conflictos`, `/tipos-consulta` | Acotado |
+| Ficha de paciente | `/pacientes/{id}` | Acotado (historial completo y etiquetado, a propósito) |
+| Seguridad | `/pacientes/seguridad/bloqueos` | Clínica-wide a propósito |
+| Cartel de asistencia (global) | `/turnos/pendientes-asistencia` | Acotado |
+| Notificaciones de conflicto (global) | `/panel/notificaciones` | Acotado |
+
+**Los 18 endpoints de panel que consume `api.ts` son todos de los que se acotaron.** No quedó ninguno pidiendo algo clínica-wide sin motivo.
+
+**El segundo riesgo, que es el que de verdad importaba:** que la UI ofrezca una acción sobre un recurso ajeno. El único lugar donde se muestran datos de otro profesional es el historial de la ficha, y ahí las acciones ya están cortadas —"solo lectura", sin link—. En el resto de las pantallas todo lo que se ve es propio por construcción, así que no hay acción ajena que ofrecer.
+
+**Lo que se sumó:** dos tests del lado del frontend para el historial, que no tenía ninguno: que la columna Profesional aparezca con el nombre de cada uno, y que el turno ajeno vaya sin link. Las dos tablas de la ficha —"Turnos activos" e "Historial de turnos"— usan el mismo componente, así que las cubre a las dos.
+

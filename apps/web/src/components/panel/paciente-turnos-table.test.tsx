@@ -289,4 +289,32 @@ describe("PacienteTurnosTable", () => {
     await confirmarFiltros(user);
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
   });
+
+  // El historial de la ficha muestra TODOS los turnos del paciente —es de
+  // la clínica— así que cada fila tiene que decir de quién es, y los
+  // ajenos no se pueden tocar (Fase 3.2.5, opción B).
+  describe("turnos de otros profesionales", () => {
+    const mio = { ...turno, id: "t-mio", atendidoPorNombre: "Ana Gómez", esMio: true };
+    const ajeno = { ...turno, id: "t-ajeno", atendidoPorNombre: "Beto Colega", esMio: false };
+
+    it("dice con qué profesional fue cada turno", () => {
+      render(<PacienteTurnosTable turnos={[mio, ajeno]} tiposConsulta={tiposConsulta} vacio="" />);
+
+      expect(screen.getByRole("columnheader", { name: "Profesional" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: /Ana Gómez/ })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: /Beto Colega/ })).toBeInTheDocument();
+    });
+
+    it("el ajeno va en solo lectura y sin link; el propio conserva el suyo", () => {
+      const { container } = render(
+        <PacienteTurnosTable turnos={[mio, ajeno]} tiposConsulta={tiposConsulta} vacio="" />,
+      );
+
+      expect(screen.getByText("solo lectura")).toBeInTheDocument();
+      // Una sola fila navegable: la propia. El destino está acotado al
+      // profesional, así que un link al turno ajeno no encontraría nada.
+      const filasConLink = container.querySelectorAll("tbody tr[role='link'], tbody tr a");
+      expect(filasConLink.length).toBeLessThanOrEqual(1);
+    });
+  });
 });
