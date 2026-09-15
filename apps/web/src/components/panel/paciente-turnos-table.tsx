@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { ESTADO_CLASS, ESTADO_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
@@ -62,6 +62,19 @@ interface PacienteTurnosTableProps {
 // cliente, sobre los turnos ya traídos con la ficha del paciente (no hay
 // necesidad de otro viaje al backend, esta lista ya es acotada a un solo
 // paciente).
+// FilaSinAccion — misma forma que ClickableTableRow, sin navegar. Acepta
+// `href` para que las dos sean intercambiables en el punto de uso.
+function FilaSinAccion({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  href?: string;
+  className?: string;
+}) {
+  return <tr className={className}>{children}</tr>;
+}
+
 export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRangosRapidos = true }: PacienteTurnosTableProps) {
   // Confirmado — lo que de verdad filtra la tabla de abajo.
   const [tipoId, setTipoId] = useState("todos");
@@ -247,6 +260,10 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 <th className="panel-th-sticky px-4 py-3">Tipo de consulta</th>
                 <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
                 <th className="panel-th-sticky px-4 py-3">Estado</th>
+                {/* Con quién (Fase 3.2.5): la ficha muestra TODOS los
+                    turnos del paciente —es de la clínica— así que sin esta
+                    columna el historial mezcla profesionales sin decirlo. */}
+                <th className="panel-th-sticky px-4 py-3">Profesional</th>
                 <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
               </tr>
             </thead>
@@ -270,8 +287,14 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 // su propio pseudo-valor de `estado` en la URL, no el
                 // `estado` real del turno ("agendado").
                 const hrefVerTurno = `/panel/turnos?estado=${resuelto ? "resuelto" : t.estado}&q=${encodeURIComponent(t.dniContacto)}&turno=${t.id}`;
+                // El turno de un colega se VE pero no se toca (Fase
+                // 3.2.5): la fila deja de ser clickeable porque el destino
+                // —/panel/turnos— está acotado al profesional, así que el
+                // link no encontraría nada. Un link que no lleva a ningún
+                // lado es peor que no ofrecerlo.
+                const Fila = t.esMio === false ? FilaSinAccion : ClickableTableRow;
                 return (
-                  <ClickableTableRow key={t.id} href={hrefVerTurno} className="border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]">
+                  <Fila key={t.id} href={hrefVerTurno} className="border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]">
                     <td className="px-4 py-3">
                       <span
                         aria-hidden="true"
@@ -310,6 +333,14 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                         )}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-grafito/70">
+                      {t.atendidoPorNombre ?? "—"}
+                      {t.esMio === false && (
+                        <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 text-[11px] text-grafito/50">
+                          solo lectura
+                        </span>
+                      )}
+                    </td>
                     <td className="max-md:hidden px-4 py-3 text-grafito/60">
                       {/* Corrección de QA: mismo "Ver motivo" que ya
                           aplica en TurnosTable (Extra 2.3.3/E3.3) — acá
@@ -317,7 +348,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                           "Historial de turnos" (mismo componente). */}
                       {textoEsLargo(t.motivo) ? <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} /> : t.motivo || "—"}
                     </td>
-                  </ClickableTableRow>
+                  </Fila>
                 );
               })}
             </tbody>

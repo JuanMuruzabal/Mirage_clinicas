@@ -51,6 +51,17 @@ type turnoResponse struct {
 	EmailContacto    string  `json:"emailContacto"`
 	Motivo           string  `json:"motivo"`
 	CreatedAt        string  `json:"createdAt"`
+	// Quién atiende este turno (Fase 3.2.5, 2026-09-14). La ficha de un
+	// paciente muestra TODOS sus turnos —el paciente es de la clínica, y
+	// un historial partido por profesional no sirve como historial— así
+	// que cada fila tiene que decir con quién fue o va a ser.
+	//
+	// `EsMio` lo decide el backend y no el frontend comparando ids: la
+	// pantalla lo usa para saber qué puede tocar, y esa es una decisión
+	// de permisos, no de presentación.
+	AtendidoPorUserID *string `json:"atendidoPorUserId,omitempty"`
+	AtendidoPorNombre string  `json:"atendidoPorNombre,omitempty"`
+	EsMio             bool    `json:"esMio"`
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
@@ -76,6 +87,55 @@ type turnoResponse struct {
 	TutorNombre   *string `json:"tutorNombre,omitempty"`
 	TutorTelefono *string `json:"tutorTelefono,omitempty"`
 	TutorEmail    *string `json:"tutorEmail,omitempty"`
+}
+
+// completarProfesionalDeTurnos rellena, para un lote de turnos, quién
+// atiende cada uno y si es de quien mira.
+//
+// En un lote y no por fila: resolver el nombre turno por turno sería N+1
+// sobre una lista que se pinta entera, el mismo criterio que ya usa
+// nombresDeLosMiembros para los tipos de consulta.
+func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Turno, out []turnoResponse) {
+	yo, _ := usuarioDeLaSesion(r)
+
+	ids := make([]uuid.UUID, 0, len(turnos))
+	vistos := make(map[uuid.UUID]bool, len(turnos))
+	for _, t := range turnos {
+		if t.AtendidoPorUserID != nil && !vistos[*t.AtendidoPorUserID] {
+			vistos[*t.AtendidoPorUserID] = true
+			ids = append(ids, *t.AtendidoPorUserID)
+		}
+	}
+	nombres := make(map[uuid.UUID]string, len(ids))
+	if len(ids) > 0 {
+		var perfiles []db.ProfessionalProfile
+		_ = gdb.Where("user_id IN ?", ids).Find(&perfiles).Error
+		for _, p := range perfiles {
+			nombres[p.UserID] = strings.TrimSpace(p.Nombre + " " + p.Apellido)
+		}
+		// Quien todavía no cargó perfil, por su mail — nunca un id crudo.
+		var users []db.User
+		_ = gdb.Where("id IN ?", ids).Find(&users).Error
+		for _, u := range users {
+			if nombres[u.ID] == "" {
+				nombres[u.ID] = u.Email
+			}
+		}
+	}
+
+	for i := range out {
+		if i >= len(turnos) {
+			break
+		}
+		id := turnos[i].AtendidoPorUserID
+		if id == nil {
+			continue
+		}
+		s := id.String()
+		out[i].AtendidoPorUserID = &s
+		out[i].AtendidoPorNombre = nombres[*id]
+		out[i].EsMio = *id == yo
+	}
 }
 
 func toTurnoResponse(t db.Turno) turnoResponse {

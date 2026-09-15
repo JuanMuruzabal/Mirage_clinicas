@@ -30,12 +30,43 @@ type conflictoPacienteResponse struct {
 	// presente, resolver "es la persona verificada" NO migra `Turno` (lo
 	// cancela y prevalece este) — ver resolverConflictoPacienteHandler.
 	TurnoVigenteDelMismoTipo *turnoResponse `json:"turnoVigenteDelMismoTipo,omitempty"`
+	// TurnosDeOtrosProfesionales — cuántos turnos de OTROS profesionales
+	// alcanza esta resolución (Fase 3.2.5, 2026-09-14).
+	//
+	// Resolver un conflicto cancela o migra los turnos de la ficha que
+	// pierde, y esa ficha puede tener turnos con un colega: el paciente es
+	// de la clínica. Ese alcance es CORRECTO —el conflicto es sobre la
+	// identidad de una persona, no sobre una agenda; dejar vivos los
+	// turnos de una ficha que se determinó que no existe sería peor— pero
+	// hasta acá era invisible: quien apretaba el botón le cancelaba turnos
+	// a otro sin enterarse.
+	//
+	// No se restringe la acción, se declara su alcance. Restringirla
+	// —"solo puede resolver quien tenga turnos de las dos fichas"— dejaría
+	// conflictos sin nadie que pueda resolverlos.
+	TurnosDeOtrosProfesionales int `json:"turnosDeOtrosProfesionales"`
 }
 
 // listConflictosPacienteHandler — GET /pacientes/conflictos (Fase 2.4.1):
 // lista los conflictos sin resolver del profesional autenticado — ver
 // crearPacientePublicoConDeteccionDeConflicto (paciente_conflicto_publico.go)
 // para cómo nacen.
+// contarTurnosDeOtrosProfesionales — cuántos turnos agendados de esta
+// ficha son de un profesional distinto al que está mirando. Es lo que el
+// modal usa para avisar el alcance real de resolver el conflicto.
+func contarTurnosDeOtrosProfesionales(gdb *gorm.DB, r *http.Request, pacienteID uuid.UUID) int {
+	yo, ok := usuarioDeLaSesion(r)
+	if !ok {
+		return 0
+	}
+	var n int64
+	_ = gdb.Model(&db.Turno{}).
+		Where("paciente_id = ? AND estado = 'agendado' AND atendido_por_user_id IS NOT NULL AND atendido_por_user_id <> ?",
+			pacienteID, yo).
+		Count(&n).Error
+	return int(n)
+}
+
 func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -130,6 +161,10 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 				Motivo:                   c.Motivo,
 				CreatedAt:                c.CreatedAt.Format(time.RFC3339),
 				TurnoVigenteDelMismoTipo: turnoVigenteMismoTipo,
+				// El alcance real de resolver este conflicto: la ficha que
+				// pierde puede tener turnos con un colega, y resolverlo se
+				// los va a tocar.
+				TurnosDeOtrosProfesionales: contarTurnosDeOtrosProfesionales(gdb, r, enConflicto.ID),
 			})
 		}
 		writeJSON(w, http.StatusOK, out)

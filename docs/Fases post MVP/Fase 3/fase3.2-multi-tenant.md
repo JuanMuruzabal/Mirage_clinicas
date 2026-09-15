@@ -1008,3 +1008,28 @@ Es el mismo criterio que el proyecto ya usa en la base (spec §4.3): **una regla
 
 **39 consultas acotadas** por profesional. **18 clínica-wide a propósito**, cada una con su motivo escrito en el test: la ficha del paciente y su DNI (el paciente es de la clínica), el token de un enlace (es la autorización), los bloqueos de mail/IP del formulario público, la página pública y el catálogo de especialidades. **Cero sin justificar.**
 
+### El historial completo, y el alcance de resolver un conflicto (2026-09-14)
+
+Dos cosas que el aislamiento **no** debía cortar, y una que faltaba declarar.
+
+#### El historial del paciente se ve entero, con su dueño
+
+El paciente es de la **clínica**: un historial partido por profesional no sirve como historial — el que atiende hoy necesita saber qué le hicieron antes, se lo haya hecho quien se lo haya hecho. La ficha ya los traía todos; lo que faltaba era decir **de quién es cada uno**.
+
+Cada turno ahora informa `atendidoPorNombre` y `esMio`. En la ficha aparece una columna **Profesional**, y los turnos ajenos:
+
+- llevan una etiqueta **"solo lectura"**,
+- y dejan de ser clickeables. No es una restricción decorativa: el destino del link —`/panel/turnos`— está acotado al profesional, así que para un turno ajeno **no encontraría nada**. Un link que no lleva a ningún lado es peor que no ofrecerlo.
+
+`esMio` lo decide el backend y no el frontend comparando ids: la pantalla lo usa para saber qué puede tocar, y eso es una decisión de permisos, no de presentación.
+
+#### Resolver un conflicto alcanza turnos de otros, y ahora lo dice
+
+Resolver un conflicto de identidad **cancela o migra todos los turnos de la ficha que pierde**, y esa ficha puede tener turnos con un colega.
+
+Ese alcance es **correcto**: el conflicto es sobre la identidad de una persona, no sobre una agenda — dejar vivos los turnos de una ficha que se determinó que no existe sería peor. Pero era invisible: quien apretaba el botón le cancelaba turnos a otro sin enterarse.
+
+**No se restringe la acción, se declara su alcance.** Restringirla —*"solo puede resolver quien tenga turnos de las dos fichas"*— dejaría conflictos que nadie puede resolver. El modal avisa ahora *"esta ficha tiene N turnos de otros profesionales; resolver el conflicto también los alcanza"*.
+
+Es la misma distinción que atraviesa toda esta subfase: **una cosa es que un dato sea ajeno, y otra que una operación legítima tenga consecuencias sobre lo ajeno.** Lo primero se corta; lo segundo se declara.
+

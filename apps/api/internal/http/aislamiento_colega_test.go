@@ -602,3 +602,140 @@ func TestColega_NoSePuedeAutoreservarNiCancelarEnMasaLoAjeno(t *testing.T) {
 		t.Errorf("el titular le canceló en masa un turno al colega: estado=%q", turno.Estado)
 	}
 }
+
+// --- El historial del paciente: completo, pero etiquetado -----------
+//
+// El paciente es de la CLÍNICA: un historial partido por profesional no
+// sirve como historial — el que atiende hoy necesita saber qué le
+// hicieron antes, se lo haya hecho quien se lo haya hecho. Lo que no
+// puede es tocarlo.
+
+// TestPaciente_LaFichaMuestraTodoElHistorialConSuDueno — las dos mitades
+// de la misma regla: se ven los turnos del colega, y se ve que son de él.
+func TestPaciente_LaFichaMuestraTodoElHistorialConSuDueno(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "hist-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Historial",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "hist-colega@example.com", db.RoleProfesional)
+
+	// El MISMO paciente (mismo DNI) con los dos profesionales.
+	const dni = "46111222"
+	turnoDePrueba(t, router, gdb, clinicID, tokenColega, "hist-colega@example.com", dni)
+
+	var paciente db.Paciente
+	if err := gdb.Where("clinic_id = ? AND dni = ?", clinicID, dni).First(&paciente).Error; err != nil {
+		t.Fatalf("no se encontró la ficha: %v", err)
+	}
+
+	// El titular atiende al mismo paciente: recién ahí la ficha entra en
+	// su vista (soloMisPacientes).
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+	inicio := time.Now().Add(120 * time.Hour).Truncate(time.Hour)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "De Prueba", "dniContacto": dni,
+		"telefonoContacto": "+5493511234567", "emailContacto": "p" + dni + "@example.com",
+		"tipoConsultaId": tipoTitular.ID,
+		"horaInicio":     inicio.Format(time.RFC3339),
+		"horaFin":        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del titular: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// La ficha, vista por el titular: los DOS turnos.
+	rec = doJSONAuth(t, router, http.MethodGet, "/pacientes/"+paciente.ID.String(), titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET ficha: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var ficha struct {
+		Turnos []struct {
+			AtendidoPorNombre string `json:"atendidoPorNombre"`
+			EsMio             bool   `json:"esMio"`
+		} `json:"turnos"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &ficha); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	if len(ficha.Turnos) != 2 {
+		t.Fatalf("la ficha muestra %d turnos, esperaba 2 (el historial es de la clínica)", len(ficha.Turnos))
+	}
+
+	var propios, ajenos int
+	for _, tu := range ficha.Turnos {
+		if tu.AtendidoPorNombre == "" {
+			t.Error("un turno del historial no dice quién lo atiende")
+		}
+		if tu.EsMio {
+			propios++
+		} else {
+			ajenos++
+		}
+	}
+	// Las dos direcciones: marcar todo como propio, o todo como ajeno,
+	// pasaría un test que solo contara filas.
+	if propios != 1 || ajenos != 1 {
+		t.Errorf("propios=%d ajenos=%d, esperaba 1 y 1", propios, ajenos)
+	}
+}
+
+// TestConflicto_AvisaCuantosTurnosAjenosAlcanza — resolver un conflicto
+// cancela o migra los turnos de la ficha que pierde, y esa ficha puede
+// tener turnos con un colega: el paciente es de la clínica. El alcance es
+// correcto —dejar vivos los turnos de una ficha que se determinó que no
+// existe sería peor— pero hasta el 2026-09-14 era invisible.
+//
+// No se restringe la acción: se declara su alcance. Restringirla dejaría
+// conflictos que nadie puede resolver.
+func TestConflicto_AvisaCuantosTurnosAjenosAlcanza(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "confl-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Conflicto",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "confl-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "confl-colega@example.com")
+
+	tipo := leerMisTipos(t, router, titular.Token)[0]
+	_, enConflicto, _, _ := crearConflictoPacienteDePrueba(
+		t, gdb, titular.Profesional.ID, tipo.ID, "48111222",
+		"verificado-confl@example.com", "enconflicto-confl@example.com",
+	)
+
+	// La ficha en conflicto suma un turno DEL COLEGA: es lo que el aviso
+	// tiene que contar.
+	tipoColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta del colega", 30)
+	inicio := time.Now().Add(150 * time.Hour).Truncate(time.Hour)
+	fin := inicio.Add(30 * time.Minute)
+	delColega := db.Turno{
+		ClinicID: clinicID, AtendidoPorUserID: &colegaID, PacienteID: &enConflicto.ID,
+		Estado: "agendado", Origen: "manual", TipoConsultaID: &tipoColega.ID,
+		HoraInicio: &inicio, HoraFin: &fin,
+		NombreContacto: "Paciente", ApellidoContacto: "En Conflicto", DNIContacto: "48111222",
+		TelefonoContacto: "+5493511234567", EmailContacto: "enconflicto-confl@example.com",
+	}
+	if err := gdb.Create(&delColega).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno del colega: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/conflictos", titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /pacientes/conflictos: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var conflictos []struct {
+		TurnosDeOtrosProfesionales int `json:"turnosDeOtrosProfesionales"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &conflictos); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	if len(conflictos) != 1 {
+		t.Fatalf("conflictos = %d, esperaba 1", len(conflictos))
+	}
+	if conflictos[0].TurnosDeOtrosProfesionales != 1 {
+		t.Errorf("el aviso dice %d turnos de otros profesionales, esperaba 1",
+			conflictos[0].TurnosDeOtrosProfesionales)
+	}
+}
