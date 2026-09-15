@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { datosDelTopbarAction, type DatosDelTopbar } from "@/app/actions/topbar-panel";
 import { isPanelRoute } from "@/lib/site-routes";
 import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
@@ -89,6 +90,11 @@ function useTopbarDelPanel(): DatosDelTopbar | null {
 export function SelectorClinicaDelPanel() {
   const datos = useTopbarDelPanel();
   const { refrescar } = useContext(ContextoTopbar);
+  // Con el menú lateral desplegado en mobile, este control queda DEBAJO
+  // del drawer: abrirlo desde acá dejaría un popover tapado, o tapando el
+  // menú (corrección del 2026-09-14). Mientras el drawer esté abierto, el
+  // header no despliega nada.
+  const sidebar = usePanelSidebar();
   if (!datos || !datos.nombreClinicaActual || datos.clinicas.length === 0) return null;
 
   return (
@@ -107,6 +113,7 @@ export function SelectorClinicaDelPanel() {
           // sería hacerle perder el lugar por una acción que no lo pidió.
           quedarseAca
           onCambiada={refrescar}
+          bloqueado={sidebar.open}
         />
       </div>
     </>
@@ -118,6 +125,7 @@ export function SelectorClinicaDelPanel() {
 // con quién.
 export function EquipoDelPanel() {
   const datos = useTopbarDelPanel();
+  const sidebar = usePanelSidebar();
   if (!datos?.equipo) return null;
-  return <EquipoPopover equipo={datos.equipo} />;
+  return <EquipoPopover equipo={datos.equipo} bloqueado={sidebar.open} />;
 }

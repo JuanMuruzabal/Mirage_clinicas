@@ -152,8 +152,13 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // contenido de esas páginas, en vez de centrarse — así sus bordes
   // quedan alineados de verdad. El resto del sitio (sin sidebar, spec
   // §9.7) no cambia.
+  // `gap-3` en el panel (corrección del 2026-09-14, con captura): en
+  // mobile el selector de clínica se estira para ocupar el renglón, y
+  // `justify-between` no deja ningún aire entre su borde y el avatar de
+  // colaboradores — quedaban pegados. El gap es un piso, no un reemplazo
+  // del justify-between.
   const contenedorClass = isPanelRoute(pathname)
-    ? "flex w-full items-center justify-between px-8 py-4"
+    ? "flex w-full items-center justify-between gap-3 px-8 py-4"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (

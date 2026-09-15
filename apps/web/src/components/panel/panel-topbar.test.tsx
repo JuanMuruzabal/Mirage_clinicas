@@ -12,6 +12,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: refreshMock }),
 }));
 vi.mock("@/app/actions/presencia", () => ({ presenciaAction: vi.fn(async () => null) }));
+// El estado del menú lateral de mobile: con el drawer abierto, el header
+// no despliega nada (el popover quedaría tapado, o tapándolo).
+const sidebarAbiertoMock = vi.fn(() => false);
+vi.mock("@/lib/panel-sidebar-context", () => ({
+  usePanelSidebar: () => ({ open: sidebarAbiertoMock(), toggle: vi.fn(), close: vi.fn() }),
+}));
 const entrarMock = vi.fn(async (_id: string, _opciones?: { redirigir?: boolean }) => undefined);
 const refreshMock = vi.fn();
 vi.mock("@/app/actions/clinicas", () => ({ entrarEnClinicaAction: entrarMock }));
@@ -69,6 +75,7 @@ beforeEach(() => {
   entrarMock.mockClear();
   refreshMock.mockClear();
   usePathnameMock.mockReturnValue("/panel");
+  sidebarAbiertoMock.mockReturnValue(false);
   datosMock.mockResolvedValue(datos());
 });
 
@@ -178,5 +185,23 @@ describe("PanelTopbar", () => {
     await waitFor(() => expect(datosMock.mock.calls.length).toBeGreaterThan(pedidosAntes));
     // El contenido del panel también es de la otra clínica ahora.
     expect(refreshMock).toHaveBeenCalled();
+  });
+
+  // Con el menú lateral de mobile desplegado, los dos controles del
+  // header quedan DEBAJO del drawer: abrirlos dejaría un popover tapado,
+  // o tapando el menú (pedido del cliente, 2026-09-14).
+  it("con el sidebar abierto no se despliega nada", async () => {
+    sidebarAbiertoMock.mockReturnValue(true);
+    montar();
+
+    const clinica = await screen.findByRole("button", { name: "Cambiar de clínica" });
+    const equipo = screen.getByRole("button", { name: "Ver colaboradores" });
+    expect(clinica).toBeDisabled();
+    expect(equipo).toBeDisabled();
+
+    await userEvent.click(clinica);
+    expect(screen.queryByText("Cambiar de clínica", { selector: "p" })).not.toBeInTheDocument();
+    await userEvent.click(equipo);
+    expect(screen.queryByText("Colaboradores", { selector: "p" })).not.toBeInTheDocument();
   });
 });

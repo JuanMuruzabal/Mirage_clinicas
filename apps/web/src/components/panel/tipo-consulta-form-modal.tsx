@@ -170,10 +170,14 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
         <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
           {yaCreados && yaCreados.length > 0 && (
             <section className="flex flex-col gap-2 rounded-[10px] border border-linea bg-hueso p-4">
-              <p className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+              {/* El rótulo en verde y la explicación en grafito pleno
+                  (corrección del 2026-09-14): en gris al 45% y al 60% este
+                  bloque se leía como una nota al pie, y es la primera
+                  decisión del formulario — de dónde partir. */}
+              <p className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-salvia-oscuro">
                 Tipos de consulta ya creados
               </p>
-              <p className="text-xs text-grafito/60">
+              <p className="text-xs text-grafito">
                 Partí de uno que ya usa la clínica. Los tiempos los configurás vos acá abajo.
               </p>
               <div className="scrollbar-fina -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">

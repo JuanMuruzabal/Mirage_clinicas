@@ -37,6 +37,7 @@ export function SelectorClinica({
   alineacion = "derecha",
   quedarseAca = false,
   onCambiada,
+  bloqueado = false,
 }: {
   clinicas: ClinicaDelUsuario[];
   nombreActual: string;
@@ -48,6 +49,9 @@ export function SelectorClinica({
   /** Se llama después de cambiar, para que quien tenga los datos los
    *  vuelva a pedir — el nombre y la lista tienen que decir lo nuevo. */
   onCambiada?: () => void;
+  /** No se despliega. En el panel, mientras el menú lateral de mobile
+   *  está abierto: el popover quedaría tapado por el drawer, o tapándolo. */
+  bloqueado?: boolean;
 }) {
   const compacto = variante === "compacto";
   const [abierto, setAbierto] = useState(false);
@@ -97,8 +101,9 @@ export function SelectorClinica({
     <div ref={contenedor} className="relative flex-shrink-0">
       <button
         type="button"
-        aria-expanded={abierto}
+        aria-expanded={abierto && !bloqueado}
         aria-label="Cambiar de clínica"
+        disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
         className={`flex items-center border border-linea bg-marfil text-left transition-colors hover:border-salvia ${
           // Compacto: ancho completo en mobile —donde es el elemento
@@ -127,7 +132,7 @@ export function SelectorClinica({
 
       {/* `max-w-[calc(100vw-3rem)]`: en un teléfono angosto, 288px fijos
           se salen igual aunque el ancla esté a la derecha. */}
-      {abierto && (
+      {abierto && !bloqueado && (
         <div
           className={`absolute top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft ${
             alineacion === "izquierda" ? "left-0" : "right-0"

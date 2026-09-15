@@ -51,7 +51,15 @@ export function haceCuanto(iso: string | null, ahora: number = Date.now()): stri
 // El primer dibujo usa la presencia que ya vino con el equipo desde el
 // servidor — sin eso, el popover mostraría a todo el mundo ausente
 // durante el primer minuto.
-export function EquipoPopover({ equipo }: { equipo: Equipo }) {
+export function EquipoPopover({
+  equipo,
+  bloqueado = false,
+}: {
+  equipo: Equipo;
+  /** No se despliega. En el panel, mientras el menú lateral de mobile
+   *  está abierto: el popover quedaría tapado por el drawer, o tapándolo. */
+  bloqueado?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [presencia, setPresencia] = useState<Presencia | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -108,8 +116,9 @@ export function EquipoPopover({ equipo }: { equipo: Equipo }) {
     <div ref={contenedor} className="relative flex-shrink-0">
       <button
         type="button"
-        aria-expanded={abierto}
+        aria-expanded={abierto && !bloqueado}
         aria-label="Ver colaboradores"
+        disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
         className="flex flex-shrink-0 items-center gap-2 rounded-full border-linea bg-marfil transition-colors hover:border-salvia max-md:p-0 md:border md:px-3 md:py-1.5"
       >
@@ -145,7 +154,7 @@ export function EquipoPopover({ equipo }: { equipo: Equipo }) {
         />
       </button>
 
-      {abierto && (
+      {abierto && !bloqueado && (
         <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-80 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
           <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
             Colaboradores

@@ -883,3 +883,9 @@ Eso no se arregla con una condición mejor. El dato depende de la ruta, y **la r
 
 El problema de la versión anterior no era dónde vivía el botón: era que **copiaba los tiempos del otro y recién después te dejaba editarlos, en otra pantalla**. Con el alta de siempre, el tipo nace propio sin que nadie tenga que garantizarlo, y por eso el endpoint `POST /tipos-consulta/de-colegas/{id}/incluir` **se eliminó**: la copia dejó de necesitar un camino propio en la API. Queda solo el listado, que es la sugerencia.
 
+**Cuatro ajustes finos sobre lo anterior**, todos reportados mirando la pantalla:
+
+- **El bloque "Tipos de consulta ya creados" se leía como una nota al pie.** El rótulo pasa a verde (`salvia-oscuro`) y la explicación a grafito pleno: en gris al 45% y al 60% quedaba como letra chica, y es la **primera decisión del formulario** — de dónde partir.
+- **El avatar de colaboradores quedaba pegado a la píldora de la clínica.** En mobile el selector se estira para ocupar el renglón, y `justify-between` no deja aire cuando un elemento ya llenó su lado. El contenedor del header en el panel suma un `gap-3`, que actúa de piso.
+- **Con el menú lateral de mobile desplegado, los dos controles no se despliegan.** Quedan debajo del drawer: abrirlos dejaría un popover tapado, o tapando el menú. Los botones pasan a `disabled` mientras el drawer está abierto, y tiene test.
+
