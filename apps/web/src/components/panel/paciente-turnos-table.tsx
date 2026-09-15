@@ -262,8 +262,15 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 <th className="panel-th-sticky px-4 py-3">Estado</th>
                 {/* Con quién (Fase 3.2.5): la ficha muestra TODOS los
                     turnos del paciente —es de la clínica— así que sin esta
-                    columna el historial mezcla profesionales sin decirlo. */}
-                <th className="panel-th-sticky px-4 py-3">Profesional</th>
+                    columna el historial mezcla profesionales sin decirlo.
+
+                    `max-md:hidden` como Motivo (corrección del
+                    2026-09-15, con captura): esta tabla NO scrollea en
+                    horizontal en mobile (pedido explícito, ver el
+                    comentario del contenedor), así que una quinta columna
+                    no se acomoda — se corta. En pantalla angosta el dato
+                    no se pierde: baja debajo del tipo de consulta. */}
+                <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>
                 <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
               </tr>
             </thead>
@@ -311,6 +318,16 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                           color de la columna de al lado se sigue viendo
                           siempre, sea cual sea el nombre. */}
                       {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} /> : (tipo?.nombre ?? "—")}
+                      {/* El profesional, en mobile, debajo del tipo: la
+                          columna propia no entra sin scroll horizontal, y
+                          el dato no puede perderse — es lo que distingue
+                          un turno propio de uno de un colega. */}
+                      {t.atendidoPorNombre && (
+                        <span className="mt-0.5 block text-xs text-grafito/50 md:hidden">
+                          {t.atendidoPorNombre}
+                          {t.esMio === false && " · solo lectura"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
@@ -333,7 +350,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-grafito/70">
+                    <td className="max-md:hidden px-4 py-3 text-grafito/70">
                       {t.atendidoPorNombre ?? "—"}
                       {t.esMio === false && (
                         <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 text-[11px] text-grafito/50">

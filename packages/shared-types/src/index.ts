@@ -113,6 +113,21 @@ export interface MiembroDelEquipo {
   enLinea: boolean;
 }
 
+/** Una ficha de la clínica, para engancharla al cargar un turno
+ *  (Fase 3.2.5). Deliberadamente mínima: lo justo para reconocer a la
+ *  persona, no la ficha completa de un colega. */
+export interface PacienteConocido {
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  /** Si ya tiene turnos conmigo. "Un paciente mío" y "alguien que ya
+   *  atiende la clínica" son dos cosas distintas para quien carga. */
+  esMio: boolean;
+}
+
 // --- Tipos de consulta de un colega (Fase 3.2.5) ---
 //
 // Incluir uno COPIA la fila, no la comparte: duración, color y

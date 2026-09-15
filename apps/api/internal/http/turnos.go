@@ -1131,11 +1131,56 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 			turno.PacienteID = &paciente.ID
 		}
 
+		// UN PACIENTE NO PUEDE ESTAR EN DOS SILLONES A LA VEZ (Fase 3.2.5,
+		// 2026-09-15). El exclusion constraint protege al PROFESIONAL —no
+		// le deja dos turnos encimados— y no dice nada del paciente: dos
+		// agendas distintas pueden ofrecer el mismo horario, correctamente,
+		// y la misma persona terminar citada en las dos.
+		//
+		// Va acá dentro, con el paciente ya resuelto y en la MISMA
+		// transacción que el insert: chequear antes, afuera, dejaría la
+		// ventana en la que el colega agenda entre el chequeo y el insert.
+		if turno.PacienteID != nil && turno.HoraInicio != nil && turno.HoraFin != nil && turno.AtendidoPorUserID != nil {
+			if choca, quien := turnoSuperpuestoDeOtroProfesional(
+				tx, profesionalID, *turno.PacienteID, *turno.AtendidoPorUserID,
+				*turno.HoraInicio, *turno.HoraFin, soloSiNoEsNil(turno.ID),
+			); choca != nil {
+				return &errPacienteOcupadoConOtro{Profesional: quien, Desde: *choca.HoraInicio}
+			}
+		}
+
 		if turno.ID == uuid.Nil {
 			return tx.Create(turno).Error
 		}
 		return tx.Save(turno).Error
 	})
+}
+
+// soloSiNoEsNil — al reprogramar, el turno que se mueve no se cuenta
+// contra sí mismo. En un alta el id todavía es cero y no hay nada que
+// excluir.
+func soloSiNoEsNil(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
+}
+
+// errPacienteOcupadoConOtro — el paciente ya tiene un turno encimado con
+// otro profesional de la clínica.
+//
+// Lleva CON QUIÉN y A QUÉ HORA porque el mensaje es la mitad del valor:
+// "ya tiene un turno" obliga a salir a buscarlo a mano; "tiene turno con
+// Lucía Ferrer a las 10:00" se resuelve sin salir de la pantalla.
+type errPacienteOcupadoConOtro struct {
+	Profesional string
+	Desde       time.Time
+}
+
+func (e *errPacienteOcupadoConOtro) Error() string {
+	return "este paciente ya tiene un turno con " + e.Profesional +
+		" a las " + clock.In(e.Desde).Format("15:04") + " del " + clock.In(e.Desde).Format("02/01") +
+		". Una persona no puede estar en dos turnos a la vez."
 }
 
 // crearOBuscarPacientePorDNI — Extra 2.3.5 (E5.1): "cualquier camino de
@@ -1300,6 +1345,14 @@ func sincronizarContactoConPaciente(turno *db.Turno, paciente db.Paciente) {
 // (exclusion constraint de Postgres) tiene que ser un error de validación
 // legible en el modal, nunca un 500 crudo.
 func writeTurnoAgendadoError(w http.ResponseWriter, err error) {
+	// 409 y no 400: el cuerpo del pedido está bien, lo que está ocupado es
+	// la persona. Mismo criterio que el solapamiento del propio
+	// profesional.
+	var ocupado *errPacienteOcupadoConOtro
+	if errors.As(err, &ocupado) {
+		writeError(w, http.StatusConflict, ocupado.Error())
+		return
+	}
 	if errors.Is(err, errPacienteNoEncontrado) {
 		writeError(w, http.StatusBadRequest, "el paciente elegido no existe")
 		return

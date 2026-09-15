@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Paciente, TipoConsulta, Turno } from "@dental-mirage/shared-types";
+import type { PacienteConocido, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { crearTurnoManualAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
 import { listDisponibilidadAction } from "@/app/actions/calendario-config";
@@ -71,7 +71,10 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   const [paso, setPaso] = useState<Paso>("paciente");
   const [origen, setOrigen] = useState<Origen>("conocido");
 
-  const [pacientesConocidos, setPacientesConocidos] = useState<Paciente[] | null>(null);
+  // PacienteConocido y no Paciente: desde la Fase 3.2.5 el selector busca
+  // en TODA la clínica y lo que vuelve es deliberadamente mínimo —lo justo
+  // para reconocer a la persona—, no la ficha completa de un colega.
+  const [pacientesConocidos, setPacientesConocidos] = useState<PacienteConocido[] | null>(null);
   // Arranca en "cargando" (a diferencia de las demás pestañas, "conocido"
   // es la que se elige por defecto desde Extra 2.3.3 — TR-104 — así que
   // siempre hay un pedido en vuelo apenas se monta el modal, ver el
@@ -89,7 +92,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   // más abajo): paciente encontrado por DNI exacto al intentar avanzar
   // desde "Paciente nuevo", para poder ofrecer "Usar este paciente" sin
   // que el profesional tenga que ir a buscarlo a mano en "conocido".
-  const [duplicadoDni, setDuplicadoDni] = useState<Paciente | null>(null);
+  const [duplicadoDni, setDuplicadoDni] = useState<PacienteConocido | null>(null);
   const [verificandoDni, setVerificandoDni] = useState(false);
 
   const tipoGeneral = tiposConsulta.find((t) => t.nombre === "Consulta general") ?? tiposConsulta[0];
@@ -207,7 +210,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     });
   }
 
-  function elegirConocido(p: Paciente) {
+  function elegirConocido(p: PacienteConocido) {
     setPacienteElegidoId(p.id);
     setDuplicadoDni(null);
     setError(null);

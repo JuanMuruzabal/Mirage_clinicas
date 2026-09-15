@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -737,5 +739,122 @@ func TestConflicto_AvisaCuantosTurnosAjenosAlcanza(t *testing.T) {
 	if conflictos[0].TurnosDeOtrosProfesionales != 1 {
 		t.Errorf("el aviso dice %d turnos de otros profesionales, esperaba 1",
 			conflictos[0].TurnosDeOtrosProfesionales)
+	}
+}
+
+// --- La identidad del paciente es de la clínica ---------------------
+
+// TestPaciente_SeEncuentraLaFichaQueCargoUnColega — sin esto, un
+// profesional tipeaba de nuevo a alguien que ya existía: el índice único
+// de DNI rechazaba el alta y no había forma de engancharla desde la
+// pantalla de cargar turno.
+func TestPaciente_SeEncuentraLaFichaQueCargoUnColega(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "conoc-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Conocidos",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "conoc-colega@example.com", db.RoleProfesional)
+
+	// Una ficha cargada por el COLEGA.
+	turnoDePrueba(t, router, gdb, clinicID, tokenColega, "conoc-colega@example.com", "49111222")
+
+	// El titular la encuentra al buscar para cargar un turno…
+	conocidos := pacientesDeLaClinicaDePrueba(t, router, titular.Token, "49111222")
+	if len(conocidos) != 1 {
+		t.Fatalf("el titular encontró %d fichas, esperaba 1 (la que cargó el colega)", len(conocidos))
+	}
+	if conocidos[0].EsMio {
+		t.Error("la ficha del colega no puede venir marcada como propia")
+	}
+
+	// …pero NO aparece en su lista de trabajo: son dos preguntas distintas.
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes?q=49111222", titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /pacientes: status=%d", rec.Code)
+	}
+	var mios []map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &mios)
+	if len(mios) != 0 {
+		t.Errorf("la lista de trabajo del titular trae %d fichas del colega, esperaba 0", len(mios))
+	}
+}
+
+func pacientesDeLaClinicaDePrueba(t *testing.T, router http.Handler, token, q string) []pacienteConocidoResponse {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes/de-la-clinica?q="+q, token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /pacientes/de-la-clinica: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out []pacienteConocidoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return out
+}
+
+// TestPaciente_NoPuedeEstarEnDosSillonesALaVez — el exclusion constraint
+// protege al PROFESIONAL, no al paciente: dos agendas distintas pueden
+// ofrecer el mismo horario —correctamente, son dos sillones— y la misma
+// persona terminar citada en las dos.
+func TestPaciente_NoPuedeEstarEnDosSillonesALaVez(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "dos-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Dos Sillones",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "dos-colega@example.com", db.RoleProfesional)
+
+	// El colega le da turno al paciente a una hora concreta.
+	const dni = "50111222"
+	colegaID := userIDDelMail(t, gdb, "dos-colega@example.com")
+	tipoColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta colega", 30)
+	inicio := time.Now().Add(200 * time.Hour).Truncate(time.Hour)
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "Ocupado", "dniContacto": dni,
+		"telefonoContacto": "+5493511234567", "emailContacto": "ocupado@example.com",
+		"tipoConsultaId": tipoColega.ID.String(),
+		"horaInicio":     inicio.Format(time.RFC3339),
+		"horaFin":        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del colega: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// El titular intenta darle turno a la MISMA persona, encimado.
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "Ocupado", "dniContacto": dni,
+		"telefonoContacto": "+5493511234567", "emailContacto": "ocupado@example.com",
+		"tipoConsultaId": tipoTitular.ID,
+		"horaInicio":     inicio.Add(15 * time.Minute).Format(time.RFC3339),
+		"horaFin":        inicio.Add(45 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	// El mensaje es la mitad del valor: sin el nombre hay que salir a
+	// buscar con quién a mano.
+	cuerpo := rec.Body.String()
+	// El colega de prueba no tiene perfil cargado, así que se lo nombra
+	// por su mail — que es el fallback real, no un genérico.
+	if !strings.Contains(cuerpo, "dos-colega@example.com") {
+		t.Errorf("el error no dice con qué profesional: %s", cuerpo)
+	}
+
+	// Y la otra dirección: pegado pero SIN encimarse, se agenda. Un
+	// bloqueo que rechaza todo no distingue nada.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "Ocupado", "dniContacto": dni,
+		"telefonoContacto": "+5493511234567", "emailContacto": "ocupado@example.com",
+		"tipoConsultaId": tipoTitular.ID,
+		"horaInicio":     inicio.Add(30 * time.Minute).Format(time.RFC3339),
+		"horaFin":        inicio.Add(60 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Errorf("un turno pegado pero sin encimarse tiene que poder agendarse: status=%d body=%s",
+			rec.Code, rec.Body.String())
 	}
 }

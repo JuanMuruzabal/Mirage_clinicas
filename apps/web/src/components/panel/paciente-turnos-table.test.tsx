@@ -301,8 +301,12 @@ describe("PacienteTurnosTable", () => {
       render(<PacienteTurnosTable turnos={[mio, ajeno]} tiposConsulta={tiposConsulta} vacio="" />);
 
       expect(screen.getByRole("columnheader", { name: "Profesional" })).toBeInTheDocument();
-      expect(screen.getByRole("cell", { name: /Ana Gómez/ })).toBeInTheDocument();
-      expect(screen.getByRole("cell", { name: /Beto Colega/ })).toBeInTheDocument();
+      // El nombre aparece dos veces a propósito: en su columna (escritorio)
+      // y debajo del tipo de consulta (mobile, donde la columna no entra
+      // sin scroll horizontal). Las dos las pinta el mismo render; el CSS
+      // decide cuál se ve.
+      expect(screen.getAllByText("Ana Gómez").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Beto Colega/).length).toBeGreaterThan(0);
     });
 
     it("el ajeno va en solo lectura y sin link; el propio conserva el suyo", () => {

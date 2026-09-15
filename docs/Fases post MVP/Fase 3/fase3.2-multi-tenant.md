@@ -1056,3 +1056,40 @@ Faltaba auditar el frontend con el mismo rigor que el backend. Hasta acá la afi
 
 **Lo que se sumó:** dos tests del lado del frontend para el historial, que no tenía ninguno: que la columna Profesional aparezca con el nombre de cada uno, y que el turno ajeno vaya sin link. Las dos tablas de la ficha —"Turnos activos" e "Historial de turnos"— usan el mismo componente, así que las cubre a las dos.
 
+### La identidad del paciente, el doble turno y la tabla en mobile (2026-09-15)
+
+Tres correcciones del cliente que empujan la misma idea desde ángulos distintos: **el paciente es una persona, no un registro de cada profesional.**
+
+#### Los pacientes conocidos se buscan en toda la clínica
+
+El selector de "paciente conocido" al cargar un turno mostraba solo los propios. El resultado era el peor de los dos mundos: un profesional tipeaba de nuevo a alguien que **ya existía**, el índice único de DNI rechazaba el alta, y desde esa pantalla no había forma de enganchar la ficha existente.
+
+Ahora `GET /pacientes/de-la-clinica` busca en toda la clínica. **Son dos preguntas distintas y por eso son dos endpoints:**
+
+| Pregunta | Endpoint | Alcance |
+|---|---|---|
+| "¿A quiénes atiendo yo?" | `/pacientes` | Acotado — es la pantalla de trabajo |
+| "¿Esta persona ya está cargada?" | `/pacientes/de-la-clinica` | Toda la clínica — es el registro de identidad |
+
+Un endpoint aparte y no un `?alcance=clinica` sobre `/pacientes`: mezclarlas dejaría el aislamiento del listado a merced de un parámetro que cualquiera puede mandar. Lo que devuelve es deliberadamente **mínimo** —lo justo para reconocer a la persona y vincular la ficha—, no la ficha completa de un colega. Cada resultado dice además si ya es paciente de quien busca (`esMio`).
+
+**Y se sumó a la lista del test de auditoría**, con el motivo. Si no, un archivo nuevo quedaba fuera del barrido — exactamente el modo de falla que ese test existe para evitar.
+
+#### Un paciente no puede estar en dos sillones a la vez
+
+El exclusion constraint de la base protege al **profesional**: no le permite dos turnos encimados. **No dice nada del paciente**, y desde que una clínica tiene varios profesionales eso dejó un hueco: dos agendas pueden ofrecer el mismo horario —correctamente, son dos sillones— y la misma persona terminar citada en las dos.
+
+No se resuelve con otro constraint: dos turnos del mismo paciente con profesionales distintos son válidos **mientras no se pisen**, así que la regla es sobre el rango y no sobre la fila. La validación va **dentro de la misma transacción** que el insert: chequear afuera dejaría la ventana en la que el colega agenda entre el chequeo y el insert.
+
+El mensaje es la mitad del valor: *"este paciente ya tiene un turno con Lucía Ferrer a las 10:00 del 23/09"*. Decir solo "ya tiene un turno" obliga a salir a buscar con quién. Si el colega todavía no cargó perfil se lo nombra por su mail — nunca un genérico.
+
+**Se testea en las dos direcciones:** encimado se rechaza, y pegado pero sin encimarse se agenda. Un bloqueo que rechaza todo no distingue nada.
+
+Pendiente declarado: **esto mismo va al wizard público**, donde el paciente saca turno sin ver las otras agendas. Queda para cuando se toque ese flujo.
+
+#### La tabla de la ficha, rota en mobile
+
+La columna "Profesional" que se sumó el día anterior desbordaba en pantalla angosta. La causa no era el CSS de la columna: esta tabla **no scrollea en horizontal en mobile a propósito** (pedido explícito, está en el comentario del contenedor), así que una quinta columna no se acomoda — se corta.
+
+Se resuelve como ya se resolvía "Motivo": la columna se esconde en mobile y el dato **baja debajo del tipo de consulta**, junto con el "solo lectura". No se pierde nada; cambia dónde está.
+

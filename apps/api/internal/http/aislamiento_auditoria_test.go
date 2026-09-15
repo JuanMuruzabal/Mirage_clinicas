@@ -46,6 +46,7 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		"tipos_consulta.go", "tipos_consulta_colegas.go", "bloqueos_horario.go",
 		"horario_atencion.go", "disponibilidad.go", "enlace_turno.go",
 		"seguridad_turno_publico.go", "pagina_publica.go", "especialidades.go",
+		"pacientes_de_la_clinica.go",
 	}
 
 	// Los scopes de visibilidad.go.
@@ -100,6 +101,13 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		"pagina_publica.go": {`clinic_id = ?`},
 		// Catálogo global.
 		"especialidades.go": {`clinic_id`},
+		// La identidad del paciente es de la CLÍNICA, por decisión del
+		// cliente (2026-09-15): cualquiera que vaya a cargarle un turno
+		// tiene que poder encontrar su ficha, o se duplican personas. Lo
+		// que sigue siendo de cada profesional es su lista de trabajo
+		// (/pacientes), que es otra pregunta. Ver el comentario de cabecera
+		// de ese archivo.
+		"pacientes_de_la_clinica.go": {`clinic_id`},
 	}
 
 	permitida := func(archivo, linea string) bool {
