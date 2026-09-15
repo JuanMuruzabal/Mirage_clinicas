@@ -2063,6 +2063,47 @@ La lista de excepciones se indexa por **fragmento de la consulta y no por númer
 
 ---
 
+## TR-144: La identidad del paciente es de la clínica; la lista de trabajo es de cada profesional
+
+- **Fecha:** 2026-09-15
+- **Fase:** 3.2.5, tercera ronda de QA. Bitácora en `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
+- **De dónde salió:** el cliente, textual — *"pacientes conocidos se debe extender a todos los profesionales"*.
+
+### El problema no era de permisos, era un callejón sin salida
+
+El selector de "paciente conocido" al cargar un turno buscaba solo entre los pacientes propios. Con dos profesionales, el resultado era el peor de los dos mundos: uno tipeaba de nuevo a alguien que **ya existía**, el índice único de DNI por clínica (TR-100) rechazaba el alta, y **desde esa pantalla no había forma de enganchar la ficha existente**. No es que se viera de menos: es que no se podía avanzar.
+
+### La decisión: dos preguntas, dos endpoints
+
+| Pregunta | Endpoint | Alcance |
+|---|---|---|
+| *"¿A quiénes atiendo yo?"* | `/pacientes` | Acotado por `soloMisPacientes` — es la pantalla de trabajo |
+| *"¿Esta persona ya está cargada?"* | `/pacientes/de-la-clinica` | Toda la clínica — es el registro de identidad |
+
+**Un endpoint aparte y no un `?alcance=clinica` sobre `/pacientes`.** Son dos intenciones distintas, y mezclarlas dejaría el aislamiento del listado a merced de un parámetro que cualquiera puede mandar. Lo que devuelve el nuevo es deliberadamente **mínimo** —id, nombre, apellido, DNI, teléfono, mail— lo justo para reconocer a la persona y vincular la ficha, nunca la ficha completa de un colega. Cada resultado dice además si ya es paciente de quien busca (`esMio`): *"un paciente mío"* y *"alguien que ya atiende la clínica"* son dos cosas distintas para quien está cargando.
+
+**`q` quedó opcional.** El modal carga la lista al abrirse y filtra mientras se tipea; exigir el término obligaría a rehacer esa pantalla para ganar una restricción que no protege nada — quien puede buscar por apellido puede enumerar igual probando letras.
+
+**Y el archivo nuevo se sumó a la lista del test de auditoría (TR-143) con su motivo.** Sin eso quedaba fuera del barrido, que es exactamente el modo de falla que ese test existe para evitar: no alcanza con que el test exista si los archivos nuevos no entran.
+
+### Un paciente no puede estar en dos sillones a la vez
+
+El `EXCLUDE` de no-solapamiento protege al **profesional** (spec §4.3): no le permite dos turnos encimados. **No dice nada del paciente**, y desde que una clínica tiene varios profesionales eso dejó un hueco — dos agendas pueden ofrecer el mismo horario, correctamente, y la misma persona terminar citada en las dos.
+
+**No se resuelve con otro constraint.** Dos turnos del mismo paciente con profesionales distintos son válidos *mientras no se pisen*, así que la regla es sobre el **rango** y no sobre la fila: no hay `EXCLUDE` que la exprese sin prohibir también el caso legítimo. Va en la aplicación, **dentro de la misma transacción que el insert** — chequear afuera dejaría la ventana en la que el colega agenda entre el chequeo y el insert.
+
+**El mensaje es la mitad del valor.** *"Este paciente ya tiene un turno con Lucía Ferrer a las 10:00 del 23/09"*: decir solo "ya tiene un turno" obliga a salir a buscar con quién, y quien está cargando no puede ver la agenda del otro. Si el colega todavía no cargó perfil se lo nombra por su mail — nunca un genérico.
+
+Se testea en las dos direcciones: encimado se rechaza, pegado pero sin encimarse se agenda. **Un bloqueo que rechaza todo no distingue nada.**
+
+**Pendiente declarado:** lo mismo hace falta en el wizard público, donde el paciente saca turno sin ver ninguna agenda. Queda para cuando se toque ese flujo (3.2.7).
+
+### Lo que esto aclara del modelo
+
+Las tres cosas empujan la misma idea desde ángulos distintos: **el paciente es una persona, no un registro de cada profesional.** Una ficha, un DNI, un historial — y una sola agenda posible en un momento dado. Lo que se reparte por profesional es el **trabajo**: a quién atiendo, qué turnos tengo, qué horarios ofrezco.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
