@@ -471,9 +471,15 @@ func cancelarTurnosSinVerificarHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		var cancelados int
 		err := gdb.Transaction(func(tx *gorm.DB) error {
+			// Los MÍOS, y acá importa más que en ningún otro lado: esto
+			// cancela EN MASA, de un botón, sin elegir cuáles. Sin el
+			// scope, un profesional le limpiaba la agenda entera a su
+			// colega —todos sus turnos vigentes de pacientes sin
+			// verificar— y del otro lado no quedaba ni un aviso, solo
+			// turnos cancelados que nadie canceló.
 			sub := pacientesVerificadosQuery(tx, profesionalID)
 			var turnos []db.Turno
-			if err := tx.Where(
+			if err := tx.Scopes(soloMisTurnos(r)).Where(
 				"clinic_id = ? AND estado = 'agendado' AND hora_fin >= now() AND (paciente_id IS NULL OR paciente_id NOT IN (?))",
 				profesionalID, sub,
 			).Find(&turnos).Error; err != nil {
@@ -656,8 +662,14 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			ids = append(ids, id)
 		}
 
+		// Los MÍOS. Autoreservar MUEVE turnos de día: sin el scope, un
+		// profesional podía reprogramarle la agenda a un colega pasándole
+		// los ids. Es la misma escritura que /turnos/{id}/hora, pero en
+		// lote — y en lote es peor, porque nadie revisa uno por uno lo que
+		// mandó.
 		var turnos []db.Turno
-		if err := gdb.Where("id IN ? AND clinic_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
+		if err := gdb.Scopes(soloMisTurnos(r)).
+			Where("id IN ? AND clinic_id = ?", ids, profesionalID).Find(&turnos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron cargar los turnos")
 			return
 		}
@@ -1325,7 +1337,12 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// "Turnos resueltos", no acá (mismo criterio que separa esas dos
 		// pestañas en /panel/turnos).
 		var turnosHoyDB []db.Turno
-		if err := gdb.Where(
+		// TODO el resumen es de LO PROPIO (corrección del 2026-09-14).
+		// "General" es la primera pantalla del panel, y hasta acá cada
+		// tarjeta —turnos de hoy, próximos, resueltos, asistidos,
+		// ausentes, horarios reservados— contaba lo de toda la clínica.
+		// Un profesional entraba y veía como suyo el día de su colega.
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
@@ -1340,7 +1357,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// "hoy" ya tiene su propia tarjeta, esta muestra el día siguiente
 		// concreto, no una lista larga de semanas hacia adelante.
 		var turnosProximosDB []db.Turno
-		if err := gdb.Where(
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
 			profesionalID, "agendado", mañana, pasadoMañana,
 		).
@@ -1352,7 +1369,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var totalConfirmados int64
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND (hora_fin IS NULL OR hora_fin >= ?)", profesionalID, "agendado", ahora).
 			Count(&totalConfirmados).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
@@ -1370,7 +1387,7 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// (asistio/ausente), en el mismo formato que "Turnos de hoy"
 		// (hora, nombre) más el resultado.
 		var turnosResueltosDB []db.Turno
-		if err := gdb.Where(
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
 			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
 			profesionalID, "agendado", hoy, mañana,
 		).
@@ -1386,7 +1403,9 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// del dashboard, no la fuente de verdad de disponibilidad) y
 		// generales cuya ventana (fecha_hasta) no venció.
 		var bloqueos []db.BloqueoHorario
-		if err := gdb.Where(
+		// Los horarios reservados van por soloMiAgenda, no por
+		// soloMisTurnos: son otra tabla y otro dueño.
+		if err := gdb.Scopes(soloMiAgenda(r)).Where(
 			"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
 			profesionalID, hoy, hoy,
 		).Find(&bloqueos).Error; err != nil {
@@ -1399,13 +1418,13 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// fecha — a diferencia de las listas de arriba, acá interesa el
 		// acumulado completo, no un pendiente por revisar.
 		var turnosAsistidos, turnosAusentes int64
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "asistio").
 			Count(&turnosAsistidos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")
 			return
 		}
-		if err := gdb.Model(&db.Turno{}).
+		if err := gdb.Model(&db.Turno{}).Scopes(soloMisTurnos(r)).
 			Where("clinic_id = ? AND estado = ? AND asistencia = ?", profesionalID, "agendado", "ausente").
 			Count(&turnosAusentes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular el resumen")

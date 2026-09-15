@@ -525,3 +525,80 @@ func TestColega_ElEnlaceCompartidoLlenaLaAgendaDeQuienLoGenero(t *testing.T) {
 		t.Fatalf("el enlace quedó a nombre de %v, esperaba el colega %v que lo generó", enlace.UserID, colegaID)
 	}
 }
+
+// TestColega_ElResumenDeGeneralEsElPropio — "General" es la PRIMERA
+// pantalla del panel, y hasta el 2026-09-14 cada una de sus siete
+// consultas contaba lo de toda la clínica: un profesional entraba y veía
+// como suyo el día de su colega.
+func TestColega_ElResumenDeGeneralEsElPropio(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "res-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Resumen",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "res-colega@example.com", db.RoleProfesional)
+
+	// Un turno del colega, a futuro: cuenta como confirmado.
+	turnoDePrueba(t, router, gdb, clinicID, tokenColega, "res-colega@example.com", "44111222")
+
+	if n := resumenConfirmadosDePrueba(t, router, tokenColega); n != 1 {
+		t.Errorf("el colega ve %d turnos confirmados propios, esperaba 1", n)
+	}
+	if n := resumenConfirmadosDePrueba(t, router, titular.Token); n != 0 {
+		t.Errorf("el titular ve %d turnos confirmados del colega, esperaba 0", n)
+	}
+}
+
+func resumenConfirmadosDePrueba(t *testing.T, router http.Handler, token string) int {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /turnos/resumen: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		TotalConfirmados int `json:"totalConfirmados"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return resp.TotalConfirmados
+}
+
+// TestColega_NoSePuedeAutoreservarNiCancelarEnMasaLoAjeno — las dos
+// escrituras EN LOTE, que son las peores: nadie revisa uno por uno lo que
+// mandó. Autoreservar MUEVE turnos de día; la cancelación masiva limpia
+// de un botón todos los turnos vigentes de pacientes sin verificar.
+func TestColega_NoSePuedeAutoreservarNiCancelarEnMasaLoAjeno(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "lote-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Lote",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "lote-colega@example.com", db.RoleProfesional)
+	turnoID := turnoDePrueba(t, router, gdb, clinicID, tokenColega, "lote-colega@example.com", "45111222")
+
+	// El titular intenta autoreservar el turno del colega.
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos/autoreservar", titular.Token, map[string]any{
+		"turnoIds": []string{turnoID},
+	})
+	if rec.Code == http.StatusOK {
+		t.Error("el titular pudo autoreservar un turno del colega")
+	}
+
+	// Y la cancelación masiva: el paciente del colega no está verificado,
+	// así que sin el scope entraría en la barrida.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos/cancelar-sin-verificar", titular.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cancelar sin verificar: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var turno db.Turno
+	if err := gdb.First(&turno, "id = ?", turnoID).Error; err != nil {
+		t.Fatalf("no se encontró el turno: %v", err)
+	}
+	if turno.Estado != "agendado" {
+		t.Errorf("el titular le canceló en masa un turno al colega: estado=%q", turno.Estado)
+	}
+}

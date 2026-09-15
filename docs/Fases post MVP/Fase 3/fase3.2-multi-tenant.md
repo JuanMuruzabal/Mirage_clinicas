@@ -973,3 +973,38 @@ No todo lo del panel es individual, y conviene que esté dicho: los **bloqueos d
 
 Los de ahora están contados, no estimados: **6 turnos · 3 pacientes · 8 agenda · 3 conflictos · 3 tipos**. Si alguien agrega una query, que actualice el número contando, no recordando.
 
+### El barrido riguroso, y por qué hicieron falta cuatro rondas (2026-09-14)
+
+Cuatro rondas para cerrar el aislamiento. Cada una encontró lo que la anterior no había mirado. Vale la pena dejar escrito **por qué**, porque la causa no fue el código.
+
+#### Lo que faltaba en esta última pasada
+
+| Dónde | Qué permitía |
+|---|---|
+| Las **7 consultas** del resumen de "General" | Cada tarjeta contaba lo de toda la clínica. Es la primera pantalla del panel |
+| Autoreservar | **Mover de día** los turnos de un colega, en lote |
+| Cancelación masiva de turnos sin verificar | **Limpiarle la agenda entera** a un colega, de un botón |
+| "Próximo vencimiento" del cartel de asistencia | El del colega |
+
+Las dos de en medio son escrituras **en lote**, que es lo peor: nadie revisa uno por uno lo que mandó.
+
+#### Por qué se me pasaron
+
+No fue que la regla no estuviera escrita. Estaba en `CLAUDE.md` desde la 3.2.2, en mayúsculas. Fueron tres cosas, y ninguna es "me olvidé":
+
+1. **Busqué por patrón en vez de por ruta.** Mis greps buscaban `clinic_id = ?` al principio de un `Where`. Autoreservar usa `id IN ? AND clinic_id = ?` y la cancelación masiva parte el `Where` en varias líneas: no aparecían. **El inventario correcto empieza por las 38 rutas del panel, no por una cadena de texto.**
+2. **Mis propias verificaciones tenían el mismo defecto que el código.** El primer script de auditoría miraba 3 líneas hacia atrás buscando `Scopes(...)`; varias cadenas de GORM lo tienen en la línea **siguiente**. Daba por acotadas consultas que no lo estaban, y por sin acotar otras que sí.
+3. **La documentación afirmaba una cobertura que nadie midió.** *"17 queries de turnos y 8 de pacientes"* — eran 1 y 3. Ese número me hizo dar por hecho el trabajo al responder que el aislamiento estaba resuelto.
+
+#### El arreglo de fondo: la regla se verifica, no se recuerda
+
+`TestAislamiento_NingunaConsultaDelPanelSinAcotar` lee el código de los 14 archivos del panel y **falla** si aparece una consulta que filtra por clínica sin acotar por profesional. Para agregar una nueva hay dos caminos, los dos legítimos: acotarla con un scope, o sumarla a la lista `clinicaWide` del test **con el motivo**. Lo que deja de ser posible es no elegir.
+
+Verificado que sirve: quitándole el scope a `listTurnosHandler`, el test falla nombrando archivo, línea y consulta.
+
+Es el mismo criterio que el proyecto ya usa en la base (spec §4.3): **una regla que no se puede violar no se valida, se declara**. Acá no se puede declarar en el motor, así que se declara en un test que lee el código.
+
+#### El estado, medido
+
+**39 consultas acotadas** por profesional. **18 clínica-wide a propósito**, cada una con su motivo escrito en el test: la ficha del paciente y su DNI (el paciente es de la clínica), el token de un enlace (es la autorización), los bloqueos de mail/IP del formulario público, la página pública y el catálogo de especialidades. **Cero sin justificar.**
+
