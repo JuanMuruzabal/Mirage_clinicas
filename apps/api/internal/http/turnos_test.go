@@ -19,6 +19,13 @@ import (
 // tipoConsultaIDDePrueba registra un profesional y devuelve su token junto
 // con el id de su tipo de consulta "Consulta general" (sembrado en el
 // registro, TR-001).
+// nombreTipoSembrado — el tipo que el alta le crea a toda clínica nueva.
+//
+// El wizard público elige el tipo por NOMBRE desde la Fase 3.2.7 (con N
+// profesionales no existe "el id del tipo", existe la fila de cada uno),
+// así que los pedidos públicos de los tests mandan esto y no un id.
+const nombreTipoSembrado = "Consulta general"
+
 func profesionalConTipoConsulta(t *testing.T, gdb *gorm.DB, router http.Handler, email string) (clinicaDePruebaResult, string) {
 	t.Helper()
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{

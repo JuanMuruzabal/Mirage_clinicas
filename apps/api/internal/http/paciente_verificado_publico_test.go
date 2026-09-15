@@ -503,14 +503,14 @@ func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenInvalidoFalla(t *test
 // ficha con el código de 6 dígitos — y se lo vuelve a pedir ahora.
 func TestPacienteVerificadoPublico_SinVerificarPeroConTurnoActivoTambienApareceLaTarjeta(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacactivo1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacactivo1@example.com")
 	email := "sinverificar@example.com"
 
 	// Ficha SIN verificar: creada por la vía pública, con un turno a futuro
 	// todavía sin asistir. Es el estado de cualquiera que acaba de sacar su
 	// primer turno.
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.EmailContacto = email
 	req.DNIContacto = "30999888"
 	if rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req); rec.Code != http.StatusCreated {

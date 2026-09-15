@@ -207,3 +207,42 @@ func TestPurgeAuthGarbage_BorraTokenUsadoOVencidoPeroNoUnoVigente(t *testing.T) 
 		t.Error("el token vigente y sin usar NO debería haberse borrado")
 	}
 }
+
+// TestPurgeAuthGarbage_NoBorraAlDuenoDeUnaClinica — corrección del
+// 2026-09-15.
+//
+// La FK `fk_clinics_owner` bloquea borrar al dueño de una clínica, y ese
+// 23503 tumbaba la transacción ENTERA: un solo caso raro dejaba de
+// limpiar también las sesiones vencidas y los tokens usados de todo el
+// sistema. Saltearlo es además lo correcto por sí mismo — una cuenta con
+// clínica tiene datos reales, no es una cuenta abandonada.
+func TestPurgeAuthGarbage_NoBorraAlDuenoDeUnaClinica(t *testing.T) {
+	gdb := testdb.New(t)
+	dueno := usuarioDePrueba(t, gdb, "dueno-sin-verificar@example.com", false, ttlDePrueba+time.Hour)
+	clinica := db.Clinic{
+		Nombre: "Clínica del abandonado", Tipo: db.ClinicTipoIndividual,
+		Slug: "clinica-del-abandonado-" + dueno.ID.String()[:8], OwnerID: dueno.ID,
+	}
+	if err := gdb.Create(&clinica).Error; err != nil {
+		t.Fatalf("no se pudo crear la clínica de prueba: %v", err)
+	}
+
+	// Y una sesión vencida cualquiera, para comprobar que el resto de la
+	// purga sigue corriendo: antes, el error del dueño la abortaba.
+	otro := usuarioDePrueba(t, gdb, "sesion-vencida@example.com", true, time.Hour)
+	vencida := db.Session{UserID: otro.ID, TokenHash: "hash-vencido-" + otro.ID.String()[:8], ExpiresAt: time.Now().Add(-time.Hour)}
+	if err := gdb.Create(&vencida).Error; err != nil {
+		t.Fatalf("no se pudo crear la sesión vencida: %v", err)
+	}
+
+	stats, err := db.PurgeAuthGarbage(gdb, ttlDePrueba)
+	if err != nil {
+		t.Fatalf("PurgeAuthGarbage: %v", err)
+	}
+	if !existeUsuario(gdb, dueno.ID) {
+		t.Error("se borró al dueño de una clínica: esa cuenta no es basura")
+	}
+	if stats.SesionesVencidas < 1 {
+		t.Errorf("SesionesVencidas = %d: el resto de la purga tiene que seguir corriendo", stats.SesionesVencidas)
+	}
+}

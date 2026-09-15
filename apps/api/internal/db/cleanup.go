@@ -40,8 +40,25 @@ func PurgeAuthGarbage(gdb *gorm.DB, cuentaAbandonadaTTL time.Duration) (PurgeSta
 	cutoffCuentas := now.Add(-cuentaAbandonadaTTL)
 
 	err := gdb.Transaction(func(tx *gorm.DB) error {
+		// UNA CUENTA QUE TIENE CLÍNICA NO ES BASURA (2026-09-15).
+		//
+		// Sin esta condición, la purga entera reventaba con 23503: la FK
+		// `fk_clinics_owner` bloquea borrar al dueño de una clínica, y el
+		// error tumbaba la transacción — así que un solo caso raro dejaba
+		// de limpiar TAMBIÉN las sesiones vencidas y los tokens usados de
+		// todo el sistema.
+		//
+		// Apareció en la suite, donde los fixtures crean clínicas con
+		// dueños sin verificar; en producción es improbable —crear una
+		// clínica exige sesión, y una sesión exige verificación— pero
+		// "improbable" no es "imposible", y el modo de falla era muy malo
+		// para lo barato que es evitarlo. Saltearlas, además, es lo
+		// correcto por sí mismo: una cuenta con clínica tiene datos
+		// reales, no es una cuenta abandonada.
 		var abandonados []User
-		if err := tx.Where("email_verified_at IS NULL AND created_at < ?", cutoffCuentas).Find(&abandonados).Error; err != nil {
+		if err := tx.Where(`email_verified_at IS NULL AND created_at < ?
+		                    AND NOT EXISTS (SELECT 1 FROM clinics c WHERE c.owner_id = users.id)`,
+			cutoffCuentas).Find(&abandonados).Error; err != nil {
 			return err
 		}
 		if len(abandonados) > 0 {

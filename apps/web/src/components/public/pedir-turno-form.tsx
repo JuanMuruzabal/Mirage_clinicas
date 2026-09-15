@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { TipoConsultaPublico, PacienteVerificadoPublico, SolicitarTurnoPublicoPayload } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  TipoConsultaPublico,
+  ProfesionalPublico,
+  PacienteVerificadoPublico,
+  SolicitarTurnoPublicoPayload,
+} from "@/lib/api";
 import {
   confirmarVerificacionEmailAction,
   enviarVerificacionEmailAction,
   listDisponibilidadMesPublicaAction,
   listDisponibilidadPublicaAction,
+  listProfesionalesPublicoAction,
   listTiposConsultaPublicoAction,
   pacienteVerificadoPublicoAction,
   pacientesVerificadosDeTutorAction,
@@ -182,7 +188,10 @@ interface EstadoGuardado {
   emailEnVerificacion: string;
   verificacionToken: string;
   pacienteVerificado: PacienteVerificadoPublico | null;
-  tipoConsultaId: string;
+  /** El NOMBRE del tipo, no un id (Fase 3.2.7): con N profesionales cada
+   *  uno tiene su propia fila, y el id de la de otro no significa nada. */
+  tipoNombre: string;
+  profesionalId: string;
   fecha: string;
   hora: string;
   // esOtro/tutorCampos/pacientesVerificadosTutor (Fase 2.4.2) — mismo
@@ -317,7 +326,34 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [pacienteNoEncontrado, setPacienteNoEncontrado] = useState(false);
 
   const [tipos, setTipos] = useState<TipoConsultaPublico[]>([]);
-  const [tipoConsultaId, setTipoConsultaId] = useState(() => estadoInicial?.tipoConsultaId ?? "");
+  const [tipoNombre, setTipoNombre] = useState(() => estadoInicial?.tipoNombre ?? "");
+  // Quiénes atienden el tipo elegido (Fase 3.2.7). La lista se vuelve a
+  // pedir cada vez que cambia el tipo: no todos atienden todo.
+  const [profesionales, setProfesionales] = useState<ProfesionalPublico[]>([]);
+  const [profesionalId, setProfesionalId] = useState(() => estadoInicial?.profesionalId ?? "");
+  // Arranca en "cargando", igual que cargandoSlots y por el mismo motivo:
+  // apenas el tipo se auto-selecciona, el efecto de abajo corre solo, y
+  // arrancar en `true` cubre esa primera carga sin prender el flag de
+  // forma síncrona DENTRO del efecto (react-hooks/set-state-in-effect).
+  // Los cambios POSTERIORES de tipo lo prenden desde su onChange.
+  const [cargandoProfesionales, setCargandoProfesionales] = useState(true);
+
+  // Con ENLACE no se pregunta con quién: el turno es de quien lo generó
+  // —su "Compartir link" existe para llenar SU agenda— y el backend
+  // ignora cualquier profesional que venga en el cuerpo. Mostrar un
+  // selector que no decide nada sería peor que no mostrarlo.
+  const conEnlace = Boolean(enlaceToken);
+
+  // Los parámetros con los que se piden los huecos. El tipo va por NOMBRE
+  // y con quién aparte, porque la duración —y por lo tanto los huecos— es
+  // la que ESE profesional le puso a ESE tipo.
+  const paramsDisponibilidad = useMemo(
+    () => ({ tipo: tipoNombre, profesionalId: conEnlace ? undefined : profesionalId, enlaceToken: enlaceToken || undefined }),
+    [tipoNombre, profesionalId, conEnlace, enlaceToken],
+  );
+  // Listo para pedir horarios: con enlace alcanza el tipo (el profesional
+  // lo pone el enlace); sin enlace hace falta haber elegido con quién.
+  const puedePedirHorarios = Boolean(tipoNombre) && (conEnlace || Boolean(profesionalId));
 
   const hoyISO = fechaISOLocal();
   const [fecha, setFecha] = useState(() => estadoInicial?.fecha ?? hoyISO);
@@ -342,9 +378,9 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
 
   function cambiarMesVisible(mes: string) {
     setMesVisible(mes);
-    if (!tipoConsultaId) return;
+    if (!puedePedirHorarios) return;
     setCargandoMes(true);
-    listDisponibilidadMesPublicaAction(slug, tipoConsultaId, mes).then((dias) => {
+    listDisponibilidadMesPublicaAction(slug, paramsDisponibilidad, mes).then((dias) => {
       setDiasConTurnos(dias);
       setCargandoMes(false);
     });
@@ -380,7 +416,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       emailEnVerificacion,
       verificacionToken,
       pacienteVerificado,
-      tipoConsultaId,
+      tipoNombre,
+      profesionalId,
       fecha,
       hora,
       esOtro,
@@ -399,7 +436,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     emailEnVerificacion,
     verificacionToken,
     pacienteVerificado,
-    tipoConsultaId,
+    tipoNombre,
+    profesionalId,
     fecha,
     hora,
     esOtro,
@@ -411,26 +449,51 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // Tipos de consulta de la clínica — se piden una sola vez, al montar.
   useEffect(() => {
     let activo = true;
-    listTiposConsultaPublicoAction(slug).then((lista) => {
+    listTiposConsultaPublicoAction(slug, enlaceToken || undefined).then((lista) => {
       if (!activo) return;
       setTipos(lista);
       // Corrección de QA (resumen del wizard, TR-111): `actual` puede venir
-      // de un tipo de consulta guardado en localStorage que el profesional
-      // borró mientras tanto — si ya no está en la lista fresca, se
-      // descarta en vez de dejar el <select> apuntando a un id fantasma.
-      setTipoConsultaId((actual) => (actual && lista.some((t) => t.id === actual) ? actual : (lista[0]?.id ?? "")));
+      // de un tipo guardado en localStorage que el profesional borró
+      // mientras tanto — si ya no está en la lista fresca, se descarta en
+      // vez de dejar el <select> apuntando a algo que no existe.
+      setTipoNombre((actual) => (actual && lista.some((t) => t.nombre === actual) ? actual : (lista[0]?.nombre ?? "")));
     });
     return () => {
       activo = false;
     };
-  }, [slug]);
+  }, [slug, enlaceToken]);
+
+  // Quiénes atienden el tipo elegido (Fase 3.2.7) — se vuelve a pedir con
+  // cada cambio de tipo, porque no todos atienden todo.
+  //
+  // Con enlace no se pide: ahí el profesional ya está decidido.
+  useEffect(() => {
+    // Sin tipo, o con enlace, no hay a quién pedir: `profesionales` se
+    // queda en [] —su valor inicial— y la pantalla no muestra el paso.
+    if (conEnlace || !tipoNombre) return;
+    let activo = true;
+    listProfesionalesPublicoAction(slug, tipoNombre).then((lista) => {
+      if (!activo) return;
+      setProfesionales(lista);
+      setCargandoProfesionales(false);
+      // Se conserva la elección si esa persona también atiende el tipo
+      // nuevo; si no, cae al primero, que es el que antes puede atender
+      // (el backend los ordena por proximidad). Elegir por el paciente
+      // cuando hay uno solo no es una decisión: es evitarle un clic que
+      // no decide nada.
+      setProfesionalId((actual) => (actual && lista.some((p) => p.userId === actual) ? actual : (lista[0]?.userId ?? "")));
+    });
+    return () => {
+      activo = false;
+    };
+  }, [slug, tipoNombre, conEnlace]);
 
   // Disponibilidad real — se vuelve a pedir cada vez que cambia el tipo de
   // consulta o la fecha, mismo criterio que agregar-turno-modal.tsx.
   useEffect(() => {
-    if (!tipoConsultaId) return;
+    if (!puedePedirHorarios) return;
     let activo = true;
-    listDisponibilidadPublicaAction(slug, tipoConsultaId, fecha).then((disponibilidad) => {
+    listDisponibilidadPublicaAction(slug, paramsDisponibilidad, fecha).then((disponibilidad) => {
       if (!activo) return;
       setSlots(disponibilidad.slots);
       setCargandoSlots(false);
@@ -439,7 +502,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     return () => {
       activo = false;
     };
-  }, [slug, tipoConsultaId, fecha]);
+  }, [slug, puedePedirHorarios, paramsDisponibilidad, fecha]);
 
   async function continuar() {
     setError(null);
@@ -842,12 +905,12 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // avanza día a día (tope defensivo de 60, ~2 meses) hasta encontrar el
   // primer día con slots para el tipo de consulta elegido.
   async function irAlProximoDisponible() {
-    if (!tipoConsultaId) return;
+    if (!puedePedirHorarios) return;
     setCargandoSlots(true);
     let cursor = fecha;
     for (let i = 0; i < 60; i++) {
       cursor = fechaISOLocal(new Date(new Date(cursor + "T00:00:00").getTime() + 86_400_000));
-      const disponibilidad = await listDisponibilidadPublicaAction(slug, tipoConsultaId, cursor);
+      const disponibilidad = await listDisponibilidadPublicaAction(slug, paramsDisponibilidad, cursor);
       if (disponibilidad.slots.length > 0) {
         setFecha(cursor);
         setSlots(disponibilidad.slots);
@@ -861,8 +924,12 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
 
   async function confirmar() {
     setError(null);
-    if (!tipoConsultaId) {
+    if (!tipoNombre) {
       setError("Elegí un tipo de consulta.");
+      return;
+    }
+    if (!conEnlace && !profesionalId) {
+      setError("Elegí con quién te querés atender.");
       return;
     }
     if (!hora) {
@@ -887,7 +954,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       payload = {
         emailContacto: emailEnVerificacion,
         motivo: motivo || undefined,
-        tipoConsultaId,
+        tipo: tipoNombre,
+        ...(conEnlace ? {} : { profesionalId }),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -908,7 +976,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
         telefonoContacto: campos.telefonoContacto.trim() || undefined,
         emailContacto: campos.emailContacto.trim().toLowerCase() || undefined,
         motivo: motivo || undefined,
-        tipoConsultaId,
+        tipo: tipoNombre,
+        ...(conEnlace ? {} : { profesionalId }),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -926,7 +995,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
         telefonoContacto: telefonoConPais(paisTelefono, campos.telefonoContacto),
         emailContacto: campos.emailContacto.trim().toLowerCase(),
         motivo: motivo || undefined,
-        tipoConsultaId,
+        tipo: tipoNombre,
+        ...(conEnlace ? {} : { profesionalId }),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -994,19 +1064,20 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // mismo DNI y mismo mail resuelven a la ficha ya creada por el turno
   // anterior, no a una nueva.
   async function repetirParaOtroTipo() {
-    const siguienteTipo = tipos.find((t) => t.id !== tipoConsultaId)?.id ?? tipoConsultaId;
+    const siguienteTipo = tipos.find((t) => t.nombre !== tipoNombre)?.nombre ?? tipoNombre;
     setConfirmado(null);
     setLinkWhatsapp(null);
     setError(null);
     setHora("");
-    setTipoConsultaId(siguienteTipo);
+    setTipoNombre(siguienteTipo);
     setPaso("turno");
     if (!siguienteTipo) return;
     setCargandoSlots(true);
-    // Si el tipo cambió, el efecto de disponibilidad se dispara solo; si
-    // no (clínica con un único tipo), hay que refrescar a mano igual.
-    if (siguienteTipo !== tipoConsultaId) return;
-    const disponibilidad = await listDisponibilidadPublicaAction(slug, siguienteTipo, fecha);
+    // Si el tipo cambió, los efectos de profesionales y disponibilidad se
+    // disparan solos; si no (clínica con un único tipo), hay que refrescar
+    // a mano igual.
+    if (siguienteTipo !== tipoNombre) return;
+    const disponibilidad = await listDisponibilidadPublicaAction(slug, paramsDisponibilidad, fecha);
     setSlots(disponibilidad.slots);
     setCargandoSlots(false);
   }
@@ -1336,9 +1407,18 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       return (
         <PantallaDiaHora
           tipos={tipos}
-          tipoConsultaId={tipoConsultaId}
-          onTipoConsultaChange={(id) => {
-            setTipoConsultaId(id);
+          tipoNombre={tipoNombre}
+          onTipoNombreChange={(nombre) => {
+            setTipoNombre(nombre);
+            setCargandoProfesionales(true);
+            setCargandoSlots(true);
+          }}
+          profesionales={profesionales}
+          profesionalId={profesionalId}
+          cargandoProfesionales={cargandoProfesionales}
+          mostrarProfesionales={!conEnlace}
+          onProfesionalChange={(id) => {
+            setProfesionalId(id);
             setCargandoSlots(true);
           }}
           fecha={fecha}
