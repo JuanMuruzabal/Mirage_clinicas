@@ -853,3 +853,33 @@ Vale para todas las pantallas que usan esa tarjeta, no solo para el modal de inv
 
 **Las tarjetas de `/clinicas` no tenían animación** y las de "¿Qué necesitás hoy?" sí. Son pantallas consecutivas en el recorrido de toda sesión, así que el salto se notaba como un cambio de estilo. Ahora entran con el mismo `ScrollReveal` —fade y desplazamiento—, escalonadas de a 60 ms y respetando `prefers-reduced-motion`. El `h-full` va en el `ScrollReveal`, que pasó a ser la celda de la grilla: sin eso, las tarjetas dejaban de tener todas el mismo alto.
 
+### El topbar del panel, reescrito: un layout raíz no se re-renderiza (2026-09-14)
+
+El selector de clínica y el popover de colaboradores **no aparecían**. Reportado dos veces, y las dos causas eran distintas — la segunda invalidó el diseño entero, no un detalle.
+
+**Primera causa: el flag equivocado.** El selector se dibujaba solo si encontraba una clínica con `activa: true` en `/me/clinicas`, y ese flag vale `true` **únicamente cuando la sesión eligió esa clínica a mano** (`sessions.clinic_id`). Quien entró por el fallback de `membresiaDeLaSesion` —"la más antigua"— tiene todas en `false`. Verificado contra la base local con una sesión de prueba: `/me` devolvía la clínica correcta y `/me/clinicas` las dos en `activa: false`.
+
+**Segunda causa, la de fondo: el header vive en el layout RAÍZ, y un layout no se vuelve a renderizar en una navegación del cliente.** Los datos se pedían en `SiteHeader`, un Server Component de ese layout, que decidía si estaba en `/panel` leyendo un `x-pathname` puesto por el middleware. Funcionaba solo recargando la página parado en `/panel`: quien entraba a `/clinicas` y navegaba al panel —el camino normal, porque `/clinicas` es el punto de partida de toda sesión desde la 3.2.3— se quedaba con el render de `/clinicas`, donde el topbar no pide nada.
+
+Eso no se arregla con una condición mejor. El dato depende de la ruta, y **la ruta solo es reactiva en el cliente**:
+
+- `datosDelTopbarAction` (Server Action) trae `/me` + `/me/clinicas` + `/equipo` en paralelo, y resuelve ahí mismo cuál es la activa contra el id que devuelve `/me`. Sigue sin romperse el BFF: el navegador llama a la acción, no a la API.
+- `PanelTopbarProvider` usa `usePathname`, que **sí** se entera de entrar y salir del panel, y comparte el resultado por contexto. Un contexto y no dos componentes independientes porque los dos controles viven en puntas opuestas del header: sin eso serían dos veces las mismas tres llamadas.
+- El `x-pathname` del middleware se sacó: quedó sin uso, y dejarlo sugeriría un mecanismo que ya no existe.
+
+**Lo que se pierde y se acepta:** los dos controles aparecen una vuelta de API después de que pinta el panel, en vez de venir con el HTML. A cambio funcionan en los dos caminos de entrada, que es la diferencia entre verse y no verse.
+
+**El test que faltaba** es el que reproduce el camino real: montado fuera del panel no pide nada, y al cambiar la ruta a `/panel` —sin recargar— los dos controles aparecen. La primera versión tenía tests de las dos direcciones de "¿está en el panel?", pero ninguno navegaba: probaban el render inicial, que era justo el caso que sí funcionaba.
+
+### Segunda ronda del topbar, y los tipos adentro del alta (2026-09-14)
+
+**Cambiar de clínica desde el topbar ya no saca del panel.** Antes redirigía a "¿Qué necesitás hoy?", que era el comportamiento correcto para el selector de *esa* pantalla y el equivocado acá: **sacar a alguien de donde está trabajando por una acción que no lo pidió**. Ahora `entrarEnClinicaAction` acepta no redirigir; el selector del panel la usa así, pide los datos del topbar de nuevo y llama a `router.refresh()` para que el contenido también sea de la otra clínica. Los dos controles **se actualizan en vez de desaparecer**, que es lo que el cliente pidió textualmente.
+
+**Los dos controles son exclusivos del header de `/panel`,** y el chequeo de ruta se repite en ellos además de en el provider. Es deliberado: con la comprobación en un solo lado, cualquiera que los monte en otra pantalla los vería igual.
+
+**El header en mobile se rompía.** La primera versión escondía el selector en pantalla angosta —pensando que el renglón ya estaba ocupado— y el resultado era un header con la hamburguesa y nada más. El orden correcto, según la captura del cliente, es **hamburguesa · selector ocupando lo que sobra · avatar**: el selector pasa a ser el elemento principal de ese renglón, y el control de colaboradores se reduce a los avatares, sin el texto ni el chevron. Con nadie en línea se muestra un círculo con "0", porque si no en mobile el botón no tendría nada que tocar.
+
+**Los tipos de un colega se mudaron ADENTRO del alta**, y dejaron de llamarse así: en el modal de "+ Agregar tipo" hay ahora una fila de **"Tipos de consulta ya creados"**. Elegir uno **rellena el formulario** —nombre y color, que es lo que conviene que la clínica comparta— y la duración, el tiempo post-consulta y la preferencia horaria se configuran ahí mismo antes de guardar.
+
+El problema de la versión anterior no era dónde vivía el botón: era que **copiaba los tiempos del otro y recién después te dejaba editarlos, en otra pantalla**. Con el alta de siempre, el tipo nace propio sin que nadie tenga que garantizarlo, y por eso el endpoint `POST /tipos-consulta/de-colegas/{id}/incluir` **se eliminó**: la copia dejó de necesitar un camino propio en la API. Queda solo el listado, que es la sugerencia.
+

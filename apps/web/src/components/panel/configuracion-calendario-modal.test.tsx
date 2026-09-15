@@ -31,6 +31,9 @@ const {
 }));
 
 vi.mock("@/app/actions/calendario-config", () => ({
+  // El modal de alta pide los tipos ya creados de la clínica para
+  // ofrecerlos como punto de partida (Fase 3.2.5). Acá no hay ninguno.
+  listTiposConsultaDeColegasAction: async () => [],
   listHorarioAtencionAction: listHorarioAtencionActionMock,
   putHorarioAtencionGeneralAction: putHorarioAtencionGeneralActionMock,
   crearHorarioAtencionAction: crearHorarioAtencionActionMock,

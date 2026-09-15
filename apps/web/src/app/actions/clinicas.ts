@@ -28,7 +28,15 @@ interface ErrorDeCodigo {
 // enlace a la página pública, los listados). Sin invalidar el layout, se
 // entraría a la clínica nueva con el nombre de la anterior todavía
 // pintado en pantalla.
-export async function entrarEnClinicaAction(clinicaId: string): Promise<ActionResult | undefined> {
+export async function entrarEnClinicaAction(
+  clinicaId: string,
+  // redirigir=false cuando el cambio ocurre DENTRO del panel (Fase
+  // 3.2.5): desde el selector del topbar, cambiar de clínica tiene que
+  // dejarte en el panel de la otra clínica, no mandarte a "¿Qué necesitás
+  // hoy?". Sacar a alguien de donde estaba trabajando es perder el lugar
+  // por una acción que no lo pedía.
+  opciones?: { redirigir?: boolean },
+): Promise<ActionResult | undefined> {
   const token = await getSessionToken();
   if (!token) {
     redirect("/ingresar");
@@ -40,6 +48,7 @@ export async function entrarEnClinicaAction(clinicaId: string): Promise<ActionRe
   }
 
   revalidatePath("/", "layout");
+  if (opciones?.redirigir === false) return;
   redirect("/seleccionar-servicio");
 }
 

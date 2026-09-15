@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import type { TipoConsulta } from "@dental-mirage/shared-types";
-import { crearTipoConsultaAction, editarTipoConsultaAction } from "@/app/actions/calendario-config";
+import { useEffect, useState } from "react";
+import type { TipoConsulta, TipoConsultaDeColega } from "@dental-mirage/shared-types";
+import {
+  crearTipoConsultaAction,
+  editarTipoConsultaAction,
+  listTiposConsultaDeColegasAction,
+} from "@/app/actions/calendario-config";
 
 // Paleta cerrada de swatches (corrección de QA: "el editor de color...
 // debe ser más simple", en vez del selector nativo del sistema
@@ -56,6 +60,48 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // "Tipos de consulta ya creados" — los de los colegas de la clínica,
+  // como PUNTO DE PARTIDA de este mismo formulario (Fase 3.2.5, rediseño
+  // pedido por el cliente el 2026-09-14).
+  //
+  // Antes eran un modal aparte con un botón "De un colega" que copiaba y
+  // cerraba. El problema no era dónde vivía el botón: era que copiaba
+  // los tiempos del otro y recién después te dejaba editarlos, en otra
+  // pantalla. Acá elegir uno solo RELLENA el formulario —nombre y
+  // color, que es lo que conviene que la clínica comparta— y la
+  // duración, el tiempo post-consulta y la preferencia horaria se
+  // configuran acá mismo antes de guardar. El alta es la de siempre, así
+  // que el tipo nace tuyo sin ningún vínculo con el original.
+  //
+  // Solo al CREAR: editando uno propio, ofrecer partir de otro no
+  // significa nada.
+  const [yaCreados, setYaCreados] = useState<TipoConsultaDeColega[] | null>(null);
+  const [partidaElegida, setPartidaElegida] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tipoExistente) return;
+    let vivo = true;
+    void listTiposConsultaDeColegasAction().then((lista) => {
+      if (vivo) setYaCreados(lista);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [tipoExistente]);
+
+  function partirDe(tipo: TipoConsultaDeColega) {
+    // Se puede des-elegir: volver a tocar el mismo deja el formulario
+    // como estaba, sin tener que borrar el nombre a mano.
+    if (partidaElegida === tipo.id) {
+      setPartidaElegida(null);
+      return;
+    }
+    setPartidaElegida(tipo.id);
+    setNombre(tipo.nombre);
+    setColor(tipo.color);
+    setDuracionMinutos(tipo.duracionMinutos ?? 30);
+  }
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -122,6 +168,40 @@ export function TipoConsultaFormModal({ tipoExistente, onClose, onGuardado }: Ti
         </div>
 
         <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
+          {yaCreados && yaCreados.length > 0 && (
+            <section className="flex flex-col gap-2 rounded-[10px] border border-linea bg-hueso p-4">
+              <p className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+                Tipos de consulta ya creados
+              </p>
+              <p className="text-xs text-grafito/60">
+                Partí de uno que ya usa la clínica. Los tiempos los configurás vos acá abajo.
+              </p>
+              <div className="scrollbar-fina -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                {yaCreados.map((tipo) => (
+                  <button
+                    key={tipo.id}
+                    type="button"
+                    onClick={() => partirDe(tipo)}
+                    aria-pressed={partidaElegida === tipo.id}
+                    className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      partidaElegida === tipo.id
+                        ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro"
+                        : "border-linea bg-marfil text-grafito hover:border-salvia"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: tipo.color }}
+                    />
+                    {tipo.nombre}
+                    {tipo.yaTenesUnoParecido && <span className="text-xs text-grafito/45">· ya tenés uno parecido</span>}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <Campo label="Nombre">
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
           </Campo>

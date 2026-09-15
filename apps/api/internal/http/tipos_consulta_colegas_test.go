@@ -13,11 +13,13 @@ import (
 
 // Fase 3.2.5 — tipos de consulta compartidos entre colegas.
 //
-// Lo que estos tests protegen: que incluir el tipo de un colega COPIE la
-// fila y no la comparta. Con una fila común, que alguien acortara
-// "Conducto" de 60 a 45 minutos le movería los huecos del día a todos los
-// demás — y eso no se nota mirando la pantalla, se nota cuando se
-// superpone un turno.
+// Lo que estos tests protegen: que cada profesional vea SUS tipos, que
+// los de los colegas se ofrezcan como sugerencia con su dueño a la vista,
+// y que el "ya tenés uno parecido" distinga de verdad.
+//
+// La copia en sí no tiene endpoint desde el 2026-09-14: elegir un tipo ya
+// creado rellena el formulario de alta y el tipo se crea por el camino de
+// siempre, así que nace propio sin que nadie tenga que garantizarlo.
 
 func TestSeParecen_MismoTipoEscritoDistinto(t *testing.T) {
 	iguales := [][2]string{
@@ -148,69 +150,6 @@ func TestTiposDeColegas_AvisaCuandoYaTenesUnoParecido(t *testing.T) {
 	}
 }
 
-// TestTiposDeColegas_IncluirCopiaLaFila — la regla central. Después de
-// incluir, tocar el mío no puede tocar el del colega.
-func TestTiposDeColegas_IncluirCopiaLaFila(t *testing.T) {
-	router, gdb := newTestRouter(t)
-	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
-		Email: "tipos-copia-titular@example.com", Password: "unaClaveLarga123",
-		Nombre: "Ana Gómez", NombreClinica: "Clínica Copia",
-	})
-	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
-	sumarColaboradorDePrueba(t, gdb, router, clinicID, "tipos-copia-colega@example.com", db.RoleProfesional)
-	colegaID := userIDDelMail(t, gdb, "tipos-copia-colega@example.com")
-	original := tipoDe(t, gdb, clinicID, colegaID, "Conducto", 60)
-
-	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta/de-colegas/"+original.ID.String()+"/incluir", titular.Token, nil)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("incluir: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	var copia tipoConsultaResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &copia); err != nil {
-		t.Fatalf("respuesta inválida: %v", err)
-	}
-	if copia.ID == original.ID.String() {
-		t.Fatal("devolvió el MISMO tipo: se compartió la fila en vez de copiarla")
-	}
-	if copia.Nombre != "Conducto" || copia.DuracionMinutos != 60 {
-		t.Errorf("la copia no arrancó igual que el original: %+v", copia)
-	}
-
-	// Y el punto de todo: acortar el mío no le toca el suyo.
-	rec = doJSONAuth(t, router, http.MethodPatch, "/tipos-consulta/"+copia.ID, titular.Token, tipoConsultaRequest{
-		Nombre: "Conducto", Color: "#E7D9BE", DuracionMinutos: 45,
-	})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("editar la copia: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	var delColega db.TipoConsulta
-	if err := gdb.First(&delColega, "id = ?", original.ID).Error; err != nil {
-		t.Fatalf("no se pudo releer el original: %v", err)
-	}
-	if delColega.DuracionMinutos != 60 {
-		t.Errorf("editar la copia le cambió la duración al colega: %d, esperaba 60", delColega.DuracionMinutos)
-	}
-}
-
-// TestTiposDeColegas_NoSePuedeIncluirElPropio — incluir el propio
-// duplicaría un tipo contra sí mismo sin que nadie lo pidiera.
-func TestTiposDeColegas_NoSePuedeIncluirElPropio(t *testing.T) {
-	router, gdb := newTestRouter(t)
-	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
-		Email: "tipos-propio@example.com", Password: "unaClaveLarga123",
-		Nombre: "Ana Gómez", NombreClinica: "Clínica Propio",
-	})
-	mios := leerMisTipos(t, router, titular.Token)
-	if len(mios) == 0 {
-		t.Fatal("el alta no dejó ningún tipo de consulta")
-	}
-
-	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta/de-colegas/"+mios[0].ID+"/incluir", titular.Token, nil)
-	if rec.Code != http.StatusConflict {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusConflict)
-	}
-}
-
 // TestTiposDeColegas_NoSeVeElDeOtraClinica — el id de un tipo no es
 // secreto: viaja en la pantalla de quien lo tenga. Sin filtrar por
 // clínica, alcanzaría para copiarle la configuración de agenda a
@@ -227,15 +166,9 @@ func TestTiposDeColegas_NoSeVeElDeOtraClinica(t *testing.T) {
 	})
 	ajeno := leerMisTipos(t, router, otra.Token)[0]
 
-	// No aparece en la lista…
 	for _, tipo := range leerTiposDeColegas(t, router, titular.Token) {
 		if tipo.ID == ajeno.ID {
 			t.Error("se ve un tipo de otra clínica")
 		}
-	}
-	// …y tampoco se puede incluir a mano.
-	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta/de-colegas/"+ajeno.ID+"/incluir", titular.Token, nil)
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
 	}
 }

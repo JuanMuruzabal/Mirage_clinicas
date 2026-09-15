@@ -13,7 +13,6 @@ import {
   apiCrearBloqueo,
   apiCrearHorarioAtencion,
   apiCrearTipoConsulta,
-  apiIncluirTipoConsultaDeColega,
   apiTiposConsultaDeColegas,
   apiEditarBloqueo,
   apiEditarHorarioAtencion,
@@ -167,20 +166,6 @@ export async function listTiposConsultaDeColegasAction(): Promise<TipoConsultaDe
   if (!token) redirect("/ingresar");
   const result = await apiTiposConsultaDeColegas(token);
   return result.ok ? result.data : [];
-}
-
-// incluirTipoConsultaDeColegaAction — COPIA el tipo a los propios. Lo que
-// vuelve es un tipo NUEVO, sin ningún vínculo con el original: desde acá
-// en más son dos cosas independientes.
-export async function incluirTipoConsultaDeColegaAction(
-  id: string,
-): Promise<CalendarioConfigActionResult | { tipoConsulta: TipoConsulta }> {
-  const token = await getSessionToken();
-  if (!token) redirect("/ingresar");
-  const result = await apiIncluirTipoConsultaDeColega(token, id);
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/panel/calendario");
-  return { tipoConsulta: result.data };
 }
 
 export async function crearTipoConsultaAction(

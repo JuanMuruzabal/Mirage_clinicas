@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
 import { getSessionToken } from "@/lib/session";
-import { apiEquipo, apiMe, apiMisClinicas } from "@/lib/api";
+import { apiMe } from "@/lib/api";
 import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome";
 
 // Header global. Antes de completar el onboarding (spec §3) no hay sesión
@@ -32,49 +31,5 @@ export async function SiteHeader() {
       ? "cuentaSinTerminar"
       : "anonimo";
 
-  // Fase 3.2.5 — el topbar de /panel/** suma el selector de clínica y el
-  // popover de colaboradores. Los datos se piden ACÁ, en el único Server
-  // Component del header, y solo dentro del panel: en el resto del sitio
-  // serían dos llamadas a la API por página que nadie mira.
-  //
-  // La ruta la pone el middleware en `x-pathname`. Es la única forma de
-  // decidirlo del lado del servidor —`usePathname` solo existe en el
-  // cliente, y pedirlo desde ahí rompería el patrón BFF (CLAUDE.md)—, y
-  // vale la pena porque lo que se evita no es el costo de una condición
-  // sino el de dos requests.
-  const enPanel = (await headers()).get("x-pathname")?.startsWith("/panel") ?? false;
-  if (!enPanel || estado !== "completo" || !token) {
-    return <SiteHeaderChrome estado={estado} />;
-  }
-
-  // En paralelo: son independientes entre sí y encadenarlas sumaría una
-  // vuelta completa a la API al pintado del panel.
-  const [clinicasResult, equipoResult] = await Promise.all([apiMisClinicas(token), apiEquipo(token)]);
-
-  // CUÁL ES LA ACTIVA LA DICE /me, NO EL FLAG DE LA LISTA (corrección del
-  // 2026-09-14, reportada porque el selector no aparecía).
-  //
-  // `clinica.activa` de /me/clinicas vale true solo cuando la sesión
-  // ELIGIÓ esa clínica (`sessions.clinic_id`). Quien entró al panel por
-  // el fallback de `membresiaDeLaSesion` —"la más antigua", cuando nunca
-  // tocó una clínica en /clinicas— tiene todas en false, y el selector,
-  // que se dibujaba solo si encontraba una activa, no se dibujaba nunca.
-  //
-  // /me devuelve la clínica en la que el panel está trabajando de verdad,
-  // fallback incluido. Marcar la lista contra ESE id deja las dos cosas
-  // diciendo lo mismo: el nombre del botón y el tilde de la lista.
-  const clinicaDeLaSesion = me?.ok === true ? me.data.clinica : null;
-  const clinicas = (clinicasResult.ok ? clinicasResult.data.clinicas : []).map((clinica) => ({
-    ...clinica,
-    activa: clinicaDeLaSesion ? clinica.id === clinicaDeLaSesion.id : clinica.activa,
-  }));
-
-  return (
-    <SiteHeaderChrome
-      estado={estado}
-      clinicas={clinicas}
-      nombreClinicaActual={clinicaDeLaSesion?.nombre ?? null}
-      equipo={equipoResult.ok ? equipoResult.data : null}
-    />
-  );
+  return <SiteHeaderChrome estado={estado} />;
 }

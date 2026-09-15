@@ -111,25 +111,38 @@ export function EquipoPopover({ equipo }: { equipo: Equipo }) {
         aria-expanded={abierto}
         aria-label="Ver colaboradores"
         onClick={() => setAbierto((a) => !a)}
-        className="flex items-center gap-2 rounded-full border border-linea bg-marfil px-3 py-1.5 transition-colors hover:border-salvia"
+        className="flex flex-shrink-0 items-center gap-2 rounded-full border-linea bg-marfil transition-colors hover:border-salvia max-md:p-0 md:border md:px-3 md:py-1.5"
       >
         {/* Los avatares apilados: tres como mucho. Más arriba de eso la
             pila deja de leerse de un vistazo, que es para lo único que
             sirve. */}
         <span aria-hidden="true" className="flex -space-x-2">
+          {enLinea.length === 0 && (
+            // Sin nadie en línea no habría ningún avatar, y en mobile el
+            // botón quedaría sin nada que tocar.
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-linea bg-hueso text-[10px] font-semibold text-grafito/50 md:h-6 md:w-6">
+              0
+            </span>
+          )}
           {enLinea.slice(0, 3).map((m) => (
             <span
               key={m.userId}
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-[10px] font-semibold text-marfil"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-[11px] font-semibold text-marfil md:h-6 md:w-6 md:text-[10px]"
             >
               {iniciales(m.nombre)}
             </span>
           ))}
         </span>
-        <span className="whitespace-nowrap text-sm font-medium text-grafito">
+        {/* El texto y el chevron son de escritorio. En mobile el renglón
+            del header lo ocupa el selector de clínica, y este control se
+            reduce a los avatares — que es lo que de verdad comunica de un
+            vistazo (corrección del 2026-09-14, con captura). */}
+        <span className="hidden whitespace-nowrap text-sm font-medium text-grafito md:inline">
           {enLinea.length === 1 ? "1 en línea" : `${enLinea.length} en línea`}
         </span>
-        <IconChevronDown className={`h-4 w-4 flex-shrink-0 text-grafito/40 ${abierto ? "rotate-180" : ""}`} />
+        <IconChevronDown
+          className={`hidden h-4 w-4 flex-shrink-0 text-grafito/40 md:block ${abierto ? "rotate-180" : ""}`}
+        />
       </button>
 
       {abierto && (

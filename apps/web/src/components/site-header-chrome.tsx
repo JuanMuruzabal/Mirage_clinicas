@@ -10,9 +10,7 @@ import { IconMenu, IconX } from "./icons";
 import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
-import type { ClinicaDelUsuario, Equipo } from "@dental-mirage/shared-types";
-import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
-import { EquipoPopover } from "@/components/panel/equipo-popover";
+import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -57,30 +55,10 @@ import { EquipoPopover } from "@/components/panel/equipo-popover";
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-export function SiteHeaderChrome({
-  estado,
-  clinicas,
-  nombreClinicaActual,
-  equipo,
-}: {
-  estado: EstadoHeaderSesion;
-  /** Fase 3.2.5 — solo llegan dentro de /panel/**, donde se usan. En el
-   *  resto del sitio vienen vacías y este header no cambia en nada. El
-   *  Server Component decide con `x-pathname` (ver site-header.tsx). */
-  clinicas?: ClinicaDelUsuario[];
-  /** La clínica donde el panel está trabajando, según /me — que resuelve
-   *  el fallback de "la más antigua". No se deriva de `clinicas`: el flag
-   *  `activa` de esa lista vale solo cuando la sesión eligió una a mano. */
-  nombreClinicaActual?: string | null;
-  equipo?: Equipo | null;
-}) {
+export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
-
-  // Quién es la activa lo dice /me (ver site-header.tsx), con la lista
-  // como red: si por lo que sea /me no trajo clínica, se cae al flag.
-  const clinicaActual = nombreClinicaActual ?? clinicas?.find((c) => c.activa)?.nombre ?? null;
 
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
@@ -179,9 +157,10 @@ export function SiteHeaderChrome({
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (
+    <PanelTopbarProvider habilitado={estado === "completo"}>
     <HeaderFrame forceSolid={menuOpen}>
       <div className={contenedorClass}>
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-4 md:flex-none">
           {ocultarLogo ? (
             <>
               {/* Mobile en una ruta con sidebar (/panel/**): hamburguesa
@@ -222,24 +201,9 @@ export function SiteHeaderChrome({
               {/* El selector de clínica, pegado al logo (Fase 3.2.5,
                   mockup `panel-profesional.html`). Va acá y no a la
                   derecha porque contesta "¿dónde estoy parado?", que es
-                  contexto del lugar, no una acción.
-
-                  Oculto en pantalla angosta: en mobile este renglón ya
-                  tiene la hamburguesa y el popover de colaboradores, y la
-                  clínica activa se ve igual en /clinicas. */}
-              {clinicaActual && clinicas && clinicas.length > 0 && (
-                <>
-                  <span aria-hidden="true" className="hidden h-6 w-px flex-shrink-0 bg-linea md:block" />
-                  <div className="hidden md:block">
-                    <SelectorClinica
-                      clinicas={clinicas}
-                      nombreActual={clinicaActual}
-                      variante="compacto"
-                      alineacion="izquierda"
-                    />
-                  </div>
-                </>
-              )}
+                  contexto del lugar, no una acción. Se dibuja solo dentro
+                  de /panel/**; lo decide él, no este archivo. */}
+              <SelectorClinicaDelPanel />
             </>
           ) : esClinicas ? (
             <span className="flex items-center gap-2 text-current">
@@ -284,7 +248,7 @@ export function SiteHeaderChrome({
             `panel-profesional.html`): quién trabaja en esta clínica y
             quién está ahora. Al otro extremo que el selector de clínica
             a propósito — uno dice dónde estás, el otro con quién. */}
-        {equipo && <EquipoPopover equipo={equipo} />}
+        <EquipoDelPanel />
 
         {mostrarGear && <HeaderConfigMenu />}
 
@@ -353,5 +317,6 @@ export function SiteHeaderChrome({
         </nav>
       )}
     </HeaderFrame>
+    </PanelTopbarProvider>
   );
 }

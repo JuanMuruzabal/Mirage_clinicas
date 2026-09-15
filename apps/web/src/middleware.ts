@@ -50,15 +50,6 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-  // La ruta pedida, para que un Server Component pueda saber dónde está
-  // (Fase 3.2.5). El header global es uno solo para toda la app y en
-  // /panel/** tiene que traer datos —las clínicas y el equipo— que en el
-  // resto del sitio serían dos llamadas a la API por página sin ningún
-  // uso. Sin esto no hay forma de decidirlo del lado del servidor:
-  // `usePathname` solo existe en el cliente, y para entonces el fetch ya
-  // habría que hacerlo desde el navegador, que es justo lo que el patrón
-  // BFF no permite (CLAUDE.md).
-  requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
 

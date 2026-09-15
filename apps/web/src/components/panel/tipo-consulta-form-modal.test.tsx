@@ -6,9 +6,14 @@ const { crearTipoConsultaActionMock, editarTipoConsultaActionMock } = vi.hoisted
   crearTipoConsultaActionMock: vi.fn(),
   editarTipoConsultaActionMock: vi.fn(),
 }));
+// "Tipos de consulta ya creados" (Fase 3.2.5): el modal los pide al
+// montarse para ofrecerlos como punto de partida. Por default no hay
+// ninguno, así que el formulario se comporta como siempre.
+const listTiposDeColegasMock = vi.fn(async () => [] as unknown[]);
 vi.mock("@/app/actions/calendario-config", () => ({
   crearTipoConsultaAction: crearTipoConsultaActionMock,
   editarTipoConsultaAction: editarTipoConsultaActionMock,
+  listTiposConsultaDeColegasAction: listTiposDeColegasMock,
 }));
 
 const { TipoConsultaFormModal } = await import("./tipo-consulta-form-modal");
@@ -185,6 +190,58 @@ describe("TipoConsultaFormModal", () => {
       expect(crearTipoConsultaActionMock).toHaveBeenCalledWith(
         expect.objectContaining({ preferenciaHoraDesde: "", preferenciaHoraHasta: "" }),
       );
+    });
+  });
+
+  // Los tipos que ya usa la clínica viven ADENTRO de este modal desde el
+  // 2026-09-14 (pedido del cliente). Antes eran un botón aparte que
+  // copiaba y cerraba: te dejaba con los tiempos del otro y recién
+  // después te mandaba a editarlos, en otra pantalla.
+  describe("tipos de consulta ya creados", () => {
+    const deColega = {
+      id: "t-colega",
+      nombre: "Conducto",
+      color: "#6E8F72",
+      duracionMinutos: 60,
+      tiempoPostConsultaMinutos: 0,
+      deUserId: "u2",
+      deNombre: "Lucía Ferrer",
+      yaTenesUnoParecido: false,
+    };
+
+    it("elegir uno rellena el formulario en vez de guardarlo de una", async () => {
+      listTiposDeColegasMock.mockResolvedValue([deColega]);
+      crearTipoConsultaActionMock.mockResolvedValue({ tipoConsulta: { id: "nuevo" } });
+
+      render(<TipoConsultaFormModal onClose={vi.fn()} onGuardado={vi.fn()} />);
+
+      await userEvent.click(await screen.findByRole("button", { name: /Conducto/ }));
+
+      // El nombre quedó cargado y NO se guardó nada todavía: los tiempos
+      // se configuran acá antes de confirmar.
+      expect(screen.getByDisplayValue("Conducto")).toBeInTheDocument();
+      expect(crearTipoConsultaActionMock).not.toHaveBeenCalled();
+    });
+
+    it("editando uno propio no ofrece partir de otro", async () => {
+      listTiposDeColegasMock.mockResolvedValue([deColega]);
+
+      render(
+        <TipoConsultaFormModal
+          tipoExistente={{
+            id: "mio",
+            nombre: "Limpieza",
+            color: "#E7D9BE",
+            duracionMinutos: 30,
+            tiempoPostConsultaMinutos: 0,
+          }}
+          onClose={vi.fn()}
+          onGuardado={vi.fn()}
+        />,
+      );
+
+      expect(screen.queryByText("Tipos de consulta ya creados")).not.toBeInTheDocument();
+      expect(listTiposDeColegasMock).not.toHaveBeenCalled();
     });
   });
 });

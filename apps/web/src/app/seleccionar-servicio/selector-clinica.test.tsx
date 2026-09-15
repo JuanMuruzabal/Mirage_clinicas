@@ -6,6 +6,9 @@ import type { ClinicaDelUsuario } from "@dental-mirage/shared-types";
 const { entrarEnClinicaActionMock } = vi.hoisted(() => ({ entrarEnClinicaActionMock: vi.fn() }));
 
 vi.mock("@/app/actions/clinicas", () => ({ entrarEnClinicaAction: entrarEnClinicaActionMock }));
+// `router.refresh()` solo se usa en la variante del panel (Fase 3.2.5),
+// donde cambiar de clínica no navega: acá alcanza con que exista.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const { SelectorClinica } = await import("./selector-clinica");
 
