@@ -27,7 +27,16 @@ export function TarjetaOpcion({ seleccionada, onClick, icono, titulo, descripcio
       type="button"
       onClick={onClick}
       aria-pressed={seleccionada}
-      className={`flex h-full flex-col gap-2 rounded-[10px] border p-4 text-left transition-colors ${
+      // `w-full` no es decoración: un <button> encoge a su contenido
+      // aunque su contenedor reserve más ancho (corrección del
+      // 2026-09-14, reportada con captura). En el scroll horizontal de
+      // roles, "Recepcionista" —una línea de descripción— quedaba más
+      // angosto que su contenedor del 62%, mientras "Administrador de
+      // página" —dos líneas— lo llenaba entero. El sobrante del primero
+      // se leía como un hueco más grande entre las dos tarjetas: la
+      // separación parecía inconsistente y en realidad lo que variaba era
+      // el ancho de las tarjetas.
+      className={`flex h-full w-full flex-col gap-2 rounded-[10px] border p-4 text-left transition-colors ${
         seleccionada ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-marfil hover:border-salvia"
       }`}
     >

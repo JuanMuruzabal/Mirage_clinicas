@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { ClinicaDelUsuario } from "@dental-mirage/shared-types";
 import { entrarEnClinicaAction } from "@/app/actions/clinicas";
@@ -34,17 +35,30 @@ export function SelectorClinica({
   nombreActual,
   variante = "tarjeta",
   alineacion = "derecha",
+  quedarseAca = false,
+  onCambiada,
+  bloqueado = false,
 }: {
   clinicas: ClinicaDelUsuario[];
   nombreActual: string;
   variante?: "tarjeta" | "compacto";
   alineacion?: "izquierda" | "derecha";
+  /** En el topbar del panel, cambiar de clínica NO saca de la pantalla:
+   *  deja al profesional en el panel de la otra clínica. */
+  quedarseAca?: boolean;
+  /** Se llama después de cambiar, para que quien tenga los datos los
+   *  vuelva a pedir — el nombre y la lista tienen que decir lo nuevo. */
+  onCambiada?: () => void;
+  /** No se despliega. En el panel, mientras el menú lateral de mobile
+   *  está abierto: el popover quedaría tapado por el drawer, o tapándolo. */
+  bloqueado?: boolean;
 }) {
   const compacto = variante === "compacto";
   const [abierto, setAbierto] = useState(false);
   const [entrando, setEntrando] = useState<string | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
   const [, iniciar] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     if (!abierto) return;
@@ -67,8 +81,19 @@ export function SelectorClinica({
   function cambiarA(clinicaId: string) {
     setEntrando(clinicaId);
     iniciar(async () => {
-      await entrarEnClinicaAction(clinicaId);
+      // Sin segundo argumento fuera del panel: la llamada de siempre se
+      // mantiene igual, no "igual pero con un undefined al final".
+      await (quedarseAca ? entrarEnClinicaAction(clinicaId, { redirigir: false }) : entrarEnClinicaAction(clinicaId));
       setEntrando(null);
+      if (quedarseAca) {
+        setAbierto(false);
+        // Sin redirect no hay navegación que dispare nada: hay que pedir
+        // los datos de nuevo a mano, o el header seguiría mostrando la
+        // clínica anterior.
+        onCambiada?.();
+        // Y el CONTENIDO del panel también es de la otra clínica ahora.
+        router.refresh();
+      }
     });
   }
 
@@ -76,16 +101,22 @@ export function SelectorClinica({
     <div ref={contenedor} className="relative flex-shrink-0">
       <button
         type="button"
-        aria-expanded={abierto}
+        aria-expanded={abierto && !bloqueado}
         aria-label="Cambiar de clínica"
+        disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
         className={`flex items-center border border-linea bg-marfil text-left transition-colors hover:border-salvia ${
-          compacto ? "gap-2 rounded-full px-3 py-1.5" : "gap-3 rounded-[12px] px-4 py-2.5"
+          // Compacto: ancho completo en mobile —donde es el elemento
+          // principal del renglón— y al tamaño de su contenido en
+          // escritorio, donde convive con el logo y el resto del header.
+          compacto ? "w-full gap-2 rounded-full px-3 py-1.5 md:w-auto" : "gap-3 rounded-[12px] px-4 py-2.5"
         }`}
       >
         <span aria-hidden="true" className="h-[9px] w-[9px] flex-shrink-0 rounded-full bg-salvia-oscuro" />
         {compacto ? (
-          <span className="max-w-[9rem] truncate text-sm font-medium text-grafito sm:max-w-[14rem]">{nombreActual}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-grafito md:max-w-[14rem] md:flex-none">
+            {nombreActual}
+          </span>
         ) : (
           <span className="flex flex-col">
             <span className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
@@ -101,7 +132,7 @@ export function SelectorClinica({
 
       {/* `max-w-[calc(100vw-3rem)]`: en un teléfono angosto, 288px fijos
           se salen igual aunque el ancla esté a la derecha. */}
-      {abierto && (
+      {abierto && !bloqueado && (
         <div
           className={`absolute top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft ${
             alineacion === "izquierda" ? "left-0" : "right-0"

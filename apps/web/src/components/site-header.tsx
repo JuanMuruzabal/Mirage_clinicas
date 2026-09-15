@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
 import { getSessionToken } from "@/lib/session";
-import { apiEquipo, apiMe, apiMisClinicas } from "@/lib/api";
+import { apiMe } from "@/lib/api";
 import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome";
 
 // Header global. Antes de completar el onboarding (spec §3) no hay sesión
@@ -32,30 +31,5 @@ export async function SiteHeader() {
       ? "cuentaSinTerminar"
       : "anonimo";
 
-  // Fase 3.2.5 — el topbar de /panel/** suma el selector de clínica y el
-  // popover de colaboradores. Los datos se piden ACÁ, en el único Server
-  // Component del header, y solo dentro del panel: en el resto del sitio
-  // serían dos llamadas a la API por página que nadie mira.
-  //
-  // La ruta la pone el middleware en `x-pathname`. Es la única forma de
-  // decidirlo del lado del servidor —`usePathname` solo existe en el
-  // cliente, y pedirlo desde ahí rompería el patrón BFF (CLAUDE.md)—, y
-  // vale la pena porque lo que se evita no es el costo de una condición
-  // sino el de dos requests.
-  const enPanel = (await headers()).get("x-pathname")?.startsWith("/panel") ?? false;
-  if (!enPanel || estado !== "completo" || !token) {
-    return <SiteHeaderChrome estado={estado} />;
-  }
-
-  // En paralelo: son independientes entre sí y encadenarlas sumaría una
-  // vuelta completa a la API al pintado del panel.
-  const [clinicasResult, equipoResult] = await Promise.all([apiMisClinicas(token), apiEquipo(token)]);
-
-  return (
-    <SiteHeaderChrome
-      estado={estado}
-      clinicas={clinicasResult.ok ? clinicasResult.data.clinicas : []}
-      equipo={equipoResult.ok ? equipoResult.data : null}
-    />
-  );
+  return <SiteHeaderChrome estado={estado} />;
 }

@@ -27,6 +27,13 @@ import (
 //
 // Lo que se comparte, entonces, es la SUGERENCIA: "tu colega ya tiene uno
 // que se llama así, ¿lo querés con tus tiempos?".
+//
+// Por eso acá hay UN endpoint y no dos. Hubo un "incluir" que copiaba la
+// fila de un saque; se sacó el 2026-09-14 cuando el cliente pidió que los
+// tipos ya creados vivieran adentro del formulario de alta: elegir uno
+// solo rellena nombre y color, y el tipo se crea por el alta de siempre,
+// con los tiempos que la persona configura antes de guardar. La copia
+// dejó de necesitar un camino propio en la API.
 type tipoDeColegaResponse struct {
 	tipoConsultaResponse
 	// De quién es. El nombre y no solo el id porque la pantalla dice
@@ -126,7 +133,6 @@ func seParecen(a, b string) bool {
 
 func registerTiposConsultaDeColegasRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/tipos-consulta/de-colegas", listarTiposDeColegasHandler(gdb))
-	r.Post("/tipos-consulta/de-colegas/{id}/incluir", incluirTipoDeColegaHandler(gdb))
 }
 
 // listarTiposDeColegasHandler — los tipos de los demás profesionales de
@@ -211,64 +217,4 @@ func nombresDeLosMiembros(gdb *gorm.DB, tipos []db.TipoConsulta) map[uuid.UUID]s
 		}
 	}
 	return nombres
-}
-
-// incluirTipoDeColegaHandler — COPIA el tipo de un colega a los propios.
-//
-// No hay ningún vínculo entre la copia y el original: desde el momento en
-// que se incluye, son dos tipos independientes. Es exactamente lo que se
-// quiere (ver el comentario de arriba), y por eso este endpoint no
-// devuelve un "id de origen" ni guarda uno.
-func incluirTipoDeColegaHandler(gdb *gorm.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		clinicID, ok := profesionalIDFromRequest(w, r)
-		if !ok {
-			return
-		}
-		session, hay := sessionFromContext(r)
-		if !hay {
-			writeError(w, http.StatusUnauthorized, "sesión inválida")
-			return
-		}
-		id, err := uuid.Parse(chi.URLParam(r, "id"))
-		if err != nil {
-			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
-			return
-		}
-
-		// De ESTA clínica: sin el filtro, el id de un tipo de otra clínica
-		// —que no es secreto, viaja en la pantalla de quien lo tenga—
-		// alcanzaría para copiar su configuración de agenda.
-		var origen db.TipoConsulta
-		if err := gdb.First(&origen, "id = ? AND clinic_id = ?", id, clinicID).Error; err != nil {
-			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
-			return
-		}
-		if origen.UserID != nil && *origen.UserID == session.UserID {
-			writeError(w, http.StatusConflict, "ese tipo de consulta ya es tuyo")
-			return
-		}
-
-		userID := session.UserID
-		copia := db.TipoConsulta{
-			ClinicID: clinicID,
-			UserID:   &userID,
-			// El nombre y el color se copian tal cual: es lo que hace que
-			// la agenda de la clínica se lea igual para todos. Los tiempos
-			// también, como punto de partida — después cada uno los ajusta
-			// sin tocarle nada al otro, que es el sentido de copiar.
-			Nombre:                    origen.Nombre,
-			Color:                     origen.Color,
-			DuracionMinutos:           origen.DuracionMinutos,
-			TiempoPostConsultaMinutos: origen.TiempoPostConsultaMinutos,
-			CantidadSesiones:          origen.CantidadSesiones,
-			PreferenciaHoraDesde:      origen.PreferenciaHoraDesde,
-			PreferenciaHoraHasta:      origen.PreferenciaHoraHasta,
-		}
-		if err := gdb.Create(&copia).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo incluir el tipo de consulta")
-			return
-		}
-		writeJSON(w, http.StatusCreated, toTipoConsultaResponse(copia))
-	}
 }

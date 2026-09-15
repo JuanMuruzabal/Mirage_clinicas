@@ -592,13 +592,6 @@ export function apiTiposConsultaDeColegas(token: string): Promise<ApiResult<Tipo
   });
 }
 
-export function apiIncluirTipoConsultaDeColega(token: string, id: string): Promise<ApiResult<TipoConsulta>> {
-  return request<TipoConsulta>(`/tipos-consulta/de-colegas/${id}/incluir`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
-
 // apiPresencia — quién está trabajando ahora en la clínica activa. La
 // llamada es también el latido de quien pregunta (ver presencia.go), así
 // que no hay un endpoint aparte para "avisar que sigo acá".

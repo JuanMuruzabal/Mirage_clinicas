@@ -15,7 +15,6 @@ import { ModalPortal } from "./modal-portal";
 import { AgregarReglaModal } from "./agregar-regla-modal";
 import { AgregarHorarioAtencionModal, ALCANCE_LABEL_EXCEPCION } from "./agregar-horario-atencion-modal";
 import { TipoConsultaFormModal } from "./tipo-consulta-form-modal";
-import { IncluirTipoDeColegaModal } from "./incluir-tipo-de-colega-modal";
 
 interface ConfiguracionCalendarioModalProps {
   onClose: () => void;
@@ -72,8 +71,6 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
 
   const [tiposConsulta, setTiposConsulta] = useState<TipoConsulta[] | null>(null);
   const [editandoTipo, setEditandoTipo] = useState<TipoConsulta | "nuevo" | null>(null);
-  // Fase 3.2.5 — incluir el tipo de un colega, que COPIA la fila.
-  const [incluyendoDeColega, setIncluyendoDeColega] = useState(false);
   const [errorTipo, setErrorTipo] = useState<string | null>(null);
 
   const filaFocalizadaRef = useRef<HTMLTableRowElement | null>(null);
@@ -366,27 +363,17 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-grafito">Tipos de consulta</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* "De un colega" antes que "Agregar" (Fase 3.2.5):
-                      cuando el de al lado ya tiene armado "Conducto" con
-                      sus tiempos, copiarlo es menos trabajo que crearlo
-                      de cero — y deja los dos calendarios de la clínica
-                      con el mismo nombre y color para lo mismo. */}
-                  <button
-                    type="button"
-                    onClick={() => setIncluyendoDeColega(true)}
-                    className="rounded-full border border-linea bg-marfil px-4 py-1.5 text-sm font-semibold text-grafito hover:border-salvia"
-                  >
-                    De un colega
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditandoTipo("nuevo")}
-                    className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
-                  >
-                    + Agregar tipo
-                  </button>
-                </div>
+                {/* Los tipos que ya usa la clínica viven ADENTRO de este
+                    modal desde el 2026-09-14, como punto de partida del
+                    formulario — no en un botón aparte que copiaba y
+                    cerraba. Ver tipo-consulta-form-modal.tsx. */}
+                <button
+                  type="button"
+                  onClick={() => setEditandoTipo("nuevo")}
+                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
+                >
+                  + Agregar tipo
+                </button>
               </div>
               {tiposConsulta === null ? (
                 <p className="text-sm text-grafito/60">Cargando…</p>
@@ -443,10 +430,6 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
           onClose={() => setAgregando(null)}
           onGuardada={reglaGuardada}
         />
-      )}
-
-      {incluyendoDeColega && (
-        <IncluirTipoDeColegaModal onCerrar={() => setIncluyendoDeColega(false)} onIncluido={tipoGuardado} />
       )}
 
       {editandoTipo && (

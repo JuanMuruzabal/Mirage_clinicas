@@ -6,6 +6,11 @@ import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
 const { usePathnameMock } = vi.hoisted(() => ({ usePathnameMock: vi.fn(() => "/buscar") }));
 vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
+// El header monta el topbar de /panel (Fase 3.2.5), que pide sus datos
+// con una Server Action apenas se monta. Acá no se prueba eso —vive en
+// panel-topbar.test.tsx—, pero sin el mock la acción real corre fuera de
+// un request y deja un rechazo sin atender.
+vi.mock("@/app/actions/topbar-panel", () => ({ datosDelTopbarAction: vi.fn(async () => null) }));
 
 const { SiteHeaderChrome } = await import("./site-header-chrome");
 type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";

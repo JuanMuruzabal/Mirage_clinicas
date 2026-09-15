@@ -10,9 +10,7 @@ import { IconMenu, IconX } from "./icons";
 import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
-import type { ClinicaDelUsuario, Equipo } from "@dental-mirage/shared-types";
-import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
-import { EquipoPopover } from "@/components/panel/equipo-popover";
+import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -57,25 +55,10 @@ import { EquipoPopover } from "@/components/panel/equipo-popover";
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-export function SiteHeaderChrome({
-  estado,
-  clinicas,
-  equipo,
-}: {
-  estado: EstadoHeaderSesion;
-  /** Fase 3.2.5 — solo llegan dentro de /panel/**, donde se usan. En el
-   *  resto del sitio vienen vacías y este header no cambia en nada. El
-   *  Server Component decide con `x-pathname` (ver site-header.tsx). */
-  clinicas?: ClinicaDelUsuario[];
-  equipo?: Equipo | null;
-}) {
+export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
-
-  // La clínica activa sale de la lista misma y no de una prop aparte:
-  // una sola fuente para "cuál es" y "cuáles hay" no puede desincronizarse.
-  const clinicaActual = clinicas?.find((c) => c.activa)?.nombre ?? null;
 
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
@@ -169,14 +152,20 @@ export function SiteHeaderChrome({
   // contenido de esas páginas, en vez de centrarse — así sus bordes
   // quedan alineados de verdad. El resto del sitio (sin sidebar, spec
   // §9.7) no cambia.
+  // `gap-3` en el panel (corrección del 2026-09-14, con captura): en
+  // mobile el selector de clínica se estira para ocupar el renglón, y
+  // `justify-between` no deja ningún aire entre su borde y el avatar de
+  // colaboradores — quedaban pegados. El gap es un piso, no un reemplazo
+  // del justify-between.
   const contenedorClass = isPanelRoute(pathname)
-    ? "flex w-full items-center justify-between px-8 py-4"
+    ? "flex w-full items-center justify-between gap-3 px-8 py-4"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (
+    <PanelTopbarProvider habilitado={estado === "completo"}>
     <HeaderFrame forceSolid={menuOpen}>
       <div className={contenedorClass}>
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-4 md:flex-none">
           {ocultarLogo ? (
             <>
               {/* Mobile en una ruta con sidebar (/panel/**): hamburguesa
@@ -217,24 +206,9 @@ export function SiteHeaderChrome({
               {/* El selector de clínica, pegado al logo (Fase 3.2.5,
                   mockup `panel-profesional.html`). Va acá y no a la
                   derecha porque contesta "¿dónde estoy parado?", que es
-                  contexto del lugar, no una acción.
-
-                  Oculto en pantalla angosta: en mobile este renglón ya
-                  tiene la hamburguesa y el popover de colaboradores, y la
-                  clínica activa se ve igual en /clinicas. */}
-              {clinicaActual && clinicas && clinicas.length > 0 && (
-                <>
-                  <span aria-hidden="true" className="hidden h-6 w-px flex-shrink-0 bg-linea md:block" />
-                  <div className="hidden md:block">
-                    <SelectorClinica
-                      clinicas={clinicas}
-                      nombreActual={clinicaActual}
-                      variante="compacto"
-                      alineacion="izquierda"
-                    />
-                  </div>
-                </>
-              )}
+                  contexto del lugar, no una acción. Se dibuja solo dentro
+                  de /panel/**; lo decide él, no este archivo. */}
+              <SelectorClinicaDelPanel />
             </>
           ) : esClinicas ? (
             <span className="flex items-center gap-2 text-current">
@@ -279,7 +253,7 @@ export function SiteHeaderChrome({
             `panel-profesional.html`): quién trabaja en esta clínica y
             quién está ahora. Al otro extremo que el selector de clínica
             a propósito — uno dice dónde estás, el otro con quién. */}
-        {equipo && <EquipoPopover equipo={equipo} />}
+        <EquipoDelPanel />
 
         {mostrarGear && <HeaderConfigMenu />}
 
@@ -348,5 +322,6 @@ export function SiteHeaderChrome({
         </nav>
       )}
     </HeaderFrame>
+    </PanelTopbarProvider>
   );
 }

@@ -838,3 +838,54 @@ Un profesional entra al panel, ve en el topbar en qué clínica está parado y p
 **Lo que queda pendiente, declarado:** la presencia no distingue *"tiene el panel abierto"* de *"estuvo activo hace cuatro minutos"* — con el umbral de 5 minutos, las dos cosas se ven igual. Alcanza para la pregunta del brief (*"¿quién está atendiendo hoy?"*) y no alcanzaría para un indicador de escritura en vivo, que hoy no existe en ninguna pantalla. Si alguna vez hiciera falta, ahí sí entra un transporte con conexión.
 
 Sigue la **3.2.6 — vista del recepcionista**: la subfase más grande, con los cuatro módulos del panel en vista general y por profesional. Es la primera que va a consumir de verdad el aislamiento de la 3.2.2 en la dirección contraria — hasta ahora todo fue *"cada uno ve lo suyo"*, y ahí aparece el rol que ve todo.
+
+### Ronda de QA de la 3.2.5 (2026-09-14)
+
+**El selector de clínica no aparecía, y el motivo era mío.** Lo dibujaba solo si encontraba una clínica con `activa: true` en la lista de `/me/clinicas`, y ese flag vale `true` **únicamente cuando la sesión eligió esa clínica a mano** (`sessions.clinic_id`). Quien entró al panel por el fallback de `membresiaDeLaSesion` —"la más antigua", porque nunca tocó una clínica en `/clinicas`— tiene todas en `false`: el selector no se dibujaba nunca, sin error ni aviso.
+
+La clínica correcta la dice `/me`, que resuelve ese fallback y es justamente lo que el panel está usando. Ahora el header saca de ahí el nombre del botón **y** marca la lista contra ese id, así el tilde y el título dicen lo mismo. Quedó con test: ninguna clínica marcada, y el selector igual aparece.
+
+Es un caso que no se ve leyendo el código —el flag existe y parece la fuente natural— y aparece apenas alguien usa la app sin elegir clínica, que es el camino más común de todos.
+
+**La separación entre las tarjetas de rol parecía inconsistente** (reportado con captura: el hueco a la izquierda de "Recepcionista" era la mitad del de su derecha). Lo que variaba no era la separación sino **el ancho de las tarjetas**: `TarjetaOpcion` es un `<button>`, y un botón encoge a su contenido aunque su contenedor reserve más ancho. "Recepcionista / Maneja los turnos de toda la clínica" entra en una línea y quedaba más angosta que su contenedor del 62%; "Administrador de página", con dos líneas, lo llenaba entero. El sobrante de la primera se leía como espacio entre las dos. Un `w-full` en el botón, y las tres miden lo mismo.
+
+Vale para todas las pantallas que usan esa tarjeta, no solo para el modal de invitar: el alta de clínica (individual / organización) tenía el mismo desajuste, más difícil de notar porque ahí son dos y están en una grilla.
+
+**Las tarjetas de `/clinicas` no tenían animación** y las de "¿Qué necesitás hoy?" sí. Son pantallas consecutivas en el recorrido de toda sesión, así que el salto se notaba como un cambio de estilo. Ahora entran con el mismo `ScrollReveal` —fade y desplazamiento—, escalonadas de a 60 ms y respetando `prefers-reduced-motion`. El `h-full` va en el `ScrollReveal`, que pasó a ser la celda de la grilla: sin eso, las tarjetas dejaban de tener todas el mismo alto.
+
+### El topbar del panel, reescrito: un layout raíz no se re-renderiza (2026-09-14)
+
+El selector de clínica y el popover de colaboradores **no aparecían**. Reportado dos veces, y las dos causas eran distintas — la segunda invalidó el diseño entero, no un detalle.
+
+**Primera causa: el flag equivocado.** El selector se dibujaba solo si encontraba una clínica con `activa: true` en `/me/clinicas`, y ese flag vale `true` **únicamente cuando la sesión eligió esa clínica a mano** (`sessions.clinic_id`). Quien entró por el fallback de `membresiaDeLaSesion` —"la más antigua"— tiene todas en `false`. Verificado contra la base local con una sesión de prueba: `/me` devolvía la clínica correcta y `/me/clinicas` las dos en `activa: false`.
+
+**Segunda causa, la de fondo: el header vive en el layout RAÍZ, y un layout no se vuelve a renderizar en una navegación del cliente.** Los datos se pedían en `SiteHeader`, un Server Component de ese layout, que decidía si estaba en `/panel` leyendo un `x-pathname` puesto por el middleware. Funcionaba solo recargando la página parado en `/panel`: quien entraba a `/clinicas` y navegaba al panel —el camino normal, porque `/clinicas` es el punto de partida de toda sesión desde la 3.2.3— se quedaba con el render de `/clinicas`, donde el topbar no pide nada.
+
+Eso no se arregla con una condición mejor. El dato depende de la ruta, y **la ruta solo es reactiva en el cliente**:
+
+- `datosDelTopbarAction` (Server Action) trae `/me` + `/me/clinicas` + `/equipo` en paralelo, y resuelve ahí mismo cuál es la activa contra el id que devuelve `/me`. Sigue sin romperse el BFF: el navegador llama a la acción, no a la API.
+- `PanelTopbarProvider` usa `usePathname`, que **sí** se entera de entrar y salir del panel, y comparte el resultado por contexto. Un contexto y no dos componentes independientes porque los dos controles viven en puntas opuestas del header: sin eso serían dos veces las mismas tres llamadas.
+- El `x-pathname` del middleware se sacó: quedó sin uso, y dejarlo sugeriría un mecanismo que ya no existe.
+
+**Lo que se pierde y se acepta:** los dos controles aparecen una vuelta de API después de que pinta el panel, en vez de venir con el HTML. A cambio funcionan en los dos caminos de entrada, que es la diferencia entre verse y no verse.
+
+**El test que faltaba** es el que reproduce el camino real: montado fuera del panel no pide nada, y al cambiar la ruta a `/panel` —sin recargar— los dos controles aparecen. La primera versión tenía tests de las dos direcciones de "¿está en el panel?", pero ninguno navegaba: probaban el render inicial, que era justo el caso que sí funcionaba.
+
+### Segunda ronda del topbar, y los tipos adentro del alta (2026-09-14)
+
+**Cambiar de clínica desde el topbar ya no saca del panel.** Antes redirigía a "¿Qué necesitás hoy?", que era el comportamiento correcto para el selector de *esa* pantalla y el equivocado acá: **sacar a alguien de donde está trabajando por una acción que no lo pidió**. Ahora `entrarEnClinicaAction` acepta no redirigir; el selector del panel la usa así, pide los datos del topbar de nuevo y llama a `router.refresh()` para que el contenido también sea de la otra clínica. Los dos controles **se actualizan en vez de desaparecer**, que es lo que el cliente pidió textualmente.
+
+**Los dos controles son exclusivos del header de `/panel`,** y el chequeo de ruta se repite en ellos además de en el provider. Es deliberado: con la comprobación en un solo lado, cualquiera que los monte en otra pantalla los vería igual.
+
+**El header en mobile se rompía.** La primera versión escondía el selector en pantalla angosta —pensando que el renglón ya estaba ocupado— y el resultado era un header con la hamburguesa y nada más. El orden correcto, según la captura del cliente, es **hamburguesa · selector ocupando lo que sobra · avatar**: el selector pasa a ser el elemento principal de ese renglón, y el control de colaboradores se reduce a los avatares, sin el texto ni el chevron. Con nadie en línea se muestra un círculo con "0", porque si no en mobile el botón no tendría nada que tocar.
+
+**Los tipos de un colega se mudaron ADENTRO del alta**, y dejaron de llamarse así: en el modal de "+ Agregar tipo" hay ahora una fila de **"Tipos de consulta ya creados"**. Elegir uno **rellena el formulario** —nombre y color, que es lo que conviene que la clínica comparta— y la duración, el tiempo post-consulta y la preferencia horaria se configuran ahí mismo antes de guardar.
+
+El problema de la versión anterior no era dónde vivía el botón: era que **copiaba los tiempos del otro y recién después te dejaba editarlos, en otra pantalla**. Con el alta de siempre, el tipo nace propio sin que nadie tenga que garantizarlo, y por eso el endpoint `POST /tipos-consulta/de-colegas/{id}/incluir` **se eliminó**: la copia dejó de necesitar un camino propio en la API. Queda solo el listado, que es la sugerencia.
+
+**Cuatro ajustes finos sobre lo anterior**, todos reportados mirando la pantalla:
+
+- **El bloque "Tipos de consulta ya creados" se leía como una nota al pie.** El rótulo pasa a verde (`salvia-oscuro`) y la explicación a grafito pleno: en gris al 45% y al 60% quedaba como letra chica, y es la **primera decisión del formulario** — de dónde partir.
+- **El avatar de colaboradores quedaba pegado a la píldora de la clínica.** En mobile el selector se estira para ocupar el renglón, y `justify-between` no deja aire cuando un elemento ya llenó su lado. El contenedor del header en el panel suma un `gap-3`, que actúa de piso.
+- **Con el menú lateral de mobile desplegado, los dos controles no se despliegan.** Quedan debajo del drawer: abrirlos dejaría un popover tapado, o tapando el menú. Los botones pasan a `disabled` mientras el drawer está abierto, y tiene test.
+
