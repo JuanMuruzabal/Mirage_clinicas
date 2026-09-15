@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -27,10 +28,19 @@ func crearClinicaDePruebaDisponibilidad(t *testing.T, email string) (http.Handle
 	return router, gdb, reg
 }
 
+// nTipoDePrueba — un nombre distinto por tipo creado. Desde el
+// 2026-09-15 un profesional no puede tener dos tipos con el mismo nombre
+// (es un clic de más, no una elección), y varios de estos tests arman dos
+// tipos para comparar duraciones o preferencias entre sí.
+var nTipoDePrueba int
+
 func crearTipoDePrueba(t *testing.T, router http.Handler, token string, duracion, tiempoPost int) tipoConsultaResponse {
 	t.Helper()
+	nTipoDePrueba++
 	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", token, tipoConsultaRequest{
-		Nombre: "Tipo de prueba", Color: "#123ABC", DuracionMinutos: duracion, TiempoPostConsultaMinutos: tiempoPost,
+		Nombre:          fmt.Sprintf("Tipo de prueba %d", nTipoDePrueba),
+		Color:           "#123ABC",
+		DuracionMinutos: duracion, TiempoPostConsultaMinutos: tiempoPost,
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("no se pudo crear el tipo de consulta de prueba: status=%d body=%s", rec.Code, rec.Body.String())
@@ -394,8 +404,9 @@ func TestDisponibilidad_ExcepcionRango_SoloAplicaDentroDelRangoElegido(t *testin
 // preferencia de atención (nueva función, 2026-09-08).
 func crearTipoConPreferencia(t *testing.T, router http.Handler, token, preferenciaDesde, preferenciaHasta string) tipoConsultaResponse {
 	t.Helper()
+	nTipoDePrueba++
 	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", token, tipoConsultaRequest{
-		Nombre: "Tipo de prueba", Color: "#123ABC", DuracionMinutos: 30,
+		Nombre: fmt.Sprintf("Tipo con preferencia %d", nTipoDePrueba), Color: "#123ABC", DuracionMinutos: 30,
 		PreferenciaHoraDesde: preferenciaDesde, PreferenciaHoraHasta: preferenciaHasta,
 	})
 	if rec.Code != http.StatusCreated {

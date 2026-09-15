@@ -186,7 +186,11 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByRole("cell", { name: "Consulta general" })).toBeInTheDocument();
 
     await abrirFiltros(user);
-    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "tc-1");
+    // El valor de la opción es el NOMBRE normalizado, no el id: cada
+    // profesional tiene su propia fila para "Consulta general", y filtrar
+    // por el id de la mía escondía los turnos del colega que son de ese
+    // mismo tipo (corrección del 2026-09-15).
+    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "consulta general");
     expect(screen.getByRole("button", { name: "Ver 1 turno" })).toBeInTheDocument();
     await confirmarFiltros(user);
 
@@ -307,6 +311,50 @@ describe("PacienteTurnosTable", () => {
       // decide cuál se ve.
       expect(screen.getAllByText("Ana Gómez").length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Beto Colega/).length).toBeGreaterThan(0);
+    });
+
+    // Corrección del 2026-09-15, reportada por el cliente: "el tipo de
+    // consulta del turno hecho por otro profesional aparece como '-',
+    // aunque haga referencia al mismo tipo de consulta".
+    //
+    // El turno del colega referencia el id del tipo de ÉL, que no está
+    // en `tiposConsulta` (los míos). El backend manda el nombre y el
+    // color resueltos en el turno mismo, y la tabla los usa.
+    it("el turno de un colega muestra su tipo de consulta, no —", () => {
+      const ajenoConTipoPropio = {
+        ...ajeno,
+        tipoConsultaId: "tc-del-colega",
+        tipoConsultaNombre: "Limpieza dental",
+        tipoConsultaColor: "#6E8F72",
+      };
+      const { container } = render(
+        <PacienteTurnosTable turnos={[ajenoConTipoPropio]} tiposConsulta={tiposConsulta} vacio="" />,
+      );
+
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+      // Y con SU color, no el neutro de "no lo encontré".
+      const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
+      expect(punto).toHaveStyle({ background: "rgb(110, 143, 114)" });
+    });
+
+    // La otra mitad: el tipo del colega tiene que poder filtrarse. Si las
+    // opciones salieran de mis tipos, un tipo que solo usa él no estaría.
+    it("el tipo de un colega se puede elegir en el filtro", async () => {
+      const user = userEvent.setup();
+      const ajenoConTipoPropio = {
+        ...ajeno,
+        tipoConsultaId: "tc-del-colega",
+        tipoConsultaNombre: "Limpieza dental",
+        tipoConsultaColor: "#6E8F72",
+      };
+      render(<PacienteTurnosTable turnos={[mio, ajenoConTipoPropio]} tiposConsulta={tiposConsulta} vacio="" />);
+
+      await abrirFiltros(user);
+      await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "limpieza dental");
+      await confirmarFiltros(user);
+
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+      expect(screen.queryByRole("cell", { name: /Urgencia/ })).not.toBeInTheDocument();
     });
 
     it("el ajeno va en solo lectura y sin link; el propio conserva el suyo", () => {

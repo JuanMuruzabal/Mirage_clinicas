@@ -119,9 +119,14 @@ func TestTiposDeColegas_CadaUnoVeLosSuyos(t *testing.T) {
 	}
 }
 
-// TestTiposDeColegas_AvisaCuandoYaTenesUnoParecido — el fuzzy matching en
-// su lugar real: no bloquea, avisa.
-func TestTiposDeColegas_AvisaCuandoYaTenesUnoParecido(t *testing.T) {
+// TestTiposDeColegas_NoOfreceLoQueYaTenes — corrección del 2026-09-15.
+//
+// Antes se listaba igual, con un cartel "ya tenés uno parecido". Estaba
+// mal de dos maneras: es ruido —ofrecer como punto de partida algo que ya
+// está en tu lista no ahorra nada— y era engañoso, porque dos
+// profesionales con "Consulta general" en colores distintos tienen EL
+// MISMO tipo. El color es preferencia de cada agenda, no identidad.
+func TestTiposDeColegas_NoOfreceLoQueYaTenes(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Email: "tipos-avisa-titular@example.com", Password: "unaClaveLarga123",
@@ -131,22 +136,76 @@ func TestTiposDeColegas_AvisaCuandoYaTenesUnoParecido(t *testing.T) {
 	sumarColaboradorDePrueba(t, gdb, router, clinicID, "tipos-avisa-colega@example.com", db.RoleProfesional)
 	colegaID := userIDDelMail(t, gdb, "tipos-avisa-colega@example.com")
 
-	// Uno que se parece a "Consulta general" del seed, y otro que no.
+	// El colega tiene uno que el titular YA tiene (viene del seed, escrito
+	// distinto) y otro que no.
 	tipoDe(t, gdb, clinicID, colegaID, "Consulta General", 30)
-	tipoDe(t, gdb, clinicID, colegaID, "Ortodoncia", 45)
+	tipoDe(t, gdb, clinicID, colegaID, "Ortodoncia del colega", 45)
 
-	porNombre := map[string]bool{}
+	ofrecidos := map[string]string{}
 	for _, tipo := range leerTiposDeColegas(t, router, titular.Token) {
-		porNombre[tipo.Nombre] = tipo.YaTenesUnoParecido
-		if tipo.DeNombre == "" {
-			t.Errorf("%q no dice de quién es", tipo.Nombre)
-		}
+		ofrecidos[tipo.Nombre] = tipo.Origen
 	}
-	if !porNombre["Consulta General"] {
-		t.Error("no avisó que ya tenés uno parecido a 'Consulta General'")
+
+	if _, hay := ofrecidos["Consulta General"]; hay {
+		t.Error("ofrece 'Consulta General', que el titular ya tiene: es el mismo tipo, no uno parecido")
 	}
-	if porNombre["Ortodoncia"] {
-		t.Error("avisó de un parecido que no existe para 'Ortodoncia'")
+	if origen := ofrecidos["Ortodoncia del colega"]; origen != origenTipoColega {
+		t.Errorf("el tipo del colega no se ofrece o viene con origen %q", origen)
+	}
+}
+
+// TestTiposDeColegas_OfreceElRepertorioOdontologico — con una clínica
+// nueva, o con un colega que armó dos tipos, la lista quedaba casi vacía
+// y no ayudaba a nadie. El repertorio da nombres que un odontólogo
+// reconoce en vez de dejarlo inventar la nomenclatura.
+func TestTiposDeColegas_OfreceElRepertorioOdontologico(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "tipos-catalogo@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Catálogo",
+	})
+
+	porNombre := map[string]string{}
+	for _, tipo := range leerTiposDeColegas(t, router, titular.Token) {
+		porNombre[tipo.Nombre] = tipo.Origen
+	}
+
+	if porNombre["Limpieza dental"] != origenTipoCatalogo {
+		t.Errorf("no ofrece 'Limpieza dental' del repertorio: %+v", porNombre)
+	}
+	// Y no repite lo que el titular ya tiene del seed: las dos
+	// direcciones del mismo filtro.
+	if _, hay := porNombre["Consulta general"]; hay {
+		t.Error("el repertorio ofrece 'Consulta general', que el titular ya tiene del alta")
+	}
+}
+
+// TestTipoConsulta_NoSePuedeCrearDosVecesElMismo — tener el mismo tipo
+// dos veces no es una elección: es un clic de más, y después hay que
+// elegir entre dos opciones idénticas cada vez que se carga un turno.
+func TestTipoConsulta_NoSePuedeCrearDosVecesElMismo(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "tipos-dup@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Duplicados",
+	})
+
+	// Escrito distinto, mismo tipo: la comparación es por nombre
+	// normalizado, no exacto.
+	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", titular.Token, tipoConsultaRequest{
+		Nombre: "consulta GENERAL", Color: "#6E8F72", DuracionMinutos: 45,
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+
+	// La otra dirección: uno que no tiene, se crea. Un bloqueo que
+	// rechaza todo no distingue nada.
+	rec = doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", titular.Token, tipoConsultaRequest{
+		Nombre: "Limpieza dental", Color: "#6E8F72", DuracionMinutos: 45,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Errorf("un tipo que no tenía tiene que poder crearse: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

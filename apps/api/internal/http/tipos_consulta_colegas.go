@@ -41,11 +41,17 @@ type tipoDeColegaResponse struct {
 	// colegas distintos son indistinguibles.
 	DeUserID string `json:"deUserId"`
 	DeNombre string `json:"deNombre"`
-	// YaTenesUnoParecido — si alguno de los tuyos se le parece por
-	// nombre. No lo bloquea: avisa. Tener "Conducto" y "Conductos" es
-	// redundante pero no ilegal, y quien decide es la persona.
-	YaTenesUnoParecido bool `json:"yaTenesUnoParecido"`
+	// Origen — de dónde sale esta sugerencia: `colega` si la tiene
+	// alguien de la clínica, `catalogo` si es del repertorio odontológico
+	// (tipos_consulta_catalogo.go). La pantalla los agrupa distinto: uno
+	// dice "esto ya se usa acá", el otro "esto se suele usar".
+	Origen string `json:"origen"`
 }
+
+const (
+	origenTipoColega   = "colega"
+	origenTipoCatalogo = "catalogo"
+)
 
 // normalizarNombreTipo deja el nombre en su forma comparable: sin
 // acentos, sin mayúsculas, sin puntuación y sin espacios de más.
@@ -163,18 +169,42 @@ func listarTiposDeColegasHandler(gdb *gorm.DB) http.HandlerFunc {
 		// tipo sería N+1 sobre una lista que se pinta entera.
 		nombres := nombresDeLosMiembros(gdb, ajenos)
 
-		out := make([]tipoDeColegaResponse, 0, len(ajenos))
-		for _, t := range ajenos {
-			parecido := false
+		// LO QUE YA TENÉS NO SE OFRECE (corrección del 2026-09-15,
+		// reportada por el cliente). Antes se listaba igual con un cartel
+		// "ya tenés uno parecido", y eso estaba mal de dos maneras:
+		//
+		//   - Es ruido: ofrecer como punto de partida algo que ya existe
+		//     en tu lista no te ahorra nada.
+		//   - Y era engañoso. Dos profesionales con "Consulta general" en
+		//     colores distintos tienen EL MISMO tipo, no uno parecido: el
+		//     color es preferencia de cada agenda, no identidad. El cartel
+		//     sugería que había una diferencia real.
+		//
+		// La comparación es por nombre normalizado (`seParecen`), que es
+		// lo que define un tipo de consulta — la duración y el color son
+		// configuración de quien lo usa.
+		yaLoTengo := func(nombre string) bool {
 			for _, mio := range mios {
-				if seParecen(mio.Nombre, t.Nombre) {
-					parecido = true
-					break
+				if seParecen(mio.Nombre, nombre) {
+					return true
 				}
 			}
+			return false
+		}
+
+		out := make([]tipoDeColegaResponse, 0, len(ajenos)+len(catalogoTiposConsulta))
+		yaOfrecido := make(map[string]bool, len(ajenos))
+
+		// Primero los de la clínica: "esto ya se usa acá" pesa más que
+		// "esto se suele usar".
+		for _, t := range ajenos {
+			if yaLoTengo(t.Nombre) || yaOfrecido[normalizarNombreTipo(t.Nombre)] {
+				continue
+			}
+			yaOfrecido[normalizarNombreTipo(t.Nombre)] = true
 			fila := tipoDeColegaResponse{
 				tipoConsultaResponse: toTipoConsultaResponse(t),
-				YaTenesUnoParecido:   parecido,
+				Origen:               origenTipoColega,
 			}
 			if t.UserID != nil {
 				fila.DeUserID = t.UserID.String()
@@ -182,6 +212,23 @@ func listarTiposDeColegasHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 			out = append(out, fila)
 		}
+
+		// Y después el repertorio, sin repetir lo que ya ofreció un
+		// colega: el mismo nombre dos veces en la misma fila no se
+		// distingue.
+		for _, s := range catalogoTiposConsulta {
+			if yaLoTengo(s.Nombre) || yaOfrecido[normalizarNombreTipo(s.Nombre)] {
+				continue
+			}
+			yaOfrecido[normalizarNombreTipo(s.Nombre)] = true
+			out = append(out, tipoDeColegaResponse{
+				tipoConsultaResponse: tipoConsultaResponse{
+					Nombre: s.Nombre, Color: s.Color, DuracionMinutos: s.DuracionMinutos,
+				},
+				Origen: origenTipoCatalogo,
+			})
+		}
+
 		writeJSON(w, http.StatusOK, out)
 	}
 }

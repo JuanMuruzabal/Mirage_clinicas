@@ -10,12 +10,47 @@ import { VerTextoBoton } from "../ver-texto-boton";
 import { ClickableTableRow } from "./clickable-table-row";
 import { FiltrosSheet } from "./filtros-sheet";
 
+// El tipo de consulta de un turno de esta tabla, que puede ser de otro
+// profesional (corrección del 2026-09-15, reportada por el cliente:
+// "el tipo de consulta del turno hecho por otro profesional aparece
+// como '-'").
+//
+// La ficha muestra los turnos de TODOS los profesionales que atendieron
+// al paciente, y hasta acá se resolvía el tipo contra `tiposConsulta`,
+// que son los MÍOS: el turno de un colega referencia el id del tipo de
+// ÉL, el lookup fallaba y salía "—". Un historial que no dice qué se
+// hizo no es un historial.
+//
+// Ahora el backend manda el nombre y el color resueltos en el turno
+// mismo (`tipoConsultaNombre`/`tipoConsultaColor`), que es lo coherente
+// con cómo funcionan los tipos: el NOMBRE es lo compartido en la
+// clínica, el color es preferencia de cada agenda. El map propio queda
+// como respaldo para respuestas viejas en caché (y para los fixtures de
+// test que arman un Turno sin esos campos).
+function tipoDelTurno(t: Turno, tipoPorId: Map<string, TipoConsulta>): { nombre: string; color: string } | undefined {
+  if (t.tipoConsultaNombre) return { nombre: t.tipoConsultaNombre, color: t.tipoConsultaColor ?? "" };
+  const mio = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+  return mio ? { nombre: mio.nombre, color: mio.color } : undefined;
+}
+
+// El filtro compara por NOMBRE, no por id, por la misma razón: dos
+// profesionales tienen su propia fila para "Limpieza dental", y filtrar
+// por el id de la mía escondió los turnos del colega que son de ese
+// mismo tipo. Normalizado, porque "Consulta General" y "consulta
+// general" son lo mismo escrito distinto.
+function claveTipo(nombre: string): string {
+  return nombre.trim().toLowerCase();
+}
+
 // aplicaFiltro — extraída para poder aplicarse dos veces: contra el
 // estado YA CONFIRMADO (la tabla de abajo) y contra el estado BORRADOR
 // (el conteo en vivo del botón "Ver X turnos" de FiltrosSheet, mientras
 // la hoja sigue abierta y todavía no se confirmó nada).
-function aplicaFiltro(t: Turno, tipoId: string, desde: string, hasta: string): boolean {
-  if (tipoId !== "todos" && t.tipoConsultaId !== tipoId) return false;
+function aplicaFiltro(t: Turno, tipoPorId: Map<string, TipoConsulta>, tipo: string, desde: string, hasta: string): boolean {
+  if (tipo !== "todos") {
+    const suyo = tipoDelTurno(t, tipoPorId);
+    if (!suyo || claveTipo(suyo.nombre) !== tipo) return false;
+  }
   if (!t.horaInicio) return desde === "" && hasta === "";
   const fecha = t.horaInicio.slice(0, 10);
   if (desde && fecha < desde) return false;
@@ -91,18 +126,31 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
   const [draftHasta, setDraftHasta] = useState(hasta);
 
   const tipoPorId = useMemo(() => new Map(tiposConsulta.map((t) => [t.id, t])), [tiposConsulta]);
+  // Las opciones salen de los TURNOS, no de mis tipos: en esta tabla hay
+  // turnos de colegas, y un tipo que solo usa el colega tiene que poder
+  // filtrarse igual. Deduplicado por nombre normalizado — si los dos
+  // tenemos "Limpieza dental", es una sola opción.
   const tiposUsados = useMemo(() => {
-    const ids = new Set(turnos.map((t) => t.tipoConsultaId).filter((id): id is string => Boolean(id)));
-    return tiposConsulta.filter((t) => ids.has(t.id));
-  }, [turnos, tiposConsulta]);
+    const porClave = new Map<string, string>();
+    for (const t of turnos) {
+      const suyo = tipoDelTurno(t, tipoPorId);
+      if (suyo && !porClave.has(claveTipo(suyo.nombre))) porClave.set(claveTipo(suyo.nombre), suyo.nombre);
+    }
+    return [...porClave.entries()]
+      .map(([clave, nombre]) => ({ clave, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [turnos, tipoPorId]);
 
-  const filtrados = useMemo(() => turnos.filter((t) => aplicaFiltro(t, tipoId, desde, hasta)), [turnos, tipoId, desde, hasta]);
+  const filtrados = useMemo(
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoId, desde, hasta)),
+    [turnos, tipoPorId, tipoId, desde, hasta],
+  );
   // draftFiltrados — puramente para el conteo en vivo del botón de la
   // hoja ("Ver X turnos"); la tabla real sigue mostrando `filtrados`
   // (confirmado) hasta que se toca ese botón.
   const draftFiltrados = useMemo(
-    () => turnos.filter((t) => aplicaFiltro(t, draftTipoId, draftDesde, draftHasta)),
-    [turnos, draftTipoId, draftDesde, draftHasta],
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, draftTipoId, draftDesde, draftHasta)),
+    [turnos, tipoPorId, draftTipoId, draftDesde, draftHasta],
   );
 
   const hayFiltrosActivos = tipoId !== "todos" || desde !== "" || hasta !== "";
@@ -174,7 +222,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
               >
                 <option value="todos">Todos los tipos</option>
                 {tiposUsados.map((t) => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.clave} value={t.clave}>
                     {t.nombre}
                   </option>
                 ))}
@@ -276,7 +324,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
             </thead>
             <tbody>
               {filtrados.map((t) => {
-                const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
+                const tipo = tipoDelTurno(t, tipoPorId);
                 // resuelto: mismo criterio derivado que TurnosTable/
                 // TurnoDetalle (TR-074 en docs/Arquitectura y base/tradeoffs.md) — no es un
                 // estado real, agendado + horaFin ya pasado.

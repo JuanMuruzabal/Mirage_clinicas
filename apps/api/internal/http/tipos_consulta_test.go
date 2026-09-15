@@ -116,7 +116,7 @@ func TestCrearTipoConsulta_ConPreferenciaDeAtencion(t *testing.T) {
 	})
 
 	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", reg.Token, tipoConsultaRequest{
-		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+		Nombre: "Consulta de prueba", Color: "#123ABC", DuracionMinutos: 30,
 		PreferenciaHoraDesde: "08:00", PreferenciaHoraHasta: "12:00",
 	})
 	if rec.Code != http.StatusCreated {
@@ -144,14 +144,14 @@ func TestEditarTipoConsulta_QuitaLaPreferenciaDeAtencion(t *testing.T) {
 	})
 
 	crearRec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", reg.Token, tipoConsultaRequest{
-		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+		Nombre: "Consulta de prueba", Color: "#123ABC", DuracionMinutos: 30,
 		PreferenciaHoraDesde: "08:00", PreferenciaHoraHasta: "12:00",
 	})
 	var creado tipoConsultaResponse
 	_ = json.Unmarshal(crearRec.Body.Bytes(), &creado)
 
 	editarRec := doJSONAuth(t, router, http.MethodPatch, "/tipos-consulta/"+creado.ID, reg.Token, tipoConsultaRequest{
-		Nombre: "Consulta general", Color: "#123ABC", DuracionMinutos: 30,
+		Nombre: "Consulta de prueba", Color: "#123ABC", DuracionMinutos: 30,
 	})
 	if editarRec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", editarRec.Code, http.StatusOK, editarRec.Body.String())

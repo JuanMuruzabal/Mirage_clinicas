@@ -62,6 +62,19 @@ type turnoResponse struct {
 	AtendidoPorUserID *string `json:"atendidoPorUserId,omitempty"`
 	AtendidoPorNombre string  `json:"atendidoPorNombre,omitempty"`
 	EsMio             bool    `json:"esMio"`
+	// El NOMBRE del tipo de consulta, además del id (2026-09-15).
+	//
+	// La ficha de un paciente muestra turnos de varios profesionales, y
+	// resolvía el tipo contra la lista PROPIA: el turno de un colega
+	// referencia el id del tipo de ÉL, que no está en esa lista, y salía
+	// "—". Un historial que no dice qué se hizo no es un historial.
+	//
+	// Es coherente con cómo funcionan los tipos (TR-142): el NOMBRE es lo
+	// compartido —"Limpieza dental" es lo mismo en toda la clínica— y el
+	// color y los tiempos son de cada profesional. Por eso viaja el nombre
+	// resuelto y no se intenta mapear el id ajeno a un tipo propio.
+	TipoConsultaNombre string `json:"tipoConsultaNombre,omitempty"`
+	TipoConsultaColor  string `json:"tipoConsultaColor,omitempty"`
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
@@ -90,11 +103,12 @@ type turnoResponse struct {
 }
 
 // completarProfesionalDeTurnos rellena, para un lote de turnos, quién
-// atiende cada uno y si es de quien mira.
+// atiende cada uno, si es de quien mira, y cómo se llama su tipo de
+// consulta.
 //
-// En un lote y no por fila: resolver el nombre turno por turno sería N+1
-// sobre una lista que se pinta entera, el mismo criterio que ya usa
-// nombresDeLosMiembros para los tipos de consulta.
+// En un lote y no por fila: resolver turno por turno sería N+1 sobre una
+// lista que se pinta entera, el mismo criterio que ya usa
+// nombresDeLosMiembros.
 func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Turno, out []turnoResponse) {
 	yo, _ := usuarioDeLaSesion(r)
 
@@ -123,9 +137,34 @@ func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Tur
 		}
 	}
 
+	// Los tipos de consulta de este lote, sin importar de quién sean: el
+	// nombre es lo compartido.
+	tiposIDs := make([]uuid.UUID, 0, len(turnos))
+	vistosTipo := make(map[uuid.UUID]bool, len(turnos))
+	for _, t := range turnos {
+		if t.TipoConsultaID != nil && !vistosTipo[*t.TipoConsultaID] {
+			vistosTipo[*t.TipoConsultaID] = true
+			tiposIDs = append(tiposIDs, *t.TipoConsultaID)
+		}
+	}
+	tipos := make(map[uuid.UUID]db.TipoConsulta, len(tiposIDs))
+	if len(tiposIDs) > 0 {
+		var encontrados []db.TipoConsulta
+		_ = gdb.Where("id IN ?", tiposIDs).Find(&encontrados).Error
+		for _, t := range encontrados {
+			tipos[t.ID] = t
+		}
+	}
+
 	for i := range out {
 		if i >= len(turnos) {
 			break
+		}
+		if id := turnos[i].TipoConsultaID; id != nil {
+			if tipo, hay := tipos[*id]; hay {
+				out[i].TipoConsultaNombre = tipo.Nombre
+				out[i].TipoConsultaColor = tipo.Color
+			}
 		}
 		id := turnos[i].AtendidoPorUserID
 		if id == nil {

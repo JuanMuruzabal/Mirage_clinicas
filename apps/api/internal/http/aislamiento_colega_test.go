@@ -654,8 +654,9 @@ func TestPaciente_LaFichaMuestraTodoElHistorialConSuDueno(t *testing.T) {
 	}
 	var ficha struct {
 		Turnos []struct {
-			AtendidoPorNombre string `json:"atendidoPorNombre"`
-			EsMio             bool   `json:"esMio"`
+			AtendidoPorNombre  string `json:"atendidoPorNombre"`
+			EsMio              bool   `json:"esMio"`
+			TipoConsultaNombre string `json:"tipoConsultaNombre"`
 		} `json:"turnos"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &ficha); err != nil {
@@ -669,6 +670,14 @@ func TestPaciente_LaFichaMuestraTodoElHistorialConSuDueno(t *testing.T) {
 	for _, tu := range ficha.Turnos {
 		if tu.AtendidoPorNombre == "" {
 			t.Error("un turno del historial no dice quién lo atiende")
+		}
+		// Y tiene que decir QUÉ se hizo (corrección del 2026-09-15,
+		// reportada por el cliente). La ficha resolvía el tipo contra la
+		// lista de tipos de quien mira: el turno del colega referencia el
+		// id del tipo de ÉL, el lookup fallaba y salía "—". Por eso el
+		// nombre viaja resuelto en el turno.
+		if tu.TipoConsultaNombre == "" {
+			t.Errorf("el turno de %q no dice su tipo de consulta: la ficha lo pintaría como \"—\"", tu.AtendidoPorNombre)
 		}
 		if tu.EsMio {
 			propios++

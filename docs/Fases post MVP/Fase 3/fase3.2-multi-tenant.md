@@ -1093,3 +1093,36 @@ La columna "Profesional" que se sumó el día anterior desbordaba en pantalla an
 
 Se resuelve como ya se resolvía "Motivo": la columna se esconde en mobile y el dato **baja debajo del tipo de consulta**, junto con el "solo lectura". No se pierde nada; cambia dónde está.
 
+### Los tipos de consulta: globales en nombre, propios en color (2026-09-15)
+
+Tres síntomas que el cliente reportó como cosas distintas y resultaron ser el mismo agujero: **nunca se había decidido si dos filas con el mismo nombre son dos tipos o uno solo.** La aclaración del cliente cierra la pregunta — *"son globales en nombre, la configuración y color, etc son propios de cada profesional"*. Decisión completa en TR-145.
+
+#### El mismo tipo no se crea dos veces
+
+Se podía tener "Consulta general" repetido en la propia lista, y después había que elegir entre dos opciones idénticas cada vez que se cargaba un turno. Ahora el alta devuelve **409** si ya tenés uno con ese nombre.
+
+El primer intento reusó `seParecen` —el fuzzy que ya usaba el listado— y **falló en el primer test**: `"Tipo de prueba 1"` y `"Tipo de prueba 2"` dan 0.94 de similitud. Rechazar el alta ahí le diría a alguien que no puede crear un tipo que no tiene.
+
+Eso expuso un error de diseño, no un umbral mal puesto: **esconder y bloquear no pueden compartir criterio.** Esconder de más cuesta una sugerencia; bloquear de más es una pared. El bloqueo pasa a igualdad exacta normalizada; el listado sigue con el fuzzy.
+
+#### Lo que ya tenés no se ofrece
+
+Se listaba igual, con un cartel *"ya tenés uno parecido"*. Además de ser ruido —ofrecer como punto de partida algo que ya está en tu lista no ahorra nada— el cartel **afirmaba algo falso**: dos "Consulta general" en colores distintos son el MISMO tipo. El color es preferencia de cada agenda, no identidad. Se filtra en el backend: la lista que viaja ya viene sin lo tuyo.
+
+#### El repertorio odontológico
+
+Con una clínica recién creada la sección quedaba vacía: la función existía pero no tenía de dónde sacar nada. Se sumaron 14 tipos reales —Consulta general, Urgencia, Limpieza dental, Arreglo, Endodoncia, Extracción, Control, Ortodoncia, Prótesis, Implante, Blanqueamiento, Periodoncia, Radiografía, Primera consulta— ordenados por frecuencia de consultorio, no alfabéticamente: la lista se scrollea en horizontal y lo que queda al final casi no se ve.
+
+**No es un seed.** Elegir uno rellena el formulario y el tipo se crea por el alta de siempre, así que nace propio y editable. Como semilla, toda clínica arrancaría con quince tipos que nadie pidió.
+
+La pantalla los agrupa en **"En esta clínica"** y **"Más habituales"**, en ese orden: si un colega ya lo usa, copiarlo deja las dos agendas diciendo lo mismo para lo mismo.
+
+#### El "—" del historial
+
+En "Turnos activos" e "Historial de turnos" el turno de un colega mostraba **"—"** como tipo, aunque fuera del mismo tipo que uno propio. La ficha resolvía el tipo contra `tiposConsulta`, que son los **míos**: el turno del colega referencia el id del tipo de **él**, el lookup fallaba.
+
+No se arregla mapeando el id ajeno a un tipo propio — eso sería inventar una equivalencia, y se rompe en cuanto el colega tiene uno que vos no tenés. El turno viaja con el **nombre y el color ya resueltos**, en el mismo lote donde ya se resuelve el nombre del profesional (no un N+1 sobre una lista que se pinta entera). Es literalmente la regla del cliente: el nombre es lo compartido.
+
+Por lo mismo, el **filtro de esa tabla compara por nombre normalizado** y sus opciones salen de los turnos, no de mis tipos: filtrando por el id de mi "Limpieza dental" desaparecían los turnos del colega de ese mismo tipo, y un tipo que solo usa él no aparecía ni como opción.
+
+El test del backend se verificó **sacándole el arreglo**: sin el nombre en la respuesta, falla nombrando los dos turnos.

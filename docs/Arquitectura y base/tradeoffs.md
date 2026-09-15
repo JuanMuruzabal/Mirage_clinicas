@@ -2104,6 +2104,60 @@ Las tres cosas empujan la misma idea desde ángulos distintos: **el paciente es 
 
 ---
 
+## TR-145: Un tipo de consulta es su NOMBRE; el color y la duración son de cada agenda
+
+- **Contexto:** Fase 3.2.5, corrección del 2026-09-15 durante la QA del panel del profesional.
+- **De dónde salió:** el cliente, textual — *"un profesional tiene consulta general con color verde y el otro color beige... que cuando ya existe un consulta general no se pueda crear otro exactamente idéntico"*, *"si ya tengo consulta general agregado a mis tipos no me tendría que aparecer arriba en tipos de consultas ya creados"*, *"en turnos activos y historial de turnos el tipo de consulta del turno hecho por otro profesional aparece como '-'"*, y la aclaración que ordena todo lo demás: *"son globales en nombre, la configuración y color, etc son propios de cada profesional"*.
+
+### La pregunta que TR-142 dejó sin responder
+
+TR-142 decidió que incluir el tipo de un colega **copia la fila**, porque lleva duración y color que cada uno ajusta. Correcto, y suficiente para implementarlo — pero dejó abierta una pregunta más básica: **si son dos filas, ¿son dos tipos o el mismo?** Sin responderla, el código contestó que sí por omisión, y de ahí salieron tres síntomas que parecían independientes:
+
+- Se podía crear "Consulta general" dos veces en la misma lista.
+- Lo que ya tenías se ofrecía igual como punto de partida, con un cartel *"ya tenés uno parecido"*.
+- El historial del paciente mostraba **"—"** en el turno de un colega, aunque fuera del mismo tipo.
+
+La respuesta del cliente es la que ordena las tres: **un tipo de consulta se identifica por su nombre.** "Limpieza dental" es lo mismo en toda la clínica; el color y los minutos son preferencia de la agenda de cada uno, no identidad.
+
+### Bloquear y esconder no pueden compartir criterio
+
+El listado de tipos de colegas ya usaba `seParecen` (Levenshtein, umbral 0.8) para avisar. Al querer **bloquear** el duplicado, el reflejo era reusar esa misma función — y falló en el primer test: `"Tipo de prueba 1"` y `"Tipo de prueba 2"` dan 0.94 de similitud. Rechazar el alta ahí sería decirle a alguien que no puede crear un tipo que **no tiene**.
+
+Son dos decisiones distintas y llevan criterios distintos:
+
+| Acción | Criterio | Por qué |
+|---|---|---|
+| **Esconder** de las sugerencias | Difuso (`seParecen`) | Equivocarse cuesta una sugerencia de menos |
+| **Bloquear** el alta (409) | Igualdad exacta normalizada | Equivocarse cuesta una acción **imposible** |
+
+Un falso positivo que esconde es un inconveniente; un falso positivo que bloquea es una pared. El costo del error es asimétrico, así que el criterio también.
+
+### Lo que ya tenés no se ofrece — y el cartel era peor que el ruido
+
+Antes se listaba igual, marcado *"ya tenés uno parecido"*. Además de no ahorrar nada (ofrecer como punto de partida algo que ya está en tu lista), el cartel **afirmaba algo falso**: sugiere que lo tuyo y lo del colega son cosas parecidas pero distintas, cuando son el mismo tipo con dos colores. Se filtra en el backend, no en la pantalla: la lista que viaja ya viene sin lo que tenés.
+
+### El repertorio odontológico: una lista de sugerencias, no una semilla
+
+Con una clínica recién creada, "Tipos de consulta ya creados" quedaba vacío y no ayudaba a nadie — la función existía pero no tenía de dónde sacar nada. Se sumó un repertorio de 14 tipos reales (Consulta general, Urgencia, Limpieza dental, Arreglo, Endodoncia, Extracción, Control, Ortodoncia, Prótesis, Implante, Blanqueamiento, Periodoncia, Radiografía, Primera consulta), ordenado por frecuencia de consultorio y no alfabéticamente: la lista se scrollea en horizontal y lo que queda al final casi no se ve.
+
+**No es una tabla ni un seed.** Elegir una opción rellena el formulario y el tipo se crea por el alta de siempre — nace propio y editable, el mismo camino que el de un colega. Como semilla, toda clínica arrancaría con quince tipos que nadie pidió y habría que borrarlos a mano.
+
+La pantalla los agrupa en dos: **"En esta clínica"** primero, **"Más habituales"** después. El orden no es estético: si un colega ya lo usa, copiarlo deja las dos agendas de la clínica diciendo lo mismo para lo mismo.
+
+### El "—" del historial: el nombre viaja en el turno
+
+La ficha de un paciente muestra los turnos de **todos** los profesionales (TR-144), y resolvía el tipo contra la lista de tipos de quien mira. El turno del colega referencia el id del tipo de **él**: el lookup fallaba y salía "—". Un historial que no dice qué se hizo no es un historial.
+
+**No se arregla mapeando el id ajeno a un tipo propio** — eso sería inventar una equivalencia y romperse en cuanto el colega tenga uno que vos no tenés. El turno viaja con el **nombre y el color ya resueltos** (`tipoConsultaNombre`/`tipoConsultaColor`), resueltos en lote junto al nombre del profesional para no agregar un N+1 sobre una lista que se pinta entera. Es exactamente lo que dice la regla: el nombre es lo compartido, y el color viaja porque es el del turno que se está mirando, no el de un tipo mío.
+
+Por la misma razón el **filtro por tipo de esa tabla pasa a comparar por nombre normalizado**, y sus opciones salen de los turnos y no de mis tipos: filtrando por el id de mi "Limpieza dental" desaparecían los turnos del colega que son de ese mismo tipo, y un tipo que solo usa él no aparecía siquiera como opción.
+
+### Lo que sigue sin cambiar
+
+Las filas siguen siendo una por profesional. **Globales en nombre, propias en configuración**: no hay tabla de tipos de la clínica, no hay tipo que un colega pueda editar de otro, y adoptar uno sigue siendo copiarlo. Lo único que cambió es qué cuenta como "el mismo tipo" — y eso, resulta, era la mitad de la funcionalidad.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

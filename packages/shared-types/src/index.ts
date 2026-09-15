@@ -135,10 +135,14 @@ export interface PacienteConocido {
 // ajusta a su manera. Ver apps/api/internal/http/tipos_consulta_colegas.go.
 
 export interface TipoConsultaDeColega extends TipoConsulta {
+  /** Vacíos cuando viene del repertorio: no es de nadie todavía. */
   deUserId: string;
   deNombre: string;
-  /** Si alguno de los tuyos se le parece por nombre. Avisa, no bloquea. */
-  yaTenesUnoParecido: boolean;
+  /** De dónde sale la sugerencia. `colega`: alguien de la clínica ya lo
+   *  usa. `catalogo`: es del repertorio odontológico. La pantalla los
+   *  agrupa distinto — uno dice "esto ya se usa acá", el otro "esto se
+   *  suele usar". Lo que YA tenés no llega: se filtra en el backend. */
+  origen: "colega" | "catalogo";
 }
 
 // --- Presencia de colaboradores (Fase 3.2.5) ---
@@ -448,6 +452,12 @@ export interface Turno {
    *  fila dice con quién fue o va a ser. */
   atendidoPorUserId?: string;
   atendidoPorNombre?: string;
+  /** El NOMBRE del tipo, además del id. La ficha muestra turnos de varios
+   *  profesionales y el id del tipo de un colega no está en la lista
+   *  propia: sin esto salía "—". El nombre es lo compartido entre
+   *  profesionales; el color y los tiempos son de cada uno. */
+  tipoConsultaNombre?: string;
+  tipoConsultaColor?: string;
   /** Si el turno es de quien está mirando. Lo decide el backend: la
    *  pantalla lo usa para saber qué puede tocar, y eso es una decisión de
    *  permisos, no de presentación. */
