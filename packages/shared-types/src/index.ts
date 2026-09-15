@@ -452,12 +452,12 @@ export interface Turno {
    *  fila dice con quién fue o va a ser. */
   atendidoPorUserId?: string;
   atendidoPorNombre?: string;
-  /** El NOMBRE del tipo, además del id. La ficha muestra turnos de varios
-   *  profesionales y el id del tipo de un colega no está en la lista
-   *  propia: sin esto salía "—". El nombre es lo compartido entre
-   *  profesionales; el color y los tiempos son de cada uno. */
+  /** El NOMBRE del tipo, además del id, y NADA MÁS. La ficha muestra
+   *  turnos de varios profesionales y el id del tipo de un colega no está
+   *  en la lista propia: sin esto salía "—". El color no viaja a
+   *  propósito — es preferencia de cada agenda, así que la pantalla lo
+   *  resuelve contra los tipos PROPIOS buscando por este nombre. */
   tipoConsultaNombre?: string;
-  tipoConsultaColor?: string;
   /** Si el turno es de quien está mirando. Lo decide el backend: la
    *  pantalla lo usa para saber qué puede tocar, y eso es una decisión de
    *  permisos, no de presentación. */

@@ -2148,9 +2148,34 @@ La pantalla los agrupa en dos: **"En esta clínica"** primero, **"Más habituale
 
 La ficha de un paciente muestra los turnos de **todos** los profesionales (TR-144), y resolvía el tipo contra la lista de tipos de quien mira. El turno del colega referencia el id del tipo de **él**: el lookup fallaba y salía "—". Un historial que no dice qué se hizo no es un historial.
 
-**No se arregla mapeando el id ajeno a un tipo propio** — eso sería inventar una equivalencia y romperse en cuanto el colega tenga uno que vos no tenés. El turno viaja con el **nombre y el color ya resueltos** (`tipoConsultaNombre`/`tipoConsultaColor`), resueltos en lote junto al nombre del profesional para no agregar un N+1 sobre una lista que se pinta entera. Es exactamente lo que dice la regla: el nombre es lo compartido, y el color viaja porque es el del turno que se está mirando, no el de un tipo mío.
+**No se arregla mapeando el id ajeno a un tipo propio** — eso sería inventar una equivalencia y romperse en cuanto el colega tenga uno que vos no tenés. El turno viaja con el **nombre resuelto** (`tipoConsultaNombre`), en lote junto al nombre del profesional para no agregar un N+1 sobre una lista que se pinta entera.
+
+**Y viaja el nombre SOLO** (segunda vuelta de la misma corrección, pedido textual del cliente: *"si mi colega tiene consulta general en verde y yo en beige, yo desde la ficha del paciente debo ver Consulta general y el color beige"*). El primer intento mandaba también el color del tipo del colega, y eso contradecía la regla que la propia TR estaba fijando: si el color es preferencia de cada agenda, el de él no tiene nada que hacer en mi pantalla. **En mi tabla, un punto de un color significa lo que yo decidí que significa** — pintar el turno ajeno con el color de él rompe justamente la lectura de un vistazo que el punto existe para dar.
+
+El color se resuelve en el frontend contra **mis** tipos, buscando por ese nombre. Si no tengo ese tipo, el nombre se muestra igual y el punto queda **neutro**: no tengo una preferencia de color para algo que no uso, e inventarle una sería peor que no pintarlo. Del lado del backend la consulta pide `SELECT id, nombre` y nada más — lo único que se expone de la fila de un colega, dicho en la query.
 
 Por la misma razón el **filtro por tipo de esa tabla pasa a comparar por nombre normalizado**, y sus opciones salen de los turnos y no de mis tipos: filtrando por el id de mi "Limpieza dental" desaparecían los turnos del colega que son de ese mismo tipo, y un tipo que solo usa él no aparecía siquiera como opción.
+
+### Un turno activo por tipo, en toda la clínica
+
+La regla *"1 turno activo por DNI y tipo de consulta"* existe desde la Fase 3.1 (TR-133) pero **solo vivía en el wizard público**, y ahí como control de abuso sobre el paciente sin verificar. **Cargando a mano no se aplicaba ninguna**, y con dos profesionales eso significa que la misma persona podía terminar con dos "Consulta general" pendientes — una cargada por cada uno, ninguno viendo la del otro.
+
+Extenderla al panel obliga a compararla **por nombre**, que es lo que esta misma TR acaba de decidir. Por `tipo_consulta_id`, como la hace el wizard, la regla nunca vería el turno del colega: él tiene su propia fila para "Consulta general". El caso que el cliente reportó es exactamente el que el id no puede ver.
+
+Dos decisiones chicas del cómo:
+
+- **Se busca por `paciente_id`, no por `dni_contacto`.** El DNI del turno es un snapshot de lo que se tipeó; la ficha es la identidad, y su unicidad por clínica ya está garantizada por índice.
+- **La comparación de nombres se hace en Go, no en SQL.** `normalizarNombreTipo` saca acentos y colapsa espacios, y no hay equivalente portable en Postgres sin la extensión `unaccent`. El costo es nulo: son los turnos activos de una sola persona.
+
+El mensaje nombra **el tipo, el profesional y la fecha**, y dice *"con vos"* cuando el turno que choca es de quien está cargando — decirle su propio nombre en tercera persona lo mandaría a buscar a otro lado.
+
+### El aviso de solapamiento dice hasta cuándo
+
+Pedido del cliente en la misma vuelta. *"Ya tiene un turno con Lucía Ferrer a las 10:00"* dice que choca, pero no cuándo se libera la persona — y la agenda del colega no se puede ver desde ahí, así que para elegir otro horario había que ir probando. Ahora dice **"de 10:00 a 10:30 del 23/09"**.
+
+### Y mover un turno también cuenta
+
+Al escribirlo apareció un hueco de la ronda anterior: el alta controlaba que el paciente no quedara en dos sillones a la vez, **y reprogramar no**. Se podía agendar en un hueco libre y después arrastrar el turno encima del que esa misma persona tiene con un colega. Es la misma regla — lo que cambiaba era por qué puerta se entra. La validación va en una transacción, igual que en el alta: chequear afuera deja la ventana entre el chequeo y el `Save`.
 
 ### Lo que sigue sin cambiar
 

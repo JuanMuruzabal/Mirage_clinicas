@@ -318,36 +318,61 @@ describe("PacienteTurnosTable", () => {
     // aunque haga referencia al mismo tipo de consulta".
     //
     // El turno del colega referencia el id del tipo de ÉL, que no está
-    // en `tiposConsulta` (los míos). El backend manda el nombre y el
-    // color resueltos en el turno mismo, y la tabla los usa.
+    // en `tiposConsulta` (los míos). El backend manda el NOMBRE en el
+    // turno, y la tabla lo usa.
+    const ajenoDeUnTipoQueTengo = {
+      ...ajeno,
+      tipoConsultaId: "tc-del-colega",
+      // El colega lo tiene en verde; yo tengo "Consulta general" en
+      // beige (#E7D9BE, ver `tiposConsulta`).
+      tipoConsultaNombre: "Consulta general",
+    };
+    const ajenoDeUnTipoQueNoTengo = {
+      ...ajeno,
+      tipoConsultaId: "tc-del-colega-2",
+      tipoConsultaNombre: "Limpieza dental",
+    };
+
     it("el turno de un colega muestra su tipo de consulta, no —", () => {
-      const ajenoConTipoPropio = {
-        ...ajeno,
-        tipoConsultaId: "tc-del-colega",
-        tipoConsultaNombre: "Limpieza dental",
-        tipoConsultaColor: "#6E8F72",
-      };
+      render(<PacienteTurnosTable turnos={[ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />);
+      expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
+    });
+
+    // Segunda vuelta de la misma corrección, pedido textual: "si mi
+    // colega tiene consulta general en verde y yo en beige, yo desde la
+    // ficha del paciente debo ver Consulta general y el color beige".
+    //
+    // El color NO viaja en el turno: se resuelve contra mis tipos por
+    // nombre. En mi tabla, un punto de un color significa lo que YO
+    // decidí que significa.
+    it("el tipo de un colega se pinta con MI color, no con el de él", () => {
       const { container } = render(
-        <PacienteTurnosTable turnos={[ajenoConTipoPropio]} tiposConsulta={tiposConsulta} vacio="" />,
+        <PacienteTurnosTable turnos={[ajenoDeUnTipoQueTengo]} tiposConsulta={tiposConsulta} vacio="" />,
+      );
+
+      expect(screen.getByRole("cell", { name: /Consulta general/ })).toBeInTheDocument();
+      const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
+      expect(punto).toHaveStyle({ background: "rgb(231, 217, 190)" });
+    });
+
+    // Y si no tengo ese tipo, no tengo una preferencia de color para él:
+    // el nombre se muestra igual y el punto queda neutro. Inventarle un
+    // color sería peor que no pintarlo.
+    it("un tipo que no tengo muestra el nombre y el punto neutro", () => {
+      const { container } = render(
+        <PacienteTurnosTable turnos={[ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />,
       );
 
       expect(screen.getByRole("cell", { name: /Limpieza dental/ })).toBeInTheDocument();
-      // Y con SU color, no el neutro de "no lo encontré".
       const punto = container.querySelector("tbody .rounded-full") as HTMLElement;
-      expect(punto).toHaveStyle({ background: "rgb(110, 143, 114)" });
+      expect(punto).toHaveStyle({ background: "var(--color-arena)" });
     });
 
     // La otra mitad: el tipo del colega tiene que poder filtrarse. Si las
     // opciones salieran de mis tipos, un tipo que solo usa él no estaría.
     it("el tipo de un colega se puede elegir en el filtro", async () => {
       const user = userEvent.setup();
-      const ajenoConTipoPropio = {
-        ...ajeno,
-        tipoConsultaId: "tc-del-colega",
-        tipoConsultaNombre: "Limpieza dental",
-        tipoConsultaColor: "#6E8F72",
-      };
-      render(<PacienteTurnosTable turnos={[mio, ajenoConTipoPropio]} tiposConsulta={tiposConsulta} vacio="" />);
+      render(<PacienteTurnosTable turnos={[mio, ajenoDeUnTipoQueNoTengo]} tiposConsulta={tiposConsulta} vacio="" />);
 
       await abrirFiltros(user);
       await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "limpieza dental");

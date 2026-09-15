@@ -107,6 +107,13 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		// que sigue siendo de cada profesional es su lista de trabajo
 		// (/pacientes), que es otra pregunta. Ver el comentario de cabecera
 		// de ese archivo.
+		//
+		// Las tres consultas del archivo miran la clínica entera a
+		// propósito, y son la misma idea: quién es esta persona
+		// (/pacientes/de-la-clinica), si ya está ocupada a esa hora con
+		// otro profesional, y si ya tiene un turno activo de ese mismo
+		// tipo. Acotarlas por profesional las volvería inútiles — el caso
+		// que cada una detecta es, justamente, el turno del colega.
 		"pacientes_de_la_clinica.go": {`clinic_id`},
 	}
 

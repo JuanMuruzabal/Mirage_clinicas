@@ -21,14 +21,33 @@ import { FiltrosSheet } from "./filtros-sheet";
 // ÉL, el lookup fallaba y salía "—". Un historial que no dice qué se
 // hizo no es un historial.
 //
-// Ahora el backend manda el nombre y el color resueltos en el turno
-// mismo (`tipoConsultaNombre`/`tipoConsultaColor`), que es lo coherente
-// con cómo funcionan los tipos: el NOMBRE es lo compartido en la
-// clínica, el color es preferencia de cada agenda. El map propio queda
-// como respaldo para respuestas viejas en caché (y para los fixtures de
-// test que arman un Turno sin esos campos).
-function tipoDelTurno(t: Turno, tipoPorId: Map<string, TipoConsulta>): { nombre: string; color: string } | undefined {
-  if (t.tipoConsultaNombre) return { nombre: t.tipoConsultaNombre, color: t.tipoConsultaColor ?? "" };
+// El backend manda el NOMBRE del tipo en el turno (`tipoConsultaNombre`)
+// y nada más. **El color no viaja, y se resuelve acá contra los tipos
+// PROPIOS** (corrección del 2026-09-15, segunda vuelta, pedido textual
+// del cliente: *"si mi colega tiene consulta general en verde y yo en
+// beige, yo desde la ficha del paciente debo ver Consulta general y el
+// color beige"*).
+//
+// Es la misma regla mirada desde la pantalla: el nombre es lo compartido
+// en la clínica, el color es preferencia de MI agenda. Pintar el turno
+// del colega con el color de él rompería la lectura de un vistazo — en
+// mi tabla, un punto verde significa lo que yo decidí que significa.
+//
+// Si el tipo no está entre los míos, el nombre igual se muestra y el
+// punto queda neutro: no tengo una preferencia de color para algo que no
+// uso, e inventarle una sería peor que no pintarlo.
+//
+// El lookup por id queda como respaldo para respuestas viejas en caché y
+// para los fixtures de test que arman un Turno sin `tipoConsultaNombre`.
+function tipoDelTurno(
+  t: Turno,
+  tipoPorId: Map<string, TipoConsulta>,
+  tipoPorNombre: Map<string, TipoConsulta>,
+): { nombre: string; color: string } | undefined {
+  if (t.tipoConsultaNombre) {
+    const mio = tipoPorNombre.get(claveTipo(t.tipoConsultaNombre));
+    return { nombre: t.tipoConsultaNombre, color: mio?.color ?? "" };
+  }
   const mio = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
   return mio ? { nombre: mio.nombre, color: mio.color } : undefined;
 }
@@ -46,9 +65,16 @@ function claveTipo(nombre: string): string {
 // estado YA CONFIRMADO (la tabla de abajo) y contra el estado BORRADOR
 // (el conteo en vivo del botón "Ver X turnos" de FiltrosSheet, mientras
 // la hoja sigue abierta y todavía no se confirmó nada).
-function aplicaFiltro(t: Turno, tipoPorId: Map<string, TipoConsulta>, tipo: string, desde: string, hasta: string): boolean {
+function aplicaFiltro(
+  t: Turno,
+  tipoPorId: Map<string, TipoConsulta>,
+  tipoPorNombre: Map<string, TipoConsulta>,
+  tipo: string,
+  desde: string,
+  hasta: string,
+): boolean {
   if (tipo !== "todos") {
-    const suyo = tipoDelTurno(t, tipoPorId);
+    const suyo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
     if (!suyo || claveTipo(suyo.nombre) !== tipo) return false;
   }
   if (!t.horaInicio) return desde === "" && hasta === "";
@@ -126,6 +152,12 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
   const [draftHasta, setDraftHasta] = useState(hasta);
 
   const tipoPorId = useMemo(() => new Map(tiposConsulta.map((t) => [t.id, t])), [tiposConsulta]);
+  // Mis tipos por nombre normalizado: es cómo se le pone MI color al
+  // turno de un colega que es de ese mismo tipo (ver tipoDelTurno).
+  const tipoPorNombre = useMemo(
+    () => new Map(tiposConsulta.map((t) => [claveTipo(t.nombre), t])),
+    [tiposConsulta],
+  );
   // Las opciones salen de los TURNOS, no de mis tipos: en esta tabla hay
   // turnos de colegas, y un tipo que solo usa el colega tiene que poder
   // filtrarse igual. Deduplicado por nombre normalizado — si los dos
@@ -133,24 +165,24 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
   const tiposUsados = useMemo(() => {
     const porClave = new Map<string, string>();
     for (const t of turnos) {
-      const suyo = tipoDelTurno(t, tipoPorId);
+      const suyo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
       if (suyo && !porClave.has(claveTipo(suyo.nombre))) porClave.set(claveTipo(suyo.nombre), suyo.nombre);
     }
     return [...porClave.entries()]
       .map(([clave, nombre]) => ({ clave, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [turnos, tipoPorId]);
+  }, [turnos, tipoPorId, tipoPorNombre]);
 
   const filtrados = useMemo(
-    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoId, desde, hasta)),
-    [turnos, tipoPorId, tipoId, desde, hasta],
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoPorNombre, tipoId, desde, hasta)),
+    [turnos, tipoPorId, tipoPorNombre, tipoId, desde, hasta],
   );
   // draftFiltrados — puramente para el conteo en vivo del botón de la
   // hoja ("Ver X turnos"); la tabla real sigue mostrando `filtrados`
   // (confirmado) hasta que se toca ese botón.
   const draftFiltrados = useMemo(
-    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, draftTipoId, draftDesde, draftHasta)),
-    [turnos, tipoPorId, draftTipoId, draftDesde, draftHasta],
+    () => turnos.filter((t) => aplicaFiltro(t, tipoPorId, tipoPorNombre, draftTipoId, draftDesde, draftHasta)),
+    [turnos, tipoPorId, tipoPorNombre, draftTipoId, draftDesde, draftHasta],
   );
 
   const hayFiltrosActivos = tipoId !== "todos" || desde !== "" || hasta !== "";
@@ -324,7 +356,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
             </thead>
             <tbody>
               {filtrados.map((t) => {
-                const tipo = tipoDelTurno(t, tipoPorId);
+                const tipo = tipoDelTurno(t, tipoPorId, tipoPorNombre);
                 // resuelto: mismo criterio derivado que TurnosTable/
                 // TurnoDetalle (TR-074 en docs/Arquitectura y base/tradeoffs.md) — no es un
                 // estado real, agendado + horaFin ya pasado.

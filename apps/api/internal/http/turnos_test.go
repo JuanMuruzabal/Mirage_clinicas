@@ -155,16 +155,41 @@ func TestListTurnos_FiltraPorEstadoYEsPorProfesional(t *testing.T) {
 	}
 }
 
+// otroTipoDePrueba — un tipo de consulta MÁS para el mismo profesional.
+//
+// Desde la Fase 3.2.5 (2026-09-15) un paciente no puede tener dos turnos
+// activos del MISMO tipo de consulta en la clínica, así que un test que
+// necesita dos turnos activos de la MISMA persona necesita también dos
+// tipos. No es una concesión del test a la regla: es la regla — dos
+// "Consulta general" pendientes para la misma persona es justo lo que se
+// bloqueó.
+func otroTipoDePrueba(t *testing.T, router http.Handler, token, nombre string) string {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", token, tipoConsultaRequest{
+		Nombre: nombre, Color: "#6E8F72", DuracionMinutos: 30,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("no se pudo crear el tipo %q: status=%d body=%s", nombre, rec.Code, rec.Body.String())
+	}
+	var creado struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &creado); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return creado.ID
+}
+
 func TestListTurnos_FiltraPorRangoDeFechas(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "rango@example.com")
 
 	base := time.Date(2030, 9, 1, 9, 0, 0, 0, time.UTC)
-	crear := func(inicio time.Time) {
+	crear := func(inicio time.Time, tipo string) {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
-			TipoConsultaID: tipoConsultaID,
+			TipoConsultaID: tipo,
 			HoraInicio:     inicio.Format(time.RFC3339),
 			HoraFin:        inicio.Add(30 * time.Minute).Format(time.RFC3339),
 		})
@@ -172,8 +197,11 @@ func TestListTurnos_FiltraPorRangoDeFechas(t *testing.T) {
 			t.Fatalf("no se pudo crear el turno de prueba: status=%d body=%s", rec.Code, rec.Body.String())
 		}
 	}
-	crear(base)                          // dentro del rango
-	crear(base.Add(10 * 24 * time.Hour)) // fuera del rango
+	// Dos tipos distintos: la misma persona no puede tener dos turnos
+	// activos del mismo tipo (Fase 3.2.5). Lo que este test mide es el
+	// filtro por fecha, no eso.
+	crear(base, tipoConsultaID)                                                                 // dentro del rango
+	crear(base.Add(10*24*time.Hour), otroTipoDePrueba(t, router, reg.Token, "Limpieza dental")) // fuera del rango
 
 	desde := base.Add(-time.Hour).Format(time.RFC3339)
 	hasta := base.Add(time.Hour).Format(time.RFC3339)
@@ -429,11 +457,14 @@ func TestCrearTurnoManual_IgnoraDatosDelFormularioSiElDNIYaExiste(t *testing.T) 
 	})
 
 	// Segundo turno, mismo DNI pero con nombre/teléfono/email DISTINTOS.
+	// De OTRO tipo: la misma persona no puede tener dos turnos activos del
+	// mismo tipo (Fase 3.2.5), y lo que este test mide es de quién son los
+	// datos que termina mostrando el turno.
 	otroInicio := inicio.Add(time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Otro", ApellidoContacto: "Apellido", DNIContacto: "30222333", TelefonoContacto: "+5493519999999",
 		EmailContacto:  "otro@example.com",
-		TipoConsultaID: tipoConsultaID,
+		TipoConsultaID: otroTipoDePrueba(t, router, reg.Token, "Limpieza dental"),
 		HoraInicio:     otroInicio.Format(time.RFC3339),
 		HoraFin:        otroInicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -558,6 +589,10 @@ func TestCrearTurnoManual_ParaOtroReusaFichaYaExistentePorDNI(t *testing.T) {
 
 	req2 := base
 	req2.EmailContacto = "mila@example.com" // mail PROPIO nuevo del paciente
+	// Otro tipo: dos turnos activos del mismo tipo para la misma persona
+	// están bloqueados desde la Fase 3.2.5, y lo que se mide acá es que la
+	// ficha se reuse en vez de duplicarse.
+	req2.TipoConsultaID = otroTipoDePrueba(t, router, reg.Token, "Limpieza dental")
 	otraHora := inicio.Add(time.Hour)
 	req2.HoraInicio = otraHora.Format(time.RFC3339)
 	req2.HoraFin = otraHora.Add(30 * time.Minute).Format(time.RFC3339)
@@ -626,7 +661,9 @@ func TestCrearTurnoManual_ParaOtroConPacienteConocidoIgnoraFaltaDeTutor(t *testi
 	otroInicio := inicio.Add(time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "40222555", TelefonoContacto: "+5493511111111",
-		TipoConsultaID: tipoConsultaID,
+		// Otro tipo (Fase 3.2.5): lo que se mide acá es que un `paraOtro`
+		// sin datos de tutor no bloquee el camino "paciente conocido".
+		TipoConsultaID: otroTipoDePrueba(t, router, reg.Token, "Limpieza dental"),
 		HoraInicio:     otroInicio.Format(time.RFC3339),
 		HoraFin:        otroInicio.Add(30 * time.Minute).Format(time.RFC3339),
 		PacienteID:     *creado.PacienteID,
@@ -1522,17 +1559,22 @@ func TestReprogramarTurno_SolapamientoFallaControlado(t *testing.T) {
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "reprog3@example.com")
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
-	crear := func(i time.Time) turnoResponse {
+	// DOS PACIENTES distintos: lo que este test mide es el exclusion
+	// constraint, que protege al PROFESIONAL —no puede tener dos turnos
+	// encimados, sean de quien sean—. Con el mismo DNI en los dos, desde
+	// la Fase 3.2.5 el segundo alta se rechaza antes por ser del mismo
+	// tipo, y el test dejaba de ejercitar lo suyo.
+	crear := func(i time.Time, dni string) turnoResponse {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
-			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
+			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: dni, TelefonoContacto: "1",
 			TipoConsultaID: tipoConsultaID, HoraInicio: i.Format(time.RFC3339), HoraFin: i.Add(30 * time.Minute).Format(time.RFC3339),
 		})
 		var t2 turnoResponse
 		_ = json.Unmarshal(rec.Body.Bytes(), &t2)
 		return t2
 	}
-	crear(inicio)
-	segundo := crear(inicio.Add(time.Hour))
+	crear(inicio, "1")
+	segundo := crear(inicio.Add(time.Hour), "2")
 
 	// Reprograma el segundo turno para que se solape con el primero.
 	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+segundo.ID+"/hora", reg.Token, reprogramarTurnoRequest{
@@ -1576,9 +1618,12 @@ func TestCrearTurnoManual_PacienteConocidoVinculaSinDuplicar(t *testing.T) {
 	_ = json.Unmarshal(rec1.Body.Bytes(), &primero)
 
 	segunda := inicio.Add(48 * time.Hour)
+	// De otro tipo (Fase 3.2.5): lo que se mide es que se vincule a la
+	// misma ficha sin duplicarla.
 	rec2 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
-		TipoConsultaID: tipoConsultaID, HoraInicio: segunda.Format(time.RFC3339), HoraFin: segunda.Add(30 * time.Minute).Format(time.RFC3339),
+		TipoConsultaID: otroTipoDePrueba(t, router, reg.Token, "Limpieza dental"),
+		HoraInicio:     segunda.Format(time.RFC3339), HoraFin: segunda.Add(30 * time.Minute).Format(time.RFC3339),
 		PacienteID: *primero.PacienteID,
 	})
 	if rec2.Code != http.StatusCreated {

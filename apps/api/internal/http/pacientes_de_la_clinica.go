@@ -150,24 +150,94 @@ func turnoSuperpuestoDeOtroProfesional(
 		return nil, ""
 	}
 
-	// El nombre, y si todavía no cargó perfil, su mail — mismo criterio
-	// que nombresDeLosMiembros. "Otro profesional" queda solo para el caso
-	// imposible de un turno sin dueño: sin un nombre concreto, el mensaje
-	// obliga a salir a buscar con quién, que es justo lo que evita.
-	nombre := "otro profesional"
-	if choca.AtendidoPorUserID != nil {
-		var perfil db.ProfessionalProfile
-		if err := tx.First(&perfil, "user_id = ?", *choca.AtendidoPorUserID).Error; err == nil {
-			if n := strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido); n != "" {
-				nombre = n
-			}
-		}
-		if nombre == "otro profesional" {
-			var user db.User
-			if err := tx.First(&user, "id = ?", *choca.AtendidoPorUserID).Error; err == nil && user.Email != "" {
-				nombre = user.Email
-			}
+	return &choca, nombreDelProfesional(tx, choca.AtendidoPorUserID)
+}
+
+// nombreDelProfesional — el nombre con el que se lo nombra en un mensaje
+// de error, y si todavía no cargó perfil, su mail. Mismo criterio que
+// nombresDeLosMiembros.
+//
+// "Otro profesional" queda solo para el caso de un turno sin dueño: sin
+// un nombre concreto el mensaje obliga a salir a buscar con quién, que es
+// justo lo que estos avisos evitan.
+func nombreDelProfesional(tx *gorm.DB, userID *uuid.UUID) string {
+	if userID == nil {
+		return "otro profesional"
+	}
+	var perfil db.ProfessionalProfile
+	if err := tx.First(&perfil, "user_id = ?", *userID).Error; err == nil {
+		if n := strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido); n != "" {
+			return n
 		}
 	}
-	return &choca, nombre
+	var user db.User
+	if err := tx.First(&user, "id = ?", *userID).Error; err == nil && user.Email != "" {
+		return user.Email
+	}
+	return "otro profesional"
+}
+
+// turnoActivoDelMismoTipoEnLaClinica — un paciente no puede tener dos
+// turnos activos del MISMO tipo de consulta, ni siquiera con profesionales
+// distintos (Fase 3.2.5, 2026-09-15, pedido del cliente).
+//
+// La regla existía desde la Fase 3.1 pero **solo en el wizard público**, y
+// ahí además como control de abuso: se aplica al paciente sin verificar y
+// mira `tipo_consulta_id`. Cargando a mano no se aplicaba ninguna, así que
+// la misma persona podía terminar con dos "Consulta general" pendientes
+// — una cargada por cada profesional, cada uno sin ver la del otro.
+//
+// **Compara por NOMBRE, no por id** (TR-145). Cada profesional tiene su
+// propia fila para "Consulta general": por id, la regla no vería nunca el
+// turno del colega, que es exactamente el caso que el cliente reportó.
+// Normalizado con `normalizarNombreTipo`, el mismo criterio con el que se
+// bloquea crear un tipo duplicado.
+//
+// Se busca por `paciente_id` y no por `dni_contacto`: el DNI en el turno
+// es un snapshot de lo que se tipeó, y la ficha es la identidad (índice
+// único de DNI por clínica). Devuelve también con quién es ese turno,
+// porque puede ser de un colega cuya agenda quien carga no puede ver.
+func turnoActivoDelMismoTipoEnLaClinica(
+	tx *gorm.DB, clinicID, pacienteID, tipoConsultaID uuid.UUID, excluirTurnoID *uuid.UUID,
+) (*db.Turno, string, string) {
+	var tipo db.TipoConsulta
+	if err := tx.First(&tipo, "id = ?", tipoConsultaID).Error; err != nil {
+		return nil, "", ""
+	}
+
+	// La comparación de nombres se hace en Go y no en SQL: `normalizarNombreTipo`
+	// saca acentos y colapsa espacios, y no hay equivalente portable en
+	// Postgres sin la extensión `unaccent`. El costo es nulo — son los
+	// turnos activos de UNA persona, siempre un puñado.
+	q := tx.Where(`clinic_id = ? AND paciente_id = ? AND tipo_consulta_id IS NOT NULL
+	               AND estado = 'agendado' AND hora_fin >= now()`,
+		clinicID, pacienteID)
+	if excluirTurnoID != nil {
+		q = q.Where("id <> ?", *excluirTurnoID)
+	}
+	var activos []db.Turno
+	if err := q.Order("hora_inicio").Find(&activos).Error; err != nil || len(activos) == 0 {
+		return nil, "", ""
+	}
+
+	ids := make([]uuid.UUID, 0, len(activos))
+	for _, t := range activos {
+		ids = append(ids, *t.TipoConsultaID)
+	}
+	var tipos []db.TipoConsulta
+	if err := tx.Select("id", "nombre").Where("id IN ?", ids).Find(&tipos).Error; err != nil {
+		return nil, "", ""
+	}
+	nombrePorID := make(map[uuid.UUID]string, len(tipos))
+	for _, t := range tipos {
+		nombrePorID[t.ID] = t.Nombre
+	}
+
+	buscado := normalizarNombreTipo(tipo.Nombre)
+	for i := range activos {
+		if normalizarNombreTipo(nombrePorID[*activos[i].TipoConsultaID]) == buscado {
+			return &activos[i], nombreDelProfesional(tx, activos[i].AtendidoPorUserID), tipo.Nombre
+		}
+	}
+	return nil, "", ""
 }

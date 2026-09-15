@@ -852,6 +852,15 @@ func TestPaciente_NoPuedeEstarEnDosSillonesALaVez(t *testing.T) {
 	if !strings.Contains(cuerpo, "dos-colega@example.com") {
 		t.Errorf("el error no dice con qué profesional: %s", cuerpo)
 	}
+	// Y DE CUÁNDO A CUÁNDO (2026-09-15, pedido del cliente). Con solo la
+	// hora de inicio, quien carga sabe que choca pero no cuándo se libera
+	// la persona — y la agenda del colega no la puede ver, así que para
+	// elegir otro horario tendría que ir probando.
+	rango := "de " + clock.In(inicio).Format("15:04") +
+		" a " + clock.In(inicio.Add(30*time.Minute)).Format("15:04")
+	if !strings.Contains(cuerpo, rango) {
+		t.Errorf("el error no dice de qué hora a qué hora (esperaba %q): %s", rango, cuerpo)
+	}
 
 	// Y la otra dirección: pegado pero SIN encimarse, se agenda. Un
 	// bloqueo que rechaza todo no distingue nada.
@@ -865,5 +874,140 @@ func TestPaciente_NoPuedeEstarEnDosSillonesALaVez(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Errorf("un turno pegado pero sin encimarse tiene que poder agendarse: status=%d body=%s",
 			rec.Code, rec.Body.String())
+	}
+}
+
+// TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClínica — la regla existía
+// desde la Fase 3.1 pero **solo en el wizard público**, y ahí como control
+// de abuso sobre `tipo_consulta_id`. Cargando a mano no se aplicaba
+// ninguna: la misma persona podía terminar con dos "Consulta general"
+// pendientes, una por profesional, cada uno sin ver la del otro.
+//
+// Compara por NOMBRE y no por id (TR-145): cada profesional tiene su
+// propia fila para "Consulta general", así que por id la regla no vería
+// nunca el turno del colega — que es justo el caso reportado.
+func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "tipo-unico-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Tipo Único",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "tipo-unico-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "tipo-unico-colega@example.com")
+
+	// El colega adoptó el mismo tipo que el titular ya tenía del alta:
+	// misma consulta, su propia fila, y escrito distinto a propósito.
+	tipoDelColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta General", 30)
+	otroTipoDelColega := tipoDe(t, gdb, clinicID, colegaID, "Ortodoncia", 45)
+
+	const dni = "51222333"
+	inicio := time.Now().Add(300 * time.Hour).Truncate(time.Hour)
+	datos := func(tipoID string, desde time.Time) map[string]any {
+		return map[string]any{
+			"nombreContacto": "Paciente", "apellidoContacto": "Repetido", "dniContacto": dni,
+			"telefonoContacto": "+5493511234567", "emailContacto": "repetido@example.com",
+			"tipoConsultaId": tipoID,
+			"horaInicio":     desde.Format(time.RFC3339),
+			"horaFin":        desde.Add(30 * time.Minute).Format(time.RFC3339),
+		}
+	}
+
+	// El titular le da "Consulta general".
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID, inicio))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del titular: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// El colega intenta darle lo mismo, en otro horario para que no sea el
+	// solapamiento lo que lo frene.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega,
+		datos(tipoDelColega.ID.String(), inicio.Add(48*time.Hour)))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	cuerpo := rec.Body.String()
+	// El turno que choca es de un colega y su agenda no se ve desde acá:
+	// sin el nombre, el aviso manda a buscar a ciegas.
+	if !strings.Contains(cuerpo, "Ana Gómez") {
+		t.Errorf("el error no dice con quién es el turno que choca: %s", cuerpo)
+	}
+	if !strings.Contains(strings.ToLower(cuerpo), "consulta general") {
+		t.Errorf("el error no dice de qué tipo es el turno que choca: %s", cuerpo)
+	}
+
+	// La otra dirección: OTRO tipo con el mismo paciente se agenda. Un
+	// bloqueo que rechaza todo no distingue nada.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega,
+		datos(otroTipoDelColega.ID.String(), inicio.Add(72*time.Hour)))
+	if rec.Code != http.StatusCreated {
+		t.Errorf("un tipo distinto tiene que poder agendarse: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestPaciente_TampocoSePuedeMoverUnTurnoEncimaDelDeOtro — el alta ya
+// controlaba que el paciente no quedara en dos sillones a la vez;
+// reprogramar no. Se podía agendar en un hueco libre y después arrastrar
+// el turno encima del que esa misma persona tiene con un colega.
+func TestPaciente_TampocoSePuedeMoverUnTurnoEncimaDelDeOtro(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "mover-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Mover",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "mover-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "mover-colega@example.com")
+	tipoColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta del colega", 30)
+
+	const dni = "52333444"
+	ocupado := time.Now().Add(400 * time.Hour).Truncate(time.Hour)
+	datos := func(tipoID string, desde time.Time) map[string]any {
+		return map[string]any{
+			"nombreContacto": "Paciente", "apellidoContacto": "Movido", "dniContacto": dni,
+			"telefonoContacto": "+5493511234567", "emailContacto": "movido@example.com",
+			"tipoConsultaId": tipoID,
+			"horaInicio":     desde.Format(time.RFC3339),
+			"horaFin":        desde.Add(30 * time.Minute).Format(time.RFC3339),
+		}
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega, datos(tipoColega.ID.String(), ocupado))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del colega: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// El titular agenda al mismo paciente en un horario libre — legal.
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+	libre := ocupado.Add(24 * time.Hour)
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID, libre))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del titular: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var creado struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &creado); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+
+	// ...y después lo arrastra encima del turno del colega.
+	rec = doJSONAuth(t, router, http.MethodPatch, "/turnos/"+creado.ID+"/hora", titular.Token, map[string]any{
+		"horaInicio": ocupado.Add(15 * time.Minute).Format(time.RFC3339),
+		"horaFin":    ocupado.Add(45 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("mover encima del turno de otro: status=%d, esperaba %d. body=%s",
+			rec.Code, http.StatusConflict, rec.Body.String())
+	}
+
+	// Y la otra dirección: moverlo a un horario libre sigue funcionando.
+	rec = doJSONAuth(t, router, http.MethodPatch, "/turnos/"+creado.ID+"/hora", titular.Token, map[string]any{
+		"horaInicio": libre.Add(2 * time.Hour).Format(time.RFC3339),
+		"horaFin":    libre.Add(2*time.Hour + 30*time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusOK {
+		t.Errorf("mover a un horario libre tiene que seguir andando: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

@@ -1121,8 +1121,40 @@ La pantalla los agrupa en **"En esta clínica"** y **"Más habituales"**, en ese
 
 En "Turnos activos" e "Historial de turnos" el turno de un colega mostraba **"—"** como tipo, aunque fuera del mismo tipo que uno propio. La ficha resolvía el tipo contra `tiposConsulta`, que son los **míos**: el turno del colega referencia el id del tipo de **él**, el lookup fallaba.
 
-No se arregla mapeando el id ajeno a un tipo propio — eso sería inventar una equivalencia, y se rompe en cuanto el colega tiene uno que vos no tenés. El turno viaja con el **nombre y el color ya resueltos**, en el mismo lote donde ya se resuelve el nombre del profesional (no un N+1 sobre una lista que se pinta entera). Es literalmente la regla del cliente: el nombre es lo compartido.
+No se arregla mapeando el id ajeno a un tipo propio — eso sería inventar una equivalencia, y se rompe en cuanto el colega tiene uno que vos no tenés. El turno viaja con el **nombre resuelto**, en el mismo lote donde ya se resuelve el nombre del profesional (no un N+1 sobre una lista que se pinta entera).
+
+**El color no viaja.** La primera entrega lo mandaba junto al nombre, y el cliente lo marcó enseguida: *"si mi colega tiene consulta general en verde y yo en beige, yo desde la ficha del paciente debo ver Consulta general y el color beige"*. Tenía razón, y además contradecía la regla que esta misma ronda estaba fijando — si el color es preferencia de cada agenda, el de él no tiene nada que hacer en mi pantalla. En mi tabla, un punto de un color significa lo que yo decidí que significa.
+
+Se resuelve en el frontend contra **mis** tipos, por nombre. Si no tengo ese tipo, el nombre se muestra igual y el punto queda neutro: no tengo preferencia de color para algo que no uso. Del lado del backend la consulta pide `SELECT id, nombre` — lo único que se expone de la fila del colega, escrito en la query.
 
 Por lo mismo, el **filtro de esa tabla compara por nombre normalizado** y sus opciones salen de los turnos, no de mis tipos: filtrando por el id de mi "Limpieza dental" desaparecían los turnos del colega de ese mismo tipo, y un tipo que solo usa él no aparecía ni como opción.
 
 El test del backend se verificó **sacándole el arreglo**: sin el nombre en la respuesta, falla nombrando los dos turnos.
+
+### Un turno activo por tipo, y el aviso que dice hasta cuándo (2026-09-15)
+
+Tres correcciones de la misma vuelta, todas sobre la misma idea: **las reglas que protegen al paciente tienen que valer en los dos caminos, el público y el manual.**
+
+#### La regla del tipo único llega a los turnos cargados a mano
+
+*"1 turno activo por DNI y tipo de consulta"* existía desde la Fase 3.1, pero **solo en el wizard público** y ahí como control de abuso sobre el paciente sin verificar. Cargando a mano no se aplicaba ninguna: la misma persona podía juntar dos "Consulta general" pendientes, una por profesional, cada uno sin ver la del otro.
+
+Ahora se aplica en el alta del panel, **en toda la clínica**, y **comparando por nombre** — que es lo que la ronda anterior acaba de decidir que identifica a un tipo. Por `tipo_consulta_id` la regla no vería nunca el turno del colega, porque él tiene su propia fila para "Consulta general": el caso reportado es justo el que el id no puede ver.
+
+Se busca por `paciente_id` y no por `dni_contacto`: el DNI del turno es un snapshot de lo tipeado, la ficha es la identidad. Y la comparación de nombres se hace en Go, no en SQL — `normalizarNombreTipo` saca acentos y colapsa espacios, y no hay equivalente portable en Postgres sin `unaccent`; son los turnos activos de una sola persona, el costo es nulo.
+
+El mensaje nombra el tipo, el profesional y la fecha, y dice **"con vos"** cuando el turno que choca es de quien está cargando.
+
+#### El aviso de solapamiento, con la hora de cierre
+
+*"Ya tiene un turno con Lucía Ferrer a las 10:00"* decía que choca pero no cuándo se libera la persona, y la agenda del colega no se ve desde ahí: para elegir otro horario había que ir probando. Ahora dice **"de 10:00 a 10:30 del 23/09"**.
+
+#### Un hueco de la ronda anterior: mover también cuenta
+
+Al escribir lo anterior apareció: el alta controlaba que el paciente no quedara en dos sillones a la vez, **reprogramar no**. Se podía agendar en un hueco libre y después arrastrar el turno encima del que esa persona tiene con un colega. La misma regla; lo que cambiaba era por qué puerta se entra. Va en una transacción, como en el alta.
+
+#### Seis tests rotos que eran la regla funcionando
+
+Seis fixtures creaban dos turnos activos de la MISMA persona y el MISMO tipo — exactamente lo que se acaba de prohibir. No se aflojó la regla: se les dio un segundo tipo de consulta (`otroTipoDePrueba`), salvo al test del exclusion constraint, que pasó a usar **dos pacientes distintos** porque lo que mide es que el PROFESIONAL no tenga dos turnos encimados, sean de quien sean. Un test que se arregla relajando lo que prueba deja de probar algo.
+
+Las tres reglas se verificaron **sacándoles el arreglo**: sin cada una, su test falla.

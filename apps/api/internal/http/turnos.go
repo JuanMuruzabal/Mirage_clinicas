@@ -69,12 +69,14 @@ type turnoResponse struct {
 	// referencia el id del tipo de ÉL, que no está en esa lista, y salía
 	// "—". Un historial que no dice qué se hizo no es un historial.
 	//
-	// Es coherente con cómo funcionan los tipos (TR-142): el NOMBRE es lo
-	// compartido —"Limpieza dental" es lo mismo en toda la clínica— y el
-	// color y los tiempos son de cada profesional. Por eso viaja el nombre
-	// resuelto y no se intenta mapear el id ajeno a un tipo propio.
+	// Viaja EL NOMBRE Y NADA MÁS (TR-145). El nombre es lo compartido
+	// —"Limpieza dental" es lo mismo en toda la clínica—; el color es
+	// preferencia de la agenda de cada uno, así que el del colega no tiene
+	// por qué cruzarse: si yo tengo ese tipo en beige, en mi pantalla se
+	// pinta beige aunque él lo tenga en verde. Esa resolución la hace el
+	// frontend contra mis propios tipos, por nombre — mandar también el
+	// color de él sería mandar un dato que la pantalla debe ignorar.
 	TipoConsultaNombre string `json:"tipoConsultaNombre,omitempty"`
-	TipoConsultaColor  string `json:"tipoConsultaColor,omitempty"`
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
@@ -137,8 +139,8 @@ func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Tur
 		}
 	}
 
-	// Los tipos de consulta de este lote, sin importar de quién sean: el
-	// nombre es lo compartido.
+	// Los tipos de consulta de este lote, sin importar de quién sean: se
+	// lee la fila ajena solo para sacarle el nombre.
 	tiposIDs := make([]uuid.UUID, 0, len(turnos))
 	vistosTipo := make(map[uuid.UUID]bool, len(turnos))
 	for _, t := range turnos {
@@ -150,7 +152,9 @@ func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Tur
 	tipos := make(map[uuid.UUID]db.TipoConsulta, len(tiposIDs))
 	if len(tiposIDs) > 0 {
 		var encontrados []db.TipoConsulta
-		_ = gdb.Where("id IN ?", tiposIDs).Find(&encontrados).Error
+		// Solo id y nombre: es lo único que se expone de la fila de un
+		// colega, y decirlo en la query lo deja escrito.
+		_ = gdb.Select("id", "nombre").Where("id IN ?", tiposIDs).Find(&encontrados).Error
 		for _, t := range encontrados {
 			tipos[t.ID] = t
 		}
@@ -163,7 +167,6 @@ func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Tur
 		if id := turnos[i].TipoConsultaID; id != nil {
 			if tipo, hay := tipos[*id]; hay {
 				out[i].TipoConsultaNombre = tipo.Nombre
-				out[i].TipoConsultaColor = tipo.Color
 			}
 		}
 		id := turnos[i].AtendidoPorUserID
@@ -675,7 +678,29 @@ func reprogramarTurnoHandler(gdb *gorm.DB) http.HandlerFunc {
 		turno.HoraInicio = &horaInicio
 		turno.HoraFin = &horaFin
 		turno.Motivo = strings.TrimSpace(req.Motivo)
-		if err := gdb.Save(&turno).Error; err != nil {
+		// El paciente tampoco puede quedar en dos sillones a la vez al
+		// MOVER un turno (2026-09-15). El alta ya lo controlaba, esto no:
+		// se podía agendar en un hueco libre y después arrastrarlo encima
+		// del turno que esa misma persona tiene con un colega. Es la misma
+		// regla — lo que cambiaba era por qué puerta se entra.
+		//
+		// En una transacción, como en el alta: chequear afuera dejaría la
+		// ventana entre el chequeo y el Save.
+		if err := gdb.Transaction(func(tx *gorm.DB) error {
+			if turno.PacienteID != nil && turno.AtendidoPorUserID != nil {
+				if choca, quien := turnoSuperpuestoDeOtroProfesional(
+					tx, profesionalID, *turno.PacienteID, *turno.AtendidoPorUserID,
+					horaInicio, horaFin, &turno.ID,
+				); choca != nil {
+					return &errPacienteOcupadoConOtro{
+						Profesional: quien,
+						Desde:       *choca.HoraInicio,
+						Hasta:       *choca.HoraFin,
+					}
+				}
+			}
+			return tx.Save(&turno).Error
+		}); err != nil {
 			writeTurnoAgendadoError(w, err)
 			return
 		}
@@ -1184,7 +1209,35 @@ func crearTurnoAgendadoConPaciente(gdb *gorm.DB, profesionalID uuid.UUID, turno 
 				tx, profesionalID, *turno.PacienteID, *turno.AtendidoPorUserID,
 				*turno.HoraInicio, *turno.HoraFin, soloSiNoEsNil(turno.ID),
 			); choca != nil {
-				return &errPacienteOcupadoConOtro{Profesional: quien, Desde: *choca.HoraInicio}
+				return &errPacienteOcupadoConOtro{
+					Profesional: quien,
+					Desde:       *choca.HoraInicio,
+					Hasta:       *choca.HoraFin,
+				}
+			}
+		}
+
+		// UN TURNO ACTIVO POR PACIENTE Y TIPO DE CONSULTA, EN TODA LA
+		// CLÍNICA (Fase 3.2.5, 2026-09-15, pedido del cliente). La regla
+		// existía desde la Fase 3.1 pero solo en el wizard público: cargando
+		// a mano no se aplicaba ninguna, y la misma persona podía terminar
+		// con dos "Consulta general" pendientes —una por profesional, cada
+		// uno sin ver la del otro— que es justo lo que el cliente reportó.
+		//
+		// Va después del solapamiento a propósito: si los dos turnos se
+		// pisan en horario, eso es lo primero que hay que decir.
+		if turno.PacienteID != nil && turno.TipoConsultaID != nil {
+			if choca, quien, tipo := turnoActivoDelMismoTipoEnLaClinica(
+				tx, profesionalID, *turno.PacienteID, *turno.TipoConsultaID, soloSiNoEsNil(turno.ID),
+			); choca != nil {
+				e := &errPacienteYaTieneEseTipo{Tipo: tipo, Profesional: quien}
+				if choca.HoraInicio != nil {
+					e.Desde = *choca.HoraInicio
+				}
+				if choca.AtendidoPorUserID != nil && *choca.AtendidoPorUserID == *turno.AtendidoPorUserID {
+					e.Profesional = "vos"
+				}
+				return e
 			}
 		}
 
@@ -1214,12 +1267,39 @@ func soloSiNoEsNil(id uuid.UUID) *uuid.UUID {
 type errPacienteOcupadoConOtro struct {
 	Profesional string
 	Desde       time.Time
+	// Hasta — la hora de cierre, sumada el 2026-09-15 a pedido del
+	// cliente. Con solo la hora de inicio, quien carga sabe que choca pero
+	// no cuándo se libera la persona, y la agenda del colega no la puede
+	// ver: para elegir otro horario tenía que ir probando.
+	Hasta time.Time
 }
 
 func (e *errPacienteOcupadoConOtro) Error() string {
 	return "este paciente ya tiene un turno con " + e.Profesional +
-		" a las " + clock.In(e.Desde).Format("15:04") + " del " + clock.In(e.Desde).Format("02/01") +
+		" de " + clock.In(e.Desde).Format("15:04") + " a " + clock.In(e.Hasta).Format("15:04") +
+		" del " + clock.In(e.Desde).Format("02/01") +
 		". Una persona no puede estar en dos turnos a la vez."
+}
+
+// errPacienteYaTieneEseTipo — el paciente ya tiene un turno activo de ese
+// mismo tipo de consulta, con quien sea de la clínica.
+//
+// Nombra el tipo, el profesional y la fecha por el mismo motivo que el de
+// arriba: el turno que choca puede ser de un colega, y su agenda no se ve
+// desde acá. "Vos" cuando es de quien está cargando — decirle su propio
+// nombre en tercera persona lo mandaría a buscar a otro lado.
+type errPacienteYaTieneEseTipo struct {
+	Tipo        string
+	Profesional string
+	Desde       time.Time
+}
+
+func (e *errPacienteYaTieneEseTipo) Error() string {
+	msg := "este paciente ya tiene un turno activo de \"" + e.Tipo + "\" con " + e.Profesional
+	if !e.Desde.IsZero() {
+		msg += " el " + clock.In(e.Desde).Format("02/01") + " a las " + clock.In(e.Desde).Format("15:04")
+	}
+	return msg + ". Cancelá ese turno antes de cargar otro del mismo tipo."
 }
 
 // crearOBuscarPacientePorDNI — Extra 2.3.5 (E5.1): "cualquier camino de
@@ -1390,6 +1470,11 @@ func writeTurnoAgendadoError(w http.ResponseWriter, err error) {
 	var ocupado *errPacienteOcupadoConOtro
 	if errors.As(err, &ocupado) {
 		writeError(w, http.StatusConflict, ocupado.Error())
+		return
+	}
+	var repetido *errPacienteYaTieneEseTipo
+	if errors.As(err, &repetido) {
+		writeError(w, http.StatusConflict, repetido.Error())
 		return
 	}
 	if errors.Is(err, errPacienteNoEncontrado) {
