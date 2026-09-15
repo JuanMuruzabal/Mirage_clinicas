@@ -496,11 +496,25 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		     CHECK ((hora_desde IS NULL) = (hora_hasta IS NULL));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
-		// A lo sumo una fila "general" por clínica — el CRUD la trata
+		// A lo sumo una fila "general" POR PROFESIONAL — el CRUD la trata
 		// como upsert (internal/http/horario_atencion.go), este índice es
 		// la red de seguridad a nivel de base.
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_unico
-		   ON horarios_atencion (clinic_id) WHERE alcance = 'general'`,
+		//
+		// Era por CLÍNICA hasta el 2026-09-14, y esa versión no era una
+		// red de seguridad: era la regla vieja escrita en el motor. Con
+		// dos profesionales, el segundo que guardaba su horario chocaba
+		// contra la fila del primero — un 500 crudo en la cara de alguien
+		// que solo quería decir a qué hora abre. La columna `user_id`
+		// existe desde la 3.2.1; al índice nadie lo movió.
+		//
+		// `COALESCE` porque `user_id` es nullable —las filas anteriores a
+		// la 3.2.1 lo tienen nulo— y en un índice único dos NULL nunca son
+		// iguales: sin esto, una clínica vieja podría juntar varias filas
+		// generales huérfanas, que es justo lo que este índice evita.
+		`DROP INDEX IF EXISTS idx_horario_atencion_general_unico`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_por_profesional
+		   ON horarios_atencion (clinic_id, COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid))
+		   WHERE alcance = 'general'`,
 
 		// Extra 2.3.5 (docs/Arquitectura y base/implementation-plan.md §11.5, E5.1): un mismo DNI
 		// no puede tener dos fichas de Paciente dentro de la misma clínica —

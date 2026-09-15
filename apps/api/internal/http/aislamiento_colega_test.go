@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 )
 
@@ -147,4 +148,191 @@ func TestColega_PuedeEntrarSinTenerClinicaPropia(t *testing.T) {
 	if conPerfil.Clinica == nil || conPerfil.Clinica.Nombre != "Clínica Onboarding" {
 		t.Errorf("la clínica activa del colega = %+v, esperaba la del titular", conPerfil.Clinica)
 	}
+}
+
+// --- La AGENDA también es de cada profesional -----------------------
+//
+// Arreglar a quién se le asigna un turno sin arreglar esto deja el
+// aislamiento a medias: los turnos dejan de cruzarse, pero los huecos
+// donde entran seguirían saliendo de datos mezclados.
+
+// TestColega_ElHorarioDeAtencionEsDeCadaUno — el PUT del horario general
+// buscaba la fila `general` de la CLÍNICA y la pisaba: guardar el propio
+// le cambiaba el horario al colega, y ninguno se enteraba hasta que el
+// calendario ofrecía huecos equivocados.
+func TestColega_ElHorarioDeAtencionEsDeCadaUno(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "ag-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Agenda",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "ag-colega@example.com", db.RoleProfesional)
+
+	// El titular abre a las 08:00; el colega, a las 14:00.
+	if rec := doJSONAuth(t, router, http.MethodPut, "/horario-atencion", titular.Token, map[string]any{
+		"horaDesde": "08:00", "horaHasta": "12:00",
+	}); rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+		t.Fatalf("horario del titular: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := doJSONAuth(t, router, http.MethodPut, "/horario-atencion", tokenColega, map[string]any{
+		"horaDesde": "14:00", "horaHasta": "18:00",
+	}); rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+		t.Fatalf("horario del colega: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Cada uno conserva el suyo. Sin el arreglo, el segundo PUT pisaba el
+	// primero y los dos leían 14:00.
+	if desde := horarioGeneralDePrueba(t, router, titular.Token); desde != "08:00" {
+		t.Errorf("el titular lee %q, esperaba 08:00 — se lo pisó el colega", desde)
+	}
+	if desde := horarioGeneralDePrueba(t, router, tokenColega); desde != "14:00" {
+		t.Errorf("el colega lee %q, esperaba 14:00", desde)
+	}
+}
+
+func horarioGeneralDePrueba(t *testing.T, router http.Handler, token string) string {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/horario-atencion", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /horario-atencion: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	// El listado devuelve un array con el general PRIMERO y las
+	// excepciones después (ver listHorariosAtencionHandler).
+	var resp []struct {
+		Alcance   string  `json:"alcance"`
+		HoraDesde *string `json:"horaDesde"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	for _, h := range resp {
+		if h.Alcance == db.HorarioAtencionAlcanceGeneral && h.HoraDesde != nil {
+			return *h.HoraDesde
+		}
+	}
+	return ""
+}
+
+// TestColega_LosHorariosReservadosNoSeCruzan — un horario reservado es de
+// quien lo reserva. Las dos direcciones: el propio se ve, el ajeno no.
+func TestColega_LosHorariosReservadosNoSeCruzan(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "bl-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Bloqueos",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "bl-colega@example.com", db.RoleProfesional)
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/bloqueos", tokenColega, map[string]any{
+		"motivo": "Almuerzo del colega", "alcance": db.BloqueoAlcanceTodos,
+		"diaSemana": 1, "horaDesde": "13:00", "horaHasta": "14:00",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear bloqueo: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if n := len(listarBloqueosDePrueba(t, router, tokenColega)); n != 1 {
+		t.Errorf("el colega ve %d horarios reservados propios, esperaba 1", n)
+	}
+	if n := len(listarBloqueosDePrueba(t, router, titular.Token)); n != 0 {
+		t.Errorf("el titular ve %d horarios reservados del colega, esperaba 0", n)
+	}
+}
+
+func listarBloqueosDePrueba(t *testing.T, router http.Handler, token string) []map[string]any {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/bloqueos", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /bloqueos: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return out
+}
+
+// TestColega_ElTurnoDelOtroNoOcupaMiHorario — el que cierra el círculo.
+//
+// El cálculo de disponibilidad contaba los turnos de TODA la clínica, así
+// que el turno del colega a las 10 bloqueaba las 10 propias. Es el mismo
+// bug que la 3.2.1 sacó del exclusion constraint al mudarlo a
+// `atendido_por_user_id` —"sobre la clínica rechazaría dos turnos
+// simultáneos en sillones distintos"— reaparecido un nivel más arriba: el
+// motor ya los dejaba convivir, pero la pantalla no los ofrecía.
+func TestColega_ElTurnoDelOtroNoOcupaMiHorario(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "disp-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Disponibilidad",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "disp-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "disp-colega@example.com")
+
+	tipoColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta colega", 30)
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+
+	// Un día hábil futuro, dentro del horario por default.
+	dia := clock.Today().AddDate(0, 0, 7)
+	for dia.Weekday() == time.Saturday || dia.Weekday() == time.Sunday {
+		dia = dia.AddDate(0, 0, 1)
+	}
+	inicio := time.Date(dia.Year(), dia.Month(), dia.Day(), 10, 0, 0, 0, dia.Location())
+
+	antes := slotsDePrueba(t, router, titular.Token, tipoTitular.ID, dia)
+	if !contiene(antes, "10:00") {
+		t.Fatalf("precondición: las 10:00 tenían que estar libres para el titular. slots=%v", antes)
+	}
+
+	// El COLEGA toma las 10:00.
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega, map[string]any{
+		"nombreContacto": "Paciente", "apellidoContacto": "Del Colega", "dniContacto": "41222333",
+		"telefonoContacto": "+5493511234567", "emailContacto": "p-colega@example.com",
+		"tipoConsultaId": tipoColega.ID.String(),
+		"horaInicio":     inicio.Format(time.RFC3339),
+		"horaFin":        inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear turno del colega: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Al titular le siguen quedando libres: son dos sillones distintos.
+	despues := slotsDePrueba(t, router, titular.Token, tipoTitular.ID, dia)
+	if !contiene(despues, "10:00") {
+		t.Errorf("el turno del colega bloqueó las 10:00 del titular. slots=%v", despues)
+	}
+	// Y al colega ya no: la otra dirección, que es la que prueba que el
+	// filtro no desactivó el cálculo entero.
+	suyos := slotsDePrueba(t, router, tokenColega, tipoColega.ID.String(), dia)
+	if contiene(suyos, "10:00") {
+		t.Errorf("el colega tiene su propio turno a las 10:00 y le siguen apareciendo libres. slots=%v", suyos)
+	}
+}
+
+func contiene(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
+
+func slotsDePrueba(t *testing.T, router http.Handler, token, tipoID string, dia time.Time) []string {
+	t.Helper()
+	ruta := "/disponibilidad?tipoConsultaId=" + tipoID + "&fecha=" + dia.Format("2006-01-02")
+	rec := doJSONAuth(t, router, http.MethodGet, ruta, token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET %s: status=%d body=%s", ruta, rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Slots []string `json:"slots"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respuesta inválida: %v", err)
+	}
+	return resp.Slots
 }

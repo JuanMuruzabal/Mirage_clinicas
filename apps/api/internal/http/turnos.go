@@ -693,7 +693,18 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 				encontrado := false
 				for d := 0; d < autoreservarBusquedaMaxDias; d++ {
 					fechaCandidata := dia.AddDate(0, 0, d)
-					slots, err := calcularDisponibilidad(tx, profesionalID, tipo, fechaCandidata, &t.ID)
+					// El del turno que se está reprogramando: autoreservar
+					// mueve el turno de alguien, no lo cambia de dueño.
+					// Todo turno `agendado` tiene profesional
+					// (chk_turno_agendado_profesional), pero la columna es
+					// nullable en el modelo: sin el chequeo, un dato
+					// inconsistente calcularía la disponibilidad del uuid
+					// cero y devolvería cualquier cosa.
+					if t.AtendidoPorUserID == nil {
+						continue
+					}
+					atiendeEste := *t.AtendidoPorUserID
+					slots, err := calcularDisponibilidad(tx, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
 					if err != nil {
 						return err
 					}

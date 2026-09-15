@@ -921,3 +921,23 @@ Se **deriva** en vez de arreglar la columna con una migración: la pregunta que 
 
 **Un provisorio con fecha de vencimiento escrita en un comentario no vence solo.** Los dos decían en qué subfase dejarían de servir, y las dos subfases pasaron sin que nadie volviera. Los tests nuevos los reproducen: con los arreglos revertidos, el del turno falla en las **dos direcciones** —el colega ve 0 turnos propios y el titular ve 1 que no es suyo— y el del onboarding falla al pedir `/me`.
 
+### La agenda también era de la clínica, no de cada uno (2026-09-14)
+
+Arreglar a quién se le asigna un turno dejaba el aislamiento **a medias**: los turnos dejaban de cruzarse, pero los huecos donde entran seguían saliendo de datos mezclados. Barrido completo de lo que quedaba.
+
+**Las columnas estaban desde la 3.2.1; los handlers nunca las usaron.** `horarios_atencion.user_id` y `bloqueos_horario.user_id` se agregaron con el resto del esquema multi-tenant y ninguna consulta las escribió ni las leyó — exactamente el mismo caso que `tipos_consulta`, corregido horas antes en esta misma subfase. Tres tablas, el mismo olvido.
+
+| Qué estaba mal | Qué pasaba con dos profesionales |
+|---|---|
+| Horario de atención filtrado solo por clínica | El `PUT` encontraba la fila `general` del colega y **la pisaba**: guardar el propio le cambiaba el horario al otro |
+| Horarios reservados filtrados solo por clínica | El almuerzo de uno aparecía en el calendario del otro |
+| `calcularDisponibilidad` contaba los turnos de **toda la clínica** | El turno del colega a las 10 bloqueaba las 10 propias |
+
+**El tercero es el que más dice.** Es el mismo bug que la 3.2.1 sacó del exclusion constraint al mudarlo de la clínica a `atendido_por_user_id` —*"sobre la clínica rechazaría dos turnos simultáneos en sillones distintos: pasa de garantía a bug"*— **reaparecido un nivel más arriba**: el motor ya los dejaba convivir, pero la pantalla no los ofrecía. La corrección de abajo no arrastró a la de arriba.
+
+**Y había una regla vieja escrita en el motor.** El índice `idx_horario_atencion_general_unico` imponía *una fila general por CLÍNICA*. No era una red de seguridad: era la regla de cuando había un solo profesional. El segundo que guardaba su horario se llevaba un **500 crudo** por querer decir a qué hora abre. Ahora es por `(clinic_id, user_id)`, con `COALESCE` para que las filas anteriores a la 3.2.1 —que tienen `user_id` nulo— no se multipliquen: en un índice único dos NULL nunca son iguales.
+
+`calcularDisponibilidad` pasa a recibir el profesional además de la clínica. Sus seis llamadores lo resuelven donde corresponde: el panel con quien pregunta, autoreservar con el dueño del turno que mueve, y el wizard público con el owner —**el mismo** al que después le asigna el turno, que es lo que importa: ofrecer los horarios de uno y agendar con otro sería peor que cualquiera de los dos bugs.
+
+**Lo que esto deja como método:** cuando una columna nueva del esquema no se usa en ningún handler, no está "pendiente de cablear" — está creando la ilusión de que la regla existe. Las tres tablas tenían la columna desde la 3.2.1 y las tres se comportaban como antes de la 3.2.1.
+

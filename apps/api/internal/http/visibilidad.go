@@ -122,6 +122,40 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 	}
 }
 
+// soloMiAgenda — el horario de atención y los horarios reservados son de
+// UN profesional, igual que sus turnos (Fase 3.2.5, corrección del
+// 2026-09-14).
+//
+// Las columnas `user_id` de `horarios_atencion` y `bloqueos_horario`
+// existen desde la 3.2.1 y los handlers nunca las escribieron ni las
+// leyeron: filtraban solo por clínica. Con dos profesionales eso significa
+// que los horarios reservados de uno aparecían en el calendario del otro,
+// y —peor— que el horario de atención era UNO SOLO para la clínica: el PUT
+// buscaba la fila `general` de ese `clinic_id` y la pisaba, así que
+// guardar el propio le cambiaba el horario al colega.
+//
+// No es un caso de borde: es la agenda sobre la que se apoyan los turnos.
+// Arreglar quién atiende cada turno sin arreglar esto deja el aislamiento
+// a medias — los turnos dejan de cruzarse, pero los huecos donde entran
+// siguen saliendo de datos mezclados.
+//
+// `user_id IS NULL` entra igual, por la misma razón que en
+// `/tipos-consulta`: son las filas anteriores a la 3.2.1, que la migración
+// le asigna al owner. Dejarlas afuera le vaciaría la agenda a una clínica
+// vieja de un solo profesional.
+func soloMiAgenda(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if veTodaLaClinica(r) {
+			return tx
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
+}
+
 // profesionalQueAtiende — a quién se le asigna un turno cargado desde el
 // panel (Fase 3.2.5, corrección del 2026-09-14).
 //
