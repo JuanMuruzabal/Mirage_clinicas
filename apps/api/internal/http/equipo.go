@@ -516,6 +516,13 @@ func cambiarRolesHandler(gdb *gorm.DB) http.HandlerFunc {
 			if err := tx.Where("clinic_member_id = ?", miembro.ID).Delete(&db.ClinicMemberRole{}).Error; err != nil {
 				return err
 			}
+			// Mismo criterio que al aceptar una invitación: si esta
+			// persona pasa a atender, entra con sus dos tipos de siempre.
+			if tieneRol(req.Roles, db.RoleProfesional) {
+				if err := db.SeedTiposConsultaDefault(tx, miembro.ClinicID, miembro.UserID); err != nil {
+					return err
+				}
+			}
 			for _, rol := range req.Roles {
 				if err := db.AsignarRol(tx, miembro.ID, rol); err != nil {
 					return err

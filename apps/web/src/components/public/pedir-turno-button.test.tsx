@@ -131,7 +131,11 @@ describe("PedirTurnoButton", () => {
   describe("con ?enlace= en la URL", () => {
     it("un link válido abre el wizard solo, sin tocar el botón", async () => {
       conEnlace("token-valido");
-      validarEnlaceTurnoPublicoActionMock.mockResolvedValue(true);
+      // Desde la Fase 3.2.7b devuelve un OBJETO: qué trae el link, no
+      // solo si vale. `valido` es el campo que decide — con el objeto
+      // pelado, cualquier respuesta era truthy y un link vencido abría
+      // el wizard igual.
+      validarEnlaceTurnoPublicoActionMock.mockResolvedValue({ valido: true, elegisProfesional: false });
       render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
 
       expect(await screen.findByRole("dialog", { name: "Pedir turno" })).toBeInTheDocument();
@@ -140,7 +144,7 @@ describe("PedirTurnoButton", () => {
 
     it("un link inválido NO abre el wizard solo y muestra el aviso", async () => {
       conEnlace("token-vencido");
-      validarEnlaceTurnoPublicoActionMock.mockResolvedValue(false);
+      validarEnlaceTurnoPublicoActionMock.mockResolvedValue({ valido: false, elegisProfesional: false });
       render(<PedirTurnoButton slug="clinica-x" nombreClinica="Clínica X" telefonoClinica={null} />);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/ya no es válido/);

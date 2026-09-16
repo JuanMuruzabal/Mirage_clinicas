@@ -106,6 +106,8 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Apellido"), "Ortiz");
     await user.type(screen.getByLabelText("DNI"), "30222333");
     await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
+    await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
     fijarFechaFutura();
@@ -142,6 +144,8 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
     await user.type(screen.getByLabelText("DNI"), "30222333");
     await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
+    await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo generar el turno: el paciente con DNI 30222333 ya existe y es Julián Ortiz");
@@ -170,6 +174,8 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Apellido"), "Otro Apellido");
     await user.type(screen.getByLabelText("DNI"), "30222333");
     await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
+    await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
     await user.click(await screen.findByRole("button", { name: "Usar este paciente" }));
@@ -238,6 +244,8 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Apellido"), "Ortiz");
     await user.type(screen.getByLabelText("DNI"), "30222333");
     await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
+    // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
+    await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.type(screen.getByLabelText("Motivo de consulta (opcional)"), "Dolor de muela");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
@@ -269,7 +277,7 @@ describe("AgregarTurnoModal", () => {
     expect(screen.getByLabelText("Apellido")).toHaveValue("");
     expect(screen.getByLabelText("DNI")).toHaveValue("");
     expect(screen.getByLabelText("Teléfono")).toHaveValue("");
-    expect(screen.getByLabelText("Email (opcional)")).toHaveValue("");
+    expect(screen.getByLabelText("Email")).toHaveValue("");
   });
 
   it("no permite confirmar un turno en una fecha pasada", async () => {

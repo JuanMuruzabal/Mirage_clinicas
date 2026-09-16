@@ -262,6 +262,16 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
       setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
       return;
     }
+    // El mail es obligatorio al crear una ficha nueva (2026-09-15). Una
+    // ficha cargada a mano cuenta como verificada, y sin mail el wizard
+    // público no tiene con qué reconocerla: cada pedido con ese DNI
+    // dispara un conflicto de identidad que después bloquea marcar
+    // asistencia. Con tutor queda opcional — ahí la identidad la aporta
+    // el tutor, cuyo mail sí se exige abajo.
+    if (!tutor.conTutor && !EMAIL_REGEX.test(nuevoPaciente.emailContacto.trim())) {
+      setError("El email es obligatorio: sin él no se puede reconocer al paciente cuando pida turno por la página.");
+      return;
+    }
     if (tutor.conTutor) {
       if (!tutor.tutorRelacion) {
         setError("Elegí la relación del tutor con el paciente.");
@@ -483,7 +493,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
                     className={inputClass}
                   />
                 </Campo>
-                <Campo label="Email (opcional)">
+                <Campo label={tutor.conTutor ? "Email (opcional)" : "Email"}>
                   <input
                     type="email"
                     value={nuevoPaciente.emailContacto}

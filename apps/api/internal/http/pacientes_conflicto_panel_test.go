@@ -1076,10 +1076,16 @@ func TestResolverConflictoPaciente_CuerpoInvalidoFalla(t *testing.T) {
 // TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla — si la
 // ficha en conflicto se borró por otro lado (carrera real: dos pedidos de
 // resolución simultáneos, o borrada a mano) entre que se creó el ticket y
-// que el profesional lo resuelve, la transacción de resolverConflictoComoVerdadero
-// falla al no encontrarla (`tx.First`) — el handler responde 500 legible
-// en vez de dejar que el panic/error crudo suba.
-func TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla(t *testing.T) {
+// que el profesional lo resuelve, el ticket se CIERRA igual en vez de
+// fallar (corrección del 2026-09-15).
+//
+// Antes respondía 500. Con la resolución cruzada por mail eso dejó de ser
+// aceptable: al resolver un conflicto se resuelven también los hermanos, y
+// un hermano puede apuntar a una ficha que la fusión anterior acaba de
+// borrar — el 500 abortaría toda la operación por algo que ya está
+// resuelto. Y un ticket sobre una ficha inexistente no tiene nada que
+// decidir: lo único correcto es cerrarlo.
+func TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteSeCierra(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "conf11@example.com")
@@ -1094,8 +1100,21 @@ func TestResolverConflictoPaciente_FichaEnConflictoYaNoExisteFalla(t *testing.T)
 		t.Fatalf("no se pudo borrar la ficha en conflicto de prueba: %v", err)
 	}
 
+	// 409 con el mensaje que la pantalla reconoce para mostrarlo en VERDE
+	// ("conflicto resuelto, cerrá y refrescá"), no un error rojo: la
+	// pregunta ya está contestada, y el ticket queda cerrado igual.
 	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes/conflictos/"+conflicto.ID.String()+"/resolver", reg.Token, resolverConflictoPacienteRequest{EsVerificado: true})
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusInternalServerError, rec.Body.String())
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if cuerpo := rec.Body.String(); !strings.Contains(cuerpo, "ya fue resuelto") {
+		t.Errorf("el mensaje no es el que la pantalla reconoce para el cartel verde: %s", cuerpo)
+	}
+	var recargado db.ConflictoPaciente
+	if err := gdb.First(&recargado, "id = ?", conflicto.ID).Error; err != nil {
+		t.Fatalf("no se encontró el conflicto: %v", err)
+	}
+	if !recargado.Resuelto {
+		t.Error("el ticket quedó pendiente sobre una ficha que ya no existe")
 	}
 }

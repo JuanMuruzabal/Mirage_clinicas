@@ -28,6 +28,16 @@ interface ResolverConflictoPacienteModalProps {
 export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClose, onResuelto }: ResolverConflictoPacienteModalProps) {
   const [pending, setPending] = useState<"verificado" | "no-verificado" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // yaResuelto — otro profesional lo resolvió mientras esta ventana estaba
+  // abierta (una resolución alcanza a todos los tickets del mismo mail), o
+  // fue uno mismo en otra pestaña.
+  //
+  // No es un error: la pregunta ya está contestada, y la respuesta vale
+  // igual. Se muestra en VERDE y se pide refrescar — con la ficha
+  // duplicada ya fusionada, lo que quedó en pantalla describe un estado
+  // que no existe más, y seguir operando sobre eso sí produciría
+  // inconsistencias.
+  const [yaResuelto, setYaResuelto] = useState(false);
 
   const nombreTipoConsulta = (tipoConsultaId?: string) => tiposConsulta.find((t) => t.id === tipoConsultaId)?.nombre ?? "—";
 
@@ -50,6 +60,12 @@ export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClo
     const result = await resolverConflictoPacienteAction(conflicto.id, esVerificado);
     setPending(null);
     if ("error" in result) {
+      // El backend manda este texto exacto cuando el ticket ya está
+      // cerrado (mensajeConflictoYaResuelto en pacientes_conflicto_panel.go).
+      if (result.error.includes("ya fue resuelto")) {
+        setYaResuelto(true);
+        return;
+      }
       setError(result.error);
       return;
     }
@@ -132,7 +148,12 @@ export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClo
               </p>
             )}
 
-            {error && (
+            {yaResuelto && (
+              <p role="alert" className="rounded-field bg-salvia-claro px-3 py-2 text-sm font-medium text-salvia-oscuro">
+                Conflicto resuelto. Cerrá la ventana y refrescá la página.
+              </p>
+            )}
+            {error && !yaResuelto && (
               <p role="alert" className="text-sm text-terracota-oscuro">
                 {error}
               </p>
@@ -142,7 +163,7 @@ export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClo
               <button
                 type="button"
                 onClick={() => resolver(false)}
-                disabled={pending !== null}
+                disabled={pending !== null || yaResuelto}
                 className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
               >
                 {pending === "no-verificado" ? "Resolviendo…" : "El mail no es del paciente verificado"}

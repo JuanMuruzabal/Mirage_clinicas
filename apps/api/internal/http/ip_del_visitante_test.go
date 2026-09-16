@@ -150,11 +150,11 @@ func TestSolicitarTurnoPublico_GuardaLaIPRealDelVisitante(t *testing.T) {
 		BFFSharedSecret: "secreto-compartido",
 	}, []string{"http://localhost:3000"})
 
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "ip-real@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "ip-real@example.com")
 	email := "paciente@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.EmailContacto = email
 	rec := doJSONConCabeceras(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req, map[string]string{
 		headerAuthDelBFF:     "secreto-compartido",
@@ -178,11 +178,11 @@ func TestSolicitarTurnoPublico_GuardaLaIPRealDelVisitante(t *testing.T) {
 // de esta fase (la IP de quien conectó), no un campo vacío ni un error.
 func TestSolicitarTurnoPublico_SinSecretoGuardaLaIPDeSiempre(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "ip-sin-secreto@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "ip-sin-secreto@example.com")
 	email := "paciente2@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.EmailContacto = email
 	rec := doJSONConCabeceras(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req, map[string]string{
 		headerAuthDelBFF:     "cualquier-cosa",

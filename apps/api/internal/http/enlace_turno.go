@@ -33,6 +33,18 @@ type crearEnlaceTurnoResponse struct {
 	ExpiraEn string `json:"expiraEn"`
 }
 
+// crearEnlaceTurnoRequest — las dos decisiones que el profesional toma al
+// generar el link (Fase 3.2.7b).
+type crearEnlaceTurnoRequest struct {
+	// ParaTodosLosProfesionales — false (default) es el enlace de
+	// siempre: el turno entra en la agenda de quien lo genera y el wizard
+	// no pregunta con quién. True deja elegir al paciente.
+	ParaTodosLosProfesionales bool `json:"paraTodosLosProfesionales"`
+	// PacienteID — opcional. Con una ficha elegida, el wizard no vuelve a
+	// pedir los datos que esa ficha ya tiene.
+	PacienteID string `json:"pacienteId"`
+}
+
 // crearEnlaceTurnoHandler — genera el link de 1h y arma la URL completa
 // (mismo criterio que resetURL en auth.go: el backend conoce AppBaseURL,
 // el frontend no necesita adivinarlo). La clínica se resuelve por sesión
@@ -52,6 +64,36 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 			return
 		}
 
+		// Cuerpo OPCIONAL: sin él, el enlace es el de siempre (propio, sin
+		// paciente). Los tests y cualquier consumidor anterior a esta fase
+		// mandan POST sin body, y tienen que seguir andando.
+		var req crearEnlaceTurnoRequest
+		if r.ContentLength > 0 {
+			if err := decodeJSON(w, r, &req); err != nil {
+				writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+				return
+			}
+		}
+
+		// La ficha, si la eligió: de ESTA clínica y nada más. La identidad
+		// del paciente es de la clínica (TR-144), así que no se acota al
+		// profesional — pero sí a que exista y sea de acá, o el enlace
+		// llevaría a una ficha ajena.
+		var pacienteID *uuid.UUID
+		if id := strings.TrimSpace(req.PacienteID); id != "" {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "el paciente elegido no es válido")
+				return
+			}
+			var paciente db.Paciente
+			if err := gdb.Where("id = ? AND clinic_id = ?", parsed, clinicID).First(&paciente).Error; err != nil {
+				writeError(w, http.StatusNotFound, "el paciente elegido no existe")
+				return
+			}
+			pacienteID = &paciente.ID
+		}
+
 		token, tokenHash, err := security.NewToken()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el link")
@@ -61,10 +103,12 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 		// Con dueño: el enlace es de quien lo genera, y es lo que decide a
 		// qué agenda entran los turnos que se saquen con él (Fase 3.2.5).
 		enlace := db.EnlaceTurno{
-			UserID:    usuarioDeLaSesionOpcional(r),
-			ClinicID:  clinicID,
-			TokenHash: tokenHash,
-			ExpiraEn:  expiraEn,
+			UserID:                    usuarioDeLaSesionOpcional(r),
+			ClinicID:                  clinicID,
+			TokenHash:                 tokenHash,
+			ExpiraEn:                  expiraEn,
+			ParaTodosLosProfesionales: req.ParaTodosLosProfesionales,
+			PacienteID:                pacienteID,
 		}
 		if err := gdb.Create(&enlace).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el link")
@@ -81,6 +125,32 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 
 type enlaceTurnoValidoResponse struct {
 	Valido bool `json:"valido"`
+	// ElegisProfesional — si el wizard tiene que preguntar con quién. Con
+	// un enlace "propio" no se pregunta: ya lo decidió quien lo generó.
+	ElegisProfesional bool `json:"elegisProfesional"`
+	// Paciente — la ficha que el enlace trae elegida, si trae alguna.
+	Paciente *pacienteDelEnlaceResponse `json:"paciente,omitempty"`
+}
+
+// pacienteDelEnlaceResponse — lo MÍNIMO que el wizard necesita para saber
+// qué pasos saltearse, y nada más.
+//
+// Este endpoint es público: lo único que lo protege es tener el token, que
+// es justamente lo que el profesional le mandó a esta persona. Aun así no
+// viaja la ficha entera —ni DNI, ni mail, ni teléfono—: alcanza con el
+// nombre para mostrar de quién es el turno, y dos banderas para decidir
+// qué preguntar. Un dato que no hace falta para pintar la pantalla no
+// tiene por qué salir de la clínica.
+type pacienteDelEnlaceResponse struct {
+	ID       string `json:"id"`
+	Nombre   string `json:"nombre"`
+	Apellido string `json:"apellido"`
+	// TieneDatosPropios — mail Y teléfono cargados. Sin los dos, el camino
+	// "para mí" tiene que pedir lo que falte.
+	TieneDatosPropios bool `json:"tieneDatosPropios"`
+	// TieneTutores — al menos un tutor conocido. Con uno, el camino "para
+	// otro" no pide ni tutor ni paciente: ya están los dos.
+	TieneTutores bool `json:"tieneTutores"`
 }
 
 // validarEnlaceTurnoPublicoHandler — GET /clinicas/{slug}/enlaces-turno/
@@ -114,7 +184,24 @@ func validarEnlaceTurnoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo validar el link")
 			return
 		}
-		writeJSON(w, http.StatusOK, enlaceTurnoValidoResponse{Valido: enlace.Vigente(time.Now())})
+		out := enlaceTurnoValidoResponse{
+			Valido:            enlace.Vigente(time.Now()),
+			ElegisProfesional: enlace.ParaTodosLosProfesionales,
+		}
+		if out.Valido && enlace.PacienteID != nil {
+			var paciente db.Paciente
+			if err := gdb.First(&paciente, "id = ?", *enlace.PacienteID).Error; err == nil {
+				var tutores int64
+				gdb.Model(&db.PacienteTutor{}).Where("paciente_id = ?", paciente.ID).Limit(1).Count(&tutores)
+				out.Paciente = &pacienteDelEnlaceResponse{
+					ID: paciente.ID.String(), Nombre: paciente.Nombre, Apellido: paciente.Apellido,
+					TieneDatosPropios: paciente.Email != nil && *paciente.Email != "" &&
+						paciente.Telefono != nil && *paciente.Telefono != "",
+					TieneTutores: tutores > 0,
+				}
+			}
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 
@@ -172,26 +259,40 @@ func consumirEnlaceTurno(tx *gorm.DB, clinicID uuid.UUID, token string, esParaOt
 	return tx.Save(&enlace).Error
 }
 
-// profesionalDelTurnoPublico — a qué agenda entra un turno sacado desde
-// la página pública (Fase 3.2.5).
+// identidadDeLaFichaDelEnlace — el mail con el que se identifica el
+// pedido cuando el enlace trae la ficha elegida (Fase 3.2.7b).
 //
-// Con enlace, el profesional que lo generó: la tercera pestaña de su
-// "+ Agregar turno" existe para llenar SU agenda, y si el turno fuera a
-// parar al owner, compartir el link le cargaría turnos a otro.
+// Solo si el enlace trae EXACTAMENTE esa ficha: un enlace se reenvía, y
+// sin esa igualdad alcanzaría con tener cualquier link de la clínica para
+// hacerse pasar por cualquier ficha cuyo id se conociera.
 //
-// Sin enlace, el owner, hasta que la 3.2.7 deje al paciente elegir
-// profesional. Ahí este helper es el único lugar que hay que tocar.
-//
-// Un enlace sin dueño —los anteriores a esta columna, que la migración le
-// asigna al owner de todos modos— cae al owner igual, y un token que no
-// resuelve también: la validez del enlace la decide el flujo del turno
-// unas líneas más abajo, no esta función, y adelantarse a rechazarlo acá
-// daría un 500 donde corresponde un mensaje.
-func profesionalDelTurnoPublico(gdb *gorm.DB, clinicID uuid.UUID, enlaceToken string) (uuid.UUID, error) {
-	if enlaceToken != "" {
-		if enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken); err == nil && enlace.UserID != nil {
-			return *enlace.UserID, nil
-		}
+// "Para otro" devuelve el mail del primer tutor conocido —la identidad de
+// ese camino es la de quien reserva, no la del paciente (TR-116)— y "para
+// mí", el propio de la ficha.
+func identidadDeLaFichaDelEnlace(gdb *gorm.DB, clinicID uuid.UUID, token, pacienteIDStr string, paraOtro bool) (string, bool) {
+	pacienteID, err := uuid.Parse(pacienteIDStr)
+	if err != nil {
+		return "", false
 	}
-	return db.OwnerDeLaClinica(gdb, clinicID)
+	enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, token)
+	if err != nil || enlace.PacienteID == nil || *enlace.PacienteID != pacienteID {
+		return "", false
+	}
+
+	if paraOtro {
+		var tutor db.PacienteTutor
+		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at").First(&tutor).Error; err != nil {
+			return "", false
+		}
+		return tutor.Email, tutor.Email != ""
+	}
+
+	var paciente db.Paciente
+	if err := gdb.Where("id = ? AND clinic_id = ?", pacienteID, clinicID).First(&paciente).Error; err != nil {
+		return "", false
+	}
+	if paciente.Email == nil || *paciente.Email == "" {
+		return "", false
+	}
+	return *paciente.Email, true
 }

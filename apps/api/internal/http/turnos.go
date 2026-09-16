@@ -430,6 +430,34 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		// EL MAIL ES OBLIGATORIO AL CREAR UNA FICHA NUEVA (2026-09-15,
+		// pedido del cliente), y no es una validación de formulario más:
+		// es la causa raíz de un bug real.
+		//
+		// Una ficha cargada a mano cuenta como VERIFICADA por su origen
+		// (pacienteEstaVerificado: `origen == "manual"` y nada más). Sin
+		// mail, el wizard público no tiene con qué reconocerla: cualquier
+		// pedido con ese DNI falla el "¿esta ficha responde a este mail?"
+		// —no hay contra qué comparar— y, por estar verificada, dispara un
+		// conflicto de identidad. Uno por pedido, para siempre. Y esos
+		// conflictos pendientes bloquean marcar asistencia.
+		//
+		// Solo en "paciente nuevo": con "paciente conocido" la ficha ya
+		// existe con los datos que tenga y este alta no los pisa (mismo
+		// criterio que con el nombre y el DNI). En "para otro" el mail
+		// propio del paciente queda opcional — la identidad la aporta el
+		// tutor, cuyo mail sí se exige arriba.
+		if req.PacienteID == "" && !req.ParaOtro {
+			if req.EmailContacto == "" {
+				writeError(w, http.StatusBadRequest, "el email del paciente es obligatorio")
+				return
+			}
+			if _, err := mail.ParseAddress(req.EmailContacto); err != nil {
+				writeError(w, http.StatusBadRequest, "el email del paciente no tiene un formato válido")
+				return
+			}
+		}
+
 		paraOtro := req.ParaOtro && req.PacienteID == ""
 		// QUIÉN ATIENDE ES QUIEN LO CARGA, si atiende (corregido el
 		// 2026-09-14, reportado por el cliente).
@@ -1007,15 +1035,30 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 			esCarveOutDeConflicto := errConflicto == nil
 
-			// Corrección de QA: mientras la ficha de este turno participe
-			// de un ConflictoPaciente sin resolver (de cualquiera de los 2
-			// lados), no se puede marcar asistencia/ausencia en NINGÚN
-			// OTRO turno propio — ver errConflictoPacienteSinResolver. No
-			// aplica al turno disputado en sí (carve-out de arriba).
+			// SOLO EL LADO EN DISPUTA (corrección del 2026-09-15, pedido
+			// del cliente).
+			//
+			// El bloqueo miraba los DOS lados del ticket, así que un
+			// conflicto nuevo congelaba también los turnos de la ficha
+			// VERIFICADA — incluso turnos anteriores al conflicto, que no
+			// tienen nada que ver con él. Ese era el caso reportado: un
+			// turno viejo, de una ficha verificada, imposible de marcar
+			// porque alguien pidió turno con ese DNI horas después.
+			//
+			// Lo que la regla tiene que impedir sigue impedido: que la
+			// ficha EN CONFLICTO se verifique sola marcando asistencia en
+			// otro turno suyo, y que un "ausente" la borre dejando el
+			// ticket apuntando a una ficha que ya no existe. La verificada
+			// no necesita protección: su identidad no está en discusión —
+			// es el otro lado el que tiene que probar quién es.
+			//
+			// El turno que originó el conflicto queda afuera igual, por el
+			// carve-out de arriba: marcarle asistencia es justamente la
+			// forma de resolverlo.
 			if !esCarveOutDeConflicto && turno.PacienteID != nil {
 				var conflictosPendientes int64
 				if err := tx.Model(&db.ConflictoPaciente{}).
-					Where("resuelto = false AND (paciente_verificado_id = ? OR paciente_en_conflicto_id = ?)", *turno.PacienteID, *turno.PacienteID).
+					Where("resuelto = false AND paciente_en_conflicto_id = ?", *turno.PacienteID).
 					Count(&conflictosPendientes).Error; err != nil {
 					return err
 				}

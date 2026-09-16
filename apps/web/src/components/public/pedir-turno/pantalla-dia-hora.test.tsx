@@ -11,13 +11,25 @@ import { PantallaDiaHora } from "./pantalla-dia-hora";
 const FECHA_PRUEBA = "2030-06-15";
 const MES_PRUEBA = "2030-06";
 
-const tipos = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30 }];
+const tipos = [{ nombre: "Consulta general", profesionales: 2 }];
+
+// Dos profesionales para el mismo tipo (Fase 3.2.7): es el caso que hace
+// aparecer el paso "¿con quién te querés atender?".
+const profesionales = [
+  { userId: "u-1", nombre: "Ana Gómez", tipoConsultaId: "tc-ana", duracionMinutos: 30, proximoDisponible: FECHA_PRUEBA },
+  { userId: "u-2", nombre: "Beto Colega", tipoConsultaId: "tc-beto", duracionMinutos: 45 },
+];
 
 function renderPantalla(overrides: Partial<ComponentProps<typeof PantallaDiaHora>> = {}) {
   const props: ComponentProps<typeof PantallaDiaHora> = {
     tipos,
-    tipoConsultaId: "tc-1",
-    onTipoConsultaChange: vi.fn(),
+    tipoNombre: "Consulta general",
+    onTipoNombreChange: vi.fn(),
+    profesionales,
+    profesionalId: "u-1",
+    cargandoProfesionales: false,
+    onProfesionalChange: vi.fn(),
+    mostrarProfesionales: true,
     fecha: FECHA_PRUEBA,
     onFechaChange: vi.fn(),
     slots: ["09:00", "09:30"],
@@ -147,5 +159,63 @@ describe("PantallaDiaHora — horarios agrupados por franja", () => {
 
     expect(screen.queryByRole("button", { name: "09:00" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "19:00" })).toBeInTheDocument();
+  });
+});
+
+// El paso "¿con quién te querés atender?" (Fase 3.2.7). Va en esta misma
+// pantalla y no en un paso aparte: el tipo determina la duración, la
+// duración determina los huecos, y los tres se miran juntos.
+describe("PantallaDiaHora — elegir profesional (Fase 3.2.7)", () => {
+  it("con varios, muestra una tarjeta por profesional con su proximidad", () => {
+    renderPantalla();
+
+    expect(screen.getByRole("radio", { name: /Ana Gómez/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Beto Colega/ })).toBeInTheDocument();
+    // La proximidad es lo que vuelve real la elección: entre dos nombres
+    // que el paciente no conoce, con qué rapidez lo atienden es el
+    // criterio que usa.
+    expect(screen.getByText(/Primer turno: sáb 15/)).toBeInTheDocument();
+    // Y quien no tiene hueco lo dice, en vez de mentir con una fecha
+    // lejana o aparecer igual que los demás.
+    expect(screen.getByText("Sin turnos en los próximos 30 días")).toBeInTheDocument();
+  });
+
+  it("la duración es la de cada profesional, no la del tipo", () => {
+    renderPantalla();
+    expect(screen.getByText("30 min")).toBeInTheDocument();
+    expect(screen.getByText("45 min")).toBeInTheDocument();
+  });
+
+  it("tocar una tarjeta avisa al padre", async () => {
+    const user = userEvent.setup();
+    const props = renderPantalla();
+
+    await user.click(screen.getByRole("radio", { name: /Beto Colega/ }));
+
+    expect(props.onProfesionalChange).toHaveBeenCalledWith("u-2");
+  });
+
+  it("con uno solo no pide elegir: dice quién atiende y sigue", () => {
+    renderPantalla({ profesionales: [{ userId: "u-1", nombre: "Ana Gómez", tipoConsultaId: "tc-ana", duracionMinutos: 30 }] });
+
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.getByText("Ana Gómez")).toBeInTheDocument();
+  });
+
+  it("si nadie atiende ese tipo, lo dice en vez de dejar la pantalla muda", () => {
+    renderPantalla({ profesionales: [] });
+    expect(screen.getByText(/nadie de la clínica atiende este tipo/)).toBeInTheDocument();
+  });
+
+  it("con enlace no se pregunta: el turno es de quien lo generó", () => {
+    renderPantalla({ mostrarProfesionales: false });
+
+    expect(screen.queryByText("¿Con quién te querés atender?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /Ana Gómez/ })).not.toBeInTheDocument();
+  });
+
+  it("sin profesional elegido no se puede confirmar", () => {
+    renderPantalla({ profesionalId: "", hora: "09:00" });
+    expect(screen.getByRole("button", { name: "Confirmar turno" })).toBeDisabled();
   });
 });

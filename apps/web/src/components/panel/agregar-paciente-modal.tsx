@@ -63,6 +63,15 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
       setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
       return;
     }
+    // El mail es obligatorio sin tutor (2026-09-15). Una ficha cargada a
+    // mano cuenta como verificada, y sin mail el wizard público no tiene
+    // con qué reconocerla: cada pedido con ese DNI dispara un conflicto de
+    // identidad que después bloquea marcar asistencia. Con tutor queda
+    // opcional — ahí la identidad la aporta el tutor.
+    if (!conTutor && !EMAIL_REGEX.test(emailTrim)) {
+      setError("El email es obligatorio: sin él no se puede reconocer al paciente cuando pida turno por la página.");
+      return;
+    }
 
     let tutorRelacionTrim = "";
     let tutorNombreTrim = "";
@@ -156,7 +165,7 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
             <Campo label={conTutor ? "Teléfono (opcional)" : "Teléfono"}>
               <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
             </Campo>
-            <Campo label="Email (opcional)">
+            <Campo label={conTutor ? "Email (opcional)" : "Email"}>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
             </Campo>
 

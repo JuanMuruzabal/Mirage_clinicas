@@ -39,6 +39,8 @@ const INTERVALO_SONDEO_MS = 30_000;
 
 export function AsistenciaCartelGlobal() {
   const [cola, setCola] = useState<Turno[]>([]);
+  // Por qué el backend no dejó marcar el turno de arriba de la cola.
+  const [error, setError] = useState<string | null>(null);
   const timeoutPrecisoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enVueloRef = useRef(false);
   const montadoRef = useRef(true);
@@ -94,28 +96,47 @@ export function AsistenciaCartelGlobal() {
 
   const turnoActual = cola[0] ?? null;
 
-  // resolver — sea cual sea el resultado (éxito, o un 409 porque otra
-  // pestaña/otro dispositivo ya lo marcó primero), sacar este turno de la
-  // cola local y volver a sondear: si el backend acaba de resolver un
-  // ConflictoPaciente por esto (TR-107, 1.3bis), puede haber cambiado qué
-  // otro turno corresponde mostrar después.
+  // resolver — corrección del 2026-09-15, bug reportado por el cliente:
+  // "se reinicia la pantalla y queda trabado".
+  //
+  // Antes se descartaba el resultado y se sacaba el turno de la cola
+  // siempre. Si el backend rechazaba (un conflicto de identidad sin
+  // resolver, por ejemplo), el sondeo lo traía de vuelta y el cartel
+  // reaparecía — y como es INCERRABLE a propósito, un rechazo se
+  // convertía en un bucle infinito sin ninguna explicación en pantalla.
+  //
+  // Ahora el error se muestra y el turno se queda en la cola: un cartel
+  // que no se puede cerrar tiene que decir por qué no avanza, o no es un
+  // cartel, es una trampa.
   async function resolver(valor: "asistio" | "ausente") {
     if (!turnoActual) return;
-    await marcarAsistenciaAction(turnoActual.id, valor);
+    const resultado = await marcarAsistenciaAction(turnoActual.id, valor);
+    // `resultado &&` no es defensa de más: este cartel no se puede
+    // cerrar, así que cualquier forma inesperada de la respuesta tiene
+    // que terminar en un mensaje, nunca en una excepción que deje los
+    // botones muertos.
+    if (resultado && "error" in resultado && resultado.error) {
+      setError(resultado.error);
+      return;
+    }
+    setError(null);
     setCola((prev) => prev.filter((t) => t.id !== turnoActual.id));
     sondear();
   }
 
   if (!turnoActual) return null;
 
-  return <CartelConfirmacionAsistencia key={turnoActual.id} turno={turnoActual} onResolver={resolver} />;
+  return <CartelConfirmacionAsistencia key={turnoActual.id} turno={turnoActual} error={error} onResolver={resolver} />;
 }
 
 function CartelConfirmacionAsistencia({
   turno,
+  error,
   onResolver,
 }: {
   turno: Turno;
+  /** Por qué el backend no dejó marcar. Sin esto, el cartel se recarga en silencio. */
+  error: string | null;
   onResolver: (valor: "asistio" | "ausente") => Promise<void>;
 }) {
   const [guardando, setGuardando] = useState(false);
@@ -125,10 +146,13 @@ function CartelConfirmacionAsistencia({
   async function confirmar(valor: "asistio" | "ausente") {
     setGuardando(true);
     await onResolver(valor);
-    // Sin `setGuardando(false)` acá a propósito: este componente se
-    // desmonta (turnoActual cambia o pasa a null) apenas onResolver
-    // termina — dejarlo en "guardando" evita un parpadeo de los botones
-    // habilitados un instante antes de desaparecer.
+    // Se vuelve a habilitar SOLO si el cartel sigue en pantalla, que
+    // ahora pasa cuando el backend rechazó: hay que poder reintentar
+    // después de resolver lo que lo frenaba. En el camino feliz este
+    // componente se desmonta apenas onResolver termina, así que este
+    // setState no llega a provocar el parpadeo que el comentario
+    // anterior evitaba.
+    setGuardando(false);
   }
 
   return (
@@ -175,6 +199,14 @@ function CartelConfirmacionAsistencia({
                 onConfirmar={() => confirmar("ausente")}
               />
             </div>
+            {/* Por qué no avanzó. Este cartel no se puede cerrar: si el
+                backend rechaza y no se dice nada, el profesional queda
+                apretando botones que no hacen nada. */}
+            {error && (
+              <p role="alert" className="rounded-field bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </div>

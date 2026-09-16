@@ -158,12 +158,64 @@ func soloMisConflictos(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if !ok {
 			return tx.Where("1 = 0")
 		}
-		return tx.Where(`EXISTS (
-			SELECT 1 FROM turnos t
-			WHERE t.id = conflictos_paciente.turno_en_conflicto_id
-			  AND t.atendido_por_user_id = ?
-		)`, userID)
+		// Por la FICHA DUPLICADA, no por el turno que originó el ticket
+		// (corrección del 2026-09-15, pedido del cliente).
+		//
+		// Un conflicto es trabajo de quien tiene la ficha duplicada en su
+		// lista de pacientes esperando resolución — y eso es exactamente
+		// "tengo un turno con esa ficha". Por el turno que lo originó, un
+		// segundo profesional que también le dio turno a esa misma ficha
+		// duplicada no lo veía, aunque el duplicado le apareciera en sus
+		// pacientes: le quedaba un paciente en conflicto y ningún lugar
+		// donde resolverlo.
+		//
+		// El caso que lo hace evidente, textual del cliente: dos
+		// profesionales atendieron al mismo paciente, el paciente saca
+		// turno con el 1 usando otro mail — el conflicto le llega SOLO al
+		// 1, porque es a quien se le cargó la ficha duplicada. El 2 no ve
+		// ni el duplicado ni el conflicto.
+		// La UNIÓN de las dos, y no solo la primera: si la ficha duplicada
+		// se queda sin turnos vinculados —resolver un conflicto los
+		// desvincula (paciente_id = NULL)— un ticket que siguiera
+		// pendiente se volvería invisible para todos, imposible de
+		// resolver y bloqueando asistencias para siempre. Quien originó el
+		// ticket lo ve siempre; quien tiene la ficha duplicada entre sus
+		// pacientes, también.
+		return tx.Where(`(
+			EXISTS (
+				SELECT 1 FROM turnos t
+				WHERE t.paciente_id = conflictos_paciente.paciente_en_conflicto_id
+				  AND t.atendido_por_user_id = ?
+			)
+			OR EXISTS (
+				SELECT 1 FROM turnos t
+				WHERE t.id = conflictos_paciente.turno_en_conflicto_id
+				  AND t.atendido_por_user_id = ?
+			)
+		)`, userID, userID)
 	}
+}
+
+// soloConflictosVivos — un ticket abierto Y con su ficha duplicada todavía
+// en pie (2026-09-16, bug reportado por el cliente: "cuando resuelvo todos
+// los conflictos (tengo 0) en las otras pestañas ahora me aparece 'tenés 1
+// conflicto'").
+//
+// `resuelto = false` no alcanza. Resolver un conflicto BORRA la ficha
+// duplicada, y desde que una resolución arrastra a sus hermanos por mail
+// puede dejar atrás un ticket que quedó apuntando a una ficha que ya no
+// existe. La pantalla de Pacientes no lo mostraba —no tiene ficha que
+// pintar— pero el contador de la notificación sí lo contaba: un aviso de
+// algo que no se puede ni ver ni resolver.
+//
+// Un conflicto sin ficha duplicada no tiene nada que decidir. Se filtra
+// donde se cuenta, donde se lista y donde se resuelve, para que las tres
+// respondan lo mismo — que era justamente lo que no pasaba.
+func soloConflictosVivos(tx *gorm.DB) *gorm.DB {
+	return tx.Where(`EXISTS (
+		SELECT 1 FROM pacientes p
+		WHERE p.id = conflictos_paciente.paciente_en_conflicto_id
+	)`)
 }
 
 // soloMiAgenda — el horario de atención y los horarios reservados son de

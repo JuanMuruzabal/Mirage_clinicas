@@ -112,10 +112,24 @@ func TestTiposDeColegas_CadaUnoVeLosSuyos(t *testing.T) {
 			t.Error("el titular ve en SU configuración un tipo de su colega")
 		}
 	}
-	// Y el colega ve solo el suyo.
+	// Y el colega ve los SUYOS: sus dos precargados (desde el 2026-09-15
+	// se los siembra al sumarse) más la Ortodoncia, y ninguna fila del
+	// titular. Se compara por ID, no por nombre: los dos tienen su propia
+	// "Consulta general", que es justo lo que no hay que confundir.
+	delTitular := map[string]bool{}
+	for _, tipo := range leerMisTipos(t, router, titular.Token) {
+		delTitular[tipo.ID] = true
+	}
 	mios := leerMisTipos(t, router, tokenColega)
-	if len(mios) != 1 || mios[0].Nombre != "Ortodoncia" {
-		t.Errorf("los tipos del colega = %+v, esperaba solo Ortodoncia", mios)
+	nombres := map[string]bool{}
+	for _, tipo := range mios {
+		if delTitular[tipo.ID] {
+			t.Errorf("el colega ve en SU configuración la fila %q del titular", tipo.Nombre)
+		}
+		nombres[tipo.Nombre] = true
+	}
+	if !nombres["Ortodoncia"] || !nombres[db.NombreTipoConsultaGeneral] || !nombres[db.NombreTipoConsultaUrgencia] {
+		t.Errorf("los tipos del colega = %+v, esperaba su Ortodoncia y sus dos precargados", mios)
 	}
 }
 

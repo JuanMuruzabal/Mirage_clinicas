@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { PacienteConocido } from "@dental-mirage/shared-types";
 import { crearEnlaceTurnoAction } from "@/app/actions/turnos";
+import { listPacientesAction } from "@/app/actions/pacientes";
 
 // armarMensaje — un solo texto informativo, reusado en TODAS las formas
 // de compartir (nativo, WhatsApp, mail, copiar) — pedido explícito del
@@ -33,11 +35,43 @@ export function CompartirLinkTurno() {
   const [url, setUrl] = useState("");
   const [copiado, setCopiado] = useState(false);
 
+  // Las dos decisiones del link (Fase 3.2.7b). Los defaults son el
+  // comportamiento de siempre: mi agenda, sin paciente elegido — el caso
+  // para el que se creó esta pestaña.
+  const [paraTodos, setParaTodos] = useState(false);
+  const [pacienteId, setPacienteId] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [pacientes, setPacientes] = useState<PacienteConocido[]>([]);
+
+  // Las fichas de TODA la clínica (`listPacientesAction` pega a
+  // /pacientes/de-la-clinica): la identidad del paciente es de la clínica
+  // (TR-144), y el link se le puede mandar a alguien que atiende un
+  // colega. Se piden una vez al abrir la pestaña y se filtran acá — es la
+  // misma lista corta que ya usa "paciente conocido" del alta.
+  useEffect(() => {
+    let activo = true;
+    listPacientesAction().then((lista) => {
+      if (activo) setPacientes(lista);
+    });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  const termino = busqueda.trim().toLowerCase();
+  const coincidencias = termino
+    ? pacientes.filter((p) => `${p.nombre} ${p.apellido} ${p.dni}`.toLowerCase().includes(termino)).slice(0, 6)
+    : [];
+  const elegido = pacientes.find((p) => p.id === pacienteId) ?? null;
+
   const puedeCompartirNativo = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function generar() {
     setEstado("generando");
-    const resultado = await crearEnlaceTurnoAction();
+    const resultado = await crearEnlaceTurnoAction({
+      paraTodosLosProfesionales: paraTodos,
+      pacienteId: pacienteId || undefined,
+    });
     if ("error" in resultado) {
       setEstado("error");
       return;
@@ -85,13 +119,99 @@ export function CompartirLinkTurno() {
       </p>
 
       {estado === "inicial" && (
-        <button
-          type="button"
-          onClick={generar}
-          className="self-start rounded-full bg-salvia-oscuro px-6 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-        >
-          Generar link
-        </button>
+        <div className="flex flex-col gap-4">
+          {/* Con quién es el turno (Fase 3.2.7b). "Vos mismo" es el
+              default y el caso para el que se creó esta pestaña: ya
+              hablaste con la persona y solo falta que elija horario EN TU
+              agenda. "Todos" es el link de mostrador. */}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-[13px] font-medium text-grafito">¿Con quién es el turno?</legend>
+            {[
+              { valor: false, titulo: "Con vos", detalle: "El turno entra en tu agenda y no se le pregunta nada." },
+              { valor: true, titulo: "Con cualquier profesional", detalle: "La persona elige con quién atenderse." },
+            ].map((opcion) => (
+              <label
+                key={String(opcion.valor)}
+                className={`flex cursor-pointer items-start gap-2.5 rounded-field border px-3 py-2.5 transition-colors ${
+                  paraTodos === opcion.valor ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-hueso hover:border-salvia"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="alcance-enlace"
+                  checked={paraTodos === opcion.valor}
+                  onChange={() => setParaTodos(opcion.valor)}
+                  className="mt-0.5"
+                />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium text-grafito">{opcion.titulo}</span>
+                  <span className="text-xs text-grafito/60">{opcion.detalle}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          {/* La ficha, opcional: con ella el wizard no le vuelve a pedir
+              los datos que ya tenemos. */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[13px] font-medium text-grafito">¿Para quién? (opcional)</span>
+            {elegido ? (
+              <div className="flex items-center justify-between gap-3 rounded-field border border-salvia-oscuro bg-salvia-claro px-3 py-2.5">
+                <span className="text-sm text-grafito">
+                  {elegido.nombre} {elegido.apellido}
+                  <span className="text-grafito/60"> · DNI {elegido.dni}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPacienteId("");
+                    setBusqueda("");
+                  }}
+                  className="shrink-0 text-xs font-medium text-salvia-oscuro hover:underline"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre o DNI"
+                  aria-label="Buscar paciente"
+                  className="rounded-field border border-linea bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+                />
+                {coincidencias.length > 0 && (
+                  <ul className="flex flex-col gap-1">
+                    {coincidencias.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => setPacienteId(p.id)}
+                          className="w-full rounded-field border border-linea bg-marfil px-3 py-2 text-left text-sm text-grafito hover:border-salvia"
+                        >
+                          {p.nombre} {p.apellido}
+                          <span className="text-grafito/60"> · DNI {p.dni}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-xs text-grafito/60">
+                  Si la elegís, no va a tener que cargar sus datos de nuevo.
+                </p>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={generar}
+            className="self-start rounded-full bg-salvia-oscuro px-6 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+          >
+            Generar link
+          </button>
+        </div>
       )}
 
       {estado === "generando" && <p className="text-sm text-grafito/60">Generando…</p>}

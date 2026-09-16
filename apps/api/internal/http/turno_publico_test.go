@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -25,17 +26,28 @@ import (
 // TR-101), sin que el tipo de consulta importara para lo que en verdad
 // probaban. Un segundo tipo distinto los deja seguir probando lo mismo
 // sin chocar con la guarda nueva.
+// crearSegundoTipoConsultaDePrueba — devuelve el NOMBRE, no el id (Fase
+// 3.2.7): el wizard público elige un tipo por nombre, porque con N
+// profesionales cada uno tiene su propia fila.
+//
+// Y la fila nace CON DUEÑO. Sin `user_id` nadie la atiende, y desde la
+// 3.2.7 un tipo que no atiende ningún profesional activo no se ofrece —
+// era exactamente el caso que estos fixtures creaban sin querer.
 func crearSegundoTipoConsultaDePrueba(t *testing.T, gdb *gorm.DB, profesionalID string) string {
 	t.Helper()
 	pid, err := uuid.Parse(profesionalID)
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	tipo := db.TipoConsulta{ClinicID: pid, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
+	owner, err := db.OwnerDeLaClinica(gdb, pid)
+	if err != nil {
+		t.Fatalf("no se pudo resolver el owner de la clínica: %v", err)
+	}
+	tipo := db.TipoConsulta{ClinicID: pid, UserID: &owner, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
 	if err := gdb.Create(&tipo).Error; err != nil {
 		t.Fatalf("no se pudo crear el segundo tipo de consulta de prueba: %v", err)
 	}
-	return tipo.ID.String()
+	return tipo.Nombre
 }
 
 // verificarEmailDePrueba — Extra 2.3.5 (E5.6): recorre el paso "Confirmanos
@@ -71,7 +83,7 @@ func verificarEmailDePrueba(t *testing.T, router http.Handler, sender *capturing
 // contacto fijos y el tipo de consulta/fecha/hora/token de verificación
 // que le pasan — evita repetir los mismos campos de contacto en cada test
 // de abajo.
-func solicitudDePrueba(tipoConsultaID, fecha, hora, verificacionToken string) solicitarTurnoPublicoRequest {
+func solicitudDePrueba(tipo, fecha, hora, verificacionToken string) solicitarTurnoPublicoRequest {
 	return solicitarTurnoPublicoRequest{
 		NombreContacto:    "Bruno",
 		ApellidoContacto:  "Iglesias",
@@ -79,7 +91,7 @@ func solicitudDePrueba(tipoConsultaID, fecha, hora, verificacionToken string) so
 		TelefonoContacto:  "+5493511234567",
 		EmailContacto:     "bruno@example.com",
 		Motivo:            "Dolor de muela",
-		TipoConsultaID:    tipoConsultaID,
+		Tipo:              tipo,
 		Fecha:             fecha,
 		Hora:              hora,
 		VerificacionToken: verificacionToken,
@@ -91,14 +103,14 @@ func solicitudDePrueba(tipoConsultaID, fecha, hora, verificacionToken string) so
 // TelefonoContacto/EmailContacto (del paciente) quedan vacíos a propósito
 // (opcionales en este camino, ver turno_publico.go), la identidad
 // verificada es TutorEmail.
-func solicitudParaOtroDePrueba(tipoConsultaID, fecha, hora, tutorEmail, verificacionToken string) solicitarTurnoPublicoRequest {
+func solicitudParaOtroDePrueba(tipo, fecha, hora, tutorEmail, verificacionToken string) solicitarTurnoPublicoRequest {
 	return solicitarTurnoPublicoRequest{
 		ParaOtro:          true,
 		NombreContacto:    "Juanito",
 		ApellidoContacto:  "Pérez",
 		DNIContacto:       "40111222",
 		Motivo:            "Control de rutina",
-		TipoConsultaID:    tipoConsultaID,
+		Tipo:              tipo,
 		Fecha:             fecha,
 		Hora:              hora,
 		VerificacionToken: verificacionToken,
@@ -118,12 +130,12 @@ func solicitudParaOtroDePrueba(tipoConsultaID, fecha, hora, tutorEmail, verifica
 // PacienteTutor*; EsParaOtro queda true.
 func TestSolicitarTurnoPublico_ParaOtroPrimeraVezExitoso(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "paraotro1@example.com")
 
 	tutorEmail := "mama-paraotro1@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
 
-	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	req := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -173,9 +185,9 @@ func TestSolicitarTurnoPublico_ParaOtroPrimeraVezExitoso(t *testing.T) {
 // — nunca debería llegar a crear nada.
 func TestSolicitarTurnoPublico_ParaOtroSinTutorEmailFalla(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "paraotro2@example.com")
 
-	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", "", "token-cualquiera")
+	req := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", "", "token-cualquiera")
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
@@ -190,7 +202,7 @@ func TestSolicitarTurnoPublico_ParaOtroSinTutorEmailFalla(t *testing.T) {
 // nada.
 func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro3@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "paraotro3@example.com")
 	tutorEmail := "papa-numeroso@example.com"
 	dnis := []string{"41000001", "41000002", "41000003"}
 	horas := []string{"08:00", "09:00", "10:00"}
@@ -201,7 +213,7 @@ func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *te
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-		req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], tutorEmail, token)
+		req := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], tutorEmail, token)
 		req.DNIContacto = dni
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 		if rec.Code != http.StatusCreated {
@@ -231,14 +243,14 @@ func TestSolicitarTurnoPublico_ParaOtroExceptuaDetectorDeMailConMuchosDNIs(t *te
 // específico de tutor, no el genérico de "para mí".
 func TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "paraotro4@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "paraotro4@example.com")
 
 	// Primer pedido "para otro": el paciente termina verificado (turno
 	// resuelto y asistido) antes de que llegue el segundo pedido.
 	tutorEmail1 := "mama-original@example.com"
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail1, token1))
+		solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail1, token1))
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
 	}
@@ -255,11 +267,11 @@ func TestSolicitarTurnoPublico_ParaOtroMismoDNITutorMailDistintoCreaConflicto(t 
 	}
 
 	// Segundo pedido: mismo DNI de paciente, tutor (mail) DISTINTO.
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	tutorEmail2 := "otro-tutor@example.com"
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail2)
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail2, token2))
+		solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail2, token2))
 	if rec2.Code != http.StatusCreated {
 		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
 	}
@@ -299,7 +311,7 @@ func TestSolicitarTurnoPublico_ParaMiConTutorConfirmadoRecomiendaTutor(t *testin
 
 	propioEmail := "mila.propia@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, propioEmail)
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.DNIContacto = verificado.DNI
 	req.NombreContacto = verificado.Nombre
 	req.ApellidoContacto = verificado.Apellido
@@ -336,7 +348,7 @@ func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.
 
 	tutorEmail := "tio@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	req := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
 	req.DNIContacto = verificado.DNI
 	req.NombreContacto = verificado.Nombre
 	req.ApellidoContacto = verificado.Apellido
@@ -378,11 +390,11 @@ func TestSolicitarTurnoPublico_TutorParaPacienteConfirmadoPorSiMismo(t *testing.
 // turnos se cargan al mismo paciente, ya que los datos son los mismos".
 func TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "activotutor1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "activotutor1@example.com")
 
 	tutorEmail := "mama-activa@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
+	req := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token)
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -393,8 +405,8 @@ func TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha(t *testi
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d (otro tipo de consulta, mismo tutor y paciente). body=%s",
@@ -427,7 +439,7 @@ func TestSolicitarTurnoPublico_ParaOtroPuedeSacarOtroTipoEnLaMismaFicha(t *testi
 // principal; la segunda (ya tiene uno distinto) se suma como alternativo.
 func TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAlternativo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mailopcional1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mailopcional1@example.com")
 	tutorEmail := "mama-mailopcional@example.com"
 
 	limpiarRateLimitDePrueba := func() {
@@ -452,7 +464,7 @@ func TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAltern
 
 	// 1er turno: sin mail propio del paciente.
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
@@ -471,8 +483,8 @@ func TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAltern
 	// PROPIO del paciente nuevo — pasa a ser el principal.
 	limpiarRateLimitDePrueba()
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	req2.EmailContacto = "kid@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -492,7 +504,7 @@ func TestSolicitarTurnoPublico_ParaOtroMailOpcionalDelPacienteSeAgregaComoAltern
 	// principal.
 	limpiarRateLimitDePrueba()
 	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req3 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
+	req3 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
 	req3.EmailContacto = "kid2@example.com"
 	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
 	if rec3.Code != http.StatusCreated {
@@ -527,7 +539,7 @@ func TestSolicitarTurnoPublico_OtroYaHeVenidoAntesArmaTutorSinFiltrarMail(t *tes
 
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
 	req := solicitarTurnoPublicoRequest{
-		EmailContacto: tutorEmail, TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		EmailContacto: tutorEmail, Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		VerificacionToken: token, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -559,11 +571,11 @@ func TestSolicitarTurnoPublico_OtroYaHeVenidoAntesArmaTutorSinFiltrarMail(t *tes
 // no hace nada (sin fila nueva en PacienteEmailAlternativo).
 func TestSolicitarTurnoPublico_ParaOtroMailOpcionalRepetidoNoAgregaAlternativo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mailrepetido1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mailrepetido1@example.com")
 	tutorEmail := "mama-mailrepetido@example.com"
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
 	req1.EmailContacto = "kid@example.com"
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
@@ -580,8 +592,8 @@ func TestSolicitarTurnoPublico_ParaOtroMailOpcionalRepetidoNoAgregaAlternativo(t
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	req2.EmailContacto = "kid@example.com" // mismo mail que ya tiene
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -604,7 +616,7 @@ func TestSolicitarTurnoPublico_ParaOtroMailOpcionalRepetidoNoAgregaAlternativo(t
 // uno distinto se suma como alternativo).
 func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAlternativo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "telopcional1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "telopcional1@example.com")
 	tutorEmail := "mama-telopcional@example.com"
 
 	limpiarRateLimitDePrueba := func() {
@@ -627,7 +639,7 @@ func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAl
 
 	// 1er turno: sin teléfono propio del paciente.
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
@@ -646,8 +658,8 @@ func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAl
 	// teléfono PROPIO del paciente nuevo — pasa a ser el principal.
 	limpiarRateLimitDePrueba()
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	req2.TelefonoContacto = "+5493511230001"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -667,7 +679,7 @@ func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAl
 	// principal (antes de este fix, no pasaba nada en absoluto).
 	limpiarRateLimitDePrueba()
 	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req3 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
+	req3 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", tutorEmail, token3)
 	req3.TelefonoContacto = "+5493511230002"
 	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
 	if rec3.Code != http.StatusCreated {
@@ -698,11 +710,11 @@ func TestSolicitarTurnoPublico_ParaOtroTelefonoOpcionalDelPacienteSeAgregaComoAl
 // PacienteTutorTelefonoAlternativo), nunca se pierde el principal.
 func TestSolicitarTurnoPublico_TutorRepiteMailConOtroTelefonoLoAcumula(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "tutortel1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "tutortel1@example.com")
 	tutorEmail := "mama-tutortel@example.com"
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
@@ -733,8 +745,8 @@ func TestSolicitarTurnoPublico_TutorRepiteMailConOtroTelefonoLoAcumula(t *testin
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	req2.TutorTelefono = "+5493511119999"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -763,11 +775,11 @@ func TestSolicitarTurnoPublico_TutorRepiteMailConOtroTelefonoLoAcumula(t *testin
 // PacienteTutorTelefonoAlternativo).
 func TestSolicitarTurnoPublico_TutorRepiteMailConMismoTelefonoNoAgregaAlternativo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "tutortel2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "tutortel2@example.com")
 	tutorEmail := "mama-tutortel2@example.com"
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("1er turno: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
@@ -782,8 +794,8 @@ func TestSolicitarTurnoPublico_TutorRepiteMailConMismoTelefonoNoAgregaAlternativ
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	req2 := solicitudParaOtroDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	req2 := solicitudParaOtroDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", tutorEmail, token2)
 	req2.TutorTelefono = req1.TutorTelefono // mismo teléfono que ya tiene
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -814,10 +826,55 @@ func TestListTiposConsultaPublico_Exitoso(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got = %+v, esperaba 2 tipos de consulta sembrados", got)
 	}
+	// Sin id ni duración desde la Fase 3.2.7: con N profesionales no
+	// existe "el id del tipo" ni "la duración del tipo" — existe la fila
+	// de cada uno. Lo que el wizard elige es un NOMBRE.
 	for _, tipo := range got {
-		if tipo.ID == "" || tipo.Nombre == "" || tipo.Color == "" || tipo.DuracionMinutos == 0 {
-			t.Errorf("tipo incompleto en la respuesta pública: %+v", tipo)
+		if tipo.Nombre == "" {
+			t.Errorf("tipo sin nombre en la respuesta pública: %+v", tipo)
 		}
+		if tipo.Profesionales != 1 {
+			t.Errorf("%q dice que lo atienden %d profesionales, esperaba 1 (el titular)", tipo.Nombre, tipo.Profesionales)
+		}
+	}
+}
+
+// TestListTiposConsultaPublico_NoOfreceLoQueNadieAtiende — la regla que
+// pidió el cliente: "si no hay un tipo de turno asociado al menos a un
+// profesional no ponerlo en el wizard".
+//
+// Un tipo sin dueño —las filas anteriores a la 3.2.1— o de alguien que ya
+// no está en el equipo llevaría al paciente a una pantalla sin nadie a
+// quien elegir: un callejón sin salida.
+func TestListTiposConsultaPublico_NoOfreceLoQueNadieAtiende(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicotipos-huerfano@example.com")
+
+	clinicID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("id de clínica inválido: %v", err)
+	}
+	huerfano := db.TipoConsulta{ClinicID: clinicID, Nombre: "Tipo sin dueño", Color: "#E7D9BE", DuracionMinutos: 30}
+	if err := gdb.Create(&huerfano).Error; err != nil {
+		t.Fatalf("no se pudo crear el tipo huérfano: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug+"/tipos-consulta", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got []tipoConsultaPublicoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	for _, tipo := range got {
+		if tipo.Nombre == "Tipo sin dueño" {
+			t.Error("el wizard ofrece un tipo que no atiende nadie")
+		}
+	}
+	// Y la otra dirección: los que SÍ tiene alguien se siguen ofreciendo.
+	if len(got) != 2 {
+		t.Errorf("got = %+v, esperaba los 2 tipos sembrados del titular", got)
 	}
 }
 
@@ -832,10 +889,10 @@ func TestListTiposConsultaPublico_ClinicaInexistente(t *testing.T) {
 
 func TestListDisponibilidadPublica_Exitoso(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publicodisp1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicodisp1@example.com")
 
 	rec := doJSON(t, router, http.MethodGet,
-		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad?tipoConsultaId="+tipoID+"&fecha="+fechaDePruebaDisponibilidad, nil)
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad?tipo="+url.QueryEscape(nombreTipoSembrado)+"&fecha="+fechaDePruebaDisponibilidad, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -856,7 +913,7 @@ func TestListDisponibilidadPublica_TipoConsultaInexistente(t *testing.T) {
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicodisp2@example.com")
 
 	rec := doJSON(t, router, http.MethodGet,
-		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad?tipoConsultaId=00000000-0000-0000-0000-000000000000&fecha="+fechaDePruebaDisponibilidad, nil)
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad?tipo=No%20existe%20este%20tipo&fecha="+fechaDePruebaDisponibilidad, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
 	}
@@ -868,10 +925,10 @@ func TestListDisponibilidadPublica_TipoConsultaInexistente(t *testing.T) {
 // junio 2030 tienen que salir todos con disponibilidad.
 func TestListDisponibilidadMesPublica_Exitoso(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publicodispmes1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicodispmes1@example.com")
 
 	rec := doJSON(t, router, http.MethodGet,
-		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipoConsultaId="+tipoID+"&mes=2030-06", nil)
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipo="+url.QueryEscape(nombreTipoSembrado)+"&mes=2030-06", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -892,7 +949,7 @@ func TestListDisponibilidadMesPublica_TipoConsultaInexistente(t *testing.T) {
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicodispmes2@example.com")
 
 	rec := doJSON(t, router, http.MethodGet,
-		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipoConsultaId=00000000-0000-0000-0000-000000000000&mes=2030-06", nil)
+		"/clinicas/"+reg.Profesional.Slug+"/disponibilidad-mes?tipo=No%20existe%20este%20tipo&mes=2030-06", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
 	}
@@ -913,7 +970,7 @@ func TestListDisponibilidadMesPublica_ClinicaInexistente(t *testing.T) {
 	router, _, _ := newTestRouterWithMail(t)
 
 	rec := doJSON(t, router, http.MethodGet,
-		"/clinicas/no-existe/disponibilidad-mes?tipoConsultaId=00000000-0000-0000-0000-000000000000&mes=2030-06", nil)
+		"/clinicas/no-existe/disponibilidad-mes?tipo=No%20existe%20este%20tipo&mes=2030-06", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusNotFound)
 	}
@@ -921,11 +978,11 @@ func TestListDisponibilidadMesPublica_ClinicaInexistente(t *testing.T) {
 
 func TestSolicitarTurnoPublico_CreaTurnoAgendadoConHorarioReal(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico1@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
@@ -953,11 +1010,11 @@ func TestSolicitarTurnoPublico_CreaTurnoAgendadoConHorarioReal(t *testing.T) {
 // mail, al mail con el que se hizo el turno".
 func TestSolicitarTurnoPublico_EnviaMailDeConfirmacion(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-mailconf@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-mailconf@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
@@ -982,10 +1039,10 @@ func TestSolicitarTurnoPublico_EnviaMailDeConfirmacion(t *testing.T) {
 // confirmación — el turno nunca llegó a crearse.
 func TestSolicitarTurnoPublico_NoEnviaMailSiElPedidoSeRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-mailconf2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-mailconf2@example.com")
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	// Fase 3.1: el pedido que se rechaza tiene que ser del MISMO
 	// tipo. Otro tipo ya no se rechaza, y este test es sobre no mandar mail
@@ -995,7 +1052,7 @@ func TestSolicitarTurnoPublico_NoEnviaMailSiElPedidoSeRechaza(t *testing.T) {
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", token2)
 	req2.EmailContacto = "otro@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusConflict {
@@ -1009,10 +1066,10 @@ func TestSolicitarTurnoPublico_NoEnviaMailSiElPedidoSeRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_SinVerificarRechaza(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-sinverif@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-sinverif@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", ""))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", ""))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
@@ -1021,10 +1078,10 @@ func TestSolicitarTurnoPublico_SinVerificarRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_TokenInventadoRechaza(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-tokenfalso@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-tokenfalso@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", "un-token-que-no-existe"))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", "un-token-que-no-existe"))
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
@@ -1033,11 +1090,11 @@ func TestSolicitarTurnoPublico_TokenInventadoRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_TokenDeOtroMailRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-tokenotromail@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-tokenotromail@example.com")
 	// Verifica un mail DISTINTO al que va en la solicitud de turno.
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 
 	if rec.Code != http.StatusForbidden {
@@ -1047,11 +1104,11 @@ func TestSolicitarTurnoPublico_TokenDeOtroMailRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_TokenYaUsadoNoSirveDeNuevo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-tokenusado@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-tokenusado@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
 	}
@@ -1059,7 +1116,7 @@ func TestSolicitarTurnoPublico_TokenYaUsadoNoSirveDeNuevo(t *testing.T) {
 	// Mismo token, un horario distinto — el token ya se consumió con el
 	// primer turno, no sirve para pedir un segundo sin verificar de nuevo.
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "09:00", token))
 	if rec2.Code != http.StatusForbidden {
 		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusForbidden, rec2.Body.String())
 	}
@@ -1079,14 +1136,14 @@ func TestSolicitarTurnoPublico_TokenSobreviveUnHorarioYaNoDisponible(t *testing.
 	// El primer intento pisa un horario ya ocupado — falla, pero el token
 	// (dentro de la misma transacción revertida) no debería consumirse.
 	recFalla := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 	if recFalla.Code != http.StatusConflict {
 		t.Fatalf("status = %d, esperaba %d. body=%s", recFalla.Code, http.StatusConflict, recFalla.Body.String())
 	}
 
 	// Mismo token, un horario libre — tiene que funcionar.
 	recOk := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "09:00", token))
 	if recOk.Code != http.StatusCreated {
 		t.Fatalf("status = %d, esperaba %d. body=%s", recOk.Code, http.StatusCreated, recOk.Body.String())
 	}
@@ -1111,11 +1168,11 @@ func TestSolicitarTurnoPublico_TokenSobreviveUnHorarioYaNoDisponible(t *testing.
 // siendo alcanzable sin pasar por una verificación real.
 func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico2@example.com")
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	// Corrección de QA (TR-107): mientras el primer turno siga VIGENTE,
 	// turnoActivoDeOtroTipo rechaza CUALQUIER segundo pedido de otro tipo
@@ -1138,13 +1195,13 @@ func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 	// un turno de este tipo" es ajena a lo que este test prueba. El
 	// cooldown de 60s entre dos códigos al MISMO mail (E5.6) tampoco es
 	// parte de lo que se prueba acá — se limpia a mano.
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	if err := gdb.Exec("DELETE FROM auth_rate_counters WHERE scope IN (?, ?)",
 		db.RateLimitScopeTurnoVerifEnviar, db.RateLimitScopeTurnoVerifEnviar+"_cooldown").Error; err != nil {
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
-	req2 := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req2 := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", token2)
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
 		t.Fatalf("segundo pedido: status = %d, esperaba %d. body=%s", rec2.Code, http.StatusCreated, rec2.Body.String())
@@ -1197,12 +1254,12 @@ func TestSolicitarTurnoPublico_MismoDNIMismoMailReusaPaciente(t *testing.T) {
 // simula esa ventana a mano.
 func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflictoSiNadieVerificado(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico11@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico11@example.com")
 
 	// Primer pedido: crea a Bruno Iglesias de verdad.
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	// Corrección de QA (TR-107): mientras el turno de Bruno siga VIGENTE,
 	// turnoActivoDeOtroTipo rechaza cualquier otro mail que reclame el
@@ -1223,9 +1280,9 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 	// nadie verificado todavía. Segundo TIPO de consulta a propósito
 	// (F4.1.3): la guarda "ya tenés un turno de este tipo" es ajena a lo
 	// que este test prueba.
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", token2)
 	req.NombreContacto = "Otro"
 	req.ApellidoContacto = "Apellido"
 	req.TelefonoContacto = "+5493519999999"
@@ -1283,13 +1340,13 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaFichaSeparadaSinConflicto
 // criterio que TR-100/101 de siempre.
 func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOriginalYaVerificada(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico12@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico12@example.com")
 
 	// Primer pedido: crea a Bruno Iglesias, y lo dejamos ya VERIFICADO
 	// (turno resuelto y asistido) antes de que llegue el segundo pedido.
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	var original db.Paciente
 	if err := gdb.Where("clinic_id = ? AND dni = ?", reg.Profesional.ID, "30111222").First(&original).Error; err != nil {
@@ -1303,9 +1360,9 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 	}
 
 	// Segundo pedido, mismo DNI, mail distinto.
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", token2)
 	req.NombreContacto = "Otro"
 	req.ApellidoContacto = "Apellido"
 	req.TelefonoContacto = "+5493519999999"
@@ -1363,7 +1420,7 @@ func TestSolicitarTurnoPublico_MismoDNIMailDistintoCreaConflictoVisibleSiOrigina
 func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico22@example.com")
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 
 	original := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
 
@@ -1405,7 +1462,7 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 
 	// Un mail distinto pide un TERCER tipo de consulta con el mismo DNI.
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "10:00", token)
+	req := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "10:00", token)
 	req.EmailContacto = "otro@example.com"
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusCreated {
@@ -1438,11 +1495,11 @@ func TestSolicitarTurnoPublico_OtroMailConElMismoDNIAbreConflictoNoSeBloquea(t *
 // y un nuevo pedido con el mismo DNI puede pasar de nuevo.
 func TestSolicitarTurnoPublico_TurnoResueltoLiberaElTopeDeUnoPorDNI(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico23@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico23@example.com")
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 
 	// El turno del primer pedido ya pasó — sin marcar asistencia, sigue sin
 	// verificar, pero ya no está vigente.
@@ -1454,7 +1511,7 @@ func TestSolicitarTurnoPublico_TurnoResueltoLiberaElTopeDeUnoPorDNI(t *testing.T
 	// Mismo DNI, mismo tipo de consulta, mail distinto — ya no debería
 	// chocar contra el tope de 1 activo.
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno2@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", token2)
 	req2.EmailContacto = "bruno2@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {
@@ -1479,7 +1536,7 @@ func TestSolicitarTurnoPublico_VerificadoConTurnoActivoRechazaOtroPedidoDelMismo
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 	req1 := solicitarTurnoPublicoRequest{
-		EmailContacto: email, TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		EmailContacto: email, Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		VerificacionToken: token1, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
@@ -1517,11 +1574,11 @@ func TestSolicitarTurnoPublico_VerificadoConTurnoActivoRechazaOtroPedidoDelMismo
 // identidadDeContactoDelTurno el mensaje decía "con mail " y nada más.
 func TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico-mail-tutor@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico-mail-tutor@example.com")
 
 	tutor := "mama@example.com"
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutor)
-	req1 := solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutor, token1)
+	req1 := solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutor, token1)
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
@@ -1529,7 +1586,7 @@ func TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor(t *te
 
 	// Alguien más, con el mismo DNI y el mismo tipo, desde otro mail.
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "09:00", token2)
 	req2.EmailContacto = "otro@example.com"
 	req2.DNIContacto = "40111222" // el mismo paciente que sacó el turno el tutor
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
@@ -1550,10 +1607,10 @@ func TestSolicitarTurnoPublico_ElMensajeDeTurnoActivoMuestraElMailDelTutor(t *te
 // CUALQUIER mail, ya se rechaza (no hace falta llegar al cuarto).
 func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNIRechazaDesdeElSegundo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico18@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico18@example.com")
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "tope1@example.com")
-	req1 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1)
+	req1 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1)
 	req1.EmailContacto = "tope1@example.com"
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
@@ -1561,7 +1618,7 @@ func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNIRechazaDesdeElSegundo(t *tes
 	}
 
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "tope2@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "09:00", token2)
 	req2.EmailContacto = "tope2@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusConflict {
@@ -1578,10 +1635,10 @@ func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNIRechazaDesdeElSegundo(t *tes
 // comportamiento, siguen rechazando de verdad.
 func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNINoEsSimulable(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMailYSimulacion(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico19@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico19@example.com")
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "simtope1@example.com")
-	req1 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1)
+	req1 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1)
 	req1.EmailContacto = "simtope1@example.com"
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
 	if rec1.Code != http.StatusCreated {
@@ -1589,7 +1646,7 @@ func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNINoEsSimulable(t *testing.T) 
 	}
 
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "simtope2@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "09:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "09:00", token2)
 	req2.EmailContacto = "simtope2@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusConflict {
@@ -1614,7 +1671,7 @@ func TestSolicitarTurnoPublico_TopeDeUnoActivoPorDNINoEsSimulable(t *testing.T) 
 // sistema, los 2 anteriores SÍ se borran de la base, no se cancelan.
 func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico21@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico21@example.com")
 	email := "atacante@example.com"
 	horas := []string{"08:00", "09:00", "10:00"}
 	dnis := []string{"30000001", "30000002", "30000003"}
@@ -1630,7 +1687,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = email
 		req.DNIContacto = dni
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -1734,7 +1791,7 @@ func TestSolicitarTurnoPublico_MailConMasDeDosDNIsDistintosBloqueaYBorraTodo(t *
 // seguir probando sin esperar 3 días/24hs.
 func TestSolicitarTurnoPublico_MailConMuchosDNIsSimulado(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMailYSimulacion(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico24@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico24@example.com")
 	email := "simulado-atacante@example.com"
 	horas := []string{"08:00", "09:00", "10:00"}
 	dnis := []string{"32000001", "32000002", "32000003"}
@@ -1745,7 +1802,7 @@ func TestSolicitarTurnoPublico_MailConMuchosDNIsSimulado(t *testing.T) {
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = email
 		req.DNIContacto = dni
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -1799,7 +1856,7 @@ func TestSolicitarTurnoPublico_MailConMuchosDNIsSimulado(t *testing.T) {
 // 2 primeros, el 3ro pasa porque solo queda 1 vigente.
 func TestSolicitarTurnoPublico_MailConDNIsCanceladosNoCuentanParaElTope(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico22@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico22@example.com")
 	email := "familianumerosa@example.com"
 	horas := []string{"08:00", "09:00"}
 	dnis := []string{"30000011", "30000012"}
@@ -1811,7 +1868,7 @@ func TestSolicitarTurnoPublico_MailConDNIsCanceladosNoCuentanParaElTope(t *testi
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = email
 		req.DNIContacto = dni
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -1836,7 +1893,7 @@ func TestSolicitarTurnoPublico_MailConDNIsCanceladosNoCuentanParaElTope(t *testi
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-	req3 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", token3)
+	req3 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", token3)
 	req3.EmailContacto = email
 	req3.DNIContacto = "30000013"
 	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
@@ -1864,7 +1921,7 @@ func TestSolicitarTurnoPublico_MailConDNIsCanceladosNoCuentanParaElTope(t *testi
 // legítimo.
 func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico23@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico23@example.com")
 	horas := []string{"08:00", "09:00", "10:00", "11:00", "12:00"}
 	mails := []string{"rotador0@example.com", "rotador1@example.com", "rotador2@example.com", "rotador3@example.com", "rotador4@example.com"}
 	dnis := []string{"31000000", "31000001", "31000002", "31000003", "31000004"}
@@ -1875,7 +1932,7 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = mails[i]
 		req.DNIContacto = dnis[i]
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -1889,7 +1946,7 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[4])
-	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[4], token5)
+	req5 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[4], token5)
 	req5.EmailContacto = mails[4]
 	req5.DNIContacto = dnis[4]
 	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
@@ -1954,7 +2011,7 @@ func TestSolicitarTurnoPublico_RotacionDeMailYDNIDesdeMismaIPBloqueaIP(t *testin
 // detectores de este archivo.
 func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
 	horas := []string{"08:00", "09:00", "10:00", "11:00"}
 	mails := []string{"verificado0@example.com", "rotadorb1@example.com", "rotadorb2@example.com", "rotadorb3@example.com"}
 	dnis := []string{"34000000", "34000001", "34000002", "34000003"}
@@ -1965,7 +2022,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = mails[i]
 		req.DNIContacto = dnis[i]
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -1989,7 +2046,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "rotadorb4@example.com")
-	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "12:00", token5)
+	req5 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "12:00", token5)
 	req5.EmailContacto = "rotadorb4@example.com"
 	req5.DNIContacto = "34000004"
 	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
@@ -2027,7 +2084,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnoDePacienteVerificado(t *
 // mostró un patrón de rotación recién ahora.
 func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico27@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico27@example.com")
 
 	// Turno viejo, aislado, de la misma IP — se crea normal y después se
 	// le retrasa `created_at` a mano (la request de prueba no tiene forma
@@ -2035,7 +2092,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 	// resto del test: ver ipDePrueba más abajo, todas las requests de este
 	// archivo pegan desde la misma IP simulada del httptest).
 	tokenViejo := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "viejo@example.com")
-	reqViejo := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "13:00", tokenViejo)
+	reqViejo := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "13:00", tokenViejo)
 	reqViejo.EmailContacto = "viejo@example.com"
 	reqViejo.DNIContacto = "35000099"
 	recViejo := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", reqViejo)
@@ -2057,7 +2114,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = mails[i]
 		req.DNIContacto = dnis[i]
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -2071,7 +2128,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[4])
-	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[4], token5)
+	req5 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[4], token5)
 	req5.EmailContacto = mails[4]
 	req5.DNIContacto = dnis[4]
 	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
@@ -2110,7 +2167,7 @@ func TestSolicitarTurnoPublico_RotacionPorIPNoBorraTurnosFueraDeLaVentana(t *tes
 // persistente de la IP.
 func TestSolicitarTurnoPublico_RotacionSimulada(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMailYSimulacion(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico25@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico25@example.com")
 	horas := []string{"08:00", "09:00", "10:00", "11:00", "12:00"}
 	mails := []string{"simrot0@example.com", "simrot1@example.com", "simrot2@example.com", "simrot3@example.com", "simrot4@example.com"}
 	dnis := []string{"33000000", "33000001", "33000002", "33000003", "33000004"}
@@ -2121,7 +2178,7 @@ func TestSolicitarTurnoPublico_RotacionSimulada(t *testing.T) {
 			t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 		}
 		token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[i])
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[i], token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[i], token)
 		req.EmailContacto = mails[i]
 		req.DNIContacto = dnis[i]
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -2135,7 +2192,7 @@ func TestSolicitarTurnoPublico_RotacionSimulada(t *testing.T) {
 		t.Fatalf("no se pudo limpiar el rate limit de prueba: %v", err)
 	}
 	token5 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, mails[4])
-	req5 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, horas[4], token5)
+	req5 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, horas[4], token5)
 	req5.EmailContacto = mails[4]
 	req5.DNIContacto = dnis[4]
 	rec5 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req5)
@@ -2178,16 +2235,16 @@ func TestSolicitarTurnoPublico_RotacionSimulada(t *testing.T) {
 // aviso expone el mail del turno YA activo, censurado.
 func TestSolicitarTurnoPublico_SegundoMailMismoTipoRechazaSiPrimeroNoVerificado(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico12@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico12@example.com")
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token1))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token1))
 	if rec1.Code != http.StatusCreated {
 		t.Fatalf("primer pedido: status = %d, esperaba %d. body=%s", rec1.Code, http.StatusCreated, rec1.Body.String())
 	}
 
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno2@example.com")
-	req2 := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "10:00", token2)
+	req2 := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "10:00", token2)
 	req2.EmailContacto = "bruno2@example.com"
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusConflict {
@@ -2212,7 +2269,7 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdCreaTurnoConDatosReales(t *te
 
 	req := solicitarTurnoPublicoRequest{
 		EmailContacto:        email,
-		TipoConsultaID:       tipoID,
+		Tipo:                 nombreTipoSembrado,
 		Fecha:                fechaDePruebaDisponibilidad,
 		Hora:                 "08:00",
 		VerificacionToken:    token,
@@ -2249,13 +2306,13 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdCreaTurnoConDatosReales(t *te
 func TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico26@example.com")
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	email := "bruno@example.com"
 	paciente := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", email)
 
 	token1 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 	req1 := solicitarTurnoPublicoRequest{
-		EmailContacto: email, TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		EmailContacto: email, Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		VerificacionToken: token1, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec1 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req1)
@@ -2270,7 +2327,7 @@ func TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo(t *testing.T) {
 	}
 	token2 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 	req2 := solicitarTurnoPublicoRequest{
-		EmailContacto: email, TipoConsultaID: segundoTipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "10:00",
+		EmailContacto: email, Tipo: segundoTipo, Fecha: fechaDePruebaDisponibilidad, Hora: "10:00",
 		VerificacionToken: token2, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
@@ -2297,7 +2354,7 @@ func TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo(t *testing.T) {
 	}
 	token3 := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 	req3 := solicitarTurnoPublicoRequest{
-		EmailContacto: email, TipoConsultaID: segundoTipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "11:00",
+		EmailContacto: email, Tipo: segundoTipo, Fecha: fechaDePruebaDisponibilidad, Hora: "11:00",
 		VerificacionToken: token3, PacienteVerificadoID: paciente.ID.String(),
 	}
 	rec3 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req3)
@@ -2312,13 +2369,13 @@ func TestSolicitarTurnoPublico_YaVineAntesPuedeSacarOtroTipo(t *testing.T) {
 // paciente nuevo.
 func TestSolicitarTurnoPublico_PacienteVerificadoIdInexistenteRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico14@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico14@example.com")
 	email := "bruno@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 
 	req := solicitarTurnoPublicoRequest{
 		EmailContacto:        email,
-		TipoConsultaID:       tipoID,
+		Tipo:                 nombreTipoSembrado,
 		Fecha:                fechaDePruebaDisponibilidad,
 		Hora:                 "08:00",
 		VerificacionToken:    token,
@@ -2350,7 +2407,7 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdConMailAjenoRechaza(t *testin
 	tokenAtacante := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "atacante@example.com")
 	req := solicitarTurnoPublicoRequest{
 		EmailContacto:        "atacante@example.com",
-		TipoConsultaID:       tipoID,
+		Tipo:                 nombreTipoSembrado,
 		Fecha:                fechaDePruebaDisponibilidad,
 		Hora:                 "08:00",
 		VerificacionToken:    tokenAtacante,
@@ -2383,7 +2440,7 @@ func TestSolicitarTurnoPublico_PacienteVerificadoIdParaOtroConMailAjenoRechaza(t
 	tokenAtacante := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "atacante@example.com")
 	req := solicitarTurnoPublicoRequest{
 		EmailContacto:        "atacante@example.com",
-		TipoConsultaID:       tipoID,
+		Tipo:                 nombreTipoSembrado,
 		Fecha:                fechaDePruebaDisponibilidad,
 		Hora:                 "08:00",
 		VerificacionToken:    tokenAtacante,
@@ -2416,9 +2473,9 @@ func TestSolicitarTurnoPublico_DNIExistenteVerificadoConMailDistintoCreaConflict
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico15@example.com")
 	pacienteVerificado := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
 
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	tokenOtro := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "otro@example.com")
-	req := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "08:00", tokenOtro)
+	req := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "08:00", tokenOtro)
 	req.DNIContacto = "30111222" // mismo DNI que el paciente ya verificado
 	req.EmailContacto = "otro@example.com"
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
@@ -2452,7 +2509,7 @@ func TestSolicitarTurnoPublico_DNIExistenteVerificadoConMailDistintoCreaConflict
 // 30 min) — el pedido final también tiene que rechazarlo.
 func TestSolicitarTurnoPublico_MailBloqueadoRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico16@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico16@example.com")
 	email := "bruno@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
 
@@ -2465,7 +2522,7 @@ func TestSolicitarTurnoPublico_MailBloqueadoRechaza(t *testing.T) {
 	}
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
 	}
@@ -2486,7 +2543,7 @@ func TestSolicitarTurnoPublico_HorarioYaNoDisponibleRechaza(t *testing.T) {
 	crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, combinarFechaYHora(fecha, "08:00"))
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
@@ -2495,11 +2552,11 @@ func TestSolicitarTurnoPublico_HorarioYaNoDisponibleRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_FechaPasadaRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico4@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico4@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, "2020-01-01", "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, "2020-01-01", "08:00", token))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
@@ -2533,11 +2590,11 @@ func TestSolicitarTurnoPublico_ClinicaInexistente(t *testing.T) {
 
 func TestSolicitarTurnoPublico_DNIInvalido(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico6@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico6@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
 	for _, dni := range []string{"123", "abcdefgh", "123456789012"} {
-		req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+		req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 		req.DNIContacto = dni
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 		if rec.Code != http.StatusBadRequest {
@@ -2548,10 +2605,10 @@ func TestSolicitarTurnoPublico_DNIInvalido(t *testing.T) {
 
 func TestSolicitarTurnoPublico_TelefonoInvalido(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico7@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico7@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.TelefonoContacto = "123"
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusBadRequest {
@@ -2561,10 +2618,10 @@ func TestSolicitarTurnoPublico_TelefonoInvalido(t *testing.T) {
 
 func TestSolicitarTurnoPublico_EmailInvalido(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico8@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico8@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.EmailContacto = "no-es-un-email"
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusBadRequest {
@@ -2574,10 +2631,10 @@ func TestSolicitarTurnoPublico_EmailInvalido(t *testing.T) {
 
 func TestSolicitarTurnoPublico_NombreApellidoObligatorios(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico9@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico9@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.NombreContacto = ""
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusBadRequest {
@@ -2587,10 +2644,10 @@ func TestSolicitarTurnoPublico_NombreApellidoObligatorios(t *testing.T) {
 
 func TestSolicitarTurnoPublico_HorarioInvalidoRechaza(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "publico10@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publico10@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "8hs", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "8hs", token)
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusBadRequest)
@@ -2620,7 +2677,7 @@ func TestSolicitarTurnoPublico_NoRequiereAutenticacion(t *testing.T) {
 func TestSolicitarTurnoPublico_IPYaBloqueadaRechazaDirecto(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "ipbloqueada1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "ipbloqueada1@example.com")
 	pid, err := uuid.Parse(reg.Profesional.ID)
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
@@ -2630,7 +2687,7 @@ func TestSolicitarTurnoPublico_IPYaBloqueadaRechazaDirecto(t *testing.T) {
 		t.Fatalf("no se pudo crear el bloqueo de IP: %v", err)
 	}
 
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", "cualquier-token")
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", "cualquier-token")
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
@@ -2658,11 +2715,15 @@ func TestTurnoActivoDelMismoTipoYDeOtroTipo_Dormantes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tipoConsultaID inválido: %v", err)
 	}
-	otroTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
-	otid, err := uuid.Parse(otroTipo)
-	if err != nil {
-		t.Fatalf("otroTipoConsultaID inválido: %v", err)
+	// El helper devuelve el NOMBRE desde la Fase 3.2.7 (el wizard elige
+	// por nombre); acá hace falta el id de la fila, que es lo que miran
+	// estas dos funciones dormidas.
+	otroNombre := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	var otroTipo db.TipoConsulta
+	if err := gdb.Where("clinic_id = ? AND nombre = ?", pid, otroNombre).First(&otroTipo).Error; err != nil {
+		t.Fatalf("no se encontró el segundo tipo de consulta: %v", err)
 	}
+	otid := otroTipo.ID
 
 	// Sin ningún turno todavía: las dos funciones devuelven nil, nil.
 	if turno, err := turnoActivoDelMismoTipo(gdb, pid, "30111222", tid); err != nil || turno != nil {
@@ -2748,12 +2809,12 @@ func TestErroresDormantesDeTurnoPublico_FormateanElMensaje(t *testing.T) {
 // misma media hora, se reemita una vez o diez.
 func TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "reemision1@example.com")
-	segundoTipoID := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "reemision1@example.com")
+	segundoTipo := crearSegundoTipoConsultaDePrueba(t, gdb, reg.Profesional.ID)
 	email := "repetidor@example.com"
 
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, email)
-	req := solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token)
+	req := solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token)
 	req.EmailContacto = email
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req)
 	if rec.Code != http.StatusCreated {
@@ -2771,14 +2832,14 @@ func TestSolicitarTurnoPublico_ReemiteLaPruebaDeMailParaElSiguienteTurno(t *test
 	}
 
 	// El original quedó consumido: reusarlo no sirve.
-	reqViejo := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "09:00", token)
+	reqViejo := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "09:00", token)
 	reqViejo.EmailContacto = email
 	if rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", reqViejo); rec.Code == http.StatusCreated {
 		t.Error("el token original siguió sirviendo después de usarse — tiene que ser de un solo uso")
 	}
 
 	// El reemitido sí, para otro tipo de consulta.
-	req2 := solicitudDePrueba(segundoTipoID, fechaDePruebaDisponibilidad, "10:00", resp.VerificacionToken)
+	req2 := solicitudDePrueba(segundoTipo, fechaDePruebaDisponibilidad, "10:00", resp.VerificacionToken)
 	req2.EmailContacto = email
 	rec2 := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", req2)
 	if rec2.Code != http.StatusCreated {

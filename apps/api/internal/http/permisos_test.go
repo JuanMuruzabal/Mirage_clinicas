@@ -44,6 +44,16 @@ func sumarColaboradorDePrueba(t *testing.T, gdb *gorm.DB, router http.Handler, c
 		if err := db.AsignarRol(gdb, member.ID, rol); err != nil {
 			t.Fatalf("no se pudo asignar el rol %q: %v", rol, err)
 		}
+		// Los dos tipos de siempre, igual que los dos caminos reales de
+		// sumarse (aceptar una invitación y que te den el rol desde
+		// Colaboradores). Este helper arma la membresía directo en la
+		// base: sin esto, el colega de los tests entraría sin tipos de
+		// consulta, que ya no es un estado posible.
+		if rol == db.RoleProfesional {
+			if err := db.SeedTiposConsultaDefault(gdb, clinicID, user.ID); err != nil {
+				t.Fatalf("no se pudieron sembrar los tipos del colaborador: %v", err)
+			}
+		}
 	}
 	return *reg.Token
 }

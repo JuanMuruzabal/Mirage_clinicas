@@ -2183,6 +2183,165 @@ Las filas siguen siendo una por profesional. **Globales en nombre, propias en co
 
 ---
 
+## TR-146: El wizard público elige profesional — primero el tipo, después quién
+
+- **Contexto:** Fase 3.2.7, 2026-09-15. Se adelanta a la 3.2.6 (vista del recepcionista) por decisión del cliente.
+- **De dónde salió:** el cliente, textual — *"los profesionales como se explicó, según el tipo de consulta aparecerán los profesionales a elegir, si no hay un tipo de turno asociado al menos a un profesional no ponerlo en el wizard"*.
+
+### El orden no es una preferencia de pantalla
+
+**Tipo primero, profesional después.** Es el orden real de la decisión de un paciente —"necesito una limpieza" viene antes que "con quién"— pero además es el único que se puede resolver: **el tipo determina la duración, y la duración es lo que define los huecos**. Al revés habría que ofrecer profesionales sin saber cuánto dura la consulta, y después recalcular todo.
+
+De ahí sale, sin agregar nada, la regla que pidió el cliente: **un tipo que no atiende ningún profesional activo no se muestra.** Ofrecerlo llevaría a una pantalla sin nadie a quien elegir. Quedan afuera los tipos sin dueño —las filas anteriores a la 3.2.1— y los de quien ya no está en el equipo (la membresía se marca `removed`, nunca se borra, así que sus filas siguen ahí).
+
+### La lista de tipos deja de tener id y duración
+
+`GET /clinicas/{slug}/tipos-consulta` devolvía una fila por tipo de la clínica. Con dos profesionales eso mostraba **"Consulta general" dos veces**, indistinguibles para el paciente: difieren en color y duración, que son configuración interna de cada agenda (TR-145).
+
+Ahora devuelve **nombres, deduplicados**. El cambio de forma —se van `id`, `color` y `duracionMinutos`— no es una poda cosmética: con N profesionales **no existe** "el id del tipo" ni "la duración del tipo"; existe la fila de cada uno. La duración aparece en la tarjeta del profesional, que es donde pasa a ser cierta.
+
+El id concreto vuelve a aparecer en `GET /clinicas/{slug}/profesionales?tipo=<nombre>`, donde cada profesional trae **su** `tipoConsultaId`. Así la disponibilidad y el alta siguen trabajando con filas reales, y la resolución por nombre —el lugar donde dos profesionales que lo escribieron distinto se vuelven un problema— ocurre una sola vez.
+
+### El indicador de proximidad, y por qué está acotado
+
+Cada tarjeta dice el primer día con hueco. Es lo que vuelve real la elección: entre dos nombres que el paciente no conoce, **con qué rapidez lo atienden es casi siempre el criterio que usa**; sin eso, elegir es tirar una moneda.
+
+Se escanean **30 días como máximo**, y no "hasta encontrar". El endpoint es público y sin sesión, y cada día mirado es una consulta por profesional: con el tope, el peor caso de una clínica de cinco es del mismo orden que `/disponibilidad-mes`, que ya escanea hasta 31 días sin autenticar. Que alguien no tenga hueco en 30 días es información útil por sí misma — la tarjeta lo dice, en vez de mentir con una fecha lejana.
+
+El orden de la lista es por proximidad y no alfabético, por lo mismo: dejar cuarto a quien puede atender mañana obliga a comparar a mano lo que el servidor ya sabe.
+
+### Un mail nunca se publica
+
+`nombresDeLosMiembros` cae al mail de quien todavía no cargó perfil. Está bien **dentro del panel**, entre colegas de la misma clínica, y sería publicar la dirección de correo de una persona en una página abierta a internet. La versión pública usa un genérico. En la práctica el caso no se da —sumarse como `profesional` exige matrícula, y eso pasa por el perfil— pero el fallback tiene que ser seguro igual: si algún día aparece una fila rara, el error ya es irreversible.
+
+### Un error que estaba desde la 3.2.5
+
+Con **enlace** compartido, la disponibilidad se calculaba con el OWNER y el turno entraba en la agenda del **dueño del enlace**: se mostraban los huecos de uno y se agendaba con otro. Lo tapaba que las dos resoluciones vivieran en lugares distintos.
+
+Ahora hay **una sola función** (`tipoPublicoDelPedido`) que devuelve el tipo y el profesional juntos, y la usan los tres endpoints: horarios de un día, días del mes y alta del turno. Con enlace manda el dueño del enlace y se ignora cualquier profesional que venga en el cuerpo — su "Compartir link" existe para llenar SU agenda. Y la lista de tipos, con enlace, se acota a los suyos: elegir "Ortodoncia" para enterarse al confirmar de que ahí no la atiende nadie es una pared.
+
+### Las dos reglas del paciente, que faltaban acá
+
+Estaban declaradas como pendientes desde la 3.2.5 (TR-144/145): viven en el alta del panel y faltaban en el wizard. Mientras todo caía en la agenda del owner no cambiaban nada; **desde que el paciente elige, este es el único lugar donde alguien puede darse cuenta de la colisión** — él no ve ninguna agenda, y el profesional que va a atenderlo tampoco ve la del otro.
+
+1. **No puede quedar encimado con un turno suyo de otro profesional.** Mensaje en segunda persona, con el nombre y de qué hora a qué hora.
+2. **No puede tener dos turnos activos del mismo tipo en la clínica**, comparado por nombre.
+
+**La segunda es un cambio de comportamiento que conviene mirar:** la regla existía en el wizard solo para el paciente **sin verificar** y por `tipo_consulta_id`. Ahora aplica a todos y por nombre. Es lo que pidió el cliente para el panel —*"ya sea conmigo mismo o con otro profesional"*— y sin esto la puerta pública quedaba abierta justo donde nadie mira. Si un paciente verificado tuviera que poder apilar dos turnos del mismo tipo (controles de ortodoncia, por ejemplo), es un `if` y queda anotado acá.
+
+### Lo que este cambio rompió, y no se tapó
+
+Seis fixtures del backend creaban el segundo tipo de consulta **sin dueño**. Bajo la regla nueva eso es un tipo que no atiende nadie, así que dejaron de ofrecerse — la regla funcionando, no un daño colateral. Se les puso dueño en vez de relajar la regla.
+
+Aparte, la suite destapó que `PurgeAuthGarbage` **reventaba entera** cuando una cuenta abandonada era dueña de una clínica: la FK `fk_clinics_owner` devuelve 23503 y ese error tumbaba la transacción, así que un solo caso raro dejaba de limpiar también las sesiones vencidas y los tokens usados de todo el sistema. Se saltean, que además es lo correcto por sí mismo: una cuenta con clínica tiene datos reales, no es basura.
+
+---
+
+## TR-147: Las reglas que protegen al paciente miran la PERSONA, no la ficha
+
+- **Contexto:** Fase 3.2.7, ronda de correcciones del 2026-09-15/16, sobre una QA del cliente con dos profesionales reales.
+- **De dónde salió:** *"me deja sacar más de un turno del mismo tipo de consulta con otro profesional"*, y después *"siendo un mismo paciente me dejó sacar turno a la misma hora que otro turno con otro profesional... esto último debería quedar zanjado definitivamente"*.
+
+### Una persona puede tener más de una ficha a la vez
+
+Las dos reglas de TR-144/145 —no estar en dos sillones a la vez, un turno activo por tipo— se escribieron contra `paciente_id`. Parecía lo correcto: la ficha ES el paciente.
+
+No lo es **mientras hay un conflicto de identidad abierto**. Cuando alguien pide turno con un mail que el sistema no reconoce se le crea una ficha DUPLICADA, y `crearOBuscarPacientePorDNI` saltea las que están `en_conflicto`: dos pedidos seguidos dejan dos fichas duplicadas distintas, cada una con sus turnos. Las reglas, mirando una sola ficha, no veían nada con qué chocar **y se salteaban solas justo en el caso más común**.
+
+El caso que lo demostró: dos turnos a la misma hora, con dos profesionales, creados con cinco segundos de diferencia. Cada uno nació con su propia ficha duplicada (`c6ca8310` y `16bdad05`), así que el chequeo de solapamiento no encontró nada. **Recién se notó al resolver los conflictos**, que junta todos los turnos en la ficha real.
+
+La corrección es un solo helper —`fichasDeLaPersona`, todas las fichas de ese DNI en la clínica— que usan las dos reglas. Lo que las une es la persona; la ficha es cómo la tenemos anotada, y puede haber más de una.
+
+**Por qué esto "lo zanja" y el arreglo anterior no:** mientras el criterio fuera la ficha, cada regla nueva iba a nacer con el mismo agujero. El criterio ahora es el DNI, que es lo que el cliente dijo desde el principio — *"yo con UN dni solo puedo sacar UN turno por tipo de consulta en la clínica"*.
+
+### Dos excepciones, y por qué
+
+"Consulta general" y "Urgencia" quedan fuera de la regla de tipo único **entre profesionales distintos**. Son los dos que el sistema le precarga a todo profesional (`SeedTiposConsultaDefault`), así que son la puerta de entrada genérica y no una práctica concreta: bloquearlas impediría hacerse ver por dos odontólogos, o conseguir una urgencia con quien tenga lugar. Con el MISMO profesional siguen sin poder repetirse — dos "Consulta general" pendientes con la misma persona no es una elección, es un clic de más.
+
+De paso: esos dos tipos ahora se siembran también **al sumarse a una clínica ajena** (aceptar una invitación, o recibir el rol desde Colaboradores), no solo al crear la propia. Un colega invitado entraba con la configuración de agenda vacía y no podía recibir un turno hasta cargárselos a mano. El seed es idempotente, porque las puertas de entrada son varias y ninguna sabe por cuál se pasó antes.
+
+### La causa raíz: una ficha manual sin mail es irreconocible
+
+Aparte, y detrás de todo esto: `pacienteEstaVerificado` devuelve `true` por el solo hecho de que la ficha sea de origen `manual`, y `pacienteRespondeAlMail` no puede dar `true` nunca si la ficha no tiene mail. Una ficha cargada a mano **sin mail** queda entonces permanentemente verificada y permanentemente irreconocible: **cada** pedido público con ese DNI dispara un conflicto de identidad, uno por pedido, para siempre. Y esos conflictos pendientes bloqueaban marcar asistencia.
+
+El cliente eligió atacarlo por el lado del producto: **mail obligatorio en las altas manuales** ("+ Agregar turno > paciente nuevo" y "+ Agregar paciente"). Con tutor sigue siendo opcional —un menor puede no tener— porque ahí la identidad la aporta el tutor, cuyo mail y teléfono ya eran obligatorios.
+
+---
+
+## TR-148: Un conflicto de identidad se ve donde se puede resolver, y se resuelve una sola vez
+
+- **Contexto:** Fase 3.2.7, misma ronda. Tres reportes distintos que resultaron el mismo tema.
+- **De dónde salió:** *"la notificación de conflicto solo tiene que llegar al profesional afectado"*, *"basta con que un profesional resuelva el conflicto para solucionar ambos"*, *"cuando resuelvo todos los conflictos (tengo 0) en las otras pestañas ahora me aparece 'tenés 1 conflicto'"*.
+
+### Quién lo ve: el que tiene la ficha duplicada
+
+`soloMisConflictos` salía del turno que ORIGINÓ el ticket. Con dos profesionales eso deja un hueco: si el mismo duplicado consigue turno con un segundo profesional, a ese le aparece un paciente en conflicto en su lista **y ningún lugar donde resolverlo**.
+
+La visibilidad pasa a salir de la ficha duplicada —"tengo un turno con esa ficha"— en unión con la regla vieja. La unión, y no solo la nueva: resolver un conflicto desvincula turnos, y un ticket que quedara sin turnos vinculados se volvería invisible para todos, imposible de resolver y bloqueando asistencias para siempre.
+
+El escenario del cliente queda exacto: los dos atendieron al paciente, el paciente saca turno con el 1 usando otro mail, el conflicto le llega **solo al 1** —es a quien se le cargó el duplicado— y el 2 no ve ni el duplicado ni el conflicto.
+
+### Quién lo resuelve: cualquiera, una vez
+
+Cerrar los tickets de la misma ficha duplicada **no alcanzaba**, y el cliente lo encontró probando. Cada pedido crea su propia ficha duplicada, así que el mismo paciente con el mismo mail nuevo deja DOS fichas y DOS tickets: resolver uno no tocaba al otro, y el segundo profesional seguía viendo un conflicto por algo ya decidido.
+
+**El criterio es el mail** — textual: *"SOLO SI el conflicto es del mismo mail"*. Al resolver, se buscan los otros tickets pendientes de la misma persona cuya ficha duplicada comparta un mail de identidad (el propio, sus alternativos, o el de sus tutores) y se procesan igual: se fusionan sus fichas, se cierran sus tickets. Un duplicado con OTRO mail es otra pregunta y la contesta quien la recibió.
+
+Y el mail resuelto queda en la ficha real (`agregarEmailAlternativoSiNuevo` lo pone como principal si no había), que es **lo que corta el ciclo**: el próximo pedido con ese mail la reconoce en vez de abrir otro conflicto.
+
+### Qué bloquea: solo el lado en disputa
+
+El bloqueo de asistencia miraba los DOS lados del ticket, así que un conflicto nuevo congelaba también los turnos de la ficha VERIFICADA — **incluso turnos anteriores al conflicto**. Ese fue el reporte original: un turno viejo, de una ficha verificada, imposible de marcar porque alguien pidió turno con ese DNI horas después.
+
+Lo que la regla tiene que impedir sigue impedido: que la ficha en conflicto se verifique sola marcando asistencia en otro turno suyo, y que un "ausente" la borre dejando el ticket apuntando a una ficha que ya no existe. La verificada no necesita esa protección — su identidad no está en discusión.
+
+### Y el contador tiene que decir lo mismo que la pantalla
+
+`resuelto = false` no alcanzaba para saber si un ticket sigue abierto. Resolver **borra** la ficha duplicada, y desde que una resolución arrastra a sus hermanos puede quedar un ticket apuntando a una ficha que ya no existe: la pantalla de Pacientes no lo mostraba —no tiene ficha que pintar— pero el contador de la notificación sí lo contaba. Un aviso de algo que no se puede ni ver ni resolver.
+
+`soloConflictosVivos` exige que la ficha duplicada exista, y se aplica en los tres lugares: donde se cuenta, donde se lista y donde se resuelve. Que las tres respondan lo mismo era justamente lo que faltaba.
+
+### Tiempo real, sin transporte nuevo
+
+Un conflicto lo puede resolver otro profesional, así que el aviso ya no depende solo de quien lo mira. El sondeo baja de 60 s a 20 s y se repite **al volver a la pestaña o a la ventana** — el momento en que alguien mira de nuevo es el más probable para que algo haya cambiado. Mismo criterio que la presencia (TR-142): estado en Postgres, sondeo, sin WebSocket.
+
+Y si la ventana ya estaba abierta sobre un conflicto que otro resolvió, cualquiera de las dos opciones muestra **en verde** *"Conflicto resuelto. Cerrá la ventana y refrescá la página."*, con los botones deshabilitados. No es un error: la pregunta ya está contestada, y lo que quedó en pantalla describe un estado que no existe más.
+
+### Un cartel incerrable que no dice por qué no avanza es una trampa
+
+El cartel de asistencia descartaba el resultado de la acción y sacaba el turno de la cola igual. Con un rechazo, el sondeo lo traía de vuelta y el cartel reaparecía — y como es **incerrable a propósito**, el resultado era un bucle infinito sin ninguna explicación. Eso es lo que el cliente describió como *"se reinicia la pantalla y queda trabado"*. Ahora el error se muestra y el turno se queda en la cola.
+
+---
+
+## TR-149: El enlace compartido decide dos cosas: con quién, y para quién
+
+- **Contexto:** Fase 3.2.7b, 2026-09-16.
+- **De dónde salió:** *"aplicar los mismos cambios al Wizard generado por link... en la vista del profesional da 2 opciones, todos los profesionales o vos mismo... además de elegir el paciente ya verificado para que se saltee la fase de completar datos"*.
+
+### Con quién: dos opciones, y los defaults importan
+
+`enlaces_turno` suma `para_todos_los_profesionales`. En `false` —el default, y el comportamiento histórico— el turno entra en la agenda de quien generó el link y el wizard no pregunta nada: es para lo que se creó "Compartir link", el profesional ya habló con la persona. En `true` la elección vuelve a ser del paciente, se ofrecen los tipos de toda la clínica, y el turno entra en la agenda del elegido.
+
+Ese segundo modo es además el que la 3.2.6 va a necesitar para recepción, que genera links que no son de nadie en particular.
+
+### Para quién: la ficha viaja en el enlace, el mail no
+
+`enlaces_turno` suma `paciente_id`. Con una ficha elegida, el wizard —después de "¿para mí / para otro?"— salta **directo a elegir día y horario**, siempre que la ficha tenga lo que ese camino necesita: datos propios para "para mí", al menos un tutor conocido para "para otro". Si le falta algo, sigue el camino normal y lo pide: mejor un paso de más que un turno con datos en blanco.
+
+**El mail no viaja en la respuesta pública del link.** El wizard no se lo pide a nadie, así que el pedido llega sin él y el backend lo resuelve desde la propia ficha (`identidadDeLaFichaDelEnlace`): el del paciente, o el de su primer tutor. La alternativa —mandarlo en la validación del enlace para que el frontend lo reenviara— era más simple y expone el mail de un paciente en una respuesta pública. Un dato que no hace falta para pintar la pantalla no tiene por qué salir de la clínica.
+
+### El límite: el enlace vale para SU ficha
+
+Un enlace se reenvía. Sin exigir que el `pacienteVerificadoId` del pedido sea exactamente el que el enlace trae, alcanzaría con tener cualquier link de la clínica para reservar a nombre de cualquier ficha cuyo id se conociera — el mismo agujero que el chequeo de identidad de la Fase 2.4.1 vino a tapar.
+
+**Y ese límite lo sostiene un solo mecanismo.** Se escribió además un chequeo equivalente dentro de la transacción del alta; al verificarlo sacándoselo, la suite siguió pasando: era código muerto, porque la resolución de identidad ya cubre el caso. Se borró. Un chequeo que nunca se ejecuta es peor que no tenerlo — después se lee como si protegiera algo.
+
+### Un bug que el typechecker no podía ver
+
+`validarEnlaceTurnoPublicoAction` pasó de devolver `boolean` a devolver un objeto con lo que trae el link. El consumidor hacía `valido ? "valido" : "invalido"` y **un objeto siempre es truthy**: un link vencido habría abierto el wizard igual. TypeScript no marca nada — cualquier valor es válido en una condición. Quedó anotado en el test, que es donde se puede volver a atajar.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

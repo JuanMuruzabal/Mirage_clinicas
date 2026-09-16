@@ -45,7 +45,8 @@ const payload = {
   telefonoContacto: "+5493511234567",
   emailContacto: "bruno@example.com",
   motivo: "Dolor de muela",
-  tipoConsultaId: "tc-1",
+  tipo: "Consulta general",
+  profesionalId: "prof-1",
   fecha: "2030-06-03",
   hora: "10:00",
   verificacionToken: "token-de-prueba",
@@ -79,13 +80,13 @@ describe("solicitarTurnoPublicoAction", () => {
 
 describe("listTiposConsultaPublicoAction", () => {
   it("devuelve la lista en éxito", async () => {
-    const tipos = [{ id: "tc-1", nombre: "Consulta general", color: "#E7D9BE", duracionMinutos: 30 }];
+    const tipos = [{ nombre: "Consulta general", profesionales: 2 }];
     apiListTiposConsultaPublicoMock.mockResolvedValue({ ok: true, data: tipos });
 
     const result = await listTiposConsultaPublicoAction("clinica-x");
 
     expect(result).toEqual(tipos);
-    expect(apiListTiposConsultaPublicoMock).toHaveBeenCalledWith("clinica-x");
+    expect(apiListTiposConsultaPublicoMock).toHaveBeenCalledWith("clinica-x", undefined);
   });
 
   it("en error, devuelve una lista vacía", async () => {
@@ -101,16 +102,17 @@ describe("listDisponibilidadPublicaAction", () => {
   it("devuelve los slots en éxito", async () => {
     apiListDisponibilidadPublicaMock.mockResolvedValue({ ok: true, data: { slots: ["10:00", "10:15"] } });
 
-    const result = await listDisponibilidadPublicaAction("clinica-x", "tc-1", "2030-06-03");
+    const params = { tipo: "Consulta general", profesionalId: "prof-1" };
+    const result = await listDisponibilidadPublicaAction("clinica-x", params, "2030-06-03");
 
     expect(result).toEqual({ slots: ["10:00", "10:15"] });
-    expect(apiListDisponibilidadPublicaMock).toHaveBeenCalledWith("clinica-x", "tc-1", "2030-06-03");
+    expect(apiListDisponibilidadPublicaMock).toHaveBeenCalledWith("clinica-x", params, "2030-06-03");
   });
 
   it("en error, devuelve slots vacíos", async () => {
     apiListDisponibilidadPublicaMock.mockResolvedValue({ ok: false, status: 404, error: "tipo de consulta no encontrado" });
 
-    const result = await listDisponibilidadPublicaAction("clinica-x", "tc-1", "2030-06-03");
+    const result = await listDisponibilidadPublicaAction("clinica-x", { tipo: "Consulta general" }, "2030-06-03");
 
     expect(result).toEqual({ slots: [] });
   });

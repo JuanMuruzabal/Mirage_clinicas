@@ -41,6 +41,8 @@ describe("AgregarPacienteButton", () => {
     await user.type(screen.getByLabelText("Apellido"), "Iglesias");
     await user.type(screen.getByLabelText("DNI"), "30111222");
     await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+    // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
+    await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(await screen.findByText("+ Agregar paciente")).toBeInTheDocument();

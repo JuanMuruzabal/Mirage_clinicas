@@ -104,13 +104,13 @@ func TestValidarEnlaceTurnoPublico_TokenInexistenteNoEsValido(t *testing.T) {
 
 func TestSolicitarTurnoPublico_ConEnlace_ParaMiSinCaptchaNiCodigo(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace4@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace4@example.com")
 	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: enlaceToken,
 	})
 	if rec.Code != http.StatusCreated {
@@ -120,13 +120,13 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaMiSinCaptchaNiCodigo(t *testing.T) 
 
 func TestSolicitarTurnoPublico_ConEnlace_ParaMiLoAgotaDeInmediato(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace5@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace5@example.com")
 	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
 
 	primero := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: enlaceToken,
 	})
 	if primero.Code != http.StatusCreated {
@@ -139,7 +139,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaMiLoAgotaDeInmediato(t *testing.T) 
 	segundo := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Ana", ApellidoContacto: "Pérez", DNIContacto: "30999888",
 		TelefonoContacto: "+5493511234567", EmailContacto: "ana@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "09:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "09:00",
 		EnlaceToken: enlaceToken,
 	})
 	if segundo.Code != http.StatusForbidden {
@@ -149,7 +149,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaMiLoAgotaDeInmediato(t *testing.T) 
 
 func TestSolicitarTurnoPublico_ConEnlace_ParaOtroPermiteHastaCinco(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace6@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace6@example.com")
 	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
 
 	horas := []string{"08:00", "09:00", "10:00", "11:00", "12:00"}
@@ -157,7 +157,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaOtroPermiteHastaCinco(t *testing.T)
 		dni := "4011122" + string(rune('0'+i))
 		rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 			NombreContacto: "Hijo", ApellidoContacto: "Gómez", DNIContacto: dni,
-			TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: hora,
+			Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: hora,
 			EnlaceToken: enlaceToken, ParaOtro: true,
 			TutorRelacion: "familiar", TutorNombre: "Lucía Gómez", TutorTelefono: "+5493511111111", TutorEmail: "lucia@example.com",
 		})
@@ -170,7 +170,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaOtroPermiteHastaCinco(t *testing.T)
 	// sus 5 cupos de "para otro".
 	sexto := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Hijo", ApellidoContacto: "Gómez", DNIContacto: "40111230",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "13:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "13:00",
 		EnlaceToken: enlaceToken, ParaOtro: true,
 		TutorRelacion: "familiar", TutorNombre: "Lucía Gómez", TutorTelefono: "+5493511111111", TutorEmail: "lucia@example.com",
 	})
@@ -181,7 +181,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ParaOtroPermiteHastaCinco(t *testing.T)
 
 func TestSolicitarTurnoPublico_ConEnlace_VencidoPorTiempoRechaza(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace7@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace7@example.com")
 	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
 
 	// Lo vence a mano (más de 1h atrás) — mismo criterio que
@@ -196,7 +196,7 @@ func TestSolicitarTurnoPublico_ConEnlace_VencidoPorTiempoRechaza(t *testing.T) {
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: enlaceToken,
 	})
 	if rec.Code != http.StatusForbidden {
@@ -206,12 +206,12 @@ func TestSolicitarTurnoPublico_ConEnlace_VencidoPorTiempoRechaza(t *testing.T) {
 
 func TestSolicitarTurnoPublico_ConEnlace_TokenInexistenteRechaza(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace8@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace8@example.com")
 
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: "token-inventado",
 	})
 	if rec.Code != http.StatusForbidden {
@@ -234,7 +234,7 @@ func TestSolicitarTurnoPublico_ConEnlace_ConflictoDeIdentidadSigueIgual(t *testi
 	rec := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Impostor", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "otro-mail@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: enlaceToken,
 	})
 	if rec.Code != http.StatusCreated {
@@ -255,13 +255,13 @@ func TestSolicitarTurnoPublico_ConEnlace_ConflictoDeIdentidadSigueIgual(t *testi
 // cliente confirmó que se mantiene.
 func TestSolicitarTurnoPublico_ConEnlace_TopeUniversalPorDNISigueIgual(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "enlace10@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "enlace10@example.com")
 	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
 
 	primero := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "08:00",
 		EnlaceToken: enlaceToken, ParaOtro: true,
 		TutorRelacion: "familiar", TutorNombre: "Lucía Gómez", TutorTelefono: "+5493511111111", TutorEmail: "lucia@example.com",
 	})
@@ -275,7 +275,7 @@ func TestSolicitarTurnoPublico_ConEnlace_TopeUniversalPorDNISigueIgual(t *testin
 	segundo := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos", solicitarTurnoPublicoRequest{
 		NombreContacto: "Bruno", ApellidoContacto: "Iglesias", DNIContacto: "30111222",
 		TelefonoContacto: "+5493511234567", EmailContacto: "bruno@example.com",
-		TipoConsultaID: tipoID, Fecha: fechaDePruebaDisponibilidad, Hora: "09:00",
+		Tipo: nombreTipoSembrado, Fecha: fechaDePruebaDisponibilidad, Hora: "09:00",
 		EnlaceToken: enlaceToken, ParaOtro: true,
 		TutorRelacion: "familiar", TutorNombre: "Lucía Gómez", TutorTelefono: "+5493511111111", TutorEmail: "lucia@example.com",
 	})

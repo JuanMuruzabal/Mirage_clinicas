@@ -172,6 +172,30 @@ describe("ResolverConflictoPacienteModal", () => {
     expect(onResuelto).toHaveBeenCalledTimes(1);
   });
 
+  // Pedido del cliente (2026-09-16): un conflicto lo puede resolver OTRO
+  // profesional —una resolución alcanza a todos los tickets del mismo
+  // mail—, así que esta ventana puede quedar abierta sobre algo ya
+  // decidido. "Sea cual opción elija, dirá conflicto resuelto, cerrar
+  // ventana y refrescar página (en color verde) para no producir
+  // inconsistencias".
+  it("si otro profesional ya lo resolvió, lo dice en verde y no como error", async () => {
+    resolverConflictoPacienteActionMock.mockResolvedValue({ error: "este conflicto ya fue resuelto" });
+    const onResuelto = vi.fn();
+    const user = userEvent.setup();
+    render(<ResolverConflictoPacienteModal conflicto={conflicto} tiposConsulta={tiposConsulta} onClose={vi.fn()} onResuelto={onResuelto} />);
+
+    await user.click(screen.getByRole("button", { name: "El mail es de la persona verificada" }));
+
+    const aviso = screen.getByRole("alert");
+    expect(aviso).toHaveTextContent("Conflicto resuelto. Cerrá la ventana y refrescá la página.");
+    expect(aviso.className).toContain("salvia");
+    // No se cierra sola: lo que quedó en pantalla describe un estado que
+    // ya no existe, y hay que refrescar antes de seguir operando.
+    expect(onResuelto).not.toHaveBeenCalled();
+    // Y no se puede volver a intentar sobre algo ya decidido.
+    expect(screen.getByRole("button", { name: "El mail no es del paciente verificado" })).toBeDisabled();
+  });
+
   it("'el mail no es del paciente verificado' llama a la acción con esVerificado=false", async () => {
     resolverConflictoPacienteActionMock.mockResolvedValue({ ok: true });
     const onResuelto = vi.fn();
@@ -184,15 +208,19 @@ describe("ResolverConflictoPacienteModal", () => {
     expect(onResuelto).toHaveBeenCalledTimes(1);
   });
 
+  // Un error de verdad (no el "ya fue resuelto", que tiene su propio
+  // camino en verde arriba) sigue en rojo.
   it("en error, muestra el mensaje y no cierra", async () => {
-    resolverConflictoPacienteActionMock.mockResolvedValue({ error: "este conflicto ya fue resuelto" });
+    resolverConflictoPacienteActionMock.mockResolvedValue({ error: "no se pudo resolver el conflicto" });
     const onResuelto = vi.fn();
     const user = userEvent.setup();
     render(<ResolverConflictoPacienteModal conflicto={conflicto} tiposConsulta={tiposConsulta} onClose={vi.fn()} onResuelto={onResuelto} />);
 
     await user.click(screen.getByRole("button", { name: "El mail es de la persona verificada" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("este conflicto ya fue resuelto");
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent("no se pudo resolver el conflicto");
+    expect(aviso.className).toContain("terracota");
     expect(onResuelto).not.toHaveBeenCalled();
   });
 });
