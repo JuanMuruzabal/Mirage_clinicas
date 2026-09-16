@@ -2,14 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { crearEnlaceTurnoActionMock } = vi.hoisted(() => ({
+const { crearEnlaceTurnoActionMock, listPacientesActionMock } = vi.hoisted(() => ({
   crearEnlaceTurnoActionMock: vi.fn(),
+  listPacientesActionMock: vi.fn(),
 }));
 vi.mock("@/app/actions/turnos", () => ({
   crearEnlaceTurnoAction: crearEnlaceTurnoActionMock,
 }));
+// Desde la Fase 3.2.7b este componente pide las fichas de la clínica al
+// montarse, para el selector de "¿para quién?". Sin mockearlo corre la
+// Server Action de verdad y `cookies()` explota fuera de un request — el
+// test igual pasa, pero vitest cuenta el rechazo y **falla la corrida**
+// (lo atajó CI antes que la suite local, que solo mira las aserciones).
+vi.mock("@/app/actions/pacientes", () => ({
+  listPacientesAction: listPacientesActionMock,
+}));
 
 const { CompartirLinkTurno } = await import("./compartir-link-turno");
+
+const PACIENTES = [
+  { id: "pac-1", nombre: "Bruno", apellido: "Iglesias", dni: "30111222", telefono: "+5493511234567", email: "bruno@example.com", verificado: true },
+];
 
 const URL_ENLACE = "https://dentalmirage.com.ar/clinica-x?enlace=abc123";
 
@@ -22,6 +35,7 @@ describe("CompartirLinkTurno", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     crearEnlaceTurnoActionMock.mockResolvedValue({ url: URL_ENLACE, expiraEn: "2026-09-07T13:00:00Z" });
+    listPacientesActionMock.mockResolvedValue(PACIENTES);
     // `navigator.clipboard`/`navigator.share` son accessors heredados del
     // prototipo en este jsdom (no propiedades propias) — un spread
     // (`{...navigator}`) no los arrastra, y sobrescribirlos en la propia
@@ -43,6 +57,50 @@ describe("CompartirLinkTurno", () => {
     render(<CompartirLinkTurno />);
     expect(screen.getByRole("button", { name: "Generar link" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Link para compartir")).not.toBeInTheDocument();
+  });
+
+  // Las dos decisiones del link (Fase 3.2.7b).
+  describe("qué decide el link", () => {
+    it("por defecto es con vos y sin paciente: el comportamiento de siempre", async () => {
+      const user = userEvent.setup();
+      render(<CompartirLinkTurno />);
+      await generarLink(user);
+
+      expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
+        paraTodosLosProfesionales: false,
+        pacienteId: undefined,
+      });
+    });
+
+    it("con 'cualquier profesional' y una ficha elegida, las manda las dos", async () => {
+      const user = userEvent.setup();
+      render(<CompartirLinkTurno />);
+
+      await user.click(screen.getByRole("radio", { name: /Con cualquier profesional/ }));
+      await user.type(screen.getByLabelText("Buscar paciente"), "Bruno");
+      await user.click(await screen.findByRole("button", { name: /Bruno Iglesias/ }));
+      await generarLink(user);
+
+      expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
+        paraTodosLosProfesionales: true,
+        pacienteId: "pac-1",
+      });
+    });
+
+    it("la ficha elegida se puede quitar", async () => {
+      const user = userEvent.setup();
+      render(<CompartirLinkTurno />);
+
+      await user.type(screen.getByLabelText("Buscar paciente"), "Bruno");
+      await user.click(await screen.findByRole("button", { name: /Bruno Iglesias/ }));
+      await user.click(screen.getByRole("button", { name: "Quitar" }));
+      await generarLink(user);
+
+      expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
+        paraTodosLosProfesionales: false,
+        pacienteId: undefined,
+      });
+    });
   });
 
   // Pedido explícito del cliente: compartir el link nunca manda la URL
