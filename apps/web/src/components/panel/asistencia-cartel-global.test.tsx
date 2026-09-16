@@ -14,6 +14,13 @@ vi.mock("@/app/actions/turnos", () => ({
 
 const { AsistenciaCartelGlobal } = await import("./asistencia-cartel-global");
 
+// Por defecto el backend acepta. Los tests que prueban un rechazo lo
+// sobreescriben — desde el 2026-09-15 la respuesta se MIRA (antes se
+// descartaba, y un rechazo dejaba el cartel en un bucle sin explicación).
+beforeEach(() => {
+  marcarAsistenciaActionMock.mockResolvedValue({ turno: turno({}) });
+});
+
 // "Ahora" fijo para todo el archivo: 01/09/2030 10:00 (hora de pared,
 // TZ ya fijado a America/Argentina/Cordoba en vitest.config.mts).
 const AHORA = new Date(2030, 8, 1, 10, 0, 0).getTime();
@@ -207,4 +214,33 @@ describe("AsistenciaCartelGlobal", () => {
     expect(turnosPendientesAsistenciaActionMock.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
   });
+
+  // El bug reportado por el cliente el 2026-09-15: "no me deja marcar un
+  // turno asistido o no asistido, se reinicia la pantalla y queda
+  // trabado".
+  //
+  // El rechazo del backend se descartaba, el turno se sacaba de la cola
+  // igual y el sondeo lo traía de vuelta: como el cartel es INCERRABLE a
+  // propósito, el resultado era un bucle sin ninguna explicación.
+  it("muestra el motivo y deja el cartel en pantalla para reintentar", async () => {
+    vi.setSystemTime(AHORA);
+    turnosPendientesAsistenciaActionMock.mockResolvedValue(pendientes([turno({ id: "t-bloqueado" })]));
+    marcarAsistenciaActionMock.mockResolvedValue({
+      error: "hay un conflicto de identidad sin resolver con este paciente",
+    });
+
+    render(<AsistenciaCartelGlobal />);
+    const boton = await screen.findByRole("button", { name: "Asistió" });
+
+    fireEvent.pointerDown(boton);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("conflicto de identidad sin resolver");
+    // Y el cartel sigue ahí: el turno no se marcó, esconderlo sería
+    // mentir sobre lo que pasó.
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 });
+

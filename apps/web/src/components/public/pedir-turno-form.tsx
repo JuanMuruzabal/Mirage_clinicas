@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type {
+  EnlaceTurnoInfo,
   TipoConsultaPublico,
   ProfesionalPublico,
   PacienteVerificadoPublico,
@@ -32,6 +33,20 @@ interface PedirTurnoFormProps {
   slug: string;
   nombreClinica: string;
   telefonoClinica?: string | null;
+  /**
+   * Qué trae el link, cuando el wizard se abrió con uno (Fase 3.2.7b).
+   *
+   * `elegisProfesional`: el profesional lo generó "para todos", así que
+   * la elección de con quién vuelve a ser del paciente. Con un link
+   * propio no se pregunta — ya lo decidió quien lo mandó.
+   *
+   * `paciente`: la ficha que el profesional eligió al generarlo. Con
+   * ella, el wizard no vuelve a pedir lo que esa ficha ya tiene: en "para
+   * mí" los datos personales, y en "para otro" ni el tutor ni el
+   * paciente. No hay nada que preguntar sobre alguien a quien la clínica
+   * ya conoce.
+   */
+  enlaceInfo?: EnlaceTurnoInfo | null;
   /** Cierra el modal completo (lo abre/monta PedirTurnoButton) — cada pantalla del rediseño trae su propia [×] adentro (docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.1). */
   onClose: () => void;
   /**
@@ -260,7 +275,7 @@ function borrarEstadoGuardado(slug: string) {
 // del doc separa país y número local — antes era un solo input de texto
 // libre). El turno sigue naciendo `agendado`, con horario fijo, de punta
 // a punta.
-export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, enlaceToken }: PedirTurnoFormProps) {
+export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, enlaceToken, enlaceInfo }: PedirTurnoFormProps) {
   // estadoInicial — se lee UNA sola vez (useState solo evalúa el
   // inicializador en el primer render), ver el comentario grande de
   // leerEstadoGuardado/PEDIR_TURNO_VENTANA_RESUMEN_MS arriba.
@@ -338,22 +353,31 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   // Los cambios POSTERIORES de tipo lo prenden desde su onChange.
   const [cargandoProfesionales, setCargandoProfesionales] = useState(true);
 
-  // Con ENLACE no se pregunta con quién: el turno es de quien lo generó
-  // —su "Compartir link" existe para llenar SU agenda— y el backend
-  // ignora cualquier profesional que venga en el cuerpo. Mostrar un
-  // selector que no decide nada sería peor que no mostrarlo.
+  // Con ENLACE propio no se pregunta con quién: el turno es de quien lo
+  // generó —su "Compartir link" existe para llenar SU agenda— y el
+  // backend ignora cualquier profesional que venga en el cuerpo. Mostrar
+  // un selector que no decide nada sería peor que no mostrarlo.
+  //
+  // Si lo generó "para todos los profesionales" (Fase 3.2.7b), la
+  // elección vuelve a ser del paciente y el wizard se comporta como la
+  // página pública.
   const conEnlace = Boolean(enlaceToken);
+  const eligeProfesional = !conEnlace || Boolean(enlaceInfo?.elegisProfesional);
+
+  // La ficha que el enlace trae elegida, si trae alguna: con ella no hay
+  // nada que preguntar sobre quién es esta persona.
+  const fichaDelEnlace = enlaceInfo?.paciente ?? null;
 
   // Los parámetros con los que se piden los huecos. El tipo va por NOMBRE
   // y con quién aparte, porque la duración —y por lo tanto los huecos— es
   // la que ESE profesional le puso a ESE tipo.
   const paramsDisponibilidad = useMemo(
-    () => ({ tipo: tipoNombre, profesionalId: conEnlace ? undefined : profesionalId, enlaceToken: enlaceToken || undefined }),
-    [tipoNombre, profesionalId, conEnlace, enlaceToken],
+    () => ({ tipo: tipoNombre, profesionalId: eligeProfesional ? profesionalId : undefined, enlaceToken: enlaceToken || undefined }),
+    [tipoNombre, profesionalId, eligeProfesional, enlaceToken],
   );
-  // Listo para pedir horarios: con enlace alcanza el tipo (el profesional
-  // lo pone el enlace); sin enlace hace falta haber elegido con quién.
-  const puedePedirHorarios = Boolean(tipoNombre) && (conEnlace || Boolean(profesionalId));
+  // Listo para pedir horarios: si el paciente elige, hace falta que haya
+  // elegido; si no, el profesional lo pone el enlace y alcanza el tipo.
+  const puedePedirHorarios = Boolean(tipoNombre) && (!eligeProfesional || Boolean(profesionalId));
 
   const hoyISO = fechaISOLocal();
   const [fecha, setFecha] = useState(() => estadoInicial?.fecha ?? hoyISO);
@@ -470,7 +494,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   useEffect(() => {
     // Sin tipo, o con enlace, no hay a quién pedir: `profesionales` se
     // queda en [] —su valor inicial— y la pantalla no muestra el paso.
-    if (conEnlace || !tipoNombre) return;
+    if (!eligeProfesional || !tipoNombre) return;
     let activo = true;
     listProfesionalesPublicoAction(slug, tipoNombre).then((lista) => {
       if (!activo) return;
@@ -486,7 +510,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
     return () => {
       activo = false;
     };
-  }, [slug, tipoNombre, conEnlace]);
+  }, [slug, tipoNombre, eligeProfesional]);
 
   // Disponibilidad real — se vuelve a pedir cada vez que cambia el tipo de
   // consulta o la fecha, mismo criterio que agregar-turno-modal.tsx.
@@ -928,7 +952,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       setError("Elegí un tipo de consulta.");
       return;
     }
-    if (!conEnlace && !profesionalId) {
+    if (eligeProfesional && !profesionalId) {
       setError("Elegí con quién te querés atender.");
       return;
     }
@@ -952,10 +976,14 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       // credencial que se manda depende de por cuál de los dos caminos
       // llegó, nunca las dos juntas.
       payload = {
+        // Vacío cuando la ficha vino en el enlace: el wizard no le pidió
+        // el mail a nadie. El backend lo resuelve desde la propia ficha
+        // (identidadDeLaFichaDelEnlace) en vez de hacerlo viajar en la
+        // respuesta pública del link.
         emailContacto: emailEnVerificacion,
         motivo: motivo || undefined,
         tipo: tipoNombre,
-        ...(conEnlace ? {} : { profesionalId }),
+        ...(eligeProfesional ? { profesionalId } : {}),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -977,7 +1005,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
         emailContacto: campos.emailContacto.trim().toLowerCase() || undefined,
         motivo: motivo || undefined,
         tipo: tipoNombre,
-        ...(conEnlace ? {} : { profesionalId }),
+        ...(eligeProfesional ? { profesionalId } : {}),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -996,7 +1024,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
         emailContacto: campos.emailContacto.trim().toLowerCase(),
         motivo: motivo || undefined,
         tipo: tipoNombre,
-        ...(conEnlace ? {} : { profesionalId }),
+        ...(eligeProfesional ? { profesionalId } : {}),
         fecha,
         hora,
         ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
@@ -1132,7 +1160,28 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           onChange={setParaQuienSel}
           onContinuar={() => {
             const elegido = paraQuienSel ?? (esOtro ? "otro" : "mi");
-            setEsOtro(elegido === "otro");
+            const paraOtro = elegido === "otro";
+            setEsOtro(paraOtro);
+
+            // CON LA FICHA DEL ENLACE, no hay nada más que preguntar
+            // (Fase 3.2.7b). El profesional eligió a esta persona al
+            // generar el link, y la clínica ya tiene sus datos: pedirle
+            // que los vuelva a tipear —o que diga si ya vino antes— es
+            // preguntarle algo que ya sabemos.
+            //
+            // Se saltea solo cuando la ficha TIENE lo que ese camino
+            // necesita: datos propios para "para mí", al menos un tutor
+            // conocido para "para otro". Si le falta, el wizard sigue
+            // normal y lo pide — mejor un paso de más que un turno con
+            // datos en blanco.
+            const puedeSaltear = fichaDelEnlace !== null && (paraOtro ? fichaDelEnlace.tieneTutores : fichaDelEnlace.tieneDatosPropios);
+            if (puedeSaltear && fichaDelEnlace) {
+              setPacienteVerificado({ id: fichaDelEnlace.id, nombre: fichaDelEnlace.nombre, dni: "" });
+              setFlujo(paraOtro ? "otro-verificado" : "verificado");
+              setPaso("turno");
+              return;
+            }
+
             // Con enlace (Fase 2, ítem 5) el wizard sigue igual: [2] "¿Ya
             // te atendiste?" se muestra siempre — lo único que cambia son
             // las 3 "trabas" de seguridad (captcha, código, detección de
@@ -1416,7 +1465,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
           profesionales={profesionales}
           profesionalId={profesionalId}
           cargandoProfesionales={cargandoProfesionales}
-          mostrarProfesionales={!conEnlace}
+          mostrarProfesionales={eligeProfesional}
           onProfesionalChange={(id) => {
             setProfesionalId(id);
             setCargandoSlots(true);

@@ -468,7 +468,27 @@ type EnlaceTurno struct {
 	// qué agenda entran los turnos que se saquen con él. Nullable por los
 	// enlaces anteriores a esta columna, que la migración le asigna al
 	// owner igual que el resto de la agenda.
-	UserID       *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+	UserID *uuid.UUID `gorm:"column:user_id;type:uuid;index"`
+	// ParaTodosLosProfesionales — quién atiende el turno que salga de este
+	// enlace (Fase 3.2.7b, pedido del cliente).
+	//
+	// `false` (el default histórico): el dueño del enlace. Es para lo que
+	// se creó "Compartir link" — el profesional ya habló con el paciente y
+	// solo le falta que elija día y hora EN SU agenda.
+	//
+	// `true`: lo elige el paciente, igual que entrando por la página
+	// pública. Sirve para el mostrador —"te paso el link, fijate con quién
+	// te queda mejor"— y es el modo que la 3.2.6 va a necesitar para
+	// recepción, que genera links que no son de nadie en particular.
+	ParaTodosLosProfesionales bool `gorm:"column:para_todos_los_profesionales;not null;default:false"`
+	// PacienteID — la ficha que el profesional eligió al generar el
+	// enlace (Fase 3.2.7b). Cuando viene, el wizard se saltea los pasos de
+	// datos que esa ficha ya tiene cargados: no hay nada que preguntar
+	// sobre alguien a quien la clínica ya conoce.
+	//
+	// Nullable: un enlace sin paciente es el de siempre, para mandarle a
+	// cualquiera.
+	PacienteID   *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
 	TokenHash    string     `gorm:"column:token_hash;type:varchar(64);not null;uniqueIndex"`
 	ExpiraEn     time.Time  `gorm:"column:expira_en;not null"`
 	UsadoParaMi  bool       `gorm:"column:usado_para_mi;not null;default:false"`

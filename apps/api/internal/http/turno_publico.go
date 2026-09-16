@@ -961,6 +961,31 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		if req.ParaOtro {
 			identidadEmail = req.TutorEmail
 		}
+
+		// EL MAIL SALE DE LA FICHA CUANDO EL ENLACE LA TRAE (Fase 3.2.7b).
+		//
+		// Con un enlace generado PARA ESTA FICHA, el wizard no le pregunta
+		// nada a la persona: el profesional ya la eligió y la clínica ya
+		// tiene sus datos. Así que tampoco puede mandar un mail, y sin
+		// esto el pedido moriría acá en un 400 por "email inválido".
+		//
+		// Se resuelve desde la ficha —su mail propio, o el de su primer
+		// tutor en el camino "para otro"— en vez de hacerlo viajar en la
+		// respuesta pública de validación del enlace: el mail de un
+		// paciente no tiene por qué salir de la clínica para que la
+		// pantalla funcione. Todo lo que usa `identidadEmail` después
+		// (bloqueos, el mail de confirmación) recibe una dirección real.
+		if usaEnlace && req.PacienteVerificadoID != "" && identidadEmail == "" {
+			if resuelto, ok := identidadDeLaFichaDelEnlace(gdb, clinic.ID, req.EnlaceToken, req.PacienteVerificadoID, req.ParaOtro); ok {
+				identidadEmail = resuelto
+				if req.ParaOtro {
+					req.TutorEmail = resuelto
+				} else {
+					req.EmailContacto = resuelto
+				}
+			}
+		}
+
 		if _, err := mail.ParseAddress(identidadEmail); err != nil {
 			writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
 			return
@@ -1306,6 +1331,18 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				// dos funciones que ya usa el GET — se vuelven a correr acá
 				// porque esa demostración de control tiene que valer para
 				// ESTE pedido, no para "en algún momento, quien sea".
+				// El enlace con ficha (Fase 3.2.7b) NO necesita una
+				// excepción acá, y por eso no la tiene: la identidad ya se
+				// resolvió arriba desde la propia ficha
+				// (identidadDeLaFichaDelEnlace), así que para cuando llega
+				// a este punto `identidadEmail` es el mail de esta persona
+				// —o el de su tutor— y este chequeo pasa por la vía normal.
+				//
+				// Y si el enlace trae OTRA ficha, esa resolución devuelve
+				// vacío y el pedido ya murió más arriba con un 400. Un
+				// segundo chequeo equivalente acá sería código que nunca se
+				// ejecuta, de los que después se leen como si protegieran
+				// algo.
 				respondeComoPaciente, err := pacienteRespondeAlMail(tx, paciente, identidadEmail)
 				if err != nil {
 					return err

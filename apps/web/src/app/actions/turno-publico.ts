@@ -12,6 +12,7 @@ import {
   apiMisTurnoPublico,
   apiSolicitarTurnoPublico,
   apiValidarEnlaceTurnoPublico,
+  type EnlaceTurnoInfo,
   type DisponibilidadPublicaParams,
   type MisTurnoPublico,
   type PacienteVerificadoPublico,
@@ -77,9 +78,12 @@ export async function listDisponibilidadMesPublicaAction(
 // se abre el wizard por un link compartido; `false` ante cualquier error
 // de red trata el link como no válido en vez de dejar completar todo el
 // formulario para recién ahí fallar.
-export async function validarEnlaceTurnoPublicoAction(slug: string, token: string): Promise<boolean> {
+export async function validarEnlaceTurnoPublicoAction(slug: string, token: string): Promise<EnlaceTurnoInfo> {
   const result = await apiValidarEnlaceTurnoPublico(slug, token);
-  return result.ok ? result.data.valido : false;
+  // Ante cualquier error de red, el link se trata como no válido: mejor
+  // decirlo al entrar que dejar completar todo el formulario para fallar
+  // en el paso final.
+  return result.ok ? result.data : { valido: false, elegisProfesional: false };
 }
 
 export interface EnviarVerificacionEmailResult {

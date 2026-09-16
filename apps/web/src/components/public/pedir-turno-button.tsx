@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ModalPortal } from "@/components/panel/modal-portal";
 import { validarEnlaceTurnoPublicoAction } from "@/app/actions/turno-publico";
+import type { EnlaceTurnoInfo } from "@/lib/api";
 import { PedirTurnoForm } from "./pedir-turno-form";
 
 interface PedirTurnoButtonProps {
@@ -35,16 +36,24 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
   // busque un botón). "validando" evita mostrar el wizard completo un
   // instante antes de saber si el link sigue vigente.
   const [estadoEnlace, setEstadoEnlace] = useState<"validando" | "valido" | "invalido" | null>(enlaceToken ? "validando" : null);
+  // infoEnlace — qué trae este link además de su vigencia (Fase 3.2.7b):
+  // si el paciente elige profesional, y si ya viene con una ficha elegida.
+  // Decide qué pasos del wizard tienen sentido.
+  const [infoEnlace, setInfoEnlace] = useState<EnlaceTurnoInfo | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const focoAnteriorRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!enlaceToken) return;
     let activo = true;
-    validarEnlaceTurnoPublicoAction(slug, enlaceToken).then((valido) => {
+    validarEnlaceTurnoPublicoAction(slug, enlaceToken).then((info) => {
       if (!activo) return;
-      setEstadoEnlace(valido ? "valido" : "invalido");
-      if (valido) setAbierto(true);
+      // `info.valido`, no `info`: desde la Fase 3.2.7b esto devuelve un
+      // objeto, y un objeto siempre es truthy — un link vencido abriría
+      // el wizard igual.
+      setInfoEnlace(info);
+      setEstadoEnlace(info.valido ? "valido" : "invalido");
+      if (info.valido) setAbierto(true);
     });
     return () => {
       activo = false;
@@ -143,6 +152,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
               telefonoClinica={telefonoClinica}
               onClose={() => setAbierto(false)}
               enlaceToken={estadoEnlace === "valido" ? enlaceToken : undefined}
+              enlaceInfo={estadoEnlace === "valido" ? infoEnlace : null}
             />
           </div>
         </ModalPortal>

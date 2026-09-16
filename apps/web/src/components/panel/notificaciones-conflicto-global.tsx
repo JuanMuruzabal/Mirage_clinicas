@@ -18,7 +18,18 @@ import { panelNotificacionesAction } from "@/app/actions/panel";
 // (ConflictosPacienteBanner en /panel/pacientes, el banner de conflicto
 // del calendario en /panel/calendario) para no duplicar el mismo aviso
 // dos veces en la misma pantalla.
-const INTERVALO_SONDEO_MS = 60_000;
+// 20s, y no los 60 de antes (2026-09-16, pedido del cliente: "la
+// notificación de conflicto de pacientes se debe resolver a tiempo real").
+//
+// Un conflicto lo puede resolver OTRO profesional —una resolución alcanza
+// a todos los tickets del mismo mail— así que este aviso ya no depende
+// solo de lo que haga quien lo está mirando. Es una consulta que cuenta
+// filas; bajarla a 20s no mueve la aguja de nada y hace que el aviso
+// desaparezca solo, sin tener que navegar.
+//
+// Mismo criterio que la presencia (TR-142): el estado vive en Postgres y
+// se sondea, sin transporte nuevo.
+const INTERVALO_SONDEO_MS = 20_000;
 
 export function NotificacionesConflictoGlobal() {
   const pathname = usePathname();
@@ -37,9 +48,20 @@ export function NotificacionesConflictoGlobal() {
     montadoRef.current = true;
     sondear();
     const intervalo = setInterval(sondear, INTERVALO_SONDEO_MS);
+    // Y al volver a esta pestaña: es el momento exacto en que alguien
+    // mira de nuevo, y el más probable para que algo haya cambiado
+    // mientras no miraba (lo resolvió un colega, o uno mismo en otra
+    // pestaña). Esperar al próximo sondeo ahí se nota.
+    const alVolver = () => {
+      if (document.visibilityState === "visible") sondear();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
     return () => {
       montadoRef.current = false;
       clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
     };
   }, []);
 

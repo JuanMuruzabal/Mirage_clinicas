@@ -877,15 +877,21 @@ func TestPaciente_NoPuedeEstarEnDosSillonesALaVez(t *testing.T) {
 	}
 }
 
-// TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClínica — la regla existía
-// desde la Fase 3.1 pero **solo en el wizard público**, y ahí como control
-// de abuso sobre `tipo_consulta_id`. Cargando a mano no se aplicaba
-// ninguna: la misma persona podía terminar con dos "Consulta general"
-// pendientes, una por profesional, cada uno sin ver la del otro.
+// TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica — "yo con UN dni
+// solo puedo SACAR UN TURNO POR TIPO DE CONSULTA EN LA CLÍNICA" (textual
+// del cliente): tener ese tipo pendiente con un profesional impide
+// sacarlo con otro.
 //
 // Compara por NOMBRE y no por id (TR-145): cada profesional tiene su
-// propia fila para "Consulta general", así que por id la regla no vería
-// nunca el turno del colega — que es justo el caso reportado.
+// propia fila, así que por id la regla no vería nunca el turno del colega
+// — que es justo el caso reportado. Y por DNI y no por ficha: cuando
+// alguien pide turno con otro mail se le crea una ficha duplicada nueva, y
+// por ficha los turnos de la original dejaban de contar.
+//
+// DOS EXCEPCIONES, pedidas por el cliente: "Consulta general" y
+// "Urgencia". Vienen precargadas en todos los profesionales, son la puerta
+// de entrada genérica, y bloquearlas entre profesionales impediría algo
+// legítimo. Se prueban abajo.
 func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
@@ -895,10 +901,12 @@ func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
 	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "tipo-unico-colega@example.com", db.RoleProfesional)
 	colegaID := userIDDelMail(t, gdb, "tipo-unico-colega@example.com")
+	titularID := ownerDePrueba(t, gdb, clinicID)
 
-	// El colega adoptó el mismo tipo que el titular ya tenía del alta:
-	// misma consulta, su propia fila, y escrito distinto a propósito.
-	tipoDelColega := tipoDe(t, gdb, clinicID, colegaID, "Consulta General", 30)
+	// Un tipo NO precargado, que los dos atienden: misma práctica, su
+	// propia fila cada uno, y escrito distinto a propósito.
+	tipoTitular := tipoDe(t, gdb, clinicID, titularID, "Limpieza dental", 30)
+	tipoColega := tipoDe(t, gdb, clinicID, colegaID, "Limpieza Dental", 30)
 	otroTipoDelColega := tipoDe(t, gdb, clinicID, colegaID, "Ortodoncia", 45)
 
 	const dni = "51222333"
@@ -913,9 +921,7 @@ func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 		}
 	}
 
-	// El titular le da "Consulta general".
-	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
-	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID, inicio))
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID.String(), inicio))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("turno del titular: status=%d body=%s", rec.Code, rec.Body.String())
 	}
@@ -923,7 +929,7 @@ func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 	// El colega intenta darle lo mismo, en otro horario para que no sea el
 	// solapamiento lo que lo frene.
 	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega,
-		datos(tipoDelColega.ID.String(), inicio.Add(48*time.Hour)))
+		datos(tipoColega.ID.String(), inicio.Add(48*time.Hour)))
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusConflict, rec.Body.String())
 	}
@@ -933,7 +939,7 @@ func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 	if !strings.Contains(cuerpo, "Ana Gómez") {
 		t.Errorf("el error no dice con quién es el turno que choca: %s", cuerpo)
 	}
-	if !strings.Contains(strings.ToLower(cuerpo), "consulta general") {
+	if !strings.Contains(strings.ToLower(cuerpo), "limpieza dental") {
 		t.Errorf("el error no dice de qué tipo es el turno que choca: %s", cuerpo)
 	}
 
@@ -943,6 +949,69 @@ func TestPaciente_UnSoloTurnoActivoPorTipoEnTodaLaClinica(t *testing.T) {
 		datos(otroTipoDelColega.ID.String(), inicio.Add(72*time.Hour)))
 	if rec.Code != http.StatusCreated {
 		t.Errorf("un tipo distinto tiene que poder agendarse: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestPaciente_ConsultaGeneralYUrgenciaSonLaExcepcion — pedido textual del
+// cliente: "(EXEPCION CON LOS TIPOS DE CONSULTA GENERAL Y URGENCIA)".
+//
+// Son los dos que el sistema le precarga a TODO profesional al sumarse a
+// una clínica, así que son la puerta de entrada genérica y no una práctica
+// concreta: bloquearlas entre profesionales impediría hacerse ver por dos
+// odontólogos distintos, o conseguir una urgencia con quien tenga lugar.
+//
+// Con el MISMO profesional siguen sin poder repetirse: dos "Consulta
+// general" pendientes con la misma persona no es una elección, es un clic
+// de más.
+func TestPaciente_ConsultaGeneralYUrgenciaSonLaExcepcion(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "excepcion-titular@example.com", Password: "unaClaveLarga123",
+		Nombre: "Ana Gómez", NombreClinica: "Clínica Excepción",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "excepcion-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "excepcion-colega@example.com")
+
+	// El colega entra con sus dos tipos precargados: desde el 2026-09-15
+	// se los siembra al sumarse, no hace falta cargarlos a mano.
+	var general db.TipoConsulta
+	if err := gdb.Where("clinic_id = ? AND user_id = ? AND nombre = ?",
+		clinicID, colegaID, db.NombreTipoConsultaGeneral).First(&general).Error; err != nil {
+		t.Fatalf("el colega no entró con 'Consulta general' precargada: %v", err)
+	}
+
+	const dni = "51333444"
+	inicio := time.Now().Add(300 * time.Hour).Truncate(time.Hour)
+	datos := func(tipoID string, desde time.Time) map[string]any {
+		return map[string]any{
+			"nombreContacto": "Paciente", "apellidoContacto": "General", "dniContacto": dni,
+			"telefonoContacto": "+5493511234567", "emailContacto": "general@example.com",
+			"tipoConsultaId": tipoID,
+			"horaInicio":     desde.Format(time.RFC3339),
+			"horaFin":        desde.Add(30 * time.Minute).Format(time.RFC3339),
+		}
+	}
+
+	tipoTitular := leerMisTipos(t, router, titular.Token)[0]
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID, inicio))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("turno del titular: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Con el COLEGA, misma "Consulta general": permitido.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", tokenColega,
+		datos(general.ID.String(), inicio.Add(48*time.Hour)))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("'Consulta general' con otro profesional tiene que poder sacarse: status=%d body=%s",
+			rec.Code, rec.Body.String())
+	}
+
+	// Con el MISMO profesional, no: ahí sí es un clic de más.
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", titular.Token, datos(tipoTitular.ID, inicio.Add(96*time.Hour)))
+	if rec.Code != http.StatusConflict {
+		t.Errorf("dos 'Consulta general' con el mismo profesional: status=%d, esperaba 409. body=%s",
+			rec.Code, rec.Body.String())
 	}
 }
 

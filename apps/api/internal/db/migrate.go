@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -690,23 +691,54 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	return nil
 }
 
-// SeedTiposConsultaDefault crea los dos tipos de consulta por defecto de un
-// profesional recién registrado (TR-001 en docs/Arquitectura y base/tradeoffs.md: catálogo por
-// profesional, no global) — llamado una sola vez desde el handler de
-// registro (internal/http/auth.go), no desde RunMigrations, porque
-// necesita un profesionalID que todavía no existe al migrar el esquema.
-func SeedTiposConsultaDefault(gdb *gorm.DB, profesionalID uuid.UUID, ownerID uuid.UUID) error {
-	// Con dueño desde el alta (Fase 3.2.5). Nacían sin `user_id` —la
-	// columna llegó en la 3.2.1 pero el seed no se actualizó— y quedaban
-	// huérfanos hasta que la migración idempotente del arranque siguiente
-	// se los asignara al owner. Una clínica recién creada tenía, en el
-	// medio, dos tipos que no eran de nadie: invisibles para su propio
-	// titular apenas el listado pasó a filtrar por profesional.
-	tipos := []TipoConsulta{
-		{ClinicID: profesionalID, UserID: &ownerID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
-		{ClinicID: profesionalID, UserID: &ownerID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
+// SeedTiposConsultaDefault crea los dos tipos de consulta por defecto de
+// UN PROFESIONAL en UNA CLÍNICA (TR-001: catálogo por profesional, no
+// global).
+//
+// Se llama al crear la clínica propia y también al sumarse a una ajena
+// como `profesional` (2026-09-15, pedido del cliente: "estos 2 tipos de
+// consulta siempre vendrán precargados en todos los profesionales apenas
+// comiencen en una clínica"). Hasta esa fecha solo corría para el
+// titular, así que un colega invitado entraba con la configuración de
+// agenda vacía y no podía recibir un solo turno hasta cargarse los tipos
+// a mano.
+//
+// IDEMPOTENTE: saltea los nombres que esa persona ya tenga en esa
+// clínica. Hace falta porque las puertas de entrada son varias —aceptar
+// una invitación, que le den el rol desde Colaboradores, volver a entrar
+// después de que la sacaron— y ninguna sabe por cuál pasó antes. Sin
+// esto, la segunda dejaría dos "Consulta general" idénticas, que es justo
+// lo que TR-145 bloquea en el alta manual.
+//
+// Con dueño desde el alta (Fase 3.2.5). Nacían sin `user_id` —la columna
+// llegó en la 3.2.1 pero el seed no se actualizó— y quedaban huérfanos
+// hasta que la migración idempotente del arranque siguiente se los
+// asignara al owner.
+func SeedTiposConsultaDefault(gdb *gorm.DB, clinicID uuid.UUID, userID uuid.UUID) error {
+	var yaTiene []string
+	if err := gdb.Model(&TipoConsulta{}).
+		Where("clinic_id = ? AND user_id = ?", clinicID, userID).
+		Pluck("nombre", &yaTiene).Error; err != nil {
+		return fmt.Errorf("seed de tipos_consulta falló: %w", err)
 	}
-	if err := gdb.Create(&tipos).Error; err != nil {
+	tenido := make(map[string]bool, len(yaTiene))
+	for _, n := range yaTiene {
+		tenido[strings.ToLower(strings.TrimSpace(n))] = true
+	}
+
+	var faltan []TipoConsulta
+	for _, t := range []TipoConsulta{
+		{ClinicID: clinicID, UserID: &userID, Nombre: NombreTipoConsultaGeneral, Color: ColorTipoConsultaGeneral},
+		{ClinicID: clinicID, UserID: &userID, Nombre: NombreTipoConsultaUrgencia, Color: ColorTipoConsultaUrgencia},
+	} {
+		if !tenido[strings.ToLower(t.Nombre)] {
+			faltan = append(faltan, t)
+		}
+	}
+	if len(faltan) == 0 {
+		return nil
+	}
+	if err := gdb.Create(&faltan).Error; err != nil {
 		return fmt.Errorf("seed de tipos_consulta falló: %w", err)
 	}
 	return nil

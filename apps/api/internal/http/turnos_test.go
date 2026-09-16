@@ -195,6 +195,7 @@ func TestListTurnos_FiltraPorRangoDeFechas(t *testing.T) {
 	base := time.Date(2030, 9, 1, 9, 0, 0, 0, time.UTC)
 	crear := func(inicio time.Time, tipo string) {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+			EmailContacto:  "paciente-de-prueba@example.com",
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 			TipoConsultaID: tipo,
 			HoraInicio:     inicio.Format(time.RFC3339),
@@ -237,6 +238,7 @@ func TestListTurnos_FiltraPorResuelto(t *testing.T) {
 	futuro := time.Now().Add(72 * time.Hour)
 	crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, pasado)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: futuro.Format(time.RFC3339), HoraFin: futuro.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -297,11 +299,13 @@ func TestListTurnos_FiltraPorTipoConsulta(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "General", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoGeneralID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
 	inicioUrgencia := inicio.Add(2 * time.Hour)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Urgente", ApellidoContacto: "Q", DNIContacto: "2", TelefonoContacto: "2",
 		TipoConsultaID: tipoUrgencia.ID.String(), HoraInicio: inicioUrgencia.Format(time.RFC3339), HoraFin: inicioUrgencia.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -346,6 +350,7 @@ func TestListTurnos_PacienteVerificadoEnLaRespuestaYFiltro(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	recManual := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Verificado", ApellidoContacto: "Q", DNIContacto: "30111111", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -505,6 +510,7 @@ func TestCrearTurnoManual_CamposObligatoriosFaltantes(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -654,6 +660,7 @@ func TestCrearTurnoManual_ParaOtroConPacienteConocidoIgnoraFaltaDeTutor(t *testi
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	primero := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "40222555", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -688,6 +695,7 @@ func TestCrearTurnoManual_TipoConsultaInvalido(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: "no-es-un-uuid",
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -705,6 +713,7 @@ func TestCrearTurnoManual_HorarioInvalido(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -724,6 +733,7 @@ func TestCrearTurnoManual_FechaPasadaFalla(t *testing.T) {
 
 	pasado := time.Now().Add(-time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     pasado.Format(time.RFC3339),
@@ -742,6 +752,7 @@ func TestCrearTurnoManual_SolapamientoFallaControlado(t *testing.T) {
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	payload := func(i time.Time) crearTurnoManualRequest {
 		return crearTurnoManualRequest{
+			EmailContacto:  "paciente-de-prueba@example.com",
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 			TipoConsultaID: tipoConsultaID,
 			HoraInicio:     i.Format(time.RFC3339),
@@ -773,6 +784,7 @@ func TestResumenPanel_NoCuentaTurnosResueltosComoConfirmados(t *testing.T) {
 
 	futuro := time.Now().Add(48 * time.Hour)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: futuro.Format(time.RFC3339), HoraFin: futuro.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1350,6 +1362,7 @@ func TestCancelarTurnosSinVerificar_CancelaSoloLosNoVerificadosYVigentes(t *test
 	// Verificado (manual, panel) — no se toca.
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	recManual := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Verificado", ApellidoContacto: "Q", DNIContacto: "30111111", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1458,6 +1471,7 @@ func TestReprogramarTurno_Exitoso(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1517,6 +1531,7 @@ func TestReprogramarTurno_MoverAFechaPasadaFalla(t *testing.T) {
 
 	futuro := time.Now().Add(72 * time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: futuro.Format(time.RFC3339), HoraFin: futuro.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1573,6 +1588,7 @@ func TestReprogramarTurno_SolapamientoFallaControlado(t *testing.T) {
 	// tipo, y el test dejaba de ejercitar lo suyo.
 	crear := func(i time.Time, dni string) turnoResponse {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+			EmailContacto:  "paciente-de-prueba@example.com",
 			NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: dni, TelefonoContacto: "1",
 			TipoConsultaID: tipoConsultaID, HoraInicio: i.Format(time.RFC3339), HoraFin: i.Add(30 * time.Minute).Format(time.RFC3339),
 		})
@@ -1618,6 +1634,7 @@ func TestCrearTurnoManual_PacienteConocidoVinculaSinDuplicar(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1657,6 +1674,7 @@ func TestCrearTurnoManual_PacienteConocidoDeOtroProfesionalFalla(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoDueño, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1764,6 +1782,7 @@ func TestMarcarAsistencia_TurnoTodaviaNoResueltoFalla(t *testing.T) {
 
 	futuro := time.Now().Add(72 * time.Hour)
 	rec1 := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "P", ApellidoContacto: "Q", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipoConsultaID, HoraInicio: futuro.Format(time.RFC3339), HoraFin: futuro.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -1903,14 +1922,18 @@ func crearConflictoDePruebaEntre(t *testing.T, gdb *gorm.DB, profesionalID uuid.
 	return conflicto
 }
 
-// TestMarcarAsistencia_ConflictoExistenteBloqueaAsistencia — corrección de
-// QA, pedido textual del cliente (revisión sobre un diseño anterior que
-// auto-resolvía esto): "no dejar poner asistencia o ausencia hasta que se
-// resuelva el conflicto". Con un ConflictoPaciente ya pendiente (esté o no
-// verificada la ficha original), marcar "asistió" en CUALQUIERA de las dos
-// fichas involucradas se rechaza con 409 — nada se toca hasta que el
-// profesional resuelva manualmente desde /panel/pacientes.
-func TestMarcarAsistencia_ConflictoExistenteBloqueaAsistencia(t *testing.T) {
+// TestMarcarAsistencia_ElConflictoBloqueaSoloElLadoEnDisputa —
+// corrección del 2026-09-15, reportada por el cliente con un caso real:
+// un turno viejo, de una ficha verificada, imposible de marcar porque
+// alguien pidió turno con ese DNI horas después.
+//
+// El bloqueo miraba los DOS lados del ticket. Lo que tiene que impedir es
+// que la ficha EN CONFLICTO se verifique sola —marcando asistencia en
+// algún turno suyo que no sea el disputado— o que un "ausente" la borre
+// dejando el ticket apuntando a una ficha que ya no existe. La
+// VERIFICADA no necesita esa protección: su identidad no está en
+// discusión, y sus turnos pueden ser anteriores al conflicto.
+func TestMarcarAsistencia_ElConflictoBloqueaSoloElLadoEnDisputa(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "conflicto-silencioso1@example.com")
@@ -1918,38 +1941,51 @@ func TestMarcarAsistencia_ConflictoExistenteBloqueaAsistencia(t *testing.T) {
 	hermana, turnoHermana := crearFichaEnConflictoConTurnoDePrueba(t, gdb, reg.Profesional.ID, pacienteVerificado.DNI, tipoConsultaID, time.Now().Add(2*time.Hour))
 	conflicto := crearConflictoDePruebaEntre(t, gdb, hermana.ClinicID, pacienteVerificado, hermana, turnoHermana)
 
-	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turnoVerificado.ID.String()+"/asistencia", reg.Token, marcarAsistenciaRequest{
+	// OTRO turno de la ficha en disputa, distinto del que originó el
+	// ticket: es el que la verificaría sola si se pudiera marcar.
+	pid := uuid.MustParse(reg.Profesional.ID)
+	tid := uuid.MustParse(tipoConsultaID)
+	inicioHermana := time.Now().Add(-3 * time.Hour).Truncate(time.Second)
+	finHermana := inicioHermana.Add(30 * time.Minute)
+	otroDeLaHermana := db.Turno{
+		ClinicID: pid, AtendidoPorUserID: ptrUUID(ownerDePrueba(t, gdb, pid)),
+		PacienteID: &hermana.ID, Estado: "agendado", TipoConsultaID: &tid,
+		HoraInicio: &inicioHermana, HoraFin: &finHermana,
+		NombreContacto: hermana.Nombre, ApellidoContacto: hermana.Apellido, DNIContacto: hermana.DNI,
+		TelefonoContacto: "+5493519999999", Origen: "pagina_publica",
+	}
+	if err := gdb.Create(&otroDeLaHermana).Error; err != nil {
+		t.Fatalf("no se pudo crear el segundo turno de la hermana: %v", err)
+	}
+
+	// EL LADO EN DISPUTA: bloqueado.
+	rec := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+otroDeLaHermana.ID.String()+"/asistencia", reg.Token, marcarAsistenciaRequest{
 		Asistencia: "asistio",
 	})
 	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, esperaba %d (conflicto pendiente bloquea asistencia). body=%s", rec.Code, http.StatusConflict, rec.Body.String())
+		t.Fatalf("la ficha en disputa pudo verificarse sola: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Nada se tocó: ni el turno que se intentó marcar, ni la hermana, ni
-	// el ticket.
-	var turnoRecargado db.Turno
-	if err := gdb.First(&turnoRecargado, "id = ?", turnoVerificado.ID).Error; err != nil {
-		t.Fatalf("no se pudo releer el turno: %v", err)
+	// LA VERIFICADA: se puede marcar. Su identidad no está en discusión,
+	// y este turno es anterior al conflicto.
+	rec = doJSONAuth(t, router, http.MethodPatch, "/turnos/"+turnoVerificado.ID.String()+"/asistencia", reg.Token, marcarAsistenciaRequest{
+		Asistencia: "asistio",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("la ficha verificada quedó bloqueada por un conflicto ajeno a ella: status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if turnoRecargado.Asistencia != nil {
-		t.Error("Asistencia debería seguir sin marcarse")
-	}
-	var turnoHermanaActualizado db.Turno
-	if err := gdb.First(&turnoHermanaActualizado, "id = ?", turnoHermana.ID).Error; err != nil {
-		t.Fatalf("no se pudo releer el turno de la hermana: %v", err)
-	}
-	if turnoHermanaActualizado.Estado != "agendado" {
-		t.Errorf("Estado = %q, esperaba agendado (nada se toca)", turnoHermanaActualizado.Estado)
+
+	// Y el ticket sigue pendiente: marcar asistencia en la verificada no
+	// decide nada sobre quién es el otro.
+	var conflictoActualizado db.ConflictoPaciente
+	gdb.First(&conflictoActualizado, "id = ?", conflicto.ID)
+	if conflictoActualizado.Resuelto {
+		t.Error("Resuelto = true, esperaba false (sigue pendiente, sin resolución manual)")
 	}
 	var count int64
 	gdb.Model(&db.Paciente{}).Where("id = ?", hermana.ID).Count(&count)
 	if count != 1 {
 		t.Errorf("la ficha hermana no debería haberse tocado, count=%d", count)
-	}
-	var conflictoActualizado db.ConflictoPaciente
-	gdb.First(&conflictoActualizado, "id = ?", conflicto.ID)
-	if conflictoActualizado.Resuelto {
-		t.Error("Resuelto = true, esperaba false (sigue pendiente, sin resolución manual)")
 	}
 }
 
@@ -2242,5 +2278,42 @@ func TestMarcarAsistencia_NoBorraPacienteConMasDeUnTurno(t *testing.T) {
 
 	if err := gdb.First(&db.Paciente{}, "id = ?", paciente.ID).Error; err != nil {
 		t.Errorf("el paciente NO debería haberse borrado (tiene más de un turno): %v", err)
+	}
+}
+
+// TestCrearTurnoManual_ExigeMailAlCrearFichaNueva — corrección del
+// 2026-09-15, causa raíz de un bug real reportado por el cliente.
+//
+// Una ficha cargada a mano cuenta como VERIFICADA por su origen. Sin
+// mail, el wizard público no tiene con qué reconocerla: cualquier pedido
+// con ese DNI falla el "¿esta ficha responde a este mail?" —no hay contra
+// qué comparar— y, por estar verificada, dispara un conflicto de
+// identidad. Uno por pedido, para siempre. Y esos conflictos pendientes
+// bloquean marcar asistencia.
+func TestCrearTurnoManual_ExigeMailAlCrearFichaNueva(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "turno-sin-mail@example.com")
+
+	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
+	base := crearTurnoManualRequest{
+		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333",
+		TelefonoContacto: "+5493511234567", TipoConsultaID: tipoConsultaID,
+		HoraInicio: inicio.Format(time.RFC3339),
+		HoraFin:    inicio.Add(30 * time.Minute).Format(time.RFC3339),
+	}
+
+	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, base)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba 400 (sin mail). body=%s", rec.Code, rec.Body.String())
+	}
+
+	// La otra dirección: con mail, se crea. Un rechazo que rechaza todo no
+	// distingue nada.
+	conMail := base
+	conMail.EmailContacto = "julian@example.com"
+	rec = doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, conMail)
+	if rec.Code != http.StatusCreated {
+		t.Errorf("con mail tiene que poder crearse: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

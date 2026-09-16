@@ -21,6 +21,7 @@ func TestListPacientes_DevuelveLosCreadosPorTurnos(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -46,6 +47,7 @@ func TestListPacientes_BuscaPorNombreApellidoODNI(t *testing.T) {
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	crear := func(nombre, dni string, offset time.Duration) {
 		doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+			EmailContacto:  "paciente-de-prueba@example.com",
 			NombreContacto: nombre, ApellidoContacto: "Apellido", DNIContacto: dni, TelefonoContacto: "+549",
 			TipoConsultaID: tipoConsultaID,
 			HoraInicio:     inicio.Add(offset).Format(time.RFC3339),
@@ -79,6 +81,7 @@ func TestListPacientes_SoloDelProfesionalAutenticado(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg1.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo1, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -111,6 +114,7 @@ func TestGetPaciente_DevuelveDatosYHistorialDeTurnos(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -207,6 +211,7 @@ func TestListPacientes_IncluyeEstadoVerificado(t *testing.T) {
 	// verificado de entrada aunque el turno en sí sea futuro.
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+549",
 		TipoConsultaID: tipoConsultaID,
 		HoraInicio:     inicio.Format(time.RFC3339),
@@ -294,6 +299,7 @@ func TestEditarPaciente_Exitoso(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -323,6 +329,7 @@ func TestEditarPaciente_DNIInvalidoFalla(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "30222333", TelefonoContacto: "+5493511111111",
 		TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -350,6 +357,7 @@ func TestEditarPaciente_DNIYaUsadoPorOtroPacienteFalla(t *testing.T) {
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	crearYObtenerPacienteID := func(nombre, dni string, offset time.Duration) string {
 		rec := doJSONAuth(t, router, http.MethodPost, "/turnos", reg.Token, crearTurnoManualRequest{
+			EmailContacto:  "paciente-de-prueba@example.com",
 			NombreContacto: nombre, ApellidoContacto: "Apellido", DNIContacto: dni, TelefonoContacto: "+5493511111111",
 			TipoConsultaID: tipoConsultaID, HoraInicio: inicio.Add(offset).Format(time.RFC3339), HoraFin: inicio.Add(offset + 30*time.Minute).Format(time.RFC3339),
 		})
@@ -431,6 +439,7 @@ func TestEditarPaciente_DeOtroProfesionalFalla(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -453,6 +462,7 @@ func TestGetPaciente_DeOtroProfesionalFalla(t *testing.T) {
 
 	inicio := time.Date(2030, 9, 1, 10, 0, 0, 0, time.UTC)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", dueño.Token, crearTurnoManualRequest{
+		EmailContacto:  "paciente-de-prueba@example.com",
 		NombreContacto: "Julián", ApellidoContacto: "Ortiz", DNIContacto: "1", TelefonoContacto: "1",
 		TipoConsultaID: tipo, HoraInicio: inicio.Format(time.RFC3339), HoraFin: inicio.Add(30 * time.Minute).Format(time.RFC3339),
 	})
@@ -503,7 +513,8 @@ func TestCrearPaciente_DNIYaExisteRechaza(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "crearpac2@example.com")
 
-	payload := crearPacienteRequest{Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Telefono: "+5493511234567"}
+	payload := crearPacienteRequest{
+		Email: "paciente-de-prueba@example.com", Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Telefono: "+5493511234567"}
 	doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, payload)
 
 	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, payload)
@@ -593,9 +604,49 @@ func TestCrearPaciente_RequiereAutenticacion(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 
 	rec := doJSON(t, router, http.MethodPost, "/pacientes", crearPacienteRequest{
+		Email:  "paciente-de-prueba@example.com",
 		Nombre: "Bruno", Apellido: "Iglesias", DNI: "30111222", Telefono: "+5493511234567",
 	})
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+// TestCrearPaciente_ExigeMailSinTutor — misma causa raíz que
+// TestCrearTurnoManual_ExigeMailAlCrearFichaNueva: "+ Agregar paciente"
+// es el otro camino por el que nace una ficha manual, y dejarlo abierto
+// no arreglaba nada.
+//
+// Con tutor el mail propio sigue siendo opcional (un menor puede no
+// tener): ahí la identidad la aporta el tutor, cuyo mail sí se exige.
+func TestCrearPaciente_ExigeMailSinTutor(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "paciente-sin-mail@example.com")
+
+	sinMail := crearPacienteRequest{
+		Nombre: "Julián", Apellido: "Ortiz", DNI: "30222444", Telefono: "+5493511234567",
+	}
+	rec := doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, sinMail)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba 400 (sin mail). body=%s", rec.Code, rec.Body.String())
+	}
+
+	conMail := sinMail
+	conMail.Email = "julian@example.com"
+	rec = doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, conMail)
+	if rec.Code != http.StatusCreated {
+		t.Errorf("con mail tiene que poder crearse: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Con tutor, sin mail propio: se crea igual.
+	conTutor := crearPacienteRequest{
+		Nombre: "Mila", Apellido: "Ortiz", DNI: "30222555", ConTutor: true,
+		TutorRelacion: "familiar", TutorNombre: "Julián Ortiz",
+		TutorTelefono: "+5493511234567", TutorEmail: "julian@example.com",
+	}
+	rec = doJSONAuth(t, router, http.MethodPost, "/pacientes", reg.Token, conTutor)
+	if rec.Code != http.StatusCreated {
+		t.Errorf("con tutor el mail propio es opcional: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

@@ -22,6 +22,10 @@ async function completarCampos(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Apellido"), "Iglesias");
   await user.type(screen.getByLabelText("DNI"), "30111222");
   await user.type(screen.getByLabelText("Teléfono"), "+5493511234567");
+  // El mail es obligatorio sin tutor (2026-09-15): una ficha manual sin
+  // mail no se puede reconocer cuando esa persona pida turno por la
+  // página, y cada pedido termina abriendo un conflicto de identidad.
+  await user.type(screen.getByLabelText("Email"), "bruno@example.com");
 }
 
 describe("AgregarPacienteModal", () => {
@@ -74,7 +78,6 @@ describe("AgregarPacienteModal", () => {
     render(<AgregarPacienteModal onClose={vi.fn()} onSuccess={onSuccess} />);
 
     await completarCampos(user);
-    await user.type(screen.getByLabelText("Email (opcional)"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(crearPacienteActionMock).toHaveBeenCalledWith({

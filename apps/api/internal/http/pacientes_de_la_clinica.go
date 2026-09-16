@@ -132,15 +132,42 @@ func idsDeMisPacientes(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID, pacien
 // salir a buscarlo a mano.
 //
 // Devuelve el turno que se pisa y el nombre de quien lo atiende, o nil.
+// fichasDeLaPersona — TODAS las fichas de esa persona en la clínica, no
+// solo la que este turno tiene vinculada (2026-09-15).
+//
+// Una persona puede tener más de una ficha a la vez: cuando pide turno con
+// un mail que no reconocemos se le crea una DUPLICADA y queda un conflicto
+// abierto hasta que un profesional lo resuelva. Mientras tanto, sus turnos
+// cuelgan de fichas distintas.
+//
+// Las reglas que protegen al paciente —no estar en dos sillones a la vez,
+// un turno activo por tipo— son sobre la PERSONA, así que tienen que mirar
+// todas. Por ficha se salteaban solas justo en el caso más común: dos
+// pedidos seguidos con un mail nuevo crean dos fichas duplicadas
+// distintas, y ninguna ve los turnos de la otra. Fue un bug real
+// (2026-09-16): el mismo paciente terminó con dos turnos a la misma hora
+// con dos profesionales, y recién se notó cuando resolver los conflictos
+// los junto a todos en la misma ficha.
+func fichasDeLaPersona(tx *gorm.DB, clinicID, pacienteID uuid.UUID) []uuid.UUID {
+	var fichas []uuid.UUID
+	err := tx.Model(&db.Paciente{}).
+		Where("clinic_id = ? AND dni = (SELECT dni FROM pacientes WHERE id = ?)", clinicID, pacienteID).
+		Pluck("id", &fichas).Error
+	if err != nil || len(fichas) == 0 {
+		return []uuid.UUID{pacienteID}
+	}
+	return fichas
+}
+
 func turnoSuperpuestoDeOtroProfesional(
 	tx *gorm.DB, clinicID, pacienteID uuid.UUID, atiende uuid.UUID,
 	inicio, fin time.Time, excluirTurnoID *uuid.UUID,
 ) (*db.Turno, string) {
 	q := tx.Where(
-		`clinic_id = ? AND paciente_id = ? AND estado = 'agendado'
+		`clinic_id = ? AND paciente_id IN ? AND estado = 'agendado'
 		 AND atendido_por_user_id IS NOT NULL AND atendido_por_user_id <> ?
 		 AND hora_inicio < ? AND hora_fin > ?`,
-		clinicID, pacienteID, atiende, fin, inicio,
+		clinicID, fichasDeLaPersona(tx, clinicID, pacienteID), atiende, fin, inicio,
 	)
 	if excluirTurnoID != nil {
 		q = q.Where("id <> ?", *excluirTurnoID)
@@ -193,10 +220,21 @@ func nombreDelProfesional(tx *gorm.DB, userID *uuid.UUID) string {
 // Normalizado con `normalizarNombreTipo`, el mismo criterio con el que se
 // bloquea crear un tipo duplicado.
 //
-// Se busca por `paciente_id` y no por `dni_contacto`: el DNI en el turno
-// es un snapshot de lo que se tipeó, y la ficha es la identidad (índice
-// único de DNI por clínica). Devuelve también con quién es ese turno,
-// porque puede ser de un colega cuya agenda quien carga no puede ver.
+// Se busca por DNI y no por `paciente_id` (corregido el 2026-09-15,
+// reportado por el cliente: "yo con UN dni solo puedo SACAR UN TURNO POR
+// TIPO DE CONSULTA EN LA CLÍNICA"). Por ficha, la regla se salteaba sola
+// en el caso más común: cuando alguien pide turno con otro mail se le crea
+// una ficha duplicada nueva, con otro id, y los turnos de la ficha
+// original dejaban de contar. El DNI es la persona; la ficha es cómo la
+// tenemos anotada, y puede haber más de una a la vez.
+//
+// DOS EXCEPCIONES, pedidas por el cliente: "Consulta general" y
+// "Urgencia". Vienen precargadas en TODOS los profesionales, así que son
+// la puerta de entrada genérica: bloquearlas entre profesionales impediría
+// algo legítimo —hacerse ver por dos odontólogos distintos, o conseguir
+// una urgencia con quien tenga lugar—. Con el MISMO profesional siguen sin
+// poder repetirse: dos "Consulta general" pendientes con la misma persona
+// no es una elección, es un clic de más.
 func turnoActivoDelMismoTipoEnLaClinica(
 	tx *gorm.DB, clinicID, pacienteID, tipoConsultaID uuid.UUID, excluirTurnoID *uuid.UUID,
 ) (*db.Turno, string, string) {
@@ -204,14 +242,19 @@ func turnoActivoDelMismoTipoEnLaClinica(
 	if err := tx.First(&tipo, "id = ?", tipoConsultaID).Error; err != nil {
 		return nil, "", ""
 	}
+	fichas := fichasDeLaPersona(tx, clinicID, pacienteID)
 
 	// La comparación de nombres se hace en Go y no en SQL: `normalizarNombreTipo`
 	// saca acentos y colapsa espacios, y no hay equivalente portable en
 	// Postgres sin la extensión `unaccent`. El costo es nulo — son los
 	// turnos activos de UNA persona, siempre un puñado.
-	q := tx.Where(`clinic_id = ? AND paciente_id = ? AND tipo_consulta_id IS NOT NULL
+	q := tx.Where(`clinic_id = ? AND paciente_id IN ? AND tipo_consulta_id IS NOT NULL
 	               AND estado = 'agendado' AND hora_fin >= now()`,
-		clinicID, pacienteID)
+		clinicID, fichas)
+	// Las dos excepciones: entre profesionales distintos no chocan.
+	if esTipoPrecargado(tipo.Nombre) {
+		q = q.Where("atendido_por_user_id = (SELECT user_id FROM tipos_consulta WHERE id = ?)", tipoConsultaID)
+	}
 	if excluirTurnoID != nil {
 		q = q.Where("id <> ?", *excluirTurnoID)
 	}
@@ -240,4 +283,23 @@ func turnoActivoDelMismoTipoEnLaClinica(
 		}
 	}
 	return nil, "", ""
+}
+
+// esTipoPrecargado — "Consulta general" y "Urgencia", los dos que el
+// sistema le crea a todo profesional al sumarse a una clínica
+// (db.SeedTiposConsultaDefault).
+//
+// Se los trata distinto en la regla de "un turno activo por tipo" porque
+// son los únicos que TODOS tienen garantizado: son la puerta de entrada
+// genérica, no una práctica concreta. Un paciente con una "Consulta
+// general" pendiente con Ana tiene que poder sacar otra con Beto; uno con
+// una "Endodoncia" pendiente, no — esa es la misma boca y el mismo
+// tratamiento.
+//
+// Por nombre normalizado y no por id: cada profesional tiene su propia
+// fila (TR-145).
+func esTipoPrecargado(nombre string) bool {
+	n := normalizarNombreTipo(nombre)
+	return n == normalizarNombreTipo(db.NombreTipoConsultaGeneral) ||
+		n == normalizarNombreTipo(db.NombreTipoConsultaUrgencia)
 }

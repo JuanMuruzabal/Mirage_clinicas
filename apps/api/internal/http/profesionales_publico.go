@@ -130,8 +130,11 @@ func listTiposConsultaPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// tipo que esa persona no atiende sería mandar al paciente contra
 		// una pared: elegiría "Ortodoncia" y recién al confirmar se
 		// enteraría de que ahí no la atiende nadie.
+		// Solo con un enlace PROPIO: si se generó para todos, los tipos
+		// son los de la clínica entera, igual que en la página pública.
 		if token := strings.TrimSpace(r.URL.Query().Get("enlaceToken")); token != "" {
-			if enlace, err := buscarEnlaceTurnoVigente(gdb, clinic.ID, token); err == nil && enlace.UserID != nil {
+			if enlace, err := buscarEnlaceTurnoVigente(gdb, clinic.ID, token); err == nil &&
+				enlace.UserID != nil && !enlace.ParaTodosLosProfesionales {
 				soloSuyos := make(map[string][]db.TipoConsulta, len(porNombre))
 				for clave, filas := range porNombre {
 					for _, t := range filas {
@@ -358,9 +361,12 @@ func clinicaPorSlug(gdb *gorm.DB, w http.ResponseWriter, r *http.Request) (db.Cl
 // Resuelve los tres caminos que puede tomar un turno público, en este
 // orden:
 //
-//  1. Con ENLACE, el profesional que lo generó. Su "+ Agregar turno >
-//     Compartir link" existe para llenar SU agenda; que el paciente
-//     eligiera a otro desde ahí sería ignorar para qué se compartió.
+//  1. Con ENLACE **propio**, el profesional que lo generó. Su
+//     "+ Agregar turno > Compartir link" existe para llenar SU agenda;
+//     que el paciente eligiera a otro desde ahí sería ignorar para qué se
+//     compartió. Si el enlace se generó "para todos los profesionales"
+//     (Fase 3.2.7b) no manda nadie: decide el paciente, como entrando por
+//     la página pública.
 //  2. Con profesional elegido, ese — validado contra el tipo.
 //  3. Sin ninguno de los dos, el owner. Es el caso de una clínica de una
 //     sola persona, donde el wizard no pregunta nada.
@@ -373,7 +379,8 @@ func tipoPublicoDelPedido(
 	gdb *gorm.DB, clinicID uuid.UUID, enlaceToken, profesionalIDStr, nombreTipo string,
 ) (db.TipoConsulta, uuid.UUID, error) {
 	if enlaceToken != "" {
-		if enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken); err == nil && enlace.UserID != nil {
+		if enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken); err == nil &&
+			enlace.UserID != nil && !enlace.ParaTodosLosProfesionales {
 			tipo, ok := profesionalPublicoElegido(gdb, clinicID, *enlace.UserID, nombreTipo)
 			if !ok {
 				return db.TipoConsulta{}, uuid.Nil, errTipoNoAtendido

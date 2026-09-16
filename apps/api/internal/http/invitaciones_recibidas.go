@@ -101,6 +101,17 @@ func aceptarInvitacionHandler(gdb *gorm.DB) http.HandlerFunc {
 			if err := db.AsignarRol(tx, miembro.ID, invitacion.Role); err != nil {
 				return err
 			}
+			// Los dos tipos de siempre, para poder recibir turnos desde el
+			// primer día (2026-09-15, pedido del cliente). Hasta acá solo
+			// se sembraban al crear la clínica propia: un colega invitado
+			// entraba con la configuración de agenda vacía y no podía
+			// recibir un turno hasta cargarse los tipos a mano.
+			// Idempotente — ver SeedTiposConsultaDefault.
+			if invitacion.Role == db.RoleProfesional {
+				if err := db.SeedTiposConsultaDefault(tx, invitacion.ClinicID, user.ID); err != nil {
+					return err
+				}
+			}
 			return tx.Model(&invitacion).Update("accepted_at", ahora).Error
 		})
 		if err != nil {

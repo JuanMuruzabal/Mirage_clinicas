@@ -335,10 +335,27 @@ export interface EnlaceTurno {
   expiraEn: string;
 }
 
+// CrearEnlaceTurnoOpciones — las dos decisiones que el profesional toma al
+// generar el link (Fase 3.2.7b).
+export interface CrearEnlaceTurnoOpciones {
+  /** false (default): el turno entra en la agenda de quien genera el link y
+   *  el wizard no pregunta con quién. true: lo elige el paciente. */
+  paraTodosLosProfesionales?: boolean;
+  /** Ficha ya elegida: el wizard no vuelve a pedir lo que ya tiene cargado. */
+  pacienteId?: string;
+}
+
 // apiCrearEnlaceTurno (autenticado, panel) — la clínica se resuelve por
 // sesión, no hace falta pasar el slug.
-export function apiCrearEnlaceTurno(token: string): Promise<ApiResult<EnlaceTurno>> {
-  return request<EnlaceTurno>("/enlaces-turno", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+export function apiCrearEnlaceTurno(token: string, opciones?: CrearEnlaceTurnoOpciones): Promise<ApiResult<EnlaceTurno>> {
+  return request<EnlaceTurno>("/enlaces-turno", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      paraTodosLosProfesionales: opciones?.paraTodosLosProfesionales ?? false,
+      pacienteId: opciones?.pacienteId ?? "",
+    }),
+  });
 }
 
 // apiValidarEnlaceTurnoPublico (público, sin sesión) — chequeo de solo
@@ -346,9 +363,27 @@ export function apiCrearEnlaceTurno(token: string): Promise<ApiResult<EnlaceTurn
 // avisar "este link ya no es válido" antes de completar todo el
 // formulario. La validación real (la que de verdad cuenta) vuelve a
 // correr del lado del backend al confirmar el turno.
-export function apiValidarEnlaceTurnoPublico(slug: string, token: string): Promise<ApiResult<{ valido: boolean }>> {
+// EnlaceTurnoInfo — qué trae este link, además de si sigue vigente
+// (Fase 3.2.7b). Es lo que decide qué pasos del wizard tienen sentido.
+export interface EnlaceTurnoInfo {
+  valido: boolean;
+  /** Si hay que preguntar con qué profesional. Con un link "propio" no. */
+  elegisProfesional: boolean;
+  /** La ficha que el link trae elegida, si trae alguna. */
+  paciente?: {
+    id: string;
+    nombre: string;
+    apellido: string;
+    /** Mail Y teléfono cargados: el camino "para mí" no pide nada. */
+    tieneDatosPropios: boolean;
+    /** Al menos un tutor conocido: "para otro" no pide ni tutor ni paciente. */
+    tieneTutores: boolean;
+  };
+}
+
+export function apiValidarEnlaceTurnoPublico(slug: string, token: string): Promise<ApiResult<EnlaceTurnoInfo>> {
   const query = new URLSearchParams({ token });
-  return request<{ valido: boolean }>(`/clinicas/${slug}/enlaces-turno/validar?${query.toString()}`);
+  return request<EnlaceTurnoInfo>(`/clinicas/${slug}/enlaces-turno/validar?${query.toString()}`);
 }
 
 export interface SolicitarTurnoPublicoPayload {
