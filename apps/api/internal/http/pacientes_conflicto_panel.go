@@ -1,7 +1,9 @@
 package http
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -77,7 +79,8 @@ func listConflictosPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		var conflictos []db.ConflictoPaciente
 		// Cada uno resuelve los suyos: es su paciente el que aparece dos
 		// veces, y es él quien sabe si son la misma persona.
-		if err := gdb.Scopes(soloMisConflictos(r)).Where("clinic_id = ? AND resuelto = false", profesionalID).
+		if err := gdb.Scopes(soloMisConflictos(r), soloConflictosVivos).
+			Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Order("created_at").Find(&conflictos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los conflictos")
 			return
@@ -358,8 +361,137 @@ func migrarOCancelarTurnosDePerdedor(tx *gorm.DB, prevalece db.Paciente, pierdeI
 // por medio) sigue pasando nil — ese turno, si ya está resuelto sin
 // confirmar nada, cae correctamente en la regla general de borrado.
 func resolverConflictoComoVerdadero(tx *gorm.DB, conflicto db.ConflictoPaciente, turnoAMigrarDirecto *uuid.UUID) error {
+	hermanos, err := conflictosDelMismoMail(tx, conflicto)
+	if err != nil {
+		return err
+	}
+	if err := fusionarUnaFichaEnConflicto(tx, conflicto, turnoAMigrarDirecto); err != nil {
+		return err
+	}
+	// Los hermanos: MISMA persona, MISMO mail, otra ficha duplicada
+	// —una por profesional con el que pidió turno—. Si la identidad se
+	// decidió, se decidió para todos.
+	for _, h := range hermanos {
+		if err := fusionarUnaFichaEnConflicto(tx, h, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// conflictosDelMismoMail — los otros conflictos pendientes de la MISMA
+// persona abiertos por el MISMO mail (2026-09-15, pedido del cliente tras
+// probarlo: "al resolver el conflicto con un profesional... cuando me voy
+// a la vista del otro profesional me sigue saliendo el conflicto").
+//
+// POR QUÉ NO ALCANZABA CERRAR LOS DE LA MISMA FICHA. Cada pedido público
+// crea su PROPIA ficha duplicada (crearOBuscarPacientePorDNI saltea las
+// que están `en_conflicto`), así que un paciente que saca turno con dos
+// profesionales usando el mismo mail nuevo deja DOS fichas distintas y DOS
+// tickets. Resolver uno no tocaba al otro: el mail ya quedaba cargado en
+// la ficha real, pero el segundo profesional seguía viendo un conflicto
+// por algo que ya se había decidido.
+//
+// EL CRITERIO ES EL MAIL, y solo el mail — textual del cliente: "SOLO SI
+// el conflicto es del mismo mail". Dos fichas duplicadas con mails
+// distintos son dos preguntas distintas sobre quién es esa persona, y cada
+// una la tiene que contestar quien la recibió.
+//
+// Cuenta también el mail de los TUTORES: en el camino "para otro" la
+// identidad que se disputa es la de quien reserva, no la del paciente
+// —que puede no tener mail propio—.
+func conflictosDelMismoMail(tx *gorm.DB, conflicto db.ConflictoPaciente) ([]db.ConflictoPaciente, error) {
+	mios, err := mailsDeIdentidad(tx, conflicto.PacienteEnConflictoID)
+	if err != nil || len(mios) == 0 {
+		return nil, err
+	}
+
+	var candidatos []db.ConflictoPaciente
+	if err := tx.Where(`resuelto = false AND id <> ? AND paciente_verificado_id = ?
+	                    AND paciente_en_conflicto_id <> ?`,
+		conflicto.ID, conflicto.PacienteVerificadoID, conflicto.PacienteEnConflictoID).
+		Find(&candidatos).Error; err != nil {
+		return nil, err
+	}
+
+	vistos := make(map[uuid.UUID]bool, len(candidatos))
+	hermanos := make([]db.ConflictoPaciente, 0, len(candidatos))
+	for _, c := range candidatos {
+		// Una ficha duplicada alcanzada dos veces se procesa una sola:
+		// la segunda no encontraría nada que fusionar.
+		if vistos[c.PacienteEnConflictoID] {
+			continue
+		}
+		suyos, err := mailsDeIdentidad(tx, c.PacienteEnConflictoID)
+		if err != nil {
+			return nil, err
+		}
+		if compartenAlgunMail(mios, suyos) {
+			vistos[c.PacienteEnConflictoID] = true
+			hermanos = append(hermanos, c)
+		}
+	}
+	return hermanos, nil
+}
+
+// mailsDeIdentidad — con qué mails se presentó esa ficha: el propio, sus
+// alternativos y los de sus tutores. Normalizados.
+func mailsDeIdentidad(tx *gorm.DB, pacienteID uuid.UUID) ([]string, error) {
+	var paciente db.Paciente
+	if err := tx.First(&paciente, "id = ?", pacienteID).Error; err != nil {
+		// Ya no existe (la fusionó otra resolución en esta misma
+		// transacción): sin ficha no hay identidad que comparar.
+		return nil, nil
+	}
+	mails := make([]string, 0, 3)
+	agregar := func(s string) {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if s != "" {
+			mails = append(mails, s)
+		}
+	}
+	if paciente.Email != nil {
+		agregar(*paciente.Email)
+	}
+	var alternativos []db.PacienteEmailAlternativo
+	if err := tx.Where("paciente_id = ?", pacienteID).Find(&alternativos).Error; err != nil {
+		return nil, err
+	}
+	for _, a := range alternativos {
+		agregar(a.Email)
+	}
+	var tutores []db.PacienteTutor
+	if err := tx.Where("paciente_id = ?", pacienteID).Find(&tutores).Error; err != nil {
+		return nil, err
+	}
+	for _, t := range tutores {
+		agregar(t.Email)
+	}
+	return mails, nil
+}
+
+func compartenAlgunMail(a, b []string) bool {
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// fusionarUnaFichaEnConflicto — el trabajo concreto de "son la misma
+// persona" sobre UN ticket: migrar contacto, tutores y turnos a la ficha
+// que prevalece, borrar la duplicada y cerrar el ticket.
+func fusionarUnaFichaEnConflicto(tx *gorm.DB, conflicto db.ConflictoPaciente, turnoAMigrarDirecto *uuid.UUID) error {
 	var enConflicto db.Paciente
 	if err := tx.First(&enConflicto, "id = ?", conflicto.PacienteEnConflictoID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Otra resolución de esta misma tanda ya se la llevó: el
+			// ticket queda cerrado igual, que es lo que importa.
+			return cerrarConflictosDeLaFicha(tx, conflicto.PacienteEnConflictoID)
+		}
 		return err
 	}
 	// prevalece — corrección de bug real (2026-09-05, ver el comentario
@@ -395,7 +527,23 @@ func resolverConflictoComoVerdadero(tx *gorm.DB, conflicto db.ConflictoPaciente,
 	if err := borrarFichaPacienteConSusHijas(tx, enConflicto.ID); err != nil {
 		return err
 	}
-	return tx.Model(&conflicto).Update("resuelto", true).Error
+	return cerrarConflictosDeLaFicha(tx, enConflicto.ID)
+}
+
+// cerrarConflictosDeLaFicha — marca resuelto el ticket que se resolvió y
+// CUALQUIER OTRO pendiente sobre la misma ficha duplicada (2026-09-15,
+// pedido del cliente: "basta con que un profesional resuelva el conflicto
+// para solucionar ambos").
+//
+// No es una comodidad: las dos resoluciones BORRAN la ficha duplicada, así
+// que un ticket hermano que quedara pendiente apuntaría a una ficha que ya
+// no existe — visible en el panel del otro profesional, imposible de
+// resolver, y bloqueando asistencias para siempre. Si la identidad ya se
+// decidió, se decidió para toda la clínica.
+func cerrarConflictosDeLaFicha(tx *gorm.DB, pacienteEnConflictoID uuid.UUID) error {
+	return tx.Model(&db.ConflictoPaciente{}).
+		Where("paciente_en_conflicto_id = ? AND resuelto = false", pacienteEnConflictoID).
+		Update("resuelto", true).Error
 }
 
 // resolverConflictoComoFalso — cancela y desvincula los turnos de la ficha
@@ -418,8 +566,36 @@ func resolverConflictoComoVerdadero(tx *gorm.DB, conflicto db.ConflictoPaciente,
 // (resolución manual) sigue pasando nil — ahí ningún turno tiene
 // asistencia marcada todavía, cancelarlos a todos es lo correcto.
 func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, profesionalID uuid.UUID, bloquearMail bool, turnoExcluidoDelCancelado *uuid.UUID) error {
+	// Los hermanos por mail, igual que en "son la misma persona"
+	// (2026-09-15): si ese mail NO es de esta persona, no lo es para
+	// ningún profesional de la clínica. Se calculan antes de tocar nada,
+	// porque la fusión de abajo borra la ficha de la que salen.
+	hermanos, err := conflictosDelMismoMail(tx, conflicto)
+	if err != nil {
+		return err
+	}
+	if err := descartarUnaFichaEnConflicto(tx, conflicto, profesionalID, bloquearMail, turnoExcluidoDelCancelado); err != nil {
+		return err
+	}
+	for _, h := range hermanos {
+		// Sin `turnoExcluidoDelCancelado`: ese excluido es el turno
+		// puntual que se está marcando en el carve-out de asistencia, y
+		// pertenece a ESTE ticket, no a los otros.
+		if err := descartarUnaFichaEnConflicto(tx, h, profesionalID, bloquearMail, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// descartarUnaFichaEnConflicto — el trabajo concreto de "son personas
+// distintas" sobre UN ticket.
+func descartarUnaFichaEnConflicto(tx *gorm.DB, conflicto db.ConflictoPaciente, profesionalID uuid.UUID, bloquearMail bool, turnoExcluidoDelCancelado *uuid.UUID) error {
 	var enConflicto db.Paciente
 	if err := tx.First(&enConflicto, "id = ?", conflicto.PacienteEnConflictoID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return cerrarConflictosDeLaFicha(tx, conflicto.PacienteEnConflictoID)
+		}
 		return err
 	}
 
@@ -467,7 +643,7 @@ func resolverConflictoComoFalso(tx *gorm.DB, conflicto db.ConflictoPaciente, pro
 	if err := borrarFichaPacienteConSusHijas(tx, enConflicto.ID); err != nil {
 		return err
 	}
-	return tx.Model(&conflicto).Update("resuelto", true).Error
+	return cerrarConflictosDeLaFicha(tx, enConflicto.ID)
 }
 
 // resolverConflictoPacienteHandler — POST /pacientes/conflictos/{id}/resolver
@@ -513,8 +689,27 @@ func resolverConflictoPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "conflicto no encontrado")
 			return
 		}
-		if conflicto.Resuelto {
-			writeError(w, http.StatusConflict, "este conflicto ya fue resuelto")
+		// YA RESUELTO — por este profesional en otra pestaña, o por un
+		// colega desde su propia vista (una resolución alcanza a todos los
+		// tickets del mismo mail desde el 2026-09-15).
+		//
+		// 409 con un mensaje que la pantalla reconoce: no es un error del
+		// que resolvió, es que la pregunta ya está contestada. El frontend
+		// lo muestra en verde y pide refrescar, en vez de dejar un cartel
+		// rojo de algo que salió bien.
+		var siguePendiente int64
+		if err := gdb.Model(&db.ConflictoPaciente{}).Scopes(soloConflictosVivos).
+			Where("id = ? AND resuelto = false", conflicto.ID).Count(&siguePendiente).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo resolver el conflicto")
+			return
+		}
+		if siguePendiente == 0 {
+			// Si quedó sin ficha duplicada, se cierra de paso: un ticket
+			// sobre algo que ya no existe no tiene nada que decidir.
+			if !conflicto.Resuelto {
+				_ = gdb.Model(&db.ConflictoPaciente{}).Where("id = ?", conflicto.ID).Update("resuelto", true).Error
+			}
+			writeError(w, http.StatusConflict, mensajeConflictoYaResuelto)
 			return
 		}
 
@@ -536,3 +731,8 @@ func resolverConflictoPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"mensaje": "conflicto resuelto"})
 	}
 }
+
+// mensajeConflictoYaResuelto — el texto exacto que la pantalla reconoce
+// para mostrarlo en verde (resolver-conflicto-paciente-modal.tsx). Vive
+// acá, del lado que lo emite, para que cambiarlo sea un solo lugar.
+const mensajeConflictoYaResuelto = "este conflicto ya fue resuelto"

@@ -7,12 +7,16 @@ import {
   apiGetPacientesVerificadosDeTutorPublico,
   apiListDisponibilidadMesPublica,
   apiListDisponibilidadPublica,
+  apiListProfesionalesPublico,
   apiListTiposConsultaPublico,
   apiMisTurnoPublico,
   apiSolicitarTurnoPublico,
   apiValidarEnlaceTurnoPublico,
+  type EnlaceTurnoInfo,
+  type DisponibilidadPublicaParams,
   type MisTurnoPublico,
   type PacienteVerificadoPublico,
+  type ProfesionalPublico,
   type SolicitarTurnoPublicoPayload,
   type TipoConsultaPublico,
 } from "@/lib/api";
@@ -31,8 +35,19 @@ export interface SolicitarTurnoPublicoResult {
 // de los datos de contacto (Extra 2.3.5, E5.3): qué tipos de consulta
 // ofrece la clínica. Sin sesión — cualquier visitante de la página pública
 // la puede llamar.
-export async function listTiposConsultaPublicoAction(slug: string): Promise<TipoConsultaPublico[]> {
-  const result = await apiListTiposConsultaPublico(slug);
+export async function listTiposConsultaPublicoAction(slug: string, enlaceToken?: string): Promise<TipoConsultaPublico[]> {
+  const result = await apiListTiposConsultaPublico(slug, enlaceToken);
+  return result.ok ? result.data : [];
+}
+
+// listProfesionalesPublicoAction — segundo paso del wizard (Fase 3.2.7):
+// quiénes atienden el tipo elegido, ordenados por quién puede antes.
+//
+// Lista vacía ante cualquier error, igual que el resto de las lecturas de
+// este archivo: la pantalla ya sabe qué hacer cuando no hay nadie, y un
+// throw acá dejaría el modal en blanco.
+export async function listProfesionalesPublicoAction(slug: string, tipo: string): Promise<ProfesionalPublico[]> {
+  const result = await apiListProfesionalesPublico(slug, tipo);
   return result.ok ? result.data : [];
 }
 
@@ -41,17 +56,21 @@ export async function listTiposConsultaPublicoAction(slug: string): Promise<Tipo
 // panel), reusado para el wizard público (E5.3).
 export async function listDisponibilidadPublicaAction(
   slug: string,
-  tipoConsultaId: string,
+  params: DisponibilidadPublicaParams,
   fecha: string,
 ): Promise<Disponibilidad> {
-  const result = await apiListDisponibilidadPublica(slug, tipoConsultaId, fecha);
+  const result = await apiListDisponibilidadPublica(slug, params, fecha);
   return result.ok ? result.data : { slots: [] };
 }
 
 // listDisponibilidadMesPublicaAction — panel de calendario mensual (§3.8):
 // qué días del mes visible tienen algún turno disponible.
-export async function listDisponibilidadMesPublicaAction(slug: string, tipoConsultaId: string, mes: string): Promise<string[]> {
-  const result = await apiListDisponibilidadMesPublica(slug, tipoConsultaId, mes);
+export async function listDisponibilidadMesPublicaAction(
+  slug: string,
+  params: DisponibilidadPublicaParams,
+  mes: string,
+): Promise<string[]> {
+  const result = await apiListDisponibilidadMesPublica(slug, params, mes);
   return result.ok ? result.data.dias : [];
 }
 
@@ -59,9 +78,12 @@ export async function listDisponibilidadMesPublicaAction(slug: string, tipoConsu
 // se abre el wizard por un link compartido; `false` ante cualquier error
 // de red trata el link como no válido en vez de dejar completar todo el
 // formulario para recién ahí fallar.
-export async function validarEnlaceTurnoPublicoAction(slug: string, token: string): Promise<boolean> {
+export async function validarEnlaceTurnoPublicoAction(slug: string, token: string): Promise<EnlaceTurnoInfo> {
   const result = await apiValidarEnlaceTurnoPublico(slug, token);
-  return result.ok ? result.data.valido : false;
+  // Ante cualquier error de red, el link se trata como no válido: mejor
+  // decirlo al entrar que dejar completar todo el formulario para fallar
+  // en el paso final.
+  return result.ok ? result.data : { valido: false, elegisProfesional: false };
 }
 
 export interface EnviarVerificacionEmailResult {

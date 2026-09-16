@@ -15,10 +15,10 @@ import (
 // lo consulta con su DNI y mail.
 func TestMisTurnosPublico_ConDNIYMailCorrectosMuestraLaTarjeta(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mistrunos1@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mistrunos1@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 
 	qs := url.Values{"dni": {"30111222"}, "email": {"bruno@example.com"}}.Encode()
 	rec := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug+"/mis-turnos?"+qs, nil)
@@ -52,10 +52,10 @@ func TestMisTurnosPublico_ConDNIYMailCorrectosMuestraLaTarjeta(t *testing.T) {
 // correcto que el DNI tiene un turno.
 func TestMisTurnosPublico_MailQueNoCoincideNoRevelaElTurno(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mistrunos2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mistrunos2@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 
 	qs := url.Values{"dni": {"30111222"}, "email": {"otro@example.com"}}.Encode()
 	rec := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug+"/mis-turnos?"+qs, nil)
@@ -80,10 +80,10 @@ func TestMisTurnosPublico_DNIInexistenteDaNotFound(t *testing.T) {
 // VIGENTES, mismo criterio que turnoActivoPorDNI.
 func TestMisTurnosPublico_TurnoYaResueltoDaNotFound(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mistrunos4@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mistrunos4@example.com")
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, "bruno@example.com")
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", token))
+		solicitudDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", token))
 	if err := gdb.Model(&db.Turno{}).Where("clinic_id = ? AND dni_contacto = ?", reg.Profesional.ID, "30111222").
 		Updates(map[string]interface{}{"hora_inicio": time.Now().Add(-2 * time.Hour), "hora_fin": time.Now().Add(-90 * time.Minute)}).Error; err != nil {
 		t.Fatalf("no se pudo llevar el turno al pasado: %v", err)
@@ -144,12 +144,12 @@ func TestMisTurnosPublico_ClinicaInexistenteDaNotFound(t *testing.T) {
 // se actualizó para usarlo.
 func TestMisTurnosPublico_ParaOtroElTutorEncuentraElTurno(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mistrunos-paraotro@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mistrunos-paraotro@example.com")
 
 	tutorEmail := "mama-mistrunos@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
 	crear := doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token))
+		solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token))
 	if crear.Code != http.StatusCreated {
 		t.Fatalf("no se pudo crear el turno para otro: status=%d body=%s", crear.Code, crear.Body.String())
 	}
@@ -182,12 +182,12 @@ func TestMisTurnosPublico_ParaOtroElTutorEncuentraElTurno(t *testing.T) {
 // un agujero nuevo — un mail cualquiera sigue sin revelar nada.
 func TestMisTurnosPublico_ParaOtroConMailAjenoNoRevelaNada(t *testing.T) {
 	router, gdb, sender := newTestRouterWithMail(t)
-	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "mistrunos-paraotro2@example.com")
+	reg, _ := profesionalConTipoConsulta(t, gdb, router, "mistrunos-paraotro2@example.com")
 
 	tutorEmail := "mama-mistrunos2@example.com"
 	token := verificarEmailDePrueba(t, router, sender, reg.Profesional.Slug, tutorEmail)
 	doJSON(t, router, http.MethodPost, "/clinicas/"+reg.Profesional.Slug+"/turnos",
-		solicitudParaOtroDePrueba(tipoID, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token))
+		solicitudParaOtroDePrueba(nombreTipoSembrado, fechaDePruebaDisponibilidad, "08:00", tutorEmail, token))
 
 	qs := url.Values{"dni": {"40111222"}, "email": {"curioso@example.com"}}.Encode()
 	rec := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug+"/mis-turnos?"+qs, nil)

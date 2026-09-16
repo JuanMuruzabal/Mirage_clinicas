@@ -218,6 +218,8 @@ Por el guardián de migraciones destructivas (TR-132), en el grupo **previo** al
 | 12 | `idx_matricula_unica` — índice único **parcial** sobre `professional_profiles (matricula_tipo, matricula_numero)` ✅ **hecho 2026-09-14 (TR-141)** | Índice |
 | 13 | `enlaces_turno.user_id` — de quién es el link para compartir ✅ **hecho 2026-09-14 (TR-143)** | Columna |
 | 14 | `idx_horario_atencion_general_por_profesional` reemplaza a `idx_horario_atencion_general_unico` ✅ **hecho 2026-09-14 (TR-143)** | Índice |
+| 15 | `turnos.tipoConsultaNombre` — NO es una columna: el nombre del tipo se resuelve en la respuesta ✅ **hecho 2026-09-15 (TR-145)** | Sin cambio de esquema |
+| 16 | `enlaces_turno.para_todos_los_profesionales` y `enlaces_turno.paciente_id` — qué decide el link ✅ **hecho 2026-09-16 (3.2.7b, TR-149)** | 2 columnas |
 
 **Una diferencia a propósito entre la app y la base:** desde la ronda de QA del 2026-09-13, crear una clínica exige provincia, ciudad, dirección y teléfono, pero esas cuatro columnas **siguen siendo nullable**. Las clínicas que ya existen no los tienen, y volverlas `NOT NULL` obligaría a inventar valores para datos reales que nadie cargó. La regla vive donde entra el dato nuevo (el handler del alta); el día que todas las filas estén completas, la constraint se puede agregar sin inventar nada.
 
@@ -253,6 +255,22 @@ CREATE UNIQUE INDEX idx_horario_atencion_general_por_profesional
 ```
 
 **El enlace necesitaba dueño** porque no cuelga de ningún turno previo — los **crea** —, así que no hay de dónde derivarlo. Y decide a qué agenda entran esos turnos: sin la columna, compartir el link le cargaba trabajo al owner.
+
+### 16 — Qué decide el enlace (2026-09-16, 3.2.7b, TR-149)
+
+```sql
+ALTER TABLE enlaces_turno ADD COLUMN para_todos_los_profesionales boolean NOT NULL DEFAULT false;
+ALTER TABLE enlaces_turno ADD COLUMN paciente_id uuid;
+```
+
+`user_id` (el 13) dice **de quién es** el enlace. Estas dos dicen **qué decide**:
+
+- **`para_todos_los_profesionales`** — `false` es el default y el comportamiento histórico (el turno entra en la agenda del dueño y el wizard no pregunta con quién); `true` devuelve la elección al paciente. El default importa: es lo que hace que los enlaces ya emitidos sigan comportándose igual sin migrar ninguna fila.
+- **`paciente_id`** — la ficha elegida al generarlo, nullable. Con ella el wizard no vuelve a pedir lo que esa ficha ya tiene. Es también el límite de autorización: el enlace sirve para ESA ficha y ninguna otra (ver TR-149).
+
+**`paciente_id` queda SIN foreign key a propósito**, por el mismo criterio que `conflictos_paciente` (TR-131): una ficha se puede fusionar o borrar al resolver un conflicto de identidad, y el enlace es efímero — dura una hora. Una FK `NO ACTION` ahí haría que resolver un conflicto fallara con 23503 por culpa de un link que probablemente ya venció. Medido en la base: `enlaces_turno` tiene una sola FK, la de `clinic_id`.
+
+Un enlace cuya ficha desapareció se comporta como uno sin ficha: el wizard pide los datos de siempre. Es la degradación correcta — nunca deja entrar a una ficha equivocada, porque la autorización exige que el id del pedido sea exactamente el que el enlace trae.
 
 **El índice del horario general era la regla vieja escrita en el motor.** Imponía *una fila general por CLÍNICA*, que era correcto cuando cada clínica tenía un profesional. Con dos, el segundo que guardaba su horario se llevaba un **500 crudo** por querer decir a qué hora abre. El `COALESCE` está porque `user_id` es nullable —las filas anteriores a la 3.2.1— y en un índice único dos NULL nunca son iguales: sin él, una clínica vieja podría juntar varias filas generales huérfanas, que es justo lo que este índice evita.
 

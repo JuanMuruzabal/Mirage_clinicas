@@ -94,6 +94,12 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		"enlace_turno.go": {
 			// El TOKEN es la autorización: lo usa el paciente, sin sesión.
 			`clinic_id = ? AND token_hash = ?`,
+			// La ficha que un profesional elige al generar un enlace: la
+			// identidad del paciente es de la CLÍNICA (TR-144), igual que
+			// en /pacientes/de-la-clinica. Acotarla al profesional
+			// impediría mandarle el link a alguien que atiende un colega,
+			// que es medio mostrador y medio el caso de uso.
+			`id = ? AND clinic_id = ?`,
 		},
 		// Protegen el formulario público, que es uno por clínica.
 		"seguridad_turno_publico.go": {`clinic_id`},

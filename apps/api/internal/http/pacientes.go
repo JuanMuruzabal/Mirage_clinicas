@@ -570,6 +570,25 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
 			return
 		}
+		// EL MAIL ES OBLIGATORIO SIN TUTOR (2026-09-15, pedido del
+		// cliente), y no es una validación de formulario más: es la causa
+		// raíz de un bug real.
+		//
+		// Una ficha cargada a mano cuenta como VERIFICADA por su origen
+		// (pacienteEstaVerificado: `origen == "manual"` y nada más). Sin
+		// mail, el wizard público no tiene con qué reconocerla: cualquier
+		// pedido con ese DNI falla el "¿esta ficha responde a este mail?"
+		// —no hay contra qué comparar— y, por estar verificada, dispara un
+		// conflicto de identidad. Uno por pedido, para siempre.
+		//
+		// Con tutor el mail propio sigue siendo opcional (un menor puede
+		// no tener): ahí la identidad la aporta el tutor, cuyo mail sí se
+		// exige más abajo, y el wizard lo reconoce por él
+		// (pacienteTieneTutorConMail).
+		if !req.ConTutor && req.Email == "" {
+			writeError(w, http.StatusBadRequest, "el email del paciente es obligatorio")
+			return
+		}
 		if req.Email != "" {
 			if _, err := mail.ParseAddress(req.Email); err != nil {
 				writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")

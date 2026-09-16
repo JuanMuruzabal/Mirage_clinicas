@@ -31,8 +31,14 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var conflictosPacientes int64
+		// soloConflictosVivos: el contador tiene que decir exactamente lo
+		// mismo que la pantalla de Pacientes. Sin ese filtro contaba
+		// tickets que quedaron sin ficha duplicada —resolver un conflicto
+		// la borra, y una resolución arrastra a sus hermanos por mail— y
+		// avisaba de algo que ahí no aparecía.
 		if err := gdb.Model(&db.ConflictoPaciente{}).
-			Scopes(soloMisConflictos(r)).Where("clinic_id = ? AND resuelto = false", profesionalID).
+			Scopes(soloMisConflictos(r), soloConflictosVivos).
+			Where("clinic_id = ? AND resuelto = false", profesionalID).
 			Count(&conflictosPacientes).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return

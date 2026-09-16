@@ -9,6 +9,7 @@ import {
   apiCancelarTurno,
   apiCancelarTurnosSinVerificar,
   apiCrearEnlaceTurno,
+  type CrearEnlaceTurnoOpciones,
   apiCrearTurnoManual,
   apiListTurnos,
   apiListTurnosPaginado,
@@ -81,12 +82,14 @@ export async function crearTurnoManualAction(payload: CrearTurnoManualPayload): 
 // crearEnlaceTurnoAction — modal "+ Agregar turno" → "Compartir link de
 // turnero" (Fase 2, ítem 5): genera el link de 1h. Sin revalidatePath —
 // generar un link no cambia ningún dato visible en el panel.
-export async function crearEnlaceTurnoAction(): Promise<TurnoActionResult | { url: string; expiraEn: string }> {
+export async function crearEnlaceTurnoAction(
+  opciones?: CrearEnlaceTurnoOpciones,
+): Promise<TurnoActionResult | { url: string; expiraEn: string }> {
   const token = await getSessionToken();
   if (!token) {
     redirect("/ingresar");
   }
-  const result = await apiCrearEnlaceTurno(token);
+  const result = await apiCrearEnlaceTurno(token, opciones);
   if (!result.ok) {
     return { error: result.error };
   }
