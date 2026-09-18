@@ -54,7 +54,81 @@ var estadisticasValidas = map[string]bool{"pacientes_atendidos": true, "turnos_r
 const (
 	topeFotosGaleria          = 8
 	topeFotosSueltasPorPagina = 10
+
+	maxLargoBio         = 2000
+	maxLargoTituloTexto = 80
+	maxLargoTextoLibre  = 2000
+	maxLargoRed         = 100
+	// maxLargoNombreModulo: el nombre que el admin le pone a un módulo para
+	// reconocerlo en el editor ("Foto de la sala de espera"). Vive en
+	// config.nombre de cualquier tipo de módulo.
+	maxLargoNombreModulo = 60
+	maxLargoURLFoto      = 500 // el de la columna foto_portada_url
 )
+
+// redesSocialesValidas — lista cerrada, igual criterio que las
+// estadísticas: la página muestra estas tres y nada más.
+var redesSocialesValidas = map[string]bool{"instagram": true, "facebook": true, "whatsapp": true}
+
+// coloresNombreValidos — el color del nombre sobre la portada es un set
+// curado y no un hex libre (la individualización de la página vive dentro de
+// opciones ya resueltas, decisión #5 de fase4-personalizar-pagina.md). "" =
+// sin elegir: el frontend usa blanco. Espejo de COLORES_NOMBRE en
+// apps/web/src/lib/pagina-publica/portada.ts y del CHECK
+// chk_pagina_publica_nombre_color (db/migrate.go) — los tres cambian juntos.
+var coloresNombreValidos = map[string]bool{"": true, "blanco": true, "negro": true, "dorado": true, "celeste": true}
+
+// urlDeFotoValida — una foto de la página viene de nuestro propio upload
+// (POST /panel/pagina/fotos), que devuelve una URL absoluta (http/https) o
+// una ruta bajo /uploads/. Nada de `javascript:`/`data:` ni de esquemas
+// raros: el frontend las pone en un `src`, y sin este filtro cualquier
+// admin de una clínica podría guardar lo que quiera en una página que ve
+// el público. Vacía vale (= sin foto).
+func urlDeFotoValida(u string) bool {
+	if u == "" {
+		return true
+	}
+	if len(u) > maxLargoURLFoto {
+		return false
+	}
+	return strings.HasPrefix(u, "/uploads/") || strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://")
+}
+
+// validarRedesSociales — la clave tiene que ser una de las tres, y el valor
+// es un usuario/número o una URL http(s): un valor con esquema que no sea
+// http(s) (`javascript:...`) se rechaza porque el frontend lo va a
+// convertir en un link clickeable de la vidriera pública.
+func validarRedesSociales(redes map[string]string) error {
+	for clave, valor := range redes {
+		if !redesSocialesValidas[clave] {
+			return fmt.Errorf("red social no soportada: %q", clave)
+		}
+		valor = strings.TrimSpace(valor)
+		if len(valor) > maxLargoRed {
+			return fmt.Errorf("el valor de %s es demasiado largo (máximo %d caracteres)", clave, maxLargoRed)
+		}
+		if strings.Contains(valor, ":") && !strings.HasPrefix(valor, "https://") && !strings.HasPrefix(valor, "http://") {
+			return fmt.Errorf("el valor de %s tiene un formato inválido", clave)
+		}
+	}
+	return nil
+}
+
+// vacioANil — un texto vacío (tras recortar) se guarda como NULL, no como
+// "". Un `*string` de un JSON no distingue "null" de "ausente" (los dos
+// llegan como nil), así que la forma de VACIAR un campo opcional es mandar
+// "" — y no queremos una columna llena de cadenas vacías que después haya
+// que distinguir de NULL en cada lectura.
+func vacioANil(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	t := strings.TrimSpace(*s)
+	if t == "" {
+		return nil
+	}
+	return &t
+}
 
 type moduloResponse struct {
 	ID      string         `json:"id"`
@@ -79,23 +153,47 @@ type paginaPublicaResponse struct {
 	RedesSociales     map[string]string `json:"redesSociales"`
 	MostrarMapa       bool              `json:"mostrarMapa"`
 	DireccionOverride *string           `json:"direccionOverride,omitempty"`
-	Modulos           []moduloResponse  `json:"modulos"`
-	Estadisticas      map[string]int    `json:"estadisticas"`
+	// NombreSobrePortada/NombreColor: el nombre de la clínica sobre la foto de
+	// portada y su color (set curado, ver coloresNombreValidos).
+	NombreSobrePortada bool   `json:"nombreSobrePortada"`
+	NombreColor        string `json:"nombreColor"`
+	// DireccionClinica — la de la Clinic, SIN el override. El editor
+	// calcula la efectiva (override si hay, si no esta) del lado del
+	// cliente para previsualizar el módulo de contacto mientras se
+	// tipea; si viniera ya resuelta, borrar el override en el editor
+	// dejaría la previsualización sin saber a qué volver.
+	DireccionClinica *string          `json:"direccionClinica,omitempty"`
+	Modulos          []moduloResponse `json:"modulos"`
+	Estadisticas     map[string]int   `json:"estadisticas"`
+}
+
+// respuestaDePagina arma la respuesta completa de /panel/pagina — el único
+// lugar que junta la página con sus estadísticas y con la dirección de la
+// clínica, para que los cuatro handlers respondan igual.
+func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) paginaPublicaResponse {
+	resp := toPaginaPublicaResponse(p, estadisticasDeLaClinica(gdb, clinicID))
+	var clinic db.Clinic
+	if err := gdb.Where("id = ?", clinicID).First(&clinic).Error; err == nil {
+		resp.DireccionClinica = clinic.Direccion
+	}
+	return resp
 }
 
 func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) paginaPublicaResponse {
 	resp := paginaPublicaResponse{
-		Oculta:            p.Oculta,
-		Bio:               p.Bio,
-		Tema:              p.Tema,
-		TemaVariante:      p.TemaVariante,
-		TemaTipografia:    p.TemaTipografia,
-		FotoPortadaURL:    p.FotoPortadaURL,
-		RedesSociales:     p.RedesSociales,
-		MostrarMapa:       p.MostrarMapa,
-		DireccionOverride: p.DireccionOverride,
-		Modulos:           make([]moduloResponse, len(p.Modulos)),
-		Estadisticas:      estadisticas,
+		Oculta:             p.Oculta,
+		Bio:                p.Bio,
+		Tema:               p.Tema,
+		TemaVariante:       p.TemaVariante,
+		TemaTipografia:     p.TemaTipografia,
+		FotoPortadaURL:     p.FotoPortadaURL,
+		RedesSociales:      p.RedesSociales,
+		MostrarMapa:        p.MostrarMapa,
+		DireccionOverride:  p.DireccionOverride,
+		NombreSobrePortada: p.NombreSobrePortada,
+		NombreColor:        p.NombreColor,
+		Modulos:            make([]moduloResponse, len(p.Modulos)),
+		Estadisticas:       estadisticas,
 	}
 	if resp.RedesSociales == nil {
 		resp.RedesSociales = map[string]string{}
@@ -164,7 +262,7 @@ func getPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
 			return
 		}
-		writeJSON(w, http.StatusOK, toPaginaPublicaResponse(*pagina, estadisticasDeLaClinica(gdb, clinicID)))
+		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
 }
 
@@ -180,13 +278,16 @@ type moduloRequest struct {
 }
 
 type actualizarPaginaPublicaRequest struct {
-	Bio               *string           `json:"bio"`
-	Tema              *string           `json:"tema"`
-	TemaVariante      *string           `json:"temaVariante"`
-	TemaTipografia    *string           `json:"temaTipografia"`
-	RedesSociales     map[string]string `json:"redesSociales"`
-	MostrarMapa       *bool             `json:"mostrarMapa"`
-	DireccionOverride *string           `json:"direccionOverride"`
+	Bio                *string           `json:"bio"`
+	Tema               *string           `json:"tema"`
+	TemaVariante       *string           `json:"temaVariante"`
+	TemaTipografia     *string           `json:"temaTipografia"`
+	RedesSociales      map[string]string `json:"redesSociales"`
+	MostrarMapa        *bool             `json:"mostrarMapa"`
+	DireccionOverride  *string           `json:"direccionOverride"`
+	FotoPortadaURL     *string           `json:"fotoPortadaUrl"`
+	NombreSobrePortada *bool             `json:"nombreSobrePortada"`
+	NombreColor        *string           `json:"nombreColor"`
 	// Modulos — puntero al slice, no el slice solo: distingue "no vino en
 	// el body" (nil, no tocar los módulos existentes) de "vino una lista
 	// vacía" (reemplazar por CERO módulos, ej. el owner borró todos).
@@ -201,17 +302,45 @@ func validarModulos(modulos []moduloRequest) error {
 		if !tiposModuloValidos[m.Tipo] {
 			return fmt.Errorf("tipo de módulo inválido: %q", m.Tipo)
 		}
+		if nombre, ok := m.Config["nombre"]; ok {
+			texto, esTexto := nombre.(string)
+			if !esTexto {
+				return errors.New("el nombre de un módulo tiene que ser un texto")
+			}
+			if len([]rune(texto)) > maxLargoNombreModulo {
+				return fmt.Errorf("el nombre de un módulo admite hasta %d caracteres", maxLargoNombreModulo)
+			}
+		}
 		switch m.Tipo {
+		case "texto_libre":
+			titulo, _ := m.Config["titulo"].(string)
+			texto, _ := m.Config["texto"].(string)
+			if len([]rune(titulo)) > maxLargoTituloTexto {
+				return fmt.Errorf("el título de una sección de texto admite hasta %d caracteres", maxLargoTituloTexto)
+			}
+			if len([]rune(texto)) > maxLargoTextoLibre {
+				return fmt.Errorf("una sección de texto admite hasta %d caracteres", maxLargoTextoLibre)
+			}
 		case "foto":
 			fotosSueltas++
 			subtipo, _ := m.Config["subtipo"].(string)
 			if !subtiposFotoValidos[subtipo] {
 				return fmt.Errorf("subtipo de foto inválido: %q", subtipo)
 			}
+			fotoURL, _ := m.Config["fotoUrl"].(string)
+			if !urlDeFotoValida(fotoURL) {
+				return errors.New("la URL de la foto no es válida")
+			}
 		case "galeria":
 			fotoUrls, _ := m.Config["fotoUrls"].([]any)
 			if len(fotoUrls) > topeFotosGaleria {
 				return fmt.Errorf("la galería admite hasta %d fotos", topeFotosGaleria)
+			}
+			for _, v := range fotoUrls {
+				u, _ := v.(string)
+				if u == "" || !urlDeFotoValida(u) {
+					return errors.New("la URL de una foto de la galería no es válida")
+				}
 			}
 		case "estadisticas":
 			mostrar, _ := m.Config["mostrar"].([]any)
@@ -279,6 +408,25 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		if req.Bio != nil && len([]rune(*req.Bio)) > maxLargoBio {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("la bio admite hasta %d caracteres", maxLargoBio))
+			return
+		}
+		if req.FotoPortadaURL != nil && !urlDeFotoValida(strings.TrimSpace(*req.FotoPortadaURL)) {
+			writeError(w, http.StatusBadRequest, "la URL de la foto de portada no es válida")
+			return
+		}
+		if req.NombreColor != nil && !coloresNombreValidos[strings.TrimSpace(*req.NombreColor)] {
+			writeError(w, http.StatusBadRequest, "color del nombre inválido")
+			return
+		}
+		if req.RedesSociales != nil {
+			if err := validarRedesSociales(req.RedesSociales); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+
 		if req.Modulos != nil {
 			if err := validarModulos(*req.Modulos); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
@@ -301,7 +449,7 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			updates := db.PaginaPublica{}
 			var campos []string
 			if req.Bio != nil {
-				updates.Bio = req.Bio
+				updates.Bio = vacioANil(req.Bio)
 				campos = append(campos, "Bio")
 			}
 			if req.Tema != nil {
@@ -317,7 +465,15 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 				campos = append(campos, "TemaTipografia")
 			}
 			if req.RedesSociales != nil {
-				updates.RedesSociales = req.RedesSociales
+				// Sin entradas vacías: una red que el admin borró no
+				// tiene que sobrevivir como {"instagram": ""}.
+				limpias := make(map[string]string, len(req.RedesSociales))
+				for clave, valor := range req.RedesSociales {
+					if v := strings.TrimSpace(valor); v != "" {
+						limpias[clave] = v
+					}
+				}
+				updates.RedesSociales = limpias
 				campos = append(campos, "RedesSociales")
 			}
 			if req.MostrarMapa != nil {
@@ -325,8 +481,20 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 				campos = append(campos, "MostrarMapa")
 			}
 			if req.DireccionOverride != nil {
-				updates.DireccionOverride = req.DireccionOverride
+				updates.DireccionOverride = vacioANil(req.DireccionOverride)
 				campos = append(campos, "DireccionOverride")
+			}
+			if req.FotoPortadaURL != nil {
+				updates.FotoPortadaURL = vacioANil(req.FotoPortadaURL)
+				campos = append(campos, "FotoPortadaURL")
+			}
+			if req.NombreSobrePortada != nil {
+				updates.NombreSobrePortada = *req.NombreSobrePortada
+				campos = append(campos, "NombreSobrePortada")
+			}
+			if req.NombreColor != nil {
+				updates.NombreColor = strings.TrimSpace(*req.NombreColor)
+				campos = append(campos, "NombreColor")
 			}
 			if len(campos) > 0 {
 				if err := tx.Model(&db.PaginaPublica{}).Where("id = ?", pagina.ID).Select(campos).Updates(updates).Error; err != nil {
@@ -344,6 +512,16 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 					if err := tx.Create(&fila).Error; err != nil {
 						return err
 					}
+					// Visible=false hay que escribirlo aparte: el modelo
+					// tiene `default:true` y GORM trata el false como "no
+					// vino" al crear (ni Select("*") lo evita) — ocultar un
+					// módulo se guardaba como visible y nadie lo notaba (lo
+					// encontró el test de `personalizada`).
+					if !m.Visible {
+						if err := tx.Model(&fila).Update("visible", false).Error; err != nil {
+							return err
+						}
+					}
 				}
 			}
 			return nil
@@ -358,7 +536,7 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "página actualizada pero no se pudo leerla de vuelta")
 			return
 		}
-		writeJSON(w, http.StatusOK, toPaginaPublicaResponse(*pagina, estadisticasDeLaClinica(gdb, clinicID)))
+		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
 }
 
@@ -461,7 +639,7 @@ func ocultarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar la página")
 			return
 		}
-		writeJSON(w, http.StatusOK, toPaginaPublicaResponse(*pagina, estadisticasDeLaClinica(gdb, clinicID)))
+		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
 }
 
@@ -493,6 +671,6 @@ func deployarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 				return
 			}
 		}
-		writeJSON(w, http.StatusOK, toPaginaPublicaResponse(*pagina, estadisticasDeLaClinica(gdb, clinicID)))
+		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
 }

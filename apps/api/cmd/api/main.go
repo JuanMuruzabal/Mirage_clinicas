@@ -216,9 +216,17 @@ func buildStorage(cfg config.Config) (storage.Storage, error) {
 	publicURLBase := cfg.StoragePublicURL
 	if publicURLBase == "" {
 		// Sin STORAGE_PUBLIC_URL (vacía por default, ver .env.example): la
-		// propia API sirve lo que guarda, en /uploads (montado en
-		// router.go vía AuthDeps.StorageDir).
-		publicURLBase = "http://localhost:" + cfg.Port + "/uploads"
+		// URL es RELATIVA ("/uploads/x.jpg") y la resuelve el navegador
+		// contra el origen de la PÁGINA, no el de la API. La web tiene una
+		// ruta /uploads/* que le pide el archivo a la API por la red interna
+		// (apps/web/src/app/uploads) — el navegador nunca le habla directo a
+		// la API (BFF) y la CSP de la web (img-src 'self' https:) no tiene
+		// que abrirse para un origen http de desarrollo. Antes esto era
+		// "http://localhost:<puerto>/uploads": otro origen y sin HTTPS, y el
+		// navegador bloqueaba toda foto subida. La API sigue sirviendo el
+		// directorio (router.go, AuthDeps.StorageDir); esa es la fuente que
+		// consulta la ruta de la web.
+		publicURLBase = "/uploads"
 	}
 	return storage.NewLocalStorage(cfg.StorageDir, publicURLBase)
 }

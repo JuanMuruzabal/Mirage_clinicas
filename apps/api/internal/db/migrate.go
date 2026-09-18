@@ -673,6 +673,14 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		       'redondeada-calida', 'editorial-suave'
 		     ));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// Color del nombre sobre la portada (Fase 4.4): set curado, espejo de
+		// coloresNombreValidos (internal/http/pagina_publica.go) y de
+		// COLORES_NOMBRE (apps/web/src/lib/pagina-publica/portada.ts).
+		`DO $$ BEGIN
+		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_nombre_color
+		     CHECK (nombre_color IN ('', 'blanco', 'negro', 'dorado', 'celeste'));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,

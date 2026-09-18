@@ -58,8 +58,17 @@ type clinicaPublicaResponse struct {
 	RedesSociales  map[string]string `json:"redesSociales"`
 	MostrarMapa    bool              `json:"mostrarMapa"`
 	Direccion      *string           `json:"direccion,omitempty"`
-	Modulos        []moduloResponse  `json:"modulos"`
-	Estadisticas   map[string]int    `json:"estadisticas"`
+	// NombreSobrePortada/NombreColor: ver paginaPublicaResponse.
+	NombreSobrePortada bool             `json:"nombreSobrePortada"`
+	NombreColor        string           `json:"nombreColor"`
+	Modulos            []moduloResponse `json:"modulos"`
+	Estadisticas       map[string]int   `json:"estadisticas"`
+	// Personalizada — la página tiene módulos guardados, aunque hoy estén
+	// todos ocultos. Sin esto el frontend no puede distinguir "nunca la
+	// editaron" (Modulos vacío → se arma la estructura por defecto) de
+	// "los ocultaron todos a propósito" (Modulos vacío → mostrar solo
+	// portada y turno), porque este endpoint filtra los no visibles.
+	Personalizada bool `json:"personalizada"`
 }
 
 // ownerProfile busca el ProfessionalProfile del dueño (ClinicMember con
@@ -143,6 +152,10 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}).Where("clinic_id = ?", clinic.ID).First(&pagina).Error; err != nil {
 			pagina = db.PaginaPublica{}
 		}
+		var totalModulos int64
+		if pagina.ID != uuid.Nil {
+			gdb.Model(&db.PaginaPublicaModulo{}).Where("pagina_publica_id = ?", pagina.ID).Count(&totalModulos)
+		}
 
 		profile, _ := ownerProfile(gdb, clinic.ID)
 		var telefono *string
@@ -167,22 +180,25 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, clinicaPublicaResponse{
-			Slug:              clinic.Slug,
-			NombreClinica:     clinic.Nombre,
-			ProfesionalNombre: nombreCompletoProfesional(profile),
-			Telefono:          telefono,
-			Especialidades:    especialidades,
-			Oculta:            pagina.Oculta,
-			Bio:               pagina.Bio,
-			Tema:              pagina.Tema,
-			TemaVariante:      pagina.TemaVariante,
-			TemaTipografia:    pagina.TemaTipografia,
-			FotoPortadaURL:    pagina.FotoPortadaURL,
-			RedesSociales:     redes,
-			MostrarMapa:       pagina.MostrarMapa,
-			Direccion:         direccionEfectiva(pagina, clinic),
-			Modulos:           modulos,
-			Estadisticas:      estadisticasDeLaClinica(gdb, clinic.ID),
+			Slug:               clinic.Slug,
+			NombreClinica:      clinic.Nombre,
+			ProfesionalNombre:  nombreCompletoProfesional(profile),
+			Telefono:           telefono,
+			Especialidades:     especialidades,
+			Oculta:             pagina.Oculta,
+			Bio:                pagina.Bio,
+			Tema:               pagina.Tema,
+			TemaVariante:       pagina.TemaVariante,
+			TemaTipografia:     pagina.TemaTipografia,
+			FotoPortadaURL:     pagina.FotoPortadaURL,
+			RedesSociales:      redes,
+			MostrarMapa:        pagina.MostrarMapa,
+			NombreSobrePortada: pagina.NombreSobrePortada,
+			NombreColor:        pagina.NombreColor,
+			Direccion:          direccionEfectiva(pagina, clinic),
+			Modulos:            modulos,
+			Estadisticas:       estadisticasDeLaClinica(gdb, clinic.ID),
+			Personalizada:      totalModulos > 0,
 		})
 	}
 }

@@ -661,6 +661,14 @@ type PaginaPublica struct {
 	RedesSociales     map[string]string `gorm:"column:redes_sociales;type:jsonb;serializer:json"`
 	MostrarMapa       bool              `gorm:"column:mostrar_mapa;not null;default:false"`
 	DireccionOverride *string           `gorm:"column:direccion_override;type:varchar(255)"`
+	// NombreSobrePortada: el nombre de la clínica se dibuja SOBRE la foto de
+	// portada en vez de debajo (Fase 4.4, pedido del cliente). NombreColor es
+	// el color de ESE nombre — un id de un set curado (blanco/negro/dorado/
+	// celeste, ver coloresNombreValidos en internal/http/pagina_publica.go),
+	// no un hex libre; "" = el default (blanco). Solo rige con foto de
+	// portada y con NombreSobrePortada prendido.
+	NombreSobrePortada bool   `gorm:"column:nombre_sobre_portada;not null;default:false"`
+	NombreColor        string `gorm:"column:nombre_color;type:varchar(20);not null;default:''"`
 	// constraint:- suprime la FK automática que GORM crearía sola a partir
 	// de esta relación (con su propio nombre, sin pasar por
 	// clavesForaneas()) — la única FK real de esta relación es la entrada
