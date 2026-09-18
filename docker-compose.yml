@@ -72,8 +72,16 @@ services:
       # archivo: con APP_BASE_URL apuntando a un dominio público esto se
       # ignora aunque diga "true" (HerramientasDeDesarrolloHabilitadas).
       DEV_TOOLS: "true"
+      # Dónde guarda la API las fotos que suben desde /personalizar-pagina
+      # (Fase 4). Es un volumen aparte (más abajo) y no una carpeta del
+      # contenedor: sin él, cada `docker compose up --build` recrea el
+      # contenedor y borra las fotos, mientras la base — que sí persiste —
+      # sigue apuntando a archivos que ya no existen (imagen rota).
+      STORAGE_DIR: /data/uploads
     ports:
       - "8080:8080"
+    volumes:
+      - uploads_data:/data/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -113,3 +121,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

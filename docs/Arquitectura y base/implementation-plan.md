@@ -845,4 +845,25 @@ Más: roles (administrador con acceso a todas las vistas y reasignación de turn
 
 ---
 
+## 14. Fase 4 — Personalización de la página pública
+
+Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio. Definición funcional: `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`. Estado para retomar: `fase4.1-a-4.3-estado-implementacion.md` (4.1 a 4.3) y `fase4.4-4.5-estado-implementacion.md` (4.4 y 4.5). Decisiones: `docs/Arquitectura y base/tradeoffs.md` TR-150 a TR-153.
+
+| Subfase | Qué | Estado |
+|---|---|---|
+| 4.1 | Modelo de datos: `PaginaPublica` extendida + tabla `pagina_publica_modulos` | ✅ mergeada (PR #43) |
+| 4.2 | Endpoints `GET/PATCH /panel/pagina`, upload de fotos, estadísticas reales, fix del bug owner-only | ✅ mergeada (PR #43) |
+| 4.3 | Catálogo de temas: 5 × 3 variantes + 5 pares de tipografía compartidos | ✅ mergeada (PR #43) |
+| 4.4 | Editor: borrador único, módulos reordenables (arrastre + flechas), selector de tema, subida de fotos, previsualización móvil/tablet/escritorio | ✅ implementada — pendiente de QA en navegador |
+| 4.5 | `ClinicaPublicaTemplate` dibuja el tema y los módulos persistidos | ✅ implementada — pendiente de QA en navegador |
+| 4.6 | Storage real en producción (Cloudflare R2, TR-046) | pendiente — **bloquea las fotos en producción** (la subida responde 501) |
+
+**Pendiente dentro de la Fase 4, sin subfase todavía:**
+
+- **Módulo `horarios`.** El backend lo acepta, el editor no lo ofrece y la plantilla lo ignora. Hay que decidir de dónde sale el horario con N profesionales (TR-151).
+- **Prueba visual.** La 4.4/4.5 se verificó con la suite, el build y el HTML server-side con el stack real; no en un navegador (TR-153 lista qué quedó sin ver).
+- **Preload de fuentes.** `tipografias.ts` declara 8 fuentes de Google al importarse; cada ruta que lo importa preloadea las 8 aunque el tema use 2. Si pesa, `preload: false`.
+
+---
+
 *Documento vivo — actualizar cuando el cliente confirme o corrija alguna de las decisiones asumidas en la sección 9, o cuando `/frontend-design` (T5.1) fije la paleta/tipografía definitivas.*

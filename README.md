@@ -144,7 +144,7 @@ cero):
 
 ```bash
 docker compose down        # conserva el volumen (datos persistidos)
-docker compose down -v     # borra también postgres_data
+docker compose down -v     # borra también postgres_data y uploads_data (las fotos de la página pública)
 ```
 
 ### Opción B — Cada app suelta (mejor para iterar rápido con hot-reload)

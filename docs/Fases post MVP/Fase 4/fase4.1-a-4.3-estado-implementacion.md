@@ -1,5 +1,7 @@
 # Fase 4.1 a 4.3 — Estado de la implementación (para retomar)
 
+> **Actualización 2026-09-18 (tarde): la 4.1 a 4.3 ya está commiteada y MERGEADA a `dev` (PR #43).** El resto de este documento dice "nada commiteado, falta commit + PR" y quedó desactualizado en ese punto — se conserva como registro. Para la 4.4 y 4.5 ver `fase4.4-4.5-estado-implementacion.md`; las decisiones de arquitectura están en `tradeoffs.md` TR-150 a TR-153.
+
 **Actualizado 2026-09-18: 4.1+4.2+4.3 completas y verificadas — falta solo el commit + PR.**
 Todo lo que este documento listaba como pendiente (tests de `clinicas_test.go`/CHECK de temas, frontend de la 4.2 completo, verificación final) ya está hecho — ver "Qué quedó HECHO" más abajo, ahora fusionado en una sola sección. Nada se commiteó todavía: sigue pendiente de que el usuario confirme el paso de commit + PR (pedido explícito: recién cuando las tres subfases estén completas y verificadas, no antes).
 

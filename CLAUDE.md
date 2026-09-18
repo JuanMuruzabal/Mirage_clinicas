@@ -30,7 +30,10 @@ Desde la raíz del repo (`package.json` tiene los atajos; detalle completo en `R
 - `pnpm run test:web` (Vitest) / `pnpm run test:api` (`go test ./internal/...`) — ver "Testing" abajo.
 - `pnpm run test:coverage:web` / `pnpm run test:coverage:api` — mismo run + reporte de cobertura.
 - Un test puntual: frontend `pnpm --filter @dental-mirage/web test <patrón del archivo o nombre>`; backend `cd apps/api && go test ./internal/<paquete>/... -run TestNombre`.
-- `-race` (detector de condiciones de carrera en Go) no está en `test:api` porque alarga la corrida — para correrlo local: `cd apps/api && go test ./internal/... -race`.
+- `-race` (detector de condiciones de carrera en Go) no está en `test:api` porque alarga la corrida, **pero CI sí lo corre** (job `test-api`): un test que pasa local puede fallar ahí por una carrera. Para correrlo local: `cd apps/api && go test ./internal/... -race`.
+- `internal/testdb` crea la base `dental_mirage_test` sola si no existe (alcanza con Postgres arriba); solo hay que setear `TEST_DATABASE_URL` si se usa otra.
+- `packages/shared-types` son interfaces TS escritas **a mano** que reflejan los structs de respuesta de `apps/api`: no se generan. Si cambiás la forma de un JSON del backend, actualizalas a mano — `typecheck:shared-types` solo detecta lo que el frontend ya consume.
+- `scripts/qa-entorno-dev.sh` recorre el flujo real (onboarding → turno → panel → wizard público) contra los contenedores levantados con `docker compose up -d --build`; complementa la suite, que corre sobre transacciones revertidas y no ve problemas de migración o configuración reales.
 
 Flujo de ramas activo desde antes de Sprint 4 — ver "Flujo de ramas" más abajo; no asumir que hay que crear una rama ni mergear a `main` sin que lo pidan explícitamente.
 
@@ -158,21 +161,33 @@ Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.do
 
 ## Fase 4 — Personalización de la página pública
 
-Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio — el resto (UI del panel de gestión) queda para después, todavía sin fases numeradas. Definición funcional completa en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; estado de la implementación (para retomar) en `docs/Fases post MVP/Fase 4/fase4.1-a-4.3-estado-implementacion.md`.
+Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio — el resto (UI del panel de gestión) queda para después, todavía sin fases numeradas. Definición funcional completa en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; estado de la implementación (para retomar) en `docs/Fases post MVP/Fase 4/fase4.4-4.5-estado-implementacion.md` (la 4.1 a 4.3 está en `fase4.1-a-4.3-estado-implementacion.md`, mergeada). Decisiones: `docs/Arquitectura y base/tradeoffs.md` TR-150 a TR-153; plan: `implementation-plan.md` §14.
 
 | Subfase | Qué | Estado |
 |---|---|---|
 | 4.1 | Modelo de datos: `PaginaPublica` extendida (bio, tema/variante/tipografía, foto de portada, redes sociales, mapa, dirección override) + tabla `PaginaPublicaModulo` | ✅ |
 | 4.2 | Endpoints backend y frontend: `GET/PATCH /panel/pagina` (reemplazo completo, mismo criterio que `PUT /horario-atencion/general`), `POST /panel/pagina/fotos` (primer upload multipart del repo), estadísticas reales (pacientes atendidos/turnos realizados, nunca un valor cargado a mano), y el fix del bug owner-only (especialidades/búsqueda por nombre pasan a ser la unión de TODOS los profesionales activos, no solo el owner) | ✅ |
 | 4.3 | Catálogo de temas: 5 temas × 3 variantes de color cada uno + 5 pares de tipografía **compartidos entre temas** (no uno por tema, para no cargar hasta 15 pares de Google Fonts) — validado con CHECK en Postgres (`chk_pagina_publica_tema*`) y en el handler (`temaEsValido`, que sí valida la relación tema↔variante — el CHECK de la base valida cada columna contra su propio catálogo plano, no esa relación cruzada) | ✅ |
-| 4.4 | Editor visual con grilla — conectar `pagina-editor.tsx` de verdad (hoy "Guardar cambios" sigue deshabilitado a propósito) | pendiente |
-| 4.5 | Renderizado dinámico de `ClinicaPublicaTemplate` a partir de los módulos persistidos — hoy la plantilla pública sigue fija | pendiente |
+| 4.4 | Editor: borrador único que se guarda de una vez, módulos reordenables (`@dnd-kit` + flechas), selector de tema, subida de fotos, vista previa móvil/tablet/escritorio | ✅ implementada, sin QA en navegador |
+| 4.5 | `ClinicaPublicaTemplate` dibuja el tema y los módulos persistidos | ✅ implementada, sin QA en navegador |
 | 4.6 | Storage real en producción (Cloudflare R2, TR-046) — hoy `internal/storage` solo tiene `LocalStorage` (disco, dev); `STORAGE_R2_BUCKET` configurado hace fallar el arranque a propósito en vez de degradar en silencio a un storage que se pierde en cada deploy | pendiente |
+
+Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
+
+- **`@container` va SOLO alrededor de la grilla de módulos.** El wizard de turno y "Mis turnos" abren modales `position: fixed` desde adentro de `ClinicaPublicaTemplate`; un ancestro con `container-type` es su bloque contenedor y los recortaría al ancho de la página. Ningún test de jsdom lo detecta.
+- **Editor y plantilla comparten `ContenidoPagina` y `modulosPorDefecto()`** (`lib/pagina-publica/`): una lista vacía es "nunca la personalizaron" (estructura por defecto), por eso el editor no deja quitar el último módulo y el endpoint público devuelve `personalizada` (no devuelve los módulos ocultos).
+- **Para vaciar un campo opcional se manda `""`, no `null`** (un `*string` de Go no distingue `null` de ausente); el backend lo guarda como NULL.
+- **Todo dato que la página pública convierte en `href`/`src` se valida en el backend Y se filtra en el frontend** (`enlaces.ts`): un `javascript:` cargado por un admin no puede volverse un link.
+- **GORM ignora un `false` en un `bool` con `default:true` al hacer `Create`** — ocultar un módulo se guardaba como visible. Se escribe aparte con `Update`.
+- **Las fotos locales se sirven same-origin** por `apps/web/src/app/uploads/[...path]/route.ts` (URL relativa `/uploads/x.jpg`, TR-154): la CSP (`img-src 'self' https:`) bloquea imágenes de otro origen o de http, y **jsdom no aplica CSP** — un test unitario no lo ve. El mapa del módulo Contacto entra por `frame-src https://www.google.com/maps`.
+- **El nombre de un módulo (`config.nombre`) es una etiqueta del editor, no un título público; el nombre de la clínica puede ir sobre la portada con un color de un set curado** (`lib/pagina-publica/portada.ts`, TR-155). El color y su velo van juntos: sumar uno toca `COLORES_NOMBRE`, `coloresNombreValidos` (Go) y el CHECK `chk_pagina_publica_nombre_color`.
+- **Sin storage no hay fotos:** en producción la subida responde 501 hasta la 4.6. `horarios` está aceptado por el backend pero no en el editor (¿de cuál de los N profesionales?).
+- **Server Actions tienen 1 MB de body por default**; `next.config.ts` lo sube a 6 MB por las fotos.
 
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
 ## Flujo de ramas
 
-Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`.
+Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`. **Ojo: "push libre" no es inocuo** — un push a `dev` corre CI (web, api, test-api con `-race` y gate 80%, test-web) y, si pasa, dispara el deploy en Render (un solo entorno, TR-021); `main` corre el mismo CI pero no despliega.
 
 **Fase 2 — proceso de QA por ítem (TR-083 en `docs/Arquitectura y base/tradeoffs.md`):** pedido explícito del cliente en `docs/Fases post MVP/Fase 2/fase2-dental-mirage.md` — implementar los 5 ítems uno por uno, cada uno en su propia rama `feature/fase2-NN-descripcion` (no una sola rama larga para toda la fase). **Nunca hacer commit ni push de un ítem hasta que el cliente apruebe su QA** — a diferencia del resto del proyecto, donde push a `dev` es libre. Una vez aprobado un ítem, commit a su rama y PR a `dev` (no push directo). Este proceso aplica solo mientras dure la Fase 2, no cambia el flujo general de arriba para el resto del trabajo.
