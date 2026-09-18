@@ -1324,17 +1324,22 @@ export interface PaginaPublicaModuloPayload {
 // ActualizarPaginaPublicaPayload — espejo de actualizarPaginaPublicaRequest.
 // Cada campo es opcional y punteros del lado de Go: una clave AUSENTE del
 // body deja ese campo como está (JSON.stringify ya omite `undefined`), una
-// clave presente lo reemplaza — incluido `null` para vaciar `bio`/
-// `direccionOverride`. `modulos` sigue el mismo criterio: ausente no toca
-// nada, `[]` borra todos los módulos existentes.
+// clave presente lo reemplaza. Para VACIAR `bio`/`direccionOverride`/
+// `fotoPortadaUrl` hay que mandar "" — NO `null`: un `*string` de Go recibe
+// `null` igual que "ausente" (nil) y no toca nada; el backend guarda el ""
+// como NULL. `modulos` sigue el mismo criterio: ausente no toca nada, `[]`
+// borra todos los módulos existentes.
 export interface ActualizarPaginaPublicaPayload {
-  bio?: string | null;
+  bio?: string;
   tema?: string;
   temaVariante?: string;
   temaTipografia?: string;
+  fotoPortadaUrl?: string;
   redesSociales?: Record<string, string>;
   mostrarMapa?: boolean;
-  direccionOverride?: string | null;
+  direccionOverride?: string;
+  nombreSobrePortada?: boolean;
+  nombreColor?: string;
   modulos?: PaginaPublicaModuloPayload[];
 }
 
@@ -1347,6 +1352,22 @@ export function apiActualizarPaginaPublica(
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
   });
+}
+
+// apiFetchUpload — trae una foto subida desde la API, para la ruta /uploads/*
+// de la web (src/app/uploads). Devuelve la Response cruda (para poder pasar el
+// cuerpo como stream, sin cargar la imagen entera en memoria) o `null` si la
+// API no responde — el llamador distingue "no existe" (404 de la API) de "no
+// se pudo conectar". Sin sesión ni cabeceras de IP: es un archivo público.
+export async function apiFetchUpload(nombre: string): Promise<Response | null> {
+  try {
+    return await fetch(`${API_URL}/uploads/${encodeURIComponent(nombre)}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    });
+  } catch {
+    return null;
+  }
 }
 
 export interface SubirFotoPaginaPublicaResponse {

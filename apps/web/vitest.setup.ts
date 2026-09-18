@@ -10,6 +10,28 @@ import "@testing-library/jest-dom/vitest";
 // intención real del paquete, no un parche (mismo mock que Marcuzzi_Madryn).
 vi.mock("server-only", () => ({}));
 
+// next/font/google solo funciona bajo el compilador de Next: cada función
+// (Fraunces(), Inter()...) se reemplaza en el build por un objeto con la
+// clase/variable CSS. En Vitest no hay compilador y la llamada real revienta
+// apenas se importa el módulo — lo hace lib/temas-pagina-publica/tipografias.ts
+// (Fase 4.5), que importa la plantilla pública. Este stub devuelve la forma
+// que ese archivo lee (`variable`), con un nombre derivado de la fuente para
+// que las clases de dos fuentes no colisionen. Si se suma una fuente nueva
+// a tipografias.ts, agregarla acá.
+vi.mock("next/font/google", () => {
+  const fuente = (nombre: string) => () => ({ variable: `--mock-${nombre}`, className: `mock-${nombre}`, style: { fontFamily: nombre } });
+  return {
+    Fraunces: fuente("fraunces"),
+    Source_Sans_3: fuente("source-sans-3"),
+    Space_Grotesk: fuente("space-grotesk"),
+    Inter: fuente("inter"),
+    Fredoka: fuente("fredoka"),
+    Nunito_Sans: fuente("nunito-sans"),
+    Libre_Baskerville: fuente("libre-baskerville"),
+    Karla: fuente("karla"),
+  };
+});
+
 // jsdom no implementa IntersectionObserver ni matchMedia — framer-motion
 // los usa para whileInView (ScrollReveal) y useReducedMotion
 // respectivamente. Sin esto, cualquier componente que renderice un
