@@ -184,6 +184,9 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 
 	if err := gdb.AutoMigrate(
 		&Especialidad{}, &TipoConsulta{}, &Paciente{}, &Turno{}, &PaginaPublica{},
+		// Fase 4.1: contenido editable de la página pública — módulos
+		// (widgets) sobre la grilla, ver PaginaPublicaModulo en models.go.
+		&PaginaPublicaModulo{},
 		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
@@ -640,6 +643,36 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// AutoMigrate nunca borra columnas, solo agrega.
 		// Los `DROP COLUMN` de dni/tutor_dni que estaban acá se movieron al
 		// bloque de migraciones destructivas (migrate_destructiva.go).
+
+		// Fase 4.3: el catálogo de temas de la página pública ya está
+		// cerrado (temasValidos/tipografiasValidas en
+		// internal/http/temas_pagina_publica.go, espejo de
+		// apps/web/src/lib/temas-pagina-publica/) — la 4.1 dejó estas tres
+		// columnas sin CHECK a propósito, "hasta que el catálogo exista".
+		// "" = sin elegir todavía (default de la 4.1), sigue siendo válido.
+		`DO $$ BEGIN
+		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema
+		     CHECK (tema IN ('', 'calido', 'clinico', 'moderno', 'natural', 'clasico'));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		`DO $$ BEGIN
+		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema_variante
+		     CHECK (tema_variante IN (
+		       '', 'calido-1', 'calido-2', 'calido-3',
+		       'clinico-1', 'clinico-2', 'clinico-3',
+		       'moderno-1', 'moderno-2', 'moderno-3',
+		       'natural-1', 'natural-2', 'natural-3',
+		       'clasico-1', 'clasico-2', 'clasico-3'
+		     ));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		`DO $$ BEGIN
+		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema_tipografia
+		     CHECK (tema_tipografia IN (
+		       '', 'condensada-institucional', 'serif-clasica', 'geometrica-moderna',
+		       'redondeada-calida', 'editorial-suave'
+		     ));
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,

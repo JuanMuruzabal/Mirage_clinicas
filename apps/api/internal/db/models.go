@@ -642,11 +642,59 @@ type PaginaPublica struct {
 	ClinicID    uuid.UUID  `gorm:"column:clinic_id;type:uuid;not null;uniqueIndex"`
 	Oculta      bool       `gorm:"not null;default:false"`
 	DeployadaEn *time.Time `gorm:"column:deployada_en"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+
+	// Contenido editable (Fase 4.1, docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md)
+	// — todavía sin endpoint que lo lea/escriba (Fase 4.2) ni frontend que
+	// lo consuma. Bio es institucional de la clínica, no del profesional
+	// (ProfessionalProfile.Bio es otra cosa, sigue sin usarse).
+	Bio *string `gorm:"type:text"`
+	// Tema/TemaVariante/TemaTipografia: sin CHECK de valores permitidos a
+	// propósito — el catálogo de temas es la Fase 4.3, todavía sin diseñar.
+	// "" = sin tema elegido. El CHECK se agrega recién cuando el catálogo
+	// exista, mismo criterio que MatriculaTipo en ProfessionalProfile.
+	Tema           string  `gorm:"column:tema;type:varchar(30);not null;default:''"`
+	TemaVariante   string  `gorm:"column:tema_variante;type:varchar(30);not null;default:''"`
+	TemaTipografia string  `gorm:"column:tema_tipografia;type:varchar(30);not null;default:''"`
+	FotoPortadaURL *string `gorm:"column:foto_portada_url;type:varchar(500)"`
+	// RedesSociales: mismo patrón que ProfessionalProfile.Idiomas (jsonb +
+	// serializer:json) — { instagram?, facebook?, whatsapp? ... }.
+	RedesSociales     map[string]string `gorm:"column:redes_sociales;type:jsonb;serializer:json"`
+	MostrarMapa       bool              `gorm:"column:mostrar_mapa;not null;default:false"`
+	DireccionOverride *string           `gorm:"column:direccion_override;type:varchar(255)"`
+	// constraint:- suprime la FK automática que GORM crearía sola a partir
+	// de esta relación (con su propio nombre, sin pasar por
+	// clavesForaneas()) — la única FK real de esta relación es la entrada
+	// manual en migrate_fk.go, mismo criterio que el resto del esquema
+	// desde la Fase C de la auditoría (TR-131).
+	Modulos []PaginaPublicaModulo `gorm:"foreignKey:PaginaPublicaID;constraint:-"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (PaginaPublica) TableName() string { return "paginas_publicas" }
+
+// PaginaPublicaModulo — un bloque de contenido (widget) dentro de la
+// grilla de la página pública (Fase 4.1). Tipo sin CHECK todavía, mismo
+// motivo que Tema arriba: el catálogo de tipos de módulo se cierra en la
+// Fase 4.2 ('portada' | 'sobre_nosotros' | 'texto_libre' | 'especialidades'
+// | 'foto' | 'galeria' | 'estadisticas' | 'contacto' | 'horarios' | 'turno').
+// Config es jsonb polimórfico según Tipo (ej. texto_libre -> {titulo,
+// texto}, foto -> {fotoUrl, subtipo}) — el único campo del esquema sin
+// forma fija, a propósito: cada tipo de módulo define su propia forma, no
+// tiene sentido una columna por posible campo.
+type PaginaPublicaModulo struct {
+	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	PaginaPublicaID uuid.UUID      `gorm:"column:pagina_publica_id;type:uuid;not null;index"`
+	Tipo            string         `gorm:"type:varchar(30);not null"`
+	Orden           int            `gorm:"column:orden;not null;default:0"`
+	Visible         bool           `gorm:"not null;default:true"`
+	Config          map[string]any `gorm:"type:jsonb;serializer:json"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (PaginaPublicaModulo) TableName() string { return "pagina_publica_modulos" }
 
 // MigracionUnaVez — corrección de performance (auditoría 2026-09-08, Fase
 // B, docs/Seguridad y optimizacion/): registro de las migraciones de datos

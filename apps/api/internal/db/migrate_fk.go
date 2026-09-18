@@ -70,6 +70,10 @@ func clavesForaneas() []claveForanea {
 		{"fk_turnos_clinica", "turnos", "clinic_id", "clinics", "", false},
 		{"fk_tipos_consulta_clinica", "tipos_consulta", "clinic_id", "clinics", "", false},
 		{"fk_paginas_publicas_clinica", "paginas_publicas", "clinic_id", "clinics", "", false},
+		// Fase 4.1: los módulos no tienen sentido sin su página, pero
+		// ninguna ruta de código borra una PaginaPublica hoy — RESTRICT no
+		// bloquea nada existente, mismo motivo que el resto del bloque.
+		{"fk_pagina_publica_modulos_pagina", "pagina_publica_modulos", "pagina_publica_id", "paginas_publicas", "", false},
 		{"fk_enlaces_turno_clinica", "enlaces_turno", "clinic_id", "clinics", "", false},
 		{"fk_conflictos_paciente_clinica", "conflictos_paciente", "clinic_id", "clinics", "", false},
 		{"fk_auditoria_bloqueos_clinica", "auditoria_bloqueos_turno_publico", "clinic_id", "clinics", "", false},

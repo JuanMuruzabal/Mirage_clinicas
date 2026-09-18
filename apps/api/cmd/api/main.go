@@ -3,6 +3,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	dmmail "dental-mirage/api/internal/mail"
 	"dental-mirage/api/internal/ratelimit"
 	"dental-mirage/api/internal/security"
+	"dental-mirage/api/internal/storage"
 	"dental-mirage/api/internal/turnstile"
 )
 
@@ -103,7 +105,12 @@ func main() {
 		fatal("error conectando a la base de datos", err)
 	}
 
-	deps := buildAuthDeps(cfg, gormDB)
+	store, err := buildStorage(cfg)
+	if err != nil {
+		fatal("error configurando storage", err)
+	}
+
+	deps := buildAuthDeps(cfg, gormDB, store)
 	router := apihttp.NewRouterWithDeps(gormDB, deps, cfg.CORSAllowedOrigins)
 
 	go runPurgeLoop(gormDB)
@@ -195,7 +202,28 @@ func purgeOnce(gormDB *gorm.DB) {
 // no-op en dev + real activada por env var). Sin la env var
 // correspondiente, cada dependencia queda nil-disabled — nunca un 500;
 // mail siempre tiene una implementación (LogSender en dev).
-func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
+// buildStorage — Fase 4.2, fotos de la página pública. Mismo patrón
+// dev/prod del resto de dependencias externas, con una diferencia: acá SÍ
+// falla el arranque si la config es inconsistente, en vez de degradar en
+// silencio. STORAGE_R2_BUCKET configurado prometería persistencia real en
+// R2; caer en silencio a disco local serviría fotos que desaparecen en el
+// próximo deploy (el filesystem del contenedor no es persistente) sin que
+// nadie se entere hasta que un profesional reporte que su foto rota.
+func buildStorage(cfg config.Config) (storage.Storage, error) {
+	if cfg.StorageR2Bucket != "" {
+		return nil, fmt.Errorf("STORAGE_R2_BUCKET está configurado pero la implementación R2 todavía no existe (TR-046, Fase 4.6) — sacá la variable para seguir con disco local acá, o esperá a que la 4.6 esté lista")
+	}
+	publicURLBase := cfg.StoragePublicURL
+	if publicURLBase == "" {
+		// Sin STORAGE_PUBLIC_URL (vacía por default, ver .env.example): la
+		// propia API sirve lo que guarda, en /uploads (montado en
+		// router.go vía AuthDeps.StorageDir).
+		publicURLBase = "http://localhost:" + cfg.Port + "/uploads"
+	}
+	return storage.NewLocalStorage(cfg.StorageDir, publicURLBase)
+}
+
+func buildAuthDeps(cfg config.Config, gormDB *gorm.DB, store storage.Storage) apihttp.AuthDeps {
 	var mailSender dmmail.Sender = dmmail.LogSender{}
 	if cfg.ResendAPIKey != "" {
 		mailSender = dmmail.NewResendSender(cfg.ResendAPIKey, cfg.ResendFromEmail)
@@ -258,6 +286,11 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB) apihttp.AuthDeps {
 		// real del visitante. Vacío: la cabecera se ignora, ver
 		// internal/http/ip_del_visitante.go.
 		BFFSharedSecret: cfg.BFFSharedSecret,
+		// Fase 4.2 — fotos de la página pública. store nunca es nil acá:
+		// buildStorage ya hizo fallar el arranque si la config era
+		// inconsistente (ver más arriba, en main()).
+		Storage:    store,
+		StorageDir: cfg.StorageDir,
 	}
 }
 
