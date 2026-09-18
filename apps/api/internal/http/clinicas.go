@@ -82,14 +82,6 @@ func nombreCompletoProfesional(p db.ProfessionalProfile) string {
 	return strings.TrimSpace(p.Nombre + " " + p.Apellido)
 }
 
-func especialidadesNombres(p db.ProfessionalProfile) []string {
-	out := make([]string, len(p.Especialidades))
-	for i, e := range p.Especialidades {
-		out[i] = e.Nombre
-	}
-	return out
-}
-
 // profesionalesActivosDeLaClinica — Fase 4.2, fix del bug owner-only:
 // desde la Fase 3.2 una clínica puede tener N profesionales, y hasta acá
 // la página pública/el buscador solo miraban al owner (ownerProfile) —
