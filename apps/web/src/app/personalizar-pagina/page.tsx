@@ -38,6 +38,8 @@ export default async function PersonalizarPaginaPage() {
         temaTipografia: "",
         redesSociales: {},
         mostrarMapa: false,
+        nombreSobrePortada: false,
+        nombreColor: "",
         modulos: [],
         estadisticas: {},
       };

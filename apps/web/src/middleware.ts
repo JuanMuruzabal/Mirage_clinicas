@@ -22,6 +22,12 @@ import type { NextRequest } from "next/server";
 // Next lo use al emitir sus propios scripts) como en el de response (para
 // que el navegador lo acepte).
 //
+// Imágenes: `img-src 'self' https:` — las fotos de la página pública salen
+// del mismo origen (ruta /uploads/*, ver apps/web/src/app/uploads) o de un
+// https (R2 en producción). No se abre a un origen http de desarrollo: la
+// solución al "las fotos no cargan en local" fue servirlas same-origin, no
+// aflojar esta política.
+//
 // connect-src/frame-src/script-src incluyen accounts.google.com (Google
 // Identity Services, popup + Authorization Code — decisión #1 del plan
 // aprobado) y challenges.cloudflare.com (Turnstile, spec §7) — son los
@@ -36,7 +42,12 @@ function buildCsp(nonce: string): string {
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
-    "frame-src https://accounts.google.com https://challenges.cloudflare.com",
+    // https://www.google.com/maps: el mapa embebido del módulo "Contacto" de
+    // la página pública (Fase 4.5, urlDeMapaEmbebido). Con path a propósito:
+    // habilita el embed de Maps y no cualquier cosa de google.com. Es una
+    // ampliación real — al ver la página, el visitante carga contenido de
+    // Google — y solo se usa si la clínica marca "Mostrar mapa".
+    "frame-src https://accounts.google.com https://challenges.cloudflare.com https://www.google.com/maps",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

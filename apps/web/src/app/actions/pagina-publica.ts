@@ -7,6 +7,7 @@ import {
   apiActualizarPaginaPublica,
   apiDeployarPaginaPublica,
   apiOcultarPaginaPublica,
+  apiSubirFotoPaginaPublica,
   type ActualizarPaginaPublicaPayload,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -71,4 +72,30 @@ export async function actualizarPaginaPublicaAction(
     revalidatePath("/buscar");
   }
   return { pagina: result.data };
+}
+
+// subirFotoPaginaPublicaAction (Fase 4.4) — sube UNA foto y devuelve su URL;
+// no guarda nada en la página: el editor la guarda recién con "Guardar
+// cambios", junto con el resto. Un archivo subido y nunca guardado queda
+// huérfano en el storage (costo aceptado: la alternativa, subir recién al
+// guardar, obligaría a mantener los `File` en memoria del navegador).
+export async function subirFotoPaginaPublicaAction(formData: FormData): Promise<PaginaPublicaActionResult | { url: string }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const foto = formData.get("foto");
+  if (!(foto instanceof File) || foto.size === 0) {
+    return { error: "Elegí una imagen para subir." };
+  }
+  const result = await apiSubirFotoPaginaPublica(token, foto);
+  if (!result.ok) {
+    // 501: el backend no tiene storage configurado (producción, hasta la
+    // Fase 4.6). Es un estado esperable, no un fallo — se dice como tal.
+    if (result.status === 501) {
+      return { error: "La subida de fotos todavía no está disponible en este entorno." };
+    }
+    return { error: result.error };
+  }
+  return { url: result.data.url };
 }

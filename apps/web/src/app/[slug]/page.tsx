@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { apiGetClinicaPublica } from "@/lib/api";
 import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
 import { PaginaEnMantenimiento } from "@/components/public/pagina-en-mantenimiento";
+import { contenidoDeClinicaPublica } from "@/lib/pagina-publica/contenido";
 
 // Página pública de una clínica (spec §5, ruta `/clinica-x`). Plantilla
 // fija completa desde T4.3 (spec §5.3: turno, "Sobre nosotros",
@@ -45,6 +46,7 @@ export default async function ClinicaPublicaPage({ params }: PageProps<"/[slug]"
           profesionalNombre={clinica.profesionalNombre}
           telefono={clinica.telefono}
           especialidades={clinica.especialidades}
+          contenido={contenidoDeClinicaPublica(clinica)}
         />
       )}
     </main>

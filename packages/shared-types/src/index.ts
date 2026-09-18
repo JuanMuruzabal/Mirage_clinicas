@@ -579,6 +579,28 @@ export interface ClinicaPublica {
   telefono?: string | null;
   especialidades: string[];
   oculta: boolean;
+  // Contenido de la Fase 4.2, que la plantilla pública renderiza desde la
+  // 4.5. Espejo de clinicaPublicaResponse (internal/http/clinicas.go).
+  // `modulos` viene SOLO con los visibles y ya ordenados; `direccion` es la
+  // efectiva (el override de la página si lo hay, si no la de la clínica).
+  bio?: string | null;
+  tema: string;
+  temaVariante: string;
+  temaTipografia: string;
+  fotoPortadaUrl?: string | null;
+  redesSociales: Record<string, string>;
+  mostrarMapa: boolean;
+  direccion?: string | null;
+  // nombreSobrePortada/nombreColor — el nombre de la clínica dibujado sobre la
+  // foto de portada y su color (id de un set curado; "" = el default).
+  nombreSobrePortada: boolean;
+  nombreColor: string;
+  modulos: PaginaPublicaModulo[];
+  estadisticas: Record<string, number>;
+  // personalizada — hay módulos guardados aunque estén todos ocultos. Es lo
+  // único que distingue "nunca la editaron" (estructura por defecto) de
+  // "los ocultaron todos" (solo portada y turno).
+  personalizada: boolean;
 }
 
 // --- Sprint 4: edición y deploy de página pública (spec §5) ---
@@ -615,6 +637,11 @@ export interface PaginaPublica {
   redesSociales: Record<string, string>;
   mostrarMapa: boolean;
   direccionOverride?: string | null;
+  nombreSobrePortada: boolean;
+  nombreColor: string;
+  // direccionClinica — la de la Clinic, SIN el override: el editor calcula
+  // la efectiva del lado del cliente para previsualizar mientras se tipea.
+  direccionClinica?: string | null;
   modulos: PaginaPublicaModulo[];
   estadisticas: Record<string, number>;
 }

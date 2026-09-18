@@ -1,39 +1,95 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { PaginaPublica } from "@dental-mirage/shared-types";
 import type { SesionCompleta } from "@/lib/session";
-import { deployarPaginaPublicaAction, ocultarPaginaPublicaAction } from "@/app/actions/pagina-publica";
+import {
+  actualizarPaginaPublicaAction,
+  deployarPaginaPublicaAction,
+  ocultarPaginaPublicaAction,
+} from "@/app/actions/pagina-publica";
 import { formatFechaHora } from "@/lib/turno-format";
-import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
+import { borradorAPayload, borradorDePagina, contenidoDeBorrador, hayCambios, type Borrador } from "@/lib/pagina-publica/borrador";
+import { ListaModulos } from "@/components/editor-pagina/lista-modulos";
+import { SelectorDeTema } from "@/components/editor-pagina/selector-de-tema";
+import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
 
 interface PaginaEditorProps {
   sesion: SesionCompleta;
   paginaInicial: PaginaPublica;
 }
 
-// PaginaEditor (T4.1/T4.2, spec §5) — layout del editor: barra de
-// acciones arriba (Ver página/Guardar cambios/Ocultar/Deployar, spec
-// §5.2) + izquierda previsualización en vivo (mismo componente que la
-// página real, ClinicaPublicaTemplate) / derecha panel de edición
-// desplegable (spec §5.1: "sidebar desplegable, igual criterio que el de
-// gestión de clínica", ver PanelSidebar). Vive en su propia página,
-// /personalizar-pagina — no dentro de /panel/** (pedido explícito del
-// cliente, 2026-08-23: "es una pagina aparte por fuera de gestion
-// clinica"), así que acá tiene todo el ancho disponible, sin un sidebar
-// de navegación de clínica al lado — de ahí el panel y la previsualización
-// más generosos que si compartieran espacio con ese sidebar. "Guardar
-// cambios" y los campos del panel quedan deshabilitados a propósito — la
-// personalización real de contenido "queda para desarrollo posterior"
-// (spec §5.1), acá solo se define layout y estructura.
+type Pestana = "modulos" | "diseno";
+
+// PaginaEditor (T4.1/T4.2, spec §5; contenido real desde la Fase 4.4) —
+// layout del editor: barra de acciones arriba (Ver página/Guardar
+// cambios/Ocultar/Deployar, spec §5.2) + izquierda previsualización en vivo
+// (mismo componente que la página real, ClinicaPublicaTemplate, alimentado
+// con el BORRADOR) / derecha panel de edición desplegable (spec §5.1:
+// "sidebar desplegable, igual criterio que el de gestión de clínica", ver
+// PanelSidebar). Vive en su propia página, /personalizar-pagina — no dentro
+// de /panel/** (pedido explícito del cliente, 2026-08-23: "es una pagina
+// aparte por fuera de gestion clinica"), así que acá tiene todo el ancho
+// disponible.
+//
+// Todo lo editable vive en UN borrador del lado del cliente; "Guardar
+// cambios" lo manda de una vez (el PATCH reemplaza el contenido completo).
+// Ocultar y Deployar son acciones aparte, con su propio endpoint: no
+// guardan el borrador, y guardar el borrador tampoco publica nada.
 export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const nombreCompleto = `${sesion.nombre} ${sesion.apellido}`.trim();
   const [pagina, setPagina] = useState(paginaInicial);
+  const [guardado, setGuardado] = useState<Borrador>(() => borradorDePagina(paginaInicial));
+  const [borrador, setBorrador] = useState<Borrador>(guardado);
+  const [pendingGuardar, setPendingGuardar] = useState(false);
   const [pendingOcultar, setPendingOcultar] = useState(false);
   const [pendingDeployar, setPendingDeployar] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [panelAbierto, setPanelAbierto] = useState(true);
+  const [pestana, setPestana] = useState<Pestana>("modulos");
+
+  const sinGuardar = useMemo(() => hayCambios(guardado, borrador), [guardado, borrador]);
+  const contenido = useMemo(() => contenidoDeBorrador(borrador, pagina), [borrador, pagina]);
+
+  // Salir con cambios sin guardar pierde el borrador — el navegador avisa.
+  useEffect(() => {
+    if (!sinGuardar) return;
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [sinGuardar]);
+
+  function editar(parcial: Partial<Borrador>) {
+    setAviso(null);
+    setBorrador((actual) => ({ ...actual, ...parcial }));
+  }
+
+  async function guardar() {
+    setError(null);
+    setAviso(null);
+    setPendingGuardar(true);
+    const result = await actualizarPaginaPublicaAction(borradorAPayload(borrador));
+    setPendingGuardar(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    // Lo que devuelve el servidor es lo que quedó de verdad (recortó
+    // espacios, sacó redes vacías...): el borrador pasa a ser eso.
+    const guardadoAhora = borradorDePagina(result.pagina);
+    setPagina(result.pagina);
+    setGuardado(guardadoAhora);
+    setBorrador(guardadoAhora);
+    setAviso("Cambios guardados.");
+  }
+
+  function descartar() {
+    setError(null);
+    setAviso(null);
+    setBorrador(guardado);
+  }
 
   async function alternarOcultar() {
     setError(null);
@@ -44,7 +100,9 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
       setError(result.error);
       return;
     }
-    setPagina(result.pagina);
+    // Solo el estado de la página: el borrador (que puede tener cambios sin
+    // guardar) no se toca.
+    setPagina((actual) => ({ ...actual, oculta: result.pagina.oculta }));
   }
 
   async function deployar() {
@@ -56,7 +114,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
       setError(result.error);
       return;
     }
-    setPagina(result.pagina);
+    setPagina((actual) => ({ ...actual, deployadaEn: result.pagina.deployadaEn }));
   }
 
   return (
@@ -79,12 +137,26 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           </Link>
           <button
             type="button"
-            disabled
-            title="Vas a poder editar el contenido de tu página en una próxima actualización."
-            className="cursor-not-allowed rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito/40"
+            onClick={guardar}
+            disabled={!sinGuardar || pendingGuardar}
+            className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Guardar cambios
+            {pendingGuardar ? "Guardando…" : "Guardar cambios"}
           </button>
+          {sinGuardar && (
+            <button
+              type="button"
+              onClick={descartar}
+              disabled={pendingGuardar}
+              className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro disabled:opacity-50"
+            >
+              Descartar
+            </button>
+          )}
+          {/* role="status": se anuncia sin robar el foco. */}
+          <span role="status" className="text-xs text-grafito/70">
+            {sinGuardar ? "Tenés cambios sin guardar." : aviso}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -128,35 +200,26 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
       {/* flex-col en mobile, flex-row desde lg (2026-08-24, mismo pedido
           que el resto del panel: "los modulos se ven contraidos contra
-          la pagina") — con `flex` fijo, el panel de edición (w-80, 320px)
-          y la previsualización competían por el mismo ancho angosto en
-          mobile; apilados, cada uno usa el 100% del ancho disponible. */}
+          la pagina") — con `flex` fijo, el panel de edición y la
+          previsualización competían por el mismo ancho angosto en mobile;
+          apilados, cada uno usa el 100% del ancho disponible. */}
       <div className="flex flex-col gap-5 lg:flex-row">
-        <div className="min-h-[640px] flex-1 overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <p className="border-b-[0.5px] border-arena bg-marfil px-4 py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-            Previsualización en vivo
-          </p>
-          {/* Sin wrapper de fondo propio acá — ClinicaPublicaTemplate ya
-              trae su propio fondo celeste y su padding (pedido explícito
-              del cliente, 2026-08-23), la previsualización es fiel a la
-              página real tal cual. */}
-          <ClinicaPublicaTemplate
-            slug={sesion.slug}
-            nombreClinica={sesion.nombreClinica}
-            profesionalNombre={nombreCompleto}
-            telefono={sesion.telefono}
-            especialidades={sesion.especialidades.map((e) => e.nombre)}
-          />
-        </div>
+        <VistaPrevia
+          slug={sesion.slug}
+          nombreClinica={sesion.nombreClinica}
+          profesionalNombre={nombreCompleto}
+          telefono={sesion.telefono}
+          especialidades={sesion.especialidades.map((e) => e.nombre)}
+          contenido={contenido}
+        />
 
         {/* Panel de edición desplegable (spec §5.1) — mismo patrón de
             retracción que PanelSidebar, a la derecha en vez de a la
-            izquierda. Todos los campos son de solo lectura: reflejan los
-            datos ya cargados en "Tu perfil", no hay edición propia de
-            contenido de página todavía. */}
+            izquierda. */}
         <aside
+          aria-label="Panel de edición"
           className={`flex flex-shrink-0 flex-col rounded-card border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
-            panelAbierto ? "w-full lg:w-80" : "w-full lg:w-12"
+            panelAbierto ? "w-full lg:w-[26rem]" : "w-full lg:w-12"
           }`}
         >
           <button
@@ -173,57 +236,47 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
           {panelAbierto && (
             <div className="flex flex-col gap-4 overflow-auto p-4">
-              <p className="text-xs text-grafito/60">
-                Vas a poder editar estos campos en una próxima actualización — por ahora reflejan los datos de tu
-                perfil.
-              </p>
-
-              <CampoSoloLectura label="Nombre de la clínica" valor={sesion.nombreClinica} />
-              <CampoSoloLectura label="Teléfono" valor={sesion.telefono || "—"} />
-
-              <div>
-                <p className="text-xs uppercase tracking-widest text-grafito/50">Especialidades</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {sesion.especialidades.length === 0 ? (
-                    <span className="text-sm text-grafito/60">—</span>
-                  ) : (
-                    sesion.especialidades.map((esp) => (
-                      <span key={esp.id} className="rounded-full border-[0.5px] border-arena bg-hueso px-2.5 py-1 text-xs text-grafito/60">
-                        {esp.nombre}
-                      </span>
-                    ))
-                  )}
-                </div>
+              <div role="tablist" aria-label="Qué editar" className="flex gap-1 rounded-full bg-hueso p-1">
+                {(
+                  [
+                    ["modulos", "Módulos"],
+                    ["diseno", "Diseño"],
+                  ] as const
+                ).map(([id, etiqueta]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === id}
+                    onClick={() => setPestana(id)}
+                    className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
+                      pestana === id ? "bg-marfil text-grafito shadow-soft" : "text-grafito/60 hover:text-grafito"
+                    }`}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
               </div>
 
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="text-xs uppercase tracking-widest text-grafito/50">Sobre nosotros</span>
-                <textarea
-                  disabled
-                  rows={4}
-                  readOnly
-                  value="Esta sección todavía no tiene contenido propio."
-                  className="cursor-not-allowed rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito/60 outline-none"
+              {pestana === "modulos" ? (
+                <ListaModulos
+                  borrador={borrador}
+                  direccionClinica={pagina.direccionClinica}
+                  telefono={sesion.telefono}
+                  onBorrador={editar}
                 />
-              </label>
+              ) : (
+                <SelectorDeTema
+                  tema={borrador.tema}
+                  temaVariante={borrador.temaVariante}
+                  temaTipografia={borrador.temaTipografia}
+                  onCambio={editar}
+                />
+              )}
             </div>
           )}
         </aside>
       </div>
     </div>
-  );
-}
-
-function CampoSoloLectura({ label, valor }: { label: string; valor: string }) {
-  return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="text-xs uppercase tracking-widest text-grafito/50">{label}</span>
-      <input
-        disabled
-        readOnly
-        value={valor}
-        className="cursor-not-allowed rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito/60 outline-none"
-      />
-    </label>
   );
 }
