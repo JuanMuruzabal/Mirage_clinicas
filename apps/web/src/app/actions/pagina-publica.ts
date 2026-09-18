@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PaginaPublica } from "@dental-mirage/shared-types";
-import { apiDeployarPaginaPublica, apiOcultarPaginaPublica } from "@/lib/api";
+import {
+  apiActualizarPaginaPublica,
+  apiDeployarPaginaPublica,
+  apiOcultarPaginaPublica,
+  type ActualizarPaginaPublicaPayload,
+} from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 export interface PaginaPublicaActionResult {
@@ -41,5 +46,29 @@ export async function deployarPaginaPublicaAction(): Promise<PaginaPublicaAction
   }
   revalidatePath("/personalizar-pagina");
   revalidatePath("/buscar");
+  return { pagina: result.data };
+}
+
+// actualizarPaginaPublicaAction (Fase 4.2) — reemplazo del contenido
+// completo (bio, tema, módulos, fotos), calcando el retorno/redirect de
+// las dos de arriba. Sin UI todavía (la Fase 4.4 conecta pagina-editor.tsx
+// acá) — revalida /buscar también, porque una clínica ya deployada puede
+// cambiar lo que el buscador muestra (especialidades, nombre) apenas se
+// guarda.
+export async function actualizarPaginaPublicaAction(
+  payload: ActualizarPaginaPublicaPayload,
+): Promise<PaginaPublicaActionResult | { pagina: PaginaPublica }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiActualizarPaginaPublica(token, payload);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/personalizar-pagina");
+  if (result.data.deployadaEn) {
+    revalidatePath("/buscar");
+  }
   return { pagina: result.data };
 }

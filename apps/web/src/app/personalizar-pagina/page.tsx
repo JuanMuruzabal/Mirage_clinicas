@@ -28,7 +28,19 @@ export default async function PersonalizarPaginaPage() {
   }
   const token = await getSessionToken();
   const paginaResult = token ? await apiGetPaginaPublica(token) : null;
-  const pagina = paginaResult?.ok ? paginaResult.data : { oculta: false, deployadaEn: null };
+  const pagina = paginaResult?.ok
+    ? paginaResult.data
+    : {
+        oculta: false,
+        deployadaEn: null,
+        tema: "",
+        temaVariante: "",
+        temaTipografia: "",
+        redesSociales: {},
+        mostrarMapa: false,
+        modulos: [],
+        estadisticas: {},
+      };
 
   return (
     <main className="flex flex-1 flex-col gap-6 bg-hueso px-8 py-10 pt-[calc(var(--header-height)+2.5rem)]">
