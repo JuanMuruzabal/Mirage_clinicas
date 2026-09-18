@@ -1,11 +1,18 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"dental-mirage/api/internal/db"
 )
 
 func TestGetPaginaPublica_SeCreaSolaLaPrimeraVezConValoresPorDefecto(t *testing.T) {
@@ -146,3 +153,279 @@ func TestOcultarYDeployarPaginaPublica_RequierenAutenticacion(t *testing.T) {
 		t.Errorf("deployar: status = %d, esperaba %d", recDeployar.Code, http.StatusUnauthorized)
 	}
 }
+
+// ---------------------------------------------------------------------
+// PATCH /panel/pagina — contenido (Fase 4.2)
+// ---------------------------------------------------------------------
+
+func TestActualizarPaginaPublica_ActualizaVariosCamposYLosDevuelve(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Fede", Email: "pagina-patch1@example.com", Password: "password123456", NombreClinica: "Clínica Fede",
+	})
+
+	bio := "Atendemos desde 1998."
+	tema, variante := "calido", "calido-2"
+	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{
+		Bio: &bio, Tema: &tema, TemaVariante: &variante,
+		RedesSociales: map[string]string{"instagram": "@clinicafede"},
+		MostrarMapa:   boolPtr(true),
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got paginaPublicaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.Bio == nil || *got.Bio != bio {
+		t.Errorf("Bio = %v, esperaba %q", got.Bio, bio)
+	}
+	if got.Tema != tema || got.TemaVariante != variante {
+		t.Errorf("Tema/TemaVariante = %q/%q, esperaba %q/%q", got.Tema, got.TemaVariante, tema, variante)
+	}
+	if got.RedesSociales["instagram"] != "@clinicafede" {
+		t.Errorf("RedesSociales[instagram] = %q, esperaba @clinicafede", got.RedesSociales["instagram"])
+	}
+	if !got.MostrarMapa {
+		t.Error("MostrarMapa = false, esperaba true")
+	}
+}
+
+func TestActualizarPaginaPublica_RechazaTemaInvalido(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Gina", Email: "pagina-patch2@example.com", Password: "password123456", NombreClinica: "Clínica Gina",
+	})
+
+	tema := "no-existe"
+	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Tema: &tema})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestActualizarPaginaPublica_RechazaVarianteDeOtroTema(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Hugo", Email: "pagina-patch3@example.com", Password: "password123456", NombreClinica: "Clínica Hugo",
+	})
+
+	tema, varianteAjena := "calido", "clinico-1"
+	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Tema: &tema, TemaVariante: &varianteAjena})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d — una variante de \"clinico\" no vale para \"calido\". body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestActualizarPaginaPublica_RechazaTipoDeModuloInvalido(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Ines", Email: "pagina-patch4@example.com", Password: "password123456", NombreClinica: "Clínica Ines",
+	})
+
+	modulos := []moduloRequest{{Tipo: "portada", Orden: 0, Visible: true}} // "portada" es estructural, no se persiste
+	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &modulos})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestActualizarPaginaPublica_ModulosSeReemplazanCompletos — dos PATCH
+// sucesivos: el segundo reemplaza TODOS los módulos del primero, no los
+// acumula (reemplazo completo, no CRUD parcial — ver el comentario del
+// handler).
+func TestActualizarPaginaPublica_ModulosSeReemplazanCompletos(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Juan", Email: "pagina-patch5@example.com", Password: "password123456", NombreClinica: "Clínica Juan",
+	})
+
+	primeros := []moduloRequest{
+		{Tipo: "sobre_nosotros", Orden: 0, Visible: true},
+		{Tipo: "contacto", Orden: 1, Visible: true},
+	}
+	rec1 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &primeros})
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("primer PATCH: status = %d. body=%s", rec1.Code, rec1.Body.String())
+	}
+	var got1 paginaPublicaResponse
+	_ = json.Unmarshal(rec1.Body.Bytes(), &got1)
+	if len(got1.Modulos) != 2 {
+		t.Fatalf("después del primer PATCH: %d módulos, esperaba 2", len(got1.Modulos))
+	}
+
+	segundos := []moduloRequest{{Tipo: "horarios", Orden: 0, Visible: true}}
+	rec2 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &segundos})
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("segundo PATCH: status = %d. body=%s", rec2.Code, rec2.Body.String())
+	}
+	var got2 paginaPublicaResponse
+	_ = json.Unmarshal(rec2.Body.Bytes(), &got2)
+	if len(got2.Modulos) != 1 || got2.Modulos[0].Tipo != "horarios" {
+		t.Fatalf("después del segundo PATCH: %+v, esperaba solo el módulo \"horarios\"", got2.Modulos)
+	}
+}
+
+func TestActualizarPaginaPublica_RequiereRolAdmin(t *testing.T) {
+	router, gdb, _ := newTestRouterWithMail(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Karina", Email: "pagina-patch6@example.com", Password: "password123456", NombreClinica: "Clínica Karina",
+	})
+	clinicID := uuid.MustParse(titular.Profesional.ID)
+	tokenColega := sumarColaboradorDePrueba(t, gdb, router, clinicID, "colega-pagina@example.com", db.RoleProfesional)
+
+	bio := "no debería poder"
+	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", tokenColega, actualizarPaginaPublicaRequest{Bio: &bio})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, esperaba %d — un profesional sin rol admin no maneja la página pública", rec.Code, http.StatusForbidden)
+	}
+}
+
+// ---------------------------------------------------------------------
+// POST /panel/pagina/fotos — upload (Fase 4.2)
+// ---------------------------------------------------------------------
+
+func subirFotoDePrueba(t *testing.T, router http.Handler, token string, contentType string, contenido []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreatePart(map[string][]string{
+		"Content-Disposition": {`form-data; name="foto"; filename="foto.jpg"`},
+		"Content-Type":        {contentType},
+	})
+	if err != nil {
+		t.Fatalf("no se pudo armar el multipart: %v", err)
+	}
+	if _, err := part.Write(contenido); err != nil {
+		t.Fatalf("no se pudo escribir el contenido: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("no se pudo cerrar el multipart: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/panel/pagina/fotos", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestSubirFotoPaginaPublica_Exito(t *testing.T) {
+	router, gdb := newTestRouterWithStorage(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Lucas", Email: "pagina-foto1@example.com", Password: "password123456", NombreClinica: "Clínica Lucas",
+	})
+
+	rec := subirFotoDePrueba(t, router, reg.Token, "image/png", []byte("contenido de prueba"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got subirFotoResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if !strings.Contains(got.URL, "http://localhost:8080/uploads/") {
+		t.Errorf("URL = %q, esperaba que empezara con http://localhost:8080/uploads/", got.URL)
+	}
+}
+
+func TestSubirFotoPaginaPublica_RechazaContentTypeInvalido(t *testing.T) {
+	router, gdb := newTestRouterWithStorage(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Mara", Email: "pagina-foto2@example.com", Password: "password123456", NombreClinica: "Clínica Mara",
+	})
+
+	rec := subirFotoDePrueba(t, router, reg.Token, "application/pdf", []byte("no es una imagen"))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// TestSubirFotoPaginaPublica_SinStorageResponde501 — Storage nil (dev sin
+// configurar), mismo criterio que Google/Turnstile sin credenciales.
+func TestSubirFotoPaginaPublica_SinStorageResponde501(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Nico", Email: "pagina-foto3@example.com", Password: "password123456", NombreClinica: "Clínica Nico",
+	})
+
+	rec := subirFotoDePrueba(t, router, reg.Token, "image/png", []byte("x"))
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusNotImplemented, rec.Body.String())
+	}
+}
+
+func TestSubirFotoPaginaPublica_RequiereAutenticacion(t *testing.T) {
+	router, _ := newTestRouterWithStorage(t)
+	rec := subirFotoDePrueba(t, router, "", "image/png", []byte("x"))
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, esperaba %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+// ---------------------------------------------------------------------
+// Estadísticas reales (Fase 4.2)
+// ---------------------------------------------------------------------
+
+// TestGetPaginaPublica_EstadisticasCuentanSoloAsistio — pacientes_atendidos
+// es un conteo DISTINCT (dos turnos del mismo paciente cuentan una vez),
+// turnos_realizados no. Ausente y sin marcar no cuentan para ninguno de
+// los dos (decisión cerrada: solo estadísticas reales del sistema).
+func TestGetPaginaPublica_EstadisticasCuentanSoloAsistio(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Olga", Email: "pagina-stats1@example.com", Password: "password123456", NombreClinica: "Clínica Olga",
+	})
+	clinicID := uuid.MustParse(reg.Profesional.ID)
+
+	pacienteA := crearPacienteDePruebaPaginaPublica(t, gdb, clinicID, "40111111")
+	pacienteB := crearPacienteDePruebaPaginaPublica(t, gdb, clinicID, "40222222")
+
+	asistio := "asistio"
+	ausente := "ausente"
+	crearTurnoConAsistencia(t, gdb, clinicID, &pacienteA, &asistio)
+	crearTurnoConAsistencia(t, gdb, clinicID, &pacienteA, &asistio) // mismo paciente, otro turno
+	crearTurnoConAsistencia(t, gdb, clinicID, &pacienteB, &asistio)
+	crearTurnoConAsistencia(t, gdb, clinicID, &pacienteB, &ausente)
+	crearTurnoConAsistencia(t, gdb, clinicID, &pacienteB, nil) // sin marcar todavía
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/pagina", reg.Token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d. body=%s", rec.Code, rec.Body.String())
+	}
+	var got paginaPublicaResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if got.Estadisticas["pacientes_atendidos"] != 2 {
+		t.Errorf("pacientes_atendidos = %d, esperaba 2", got.Estadisticas["pacientes_atendidos"])
+	}
+	if got.Estadisticas["turnos_realizados"] != 3 {
+		t.Errorf("turnos_realizados = %d, esperaba 3", got.Estadisticas["turnos_realizados"])
+	}
+}
+
+func crearPacienteDePruebaPaginaPublica(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID, dni string) uuid.UUID {
+	t.Helper()
+	paciente := db.Paciente{ClinicID: clinicID, Nombre: "Paciente", Apellido: "De Prueba", DNI: dni}
+	if err := gdb.Create(&paciente).Error; err != nil {
+		t.Fatalf("no se pudo crear el paciente de prueba: %v", err)
+	}
+	return paciente.ID
+}
+
+func crearTurnoConAsistencia(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID, pacienteID *uuid.UUID, asistencia *string) {
+	t.Helper()
+	turno := db.Turno{
+		ClinicID: clinicID, PacienteID: pacienteID, Estado: "cancelada", Origen: "manual",
+		NombreContacto: "Paciente", ApellidoContacto: "De Prueba",
+		DNIContacto: "1", TelefonoContacto: "1", EmailContacto: "paciente@example.com",
+		Asistencia: asistencia,
+	}
+	if err := gdb.Create(&turno).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno de prueba: %v", err)
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }

@@ -91,6 +91,86 @@ func TestBuscarClinicas_PorEspecialidad(t *testing.T) {
 	}
 }
 
+// TestBuscarClinicas_PorNombreDeProfesionalNoOwner — Fase 4.2, fix del bug
+// owner-only: buscarClinicasHandler filtraba el EXISTS de nombre por
+// r.rol = RoleOwner, así que un profesional invitado (no dueño) era
+// invisible para el buscador por nombre aunque atendiera en esa clínica.
+func TestBuscarClinicas_PorNombreDeProfesionalNoOwner(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Titular Owner", Email: "noowner-titular@example.com", Password: "password123456",
+		NombreClinica: "Clínica Con Colega",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "noowner-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "noowner-colega@example.com")
+	perfilColega := db.ProfessionalProfile{UserID: colegaID, Nombre: "Ezequiel", Apellido: "Franco", Telefono: "+5493511234598"}
+	if err := gdb.Create(&perfilColega).Error; err != nil {
+		t.Fatalf("no se pudo crear el perfil del colega: %v", err)
+	}
+	deployarPaginaDePrueba(t, router, titular.Token)
+
+	req := httptest.NewRequest(http.MethodGet, "/clinicas?q=Ezequiel+Franco", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var got []clinicaResultado
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if len(got) != 1 || got[0].NombreClinica != "Clínica Con Colega" {
+		t.Errorf("got = %+v, esperaba encontrar la clínica por el nombre del colega (no owner)", got)
+	}
+}
+
+// TestGetClinicaPublica_EspecialidadesUnenTodosLosProfesionalesActivos —
+// Fase 4.2, fix del bug owner-only: antes de este fix, la página pública
+// mostraba solo las especialidades del owner — con 2+ profesionales
+// activos tienen que ser la unión deduplicada de todos (ver
+// profesionalesActivosDeLaClinica/especialidadesUnicasDe en clinicas.go).
+func TestGetClinicaPublica_EspecialidadesUnenTodosLosProfesionalesActivos(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	titular := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Titular Con Especialidad", Email: "esp-titular@example.com", Password: "password123456",
+		NombreClinica: "Clínica Multi Especialidad",
+	})
+	clinicID := clinicaDePrueba(t, titular.Profesional.ID)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "esp-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, gdb, "esp-colega@example.com")
+
+	var ortodoncia db.Especialidad
+	if err := gdb.Where("nombre = ?", "Ortodoncia").First(&ortodoncia).Error; err != nil {
+		t.Fatalf("no se encontró 'Ortodoncia' en el catálogo sembrado: %v", err)
+	}
+	perfilColega := db.ProfessionalProfile{
+		UserID: colegaID, Nombre: "Laura", Apellido: "Colega", Telefono: "+5493511234599",
+		Especialidades: []db.Especialidad{ortodoncia},
+	}
+	if err := gdb.Create(&perfilColega).Error; err != nil {
+		t.Fatalf("no se pudo crear el perfil del colega: %v", err)
+	}
+	deployarPaginaDePrueba(t, router, titular.Token)
+
+	req := httptest.NewRequest(http.MethodGet, "/clinicas/"+titular.Profesional.Slug, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var got clinicaPublicaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	tieneOdontologiaGeneral, tieneOrtodoncia := false, false
+	for _, e := range got.Especialidades {
+		if e == "Odontología general" {
+			tieneOdontologiaGeneral = true
+		}
+		if e == "Ortodoncia" {
+			tieneOrtodoncia = true
+		}
+	}
+	if !tieneOdontologiaGeneral || !tieneOrtodoncia {
+		t.Errorf("Especialidades = %v, esperaba la unión de la especialidad del titular (Odontología general) y la del colega (Ortodoncia)", got.Especialidades)
+	}
+}
+
 func TestBuscarClinicas_SinFiltrosDevuelveTodas(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	uno := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{

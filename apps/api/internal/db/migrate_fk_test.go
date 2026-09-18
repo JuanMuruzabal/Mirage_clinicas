@@ -215,6 +215,46 @@ func TestFK_ConflictosPacienteSigueSinForeignKey(t *testing.T) {
 	}
 }
 
+// TestFK_RechazaModuloDePaginaInexistente — Fase 4.1: un módulo no tiene
+// sentido sin su página. Mismo criterio que los turnos/pacientes de arriba.
+func TestFK_RechazaModuloDePaginaInexistente(t *testing.T) {
+	gdb := testdb.New(t)
+
+	modulo := db.PaginaPublicaModulo{
+		PaginaPublicaID: uuid.New(), // no existe ninguna página con este id
+		Tipo:            "sobre_nosotros",
+	}
+	err := gdb.Create(&modulo).Error
+	if err == nil {
+		t.Fatal("se creó un módulo apuntando a una página pública inexistente — la foreign key no está mordiendo")
+	}
+	if !strings.Contains(err.Error(), "fk_pagina_publica_modulos_pagina") {
+		t.Errorf("el rechazo no vino de fk_pagina_publica_modulos_pagina: %v", err)
+	}
+}
+
+// TestFK_ModuloAceptaUnaPaginaReal — el contrapeso: el camino legítimo
+// sigue funcionando.
+func TestFK_ModuloAceptaUnaPaginaReal(t *testing.T) {
+	gdb := testdb.New(t)
+	clinicaID, _ := crearProfesionalDePrueba(t, gdb)
+
+	pagina := db.PaginaPublica{ClinicID: clinicaID}
+	if err := gdb.Create(&pagina).Error; err != nil {
+		t.Fatalf("no se pudo crear la página pública de prueba: %v", err)
+	}
+
+	modulo := db.PaginaPublicaModulo{
+		PaginaPublicaID: pagina.ID,
+		Tipo:            "sobre_nosotros",
+		Orden:           1,
+		Visible:         true,
+	}
+	if err := gdb.Create(&modulo).Error; err != nil {
+		t.Fatalf("un módulo de una página REAL tiene que poder crearse: %v", err)
+	}
+}
+
 // hoyMasUnDia — un horario cualquiera en el futuro, para no chocar con el
 // exclusion constraint de no-solapamiento de otros tests.
 func hoyMasUnDia() time.Time {

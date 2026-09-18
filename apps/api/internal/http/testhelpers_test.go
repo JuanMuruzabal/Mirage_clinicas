@@ -19,6 +19,7 @@ import (
 	"dental-mirage/api/internal/mail"
 	"dental-mirage/api/internal/ratelimit"
 	"dental-mirage/api/internal/security"
+	"dental-mirage/api/internal/storage"
 	"dental-mirage/api/internal/testdb"
 )
 
@@ -330,6 +331,28 @@ func tokenFromURL(rawURL string) string {
 		return ""
 	}
 	return rawURL[idx+len("token="):]
+}
+
+// newTestRouterWithStorage — Fase 4.2: mismo criterio que
+// newTestRouterWithMail, con un storage real (disco temporal, borrado
+// solo por t.TempDir()) para probar POST /panel/pagina/fotos de punta a
+// punta sin mockear internal/storage.
+func newTestRouterWithStorage(t *testing.T) (http.Handler, *gorm.DB) {
+	t.Helper()
+	gdb := testdb.New(t)
+	store, err := storage.NewLocalStorage(t.TempDir(), "http://localhost:8080/uploads")
+	if err != nil {
+		t.Fatalf("no se pudo crear el storage de prueba: %v", err)
+	}
+	deps := AuthDeps{
+		Mail:           mail.LogSender{},
+		AccountLimiter: &ratelimit.AccountLimiter{DB: gdb},
+		IPLimiter:      ratelimit.NewIPLimiter(),
+		AppBaseURL:     "http://localhost:3000",
+		StateSecret:    "un-secret-de-test",
+		Storage:        store,
+	}
+	return NewRouterWithDeps(gdb, deps, []string{"http://localhost:3000"}), gdb
 }
 
 // newTestRouterWithMail arma un router con un capturingMailSender, para

@@ -66,6 +66,13 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 
 	r.Get("/health", healthHandler(db))
 
+	// Fotos subidas desde /panel/pagina/fotos (Fase 4.2) — servidas
+	// públicas a propósito, se usan en la página pública de la clínica.
+	// Sin StorageDir (deps.Storage nil, ver AuthDeps) no se monta nada.
+	if deps.StorageDir != "" {
+		r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(deps.StorageDir))))
+	}
+
 	r.Route("/auth", func(r chi.Router) {
 		registerAuthRoutes(r, db, deps)
 	})
@@ -108,7 +115,7 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			// la web de la clínica.
 			r.Group(func(r chi.Router) {
 				r.Use(requireRol(dbpkg.RoleAdmin))
-				registerPaginaPublicaRoutes(r, db)
+				registerPaginaPublicaRoutes(r, db, deps.Storage)
 			})
 			// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 			registerHorarioAtencionRoutes(r, db)

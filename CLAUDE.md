@@ -94,7 +94,7 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 
 **Fase C — lo que ya está aplicado (2026-09-09):**
 
-- **El esquema tiene foreign keys reales** (TR-131): 33 constraints. Dos cosas que hay que saber antes de tocar el modelo de datos:
+- **El esquema tiene foreign keys reales** (TR-131): 34 constraints (33 desde la auditoría de seguridad, +1 de `pagina_publica_modulos` en la Fase 4.1). Dos cosas que hay que saber antes de tocar el modelo de datos:
   - **La columna que apunta a la clínica se llama `clinic_id`** en todo el esquema desde la Fase 3.2.1 (TR-137). Se llamaba `profesional_id` en 9 tablas y guardaba un `clinics.id` desde TR-037 — el renombre se hizo antes de agregar `turnos.atendido_por_user_id`, para que no convivieran dos columnas de nombre parecido y significado opuesto. Si ves `profesional_id` en un documento viejo, es el nombre anterior de `clinic_id`. **Las tablas legacy `profesionales` y `profesional_especialidades` ya no existen** (13 filas huérfanas borradas el 2026-09-13; este archivo afirmaba que estaban vacías y era falso), y con ellas se fue `cmd/migrate-usuarios`.
   - **`conflictos_paciente` no lleva foreign key a propósito** — es historial, sus referencias quedan colgadas cuando se resuelve un conflicto. Hay un test que lo protege; no "arreglarlo".
   - **Una ficha de paciente se borra SOLO con `borrarFichaPacienteConSusHijas`** (`paciente_verificado_publico.go`), nunca con un `Delete(&db.Paciente{})` suelto. `pacientes` tiene tres tablas hijas (`paciente_tutores`, `paciente_emails_alternativos`, `paciente_telefonos_alternativos`) con FK `NO ACTION`: cualquier fila viva rebota el DELETE con 23503 y tumba la transacción. Regresión real de QA (2026-09-12), ver el addendum de TR-131.
@@ -155,6 +155,21 @@ Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.do
 - **Los pacientes son de la CLÍNICA; la configuración de agenda es del PROFESIONAL.** Una ficha por persona aunque la atiendan dos odontólogos ("los pacientes de Lucía" se deriva de sus turnos); tipos de consulta, horario de atención y bloqueos pasan a colgar del profesional.
 - **El `EXCLUDE` de no-solapamiento hay que mudarlo a `atendido_por_user_id`.** Hoy es sobre `profesional_id` (= la clínica), así que con N profesionales rechazaría dos turnos simultáneos en sillones distintos: pasa de garantía a bug.
 - **Los tipos de consulta se comparten como sugerencia, no como fila común**: incluir el de un colega COPIA la fila, porque lleva duración/color/preferencias que cada uno ajusta. **Un tipo se identifica por su NOMBRE** (TR-145): "Limpieza dental" es lo mismo en toda la clínica, el color y los minutos son de cada agenda. De ahí tres reglas que van juntas — no se puede crear dos veces el mismo (409), lo que ya tenés no se ofrece como punto de partida, y el turno viaja con `tipoConsultaNombre` —**el nombre y nada más**— para que la ficha del paciente no muestre "—" en el turno de un colega. **El color NO viaja**: lo resuelve la pantalla contra los tipos de quien mira, buscando por ese nombre, y queda neutro si no lo tiene. Si tu colega tiene "Consulta general" en verde y vos en beige, en tu ficha se pinta beige — un punto de color significa lo que decidió quien mira, no quien cargó. **Bloquear usa igualdad exacta normalizada; esconder usa el fuzzy `seParecen`** — no unificarlos: un falso positivo que esconde cuesta una sugerencia, uno que bloquea es una pared ("Tipo de prueba 1" y "Tipo de prueba 2" dan 0.94). El repertorio de `tipos_consulta_catalogo.go` es una lista de SUGERENCIAS, no una semilla de la base.
+
+## Fase 4 — Personalización de la página pública
+
+Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio — el resto (UI del panel de gestión) queda para después, todavía sin fases numeradas. Definición funcional completa en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; estado de la implementación (para retomar) en `docs/Fases post MVP/Fase 4/fase4.1-a-4.3-estado-implementacion.md`.
+
+| Subfase | Qué | Estado |
+|---|---|---|
+| 4.1 | Modelo de datos: `PaginaPublica` extendida (bio, tema/variante/tipografía, foto de portada, redes sociales, mapa, dirección override) + tabla `PaginaPublicaModulo` | ✅ |
+| 4.2 | Endpoints backend y frontend: `GET/PATCH /panel/pagina` (reemplazo completo, mismo criterio que `PUT /horario-atencion/general`), `POST /panel/pagina/fotos` (primer upload multipart del repo), estadísticas reales (pacientes atendidos/turnos realizados, nunca un valor cargado a mano), y el fix del bug owner-only (especialidades/búsqueda por nombre pasan a ser la unión de TODOS los profesionales activos, no solo el owner) | ✅ |
+| 4.3 | Catálogo de temas: 5 temas × 3 variantes de color cada uno + 5 pares de tipografía **compartidos entre temas** (no uno por tema, para no cargar hasta 15 pares de Google Fonts) — validado con CHECK en Postgres (`chk_pagina_publica_tema*`) y en el handler (`temaEsValido`, que sí valida la relación tema↔variante — el CHECK de la base valida cada columna contra su propio catálogo plano, no esa relación cruzada) | ✅ |
+| 4.4 | Editor visual con grilla — conectar `pagina-editor.tsx` de verdad (hoy "Guardar cambios" sigue deshabilitado a propósito) | pendiente |
+| 4.5 | Renderizado dinámico de `ClinicaPublicaTemplate` a partir de los módulos persistidos — hoy la plantilla pública sigue fija | pendiente |
+| 4.6 | Storage real en producción (Cloudflare R2, TR-046) — hoy `internal/storage` solo tiene `LocalStorage` (disco, dev); `STORAGE_R2_BUCKET` configurado hace fallar el arranque a propósito en vez de degradar en silencio a un storage que se pierde en cada deploy | pendiente |
+
+Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
 ## Flujo de ramas
 

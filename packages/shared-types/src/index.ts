@@ -583,13 +583,40 @@ export interface ClinicaPublica {
 
 // --- Sprint 4: edición y deploy de página pública (spec §5) ---
 
+// Espejo de moduloResponse (internal/http/pagina_publica.go, Fase 4.2).
+// Config es polimórfico según tipo — 'texto_libre' -> {titulo, texto},
+// 'foto' -> {fotoUrl, subtipo}, 'galeria' -> {fotoUrls}, 'estadisticas' ->
+// {mostrar: [...]} — sin una forma común, de ahí Record<string, unknown>
+// en vez de una interfaz por campo (primer campo polimórfico del archivo).
+export interface PaginaPublicaModulo {
+  id: string;
+  tipo: string;
+  orden: number;
+  visible: boolean;
+  config?: Record<string, unknown>;
+}
+
 // Espejo de paginaPublicaResponse (internal/http/pagina_publica.go).
 // `deployadaEn` nulo = todavía no se publicó por primera vez (spec §5.2)
 // — no aparece en el buscador (GET /clinicas) hasta que se deploya, pero
 // la URL propia (`/{slug}`) ya se puede previsualizar antes.
+//
+// Contenido editable de la Fase 4.2 (docs/Fases post MVP/Fase 4/
+// fase4-personalizar-pagina.md) — sin UI todavía (la UI es la Fase 4.4),
+// el backend ya lee/escribe todo esto vía GET/PATCH /panel/pagina.
 export interface PaginaPublica {
   oculta: boolean;
   deployadaEn?: string | null;
+  bio?: string | null;
+  tema: string;
+  temaVariante: string;
+  temaTipografia: string;
+  fotoPortadaUrl?: string | null;
+  redesSociales: Record<string, string>;
+  mostrarMapa: boolean;
+  direccionOverride?: string | null;
+  modulos: PaginaPublicaModulo[];
+  estadisticas: Record<string, number>;
 }
 
 // Espejo de pacienteResponse (internal/http/pacientes.go).

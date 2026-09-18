@@ -174,10 +174,16 @@ async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResul
   // Las cabeceras de IP van PRIMERO en el objeto para que un `init.headers`
   // nunca pueda pisarlas por accidente desde un call site.
   const deIP = await cabecerasDeIP();
+  // Con un body FormData (Fase 4.2, subida de fotos) el Content-Type no se
+  // fuerza a JSON: fetch tiene que poder poner el suyo con el boundary del
+  // multipart, algo que no se puede armar a mano de antemano.
+  const esFormData = init?.body instanceof FormData;
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...deIP, ...(init?.headers ?? {}) },
+      headers: esFormData
+        ? { ...deIP, ...(init?.headers ?? {}) }
+        : { "Content-Type": "application/json", ...deIP, ...(init?.headers ?? {}) },
       cache: "no-store",
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
@@ -1298,5 +1304,65 @@ export function apiDeployarPaginaPublica(token: string): Promise<ApiResult<Pagin
   return request<PaginaPublica>("/panel/pagina/deployar", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// --- Fase 4.2: contenido completo (bio, tema, módulos, fotos) ---
+// Sin UI todavía (la UI es la Fase 4.4) — esto es la plumbing que esa
+// pantalla va a llamar.
+
+// PaginaPublicaModuloPayload — espejo de moduloRequest
+// (internal/http/pagina_publica.go). Sin `id`: el PATCH reemplaza TODAS
+// las filas de módulos de una, no las actualiza una por una.
+export interface PaginaPublicaModuloPayload {
+  tipo: string;
+  orden: number;
+  visible: boolean;
+  config?: Record<string, unknown>;
+}
+
+// ActualizarPaginaPublicaPayload — espejo de actualizarPaginaPublicaRequest.
+// Cada campo es opcional y punteros del lado de Go: una clave AUSENTE del
+// body deja ese campo como está (JSON.stringify ya omite `undefined`), una
+// clave presente lo reemplaza — incluido `null` para vaciar `bio`/
+// `direccionOverride`. `modulos` sigue el mismo criterio: ausente no toca
+// nada, `[]` borra todos los módulos existentes.
+export interface ActualizarPaginaPublicaPayload {
+  bio?: string | null;
+  tema?: string;
+  temaVariante?: string;
+  temaTipografia?: string;
+  redesSociales?: Record<string, string>;
+  mostrarMapa?: boolean;
+  direccionOverride?: string | null;
+  modulos?: PaginaPublicaModuloPayload[];
+}
+
+export function apiActualizarPaginaPublica(
+  token: string,
+  payload: ActualizarPaginaPublicaPayload,
+): Promise<ApiResult<PaginaPublica>> {
+  return request<PaginaPublica>("/panel/pagina", {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface SubirFotoPaginaPublicaResponse {
+  url: string;
+}
+
+// apiSubirFotoPaginaPublica — POST multipart (campo "foto"), único upload
+// de archivo de todo el repo hoy. Sin Storage configurado del lado del
+// backend, la API responde 501 (mismo criterio que Google/Turnstile sin
+// credenciales) — el caller lo recibe como un ApiResult no-ok más.
+export function apiSubirFotoPaginaPublica(token: string, foto: File): Promise<ApiResult<SubirFotoPaginaPublicaResponse>> {
+  const form = new FormData();
+  form.append("foto", foto);
+  return request<SubirFotoPaginaPublicaResponse>("/panel/pagina/fotos", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
   });
 }
