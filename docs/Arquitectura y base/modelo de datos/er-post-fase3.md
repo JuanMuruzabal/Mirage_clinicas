@@ -276,6 +276,25 @@ Un enlace cuya ficha desapareció se comporta como uno sin ficha: el wizard pide
 
 **Orden obligatorio:** 7 antes que 4 (para no tener las dos columnas confusas conviviendo ni un minuto), y 5 antes que 6 (el constraint nuevo necesita la columna poblada). La migración de datos existentes —39 turnos, 7 tipos de consulta, 3 horarios— asigna todo al `owner` de cada clínica, que hoy es su único profesional.
 
+### 17 — "Esta persona está en mi lista" (2026-09-19, 3.2.7d, TR-157)
+
+```sql
+CREATE TABLE pacientes_en_mi_lista (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id   uuid NOT NULL,
+  paciente_id uuid NOT NULL,
+  user_id     uuid NOT NULL,
+  created_at  timestamptz,
+  UNIQUE (paciente_id, user_id)
+);
+```
+
+`soloMisPacientes` decidía la lista de trabajo de cada profesional con dos criterios, y los dos son **hechos derivados**: "tengo turnos con esa persona" y "yo cargué la ficha" (`creado_por_user_id`, el cambio de la 3.2.3). Faltaba el tercero, que no se deriva de nada: **la decisión de sumarla**. Sin esa fila, la única forma de meter en la propia lista a alguien que ya existía en la clínica era inventarle un turno.
+
+**Por qué una tabla y no una columna en `pacientes`:** son N profesionales por ficha. `creado_por_user_id` no sirve para esto — significa otra cosa (quién la dio de alta), admite un solo valor, y sobrescribirlo borraría de la lista al que la cargó.
+
+La clave única es `(paciente_id, user_id)`: sumar dos veces a la misma persona es idempotente. `clinic_id` está por conveniencia de las consultas y para poder acotar por clínica sin un join más; la identidad de la fila la da el par.
+
 ## Lo que este modelo todavía no resuelve
 
 - **Presencia en tiempo real** de colaboradores (requisito no funcional del brief). No es una tabla: es una decisión de transporte (WebSocket / SSE / polling) que conviene tomar aparte, y que interactúa con el hecho de que hoy corre **una sola instancia** del backend.

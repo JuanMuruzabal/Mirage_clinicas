@@ -2408,6 +2408,87 @@ Un enlace se reenvía. Sin exigir que el `pacienteVerificadoId` del pedido sea e
 
 ---
 
+## TR-156: El panel no adoptaba los datos nuevos del servidor — una causa, tres síntomas
+
+- **Contexto:** Fase 3.2.7d, 2026-09-19. Ronda de ajustes previa a la vista de recepcionista.
+- **De dónde salió:** *"si tengo más de 2 clínicas y cambio de una a otra desde el header del panel, la vista de la otra clínica no se actualiza hasta que no refresque la página... al resolver un conflicto, el cartel desaparece a los 5 seg aprox, debe desaparecer instantáneo... todo se debe resolver visualmente sin refrescar en un máximo de 2 seg"*.
+
+### El bug
+
+Tres síntomas reportados por separado —el conflicto resuelto que seguía en la lista, la clínica que no cambiaba, el turno editado que no se veía— tenían **una sola causa**, y no era la que parecía. `router.refresh()` ya estaba puesto en los tres caminos, y funcionaba: el Server Component se volvía a renderizar y bajaba props nuevas. Lo que fallaba era el otro extremo.
+
+Cuatro componentes del panel hacían esto:
+
+```tsx
+const [pacientes, setPacientes] = useState(pacientesIniciales);
+```
+
+**El inicializador de `useState` corre una sola vez.** Las props nuevas llegaban y el componente las ignoraba. Solo un F5 —que lo desmonta y lo vuelve a montar— actualizaba la pantalla. De ahí que el síntoma se describiera como "hay que refrescar": era literal.
+
+### La decisión: resincronizar durante el render, no con un efecto
+
+`useEstadoDelServidor` (`apps/web/src/lib/estado-del-servidor.ts`) compara el valor que baja contra el último que vio y corrige **durante el render**. Es el patrón documentado de React para ajustar estado cuando cambia una prop. Con `useEffect` habría un frame con los datos viejos en pantalla —justo lo que se quiere evitar— y además choca con la regla de lint del proyecto (`react-hooks/set-state-in-effect`).
+
+El callback opcional `alResincronizar` existe para los datos que viajan con el principal y tienen que resetearse con él: el total de una tabla paginada, por ejemplo.
+
+### Qué se pierde, a propósito
+
+**El estado local se descarta cuando llegan datos nuevos.** En las tablas con "Cargar más" eso significa volver a la primera tanda. Se aceptó: el servidor acaba de decir cuál es la verdad, y mostrar tres páginas viejas junto a datos frescos sería peor que volver al principio.
+
+Por lo mismo **NO va en un editor ni en un formulario a medio llenar**, donde el estado local es lo que la persona está escribiendo. `pagina-editor.tsx` quedó deliberadamente afuera: ahí resincronizar sería borrarle el trabajo a alguien.
+
+### La regla que queda
+
+Un Client Component del panel que reciba datos del servidor los toma con `useEstadoDelServidor`, no con `useState`. Un `useState(props.algo)` en esa posición es un bug latente que **no se nota mirando la pantalla** hasta que alguien cambia el dato desde otro lado.
+
+---
+
+## TR-157: Un acto explícito para "mis pacientes", y el header con un solo botón
+
+- **Contexto:** Fase 3.2.7d, 2026-09-19. Ítems 1, 2, 4 y 5 de la misma ronda.
+
+### "De la clínica": la lista de trabajo necesitaba un acto, no solo hechos derivados
+
+*"Agregar paciente conocido... mostrará los pacientes que no tengo cargados en mi sección de pacientes"*.
+
+`soloMisPacientes` tenía dos criterios y los dos son **hechos derivados**: "tengo turnos con esa persona" y "yo cargué la ficha". Faltaba el tercero, que es una decisión: "quiero a esta persona en mi lista". Sin él, la única forma de sumar a alguien que ya existía en la clínica era inventarle un turno.
+
+Tabla nueva `pacientes_en_mi_lista` y no una columna en `pacientes`: son **N profesionales por ficha**, y `creado_por_user_id` significa otra cosa (quién la dio de alta) y solo admite uno.
+
+El efecto lateral que valía la pena: `esMio` del buscador de la clínica pasa a usar **los mismos tres criterios** que `soloMisPacientes`. Antes miraba solo los turnos, y las dos pantallas decían cosas distintas sobre la misma ficha.
+
+### El perfil de un colega: qué viaja y qué no
+
+*"en la tarjeta de los colaboradores incluyendo al mismo profesional poner un botón de ver perfil"*.
+
+`GET /equipo/miembros/{userId}/perfil` devuelve lo mismo que el perfil propio **menos el documento**. El criterio: el mail ya se ve en Colaboradores, y el teléfono es lo que se usa para coordinar un cambio de turno; el DNI de un colega no tiene ningún uso entre colegas. Que el resto viaje es una decisión, y que el DNI no, también — hay un test que lo mira **contra el JSON crudo**, porque el campo es `omitempty` y un puntero nil no deja rastro en el struct.
+
+**Acotado a miembros ACTIVOS de la clínica de quien pregunta**, con 404 —no 403— para todo lo demás: mismo criterio que la ficha de un paciente ajeno (TR-138), y por el mismo motivo. La membresía nunca se borra (queda en `removed`), así que mirar solo `clinic_id` habría dejado a un ex colaborador consultable para siempre; hay un test para eso.
+
+El propio perfil **no** pasa por esa pantalla: el botón manda a `/perfil`, que además de mostrar edita. Si alguien llega igual con su propio id, se lo redirige ahí en vez de darle una copia en solo lectura de su propia ficha.
+
+### El header: un solo botón redondo a la derecha
+
+*"el componente de colaboradores ahora pasa a ser globalmente un ícono... el componente se extiende hasta /seleccionar-servicio reemplazando el ícono de tuerca, y el ícono de tuerca de /clínicas se reemplaza por el ícono del componente de colaboradores, pero la funcionalidad es la misma"*.
+
+Tres piezas que van juntas:
+
+- **El popover absorbe "Tu perfil" y "Cerrar sesión".** No es un agregado cosmético: en `/seleccionar-servicio` la tuerca era el **único** acceso a cerrar sesión, así que sacarla sin esto habría dejado a la persona sin salida. El brief hace de cerrar sesión la forma deliberada de volver al sitio público.
+- **En `/clinicas` la tuerca se queda, con otro dibujo.** Ahí todavía no hay clínica elegida y no hay equipo del que hablar; lo único que se empareja es el ícono.
+- **El selector de clínica NO sigue al popover** hasta `/seleccionar-servicio`: esa pantalla ya tiene el suyo en el cuerpo. Y con **una sola clínica no se muestra en ningún lado** (pedido del cliente): ocupaba lugar en el header para ofrecer un menú de una opción, la que ya estaba puesta.
+
+### Los ajustes de mobile, y por qué no son cosméticos
+
+- **La fecha del calendario siempre DEBAJO de `< Hoy >`.** Con `flex-wrap`, la fecha entraba en la misma fila o saltaba a la siguiente según su largo —"Hoy" contra "Sábado, 19 de septiembre de 2026"—, y **la caja cambiaba de alto al navegar entre días**. En columna, el alto no se mueve.
+- **Las pestañas de Turnos, una fila con scroll lateral.** Eran una grilla de dos por dos —un cuadrado— que empujaba todo lo de abajo.
+- **Las opciones de "¿Con quién es el turno?", cuadradas con checkmark.** El radio redondo azul del navegador no existe en la paleta; el `input` real queda con `sr-only` (foco, teclado, lectores de pantalla) y lo que se ve es la caja.
+
+### Un bug destapado por su propio test
+
+El endpoint del perfil del colega devolvía `roles: []` siempre. Los roles viven en `clinic_member_roles`, no en una columna, y faltaba el `Preload("Roles")`. Sin el test, la pantalla habría mostrado a todos sin rol y nadie lo habría leído como un error.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

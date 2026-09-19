@@ -1272,3 +1272,57 @@ Ese límite lo sostiene **un solo mecanismo**. Se había escrito además un cheq
 
 `validarEnlaceTurnoPublicoAction` pasó de devolver `boolean` a devolver un objeto. El consumidor hacía `valido ? … : …` y **un objeto siempre es truthy**: un link vencido habría abierto el wizard igual. TypeScript no marca nada ahí. Quedó anotado en el test.
 
+
+---
+
+## 3.2.7d — Ronda de ajustes previa a recepción (2026-09-19, TR-156 y TR-157)
+
+Cinco ítems pedidos por el cliente antes de arrancar la vista de recepcionista, sobre `dev` al día (que trae la Fase 4 del editor de página).
+
+### El más profundo: el panel no adoptaba los datos nuevos del servidor
+
+Tres síntomas reportados como si fueran tres bugs —el conflicto resuelto que seguía en la lista, la clínica que no cambiaba al elegir otra desde el header, el turno editado que no se veía— resultaron ser **uno solo**.
+
+`router.refresh()` ya estaba puesto en los tres caminos y funcionaba: el Server Component se volvía a renderizar y bajaba props nuevas. El problema estaba del otro lado. Cuatro componentes del panel copiaban sus props en `useState`, y **el inicializador de `useState` corre una sola vez**: las props nuevas llegaban y se descartaban. Solo un F5 —que desmonta y vuelve a montar— actualizaba la pantalla. Por eso el síntoma se describía como "hay que refrescar": era literal.
+
+`useEstadoDelServidor` (`lib/estado-del-servidor.ts`) compara contra lo último que vio y corrige **durante el render**, que es el patrón documentado de React para esto. Con un `useEffect` habría un frame con los datos viejos en pantalla — justo lo que se quiere evitar.
+
+Lo que se pierde, a propósito: el estado local se descarta cuando llegan datos nuevos, así que en las tablas con "Cargar más" se vuelve a la primera tanda. **No va en un editor ni en un formulario a medio llenar** — ahí el estado local es lo que la persona está escribiendo, y resincronizar sería borrarle el trabajo. `pagina-editor.tsx` quedó deliberadamente afuera.
+
+**La regla que queda:** un Client Component del panel que reciba datos del servidor los toma con `useEstadoDelServidor`. Un `useState(props.algo)` en esa posición es un bug latente que no se nota mirando la pantalla.
+
+### "+ Agregar paciente > De la clínica"
+
+La ficha ya existe —la cargó un colega, o la persona pidió turno con él— y este profesional la quiere en SU lista sin inventarle un turno, que hasta ahora era la única forma de conseguirlo.
+
+`soloMisPacientes` tenía dos criterios y los dos son **hechos derivados**: "tengo turnos con esa persona" y "yo cargué la ficha". Faltaba el tercero, que es una decisión: "quiero a esta persona en mi lista". Tabla nueva `pacientes_en_mi_lista`, y no una columna en `pacientes`, porque son N profesionales por ficha (`creado_por_user_id` significa otra cosa y solo admite uno).
+
+De paso, `esMio` del buscador de la clínica pasa a usar **los mismos tres criterios**: antes miraba solo los turnos, y las dos pantallas decían cosas distintas sobre la misma ficha.
+
+### El equipo es gente con perfil
+
+Colaboradores decía quién es cada uno y con qué rol, y no había forma de llegar a su matrícula o sus especialidades — que es justamente lo que dice qué puede atender.
+
+`GET /equipo/miembros/{userId}/perfil` devuelve lo mismo que el perfil propio **menos el documento**: el mail ya se ve en Colaboradores y el teléfono es lo que se usa para coordinar un cambio de turno, pero el DNI de un colega no tiene ningún uso entre colegas. Hay un test que lo verifica **contra el JSON crudo**, porque el campo es `omitempty` y un puntero nil no deja rastro en el struct.
+
+Acotado a miembros **activos** de la clínica de quien pregunta, con 404 —no 403— para todo lo demás: mismo criterio que la ficha de un paciente ajeno (TR-138). La membresía nunca se borra (queda en `removed`), así que mirar solo `clinic_id` habría dejado a un ex colaborador consultable para siempre.
+
+El botón está en las dos vistas del equipo (el popover del header y las tarjetas de `/colaboradores`), incluida la propia: la propia va a `/perfil`, que además de mostrar edita.
+
+### El header, un solo botón redondo a la derecha
+
+- El popover de colaboradores **absorbe "Tu perfil" y "Cerrar sesión"**, y se extiende a `/seleccionar-servicio` reemplazando la tuerca. No es cosmético: ahí la tuerca era el **único** acceso a cerrar sesión, y el brief hace de cerrar sesión la forma deliberada de volver al sitio público.
+- En `/clinicas` la tuerca se queda —todavía no hay clínica elegida, no hay equipo del que hablar— pero pasa a dibujarse con el ícono de colaboradores.
+- El **selector de clínica no sigue al popover** hasta `/seleccionar-servicio`: esa pantalla ya tiene el suyo en el cuerpo. Y con una sola clínica no se muestra en ningún lado: ocupaba lugar en el header para ofrecer un menú de una opción, la que ya estaba puesta.
+- El popover pasa a ser solo avatares también en escritorio, y "Ahora no" pasó a "Sin actividad".
+
+### Mobile y "Compartir link"
+
+- **La fecha del calendario siempre debajo de `< Hoy >`.** Con `flex-wrap` entraba en la misma fila o saltaba según su largo —"Hoy" contra "Sábado, 19 de septiembre de 2026"— y la caja cambiaba de alto al navegar entre días.
+- **Las pestañas de Turnos, una fila con scroll lateral.** Eran una grilla de dos por dos que empujaba todo lo de abajo.
+- **"Compartir link"**: se saca el párrafo duplicado, el texto de la pestaña pasa a leerse como explicación y no como nota al pie, las opciones de "¿Con quién es el turno?" pasan a ser cuadradas con checkmark (el radio redondo azul del navegador no existe en la paleta) y "¿Para quién?" reutiliza el buscador de pacientes en vez de tener el suyo.
+
+### Los bugs que aparecieron al verificar
+
+- El endpoint del perfil del colega devolvía `roles: []` siempre: faltaba el `Preload("Roles")` — viven en `clinic_member_roles`, no en una columna. Lo destapó su propio test.
+- Un test del perfil se acusaba a sí mismo: la matrícula del fixture derivaba del documento, así que buscar el DNI en el JSON lo encontraba dentro de la matrícula. El fixture pasó a un documento con prefijo y una matrícula derivada del id.
