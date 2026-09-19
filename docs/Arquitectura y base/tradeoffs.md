@@ -2489,6 +2489,67 @@ El endpoint del perfil del colega devolvía `roles: []` siempre. Los roles viven
 
 ---
 
+## TR-158: Un estado que sale del reloj, y la asistencia que se marca antes
+
+- **Contexto:** Fase 3.2.7e, 2026-09-19. Segunda tanda de la misma ronda de ajustes, sobre la QA de la primera.
+- **De dónde salió:** *"un nuevo estado de turno: 'en proceso' (color azulado) que se asigna cuando el turno está en su horario de atención, el estado 'confirmado' pasa a llamarse pendiente, ya que tiene más sentido porque el turno está pendiente a realizarse"* y *"vamos a rediseñar la tarjeta de turnos de hoy... la asistencia aparecerán 2 botones... el profesional podrá anotar de antemano su presencia y evitar que al final del turno aparezca el otro cartel"*.
+
+### "En proceso" se deriva, no se guarda
+
+La tabla `turnos` guarda dos estados, `agendado` y `cancelada`. La pantalla necesita decir cuatro, y las otras dos salen del reloj: **resuelto** (la hora de fin ya pasó — esto ya era así desde TR-074) y **en proceso** (estamos dentro del horario).
+
+La alternativa era una columna y un trabajo periódico que la cambiara sola. Se descartó por dos motivos que van juntos: ese trabajo tendría que correr con la granularidad del hueco más chico que el producto permite configurar, y **la pantalla igual no se enteraría hasta el siguiente sondeo** — o sea, el costo de un proceso nuevo para un resultado peor que calcularlo. Derivado, la fila cambia sola en la pantalla que ya está abierta, que es lo que se pidió.
+
+`estadoDeTurno(turno, ahora)` (`lib/turno-format.ts`) recibe el instante en vez de leer `Date.now()` adentro: así el llamador puede pasar un reloj que él mismo refresca, y los tests no dependen de la hora real.
+
+**El azul es `acero`**, el `#2c4a5e` que ya vivía en la paleta clínica del header público, traído a la familia del panel con su claro y su oscuro. No es un color nuevo: es el único azul que el producto tenía. Nunca cascarón/urgencia, reservados al bloque de tipo de consulta del calendario (TR-010).
+
+### "Pendiente" es un rótulo, no un estado nuevo
+
+`ESTADO_LABEL.agendado` pasa de "Confirmado" a "Pendiente", y con él la pestaña de `/panel/turnos` y la tarjeta del dashboard. **El valor de la base no cambia y la URL tampoco** (`?estado=agendado`): ningún link compartido se rompe.
+
+**No confundir con el `pendiente` que TR-104 eliminó del modelo.** Aquél era un turno SIN horario fijo, recién llegado del formulario público, y no existe más. Este es un turno con día y hora, confirmado, que todavía no se atendió. El nombre se repite; el concepto no.
+
+### La ventana de asistencia se abre 5 minutos antes
+
+Hasta acá la única forma de marcar era el cartel incerrable del final del turno, y el backend lo imponía: *"solo se puede marcar asistencia en un turno ya resuelto"*. Eso obligaba a esperar a que el turno se cumpliera para registrar algo que se sabe apenas la persona entra —o no entra— al consultorio.
+
+`AnticipoAsistencia = 5 * time.Minute`. La ventana **se abre antes y no se cierra nunca**: marcar tarde siempre estuvo permitido (el cartel no tiene tope de antigüedad), lo único que cambia es que ahora también se puede marcar a tiempo. Lo que sigue prohibido es marcar un turno que todavía no empezó de verdad — "asistió" a algo que falta un día es adivinar.
+
+**Todo lo demás del endpoint no se toca**: sigue siendo irreversible, sigue resolviendo el conflicto de identidad que ese turno originó, y sigue bloqueado mientras haya un conflicto sin resolver del lado en disputa. Marcar antes ADELANTA esas consecuencias, no las saltea. Y el límite vive en el backend: los botones del frontend son su reflejo, no la regla.
+
+**Consecuencia en el dashboard:** un turno marcado de antemano cumplía a la vez las condiciones de "Turnos de hoy" (vigente) y "Turnos resueltos hoy" (marcado), y aparecía en las dos. "Turnos de hoy" pasa a excluir lo ya marcado: es la cola de lo que falta atender.
+
+### La tarjeta de "Turnos de hoy"
+
+Ocupa la fila entera y se parte en dos —el bloque cuadrado con la cuenta, y el cuerpo con una fila por turno—, porque es lo más urgente que mira un profesional al entrar y era una tarjeta más del mismo tamaño que las otras cinco.
+
+Tres detalles que no son estéticos:
+
+- **La fila deja de ser un solo link.** Un `<button>` dentro de un `<a>` no es HTML válido y el click navegaría: la hora y el nombre siguen llevando al calendario, los botones viven afuera de ese link.
+- **"Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON.** El que está en proceso no es uno "más", es el de ahora. Por eso el número grande (el día entero) y el pie pueden decir distinto, y está bien.
+- **`BotonMantenerApretado` se extrae del cartel y baja a 5 segundos en los dos lugares.** Es la misma acción irreversible: dos implementaciones del gesto que la confirma terminarían divergiendo justo en el detalle que importa. Diez segundos protegían de lo mismo que cinco —un toque accidental, no una decisión deliberada— y con varios turnos por día se volvían una espera real.
+
+### El reloj: `useSyncExternalStore`, no un efecto
+
+`useAhora` (`lib/reloj.ts`). Dos razones, las dos del proyecto:
+
+1. **`setState` sincrónico dentro de un efecto dispara renders en cascada** y el lint del repo lo rechaza (`react-hooks/set-state-in-effect`, error real al escribir esto). Setearlo solo dentro del `setInterval` dejaba la pantalla sin estado hasta el primer tick.
+2. **La hidratación.** El panel se renderiza también en el servidor, y ahí `Date.now()` es el reloj del contenedor. `getServerSnapshot` devuelve `null`: el HTML del servidor sale sin nada que dependa de la hora, y el valor real aparece en el primer render del cliente. Es el mismo tipo de trampa que el repo ya se comió una vez con `toLocaleString` (ver el comentario de TIMEZONE en `turno-format.ts`).
+
+**El valor viene redondeado al múltiplo del intervalo**, porque `getSnapshot` tiene que devolver lo mismo entre notificaciones o React renderiza sin parar. El costo, aceptado: la hora puede quedar hasta un intervalo atrasada.
+
+### Autoreservar mira también la agenda del paciente
+
+*"Ahora debe tener en cuenta también si ese mismo paciente posee turno con algún otro miembro de la clínica, así no se asigna un horario donde tenga turno con otro colega"*.
+
+`calcularDisponibilidad` mira la agenda del PROFESIONAL —su horario, sus bloqueos, sus turnos—, que es exactamente lo que necesita para ofrecer huecos. Pero autoreservar mueve el turno de una PERSONA, y esa persona puede estar ocupada con un colega a esa misma hora. **Era el último camino por el que se podía dejar a alguien con dos turnos encimados**: el alta manual y el reprogramar ya lo rechazan con `turnoSuperpuestoDeOtroProfesional` (TR-147), autoreservar tomaba el primer hueco de la lista sin mirar.
+
+Ahora recorre los huecos del día y toma el primero libre **para esa persona**. Si ninguno lo está, **sigue buscando al día siguiente** en vez de conformarse con el primero: caer al hueco ocupado "por lo menos algo" sería exactamente el encimado que esto vino a evitar. Sin paciente vinculado (un turno cargado a mano sin ficha) no hay agenda que chequear y el primer hueco sigue valiendo.
+
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

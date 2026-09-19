@@ -1326,3 +1326,47 @@ El botón está en las dos vistas del equipo (el popover del header y las tarjet
 
 - El endpoint del perfil del colega devolvía `roles: []` siempre: faltaba el `Preload("Roles")` — viven en `clinic_member_roles`, no en una columna. Lo destapó su propio test.
 - Un test del perfil se acusaba a sí mismo: la matrícula del fixture derivaba del documento, así que buscar el DNI en el JSON lo encontraba dentro de la matrícula. El fixture pasó a un documento con prefijo y una matrícula derivada del id.
+
+---
+
+## 3.2.7e — "En proceso", la tarjeta de hoy y la asistencia por adelantado (2026-09-19, TR-158)
+
+Segunda tanda de la misma ronda, pedida sobre la QA de la primera.
+
+### El ícono de colaboradores
+
+Dos correcciones sobre lo que la tanda anterior dejó. **El tamaño:** al generalizar el ícono de mobile a escritorio se generalizó el tamaño equivocado —24 px, el que existía para convivir con el texto que ya no está—; ahora son 36 en todos los anchos. **La posición:** el header se centra a `max-w-5xl` en casi todo el sitio y se estira a lo ancho en `/panel` (TR-065, para alinearse con el contenido que tiene un sidebar al lado). Con el mismo botón en las dos pantallas, eso lo dejaba en dos X distintas y saltaba al navegar. La fila ancha pasa a valer para toda pantalla que muestre el componente: el ancho del contenido de cada una es distinto, el borde derecho es el mismo.
+
+### Autoreservar mira también la agenda del paciente
+
+`calcularDisponibilidad` mira la agenda del PROFESIONAL, que es lo que necesita para ofrecer huecos. Pero autoreservar mueve el turno de una PERSONA, y esa persona puede estar con un colega a esa misma hora — **era el último camino por el que se podía dejar a alguien con dos turnos encimados**: el alta y el reprogramar ya lo rechazan desde TR-147, autoreservar tomaba el primer hueco sin mirar.
+
+Ahora recorre los huecos y toma el primero libre para esa persona; si ninguno lo está, sigue buscando al día siguiente en vez de conformarse. Caer al hueco ocupado "por lo menos algo" sería exactamente el encimado que esto vino a evitar.
+
+### Un cuarto estado, y un cambio de nombre
+
+**"En proceso"** (azul) para el turno que está transcurriendo. Sale del RELOJ y no de una columna: un turno está en proceso porque son las 10:20 y va de 10:15 a 10:45. Guardarlo pediría un trabajo periódico que cambie filas solo, y la pantalla igual no se enteraría hasta el próximo sondeo; derivado, la fila cambia sola en la pantalla que ya está abierta.
+
+**"Confirmado" pasa a "Pendiente"**, que es lo que el turno de verdad es. Es un cambio de rótulo: la base sigue diciendo `agendado` y la URL sigue siendo `?estado=agendado`. **No confundir con el `pendiente` que TR-104 eliminó del modelo** — aquél era un turno sin horario fijo recién llegado del formulario público. El nombre se repite; el concepto no.
+
+### La tarjeta de "Turnos de hoy"
+
+Pasa a ocupar la fila entera y a partirse en dos —el bloque cuadrado con la cuenta, y el cuerpo con una fila por turno—, porque es lo más urgente que se mira al entrar y era una tarjeta más del mismo tamaño que las otras cinco.
+
+Cada fila suma el estado y **los botones de asistencia, que se abren 5 minutos antes de que el turno empiece**. Son la misma acción y el mismo endpoint que el cartel del final: marcar antes ADELANTA todas sus consecuencias (verificar al paciente, resolver el conflicto que ese turno originó) y evita que el cartel aparezca después. El límite vive en el backend —`AnticipoAsistencia`—; los botones son su reflejo, no la regla.
+
+La ventana **se abre antes y no se cierra nunca**: marcar tarde siempre estuvo permitido, lo único que cambia es que ahora también se puede marcar a tiempo.
+
+Tres detalles que no son estéticos:
+
+- La fila deja de ser un solo link: un `button` dentro de un `a` no es HTML válido y el click navegaría.
+- "Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON — el que está en proceso no es uno "más", es el de ahora. Por eso el número grande y el pie pueden decir distinto.
+- Un turno marcado de antemano cumplía a la vez las condiciones de "Turnos de hoy" y de "Turnos resueltos hoy": la primera pasa a excluir lo ya marcado, que es la cola de lo que falta atender.
+
+### El gesto de confirmar, compartido y más corto
+
+`BotonMantenerApretado` se extrae del cartel y baja de 10 a 5 segundos **en los dos lugares**. Es la misma acción irreversible, y dos implementaciones del gesto que la confirma terminarían divergiendo justo en el detalle que importa. Diez segundos protegían de lo mismo que cinco —un toque accidental, no una decisión deliberada— y con varios turnos por día se volvían una espera real.
+
+### El reloj
+
+`useAhora` (`lib/reloj.ts`) usa `useSyncExternalStore`, no un `useState` con efecto: `setState` sincrónico adentro de un efecto dispara renders en cascada y el lint del repo lo rechaza, y `getServerSnapshot` es lo que evita el mismatch de hidratación entre el reloj del contenedor y el del navegador. El valor viene redondeado al intervalo porque `getSnapshot` tiene que devolver lo mismo entre notificaciones.
