@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
-import { IconLogout, IconSettings, IconUser } from "./icons";
+import { IconLogout, IconSettings, IconUser, IconUsers } from "./icons";
 
 const itemClass =
   "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
@@ -19,7 +19,7 @@ const itemClass =
 // no de navegación. "Cerrar sesión" vivía solo en /perfil (pedido
 // explícito del cliente, 2026-08-23) — ya no es una excepción, ahora
 // vive acá TAMBIÉN (se mantiene en /perfil, sin sacar nada de ahí).
-export function HeaderConfigMenu() {
+export function HeaderConfigMenu({ icono = "tuerca" }: { icono?: "tuerca" | "colaboradores" }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +44,10 @@ export function HeaderConfigMenu() {
         onClick={() => setOpen((o) => !o)}
         className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
       >
-        <IconSettings className="h-5 w-5" />
+        {/* En /clinicas, el ícono de colaboradores (2026-09-19): el
+            menú es el mismo, pero el botón redondo de la derecha del
+            header se dibuja igual en todas las pantallas. */}
+        {icono === "colaboradores" ? <IconUsers className="h-5 w-5" /> : <IconSettings className="h-5 w-5" />}
       </button>
       {open && (
         <nav

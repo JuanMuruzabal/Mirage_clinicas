@@ -140,7 +140,7 @@ describe("SiteHeaderChrome — logo", () => {
 // en una pantalla de herramienta con onboarding completo, el botón de
 // configuración reemplaza a los tres links sueltos de antes.
 describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
-  it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
+  it.each(["/perfil", "/personalizar-pagina"])(
     "en %s con estado completo, muestra el botón de configuración y no 'Mis clínicas'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
@@ -149,6 +149,20 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
       expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     },
   );
+
+  // 2026-09-19 (pedido del cliente): en /seleccionar-servicio la tuerca
+  // se retira — la reemplaza el componente de colaboradores, que absorbió
+  // "Tu perfil" y "Cerrar sesión" en su propio menú (equipo-popover.tsx).
+  // /perfil y /personalizar-pagina siguen con tuerca: ahí el componente
+  // de colaboradores no se muestra, y sería su único acceso a cerrar
+  // sesión. El popover en sí se prueba en panel-topbar.test.tsx —acá los
+  // datos del topbar vienen mockeados en null—, así que lo que este test
+  // fija es la ausencia del gear.
+  it("en /seleccionar-servicio con estado completo, ya NO muestra el botón de configuración", () => {
+    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    renderHeader("completo");
+    expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
+  });
 
   // Corrección de QA (2026-09-05, textual): "saque del header del panel
   // de gestion de clinica la tuerquita de opciones, ya que en el

@@ -131,6 +131,21 @@ describe("PanelTopbar", () => {
     expect(await screen.findByRole("button", { name: "Cambiar de clínica" })).toHaveTextContent("Clínica Norte");
   });
 
+  // 2026-09-19, pedido del cliente: "el componente se extiende ahora
+  // hasta la página de /seleccionar-servicio reemplazando el ícono de
+  // tuerca". El SELECTOR no lo sigue hasta ahí: esa pantalla ya tiene el
+  // suyo en el cuerpo, y dos controles para lo mismo en la misma vista
+  // es exactamente lo que el ítem 4 vino a sacar.
+  it("en /seleccionar-servicio muestra los colaboradores, pero no el selector de clínica", async () => {
+    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    datosMock.mockResolvedValue(datos());
+
+    montar();
+
+    expect(await screen.findByRole("button", { name: "Ver colaboradores" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar de clínica" })).not.toBeInTheDocument();
+  });
+
   it("sin sesión completa no pide nada", async () => {
     render(
       <PanelTopbarProvider habilitado={false}>

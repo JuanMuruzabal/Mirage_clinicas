@@ -63,6 +63,9 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
   const esClinicas = pathname === "/clinicas";
+  // Declarada acá arriba y no junto a `ocultarLogo`, que es su otro uso:
+  // `mostrarGear` también la necesita desde 2026-09-19.
+  const esSeleccionarServicio = pathname === "/seleccionar-servicio";
   // mostrarGear — corrección de QA (2026-09-05, textual): "saque del
   // header del panel de gestion de clinica la tuerquita de opciones, ya
   // que en el sidebar da las opciones" — en /panel/** el sidebar YA
@@ -83,7 +86,14 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // deliberada de volver al sitio público, porque el nombre del producto
   // deja de ser un link. Sus dos ítems (Tu perfil / Cerrar sesión) valen
   // igual sin clínica cargada.
-  const mostrarGear = (esHerramienta && !enRutaConSidebar) || (esClinicas && estado !== "anonimo");
+  //
+  // 2026-09-19: en /seleccionar-servicio la tuerca ya no va — la
+  // reemplaza el componente de colaboradores, que absorbió "Tu perfil" y
+  // "Cerrar sesión" en su propio menú (ver equipo-popover.tsx). En
+  // /clinicas se queda, porque ahí todavía no hay clínica elegida y no
+  // hay equipo que mostrar; lo único que cambia es su ícono.
+  const mostrarGear =
+    (esHerramienta && !enRutaConSidebar && !esSeleccionarServicio) || (esClinicas && estado !== "anonimo");
   // Y nunca el botón "Mis clínicas" DENTRO de /clinicas. Se colaba con el
   // onboarding sin terminar —el caso de quien todavía no cargó ninguna—,
   // porque `esHerramienta` exige onboarding completo: el header ofrecía
@@ -110,7 +120,6 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   //   - en /seleccionar-servicio, "donde dice PRISMA ahora deberá decir
   //     clínicas, para ir a la página anterior de seleccionar clínica":
   //     el logo pasa a ser el camino de vuelta al selector.
-  const esSeleccionarServicio = pathname === "/seleccionar-servicio";
   const ocultarLogo = esHerramienta && !esSeleccionarServicio && !esClinicas;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
@@ -255,7 +264,12 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
             a propósito — uno dice dónde estás, el otro con quién. */}
         <EquipoDelPanel />
 
-        {mostrarGear && <HeaderConfigMenu />}
+        {/* En /clinicas el mismo menú con el ícono de colaboradores
+            (2026-09-19, pedido del cliente): el header de toda la app
+            pasa a tener un solo botón redondo a la derecha, y que cambie
+            de dibujo entre pantallas era justamente lo que se pidió
+            emparejar. La funcionalidad no cambia. */}
+        {mostrarGear && <HeaderConfigMenu icono={esClinicas ? "colaboradores" : "tuerca"} />}
 
         {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
             sesión. Llevar directo a /seleccionar-servicio salteaba la

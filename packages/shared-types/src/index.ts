@@ -174,6 +174,20 @@ export interface InvitacionPendiente {
   venceAt: string;
 }
 
+/** Espejo de perfilDeColegaResponse (internal/http/perfil_colega.go).
+ *  El perfil de un COLEGA (2026-09-19): lo mismo que el propio menos el
+ *  documento, que no tiene ningún uso entre colegas. `perfil` viene
+ *  ausente si la persona todavía no lo completó. */
+export interface PerfilDeColega {
+  userId: string;
+  nombre: string;
+  email: string;
+  roles: ClinicRole[];
+  esTitular: boolean;
+  esVos: boolean;
+  perfil?: PerfilProfesional;
+}
+
 export interface Equipo {
   miembros: MiembroDelEquipo[];
   pendientes: InvitacionPendiente[];

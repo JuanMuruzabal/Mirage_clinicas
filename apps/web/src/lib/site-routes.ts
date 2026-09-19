@@ -115,6 +115,23 @@ const HERRAMIENTA_ROUTE_PREFIXES = [
   "/colaboradores",
 ];
 
+/**
+ * Dónde se muestra el componente de colaboradores del header (2026-09-19,
+ * pedido del cliente: "el componente se extiende ahora hasta la página de
+ * /seleccionar-servicio reemplazando el ícono de tuerca").
+ *
+ * Es /panel/** más "¿Qué necesitás hoy?" — las dos pantallas donde ya se
+ * está parado DENTRO de una clínica. En /clinicas no: ahí todavía no se
+ * eligió ninguna, y no hay equipo del que hablar (esa pantalla conserva
+ * el menú de cuenta, solo que con este ícono).
+ *
+ * El SELECTOR de clínica no sigue esta regla y se queda en /panel/**:
+ * /seleccionar-servicio ya tiene el suyo en el cuerpo de la página.
+ */
+export function mostrarColaboradoresEnHeader(pathname: string): boolean {
+  return isPanelRoute(pathname) || pathname === "/seleccionar-servicio";
+}
+
 export function isHerramientaRoute(pathname: string): boolean {
   return HERRAMIENTA_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }

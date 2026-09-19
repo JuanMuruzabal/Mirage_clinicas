@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Equipo, MiembroDelEquipo, Presencia } from "@dental-mirage/shared-types";
+import { logoutAction } from "@/app/actions/auth";
 import { presenciaAction } from "@/app/actions/presencia";
-import { IconChevronDown } from "@/components/icons";
+import { IconLogout, IconUser } from "@/components/icons";
+
+const itemDeCuenta =
+  "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
 
 const ETIQUETA_ROL: Record<string, string> = {
   owner: "Titular",
@@ -163,7 +167,7 @@ export function EquipoPopover({
               <li className="px-3 py-2 text-sm text-grafito/50">Todavía no hay nadie más en la clínica.</li>
             )}
             {enLinea.map((m) => (
-              <FilaColaborador key={m.userId} miembro={m} />
+              <FilaColaborador key={m.userId} miembro={m} onIr={() => setAbierto(false)} />
             ))}
             {ausentes.length > 0 && enLinea.length > 0 && (
               <li className="px-3 pb-1 pt-3 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
@@ -171,7 +175,7 @@ export function EquipoPopover({
               </li>
             )}
             {ausentes.map((m) => (
-              <FilaColaborador key={m.userId} miembro={m} />
+              <FilaColaborador key={m.userId} miembro={m} onIr={() => setAbierto(false)} />
             ))}
           </ul>
           <Link
@@ -181,16 +185,38 @@ export function EquipoPopover({
           >
             Ver todos los colaboradores
           </Link>
+
+          {/* La cuenta, abajo de todo (2026-09-19). Este componente
+              reemplaza a la tuerca en el header de /seleccionar-servicio,
+              y ahí la tuerca era el ÚNICO acceso a "Cerrar sesión" — sin
+              esto, el cambio de ícono habría dejado a la persona sin
+              forma de salir. Separado del equipo por su propio borde:
+              son dos cosas distintas en un mismo menú. */}
+          <div className="mt-1 flex flex-col gap-0.5 border-t border-linea pt-2">
+            <Link href="/perfil" onClick={() => setAbierto(false)} className={itemDeCuenta}>
+              <IconUser className="h-[18px] w-[18px] flex-shrink-0" />
+              Tu perfil
+            </Link>
+            {/* display:contents y no un <form> de bloque: como hijo de
+                este flex-col, metería su propia caja y un gap de más
+                (mismo motivo que en HeaderConfigMenu). */}
+            <form action={logoutAction} className="contents">
+              <button type="submit" className={`${itemDeCuenta} text-left`}>
+                <IconLogout className="h-[18px] w-[18px] flex-shrink-0" />
+                Cerrar sesión
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function FilaColaborador({ miembro }: { miembro: MiembroDelEquipo }) {
+function FilaColaborador({ miembro, onIr }: { miembro: MiembroDelEquipo; onIr: () => void }) {
   const rol = miembro.esTitular ? "Titular" : (ETIQUETA_ROL[miembro.roles[0] ?? ""] ?? miembro.roles[0] ?? "");
   return (
-    <li className="flex items-center gap-3 rounded-field px-3 py-2">
+    <li className="group flex items-center gap-3 rounded-field px-3 py-2 hover:bg-hueso">
       <span
         aria-hidden="true"
         className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -206,13 +232,30 @@ function FilaColaborador({ miembro }: { miembro: MiembroDelEquipo }) {
         </span>
         <span className="truncate text-xs text-grafito/50">{rol}</span>
       </span>
-      <span
-        className={`ml-auto flex flex-shrink-0 items-center gap-1.5 text-xs ${
-          miembro.enLinea ? "text-salvia-oscuro" : "text-grafito/45"
-        }`}
-      >
-        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${miembro.enLinea ? "bg-salvia-oscuro" : "bg-arena"}`} />
-        {miembro.enLinea ? "En línea" : haceCuanto(miembro.ultimaActividad)}
+      {/* La presencia y el acceso al perfil comparten lugar: la fila ya
+          está llena y las dos cosas no se necesitan al mismo tiempo
+          (2026-09-19). En reposo se lee "en línea / hace 20 min"; al
+          apuntar la fila aparece "Ver perfil". En touch, donde no hay
+          hover, el foco del teclado y el `group-focus-within` lo
+          muestran igual. */}
+      <span className="relative ml-auto flex flex-shrink-0 items-center">
+        <span
+          className={`flex items-center gap-1.5 text-xs group-hover:invisible group-focus-within:invisible ${
+            miembro.enLinea ? "text-salvia-oscuro" : "text-grafito/45"
+          }`}
+        >
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${miembro.enLinea ? "bg-salvia-oscuro" : "bg-arena"}`} />
+          {miembro.enLinea ? "En línea" : haceCuanto(miembro.ultimaActividad)}
+        </span>
+        {/* El propio perfil va a /perfil, que además de mostrarlo lo
+            edita; el de un colega, a su ficha en solo lectura. */}
+        <Link
+          href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
+          onClick={onIr}
+          className="absolute inset-y-0 right-0 flex items-center whitespace-nowrap text-xs font-medium text-salvia-oscuro opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          Ver perfil
+        </Link>
       </span>
     </li>
   );
