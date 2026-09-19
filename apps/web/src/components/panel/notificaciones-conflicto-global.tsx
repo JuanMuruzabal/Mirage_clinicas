@@ -18,18 +18,23 @@ import { panelNotificacionesAction } from "@/app/actions/panel";
 // (ConflictosPacienteBanner en /panel/pacientes, el banner de conflicto
 // del calendario en /panel/calendario) para no duplicar el mismo aviso
 // dos veces en la misma pantalla.
-// 20s, y no los 60 de antes (2026-09-16, pedido del cliente: "la
-// notificación de conflicto de pacientes se debe resolver a tiempo real").
+// 2s (2026-09-19, pedido del cliente: el aviso tiene que irse "al menos
+// 2 seg después de haber resuelto el conflicto", también cuando lo
+// resolvió OTRO profesional).
 //
-// Un conflicto lo puede resolver OTRO profesional —una resolución alcanza
-// a todos los tickets del mismo mail— así que este aviso ya no depende
-// solo de lo que haga quien lo está mirando. Es una consulta que cuenta
-// filas; bajarla a 20s no mueve la aguja de nada y hace que el aviso
-// desaparezca solo, sin tener que navegar.
+// Para QUIEN resuelve el conflicto esto no hace falta: el
+// `router.refresh()` de la pantalla ya actualiza todo al instante. Este
+// sondeo es para el OTRO — una resolución alcanza a todos los tickets del
+// mismo mail, así que su aviso tiene que irse sin que él haga nada.
+//
+// 2s es barato acá y no en general: /panel/notificaciones son dos
+// consultas cortas con cortocircuito (sin horarios reservados no mira un
+// solo turno). No copiar este intervalo a un endpoint que liste o calcule
+// disponibilidad.
 //
 // Mismo criterio que la presencia (TR-142): el estado vive en Postgres y
 // se sondea, sin transporte nuevo.
-const INTERVALO_SONDEO_MS = 20_000;
+const INTERVALO_SONDEO_MS = 2_000;
 
 export function NotificacionesConflictoGlobal() {
   const pathname = usePathname();

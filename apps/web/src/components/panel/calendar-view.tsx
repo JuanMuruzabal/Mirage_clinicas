@@ -35,6 +35,7 @@ import { ConfiguracionCalendarioModal } from "./configuracion-calendario-modal";
 import { BloqueoDetalleModal } from "./bloqueo-detalle-modal";
 import { ReservarHorarioModal } from "./reservar-horario-modal";
 import { IconSettings } from "@/components/icons";
+import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface CalendarViewProps {
   tiposConsulta: TipoConsulta[];
@@ -118,7 +119,9 @@ export function CalendarView({
   // en UTC; el navegador de cada visitante, en la suya) — mismatch de
   // hidratación, "sáb 29" (server) vs "dom 30" (cliente).
   const [fecha, setFecha] = useState(() => (fechaInicialStr ? parseFechaISOLocal(fechaInicialStr) : hoyEnCordoba()));
-  const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  // Ver pacientes-table.tsx: sin esto, un turno editado o un conflicto
+  // de calendario resuelto seguían pintados hasta refrescar a mano.
+  const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales);
   const [cargando, setCargando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   // reservarHorarioAbierto — acceso rápido "+ Reservar horario" (pedido

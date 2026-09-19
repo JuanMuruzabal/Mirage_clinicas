@@ -14,6 +14,7 @@ import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { CancelarTurnoModal } from "./cancelar-turno-modal";
 import { EditarTurnoModal } from "./editar-turno-modal";
+import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface TurnosTableProps {
   turnosIniciales: Turno[];
@@ -56,8 +57,12 @@ function contactoDeTurno(t: Turno): { telefono: string; email: string } {
 // acciones (Confirmar/Editar/Cancelar) — antes vivían siempre visibles en
 // una columna aparte, que competía por espacio con los datos del turno.
 export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filtros, abrirId }: TurnosTableProps) {
-  const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  // Ver pacientes-table.tsx: con useState, editar o cancelar un turno no
+  // se veía hasta refrescar a mano.
   const [total, setTotal] = useState(totalInicial ?? turnosIniciales.length);
+  const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales, (frescos) =>
+    setTotal(totalInicial ?? frescos.length),
+  );
   const [cargandoMas, setCargandoMas] = useState(false);
   // tipoPorId — corrección de QA: "dar un indicador visual en la tabla de
   // turnos el tipo de consulta, ya que está ausente" — mismo criterio que
