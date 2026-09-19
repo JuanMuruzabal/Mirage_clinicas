@@ -2518,7 +2518,9 @@ Hasta acá la única forma de marcar era el cartel incerrable del final del turn
 
 **Todo lo demás del endpoint no se toca**: sigue siendo irreversible, sigue resolviendo el conflicto de identidad que ese turno originó, y sigue bloqueado mientras haya un conflicto sin resolver del lado en disputa. Marcar antes ADELANTA esas consecuencias, no las saltea. Y el límite vive en el backend: los botones del frontend son su reflejo, no la regla.
 
-**Consecuencia en el dashboard:** un turno marcado de antemano cumplía a la vez las condiciones de "Turnos de hoy" (vigente) y "Turnos resueltos hoy" (marcado), y aparecía en las dos. "Turnos de hoy" pasa a excluir lo ya marcado: es la cola de lo que falta atender.
+**Marcar NO adelanta el turno** (corrección del mismo día, sobre la primera entrega). La primera versión sacaba el turno marcado de "Turnos de hoy" y lo mandaba a "Turnos resueltos hoy", como si se hubiera cumplido. Está mal: la persona sigue sentada en la sala y el turno sigue siendo de las 10:15 — lo único que se guardó es **qué va a decir cuando termine**.
+
+Así que la fila se queda en la tarjeta con "Asistido"/"No asistió" en la columna de asistencia, y el estado sigue saliendo del reloj. La separación real entre las dos listas es **la hora de fin**, no la marca: "Turnos de hoy" pide `hora_fin >= ahora` y "Turnos resueltos hoy" pide lo contrario (`hora_fin < ahora AND asistencia IS NOT NULL`). Complementarias, así que un turno nunca está en las dos a la vez, y la marca viaja con él cuando cruza.
 
 ### La tarjeta de "Turnos de hoy"
 
@@ -2526,8 +2528,10 @@ Ocupa la fila entera y se parte en dos —el bloque cuadrado con la cuenta, y el
 
 Tres detalles que no son estéticos:
 
-- **La fila deja de ser un solo link.** Un `<button>` dentro de un `<a>` no es HTML válido y el click navegaría: la hora y el nombre siguen llevando al calendario, los botones viven afuera de ese link.
-- **"Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON.** El que está en proceso no es uno "más", es el de ahora. Por eso el número grande (el día entero) y el pie pueden decir distinto, y está bien.
+- **Es una `<table>` con cabecera fija** (HORARIO · PACIENTE · ESTADO · ASISTENCIA, en el verde de siempre). Son datos tabulares, la cabecera tiene que acompañar al scroll —sin eso, al bajar se perdía qué columna era cada cosa— y el ancho mínimo de la tabla es lo que produce el scroll horizontal en mobile sin declarar anchos dos veces. La columna que absorbe el espacio sobrante es ASISTENCIA y no PACIENTE: así ESTADO queda pegado al nombre en vez de empujado al otro extremo.
+- **La fila no es un solo link.** Un `<button>` dentro de un `<a>` no es HTML válido y el click navegaría: la hora y el nombre llevan al calendario, los botones viven en su propia celda.
+- **Los botones están siempre, apagados hasta que falten 5 minutos.** Apareciendo de la nada movían la fila entera y no dejaban ver de antemano que la columna iba a tener algo.
+- **"Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON** y no están marcados. El que está en proceso no es uno "más", es el de ahora. Por eso el número grande (el día entero) y el pie pueden decir distinto, y está bien. Con cero no se dice nada: era una frase para informar que no hay nada que informar.
 - **`BotonMantenerApretado` se extrae del cartel y baja a 5 segundos en los dos lugares.** Es la misma acción irreversible: dos implementaciones del gesto que la confirma terminarían divergiendo justo en el detalle que importa. Diez segundos protegían de lo mismo que cinco —un toque accidental, no una decisión deliberada— y con varios turnos por día se volvían una espera real.
 
 ### El reloj: `useSyncExternalStore`, no un efecto

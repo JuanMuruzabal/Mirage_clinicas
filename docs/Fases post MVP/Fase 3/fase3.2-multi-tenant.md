@@ -1361,7 +1361,9 @@ Tres detalles que no son estéticos:
 
 - La fila deja de ser un solo link: un `button` dentro de un `a` no es HTML válido y el click navegaría.
 - "Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON — el que está en proceso no es uno "más", es el de ahora. Por eso el número grande y el pie pueden decir distinto.
-- Un turno marcado de antemano cumplía a la vez las condiciones de "Turnos de hoy" y de "Turnos resueltos hoy": la primera pasa a excluir lo ya marcado, que es la cola de lo que falta atender.
+- **Marcar no adelanta el turno** (corrección del mismo día). La primera versión lo sacaba de "Turnos de hoy" y lo mandaba a "Turnos resueltos hoy", como si se hubiera cumplido; pero la persona sigue sentada en la sala y el turno sigue siendo de las 10:15. La fila se queda con "Asistido"/"No asistió" en su columna y el estado sigue saliendo del reloj. Lo que separa las dos listas es **la hora de fin** y no la marca: una pide `hora_fin >= ahora`, la otra lo contrario.
+- **La tarjeta es una `<table>` con cabecera fija** (HORARIO · PACIENTE · ESTADO · ASISTENCIA, en el verde de siempre): son datos tabulares, la cabecera tiene que acompañar al scroll, y el ancho mínimo de la tabla es lo que produce el scroll horizontal en mobile. La columna que absorbe el sobrante es ASISTENCIA, así ESTADO queda pegado al nombre.
+- **Los botones están siempre, apagados hasta que falten 5 minutos**: apareciendo de la nada movían la fila entera.
 
 ### El gesto de confirmar, compartido y más corto
 
