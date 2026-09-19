@@ -150,9 +150,10 @@ describe("SiteHeader", () => {
   // TR-060: en una pantalla de herramienta con onboarding completo, el
   // botón de configuración reemplaza a los tres links sueltos de antes.
   describe("con onboarding completo, en una pantalla de herramienta", () => {
-    // /seleccionar-servicio salió de esta lista el 2026-09-19: ahí la
-    // tuerca la reemplaza el componente de colaboradores.
-    it.each(["/perfil", "/personalizar-pagina"])(
+    // /seleccionar-servicio y /personalizar-pagina salieron de esta
+    // lista el 2026-09-19: ahí la tuerca la reemplaza el componente de
+    // colaboradores. Ver site-header-chrome.test.tsx para la regla.
+    it.each(["/perfil"])(
       "en %s, muestra el botón de configuración (no 'Mis clínicas')",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);

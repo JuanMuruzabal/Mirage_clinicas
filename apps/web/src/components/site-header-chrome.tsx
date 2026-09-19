@@ -87,13 +87,18 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // deja de ser un link. Sus dos ítems (Tu perfil / Cerrar sesión) valen
   // igual sin clínica cargada.
   //
-  // 2026-09-19: en /seleccionar-servicio la tuerca ya no va — la
-  // reemplaza el componente de colaboradores, que absorbió "Tu perfil" y
-  // "Cerrar sesión" en su propio menú (ver equipo-popover.tsx). En
-  // /clinicas se queda, porque ahí todavía no hay clínica elegida y no
-  // hay equipo que mostrar; lo único que cambia es su ícono.
+  // 2026-09-19, y la regla quedó en una sola frase: **la tuerca se
+  // muestra donde NO se muestra el componente de colaboradores**, que
+  // absorbió "Tu perfil" y "Cerrar sesión" en su propio menú (ver
+  // equipo-popover.tsx). Tener los dos botones al lado sería ofrecer el
+  // mismo menú dos veces.
+  //
+  // En la práctica quedan /perfil y /clinicas. En /clinicas se queda
+  // porque ahí todavía no hay clínica elegida y no hay equipo que
+  // mostrar; lo único que cambia es su ícono.
   const mostrarGear =
-    (esHerramienta && !enRutaConSidebar && !esSeleccionarServicio) || (esClinicas && estado !== "anonimo");
+    ((esHerramienta && !enRutaConSidebar) || (esClinicas && estado !== "anonimo")) &&
+    !mostrarColaboradoresEnHeader(pathname);
   // Y nunca el botón "Mis clínicas" DENTRO de /clinicas. Se colaba con el
   // onboarding sin terminar —el caso de quien todavía no cargó ninguna—,
   // porque `esHerramienta` exige onboarding completo: el header ofrecía
@@ -167,16 +172,22 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // colaboradores — quedaban pegados. El gap es un piso, no un reemplazo
   // del justify-between.
   //
-  // Y desde 2026-09-19 la fila ancha vale para TODA pantalla que muestre
-  // el componente de colaboradores, no solo /panel (pedido del cliente:
-  // "debe estar en la misma ubicación tanto en /seleccionar-servicio
-  // como en panel"). Con el contenedor centrado a `max-w-5xl`, el mismo
-  // botón quedaba a un par de centímetros de distancia entre las dos
-  // pantallas en cualquier monitor ancho, y al navegar de una a la otra
-  // saltaba de lugar. Alinearlo contra el borde del viewport es lo único
-  // que lo deja quieto: el ancho del contenido de cada pantalla es
-  // distinto, el borde derecho es el mismo.
-  const contenedorClass = mostrarColaboradoresEnHeader(pathname)
+  // Y desde 2026-09-19 la fila ancha vale para TODA pantalla de
+  // herramienta con sesión, no solo /panel (pedido del cliente: "debe
+  // estar en la misma ubicación tanto en /seleccionar-servicio como en
+  // panel", y después lo mismo para /colaboradores, /personalizar-pagina
+  // y /clinicas).
+  //
+  // Con el contenedor centrado a `max-w-5xl`, el botón redondo de la
+  // derecha quedaba a un par de centímetros de distancia entre una
+  // pantalla y otra en cualquier monitor ancho, y saltaba de lugar al
+  // navegar. Alinearlo contra el borde del viewport es lo único que lo
+  // deja quieto: el ancho del contenido de cada pantalla es distinto, el
+  // borde derecho es el mismo. Se aplica a TODAS —incluidas /clinicas y
+  // /perfil, que muestran la tuerca en vez del popover— porque si no el
+  // salto vuelve entre esas dos y el resto.
+  const filaAnchaDeHerramienta = estado !== "anonimo" && isHerramientaRoute(pathname);
+  const contenedorClass = filaAnchaDeHerramienta
     ? "flex w-full items-center justify-between gap-3 px-8 py-4 max-md:px-6"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 

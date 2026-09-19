@@ -42,12 +42,28 @@ export function HeaderConfigMenu({ icono = "tuerca" }: { icono?: "tuerca" | "col
         aria-controls="menu-configuracion"
         aria-label={open ? "Cerrar accesos rápidos" : "Accesos rápidos"}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
+        className={
+          icono === "colaboradores"
+            ? "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
+            : "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
+        }
       >
-        {/* En /clinicas, el ícono de colaboradores (2026-09-19): el
-            menú es el mismo, pero el botón redondo de la derecha del
-            header se dibuja igual en todas las pantallas. */}
-        {icono === "colaboradores" ? <IconUsers className="h-5 w-5" /> : <IconSettings className="h-5 w-5" />}
+        {/* En /clinicas, el MISMO botón que el de colaboradores del
+            resto de las pantallas: un disco verde de 36 px en el mismo
+            lugar, para que al navegar no cambie de forma ni salte
+            (2026-09-19, segunda vuelta del pedido). Lo único distinto es
+            lo que lleva adentro — ahí todavía no hay clínica elegida, y
+            por lo tanto no hay avatares de nadie que apilar. */}
+        {icono === "colaboradores" ? (
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-marfil"
+          >
+            <IconUsers className="h-[18px] w-[18px]" />
+          </span>
+        ) : (
+          <IconSettings className="h-5 w-5" />
+        )}
       </button>
       {open && (
         <nav

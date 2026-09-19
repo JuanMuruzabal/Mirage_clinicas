@@ -77,27 +77,21 @@ func TestMarcarAsistencia_ElTurnoDeAyerSigueSiendoMarcable(t *testing.T) {
 	}
 }
 
-// TestResumenPanel_ElTurnoMarcadoDeAntemanoSaleDeTurnosDeHoy — la
-// consecuencia de poder marcar antes, en el dashboard.
+// TestResumenPanel_MarcarAntesNoAdelantaElTurno — corrección del
+// 2026-09-19, pedido del cliente: "si se marca asistencia en este, el
+// turno no debe pasar automáticamente a resuelto, solo guardará el
+// estado de que asistió".
 //
-// "Turnos de hoy" es la cola de lo que falta atender y "Turnos resueltos
-// hoy" el reporte de lo ya marcado. Mientras solo se podía marcar al
-// terminar, las dos listas no se pisaban nunca: un turno vigente no
-// podía tener asistencia. Con la ventana abierta antes, un turno marcado
-// de antemano cumplía las dos condiciones a la vez y aparecía duplicado.
-func TestResumenPanel_ElTurnoMarcadoDeAntemanoSaleDeTurnosDeHoy(t *testing.T) {
+// Marcar por adelantado no adelanta el turno: la persona sigue sentada
+// en la sala y el turno sigue siendo de las 10:15. Lo único que se
+// guardó es qué va a decir cuando termine, así el profesional se ahorra
+// el cartel del final. Así que el turno SIGUE en "Turnos de hoy" —con su
+// marca— y todavía NO está en "Turnos resueltos hoy".
+func TestResumenPanel_MarcarAntesNoAdelantaElTurno(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "anticipada4@example.com")
 	porEmpezar := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, time.Now().Add(3*time.Minute))
-
-	// Antes de marcar: es un turno de hoy que falta atender.
-	var antes resumenPanelResponse
-	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
-	_ = json.Unmarshal(rec.Body.Bytes(), &antes)
-	if !contieneTurno(antes.TurnosHoy, porEmpezar.ID.String()) {
-		t.Fatalf("TurnosHoy = %+v, esperaba que incluyera el turno por empezar", antes.TurnosHoy)
-	}
 
 	marcar := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+porEmpezar.ID.String()+"/asistencia", reg.Token,
 		marcarAsistenciaRequest{Asistencia: "asistio"})
@@ -105,14 +99,54 @@ func TestResumenPanel_ElTurnoMarcadoDeAntemanoSaleDeTurnosDeHoy(t *testing.T) {
 		t.Fatalf("marcar: status = %d body=%s", marcar.Code, marcar.Body.String())
 	}
 
-	var despues resumenPanelResponse
-	rec = doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
-	_ = json.Unmarshal(rec.Body.Bytes(), &despues)
-	if contieneTurno(despues.TurnosHoy, porEmpezar.ID.String()) {
-		t.Errorf("TurnosHoy sigue trayendo el turno ya marcado: %+v", despues.TurnosHoy)
+	var got resumenPanelResponse
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	item := turnoDelResumen(got.TurnosHoy, porEmpezar.ID.String())
+	if item == nil {
+		t.Fatalf("TurnosHoy = %+v, esperaba que siguiera ahí: el turno todavía no terminó", got.TurnosHoy)
 	}
-	if !contieneTurno(despues.TurnosResueltos, porEmpezar.ID.String()) {
-		t.Errorf("TurnosResueltos = %+v, esperaba que lo incluyera", despues.TurnosResueltos)
+	// Y la tarjeta necesita la marca para mostrar "Asistido" en la
+	// columna de asistencia en vez de los botones.
+	if item.Asistencia != "asistio" {
+		t.Errorf("asistencia = %q, esperaba \"asistio\" — sin esto la fila volvería a ofrecer los botones", item.Asistencia)
+	}
+	if contieneTurno(got.TurnosResueltos, porEmpezar.ID.String()) {
+		t.Errorf("TurnosResueltos ya lo trae (%+v): el turno todavía no terminó", got.TurnosResueltos)
+	}
+}
+
+// TestResumenPanel_AlTerminarPasaAResueltoConSuMarca — la otra mitad de
+// la regla: "cuando realmente se complete el turno y pase a resuelto,
+// este estado que guarda la tarjeta se pase al turno resuelto". Las dos
+// listas son complementarias (una pide `hora_fin >= ahora`, la otra lo
+// contrario), así que el turno nunca está en las dos a la vez.
+func TestResumenPanel_AlTerminarPasaAResueltoConSuMarca(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "anticipada6@example.com")
+	// Ya terminó, y con la marca puesta antes de terminar.
+	terminado := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, horaResueltaDeHoy(t))
+	marcar := doJSONAuth(t, router, http.MethodPatch, "/turnos/"+terminado.ID.String()+"/asistencia", reg.Token,
+		marcarAsistenciaRequest{Asistencia: "asistio"})
+	if marcar.Code != http.StatusOK {
+		t.Fatalf("marcar: status = %d body=%s", marcar.Code, marcar.Body.String())
+	}
+
+	var got resumenPanelResponse
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if contieneTurno(got.TurnosHoy, terminado.ID.String()) {
+		t.Errorf("TurnosHoy sigue trayendo un turno que ya terminó: %+v", got.TurnosHoy)
+	}
+	item := turnoDelResumen(got.TurnosResueltos, terminado.ID.String())
+	if item == nil {
+		t.Fatalf("TurnosResueltos = %+v, esperaba el turno terminado", got.TurnosResueltos)
+	}
+	if item.Asistencia != "asistio" {
+		t.Errorf("asistencia = %q, esperaba que la marca viajara con él", item.Asistencia)
 	}
 }
 

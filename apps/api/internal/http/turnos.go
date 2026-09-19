@@ -1698,14 +1698,20 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// ausentes, horarios reservados— contaba lo de toda la clínica.
 		// Un profesional entraba y veía como suyo el día de su colega.
 		//
-		// `asistencia IS NULL` (2026-09-19): desde que se puede marcar la
-		// asistencia ANTES de que el turno termine, un turno de hoy ya
-		// marcado aparecía en las dos tarjetas a la vez. Marcado es
-		// marcado: sale de "Turnos de hoy" —que es la cola de lo que
-		// falta atender— y pasa a "Turnos resueltos hoy", que es
-		// exactamente lo que ya listaba.
+		// Un turno ya marcado SIGUE ACÁ hasta que termine (corrección del
+		// 2026-09-19, pedido del cliente: "si se marca asistencia en
+		// este, el turno no debe pasar automáticamente a resuelto, solo
+		// guardará el estado de que asistió").
+		//
+		// Marcar por adelantado no adelanta el turno: la persona sigue
+		// sentada en la sala y el turno sigue siendo de las 10:15. Lo
+		// único que se guardó es qué va a decir cuando termine. La
+		// tarjeta muestra "Asistido"/"No asistió" en la columna de
+		// asistencia y el estado sigue saliendo del reloj; recién cuando
+		// pasa la hora de fin el turno sale de acá y aparece, con esa
+		// misma marca, en "Turnos resueltos hoy".
 		if err := gdb.Scopes(soloMisTurnos(r)).Where(
-			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?) AND asistencia IS NULL",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
 			Order("hora_inicio").
@@ -1748,10 +1754,18 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// a ser un reporte de HOY: los turnos que YA se marcaron
 		// (asistio/ausente), en el mismo formato que "Turnos de hoy"
 		// (hora, nombre) más el resultado.
+		//
+		// `hora_fin < ahora` (2026-09-19): "resuelto" es un turno que YA
+		// TERMINÓ, no uno que ya tiene marca. Desde que la asistencia se
+		// puede marcar por adelantado, las dos cosas dejaron de ser lo
+		// mismo — sin esta condición, un turno marcado a las 10:10 para
+		// las 10:15 aparecía en esta tarjeta y en "Turnos de hoy" a la
+		// vez. Las dos listas son complementarias: la de arriba pide
+		// `hora_fin >= ahora`, esta pide lo contrario.
 		var turnosResueltosDB []db.Turno
 		if err := gdb.Scopes(soloMisTurnos(r)).Where(
-			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND asistencia IS NOT NULL",
-			profesionalID, "agendado", hoy, mañana,
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND hora_fin < ? AND asistencia IS NOT NULL",
+			profesionalID, "agendado", hoy, mañana, ahora,
 		).
 			Order("hora_inicio").
 			Limit(resumenListLimit).

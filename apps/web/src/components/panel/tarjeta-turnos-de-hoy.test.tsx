@@ -79,27 +79,41 @@ describe("TarjetaTurnosDeHoy — los botones de asistencia", () => {
   // del turno" (pedido textual). El backend impone lo mismo: si esto se
   // adelantara, los botones aparecerían solo para que el servidor los
   // rechace.
-  it("no aparecen faltando más de 5 minutos", () => {
+  // Están SIEMPRE, apagados hasta que falten 5 minutos (corrección del
+  // 2026-09-19): apareciendo de la nada movían la fila entera, y no
+  // dejaban ver de antemano que la columna iba a tener algo.
+  it("faltando más de 5 minutos están, pero deshabilitados", () => {
     montar([turno({ horaInicioIso: enMinutos(6), horaFinIso: enMinutos(36) })]);
-    expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "No asistió" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asistió" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "No asistió" })).toBeDisabled();
   });
 
-  it("aparecen faltando menos de 5 minutos, antes de que el turno empiece", () => {
+  it("aunque se mantengan apretados estando apagados, no marcan nada", async () => {
+    montar([turno({ horaInicioIso: enMinutos(30), horaFinIso: enMinutos(60) })]);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Asistió" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
+  });
+
+  it("faltando menos de 5 minutos quedan habilitados, antes de que el turno empiece", () => {
     montar([turno({ horaInicioIso: enMinutos(3), horaFinIso: enMinutos(33) })]);
-    expect(screen.getByRole("button", { name: "Asistió" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "No asistió" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asistió" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "No asistió" })).toBeEnabled();
   });
 
-  it("aparecen solos al entrar en la ventana, sin refrescar", async () => {
+  it("se habilitan solos al entrar en la ventana, sin refrescar", async () => {
     montar([turno({ horaInicioIso: enMinutos(6), horaFinIso: enMinutos(36) })]);
-    expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asistió" })).toBeDisabled();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2 * 60_000);
     });
 
-    expect(screen.getByRole("button", { name: "Asistió" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asistió" })).toBeEnabled();
   });
 
   // Mismo gesto que el cartel del final del turno, y el mismo umbral:
@@ -172,20 +186,66 @@ describe("TarjetaTurnosDeHoy — el pie", () => {
     // Dos turnos arriba, uno "más" abajo: el número es el día entero, el
     // pie es lo que falta. Que digan distinto es correcto.
     expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("turnos agendados")).toBeInTheDocument();
     expect(screen.getByText("Queda 1 turno más hoy.")).toBeInTheDocument();
   });
 
-  it("sin turnos lo dice, en vez de dejar el cuerpo vacío", () => {
+  // 2026-09-19, pedido del cliente: sin turnos por delante no se dice
+  // nada — "no queda ningún turno más hoy" era una frase para informar
+  // que no hay nada que informar. Queda solo "Ver todos".
+  it("sin turnos por delante no dice nada en el pie, solo queda Ver todos", () => {
     montar([]);
     expect(screen.getByText("No hay turnos para hoy.")).toBeInTheDocument();
-    expect(screen.getByText("No queda ningún turno más hoy.")).toBeInTheDocument();
+    expect(screen.queryByText(/turno más hoy/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver todos" })).toBeInTheDocument();
+  });
+
+  it("un turno ya marcado tampoco cuenta como uno que falta", () => {
+    montar([
+      turno({ id: "a", horaInicioIso: enMinutos(60), horaFinIso: enMinutos(90), asistencia: "asistio" }),
+      turno({ id: "b", horaInicioIso: enMinutos(120), horaFinIso: enMinutos(150) }),
+    ]);
+    expect(screen.getByText("Queda 1 turno más hoy.")).toBeInTheDocument();
+  });
+});
+
+// La corrección central de esta vuelta: marcar no adelanta el turno.
+describe("TarjetaTurnosDeHoy — un turno ya marcado", () => {
+  it("se queda en la tarjeta, con su marca en vez de los botones", () => {
+    montar([turno({ horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32), asistencia: "asistio" })]);
+
+    expect(screen.getByText("Asistido")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
+  });
+
+  // Y el ESTADO sigue saliendo del reloj: marcar la asistencia no
+  // resuelve el turno, solo guarda qué va a decir cuando termine.
+  it("sigue mostrando PENDIENTE o EN PROCESO, no resuelto", () => {
+    montar([turno({ horaInicioIso: enMinutos(-5), horaFinIso: enMinutos(25), asistencia: "ausente" })]);
+
+    expect(screen.getByText("En proceso")).toBeInTheDocument();
+    expect(screen.getByText("No asistió")).toBeInTheDocument();
+    expect(screen.queryByText("Resuelto")).not.toBeInTheDocument();
+  });
+});
+
+describe("TarjetaTurnosDeHoy — la cabecera de columnas", () => {
+  // Fija al scrollear: sin esto, al bajar por la lista se perdía qué
+  // columna era cada cosa.
+  it("nombra las cuatro columnas", () => {
+    montar([turno()]);
+    for (const columna of ["Horario", "Paciente", "Estado", "Asistencia"]) {
+      expect(screen.getByRole("columnheader", { name: columna })).toBeInTheDocument();
+    }
+  });
+
+  it("no dibuja la tabla si no hay turnos", () => {
+    montar([]);
+    expect(screen.queryByRole("columnheader")).not.toBeInTheDocument();
   });
 });
 
 describe("textoRestantes", () => {
   it("concuerda en singular y plural", () => {
-    expect(textoRestantes(0)).toBe("No queda ningún turno más hoy.");
     expect(textoRestantes(1)).toBe("Queda 1 turno más hoy.");
     expect(textoRestantes(4)).toBe("Quedan 4 turnos más hoy.");
   });

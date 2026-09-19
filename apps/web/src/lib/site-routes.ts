@@ -118,18 +118,35 @@ const HERRAMIENTA_ROUTE_PREFIXES = [
 /**
  * Dónde se muestra el componente de colaboradores del header (2026-09-19,
  * pedido del cliente: "el componente se extiende ahora hasta la página de
- * /seleccionar-servicio reemplazando el ícono de tuerca").
+ * /seleccionar-servicio reemplazando el ícono de tuerca", y después "el
+ * header de /colaboradores y /personalizar-pagina tiene que ser igual al
+ * header del /panel").
  *
- * Es /panel/** más "¿Qué necesitás hoy?" — las dos pantallas donde ya se
- * está parado DENTRO de una clínica. En /clinicas no: ahí todavía no se
- * eligió ninguna, y no hay equipo del que hablar (esa pantalla conserva
- * el menú de cuenta, solo que con este ícono).
+ * Son las pantallas donde ya se está parado DENTRO de una clínica: el
+ * panel, "¿Qué necesitás hoy?", Colaboradores y el editor de la página.
+ *
+ * Las dos que quedan afuera, y por qué:
+ *
+ * - `/clinicas` — todavía no se eligió ninguna clínica, así que no hay
+ *   equipo del que hablar. Conserva el menú de cuenta con su propio
+ *   ícono.
+ * - `/perfil` — es la pantalla a la que lleva ese menú; ofrecerlo ahí es
+ *   ofrecer ir donde ya se está.
+ *
+ * (Sin negrita en esos dos: `**` seguido de `/` cierra el comentario de
+ * bloque y todo lo de abajo pasa a ser código. Pasó de verdad.)
  *
  * El SELECTOR de clínica no sigue esta regla y se queda en /panel/**:
  * /seleccionar-servicio ya tiene el suyo en el cuerpo de la página.
  */
 export function mostrarColaboradoresEnHeader(pathname: string): boolean {
-  return isPanelRoute(pathname) || pathname === "/seleccionar-servicio";
+  return (
+    isPanelRoute(pathname) ||
+    pathname === "/seleccionar-servicio" ||
+    pathname === "/colaboradores" ||
+    pathname.startsWith("/colaboradores/") ||
+    pathname === "/personalizar-pagina"
+  );
 }
 
 export function isHerramientaRoute(pathname: string): boolean {
