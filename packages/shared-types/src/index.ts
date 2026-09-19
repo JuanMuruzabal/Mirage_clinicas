@@ -521,9 +521,16 @@ export interface ResumenTurnoItem {
   nombre: string;
   // asistencia (rediseño de "Turnos resueltos" del dashboard — ya no es
   // una bandeja de pendientes, ahora reporta lo que se marcó hoy): vacío
-  // en `turnosHoy`/`turnosProximos` (nunca hay uno marcado ahí, son
-  // siempre vigentes), "asistio" | "ausente" en `turnosResueltos`.
+  // en `turnosHoy`/`turnosProximos` (un turno marcado sale de esas dos
+  // listas), "asistio" | "ausente" en `turnosResueltos`.
   asistencia?: "asistio" | "ausente" | "";
+  /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
+   *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
+   *  proceso, y abre los botones de asistencia 5 minutos antes de que
+   *  empiece — para eso hace falta un instante, no una hora local que el
+   *  navegador reinterprete en su propia zona horaria. */
+  horaInicioIso?: string;
+  horaFinIso?: string;
 }
 
 export interface ResumenHorarioReservadoItem {

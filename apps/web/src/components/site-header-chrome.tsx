@@ -7,7 +7,7 @@ import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
 import { IconMenu, IconX } from "./icons";
-import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
+import { isHerramientaRoute, isPanelRoute, mostrarColaboradoresEnHeader } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
@@ -166,8 +166,18 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // `justify-between` no deja ningún aire entre su borde y el avatar de
   // colaboradores — quedaban pegados. El gap es un piso, no un reemplazo
   // del justify-between.
-  const contenedorClass = isPanelRoute(pathname)
-    ? "flex w-full items-center justify-between gap-3 px-8 py-4"
+  //
+  // Y desde 2026-09-19 la fila ancha vale para TODA pantalla que muestre
+  // el componente de colaboradores, no solo /panel (pedido del cliente:
+  // "debe estar en la misma ubicación tanto en /seleccionar-servicio
+  // como en panel"). Con el contenedor centrado a `max-w-5xl`, el mismo
+  // botón quedaba a un par de centímetros de distancia entre las dos
+  // pantallas en cualquier monitor ancho, y al navegar de una a la otra
+  // saltaba de lugar. Alinearlo contra el borde del viewport es lo único
+  // que lo deja quieto: el ancho del contenido de cada pantalla es
+  // distinto, el borde derecho es el mismo.
+  const contenedorClass = mostrarColaboradoresEnHeader(pathname)
+    ? "flex w-full items-center justify-between gap-3 px-8 py-4 max-md:px-6"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (

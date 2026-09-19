@@ -359,8 +359,21 @@ describe("SiteHeaderChrome — alineación del header en /panel", () => {
     expect(fila).not.toHaveClass("max-w-5xl", "px-6");
   });
 
-  it("fuera de /panel, el header sigue centrado en max-w-5xl con px-6 (sin cambios)", () => {
+  // 2026-09-19: la fila ancha se extendió a /seleccionar-servicio, que
+  // desde esta misma ronda muestra el componente de colaboradores.
+  // Pedido del cliente: "debe estar en la misma ubicación tanto en
+  // /seleccionar-servicio como en panel" — centrado a max-w-5xl, el
+  // mismo botón quedaba en dos X distintas y saltaba al navegar.
+  it("en /seleccionar-servicio el contenedor también es ancho completo, para que el botón no se mueva", () => {
     usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    const { container } = renderHeader("completo");
+    const fila = container.querySelector("header > div")!;
+    expect(fila).toHaveClass("w-full", "px-8");
+    expect(fila).not.toHaveClass("max-w-5xl");
+  });
+
+  it("en una pantalla sin colaboradores (/perfil) el header sigue centrado en max-w-5xl con px-6", () => {
+    usePathnameMock.mockReturnValue("/perfil");
     const { container } = renderHeader("completo");
     const fila = container.querySelector("header > div")!;
     expect(fila).toHaveClass("max-w-5xl", "px-6");

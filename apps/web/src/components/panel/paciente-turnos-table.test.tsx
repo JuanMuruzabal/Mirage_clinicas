@@ -85,18 +85,33 @@ describe("PacienteTurnosTable", () => {
 
   it("muestra estado, fecha y motivo", () => {
     render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
-    expect(screen.getByText("Confirmado")).toBeInTheDocument();
+    // "Pendiente" y no "Confirmado" desde 2026-09-19 (ver ESTADO_LABEL).
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
     expect(screen.getByText("Dolor de muela")).toBeInTheDocument();
   });
 
   // TR-074 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente): un turno
   // agendado con horaFin ya pasado debe mostrar "Resuelto", no
   // "Confirmado" — mismo criterio derivado que TurnosTable/TurnoDetalle.
-  it("un turno agendado con horaFin pasado muestra Resuelto, no Confirmado", () => {
-    const resuelto = { ...turno, horaFin: "2020-01-01T13:30:00.000Z" };
+  it("un turno agendado con horaFin pasado muestra Resuelto, no Pendiente", () => {
+    const resuelto = { ...turno, horaInicio: "2020-01-01T13:00:00.000Z", horaFin: "2020-01-01T13:30:00.000Z" };
     render(<PacienteTurnosTable turnos={[resuelto]} tiposConsulta={tiposConsulta} vacio="" />);
     expect(screen.getByText("Resuelto")).toBeInTheDocument();
-    expect(screen.queryByText("Confirmado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pendiente")).not.toBeInTheDocument();
+  });
+
+  // El tercer estado, que antes no existía (2026-09-19): estamos DENTRO
+  // del horario del turno. Es el caso que la tarjeta de "Turnos de hoy"
+  // necesita distinguir, y la tabla lo dice con el mismo diccionario.
+  it("un turno que está transcurriendo ahora muestra En proceso", () => {
+    const enProceso = {
+      ...turno,
+      horaInicio: new Date(Date.now() - 60_000).toISOString(),
+      horaFin: new Date(Date.now() + 60_000).toISOString(),
+    };
+    render(<PacienteTurnosTable turnos={[enProceso]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.getByText("En proceso")).toBeInTheDocument();
+    expect(screen.queryByText("Pendiente")).not.toBeInTheDocument();
   });
 
   // Corrección de QA: "en la ficha de pacientes en historial de turnos

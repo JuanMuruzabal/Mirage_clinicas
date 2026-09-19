@@ -24,8 +24,12 @@ export const metadata: Metadata = { title: "Turnos — PRISMA" };
 // cliente, se repone como pestaña visible de nuevo; el DEFAULT sin
 // `?estado=` sigue siendo "Confirmadas" (parseTab de abajo), la única
 // diferencia es que ahora "Todas" también se puede elegir a mano.
+// "Pendientes" y no "Confirmadas" (2026-09-19): mismo cambio de rótulo
+// que ESTADO_LABEL (ver turno-format.ts). La CLAVE de la pestaña sigue
+// siendo `agendado` y la URL sigue siendo `?estado=agendado`, así que
+// ningún link compartido se rompe.
 const TABS: { label: string; tab: Tab }[] = [
-  { label: "Confirmadas", tab: "agendado" },
+  { label: "Pendientes", tab: "agendado" },
   { label: "Resueltos", tab: "resuelto" },
   { label: "Canceladas", tab: "cancelada" },
   { label: "Todas", tab: "todas" },

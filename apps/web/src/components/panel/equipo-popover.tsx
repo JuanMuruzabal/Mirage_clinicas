@@ -133,14 +133,14 @@ export function EquipoPopover({
           {enLinea.length === 0 && (
             // Sin nadie en línea no habría ningún avatar, y en mobile el
             // botón quedaría sin nada que tocar.
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-linea bg-hueso text-[10px] font-semibold text-grafito/50 md:h-6 md:w-6">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-linea bg-hueso text-[11px] font-semibold text-grafito/50">
               0
             </span>
           )}
           {enLinea.slice(0, 3).map((m) => (
             <span
               key={m.userId}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-[11px] font-semibold text-marfil md:h-6 md:w-6 md:text-[10px]"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-xs font-semibold text-marfil"
             >
               {iniciales(m.nombre)}
             </span>
@@ -151,7 +151,13 @@ export function EquipoPopover({
             globalmente un icono, como está implementado en mobile").
             Antes el texto y el chevron aparecían desde `md`; la pila de
             avatares ya comunica lo mismo y ocupa un tercio. El conteo
-            sigue estando para lectores de pantalla. */}
+            sigue estando para lectores de pantalla.
+
+            36 px en TODOS los anchos (segunda vuelta del mismo pedido:
+            "debe ser un poco más grande para mejora visual"). Antes eran
+            32 en mobile y 24 desde `md` — al generalizar el ícono a
+            escritorio se generalizó el tamaño equivocado, el chico, que
+            existía para convivir con el texto que ya no está. */}
         <span className="sr-only">
           {enLinea.length === 1 ? "1 en línea" : `${enLinea.length} en línea`}
         </span>

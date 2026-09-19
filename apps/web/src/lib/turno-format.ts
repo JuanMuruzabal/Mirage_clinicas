@@ -4,8 +4,18 @@ import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 // tabla de historial de la ficha de paciente (T3.6) — un solo lugar, para
 // no repetir el mismo diccionario en dos componentes.
 
+// "Pendiente" y no "Confirmado" (2026-09-19, pedido del cliente: "el
+// estado confirmado pasa a llamarse pendiente, ya que tiene más sentido
+// porque el turno está pendiente a realizarse"). Es un cambio de RÓTULO:
+// el valor de la base sigue siendo `agendado`, y la URL de la pestaña
+// sigue siendo `?estado=agendado` (los links compartidos no se rompen).
+//
+// No confundir con el estado `pendiente` que TR-104 eliminó del modelo:
+// aquél era un turno SIN horario fijo recién llegado del formulario
+// público, y no existe más. Este "Pendiente" es un turno con día y hora,
+// confirmado, que todavía no se atendió.
 export const ESTADO_LABEL: Record<Turno["estado"], string> = {
-  agendado: "Confirmado",
+  agendado: "Pendiente",
   cancelada: "Cancelada",
 };
 
@@ -18,6 +28,68 @@ export const ESTADO_LABEL: Record<Turno["estado"], string> = {
 export const ESTADO_CLASS: Record<Turno["estado"], string> = {
   agendado: "font-semibold text-salvia-oscuro",
   cancelada: "text-grafito/50",
+};
+
+// EstadoDeTurno — el estado que VE el profesional, que no es la columna
+// `estado` de la base (2026-09-19).
+//
+// La base guarda dos valores, `agendado` y `cancelada`. Lo que la
+// pantalla necesita decir son cuatro cosas, y las otras dos salen del
+// RELOJ, no de una columna:
+//
+//   - `pendiente`  — confirmado, todavía no empezó.
+//   - `en_proceso` — estamos dentro de su horario de atención.
+//   - `resuelto`   — su hora de fin ya pasó.
+//   - `cancelada`  — el único que sí es un valor guardado.
+//
+// Derivado y no persistido a propósito: un turno está "en proceso"
+// porque son las 10:20 y va de 10:15 a 10:45, no porque alguien lo haya
+// marcado. Guardarlo obligaría a un trabajo periódico que cambie filas
+// solo —y la pantalla igual no se enteraría hasta el siguiente sondeo—,
+// mientras que derivarlo hace que la fila cambie sola en la pantalla que
+// ya está abierta, que es justo lo que se pidió.
+//
+// `ahora` se recibe en vez de leer `Date.now()` adentro: así el llamador
+// puede pasar un reloj que él mismo refresca (la tarjeta de "Turnos de
+// hoy" lo hace cada 30 s) y los tests no dependen de la hora real.
+export type EstadoDeTurno = "pendiente" | "en_proceso" | "resuelto" | "cancelada";
+
+export function estadoDeTurno(
+  turno: Pick<Turno, "estado" | "horaInicio" | "horaFin">,
+  ahora: number = Date.now(),
+): EstadoDeTurno {
+  if (turno.estado === "cancelada") return "cancelada";
+  const fin = turno.horaFin ? new Date(turno.horaFin).getTime() : null;
+  const inicio = turno.horaInicio ? new Date(turno.horaInicio).getTime() : null;
+  if (fin !== null && fin <= ahora) return "resuelto";
+  if (inicio !== null && fin !== null && inicio <= ahora) return "en_proceso";
+  return "pendiente";
+}
+
+export const ESTADO_DERIVADO_LABEL: Record<EstadoDeTurno, string> = {
+  pendiente: "Pendiente",
+  en_proceso: "En proceso",
+  resuelto: "Resuelto",
+  cancelada: "Cancelada",
+};
+
+// El azul (`acero`) es exclusivo de "en proceso": es el único estado que
+// pide mirar AHORA, y tener su propio color es lo que lo hace saltar
+// dentro de una lista donde todo lo demás está en verde. Ver el
+// comentario de `--color-acero` en globals.css.
+export const ESTADO_DERIVADO_CLASS: Record<EstadoDeTurno, string> = {
+  pendiente: "font-semibold text-salvia-oscuro",
+  en_proceso: "font-semibold text-acero-oscuro",
+  resuelto: "font-semibold text-grafito/60",
+  cancelada: "text-grafito/50",
+};
+
+// La versión pastilla, para la tarjeta de "Turnos de hoy".
+export const ESTADO_DERIVADO_PILL: Record<EstadoDeTurno, string> = {
+  pendiente: "bg-salvia-claro text-salvia-oscuro",
+  en_proceso: "bg-acero-claro text-acero-oscuro",
+  resuelto: "bg-arena text-grafito/70",
+  cancelada: "bg-arena text-grafito/50",
 };
 
 export interface TemaTipoConsulta {

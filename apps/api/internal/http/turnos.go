@@ -887,9 +887,43 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 					if len(slots) == 0 {
 						continue
 					}
-					nuevaHoraInicio = combinarFechaYHora(fechaCandidata, slots[0])
-					nuevaHoraFin = nuevaHoraInicio.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
-					encontrado = true
+					// NO el primer hueco: el primero LIBRE PARA ESTA
+					// PERSONA (2026-09-19, pedido del cliente).
+					//
+					// `calcularDisponibilidad` mira la agenda del
+					// PROFESIONAL —su horario de atención, sus bloqueos,
+					// sus turnos—, que es exactamente lo que necesita
+					// para ofrecer huecos. Pero el paciente también tiene
+					// una agenda, y puede tener turno con un colega a esa
+					// misma hora: autoreservar lo mandaba ahí sin ver
+					// nada, y creaba justo el encimado que
+					// `turnoSuperpuestoDeOtroProfesional` rechaza en el
+					// alta y en el reprogramar a mano. Era el único
+					// camino por el que todavía se podía dejar a alguien
+					// con dos turnos a la vez.
+					//
+					// Sin paciente vinculado (un turno cargado a mano sin
+					// ficha) no hay a quién chequearle la agenda, y el
+					// primer hueco sigue valiendo.
+					for _, slot := range slots {
+						inicioCandidato := combinarFechaYHora(fechaCandidata, slot)
+						finCandidato := inicioCandidato.Add(time.Duration(tipo.DuracionMinutos) * time.Minute)
+						if t.PacienteID != nil {
+							choca, _ := turnoSuperpuestoDeOtroProfesional(
+								tx, profesionalID, *t.PacienteID, atiendeEste, inicioCandidato, finCandidato, &t.ID,
+							)
+							if choca != nil {
+								continue
+							}
+						}
+						nuevaHoraInicio = inicioCandidato
+						nuevaHoraFin = finCandidato
+						encontrado = true
+						break
+					}
+					if !encontrado {
+						continue
+					}
 					break
 				}
 				if !encontrado {
@@ -963,6 +997,28 @@ var errConflictoPacienteSinResolver = errors.New(
 	"hay un conflicto de identidad sin resolver con este paciente — resolvelo desde Pacientes antes de marcar asistencia",
 )
 
+// AnticipoAsistencia — cuánto ANTES del comienzo del turno se puede
+// marcar la asistencia (2026-09-19, pedido del cliente: "estos botones
+// aparecerán solo 5 min antes de la hora de comienzo del turno").
+//
+// Hasta acá la única forma de marcar era el cartel incerrable que
+// aparece cuando el turno TERMINA, y el backend lo imponía: "solo se
+// puede marcar asistencia en un turno ya resuelto". Eso obligaba al
+// profesional a esperar a que el turno se cumpliera para registrar algo
+// que ya sabe apenas la persona entra —o no entra— al consultorio.
+//
+// La ventana se abre 5 minutos antes del comienzo y no se cierra nunca:
+// marcar tarde siempre estuvo permitido (el cartel no tiene tope de
+// antigüedad), lo único que cambia es que ahora también se puede marcar
+// a tiempo. Lo que sigue prohibido es marcar un turno que todavía no
+// empezó de verdad — "asistió" a algo que falta un día es adivinar.
+//
+// Todo lo demás del endpoint no se toca: sigue siendo irreversible,
+// sigue resolviendo el conflicto de identidad que ese turno originó, y
+// sigue bloqueado mientras haya un conflicto sin resolver del lado en
+// disputa. Marcar antes ADELANTA esas consecuencias, no las saltea.
+const AnticipoAsistencia = 5 * time.Minute
+
 func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -997,8 +1053,12 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "turno no encontrado")
 			return
 		}
-		if turno.Estado != "agendado" || turno.HoraFin == nil || turno.HoraFin.After(clock.Now()) {
-			writeError(w, http.StatusConflict, "solo se puede marcar asistencia en un turno ya resuelto")
+		if turno.Estado != "agendado" || turno.HoraInicio == nil || turno.HoraFin == nil {
+			writeError(w, http.StatusConflict, "solo se puede marcar asistencia en un turno confirmado")
+			return
+		}
+		if clock.Now().Before(turno.HoraInicio.Add(-AnticipoAsistencia)) {
+			writeError(w, http.StatusConflict, "todavía es muy temprano para marcar la asistencia de este turno")
 			return
 		}
 		if turno.Asistencia != nil {
@@ -1557,6 +1617,21 @@ type resumenTurnoItem struct {
 	// próximos", son siempre turnos vigentes), así que toResumenTurnoItems
 	// lo deja vacío para esas y solo lo completa para turnosResueltos.
 	Asistencia string `json:"asistencia,omitempty"`
+	// Los INSTANTES, además de "15:04" (2026-09-19). La tarjeta "Turnos
+	// de hoy" ahora dice si cada turno está PENDIENTE o EN PROCESO, y
+	// abre los botones de asistencia 5 minutos antes de que empiece: las
+	// tres cosas se resuelven comparando contra el reloj mientras la
+	// pantalla está abierta, y para eso hace falta un instante y no un
+	// texto de hora local que el navegador tendría que reinterpretar en
+	// su propia zona horaria.
+	//
+	// El estado se deriva del reloj, no de una columna: un turno "en
+	// proceso" lo es porque son las 10:20 y va de 10:15 a 10:45, no
+	// porque alguien lo haya marcado. Guardarlo obligaría a un trabajo
+	// periódico que cambie filas solo, y a que la pantalla igual no se
+	// enterara hasta el próximo sondeo.
+	HoraInicioISO string `json:"horaInicioIso,omitempty"`
+	HoraFinISO    string `json:"horaFinIso,omitempty"`
 }
 
 type resumenHorarioReservadoItem struct {
@@ -1622,8 +1697,15 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// tarjeta —turnos de hoy, próximos, resueltos, asistidos,
 		// ausentes, horarios reservados— contaba lo de toda la clínica.
 		// Un profesional entraba y veía como suyo el día de su colega.
+		//
+		// `asistencia IS NULL` (2026-09-19): desde que se puede marcar la
+		// asistencia ANTES de que el turno termine, un turno de hoy ya
+		// marcado aparecía en las dos tarjetas a la vez. Marcado es
+		// marcado: sale de "Turnos de hoy" —que es la cola de lo que
+		// falta atender— y pasa a "Turnos resueltos hoy", que es
+		// exactamente lo que ya listaba.
 		if err := gdb.Scopes(soloMisTurnos(r)).Where(
-			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?)",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND (hora_fin IS NULL OR hora_fin >= ?) AND asistencia IS NULL",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
 			Order("hora_inicio").
@@ -1739,13 +1821,22 @@ func toResumenTurnoItems(turnos []db.Turno) []resumenTurnoItem {
 		if t.Asistencia != nil {
 			asistencia = *t.Asistencia
 		}
+		var inicioISO, finISO string
+		if t.HoraInicio != nil {
+			inicioISO = t.HoraInicio.Format(time.RFC3339)
+		}
+		if t.HoraFin != nil {
+			finISO = t.HoraFin.Format(time.RFC3339)
+		}
 		out[i] = resumenTurnoItem{
-			ID:         t.ID.String(),
-			Fecha:      fecha,
-			Hora:       hora,
-			HoraFin:    horaFin,
-			Nombre:     strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
-			Asistencia: asistencia,
+			ID:            t.ID.String(),
+			Fecha:         fecha,
+			Hora:          hora,
+			HoraFin:       horaFin,
+			Nombre:        strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+			Asistencia:    asistencia,
+			HoraInicioISO: inicioISO,
+			HoraFinISO:    finISO,
 		}
 	}
 	return out

@@ -7,7 +7,14 @@ import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { cancelarTurnoAction, cancelarTurnosSinVerificarAction, listTurnosPaginadoAction } from "@/app/actions/turnos";
 import { CargarMas } from "@/components/panel/cargar-mas";
 import { PAGINACION_LIMITE_MAX, TURNOS_POR_PAGINA } from "@/lib/paginacion";
-import { ESTADO_CLASS, ESTADO_LABEL, ORIGEN_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
+import {
+  ESTADO_DERIVADO_CLASS,
+  ESTADO_DERIVADO_LABEL,
+  ORIGEN_LABEL,
+  estadoDeTurno,
+  formatFechaHora,
+  temaTipoConsulta,
+} from "@/lib/turno-format";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
 import { VerTextoBoton } from "../ver-texto-boton";
@@ -412,6 +419,13 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
               // que TurnoDetalle), se deriva acá: agendado + horaFin ya
               // pasado.
               const resuelto = t.estado === "agendado" && Boolean(t.horaFin) && new Date(t.horaFin!).getTime() < new Date().getTime();
+              // El rótulo sale del estado DERIVADO (2026-09-19): suma
+              // "En proceso" para el turno que está transcurriendo ahora
+              // y renombra "Confirmado" a "Pendiente". `resuelto` sigue
+              // igual porque decide otra cosa —qué se puede editar—, y
+              // mezclar las dos preguntas en una variable fue lo que
+              // hizo falta desenredar acá.
+              const estadoVisible = estadoDeTurno(t);
               const tipo = t.tipoConsultaId ? tipoPorId.get(t.tipoConsultaId) : undefined;
               return (
                 <Fragment key={t.id}>
@@ -459,9 +473,9 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
+                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoVisible]}`}>
                         <QuadrantMark estado={t.estado} />
-                        {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
+                        {ESTADO_DERIVADO_LABEL[estadoVisible]}
                       </span>
                       {/* Corrección de QA (2026-09-06): "abajo del estado
                           asistido... poner lo que el profesional marcó" —

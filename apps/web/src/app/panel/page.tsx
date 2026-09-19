@@ -3,11 +3,11 @@ import { apiResumenPanel } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { formatDiaCorto, parseFechaISOLocal } from "@/lib/calendar-utils";
 import { TarjetaConLista, TarjetaEstadistica, TarjetaSimple, FilaResumen } from "@/components/panel/tarjeta-turnero";
+import { TarjetaTurnosDeHoy } from "@/components/panel/tarjeta-turnos-de-hoy";
 import {
   IconoAvance,
   IconoCasilleros,
   IconoEstadistica,
-  IconoReloj,
   IconoSello,
   IconoTilde,
 } from "@/components/panel/tarjeta-turnero-iconos";
@@ -82,23 +82,14 @@ export default async function PanelGeneralPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 max-md:grid-cols-1 max-md:min-w-[18rem]">
-        <TarjetaConLista
-          eyebrow="Turnos de hoy"
-          valor={resumen.turnosHoy.length}
-          hrefCabecera={hrefTurnosHoy}
-          labelCabecera="Ver calendario"
-          vacioMensaje="No hay turnos para hoy."
-          acento
-          icono={<IconoReloj className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
-          filas={resumen.turnosHoy.map((t) => ({
-            key: t.id,
-            href: `/panel/calendario?vista=dia&fecha=${t.fecha}&turno=${t.id}`,
-            contenido: (
-              <FilaResumen hora={`${t.hora} a ${t.horaFin}`}>{t.nombre}</FilaResumen>
-            ),
-          }))}
-        />
+      <div className="grid grid-cols-2 gap-6 max-md:min-w-[18rem] max-md:grid-cols-1">
+        {/* La tarjeta principal, a lo ancho de la fila (2026-09-19,
+            rediseño pedido por el cliente — ver tarjeta-turnos-de-hoy.tsx).
+            Es lo más urgente que mira un profesional al entrar, y era una
+            tarjeta más del mismo tamaño que las otras cinco. */}
+        <div className="md:col-span-2">
+          <TarjetaTurnosDeHoy turnos={resumen.turnosHoy} hrefCabecera={hrefTurnosHoy} />
+        </div>
 
         <TarjetaConLista
           eyebrow="Turnos próximos"
@@ -175,9 +166,12 @@ export default async function PanelGeneralPage() {
         />
 
         {/* Última (corrección de QA, 2026-09-06: "la tarjeta de turnos
-            confirmados debe ser la última") — antes iba cuarta. */}
+            confirmados debe ser la última") — antes iba cuarta.
+            "Pendientes" y no "confirmados" desde 2026-09-19: el mismo
+            cambio de rótulo que las pestañas de Turnos. Lo que cuenta no
+            cambió — turnos `agendado` que todavía no pasaron. */}
         <TarjetaSimple
-          eyebrow="Turnos confirmados"
+          eyebrow="Turnos pendientes"
           valor={resumen.totalConfirmados}
           href="/panel/turnos?estado=agendado"
           titulo="Ver turnos"
