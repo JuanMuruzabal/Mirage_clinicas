@@ -191,20 +191,26 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
 
         <nav
           aria-label="Filtrar por estado"
-          // Grid de 2×2 en mobile en vez de una fila con scroll propio
-          // (pedido explícito del cliente, 2026-08-27: "el
-          // seleccionador... sigue haciendo overflow, lo que habilita
-          // el desplazamiento horizontal de este apartado, cosa que no
-          // es correcto") — con 4 tabs de texto largo ("Confirmadas",
-          // "Canceladas"), ni sacándole el min-width al `<nav>`
-          // alcanzaba para que entren en una sola fila en pantallas
-          // angostas: seguía necesitando su propio `overflow-x-auto`
-          // para no desbordar, que es exactamente el movimiento
-          // horizontal que se pidió sacar. Un grid de 2 columnas
-          // siempre entra sin necesitar scroll, sea cual sea el ancho.
-          // Desde `md` vuelve a ser la fila original (`rounded-full`,
-          // una sola línea) — cero cambio en escritorio.
-          className="grid grid-cols-2 gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:flex md:w-fit md:flex-nowrap md:items-center md:overflow-x-auto md:rounded-full"
+          // Una fila con scroll lateral en mobile (pedido del cliente,
+          // 2026-09-19: "se ven como un cuadrado, aplicar un sidescroll
+          // para que queden en una misma fila").
+          //
+          // ESTO REVIERTE UNA DECISIÓN ANTERIOR, a propósito: el
+          // 2026-08-27 el cliente pidió lo contrario — "el seleccionador
+          // sigue haciendo overflow, lo que habilita el desplazamiento
+          // horizontal de este apartado, cosa que no es correcto"— y por
+          // eso se pasó a un grid de 2×2, que siempre entra sin
+          // scrollear. Con el tiempo ese cuadrado resultó peor: ocupa
+          // dos renglones y empuja toda la pantalla hacia abajo.
+          //
+          // El scroll de entonces era el de la PÁGINA entera; este es el
+          // del propio `<nav>` (`overflow-x-auto` acá, no en un
+          // contenedor de arriba), así que mover las pestañas no mueve
+          // nada más. Si vuelve a molestar, el grid está en el historial.
+          //
+          // Desde `md` entran las cuatro sin scrollear y queda igual que
+          // siempre.
+          className="scrollbar-fina flex w-full items-center gap-1 overflow-x-auto rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm md:w-fit"
         >
           {TABS.map((t) => {
             const active = t.tab === tab;
@@ -213,7 +219,7 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
               <Link
                 key={t.tab}
                 href={href}
-                className={`flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-center font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-center font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
                 {t.label}
                 {/* Corrección de estética (2026-09-06): cantidad al

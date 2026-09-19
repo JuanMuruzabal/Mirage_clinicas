@@ -105,7 +105,7 @@ describe("EquipoPopover", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
 
-    expect(screen.getByText("Ahora no")).toBeInTheDocument();
+    expect(screen.getByText("Sin actividad")).toBeInTheDocument();
     expect(screen.getByText("En línea")).toBeInTheDocument();
     expect(screen.getByText("Hace 1 h")).toBeInTheDocument();
   });

@@ -120,7 +120,7 @@ export function EquipoPopover({
         aria-label="Ver colaboradores"
         disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
-        className="flex flex-shrink-0 items-center gap-2 rounded-full border-linea bg-marfil transition-colors hover:border-salvia max-md:p-0 md:border md:px-3 md:py-1.5"
+        className="flex flex-shrink-0 items-center gap-2 rounded-full border-linea bg-marfil p-0 transition-colors hover:border-salvia"
       >
         {/* Los avatares apilados: tres como mucho. Más arriba de eso la
             pila deja de leerse de un vistazo, que es para lo único que
@@ -142,16 +142,15 @@ export function EquipoPopover({
             </span>
           ))}
         </span>
-        {/* El texto y el chevron son de escritorio. En mobile el renglón
-            del header lo ocupa el selector de clínica, y este control se
-            reduce a los avatares — que es lo que de verdad comunica de un
-            vistazo (corrección del 2026-09-14, con captura). */}
-        <span className="hidden whitespace-nowrap text-sm font-medium text-grafito md:inline">
+        {/* Solo los avatares, también en escritorio (2026-09-19, pedido
+            del cliente: "el componente de colaboradores ahora pasa a ser
+            globalmente un icono, como está implementado en mobile").
+            Antes el texto y el chevron aparecían desde `md`; la pila de
+            avatares ya comunica lo mismo y ocupa un tercio. El conteo
+            sigue estando para lectores de pantalla. */}
+        <span className="sr-only">
           {enLinea.length === 1 ? "1 en línea" : `${enLinea.length} en línea`}
         </span>
-        <IconChevronDown
-          className={`hidden h-4 w-4 flex-shrink-0 text-grafito/40 md:block ${abierto ? "rotate-180" : ""}`}
-        />
       </button>
 
       {abierto && !bloqueado && (
@@ -168,7 +167,7 @@ export function EquipoPopover({
             ))}
             {ausentes.length > 0 && enLinea.length > 0 && (
               <li className="px-3 pb-1 pt-3 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
-                Ahora no
+                Sin actividad
               </li>
             )}
             {ausentes.map((m) => (

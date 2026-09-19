@@ -619,7 +619,14 @@ export function CalendarView({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 shadow-soft">
-          <div className="flex flex-wrap items-center gap-3">
+          {/* En mobile, en COLUMNA (2026-09-19): con `flex-wrap`, la
+              fecha entraba en la misma fila que "< Hoy >" o saltaba a la
+              siguiente según su largo —"Hoy" contra "Sábado, 19 de
+              septiembre de 2026"— y la caja cambiaba de alto al navegar
+              entre días. Abajo siempre, el alto no se mueve. En
+              escritorio entran las dos cosas en una fila y queda igual
+              que antes. */}
+          <div className="flex flex-wrap items-center gap-3 max-md:w-full max-md:flex-col max-md:items-start max-md:gap-2">
             {/* Grupo "< | Hoy | >" — corrección de estética (2026-09-06,
                 foto de referencia): pasa de 3 botones con borde propio
                 (separados por `gap`) a UN solo grupo con borde, separado
@@ -650,14 +657,19 @@ export function CalendarView({
                 monoespaciada — la foto de referencia muestra la fecha en
                 la misma tipografía que el resto de la interfaz, no una
                 fuente de "reloj". */}
-            <span className="ml-2 text-sm font-medium text-grafito">{titulo}</span>
-            {/* Pastilla de cantidad (corrección de estética, 2026-09-06,
-                foto de referencia "nueva estetica calendario.png": "2
-                turnos" al lado de la fecha) — mismo tono que los chips de
-                filtro de Turnos (`bg-salvia-claro`/`text-salvia-oscuro`). */}
-            <span className="rounded-full bg-salvia-claro px-2.5 py-1 text-xs font-medium text-salvia-oscuro whitespace-nowrap">
-              {turnosEnRangoVisible} {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
-            </span>
+            {/* La fecha y la pastilla viajan juntas: son una sola cosa
+                ("qué día estoy mirando, y cuántos turnos tiene"), así que
+                al pasar a columna no se separan en dos renglones. */}
+            <div className="flex items-center gap-2 md:ml-2">
+              <span className="text-sm font-medium text-grafito">{titulo}</span>
+              {/* Pastilla de cantidad (corrección de estética, 2026-09-06,
+                  foto de referencia "nueva estetica calendario.png": "2
+                  turnos" al lado de la fecha) — mismo tono que los chips
+                  de filtro de Turnos (`bg-salvia-claro`/`text-salvia-oscuro`). */}
+              <span className="rounded-full bg-salvia-claro px-2.5 py-1 text-xs font-medium text-salvia-oscuro whitespace-nowrap">
+                {turnosEnRangoVisible} {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
+              </span>
+            </div>
           </div>
 
           {/* Selector Día/Semana/Mes — corrección de estética (2026-09-06):

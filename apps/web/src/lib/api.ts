@@ -698,6 +698,16 @@ export function apiPacientesDeLaClinica(token: string, q?: string): Promise<ApiR
   });
 }
 
+// apiSumarPacienteAMiLista — "+ Agregar paciente > De la clínica"
+// (2026-09-19): la ficha ya existe en la clínica y este profesional la
+// suma a SU lista de trabajo, sin inventarle un turno para lograrlo.
+export function apiSumarPacienteAMiLista(token: string, pacienteId: string): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/pacientes/${pacienteId}/en-mi-lista`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function apiTiposConsultaDeColegas(token: string): Promise<ApiResult<TipoConsultaDeColega[]>> {
   return request<TipoConsultaDeColega[]>("/tipos-consulta/de-colegas", {
     headers: { Authorization: `Bearer ${token}` },

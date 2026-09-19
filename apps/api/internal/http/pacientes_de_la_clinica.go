@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"dental-mirage/api/internal/db"
 )
@@ -44,6 +45,9 @@ type pacienteConocidoResponse struct {
 
 func registerPacientesDeLaClinicaRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/pacientes/de-la-clinica", buscarPacienteDeLaClinicaHandler(gdb))
+	// "+ Agregar paciente > De la clínica" (2026-09-19): sumar a mi lista
+	// una ficha que ya existe, sin inventarle un turno.
+	r.Post("/pacientes/{id}/en-mi-lista", sumarPacienteAMiListaHandler(gdb))
 }
 
 // buscarPacienteDeLaClinicaHandler — GET /pacientes/de-la-clinica?q=
@@ -94,8 +98,19 @@ func buscarPacienteDeLaClinicaHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-// idsDeMisPacientes marca cuáles de estos pacientes ya tienen turnos con
-// quien pregunta. Una consulta para el lote, no una por ficha.
+// idsDeMisPacientes marca cuáles de estos pacientes YA ESTÁN EN MI LISTA.
+//
+// Los mismos tres criterios que `soloMisPacientes` (2026-09-19): tengo
+// turnos, yo cargué la ficha, o la sumé a mi lista. Antes miraba solo los
+// turnos, y eso dejaba a las dos pantallas diciendo cosas distintas sobre
+// la misma ficha — una que la cargué a mano y todavía no atendí aparecía
+// en /panel/pacientes y acá figuraba como ajena.
+//
+// La diferencia recién importa de verdad con "+ Agregar paciente > De la
+// clínica", que muestra exactamente las que NO tengo: con el criterio
+// viejo me ofrecería sumar fichas que ya están en mi lista.
+//
+// Tres consultas para el lote, no una por ficha.
 func idsDeMisPacientes(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID, pacientes []db.Paciente) map[uuid.UUID]bool {
 	out := make(map[uuid.UUID]bool, len(pacientes))
 	yo, ok := usuarioDeLaSesion(r)
@@ -105,7 +120,11 @@ func idsDeMisPacientes(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID, pacien
 	ids := make([]uuid.UUID, 0, len(pacientes))
 	for _, p := range pacientes {
 		ids = append(ids, p.ID)
+		if p.CreadoPorUserID != nil && *p.CreadoPorUserID == yo {
+			out[p.ID] = true
+		}
 	}
+
 	var conTurnoConmigo []uuid.UUID
 	_ = gdb.Model(&db.Turno{}).
 		Where("clinic_id = ? AND atendido_por_user_id = ? AND paciente_id IN ?", clinicID, yo, ids).
@@ -113,7 +132,65 @@ func idsDeMisPacientes(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID, pacien
 	for _, id := range conTurnoConmigo {
 		out[id] = true
 	}
+
+	var sumadosAMiLista []uuid.UUID
+	_ = gdb.Model(&db.PacienteEnMiLista{}).
+		Where("user_id = ? AND paciente_id IN ?", yo, ids).
+		Pluck("paciente_id", &sumadosAMiLista).Error
+	for _, id := range sumadosAMiLista {
+		out[id] = true
+	}
 	return out
+}
+
+// sumarPacienteAMiListaHandler — POST /pacientes/{id}/en-mi-lista.
+//
+// "Agregar paciente > De la clínica": la ficha ya existe —la cargó un
+// colega, o la persona pidió turno con él— y este profesional la quiere
+// en su lista de trabajo SIN inventarle un turno, que era la única forma
+// de conseguirlo hasta ahora.
+//
+// No cambia de quién es el paciente: sigue siendo de la clínica (TR-144).
+// Lo único que cambia es en qué lista de trabajo aparece.
+//
+// Idempotente: sumar dos veces la misma ficha responde igual. El índice
+// único (paciente_id, user_id) es la red de seguridad real ante dos
+// clics rápidos.
+func sumarPacienteAMiListaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		yo, ok := usuarioDeLaSesion(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "sesión inválida")
+			return
+		}
+		pacienteID, err := uuid.Parse(chi.URLParam(r, "id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "id de paciente inválido")
+			return
+		}
+
+		// De ESTA clínica, y sin acotar por profesional: es justamente una
+		// ficha que todavía no es suya. Lo que no puede es ser de otra
+		// clínica, ni una ficha duplicada esperando que alguien resuelva
+		// su conflicto de identidad.
+		var paciente db.Paciente
+		if err := gdb.Where("id = ? AND clinic_id = ? AND en_conflicto = false", pacienteID, clinicID).
+			First(&paciente).Error; err != nil {
+			writeError(w, http.StatusNotFound, "paciente no encontrado")
+			return
+		}
+
+		fila := db.PacienteEnMiLista{ClinicID: clinicID, PacienteID: paciente.ID, UserID: yo}
+		if err := gdb.Clauses(clause.OnConflict{DoNothing: true}).Create(&fila).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo agregar el paciente a tu lista")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"mensaje": "paciente agregado a tu lista"})
+	}
 }
 
 // turnoSuperpuestoDeOtroProfesional — un paciente no puede estar en dos

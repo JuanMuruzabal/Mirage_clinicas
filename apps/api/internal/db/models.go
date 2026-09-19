@@ -98,6 +98,32 @@ const (
 	ColorTipoConsultaUrgencia  = "#D6563A" // urgencia
 )
 
+// PacienteEnMiLista — un profesional sumó a su lista una ficha que ya
+// existía en la clínica (2026-09-19, pedido del cliente).
+//
+// `soloMisPacientes` tenía dos criterios, y los dos son hechos DERIVADOS:
+// "tengo turnos con esta persona" y "yo cargué esta ficha". Faltaba el
+// acto explícito: la clínica ya conoce a Muru porque lo atiende un
+// colega, y el segundo profesional quiere tenerlo en su lista **sin
+// inventarle un turno** para lograrlo.
+//
+// Una tabla y no una columna: son N profesionales por ficha. Y no se
+// reusa `creado_por_user_id`, que significa otra cosa —quién la cargó a
+// mano— y solo admite uno.
+//
+// No convierte a nadie en dueño del paciente: los pacientes siguen
+// siendo de la clínica (TR-144). Lo único que dice es de quién es la
+// LISTA DE TRABAJO donde aparece.
+type PacienteEnMiLista struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID   uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	PacienteID uuid.UUID `gorm:"column:paciente_id;type:uuid;not null;uniqueIndex:idx_paciente_en_mi_lista"`
+	UserID     uuid.UUID `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_paciente_en_mi_lista"`
+	CreatedAt  time.Time
+}
+
+func (PacienteEnMiLista) TableName() string { return "pacientes_en_mi_lista" }
+
 // Paciente se crea automáticamente cuando un turno pendiente se agenda
 // (spec §4.5) — el esquema ya existe desde T0.3, el alta real es T2.4.
 type Paciente struct {

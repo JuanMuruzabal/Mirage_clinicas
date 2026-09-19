@@ -368,7 +368,7 @@ describe("AgregarTurnoModal", () => {
       render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
       await user.click(screen.getByRole("button", { name: "Compartir link" }));
-      expect(screen.getByText(/sin pasar por el código de verificación/)).toBeInTheDocument();
+      expect(screen.getByText(/Mandale un link de 1 hora/)).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Generar link" }));
 

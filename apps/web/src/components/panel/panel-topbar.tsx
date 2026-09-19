@@ -95,7 +95,11 @@ export function SelectorClinicaDelPanel() {
   // menú (corrección del 2026-09-14). Mientras el drawer esté abierto, el
   // header no despliega nada.
   const sidebar = usePanelSidebar();
-  if (!datos || !datos.nombreClinicaActual || datos.clinicas.length === 0) return null;
+  // Con UNA sola clínica no hay nada que elegir (2026-09-19, pedido del
+  // cliente): el control ocupaba lugar en el header para ofrecer un menú
+  // de una opción, la que ya está puesta. El nombre de la clínica sigue
+  // a la vista en el resto del panel.
+  if (!datos || !datos.nombreClinicaActual || datos.clinicas.length <= 1) return null;
 
   return (
     <>
