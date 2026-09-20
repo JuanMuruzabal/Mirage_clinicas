@@ -157,6 +157,28 @@ describe("NotificacionesConflictoGlobal — pedir la pantalla de vuelta", () => 
     expect(refreshMock).toHaveBeenCalled();
   });
 
+  // EL caso que motivó todo, y el que faltaba: en /panel/pacientes este
+  // componente no dibuja nada —esa pantalla tiene su propio banner— pero
+  // el `return null` está DESPUÉS de los hooks, así que el sondeo corre
+  // igual. Importa porque ahí es donde se resuelven los conflictos, o
+  // sea donde los dos profesionales están mirando, y porque el banner de
+  // esa pantalla no sondea: es server data pura. Sin este refresh, ahí
+  // no se movía nada hasta refrescar a mano.
+  it("en /panel/pacientes no dibuja nada, pero igual sondea y pide la pantalla de vuelta", async () => {
+    usePathnameMock.mockReturnValue("/panel/pacientes");
+    panelNotificacionesActionMock.mockResolvedValue(notificaciones({ conflictosPacientes: 1 }));
+    const { container } = render(<NotificacionesConflictoGlobal />);
+    await asentar();
+    expect(container).toBeEmptyDOMElement();
+
+    panelNotificacionesActionMock.mockResolvedValue(notificaciones({ conflictosPacientes: 0 }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    expect(refreshMock).toHaveBeenCalled();
+  });
+
   // Y no en cada sondeo: refrescar cada 2 s sería volver a renderizar la
   // pantalla entera del servidor todo el tiempo.
   it("sin cambios no pide nada, por más que siga sondeando", async () => {

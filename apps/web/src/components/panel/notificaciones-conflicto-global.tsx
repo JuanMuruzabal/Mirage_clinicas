@@ -27,19 +27,29 @@ import { panelNotificacionesAction } from "@/app/actions/panel";
 // sondeo es para el OTRO — una resolución alcanza a todos los tickets del
 // mismo mail, así que su aviso tiene que irse sin que él haga nada.
 //
-// Y NO ALCANZABA CON EL AVISO (2026-09-20, reportado probando de a dos:
-// "el otro profesional al cual se propaga la resolución tiene que
-// cambiar de pestaña para que se solucione"). El sondeo actualizaba su
-// propio contador —el cartel se iba en 2 s, correcto— pero se lo
-// guardaba para sí: la FICHA duplicada seguía en la tabla de pacientes y
-// el banner de /panel/pacientes seguía ofreciendo resolver algo que ya
-// no existía, porque esos dos salen del render del servidor y nada los
-// volvía a pedir. Cambiar de pestaña "lo arreglaba" por accidente: la
-// navegación es lo que refrescaba la página.
+// Y EL SONDEO SOLO NO ALCANZABA (2026-09-20, reportado probando de a
+// dos: "el otro profesional al cual se propaga la resolución tiene que
+// cambiar de pestaña para que se solucione"). Actualizaba su propio
+// contador y se lo guardaba para sí — y eso dejaba DOS agujeros, no uno:
+//
+//   - En las pantallas donde este aviso SÍ se dibuja (/panel,
+//     /panel/turnos), el cartel se iba en 2 s pero la ficha duplicada
+//     seguía en la tabla de pacientes: eso sale del render del servidor.
+//   - En **/panel/pacientes** —que es donde se resuelven los conflictos,
+//     o sea donde los dos profesionales están mirando— no se movía NADA.
+//     Este componente se esconde ahí a propósito (esa pantalla tiene su
+//     propio `ConflictosPacienteBanner`), y ese banner no sondea: es
+//     server data pura. Cartel y ficha esperaban los dos a que alguien
+//     refrescara.
+//
+// Cambiar de pestaña "lo arreglaba" por accidente: la navegación es lo
+// que volvía a pedir la pantalla.
 //
 // Ahora, cuando el sondeo ve que el conteo CAMBIÓ, además pide la
-// pantalla de vuelta. Con eso los dos profesionales ven lo mismo al
-// mismo tiempo, sin tocar nada.
+// pantalla de vuelta. El efecto de este componente corre igual en
+// /panel/pacientes aunque no dibuje nada —el `return null` está después
+// de los hooks—, así que el arreglo llega también ahí, que era el caso
+// que importaba.
 //
 // 2s es barato acá y no en general: /panel/notificaciones son dos
 // consultas cortas con cortocircuito (sin horarios reservados no mira un
