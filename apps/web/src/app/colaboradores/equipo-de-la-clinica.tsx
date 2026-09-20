@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { ClinicRole, Equipo, InvitacionPendiente, MiembroDelEquipo } from "@dental-mirage/shared-types";
 import {
@@ -224,6 +225,17 @@ function TarjetaMiembro({
             brief. Va en neutro: es una aclaración, no un rol. */}
         {miembro.esVos && <li className="tag-rol tag-rol--vos">Sos vos</li>}
       </ul>
+
+      {/* "Ver perfil" en TODAS las tarjetas, la propia incluida
+          (2026-09-19): el equipo decía quién es cada uno y con qué rol,
+          y no había forma de llegar a su matrícula o sus
+          especialidades. El propio va a /perfil, que además edita. */}
+      <Link
+        href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
+        className="self-start text-sm font-medium text-salvia-oscuro hover:underline"
+      >
+        Ver perfil <span aria-hidden="true">&rarr;</span>
+      </Link>
 
       {error && (
         <p role="alert" className="text-sm text-terracota-oscuro">

@@ -131,6 +131,21 @@ describe("PanelTopbar", () => {
     expect(await screen.findByRole("button", { name: "Cambiar de clínica" })).toHaveTextContent("Clínica Norte");
   });
 
+  // 2026-09-19, pedido del cliente: "el componente se extiende ahora
+  // hasta la página de /seleccionar-servicio reemplazando el ícono de
+  // tuerca". El SELECTOR no lo sigue hasta ahí: esa pantalla ya tiene el
+  // suyo en el cuerpo, y dos controles para lo mismo en la misma vista
+  // es exactamente lo que el ítem 4 vino a sacar.
+  it("en /seleccionar-servicio muestra los colaboradores, pero no el selector de clínica", async () => {
+    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+    datosMock.mockResolvedValue(datos());
+
+    montar();
+
+    expect(await screen.findByRole("button", { name: "Ver colaboradores" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar de clínica" })).not.toBeInTheDocument();
+  });
+
   it("sin sesión completa no pide nada", async () => {
     render(
       <PanelTopbarProvider habilitado={false}>
@@ -158,15 +173,31 @@ describe("PanelTopbar", () => {
   // El chequeo de ruta se repite en los controles además de en el
   // provider: con la comprobación en un solo lado, cualquiera que los
   // monte en otra pantalla los vería igual.
+  // /perfil y no /colaboradores: esa última pasó a mostrar el
+  // componente el 2026-09-19 ("el header de /colaboradores y
+  // /personalizar-pagina tiene que ser igual al header del /panel").
+  // /perfil sigue afuera — es la pantalla a la que lleva ese menú.
   it("no se filtran a otras pantallas aunque el provider tenga datos", async () => {
     montar();
     await screen.findByRole("button", { name: "Ver colaboradores" });
 
-    usePathnameMock.mockReturnValue("/colaboradores");
+    usePathnameMock.mockReturnValue("/perfil");
     rerenderTopbar();
 
     expect(screen.queryByRole("button", { name: "Cambiar de clínica" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ver colaboradores" })).not.toBeInTheDocument();
+  });
+
+  it("en /colaboradores y /personalizar-pagina muestra los colaboradores, pero no el selector", async () => {
+    montar();
+    await screen.findByRole("button", { name: "Ver colaboradores" });
+
+    for (const ruta of ["/colaboradores", "/personalizar-pagina"]) {
+      usePathnameMock.mockReturnValue(ruta);
+      rerenderTopbar();
+      expect(screen.getByRole("button", { name: "Ver colaboradores" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cambiar de clínica" })).not.toBeInTheDocument();
+    }
   });
 
   // Cambiar de clínica desde el topbar NO saca del panel y NO apaga los

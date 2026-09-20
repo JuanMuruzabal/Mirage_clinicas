@@ -3,7 +3,12 @@
 import Link from "next/link";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { formatDiaLargo, formatHora } from "@/lib/calendar-utils";
-import { temaTipoConsulta } from "@/lib/turno-format";
+import {
+  ESTADO_DERIVADO_LABEL,
+  ESTADO_DERIVADO_PILL,
+  estadoDeTurno,
+  temaTipoConsulta,
+} from "@/lib/turno-format";
 import { ModalPortal } from "./modal-portal";
 
 interface TurnoDetalleProps {
@@ -49,6 +54,7 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
   const inicio = turno.horaInicio ? new Date(turno.horaInicio) : null;
   const fin = turno.horaFin ? new Date(turno.horaFin) : null;
   const resuelto = fin !== null && fin.getTime() < new Date().getTime();
+  const estadoVisible = estadoDeTurno(turno);
   // TR-076 en docs/Arquitectura y base/tradeoffs.md (2026-08-27, pedido explícito del
   // cliente: "tocar un turno resuelto... lleva a la pestaña de
   // Confirmadas, no Resueltas"). turnos/page.tsx trata "resuelto" como
@@ -84,11 +90,14 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
                   {inicio && fin ? `${formatHora(inicio)}–${formatHora(fin)}` : "—"}
                 </p>
               </div>
-              {resuelto && (
-                <span className="shrink-0 rounded-full border-[0.5px] border-arena px-2.5 py-1 text-xs font-medium text-grafito/60">
-                  Resuelto
-                </span>
-              )}
+              {/* La pastilla aparece siempre, no solo al resolverse
+                  (2026-09-19): "En proceso" es justo el estado que hay
+                  que ver de un vistazo al abrir un turno, y mostrarla
+                  solo para uno de los cuatro dejaba al resto sin
+                  estado en esta pantalla. */}
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_DERIVADO_PILL[estadoVisible]}`}>
+                {ESTADO_DERIVADO_LABEL[estadoVisible]}
+              </span>
             </div>
             <div>
               <p className="text-xs uppercase tracking-widest text-grafito/50">Paciente</p>

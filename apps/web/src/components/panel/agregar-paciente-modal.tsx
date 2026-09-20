@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { Paciente } from "@dental-mirage/shared-types";
-import { crearPacienteAction } from "@/app/actions/pacientes";
+import type { Paciente, PacienteConocido } from "@dental-mirage/shared-types";
+import { crearPacienteAction, sumarPacienteAMiListaAction } from "@/app/actions/pacientes";
 import { ModalPortal } from "./modal-portal";
+import { BuscadorPacientes } from "./buscador-pacientes";
 
 interface AgregarPacienteModalProps {
   onClose: () => void;
@@ -37,6 +38,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   const [tutorEmail, setTutorEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Dos caminos, como en "+ Agregar turno" (2026-09-19, pedido del
+  // cliente): una ficha que ya existe en la clínica —cargada por un
+  // colega, o nacida de un turno con él— o una nueva.
+  //
+  // "De la clínica" solo lista las que NO están en mi lista: sumar una
+  // que ya tengo no haría nada, y ofrecerlo sería ruido.
+  const [origen, setOrigen] = useState<"clinica" | "nuevo">("clinica");
+  const [sumando, setSumando] = useState(false);
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -126,6 +135,29 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
     onSuccess(result.paciente);
   }
 
+  async function sumarDeLaClinica(paciente: PacienteConocido) {
+    setError(null);
+    setSumando(true);
+    const result = await sumarPacienteAMiListaAction(paciente.id);
+    setSumando(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    // Se cierra con la ficha sumada, igual que el alta de una nueva: el
+    // listado de atrás la muestra sin recargar nada.
+    onSuccess({
+      id: paciente.id,
+      nombre: paciente.nombre,
+      apellido: paciente.apellido,
+      dni: paciente.dni,
+      telefono: paciente.telefono,
+      email: paciente.email,
+      createdAt: new Date().toISOString(),
+      verificado: false,
+    });
+  }
+
   return (
     <ModalPortal>
       <div
@@ -152,6 +184,47 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
             </button>
           </div>
 
+          <div className="flex flex-col gap-3 px-6 pt-6">
+            <div className="flex gap-1 rounded-full bg-hueso p-1">
+              <button
+                type="button"
+                onClick={() => setOrigen("clinica")}
+                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "clinica" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+              >
+                De la clínica
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrigen("nuevo")}
+                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+              >
+                Paciente nuevo
+              </button>
+            </div>
+            <p className="text-xs text-grafito/60">
+              {origen === "clinica"
+                ? "Ya está cargado en la clínica pero todavía no en tu lista — sumalo sin darle un turno."
+                : "Todavía no está en la clínica: cargá sus datos."}
+            </p>
+          </div>
+
+          {origen === "clinica" && (
+            <div className="flex flex-col gap-3 p-6">
+              <BuscadorPacientes
+                onElegir={sumarDeLaClinica}
+                filtrar={(p) => !p.esMio}
+                vacio="No hay pacientes de la clínica fuera de tu lista."
+              />
+              {sumando && <p className="text-sm text-grafito/60">Agregando…</p>}
+              {error && (
+                <p role="alert" className="text-sm text-terracota-oscuro">
+                  {error}
+                </p>
+              )}
+            </div>
+          )}
+
+          {origen === "nuevo" && (
           <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
             <Campo label="Nombre">
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
@@ -208,14 +281,7 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
               </p>
             )}
 
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Cancelar
-              </button>
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={pending}
@@ -225,6 +291,20 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
               </button>
             </div>
           </form>
+          )}
+
+          {/* Cancelar, fuera del formulario: vale para las dos pestañas
+              (2026-09-19). Adentro, "De la clínica" se quedaba sin más
+              salida que la X de arriba. */}
+          <div className="flex justify-end px-6 pb-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </div>
     </ModalPortal>

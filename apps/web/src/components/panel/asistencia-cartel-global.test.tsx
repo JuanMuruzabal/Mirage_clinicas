@@ -102,7 +102,11 @@ describe("AsistenciaCartelGlobal", () => {
     expect(screen.queryByLabelText("Cerrar")).not.toBeInTheDocument();
   });
 
-  it("mantener apretado ASISTIÓ menos de 10 segundos no confirma nada", async () => {
+  // El umbral bajó de 10 a 5 segundos el 2026-09-19 (ver
+  // MANTENER_APRETADO_MS en boton-mantener-apretado.tsx). Los números de
+  // abajo son relativos a ese valor: 2 s es "soltó antes", 5 s es
+  // "completó".
+  it("mantener apretado ASISTIÓ menos de 5 segundos no confirma nada", async () => {
     vi.setSystemTime(AHORA);
     turnosPendientesAsistenciaActionMock.mockResolvedValue(pendientes([turno({})]));
     render(<AsistenciaCartelGlobal />);
@@ -110,7 +114,7 @@ describe("AsistenciaCartelGlobal", () => {
 
     fireEvent.pointerDown(boton);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.advanceTimersByTimeAsync(2_000);
     });
     fireEvent.pointerUp(boton);
     await act(async () => {
@@ -123,7 +127,7 @@ describe("AsistenciaCartelGlobal", () => {
 
   // Bug real reportado por el cliente, 2026-09-05: "toco 10 seg pero no
   // se completa" — el cursor se salía del botón sin soltar el mouse
-  // (temblor de mano normal durante 10 segundos reales) y eso cancelaba
+  // (temblor de mano normal mientras se sostiene quieto) y eso cancelaba
   // todo en silencio. Con `setPointerCapture` (pointerdown), alejarse del
   // botón ya no debe interrumpir la espera — solo soltar (pointerup) o un
   // pointercancel real.
@@ -146,7 +150,7 @@ describe("AsistenciaCartelGlobal", () => {
     expect(marcarAsistenciaActionMock).toHaveBeenCalledWith("t-no-se-cancela", "asistio");
   });
 
-  it("mantener apretado ASISTIÓ 10 segundos completos confirma y saca el cartel", async () => {
+  it("mantener apretado ASISTIÓ 5 segundos completos confirma y saca el cartel", async () => {
     vi.setSystemTime(AHORA);
     const t = turno({ id: "t-asistio" });
     turnosPendientesAsistenciaActionMock.mockResolvedValueOnce(pendientes([t])).mockResolvedValue(pendientes([]));
@@ -155,7 +159,7 @@ describe("AsistenciaCartelGlobal", () => {
 
     fireEvent.pointerDown(boton);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(5_000);
     });
 
     expect(marcarAsistenciaActionMock).toHaveBeenCalledWith("t-asistio", "asistio");
@@ -163,7 +167,7 @@ describe("AsistenciaCartelGlobal", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
 
-  it("mantener apretado NO ASISTIÓ 10 segundos completos confirma con 'ausente'", async () => {
+  it("mantener apretado NO ASISTIÓ 5 segundos completos confirma con 'ausente'", async () => {
     vi.setSystemTime(AHORA);
     const t = turno({ id: "t-ausente" });
     turnosPendientesAsistenciaActionMock.mockResolvedValueOnce(pendientes([t])).mockResolvedValue(pendientes([]));
@@ -172,7 +176,7 @@ describe("AsistenciaCartelGlobal", () => {
 
     fireEvent.pointerDown(boton);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(5_000);
     });
 
     expect(marcarAsistenciaActionMock).toHaveBeenCalledWith("t-ausente", "ausente");
@@ -186,16 +190,17 @@ describe("AsistenciaCartelGlobal", () => {
 
     fireEvent.pointerDown(boton);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(9_000);
+      await vi.advanceTimersByTimeAsync(4_000);
     });
     fireEvent.pointerUp(boton);
     fireEvent.pointerDown(boton);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(9_000);
+      await vi.advanceTimersByTimeAsync(4_000);
     });
 
-    // 9s de vuelta después de soltar y re-apretar: si no hubiera
-    // reiniciado, ya habría pasado los 10s acumulados y confirmado.
+    // 4 s de vuelta después de soltar y re-apretar: si no hubiera
+    // reiniciado, los 8 s acumulados ya habrían pasado los 5 del umbral
+    // y confirmado.
     expect(marcarAsistenciaActionMock).not.toHaveBeenCalled();
   });
 

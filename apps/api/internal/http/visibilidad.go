@@ -112,13 +112,21 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if !ok {
 			return tx.Where("1 = 0")
 		}
+		// Tres criterios, y el tercero es el único explícito: los dos
+		// primeros son hechos derivados ("lo atiendo", "lo cargué yo"),
+		// el tercero es un acto — sumar a mi lista una ficha que ya
+		// existía en la clínica, sin inventarle un turno (2026-09-19).
 		return tx.Where(`(
 			EXISTS (
 				SELECT 1 FROM turnos t
 				WHERE t.paciente_id = pacientes.id AND t.atendido_por_user_id = ?
 			)
 			OR pacientes.creado_por_user_id = ?
-		)`, userID, userID)
+			OR EXISTS (
+				SELECT 1 FROM pacientes_en_mi_lista l
+				WHERE l.paciente_id = pacientes.id AND l.user_id = ?
+			)
+		)`, userID, userID, userID)
 	}
 }
 

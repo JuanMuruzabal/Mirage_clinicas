@@ -10,6 +10,7 @@ import { ClickableTableRow } from "./clickable-table-row";
 import { EstadoVerificadoBadge } from "./estado-verificado-badge";
 import { CargarMas } from "./cargar-mas";
 import { listPacientesPaginadoAction } from "@/app/actions/pacientes";
+import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 import type { ListarPacientesParams } from "@/lib/api";
 import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 
@@ -50,8 +51,13 @@ function todosLosContactos(p: Paciente): { mails: string[]; telefonos: string[] 
 // desde `md` el chevron de acá queda oculto porque DNI/Email ya se ven
 // como columnas propias, no hace falta desplegar nada.
 export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, filtros }: PacientesTableProps) {
-  const [pacientes, setPacientes] = useState<Paciente[]>(pacientesIniciales);
+  // useEstadoDelServidor y no useState: con useState, los datos nuevos
+  // que trae `router.refresh()` se ignoraban y la tabla solo se
+  // actualizaba con F5 (ver el comentario grande de ese hook).
   const [total, setTotal] = useState(totalInicial ?? pacientesIniciales.length);
+  const [pacientes, setPacientes] = useEstadoDelServidor<Paciente[]>(pacientesIniciales, (frescos) =>
+    setTotal(totalInicial ?? frescos.length),
+  );
   const [cargandoMas, setCargandoMas] = useState(false);
 
   // cargarMas — la siguiente tanda desde donde quedó la anterior. El

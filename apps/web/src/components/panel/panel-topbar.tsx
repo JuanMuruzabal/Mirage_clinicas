@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { usePathname } from "next/navigation";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { datosDelTopbarAction, type DatosDelTopbar } from "@/app/actions/topbar-panel";
-import { isPanelRoute } from "@/lib/site-routes";
+import { isPanelRoute, mostrarColaboradoresEnHeader } from "@/lib/site-routes";
 import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
 import { EquipoPopover } from "@/components/panel/equipo-popover";
 
@@ -34,7 +34,11 @@ const ContextoTopbar = createContext<ValorTopbar>({ datos: null, refrescar: () =
 
 export function PanelTopbarProvider({ children, habilitado }: { children: ReactNode; habilitado: boolean }) {
   const pathname = usePathname();
-  const enPanel = habilitado && isPanelRoute(pathname);
+  // Desde 2026-09-19 también en /seleccionar-servicio: el componente de
+  // colaboradores se extendió a esa pantalla, y necesita los mismos
+  // datos. El selector de clínica sigue siendo solo del panel — lo
+  // decide cada componente abajo, no el provider.
+  const enPanel = habilitado && mostrarColaboradoresEnHeader(pathname);
   const [cache, setCache] = useState<DatosDelTopbar | null>(null);
   // Un contador para volver a pedir sin que cambie la ruta.
   const [pedido, setPedido] = useState(0);
@@ -74,10 +78,10 @@ export function PanelTopbarProvider({ children, habilitado }: { children: ReactN
 // estos dos controles son EXCLUSIVOS del header de /panel, y que aparezcan
 // en otra pantalla sería una fuga. Con la comprobación en un solo lado,
 // cualquiera que los monte en otro lugar los vería igual.
-function useTopbarDelPanel(): DatosDelTopbar | null {
+function useTopbarDelPanel(alcance: (pathname: string) => boolean): DatosDelTopbar | null {
   const pathname = usePathname();
   const { datos } = useContext(ContextoTopbar);
-  return isPanelRoute(pathname) ? datos : null;
+  return alcance(pathname) ? datos : null;
 }
 
 // SelectorClinicaDelPanel — el mismo control de "¿Qué necesitás hoy?",
@@ -88,14 +92,18 @@ function useTopbarDelPanel(): DatosDelTopbar | null {
 // angosta, y ahí el header quedaba con la hamburguesa y nada más. El
 // renglón es hamburguesa · selector (ocupando lo que sobra) · avatar.
 export function SelectorClinicaDelPanel() {
-  const datos = useTopbarDelPanel();
+  const datos = useTopbarDelPanel(isPanelRoute);
   const { refrescar } = useContext(ContextoTopbar);
   // Con el menú lateral desplegado en mobile, este control queda DEBAJO
   // del drawer: abrirlo desde acá dejaría un popover tapado, o tapando el
   // menú (corrección del 2026-09-14). Mientras el drawer esté abierto, el
   // header no despliega nada.
   const sidebar = usePanelSidebar();
-  if (!datos || !datos.nombreClinicaActual || datos.clinicas.length === 0) return null;
+  // Con UNA sola clínica no hay nada que elegir (2026-09-19, pedido del
+  // cliente): el control ocupaba lugar en el header para ofrecer un menú
+  // de una opción, la que ya está puesta. El nombre de la clínica sigue
+  // a la vista en el resto del panel.
+  if (!datos || !datos.nombreClinicaActual || datos.clinicas.length <= 1) return null;
 
   return (
     <>
@@ -124,7 +132,7 @@ export function SelectorClinicaDelPanel() {
 // otro extremo que el selector a propósito: uno dice dónde estás, el otro
 // con quién.
 export function EquipoDelPanel() {
-  const datos = useTopbarDelPanel();
+  const datos = useTopbarDelPanel(mostrarColaboradoresEnHeader);
   const sidebar = usePanelSidebar();
   if (!datos?.equipo) return null;
   return <EquipoPopover equipo={datos.equipo} bloqueado={sidebar.open} />;

@@ -61,7 +61,7 @@ const DESCRIPCION_ORIGEN: Record<Origen, string> = {
   // "compartir" (Fase 2, ítem 5): pensado para cuando ya hablaste con la
   // persona (por teléfono, en el consultorio) y solo necesita elegir día
   // y horario por su cuenta — sin repetir el código de verificación.
-  compartir: "Mandale un link de 1 hora para que elija día y horario ella misma — ya hablaste con esa persona.",
+  compartir: "Mandale un link de 1 hora para que elija día y horario ella misma.",
 };
 
 // Modal "+ Agregar turno" (spec §4.3, renombrado de "+ Nueva sesión") — dos
@@ -416,7 +416,12 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
                 Compartir link
               </button>
             </div>
-            <p className="text-xs text-grafito/60">{DESCRIPCION_ORIGEN[origen]}</p>
+            {/* El texto de la pestaña "Compartir link" explica de qué va
+                todo lo de abajo, y estaba en el mismo gris chico que una
+                nota al pie (2026-09-19). Los otros dos sí son notas. */}
+            <p className={origen === "compartir" ? "text-sm text-grafito" : "text-xs text-grafito/60"}>
+              {DESCRIPCION_ORIGEN[origen]}
+            </p>
 
             {origen === "compartir" && <CompartirLinkTurno />}
 

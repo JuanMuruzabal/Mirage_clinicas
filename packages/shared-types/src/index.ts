@@ -174,6 +174,20 @@ export interface InvitacionPendiente {
   venceAt: string;
 }
 
+/** Espejo de perfilDeColegaResponse (internal/http/perfil_colega.go).
+ *  El perfil de un COLEGA (2026-09-19): lo mismo que el propio menos el
+ *  documento, que no tiene ningún uso entre colegas. `perfil` viene
+ *  ausente si la persona todavía no lo completó. */
+export interface PerfilDeColega {
+  userId: string;
+  nombre: string;
+  email: string;
+  roles: ClinicRole[];
+  esTitular: boolean;
+  esVos: boolean;
+  perfil?: PerfilProfesional;
+}
+
 export interface Equipo {
   miembros: MiembroDelEquipo[];
   pendientes: InvitacionPendiente[];
@@ -441,6 +455,12 @@ export interface Turno {
   // Asistencia (pedido explícito del cliente, 2026-09-04): ausente hasta
   // que se marca desde un turno ya resuelto — "asistio" | "ausente" | nil.
   asistencia?: "asistio" | "ausente" | null;
+  /** Lo anotado por adelantado desde la tarjeta de "Turnos de hoy",
+   *  todavía reversible: se vuelve `asistencia` recién cuando el
+   *  turno cruza su hora de fin. Es una columna aparte porque
+   *  `asistencia` es irreversible y dispara consecuencias
+   *  destructivas (ver models.go). */
+  asistenciaPreliminar?: "asistio" | "ausente" | null;
   // Autoreservado (nueva función, 2026-09-08): true si el botón
   // "Autoreservar turnos" del modal de conflicto movió este turno al
   // próximo horario libre — se pinta con rayas en el calendario y avisa
@@ -507,9 +527,22 @@ export interface ResumenTurnoItem {
   nombre: string;
   // asistencia (rediseño de "Turnos resueltos" del dashboard — ya no es
   // una bandeja de pendientes, ahora reporta lo que se marcó hoy): vacío
-  // en `turnosHoy`/`turnosProximos` (nunca hay uno marcado ahí, son
-  // siempre vigentes), "asistio" | "ausente" en `turnosResueltos`.
+  // en `turnosHoy`/`turnosProximos` (un turno marcado sale de esas dos
+  // listas), "asistio" | "ausente" en `turnosResueltos`.
   asistencia?: "asistio" | "ausente" | "";
+  /** Lo anotado POR ADELANTADO desde la tarjeta de "Turnos de hoy", y
+   *  todavía reversible (2026-09-19). No es la asistencia: el turno sigue
+   *  pendiente o en proceso, y esto es solo lo que va a decir cuando
+   *  termine. La tarjeta lo usa para pintar el contorno del botón
+   *  elegido. Ver `Turno.asistenciaPreliminar`. */
+  asistenciaPreliminar?: "asistio" | "ausente" | "";
+  /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
+   *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
+   *  proceso, y abre los botones de asistencia 5 minutos antes de que
+   *  empiece — para eso hace falta un instante, no una hora local que el
+   *  navegador reinterprete en su propia zona horaria. */
+  horaInicioIso?: string;
+  horaFinIso?: string;
 }
 
 export interface ResumenHorarioReservadoItem {

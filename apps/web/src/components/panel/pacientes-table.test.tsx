@@ -330,4 +330,24 @@ describe("PacientesTable", () => {
       expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
     });
   });
+
+  // El bug que el cliente reportó como "solo desaparece al refrescar la
+  // página" (2026-09-19).
+  //
+  // La tabla copiaba las props a `useState`, cuyo inicializador corre una
+  // sola vez: los datos nuevos que trae `router.refresh()` —después de
+  // resolver un conflicto, o al cambiar de clínica— se ignoraban, y solo
+  // un F5 (que la desmonta) actualizaba la pantalla.
+  it("muestra los datos nuevos cuando el servidor vuelve a renderizar", () => {
+    const otro = { ...paciente, id: "p-2", nombre: "Muru", apellido: "Zabal", dni: "44020992" };
+    const { rerender } = render(<PacientesTable pacientes={[paciente, otro]} totalInicial={2} />);
+    expect(screen.getByText("Muru Zabal")).toBeInTheDocument();
+
+    // El servidor ya no lo trae: se resolvió el conflicto y su ficha se
+    // fusionó.
+    rerender(<PacientesTable pacientes={[paciente]} totalInicial={1} />);
+
+    expect(screen.queryByText("Muru Zabal")).not.toBeInTheDocument();
+    expect(screen.getByText("Bruno Iglesias")).toBeInTheDocument();
+  });
 });

@@ -36,6 +36,17 @@
   --color-terracota: #c97f5a;
   --color-terracota-claro: #f5e3d6;
   --color-terracota-oscuro: #8a4b2e;
+  /* Acero — el azul de "en proceso" (2026-09-19). Es el mismo #2c4a5e
+     que ya vivía arriba como `--color-steel` (la paleta clínica del
+     header público), traído a la familia del panel con su claro y su
+     oscuro, igual que salvia y terracota. No es un color nuevo en el
+     producto: es el único azul que el sistema ya tenía, y por eso
+     "en proceso" no se lee como ajeno al resto.
+     No confundir con cascarón/urgencia, reservados al bloque de tipo de
+     consulta del calendario (TR-010). */
+  --color-acero: #4a7390;
+  --color-acero-claro: #dee7ed;
+  --color-acero-oscuro: #2c4a5e;
   --color-grafito: #35312b;
   --color-arena: #e7dfd1;
   /* --color-linea (#dbd3c2): el borde de los campos y de las tarjetas.
@@ -95,6 +106,9 @@
   --color-terracota: var(--color-terracota);
   --color-terracota-claro: var(--color-terracota-claro);
   --color-terracota-oscuro: var(--color-terracota-oscuro);
+  --color-acero: var(--color-acero);
+  --color-acero-claro: var(--color-acero-claro);
+  --color-acero-oscuro: var(--color-acero-oscuro);
   --color-grafito: var(--color-grafito);
   --color-arena: var(--color-arena);
   --color-linea: var(--color-linea);

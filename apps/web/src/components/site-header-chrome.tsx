@@ -7,7 +7,7 @@ import { QuadrantMark } from "./quadrant-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
 import { IconMenu, IconX } from "./icons";
-import { isHerramientaRoute, isPanelRoute } from "@/lib/site-routes";
+import { isHerramientaRoute, isPanelRoute, mostrarColaboradoresEnHeader } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
@@ -63,6 +63,9 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const esHerramienta = estado === "completo" && isHerramientaRoute(pathname);
   const enRutaConSidebar = isPanelRoute(pathname);
   const esClinicas = pathname === "/clinicas";
+  // Declarada acá arriba y no junto a `ocultarLogo`, que es su otro uso:
+  // `mostrarGear` también la necesita desde 2026-09-19.
+  const esSeleccionarServicio = pathname === "/seleccionar-servicio";
   // mostrarGear — corrección de QA (2026-09-05, textual): "saque del
   // header del panel de gestion de clinica la tuerquita de opciones, ya
   // que en el sidebar da las opciones" — en /panel/** el sidebar YA
@@ -83,7 +86,19 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // deliberada de volver al sitio público, porque el nombre del producto
   // deja de ser un link. Sus dos ítems (Tu perfil / Cerrar sesión) valen
   // igual sin clínica cargada.
-  const mostrarGear = (esHerramienta && !enRutaConSidebar) || (esClinicas && estado !== "anonimo");
+  //
+  // 2026-09-19, y la regla quedó en una sola frase: **la tuerca se
+  // muestra donde NO se muestra el componente de colaboradores**, que
+  // absorbió "Tu perfil" y "Cerrar sesión" en su propio menú (ver
+  // equipo-popover.tsx). Tener los dos botones al lado sería ofrecer el
+  // mismo menú dos veces.
+  //
+  // En la práctica quedan /perfil y /clinicas. En /clinicas se queda
+  // porque ahí todavía no hay clínica elegida y no hay equipo que
+  // mostrar; lo único que cambia es su ícono.
+  const mostrarGear =
+    ((esHerramienta && !enRutaConSidebar) || (esClinicas && estado !== "anonimo")) &&
+    !mostrarColaboradoresEnHeader(pathname);
   // Y nunca el botón "Mis clínicas" DENTRO de /clinicas. Se colaba con el
   // onboarding sin terminar —el caso de quien todavía no cargó ninguna—,
   // porque `esHerramienta` exige onboarding completo: el header ofrecía
@@ -110,7 +125,6 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   //   - en /seleccionar-servicio, "donde dice PRISMA ahora deberá decir
   //     clínicas, para ir a la página anterior de seleccionar clínica":
   //     el logo pasa a ser el camino de vuelta al selector.
-  const esSeleccionarServicio = pathname === "/seleccionar-servicio";
   const ocultarLogo = esHerramienta && !esSeleccionarServicio && !esClinicas;
 
   // Mismo patrón que Alojamientos Madryn (site-header.tsx) para cerrar el
@@ -157,8 +171,24 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // `justify-between` no deja ningún aire entre su borde y el avatar de
   // colaboradores — quedaban pegados. El gap es un piso, no un reemplazo
   // del justify-between.
-  const contenedorClass = isPanelRoute(pathname)
-    ? "flex w-full items-center justify-between gap-3 px-8 py-4"
+  //
+  // Y desde 2026-09-19 la fila ancha vale para TODA pantalla de
+  // herramienta con sesión, no solo /panel (pedido del cliente: "debe
+  // estar en la misma ubicación tanto en /seleccionar-servicio como en
+  // panel", y después lo mismo para /colaboradores, /personalizar-pagina
+  // y /clinicas).
+  //
+  // Con el contenedor centrado a `max-w-5xl`, el botón redondo de la
+  // derecha quedaba a un par de centímetros de distancia entre una
+  // pantalla y otra en cualquier monitor ancho, y saltaba de lugar al
+  // navegar. Alinearlo contra el borde del viewport es lo único que lo
+  // deja quieto: el ancho del contenido de cada pantalla es distinto, el
+  // borde derecho es el mismo. Se aplica a TODAS —incluidas /clinicas y
+  // /perfil, que muestran la tuerca en vez del popover— porque si no el
+  // salto vuelve entre esas dos y el resto.
+  const filaAnchaDeHerramienta = estado !== "anonimo" && isHerramientaRoute(pathname);
+  const contenedorClass = filaAnchaDeHerramienta
+    ? "flex w-full items-center justify-between gap-3 px-8 py-4 max-md:px-6"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (
@@ -255,7 +285,12 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
             a propósito — uno dice dónde estás, el otro con quién. */}
         <EquipoDelPanel />
 
-        {mostrarGear && <HeaderConfigMenu />}
+        {/* En /clinicas el mismo menú con el ícono de colaboradores
+            (2026-09-19, pedido del cliente): el header de toda la app
+            pasa a tener un solo botón redondo a la derecha, y que cambie
+            de dibujo entre pantallas era justamente lo que se pidió
+            emparejar. La funcionalidad no cambia. */}
+        {mostrarGear && <HeaderConfigMenu icono={esClinicas ? "colaboradores" : "tuerca"} />}
 
         {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
             sesión. Llevar directo a /seleccionar-servicio salteaba la

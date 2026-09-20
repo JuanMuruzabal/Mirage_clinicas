@@ -53,6 +53,11 @@ func registerEquipoRoutes(r chi.Router, gdb *gorm.DB, sender dmmail.Sender, appB
 	// quien pregunta.
 	r.Get("/equipo/presencia", presenciaHandler(gdb))
 
+	// El perfil de un colega, con el mismo permiso que la lista: es la
+	// misma pregunta ("con quién trabajo") con más detalle. Ver
+	// perfil_colega.go.
+	r.Get("/equipo/miembros/{userId}/perfil", perfilDeColegaHandler(gdb))
+
 	// Invitar y quitar, solo el titular. El brief: "el creador: el
 	// responsable de asignar roles e invitar a sus colegas".
 	r.Group(func(r chi.Router) {

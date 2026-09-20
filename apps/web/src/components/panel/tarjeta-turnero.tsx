@@ -38,6 +38,15 @@ interface TarjetaConListaProps {
   // lo ubica detrás del contenido real (`z-10`) y lo recorta si se pasa
   // del borde de la tarjeta.
   icono?: ReactNode;
+  // Pie con un link a la derecha (2026-09-19, pedido del cliente: "a
+  // turnos próximos y turnos resueltos se les agrega este footer que
+  // tiene turnos de hoy"). El link de la CABECERA y el del PIE llevan a
+  // lugares distintos a propósito: el de arriba ubica el dato en su
+  // pantalla natural (el calendario, o Turnos con el mismo recorte que
+  // muestra la tarjeta), el del pie abre la lista completa sin ningún
+  // filtro.
+  hrefPie?: string;
+  labelPie?: string;
 }
 
 // Cuerpo "medio transparente, mismo efecto que las tarjetas de la página
@@ -60,6 +69,8 @@ export function TarjetaConLista({
   labelCabecera,
   cabeceraCustom,
   icono,
+  hrefPie,
+  labelPie,
 }: TarjetaConListaProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
@@ -115,6 +126,17 @@ export function TarjetaConLista({
           </ul>
         )}
       </div>
+
+      {/* El mismo pie que "Turnos de hoy": la salida a la lista
+          completa, separada del link de la cabecera que lleva al
+          recorte que la tarjeta está mostrando. */}
+      {hrefPie && labelPie && (
+        <div className="flex items-center justify-end border-t-[0.5px] border-arena bg-marfil px-6 py-3">
+          <Link href={hrefPie} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+            {labelPie}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

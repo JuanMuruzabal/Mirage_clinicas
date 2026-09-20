@@ -140,7 +140,10 @@ describe("SiteHeaderChrome — logo", () => {
 // en una pantalla de herramienta con onboarding completo, el botón de
 // configuración reemplaza a los tres links sueltos de antes.
 describe("SiteHeaderChrome — botón de configuración (estado completo, pantalla de herramienta)", () => {
-  it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
+  // Queda /perfil sola: /personalizar-pagina pasó a mostrar el
+  // componente de colaboradores el 2026-09-19, y con él la tuerca es
+  // redundante (ese menú ya ofrece Tu perfil / Cerrar sesión).
+  it.each(["/perfil"])(
     "en %s con estado completo, muestra el botón de configuración y no 'Mis clínicas'",
     (pathname) => {
       usePathnameMock.mockReturnValue(pathname);
@@ -149,6 +152,28 @@ describe("SiteHeaderChrome — botón de configuración (estado completo, pantal
       expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
     },
   );
+
+  // La regla en una frase: la tuerca se muestra donde NO se muestra el
+  // componente de colaboradores. Tener los dos botones al lado sería
+  // ofrecer el mismo menú dos veces.
+  it.each(["/seleccionar-servicio", "/colaboradores", "/personalizar-pagina"])(
+    "en %s no muestra el botón de configuración: ahí está el de colaboradores",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      renderHeader("completo");
+      expect(screen.queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
+    },
+  );
+
+  // En /clinicas la tuerca SÍ se queda: ahí todavía no hay clínica
+  // elegida y no hay equipo del que hablar, así que ese menú es el único
+  // acceso a "Cerrar sesión" — y el brief hace de cerrar sesión la forma
+  // deliberada de volver al sitio público.
+  it("en /clinicas sigue mostrando el botón de configuración", () => {
+    usePathnameMock.mockReturnValue("/clinicas");
+    renderHeader("completo");
+    expect(screen.getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
+  });
 
   // Corrección de QA (2026-09-05, textual): "saque del header del panel
   // de gestion de clinica la tuerquita de opciones, ya que en el
@@ -345,8 +370,29 @@ describe("SiteHeaderChrome — alineación del header en /panel", () => {
     expect(fila).not.toHaveClass("max-w-5xl", "px-6");
   });
 
-  it("fuera de /panel, el header sigue centrado en max-w-5xl con px-6 (sin cambios)", () => {
-    usePathnameMock.mockReturnValue("/seleccionar-servicio");
+  // 2026-09-19: la fila ancha se extendió a /seleccionar-servicio, que
+  // desde esta misma ronda muestra el componente de colaboradores.
+  // Pedido del cliente: "debe estar en la misma ubicación tanto en
+  // /seleccionar-servicio como en panel" — centrado a max-w-5xl, el
+  // mismo botón quedaba en dos X distintas y saltaba al navegar.
+  // La fila ancha vale para TODA pantalla de herramienta con sesión
+  // (2026-09-19): centrado a max-w-5xl, el botón redondo de la derecha
+  // quedaba en dos X distintas y saltaba al navegar. Se incluyen
+  // /clinicas y /perfil, que muestran la tuerca en vez del popover — si
+  // no, el salto vuelve entre esas dos y el resto.
+  it.each(["/seleccionar-servicio", "/colaboradores", "/personalizar-pagina", "/clinicas", "/perfil"])(
+    "en %s el contenedor también es ancho completo, para que el botón no se mueva",
+    (pathname) => {
+      usePathnameMock.mockReturnValue(pathname);
+      const { container } = renderHeader("completo");
+      const fila = container.querySelector("header > div")!;
+      expect(fila).toHaveClass("w-full", "px-8");
+      expect(fila).not.toHaveClass("max-w-5xl");
+    },
+  );
+
+  it("fuera de las pantallas de herramienta (Home) sigue centrado en max-w-5xl con px-6", () => {
+    usePathnameMock.mockReturnValue("/");
     const { container } = renderHeader("completo");
     const fila = container.querySelector("header > div")!;
     expect(fila).toHaveClass("max-w-5xl", "px-6");

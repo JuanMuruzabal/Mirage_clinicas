@@ -9,6 +9,7 @@ import {
   apiListConflictosPaciente,
   apiListPacientes,
   apiPacientesDeLaClinica,
+  apiSumarPacienteAMiLista,
   apiListPacientesPaginado,
   apiResolverConflictoPaciente,
   type CrearPacientePayload,
@@ -38,6 +39,22 @@ export interface PacienteActionResult {
 //
 // El listado de /panel/pacientes NO cambia: sigue siendo "a quiénes
 // atiendo yo", que es otra pregunta.
+// sumarPacienteAMiListaAction — "+ Agregar paciente > De la clínica".
+// Devuelve el error para que la pantalla lo muestre: agregar a alguien a
+// tu lista y que no pase nada, sin decir por qué, es peor que fallar.
+export async function sumarPacienteAMiListaAction(pacienteId: string): Promise<{ error?: string; ok?: boolean }> {
+  const token = await getSessionToken();
+  if (!token) {
+    redirect("/ingresar");
+  }
+  const result = await apiSumarPacienteAMiLista(token, pacienteId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  revalidatePath("/panel/pacientes");
+  return { ok: true };
+}
+
 export async function listPacientesAction(q?: string): Promise<PacienteConocido[]> {
   const token = await getSessionToken();
   if (!token) {

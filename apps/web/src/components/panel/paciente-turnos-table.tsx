@@ -2,7 +2,13 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
-import { ESTADO_CLASS, ESTADO_LABEL, formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
+import {
+  ESTADO_DERIVADO_CLASS,
+  ESTADO_DERIVADO_LABEL,
+  estadoDeTurno,
+  formatFechaHora,
+  temaTipoConsulta,
+} from "@/lib/turno-format";
 import { rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
@@ -411,9 +417,12 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                     </td>
                     <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex flex-wrap items-center gap-2 text-xs ${resuelto ? "font-semibold text-grafito/60" : ESTADO_CLASS[t.estado]}`}>
+                      {/* Mismo estado derivado que /panel/turnos: suma
+                          "En proceso" y renombra "Confirmado" a
+                          "Pendiente" (2026-09-19). */}
+                      <span className={`inline-flex flex-wrap items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoDeTurno(t)]}`}>
                         <QuadrantMark estado={t.estado} />
-                        {resuelto ? "Resuelto" : ESTADO_LABEL[t.estado]}
+                        {ESTADO_DERIVADO_LABEL[estadoDeTurno(t)]}
                         {/* Corrección de QA: "en la ficha de pacientes en
                             historial de turnos si el turno fue ausente o
                             asistió, ya que no hay referencia visual de

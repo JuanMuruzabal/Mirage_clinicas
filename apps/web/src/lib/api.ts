@@ -31,6 +31,7 @@ import type {
   PacienteDetalle,
   PaginaPublica,
   PanelNotificacionesResponse,
+  PerfilDeColega,
   PerfilProfesional,
   ReenviarVerificacionPayload,
   RecuperarPasswordPayload,
@@ -694,6 +695,25 @@ export function apiEquipo(token: string): Promise<ApiResult<Equipo>> {
 export function apiPacientesDeLaClinica(token: string, q?: string): Promise<ApiResult<PacienteConocido[]>> {
   const qs = q ? `?q=${encodeURIComponent(q)}` : "";
   return request<PacienteConocido[]>(`/pacientes/de-la-clinica${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiSumarPacienteAMiLista — "+ Agregar paciente > De la clínica"
+// (2026-09-19): la ficha ya existe en la clínica y este profesional la
+// suma a SU lista de trabajo, sin inventarle un turno para lograrlo.
+export function apiSumarPacienteAMiLista(token: string, pacienteId: string): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(`/pacientes/${pacienteId}/en-mi-lista`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// apiPerfilDeColega — la pantalla "Ver perfil" de Colaboradores
+// (2026-09-19). El backend responde 404 si esa persona no trabaja en la
+// clínica activa: tener el id no alcanza.
+export function apiPerfilDeColega(token: string, userId: string): Promise<ApiResult<PerfilDeColega>> {
+  return request<PerfilDeColega>(`/equipo/miembros/${userId}/perfil`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

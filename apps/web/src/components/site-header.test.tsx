@@ -150,7 +150,10 @@ describe("SiteHeader", () => {
   // TR-060: en una pantalla de herramienta con onboarding completo, el
   // botón de configuración reemplaza a los tres links sueltos de antes.
   describe("con onboarding completo, en una pantalla de herramienta", () => {
-    it.each(["/seleccionar-servicio", "/perfil", "/personalizar-pagina"])(
+    // /seleccionar-servicio y /personalizar-pagina salieron de esta
+    // lista el 2026-09-19: ahí la tuerca la reemplaza el componente de
+    // colaboradores. Ver site-header-chrome.test.tsx para la regla.
+    it.each(["/perfil"])(
       "en %s, muestra el botón de configuración (no 'Mis clínicas')",
       async (pathname) => {
         usePathnameMock.mockReturnValue(pathname);
@@ -192,7 +195,9 @@ describe("SiteHeader", () => {
         .map((el) => el.textContent);
 
       expect(nombresDeLinks).toEqual(["Clínicas"]);
-      expect(within(header).getByRole("button", { name: "Accesos rápidos" })).toBeInTheDocument();
+      // Desde 2026-09-19 la tuerca ya no está acá: la reemplaza el
+      // componente de colaboradores (ver site-header-chrome.test.tsx).
+      expect(within(header).queryByRole("button", { name: "Accesos rápidos" })).not.toBeInTheDocument();
     });
   });
 

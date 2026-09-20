@@ -7,6 +7,11 @@ const presenciaActionMock = vi.fn();
 vi.mock("@/app/actions/presencia", () => ({
   presenciaAction: () => presenciaActionMock(),
 }));
+// El popover absorbió "Cerrar sesión" (2026-09-19). Sin el mock, la
+// Server Action real corre fuera de un request y deja un rechazo sin
+// atender que hace fallar la corrida entera.
+const logoutActionMock = vi.fn();
+vi.mock("@/app/actions/auth", () => ({ logoutAction: () => logoutActionMock() }));
 
 const { EquipoPopover, haceCuanto, iniciales } = await import("./equipo-popover");
 
@@ -105,7 +110,7 @@ describe("EquipoPopover", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
 
-    expect(screen.getByText("Ahora no")).toBeInTheDocument();
+    expect(screen.getByText("Sin actividad")).toBeInTheDocument();
     expect(screen.getByText("En línea")).toBeInTheDocument();
     expect(screen.getByText("Hace 1 h")).toBeInTheDocument();
   });
@@ -164,5 +169,46 @@ describe("EquipoPopover", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
 
     expect(screen.getByText("Todavía no hay nadie más en la clínica.")).toBeInTheDocument();
+  });
+
+  // 2026-09-19, pedido del cliente: "en la tarjeta de los colaboradores
+  // incluyendo al mismo profesional poner un botón de ver perfil, que me
+  // llevará a mi perfil o al perfil del otro profesional".
+  describe("ver perfil", () => {
+    it("el propio va a /perfil, que además de mostrarlo edita", async () => {
+      render(<EquipoPopover equipo={equipo([miembro({ userId: "u1", nombre: "Ana Titular", esVos: true })])} />);
+
+      await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
+
+      expect(screen.getByRole("link", { name: "Ver perfil" })).toHaveAttribute("href", "/perfil");
+    });
+
+    it("el de un colega va a su ficha en solo lectura", async () => {
+      render(
+        <EquipoPopover
+          equipo={equipo([
+            miembro({ userId: "u2", nombre: "Beto Colega", esTitular: false, esVos: false }),
+          ])}
+        />,
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
+
+      expect(screen.getByRole("link", { name: "Ver perfil" })).toHaveAttribute("href", "/colaboradores/u2");
+    });
+  });
+
+  // El componente reemplaza a la tuerca en el header de
+  // /seleccionar-servicio, donde era el ÚNICO acceso a cerrar sesión: si
+  // estas dos opciones se pierden, la persona se queda sin salida.
+  describe("la cuenta", () => {
+    it("ofrece 'Tu perfil' y 'Cerrar sesión'", async () => {
+      render(<EquipoPopover equipo={equipo([miembro()])} />);
+
+      await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
+
+      expect(screen.getByRole("link", { name: "Tu perfil" })).toHaveAttribute("href", "/perfil");
+      expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+    });
   });
 });

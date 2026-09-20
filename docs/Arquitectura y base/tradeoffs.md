@@ -2408,6 +2408,213 @@ Un enlace se reenvía. Sin exigir que el `pacienteVerificadoId` del pedido sea e
 
 ---
 
+## TR-156: El panel no adoptaba los datos nuevos del servidor — una causa, tres síntomas
+
+- **Contexto:** Fase 3.2.7d, 2026-09-19. Ronda de ajustes previa a la vista de recepcionista.
+- **De dónde salió:** *"si tengo más de 2 clínicas y cambio de una a otra desde el header del panel, la vista de la otra clínica no se actualiza hasta que no refresque la página... al resolver un conflicto, el cartel desaparece a los 5 seg aprox, debe desaparecer instantáneo... todo se debe resolver visualmente sin refrescar en un máximo de 2 seg"*.
+
+### El bug
+
+Tres síntomas reportados por separado —el conflicto resuelto que seguía en la lista, la clínica que no cambiaba, el turno editado que no se veía— tenían **una sola causa**, y no era la que parecía. `router.refresh()` ya estaba puesto en los tres caminos, y funcionaba: el Server Component se volvía a renderizar y bajaba props nuevas. Lo que fallaba era el otro extremo.
+
+Cuatro componentes del panel hacían esto:
+
+```tsx
+const [pacientes, setPacientes] = useState(pacientesIniciales);
+```
+
+**El inicializador de `useState` corre una sola vez.** Las props nuevas llegaban y el componente las ignoraba. Solo un F5 —que lo desmonta y lo vuelve a montar— actualizaba la pantalla. De ahí que el síntoma se describiera como "hay que refrescar": era literal.
+
+### La decisión: resincronizar durante el render, no con un efecto
+
+`useEstadoDelServidor` (`apps/web/src/lib/estado-del-servidor.ts`) compara el valor que baja contra el último que vio y corrige **durante el render**. Es el patrón documentado de React para ajustar estado cuando cambia una prop. Con `useEffect` habría un frame con los datos viejos en pantalla —justo lo que se quiere evitar— y además choca con la regla de lint del proyecto (`react-hooks/set-state-in-effect`).
+
+El callback opcional `alResincronizar` existe para los datos que viajan con el principal y tienen que resetearse con él: el total de una tabla paginada, por ejemplo.
+
+### Qué se pierde, a propósito
+
+**El estado local se descarta cuando llegan datos nuevos.** En las tablas con "Cargar más" eso significa volver a la primera tanda. Se aceptó: el servidor acaba de decir cuál es la verdad, y mostrar tres páginas viejas junto a datos frescos sería peor que volver al principio.
+
+Por lo mismo **NO va en un editor ni en un formulario a medio llenar**, donde el estado local es lo que la persona está escribiendo. `pagina-editor.tsx` quedó deliberadamente afuera: ahí resincronizar sería borrarle el trabajo a alguien.
+
+### La regla que queda
+
+Un Client Component del panel que reciba datos del servidor los toma con `useEstadoDelServidor`, no con `useState`. Un `useState(props.algo)` en esa posición es un bug latente que **no se nota mirando la pantalla** hasta que alguien cambia el dato desde otro lado.
+
+---
+
+## TR-157: Un acto explícito para "mis pacientes", y el header con un solo botón
+
+- **Contexto:** Fase 3.2.7d, 2026-09-19. Ítems 1, 2, 4 y 5 de la misma ronda.
+
+### "De la clínica": la lista de trabajo necesitaba un acto, no solo hechos derivados
+
+*"Agregar paciente conocido... mostrará los pacientes que no tengo cargados en mi sección de pacientes"*.
+
+`soloMisPacientes` tenía dos criterios y los dos son **hechos derivados**: "tengo turnos con esa persona" y "yo cargué la ficha". Faltaba el tercero, que es una decisión: "quiero a esta persona en mi lista". Sin él, la única forma de sumar a alguien que ya existía en la clínica era inventarle un turno.
+
+Tabla nueva `pacientes_en_mi_lista` y no una columna en `pacientes`: son **N profesionales por ficha**, y `creado_por_user_id` significa otra cosa (quién la dio de alta) y solo admite uno.
+
+El efecto lateral que valía la pena: `esMio` del buscador de la clínica pasa a usar **los mismos tres criterios** que `soloMisPacientes`. Antes miraba solo los turnos, y las dos pantallas decían cosas distintas sobre la misma ficha.
+
+### El perfil de un colega: qué viaja y qué no
+
+*"en la tarjeta de los colaboradores incluyendo al mismo profesional poner un botón de ver perfil"*.
+
+`GET /equipo/miembros/{userId}/perfil` devuelve lo mismo que el perfil propio **menos el documento**. El criterio: el mail ya se ve en Colaboradores, y el teléfono es lo que se usa para coordinar un cambio de turno; el DNI de un colega no tiene ningún uso entre colegas. Que el resto viaje es una decisión, y que el DNI no, también — hay un test que lo mira **contra el JSON crudo**, porque el campo es `omitempty` y un puntero nil no deja rastro en el struct.
+
+**Acotado a miembros ACTIVOS de la clínica de quien pregunta**, con 404 —no 403— para todo lo demás: mismo criterio que la ficha de un paciente ajeno (TR-138), y por el mismo motivo. La membresía nunca se borra (queda en `removed`), así que mirar solo `clinic_id` habría dejado a un ex colaborador consultable para siempre; hay un test para eso.
+
+El propio perfil **no** pasa por esa pantalla: el botón manda a `/perfil`, que además de mostrar edita. Si alguien llega igual con su propio id, se lo redirige ahí en vez de darle una copia en solo lectura de su propia ficha.
+
+### El header: un solo botón redondo a la derecha
+
+*"el componente de colaboradores ahora pasa a ser globalmente un ícono... el componente se extiende hasta /seleccionar-servicio reemplazando el ícono de tuerca, y el ícono de tuerca de /clínicas se reemplaza por el ícono del componente de colaboradores, pero la funcionalidad es la misma"*.
+
+Tres piezas que van juntas:
+
+- **El popover absorbe "Tu perfil" y "Cerrar sesión".** No es un agregado cosmético: en `/seleccionar-servicio` la tuerca era el **único** acceso a cerrar sesión, así que sacarla sin esto habría dejado a la persona sin salida. El brief hace de cerrar sesión la forma deliberada de volver al sitio público.
+- **En `/clinicas` la tuerca se queda, con otro dibujo.** Ahí todavía no hay clínica elegida y no hay equipo del que hablar; lo único que se empareja es el ícono.
+- **El selector de clínica NO sigue al popover** hasta `/seleccionar-servicio`: esa pantalla ya tiene el suyo en el cuerpo. Y con **una sola clínica no se muestra en ningún lado** (pedido del cliente): ocupaba lugar en el header para ofrecer un menú de una opción, la que ya estaba puesta.
+
+### Los ajustes de mobile, y por qué no son cosméticos
+
+- **La fecha del calendario siempre DEBAJO de `< Hoy >`.** Con `flex-wrap`, la fecha entraba en la misma fila o saltaba a la siguiente según su largo —"Hoy" contra "Sábado, 19 de septiembre de 2026"—, y **la caja cambiaba de alto al navegar entre días**. En columna, el alto no se mueve.
+- **Las pestañas de Turnos, una fila con scroll lateral.** Eran una grilla de dos por dos —un cuadrado— que empujaba todo lo de abajo.
+- **Las opciones de "¿Con quién es el turno?", cuadradas con checkmark.** El radio redondo azul del navegador no existe en la paleta; el `input` real queda con `sr-only` (foco, teclado, lectores de pantalla) y lo que se ve es la caja.
+
+### Un bug destapado por su propio test
+
+El endpoint del perfil del colega devolvía `roles: []` siempre. Los roles viven en `clinic_member_roles`, no en una columna, y faltaba el `Preload("Roles")`. Sin el test, la pantalla habría mostrado a todos sin rol y nadie lo habría leído como un error.
+
+---
+
+## TR-158: Un estado que sale del reloj, y la asistencia que se marca antes
+
+- **Contexto:** Fase 3.2.7e, 2026-09-19. Segunda tanda de la misma ronda de ajustes, sobre la QA de la primera.
+- **De dónde salió:** *"un nuevo estado de turno: 'en proceso' (color azulado) que se asigna cuando el turno está en su horario de atención, el estado 'confirmado' pasa a llamarse pendiente, ya que tiene más sentido porque el turno está pendiente a realizarse"* y *"vamos a rediseñar la tarjeta de turnos de hoy... la asistencia aparecerán 2 botones... el profesional podrá anotar de antemano su presencia y evitar que al final del turno aparezca el otro cartel"*.
+
+### "En proceso" se deriva, no se guarda
+
+La tabla `turnos` guarda dos estados, `agendado` y `cancelada`. La pantalla necesita decir cuatro, y las otras dos salen del reloj: **resuelto** (la hora de fin ya pasó — esto ya era así desde TR-074) y **en proceso** (estamos dentro del horario).
+
+La alternativa era una columna y un trabajo periódico que la cambiara sola. Se descartó por dos motivos que van juntos: ese trabajo tendría que correr con la granularidad del hueco más chico que el producto permite configurar, y **la pantalla igual no se enteraría hasta el siguiente sondeo** — o sea, el costo de un proceso nuevo para un resultado peor que calcularlo. Derivado, la fila cambia sola en la pantalla que ya está abierta, que es lo que se pidió.
+
+`estadoDeTurno(turno, ahora)` (`lib/turno-format.ts`) recibe el instante en vez de leer `Date.now()` adentro: así el llamador puede pasar un reloj que él mismo refresca, y los tests no dependen de la hora real.
+
+**El azul es `acero`**, el `#2c4a5e` que ya vivía en la paleta clínica del header público, traído a la familia del panel con su claro y su oscuro. No es un color nuevo: es el único azul que el producto tenía. Nunca cascarón/urgencia, reservados al bloque de tipo de consulta del calendario (TR-010).
+
+### "Pendiente" es un rótulo, no un estado nuevo
+
+`ESTADO_LABEL.agendado` pasa de "Confirmado" a "Pendiente", y con él la pestaña de `/panel/turnos` y la tarjeta del dashboard. **El valor de la base no cambia y la URL tampoco** (`?estado=agendado`): ningún link compartido se rompe.
+
+**No confundir con el `pendiente` que TR-104 eliminó del modelo.** Aquél era un turno SIN horario fijo, recién llegado del formulario público, y no existe más. Este es un turno con día y hora, confirmado, que todavía no se atendió. El nombre se repite; el concepto no.
+
+### La ventana de asistencia se abre 5 minutos antes
+
+Hasta acá la única forma de marcar era el cartel incerrable del final del turno, y el backend lo imponía: *"solo se puede marcar asistencia en un turno ya resuelto"*. Eso obligaba a esperar a que el turno se cumpliera para registrar algo que se sabe apenas la persona entra —o no entra— al consultorio.
+
+`AnticipoAsistencia = 5 * time.Minute`. La ventana **se abre antes y no se cierra nunca**: marcar tarde siempre estuvo permitido (el cartel no tiene tope de antigüedad), lo único que cambia es que ahora también se puede marcar a tiempo. Lo que sigue prohibido es marcar un turno que todavía no empezó de verdad — "asistió" a algo que falta un día es adivinar.
+
+**Todo lo demás del endpoint no se toca**: sigue siendo irreversible, sigue resolviendo el conflicto de identidad que ese turno originó, y sigue bloqueado mientras haya un conflicto sin resolver del lado en disputa. Marcar antes ADELANTA esas consecuencias, no las saltea. Y el límite vive en el backend: los botones del frontend son su reflejo, no la regla.
+
+**Marcar NO adelanta el turno** (corrección del mismo día, sobre la primera entrega). La primera versión sacaba el turno marcado de "Turnos de hoy" y lo mandaba a "Turnos resueltos hoy", como si se hubiera cumplido. Está mal: la persona sigue sentada en la sala y el turno sigue siendo de las 10:15 — lo único que se guardó es **qué va a decir cuando termine**.
+
+Así que la fila se queda en la tarjeta con "Asistido"/"No asistió" en la columna de asistencia, y el estado sigue saliendo del reloj. La separación real entre las dos listas es **la hora de fin**, no la marca: "Turnos de hoy" pide `hora_fin >= ahora` y "Turnos resueltos hoy" pide lo contrario (`hora_fin < ahora AND asistencia IS NOT NULL`). Complementarias, así que un turno nunca está en las dos a la vez, y la marca viaja con él cuando cruza.
+
+### La tarjeta de "Turnos de hoy"
+
+Ocupa la fila entera y se parte en dos —el bloque cuadrado con la cuenta, y el cuerpo con una fila por turno—, porque es lo más urgente que mira un profesional al entrar y era una tarjeta más del mismo tamaño que las otras cinco.
+
+Tres detalles que no son estéticos:
+
+- **Es una `<table>` con cabecera fija** (HORARIO · PACIENTE · ESTADO · ASISTENCIA, en el verde de siempre). Son datos tabulares, la cabecera tiene que acompañar al scroll —sin eso, al bajar se perdía qué columna era cada cosa— y el ancho mínimo de la tabla es lo que produce el scroll horizontal en mobile sin declarar anchos dos veces. La columna que absorbe el espacio sobrante es ASISTENCIA y no PACIENTE: así ESTADO queda pegado al nombre en vez de empujado al otro extremo.
+- **La fila no es un solo link.** Un `<button>` dentro de un `<a>` no es HTML válido y el click navegaría: la hora y el nombre llevan al calendario, los botones viven en su propia celda.
+- **Los botones están siempre, apagados hasta que falten 5 minutos.** Apareciendo de la nada movían la fila entera y no dejaban ver de antemano que la columna iba a tener algo.
+- **"Quedan N turnos más hoy" cuenta los que TODAVÍA NO EMPEZARON** y no están marcados. El que está en proceso no es uno "más", es el de ahora. Por eso el número grande (el día entero) y el pie pueden decir distinto, y está bien. Con cero no se dice nada: era una frase para informar que no hay nada que informar.
+- **`BotonMantenerApretado` se extrae del cartel y baja a 5 segundos en los dos lugares.** Es la misma acción irreversible: dos implementaciones del gesto que la confirma terminarían divergiendo justo en el detalle que importa. Diez segundos protegían de lo mismo que cinco —un toque accidental, no una decisión deliberada— y con varios turnos por día se volvían una espera real.
+
+### El reloj: `useSyncExternalStore`, no un efecto
+
+`useAhora` (`lib/reloj.ts`). Dos razones, las dos del proyecto:
+
+1. **`setState` sincrónico dentro de un efecto dispara renders en cascada** y el lint del repo lo rechaza (`react-hooks/set-state-in-effect`, error real al escribir esto). Setearlo solo dentro del `setInterval` dejaba la pantalla sin estado hasta el primer tick.
+2. **La hidratación.** El panel se renderiza también en el servidor, y ahí `Date.now()` es el reloj del contenedor. `getServerSnapshot` devuelve `null`: el HTML del servidor sale sin nada que dependa de la hora, y el valor real aparece en el primer render del cliente. Es el mismo tipo de trampa que el repo ya se comió una vez con `toLocaleString` (ver el comentario de TIMEZONE en `turno-format.ts`).
+
+**El valor viene redondeado al múltiplo del intervalo**, porque `getSnapshot` tiene que devolver lo mismo entre notificaciones o React renderiza sin parar. El costo, aceptado: la hora puede quedar hasta un intervalo atrasada.
+
+### Autoreservar mira también la agenda del paciente
+
+*"Ahora debe tener en cuenta también si ese mismo paciente posee turno con algún otro miembro de la clínica, así no se asigna un horario donde tenga turno con otro colega"*.
+
+`calcularDisponibilidad` mira la agenda del PROFESIONAL —su horario, sus bloqueos, sus turnos—, que es exactamente lo que necesita para ofrecer huecos. Pero autoreservar mueve el turno de una PERSONA, y esa persona puede estar ocupada con un colega a esa misma hora. **Era el último camino por el que se podía dejar a alguien con dos turnos encimados**: el alta manual y el reprogramar ya lo rechazan con `turnoSuperpuestoDeOtroProfesional` (TR-147), autoreservar tomaba el primer hueco de la lista sin mirar.
+
+Ahora recorre los huecos del día y toma el primero libre **para esa persona**. Si ninguno lo está, **sigue buscando al día siguiente** en vez de conformarse con el primero: caer al hueco ocupado "por lo menos algo" sería exactamente el encimado que esto vino a evitar. Sin paciente vinculado (un turno cargado a mano sin ficha) no hay agenda que chequear y el primer hueco sigue valiendo.
+
+
+---
+
+## TR-159: Dos columnas para la asistencia, porque son dos cosas distintas
+
+- **Contexto:** Fase 3.2.7e, 2026-09-19. Ronda de QA sobre la tarjeta de "Turnos de hoy".
+- **De dónde salió:** *"la asistencia de la tarjeta es reversible, es decir, que yo puedo marcar no asistió y después asistió... el último estado de la tarjeta es el que va a leer la asistencia final cuando el turno pase a estar resuelto"*.
+
+### El problema
+
+Anotar la asistencia por adelantado dejaba de ser reversible apenas se tocaba el botón. El caso real es trivial y frecuente: se marca "no asistió" porque la persona no llegó, la persona llega tarde, y ya no hay forma de corregir.
+
+Pero `asistencia` **no puede volverse reversible sin más**. Es irreversible por diseño (TR-092) y dispara consecuencias destructivas: resuelve el conflicto de identidad que ese turno originó, y un "ausente" puede **borrar la ficha de un paciente sin verificar** (`borrarPacienteNoVerificadoSiSinHistorialReal`, Fase 2.4.1). Deshacer eso no existe.
+
+### La decisión: una columna aparte
+
+`turnos.asistencia_preliminar`, nullable, mismo dominio de valores.
+
+- **Mientras el turno no terminó**, `PATCH /turnos/{id}/asistencia` escribe ahí. Se sobrescribe las veces que haga falta y **no dispara ninguna consecuencia**.
+- **Cuando el turno terminó**, escribe `asistencia` exactamente como antes: irreversible, con todo.
+
+La alternativa era una sola columna con un flag "provisorio", o diferir las consecuencias con una cola. La primera deja la parte destructiva a un `if` de distancia de un dato que el usuario sigue editando; la segunda agrega infraestructura para un problema que no la necesita.
+
+### Quién convierte el borrador en definitivo
+
+`aplicarLosBorradoresQueVencieron`, dentro de `GET /turnos/pendientes-asistencia`. Ese endpoint ya se pregunta, cada 30 segundos desde cada panel abierto, "¿qué turnos acaban de terminar y hay que marcar?" — que es exactamente el instante en que un borrador deja de serlo. Aplicarlo ahí no agrega ningún mecanismo: el turno con borrador simplemente no vuelve como pendiente, y el cartel no aparece. Que es todo lo que el profesional compró al anotarlo antes.
+
+**Escribir desde un GET no es gratis y queda dicho.** Es el mismo patrón que `GET /equipo/presencia`, que es "el latido Y la lectura" (TR-142). La alternativa —un proceso periódico que barra la tabla— se descartó porque hoy corre una sola instancia del backend y porque el efecto solo importa cuando alguien mira: si nadie abre el panel, tampoco hay cartel que evitar.
+
+**Si el borrador no se puede aplicar** (un conflicto de identidad sin resolver), el turno se queda pendiente y el cartel lo pide a mano. Correcto: esa decisión necesita a una persona mirando, no un borrador de hace una hora.
+
+### Un solo camino, no dos parecidos
+
+`aplicarAsistencia` se extrae de `marcarAsistenciaHandler` para que el cartel y el sondeo escriban por el MISMO código. Si divergieran, un turno marcado desde la tarjeta y otro desde el cartel dejarían la base en estados distintos — y justo en la parte irreversible.
+
+### Por qué un contorno y no un texto
+
+En la tarjeta, el botón elegido se marca con un contorno verde o rojo en vez de reemplazar la celda por "Asistido". Una celda de solo lectura diría que ya no se puede cambiar, y sí se puede: la forma tiene que decir lo mismo que la regla.
+
+Y la forma no alcanzaba sola: `BotonMantenerApretado` se disparaba **una sola vez por montaje**. Es la protección correcta en el cartel del final del turno —ahí la marca es irreversible y un segundo gesto solo consigue un error del backend por algo que el profesional hizo bien—, y exactamente lo contrario de lo que hace falta en la tarjeta. Queda como `repetible`, opt-in, con el default de antes.
+
+Los dos botones llevan además el mismo ancho fijo: "No asistió" es cuatro letras más largo que "Asistió", y que una de dos opciones equivalentes se vea más grande sugiere que pesa más.
+
+### El scroll horizontal que no andaba, y por qué el `min-w-0` no alcanzó
+
+Primer intento: faltaba `min-w-0` en el contenedor flex. Cierto, pero no era la causa — con eso puesto, el scroll seguía sin funcionar ni siquiera en el emulador de dispositivos de Edge, que **sí** aplica el ancho de viewport y las media queries y por lo tanto sí debería mostrarlo.
+
+La causa real: **`.panel-card-vidrio` fuerza `overflow-x: hidden`**. Lo necesita, y está escrito en su propio comentario — el pseudo-elemento que pinta la textura desenfocada se extiende con `inset: -16px` para que el `blur` no deje un borde nítido, y ese excedente lo recorta el contenedor. La clase incluso aclara que usa `overflow-x` y no el shorthand justamente para dejar libre el eje vertical.
+
+O sea: **el efecto vidrio y el scroll horizontal son incompatibles en el mismo elemento, por diseño de la clase.** La regla de `globals.css` le gana a la utility `overflow-auto` de Tailwind, así que la utility no hacía nada.
+
+Se separan en dos cajas: el vidrio afuera recortando lo suyo, el scroll adentro. Poner un modificador que desactivara el `overflow-x: hidden` habría sido más corto y peor: el `right: -16px` del pseudo-elemento pasaría a formar parte del área scrolleable y dejaría 16 px de vacío al final del scroll.
+
+**La lección que queda:** antes de dar por buena una utility de Tailwind sobre un elemento que ya lleva una clase propia del proyecto, hay que mirar qué declara esa clase. Misma especificidad, y las de `globals.css` no están en `@layer utilities`.
+
+### Los pies de las tarjetas del Turnero
+
+"Turnos próximos" y "Turnos resueltos hoy" ganan el pie de "Turnos de hoy". **El link de la cabecera y el del pie llevan a lugares distintos a propósito:** el de arriba ubica el dato en su pantalla natural con el MISMO recorte que la tarjeta muestra (el calendario en el turno más próximo; Turnos filtrado por ese día), el del pie abre la lista completa sin filtros. Sin esa distinción, "Ver turnos" de los resueltos de hoy llevaba a todos los resueltos de la historia.
+
+Las fechas de esos filtros salen de `hoyEnCordoba()`, no de `new Date()`: el navegador del visitante puede estar en otra zona horaria y estos filtros son siempre hora de Córdoba — mismo criterio que `clock.Today()` en el backend.
+
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

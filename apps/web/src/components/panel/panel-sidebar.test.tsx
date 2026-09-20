@@ -37,9 +37,13 @@ describe("PanelSidebar", () => {
     expect(activo).toHaveClass("bg-salvia-claro");
   });
 
-  it("lista Panel, General/Calendario/Turnos/Pacientes y Tu página/Tu perfil/Seguridad", () => {
+  // "Tu perfil" salió de acá el 2026-09-19 (pedido del cliente): vive en
+  // el menú del botón de colaboradores del header, que desde esa ronda
+  // se muestra también en /panel. Tenerlo en los dos lados era el mismo
+  // ítem dos veces en la misma pantalla.
+  it("lista Panel, General/Calendario/Turnos/Pacientes y Tu página/Seguridad", () => {
     renderSidebar();
-    for (const label of ["Panel", "General", "Calendario", "Turnos", "Pacientes", "Tu página", "Tu perfil", "Seguridad"]) {
+    for (const label of ["Panel", "General", "Calendario", "Turnos", "Pacientes", "Tu página", "Seguridad"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -104,19 +108,21 @@ describe("PanelSidebar", () => {
     expect(activo).toHaveClass("justify-center");
   });
 
-  it("'Tu página' y 'Tu perfil' tienen su propio ícono, igual que el resto (pedido explícito)", () => {
+  it("'Tu página' tiene su propio ícono, igual que el resto (pedido explícito)", () => {
     const { container } = renderSidebar();
 
     const linkPagina = screen.getByRole("link", { name: "Tu página" });
-    const linkPerfil = screen.getByRole("link", { name: "Tu perfil" });
     expect(linkPagina.querySelector("svg")).toBeInTheDocument();
-    expect(linkPerfil.querySelector("svg")).toBeInTheDocument();
 
-    // Con las dos herramientas de arriba (T2.1) más "Seguridad"
-    // (corrección de seguridad, Fase 2.4.1) da 7 <svg> en total —
+    // 6 desde que "Tu perfil" salió del sidebar (2026-09-19); eran 7.
     // "Panel" usa QuadrantMark, que es un <span>, no suma acá.
     const iconos = container.querySelectorAll("svg");
-    expect(iconos).toHaveLength(7);
+    expect(iconos).toHaveLength(6);
+  });
+
+  it("ya NO ofrece 'Tu perfil': ese ítem vive en el menú del header", () => {
+    renderSidebar();
+    expect(screen.queryByRole("link", { name: "Tu perfil" })).not.toBeInTheDocument();
   });
 
   // TR-075 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,

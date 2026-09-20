@@ -212,6 +212,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// del TUTOR (mismo criterio que PacienteTelefonoAlternativo del
 		// paciente) — se acumula, nunca reemplaza al principal.
 		&PacienteTutorTelefonoAlternativo{},
+		// 2026-09-19: un profesional suma a su lista una ficha que ya
+		// existe en la clínica, sin inventarle un turno (ver el
+		// comentario de PacienteEnMiLista en models.go).
+		&PacienteEnMiLista{},
 		// Fase 2.4.1, corrección de seguridad: bloqueo de IP (además del de
 		// mail) y auditoría de qué se bloqueó/borró y por qué.
 		&IPBloqueadaTurnoPublico{}, &AuditoriaBloqueoTurnoPublico{},

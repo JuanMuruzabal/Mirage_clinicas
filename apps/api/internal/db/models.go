@@ -98,6 +98,32 @@ const (
 	ColorTipoConsultaUrgencia  = "#D6563A" // urgencia
 )
 
+// PacienteEnMiLista — un profesional sumó a su lista una ficha que ya
+// existía en la clínica (2026-09-19, pedido del cliente).
+//
+// `soloMisPacientes` tenía dos criterios, y los dos son hechos DERIVADOS:
+// "tengo turnos con esta persona" y "yo cargué esta ficha". Faltaba el
+// acto explícito: la clínica ya conoce a Muru porque lo atiende un
+// colega, y el segundo profesional quiere tenerlo en su lista **sin
+// inventarle un turno** para lograrlo.
+//
+// Una tabla y no una columna: son N profesionales por ficha. Y no se
+// reusa `creado_por_user_id`, que significa otra cosa —quién la cargó a
+// mano— y solo admite uno.
+//
+// No convierte a nadie en dueño del paciente: los pacientes siguen
+// siendo de la clínica (TR-144). Lo único que dice es de quién es la
+// LISTA DE TRABAJO donde aparece.
+type PacienteEnMiLista struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ClinicID   uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index"`
+	PacienteID uuid.UUID `gorm:"column:paciente_id;type:uuid;not null;uniqueIndex:idx_paciente_en_mi_lista"`
+	UserID     uuid.UUID `gorm:"column:user_id;type:uuid;not null;uniqueIndex:idx_paciente_en_mi_lista"`
+	CreatedAt  time.Time
+}
+
+func (PacienteEnMiLista) TableName() string { return "pacientes_en_mi_lista" }
+
 // Paciente se crea automáticamente cuando un turno pendiente se agenda
 // (spec §4.5) — el esquema ya existe desde T0.3, el alta real es T2.4.
 type Paciente struct {
@@ -584,6 +610,31 @@ type Turno struct {
 	// turnos.go) — nunca obligatorio, la enorme mayoría de turnos viejos
 	// queda con esto en nil para siempre.
 	Asistencia *string `gorm:"column:asistencia;type:varchar(20);check:asistencia IN ('asistio','ausente')"`
+
+	// AsistenciaPreliminar — lo que el profesional dejó anotado ANTES de
+	// que el turno terminara (2026-09-19, pedido del cliente: "el
+	// profesional podrá anotar de antemano su presencia y evitar que al
+	// final del turno aparezca el otro cartel"; y después: "la asistencia
+	// de la tarjeta es reversible... el último estado de la tarjeta es el
+	// que va a leer la asistencia final cuando el turno pase a estar
+	// resuelto").
+	//
+	// ES UNA COLUMNA APARTE, y esa es la decisión. `Asistencia` es
+	// irreversible y tiene consecuencias inmediatas y destructivas —
+	// resuelve el conflicto de identidad que ese turno originó, y un
+	// "ausente" puede BORRAR la ficha de un paciente sin verificar. Nada
+	// de eso se puede deshacer, así que no puede dispararse con algo que
+	// el profesional todavía puede cambiar de opinión: marcó "ausente" a
+	// las 10:10, la persona llegó tarde, corrige a "asistió" — y la ficha
+	// ya no está.
+	//
+	// Así que mientras el turno no terminó esto es un BORRADOR: se
+	// sobrescribe las veces que haga falta y no toca nada más. Cuando el
+	// turno cruza su hora de fin, se aplica una sola vez sobre
+	// `Asistencia` con todas sus consecuencias (ver
+	// aplicarAsistenciaPreliminar en turnos_pendientes_asistencia.go) y
+	// desde ahí vale la regla de siempre: irreversible.
+	AsistenciaPreliminar *string `gorm:"column:asistencia_preliminar;type:varchar(20);check:asistencia_preliminar IN ('asistio','ausente')"`
 
 	// Autoreservado (nueva función, 2026-09-08): marca un turno movido por
 	// el botón "Autoreservar turnos" del modal de conflicto

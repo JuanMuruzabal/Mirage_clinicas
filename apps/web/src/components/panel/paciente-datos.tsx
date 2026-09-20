@@ -7,6 +7,7 @@ import { IconMail, IconPhone } from "@/components/icons";
 import { VerTextoBoton } from "../ver-texto-boton";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { EditarPacienteModal } from "./editar-paciente-modal";
+import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface PacienteDatosProps {
   pacienteInicial: Paciente;
@@ -25,7 +26,9 @@ interface PacienteDatosProps {
 // edición (pedido explícito del cliente, 2026-08-23) — el resto de la
 // página de detalle sigue siendo Server Component.
 export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefonosAlternativos = [] }: PacienteDatosProps) {
-  const [paciente, setPaciente] = useState(pacienteInicial);
+  // Ver pacientes-table.tsx: la ficha quedaba con los datos viejos
+  // después de resolver un conflicto, que es justo cuando cambian.
+  const [paciente, setPaciente] = useEstadoDelServidor(pacienteInicial);
   const [modalAbierto, setModalAbierto] = useState(false);
 
   // Fase 2.4.1, corrección de QA: "sumar ya sea mail o teléfono que
