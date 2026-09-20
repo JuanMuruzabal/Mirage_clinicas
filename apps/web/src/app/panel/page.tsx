@@ -33,6 +33,19 @@ export default async function PanelGeneralPage() {
   // Fase 3.2.6: de quién es la agenda que recepción está mirando. Para
   // cualquier otro rol vuelve vacío y el control no se dibuja.
   const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
+  // LA VISTA GENERAL CAMBIA LAS TARJETAS (QA de la 3.2.6). Ahí cada fila
+  // puede ser de un profesional distinto, así que:
+  //
+  //   - cada fila dice de quién es, y al tocarla se para en SU agenda
+  //     antes de navegar (si no, el módulo de destino mostraría otra
+  //     cosa que la que la fila prometía);
+  //   - "Turnos próximos" y "Horarios reservados" PIERDEN su link de
+  //     cabecera: un link único no puede llevar a la agenda correcta
+  //     cuando las filas son de gente distinta.
+  //
+  // En la vista de un profesional nada de esto aplica y las tarjetas
+  // quedan exactamente como estaban.
+  const vistaGeneral = esRecepcion && vista?.profesional == null;
   const resumenResult = token ? await apiResumenPanel(token) : null;
   const resumen = resumenResult?.ok
     ? resumenResult.data
@@ -139,8 +152,8 @@ export default async function PanelGeneralPage() {
         <TarjetaConLista
           eyebrow="Turnos próximos"
           valor={resumen.turnosProximos.length}
-          hrefCabecera={hrefTurnosProximos}
-          labelCabecera="Ver en calendario"
+          hrefCabecera={vistaGeneral ? undefined : hrefTurnosProximos}
+          labelCabecera={vistaGeneral ? undefined : "Ver en calendario"}
           hrefPie={filtroTurnos("agendado", mañanaISO, mañanaISO)}
           labelPie="Ver todos"
           vacioMensaje="No hay turnos próximos."
@@ -149,8 +162,13 @@ export default async function PanelGeneralPage() {
           filas={resumen.turnosProximos.map((t) => ({
             key: t.id,
             href: `/panel/calendario?vista=semana&fecha=${t.fecha}&turno=${t.id}`,
+            userId: t.profesionalId,
             contenido: (
-              <FilaResumen etiqueta={formatDiaCorto(parseFechaISOLocal(t.fecha))} hora={`${t.hora} a ${t.horaFin}`}>
+              <FilaResumen
+                etiqueta={formatDiaCorto(parseFechaISOLocal(t.fecha))}
+                hora={`${t.hora} a ${t.horaFin}`}
+                profesional={t.profesional}
+              >
                 {t.nombre}
               </FilaResumen>
             ),
@@ -160,7 +178,7 @@ export default async function PanelGeneralPage() {
         <TarjetaConLista
           eyebrow="Horarios reservados"
           valor={resumen.horariosReservados.length}
-          cabeceraCustom={<AbrirConfiguracionBoton />}
+          cabeceraCustom={vistaGeneral ? undefined : <AbrirConfiguracionBoton />}
           vacioMensaje="Todavía no cargaste ningún horario reservado."
           acento
           // Un poco más abajo que las demás (pedido explícito del
@@ -170,11 +188,13 @@ export default async function PanelGeneralPage() {
           filas={resumen.horariosReservados.map((h) => ({
             key: h.id,
             href: `/panel/calendario?vista=semana&fecha=${h.fecha}&bloqueo=${h.id}`,
+            userId: h.profesionalId,
             contenido: (
               <FilaResumen
                 etiqueta={h.etiquetaGeneral ?? formatDiaCorto(parseFechaISOLocal(h.fecha))}
                 hora={`${h.horaDesde} a ${h.horaHasta}`}
                 uppercase={false}
+                profesional={h.profesional}
               >
                 {textoEsLargo(h.motivo) ? <VerTextoBoton titulo="Motivo" texto={h.motivo} variante="link" /> : (h.motivo ?? "")}
               </FilaResumen>
@@ -206,8 +226,9 @@ export default async function PanelGeneralPage() {
           filas={resumen.turnosResueltos.map((t) => ({
             key: t.id,
             href: `/panel/turnos?estado=resuelto&turno=${t.id}`,
+            userId: t.profesionalId,
             contenido: (
-              <FilaResumen hora={`${t.hora} a ${t.horaFin}`}>
+              <FilaResumen hora={`${t.hora} a ${t.horaFin}`} profesional={t.profesional}>
                 {t.nombre}{" "}
                 <span className={t.asistencia === "asistio" ? "text-salvia-oscuro" : "text-terracota-oscuro"}>
                   {t.asistencia === "asistio" ? "· Asistió" : "· Ausente"}

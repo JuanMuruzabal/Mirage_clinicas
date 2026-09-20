@@ -102,6 +102,9 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
       turnoAPosicionar={turnoAPosicionar}
       bloqueoAFocalizarId={bloqueoAFocalizarId}
       profesionalesDelDia={enVistaGeneral ? profesionales : []}
+      // De quién es la vista: lo que hace que el calendario vuelva a
+      // pedir los turnos al cambiar de profesional, en cualquier fecha.
+      vistaKey={vista?.profesional?.userId ?? "general"}
     />
     </>
   );

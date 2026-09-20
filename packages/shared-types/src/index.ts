@@ -557,6 +557,9 @@ export interface ResumenTurnoItem {
    *  en la vista de un profesional todos son suyos y repetir el nombre en
    *  cada fila sería ruido. */
   profesional?: string;
+  /** El id del profesional, para que tocar la fila se pare en SU agenda
+   *  antes de navegar (Fase 3.2.6). Presente junto con `profesional`. */
+  profesionalId?: string;
   /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
    *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
    *  proceso, y abre los botones de asistencia 5 minutos antes de que
@@ -582,6 +585,10 @@ export interface ResumenHorarioReservadoItem {
   // Alcance. null para un horario ESPECÍFICO — el frontend cae al día
   // corto de siempre en ese caso.
   etiquetaGeneral: string | null;
+  /** De quién es esta agenda (Fase 3.2.6), solo en la vista general de
+   *  recepción. */
+  profesional?: string;
+  profesionalId?: string;
 }
 
 // ResumenPanel (F2.3 extra, ítem 1 — rediseño del "Turnero",

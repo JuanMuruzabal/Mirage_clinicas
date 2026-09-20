@@ -13,6 +13,7 @@ import {
   type EstadoDeTurno,
 } from "@/lib/turno-format";
 import { IconoReloj } from "./tarjeta-turnero-iconos";
+import { LinkConVista } from "./link-con-vista";
 import { BotonMantenerApretado } from "./boton-mantener-apretado";
 
 // TarjetaTurnosDeHoy — la tarjeta principal del panel (2026-09-19,
@@ -311,20 +312,25 @@ function FilaTurnoDeHoy({
             <button> dentro de un <a> no es HTML válido, y el click
             navegaría), así que el link vive en estas dos celdas. */}
         <td className={`${CELDA} ${COL_HORARIO}`}>
-          <Link
+          {/* Desde la vista general, tocar la fila se para primero en la
+              agenda de ese profesional: el calendario al que llega tiene
+              que ser el que la fila prometía (QA de la 3.2.6). */}
+          <LinkConVista
             href={`/panel/calendario?vista=dia&fecha=${turno.fecha}&turno=${turno.id}`}
+            userId={turno.profesionalId}
             className="font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-salvia-oscuro hover:underline"
           >
             {turno.hora} a {turno.horaFin}
-          </Link>
+          </LinkConVista>
         </td>
         <td className={`${CELDA} ${COL_PACIENTE}`}>
-          <Link
+          <LinkConVista
             href={`/panel/calendario?vista=dia&fecha=${turno.fecha}&turno=${turno.id}`}
+            userId={turno.profesionalId}
             className="block truncate font-[family-name:var(--font-display)] text-base leading-tight font-bold text-grafito uppercase hover:underline"
           >
             {turno.nombre}
-          </Link>
+          </LinkConVista>
         </td>
         {conProfesional && (
           <td className={`${CELDA} ${COL_PROFESIONAL}`}>

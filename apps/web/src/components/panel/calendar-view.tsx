@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BloqueoHorario, HorarioAtencion, TipoConsulta, Turno } from "@dental-mirage/shared-types";
+import type {
+  BloqueoHorario,
+  HorarioAtencion,
+  TipoConsulta,
+  Turno,
+} from "@dental-mirage/shared-types";
 import { listTurnosAction } from "@/app/actions/turnos";
-import { listBloqueosAction, listHorarioAtencionAction } from "@/app/actions/calendario-config";
+import {
+  listBloqueosAction,
+  listHorarioAtencionAction,
+} from "@/app/actions/calendario-config";
 import {
   formatDiaLargo,
   formatMesAnio,
@@ -49,6 +57,15 @@ interface CalendarViewProps {
   // agenda, o recepción parada en la vista de alguien— y entonces el
   // calendario es exactamente el de siempre.
   profesionalesDelDia?: { userId: string; nombre: string }[];
+  // vistaKey — QUIÉN es la vista actual: el userId del profesional en
+  // foco, o "general" (Fase 3.2.6).
+  //
+  // No se usa para mostrar nada; está para que el fetch del cliente
+  // vuelva a correr cuando recepción cambia de profesional. Ver el
+  // comentario del efecto de abajo: sin esto el calendario se quedaba
+  // con los turnos del profesional anterior hasta que alguien tocaba
+  // "Hoy" (bug reportado en QA).
+  vistaKey?: string;
   // "?vista=semana" desde la tarjeta "Turnos próximos" del dashboard
   // (pedido explícito del cliente, 2026-08-27) — sin esto, "Hoy" (día)
   // sigue siendo el default de siempre (2026-08-23).
@@ -96,7 +113,11 @@ interface CalendarViewProps {
 
 // VISTA_LABEL — ver el comentario junto al toggle Día/Semana/Mes, más
 // abajo en el JSX.
-const VISTA_LABEL: Record<VistaCalendario, string> = { dia: "Día", semana: "Semana", mes: "Mes" };
+const VISTA_LABEL: Record<VistaCalendario, string> = {
+  dia: "Día",
+  semana: "Semana",
+  mes: "Mes",
+};
 
 // T2.3: toolbar prev/next/Hoy + toggle Mes/Semana/Día + contenedor de
 // ALTURA FIJA con scroll interno propio (clave del pedido: "no estira la
@@ -108,6 +129,7 @@ export function CalendarView({
   tiposConsulta,
   turnosIniciales,
   profesionalesDelDia = [],
+  vistaKey = "general",
   vistaInicial,
   fechaInicialStr,
   turnoAFocalizarId,
@@ -128,11 +150,26 @@ export function CalendarView({
   // cada uno si sus timezones ambiente no coinciden (el container corre
   // en UTC; el navegador de cada visitante, en la suya) — mismatch de
   // hidratación, "sáb 29" (server) vs "dom 30" (cliente).
-  const [fecha, setFecha] = useState(() => (fechaInicialStr ? parseFechaISOLocal(fechaInicialStr) : hoyEnCordoba()));
+  const [fecha, setFecha] = useState(() =>
+    fechaInicialStr ? parseFechaISOLocal(fechaInicialStr) : hoyEnCordoba(),
+  );
   // Ver pacientes-table.tsx: sin esto, un turno editado o un conflicto
   // de calendario resuelto seguían pintados hasta refrescar a mano.
   const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales);
   const [cargando, setCargando] = useState(false);
+  // Al cambiar de profesional, la pantalla entra en "Cargando…"
+  // hasta que llega la tanda nueva. Sin esto se vería, por un
+  // instante, el rango por defecto que trajo el `router.refresh()`
+  // mezclado con la fecha a la que el usuario había navegado — datos
+  // correctos de un rango equivocado, que es peor que un spinner.
+  // Mismo patrón de "ajustar estado cuando cambia una prop" que usa
+  // el resto del proyecto.
+  const [ultimaVista, setUltimaVista] = useState(vistaKey);
+  if (ultimaVista !== vistaKey) {
+    setUltimaVista(vistaKey);
+    setCargando(true);
+  }
+
   const [modalAbierto, setModalAbierto] = useState(false);
   // reservarHorarioAbierto — acceso rápido "+ Reservar horario" (pedido
   // explícito del cliente, 2026-09-04): "agregar un acceso rápido a
@@ -149,8 +186,11 @@ export function CalendarView({
   // el inicializador perezoso — turnosIniciales ya viene con el turno
   // adentro (calendario/page.tsx resuelve el rango a partir de la fecha
   // real del turno), no hace falta esperar ningún fetch de cliente.
-  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(() =>
-    turnoAFocalizarId ? (turnosIniciales.find((t) => t.id === turnoAFocalizarId) ?? null) : null,
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(
+    () =>
+      turnoAFocalizarId
+        ? (turnosIniciales.find((t) => t.id === turnoAFocalizarId) ?? null)
+        : null,
   );
   // Botón de tuerca junto al título (F2.3, pedido explícito del cliente):
   // se despliega un menú de un solo ítem ("Configuración de calendario")
@@ -170,28 +210,38 @@ export function CalendarView({
   // vez que se cierra el modal de configuración (`cerrarConfig` más
   // abajo) — así el alta/baja de reglas se refleja apenas se sale, sin
   // depender de un callback por cada mutación posible del modal.
-  const [bloqueosGenerales, setBloqueosGenerales] = useState<BloqueoHorario[]>([]);
-  const [bloqueosEspecificas, setBloqueosEspecificas] = useState<BloqueoHorario[]>([]);
+  const [bloqueosGenerales, setBloqueosGenerales] = useState<BloqueoHorario[]>(
+    [],
+  );
+  const [bloqueosEspecificas, setBloqueosEspecificas] = useState<
+    BloqueoHorario[]
+  >([]);
   // horariosAtencion (nueva función, 2026-09-08): TODAS las filas
   // (general + excepciones), para que CalendarGrid traduzca las
   // excepciones temporales a horarios reservados sintéticos por día
   // (cierresDeExcepciones) — "básicamente es lo mismo que horarios
   // reservados, pero ahora puede abarcar días completos" (textual del
   // cliente). Se recarga junto con bloqueosGenerales/bloqueosEspecificas.
-  const [horariosAtencion, setHorariosAtencion] = useState<HorarioAtencion[]>([]);
+  const [horariosAtencion, setHorariosAtencion] = useState<HorarioAtencion[]>(
+    [],
+  );
   // reglasSeleccionadas (corrección de QA, 2026-08-30, rediseñada
   // 2026-08-31 a una LISTA en vez de un bloqueo + "otra regla de abajo"):
   // un solo elemento para un tramo sin solapamiento, dos o más para un
   // tramo "combinado" — ver el comentario grande en calendar-grid.tsx
   // (bloqueosParaVisualizar) para la regla completa de solapamiento.
-  const [reglasSeleccionadas, setReglasSeleccionadas] = useState<BloqueoHorario[] | null>(null);
+  const [reglasSeleccionadas, setReglasSeleccionadas] = useState<
+    BloqueoHorario[] | null
+  >(null);
   const [reglaAFocalizar, setReglaAFocalizar] = useState<string | null>(null);
   // horarioAtencionAFocalizar (nueva función, 2026-09-08): "agregar botón
   // de ver excepción de horario al tocar la tarjeta de horario de
   // excepción en el calendario" — mismo mecanismo que reglaAFocalizar,
   // pero para la tabla de excepciones de horario de atención en
   // Configuración de calendario en vez de horarios reservados.
-  const [horarioAtencionAFocalizar, setHorarioAtencionAFocalizar] = useState<string | null>(null);
+  const [horarioAtencionAFocalizar, setHorarioAtencionAFocalizar] = useState<
+    string | null
+  >(null);
   // turnosEnConflictoSeleccionados / reglasEnConflictoDelTurno — paso 2
   // (manejo de conflictos con turnos, 2026-09-04). El primero acompaña a
   // `reglasSeleccionadas`: los turnos del mismo cluster "conflicto" (ver
@@ -200,8 +250,11 @@ export function CalendarView({
   // TurnoDetalle ("Ver turno" de una tarjeta en conflicto) — es lo que le
   // dice a TurnoDetalle que muestre el aviso de conflicto; un turno
   // abierto desde el grid normal (sin conflicto) lo deja vacío.
-  const [turnosEnConflictoSeleccionados, setTurnosEnConflictoSeleccionados] = useState<Turno[]>([]);
-  const [reglasEnConflictoDelTurno, setReglasEnConflictoDelTurno] = useState<BloqueoHorario[]>([]);
+  const [turnosEnConflictoSeleccionados, setTurnosEnConflictoSeleccionados] =
+    useState<Turno[]>([]);
+  const [reglasEnConflictoDelTurno, setReglasEnConflictoDelTurno] = useState<
+    BloqueoHorario[]
+  >([]);
   // focoBloqueoInicialHecho — guarda de una sola vez para resolver
   // bloqueoAFocalizarId (F2.3 extra ítem 1) apenas cargan los bloqueos por
   // primera vez; evita reabrir el modal cada vez que cargarConfigCalendario
@@ -209,42 +262,50 @@ export function CalendarView({
   const focoBloqueoInicialHecho = useRef(false);
 
   function cargarConfigCalendario() {
-    Promise.all([listBloqueosAction(false), listBloqueosAction(true), listHorarioAtencionAction()]).then(
-      ([generales, especificas, horarios]) => {
-        setBloqueosGenerales(generales);
-        setBloqueosEspecificas(especificas);
-        setHorariosAtencion(horarios);
-        // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
-        // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
-        // Horarios reservados], también llevarme a la tarjeta de ese
-        // elemento... si forma parte de un solapamiento, también abrirme
-        // esa tarjeta" — mismo cálculo de clusters que usa el click real
-        // sobre el grid (segmentosParaVisualizar), no una versión aparte;
-        // dentro del .then() (no synchronous en el cuerpo del efecto que lo
-        // dispara) porque depende de que generales/especificas/horarios ya
-        // hayan llegado del servidor.
-        if (bloqueoAFocalizarId && !focoBloqueoInicialHecho.current) {
-          focoBloqueoInicialHecho.current = true;
-          const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha));
-          const segmento = segmentosParaVisualizar(fecha, generales, especificas, turnosDelDia, horarios).find((s) =>
-            s.reglas.some((r) => r.id === bloqueoAFocalizarId),
-          );
-          if (segmento) {
-            setReglasSeleccionadas(segmento.reglas);
-            setTurnosEnConflictoSeleccionados(segmento.turnos);
-            // Corrección de QA, 2026-09-08: "al tocar algún elemento del
-            // cuerpo de la tarjeta... de horarios reservados, también que
-            // te ubique visualmente... como hace con turnos de hoy y
-            // turnos próximos" — mismo scroll horizontal (día, en Semana)
-            // + vertical (hora) que ya tienen los turnos, acá con
-            // `segmento.desde` (ya en minutos-desde-medianoche-Córdoba,
-            // no hace falta convertir un Date).
-            if (vista === "semana") scrollAlDia(dias, fecha);
-            scrollAHora(segmento.desde);
-          }
+    Promise.all([
+      listBloqueosAction(false),
+      listBloqueosAction(true),
+      listHorarioAtencionAction(),
+    ]).then(([generales, especificas, horarios]) => {
+      setBloqueosGenerales(generales);
+      setBloqueosEspecificas(especificas);
+      setHorariosAtencion(horarios);
+      // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
+      // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
+      // Horarios reservados], también llevarme a la tarjeta de ese
+      // elemento... si forma parte de un solapamiento, también abrirme
+      // esa tarjeta" — mismo cálculo de clusters que usa el click real
+      // sobre el grid (segmentosParaVisualizar), no una versión aparte;
+      // dentro del .then() (no synchronous en el cuerpo del efecto que lo
+      // dispara) porque depende de que generales/especificas/horarios ya
+      // hayan llegado del servidor.
+      if (bloqueoAFocalizarId && !focoBloqueoInicialHecho.current) {
+        focoBloqueoInicialHecho.current = true;
+        const turnosDelDia = turnos.filter(
+          (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha),
+        );
+        const segmento = segmentosParaVisualizar(
+          fecha,
+          generales,
+          especificas,
+          turnosDelDia,
+          horarios,
+        ).find((s) => s.reglas.some((r) => r.id === bloqueoAFocalizarId));
+        if (segmento) {
+          setReglasSeleccionadas(segmento.reglas);
+          setTurnosEnConflictoSeleccionados(segmento.turnos);
+          // Corrección de QA, 2026-09-08: "al tocar algún elemento del
+          // cuerpo de la tarjeta... de horarios reservados, también que
+          // te ubique visualmente... como hace con turnos de hoy y
+          // turnos próximos" — mismo scroll horizontal (día, en Semana)
+          // + vertical (hora) que ya tienen los turnos, acá con
+          // `segmento.desde` (ya en minutos-desde-medianoche-Córdoba,
+          // no hace falta convertir un Date).
+          if (vista === "semana") scrollAlDia(dias, fecha);
+          scrollAHora(segmento.desde);
         }
-      },
-    );
+      }
+    });
   }
 
   // Deliberadamente solo al montar: `cargarConfigCalendario` cierra sobre
@@ -293,7 +354,11 @@ export function CalendarView({
   useEffect(() => {
     const { desde, hasta } = rangoVisible(fecha, vista);
     let activo = true;
-    listTurnosAction({ estado: "agendado", desde: desde.toISOString(), hasta: hasta.toISOString() }).then((data) => {
+    listTurnosAction({
+      estado: "agendado",
+      desde: desde.toISOString(),
+      hasta: hasta.toISOString(),
+    }).then((data) => {
       if (activo) {
         setTurnos(data);
         setCargando(false);
@@ -302,7 +367,26 @@ export function CalendarView({
     return () => {
       activo = false;
     };
-  }, [fecha, vista]);
+    // `vistaKey` en las dependencias, y es el arreglo de un bug real
+    // (QA de la 3.2.6: "para ver bien los turnos correspondientes a cada
+    // uno tengo que presionar Hoy porque no se actualizan apenas cambio
+    // de vista").
+    //
+    // Cambiar de profesional dispara un `router.refresh()`, que sí trae
+    // turnos nuevos del servidor — pero para el rango POR DEFECTO, no
+    // para la semana o el mes al que el cliente ya navegó. Y este
+    // efecto, mirando solo `[fecha, vista]`, no se enteraba de que había
+    // que volver a pedir. Tocar "Hoy" cambiaba `fecha` y lo despertaba
+    // de rebote; de ahí el síntoma.
+    //
+    // Con la vista en las dependencias, el calendario del profesional en
+    // foco vale para CUALQUIER fecha a la que se haya navegado, que es
+    // lo que se pidió.
+    //
+    // `setTurnos` está en la lista por el lint: sale de
+    // `useEstadoDelServidor`, que devuelve el setter de un `useState` y
+    // por lo tanto es estable — sumarlo no cambia cuándo corre esto.
+  }, [fecha, vista, vistaKey, setTurnos]);
 
   function irA(nuevaFecha: Date, nuevaVista?: VistaCalendario) {
     setCargando(true);
@@ -325,7 +409,10 @@ export function CalendarView({
     if (!box) return;
     const idx = diasSemana.findIndex((d) => isSameDay(d, objetivo));
     if (idx < 0) return;
-    box.scrollTo({ left: Math.max(GUTTER_PX + idx * COL_PX - COL_PX / 2, 0), behavior: "smooth" });
+    box.scrollTo({
+      left: Math.max(GUTTER_PX + idx * COL_PX - COL_PX / 2, 0),
+      behavior: "smooth",
+    });
   }
 
   // scrollAHora — corrección de QA, 2026-09-08: "Ver calendario ->" de
@@ -375,7 +462,11 @@ export function CalendarView({
 
   function recargar() {
     const { desde, hasta } = rangoVisible(fecha, vista);
-    listTurnosAction({ estado: "agendado", desde: desde.toISOString(), hasta: hasta.toISOString() }).then(setTurnos);
+    listTurnosAction({
+      estado: "agendado",
+      desde: desde.toISOString(),
+      hasta: hasta.toISOString(),
+    }).then(setTurnos);
   }
 
   const dias = diasDeVista(fecha, vista);
@@ -395,7 +486,10 @@ export function CalendarView({
   const columnas = porProfesional
     ? profesionalesDelDia.map((p) => {
         const suyos = turnos.filter(
-          (t) => t.atendidoPorUserId === p.userId && t.horaInicio && isSameDay(new Date(t.horaInicio), fecha),
+          (t) =>
+            t.atendidoPorUserId === p.userId &&
+            t.horaInicio &&
+            isSameDay(new Date(t.horaInicio), fecha),
         );
         return {
           clave: p.userId,
@@ -406,7 +500,12 @@ export function CalendarView({
         };
       })
     : columnasDeDias(dias);
-  const titulo = vista === "mes" ? formatMesAnio(fecha) : vista === "semana" ? formatRangoSemana(fecha) : formatDiaLargo(fecha);
+  const titulo =
+    vista === "mes"
+      ? formatMesAnio(fecha)
+      : vista === "semana"
+        ? formatRangoSemana(fecha)
+        : formatDiaLargo(fecha);
   // turnosEnRangoVisible — corrección de estética (2026-09-06, foto de
   // referencia "nueva estetica calendario.png"): pastilla "2 turnos" al
   // lado de la fecha. En Día, cuenta solo ESE día (coincide con lo que
@@ -423,7 +522,11 @@ export function CalendarView({
   // auto-merge silencioso (ninguna de las dos ramas tocaba la MISMA
   // línea, así que Git no marcó conflicto) — se saca de nuevo a mano.
   const turnosEnRangoVisible =
-    vista === "dia" ? turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha)).length : turnos.length;
+    vista === "dia"
+      ? turnos.filter(
+          (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha),
+        ).length
+      : turnos.length;
 
   // Banner de conflicto (F2.3 extra ítem 2, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — mismo cálculo de clusters que usa el click real sobre el
@@ -434,13 +537,27 @@ export function CalendarView({
   // final no hacer nada con eso" no debería seguir sumando al contador.
   const segmentosConConflicto = dias
     .flatMap((dia) => {
-      const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
-      return segmentosParaVisualizar(dia, bloqueosGenerales, bloqueosEspecificas, turnosDelDia, horariosAtencion);
+      const turnosDelDia = turnos.filter(
+        (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia),
+      );
+      return segmentosParaVisualizar(
+        dia,
+        bloqueosGenerales,
+        bloqueosEspecificas,
+        turnosDelDia,
+        horariosAtencion,
+      );
     })
     .filter((seg) => seg.variante === "conflicto")
-    .map((seg) => ({ ...seg, turnosActivos: seg.turnos.filter((t) => !turnoResuelto(t)) }))
+    .map((seg) => ({
+      ...seg,
+      turnosActivos: seg.turnos.filter((t) => !turnoResuelto(t)),
+    }))
     .filter((seg) => seg.turnosActivos.length > 0);
-  const totalTurnosEnConflicto = segmentosConConflicto.reduce((acc, seg) => acc + seg.turnosActivos.length, 0);
+  const totalTurnosEnConflicto = segmentosConConflicto.reduce(
+    (acc, seg) => acc + seg.turnosActivos.length,
+    0,
+  );
 
   // Al tocar el banner, abre el "Ver eventos" del conflicto MÁS PRÓXIMO en
   // el tiempo — pedido textual: "al tocar toca para ver abrirá el ver
@@ -448,7 +565,12 @@ export function CalendarView({
   // la lista sin ordenar.
   function abrirConflictoMasProximo() {
     const candidatos = segmentosConConflicto
-      .flatMap((seg) => seg.turnosActivos.map((t) => ({ seg, horaInicio: new Date(t.horaInicio!).getTime() })))
+      .flatMap((seg) =>
+        seg.turnosActivos.map((t) => ({
+          seg,
+          horaInicio: new Date(t.horaInicio!).getTime(),
+        })),
+      )
       .sort((a, b) => a.horaInicio - b.horaInicio);
     if (candidatos.length === 0) return;
     const { seg } = candidatos[0];
@@ -498,7 +620,9 @@ export function CalendarView({
     // apuntan al MISMO cálculo de posición: cuál de los dos vino no
     // cambia adónde hay que scrollear).
     const idObjetivo = turnoAFocalizarId ?? turnoAPosicionar;
-    const turnoObjetivo = idObjetivo ? turnos.find((t) => t.id === idObjetivo) : undefined;
+    const turnoObjetivo = idObjetivo
+      ? turnos.find((t) => t.id === idObjetivo)
+      : undefined;
 
     // Horizontal (qué día queda a la vista) — exclusivo de Semana, la
     // única vista que scrollea en ese eje (Día es una sola columna).
@@ -515,7 +639,11 @@ export function CalendarView({
         const hoy = startOfDay(hoyEnCordoba());
         const diaConTurno = dias
           .filter((d) => d.getTime() >= hoy.getTime())
-          .find((d) => turnos.some((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), d)));
+          .find((d) =>
+            turnos.some(
+              (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), d),
+            ),
+          );
         scrollAlDia(dias, diaConTurno ?? hoyEnCordoba());
       }
     }
@@ -524,14 +652,19 @@ export function CalendarView({
     // diferencia de arriba): un turno de la tarde igual queda fuera de
     // lo visible en Día si no se scrollea también en este eje.
     if (turnoObjetivo?.horaInicio) {
-      scrollAHora(minutosDesdeMedianocheCordoba(new Date(turnoObjetivo.horaInicio)));
+      scrollAHora(
+        minutosDesdeMedianocheCordoba(new Date(turnoObjetivo.horaInicio)),
+      );
     }
   }, [vistaInicial, dias, turnos, turnoAFocalizarId, turnoAPosicionar]);
 
   useEffect(() => {
     if (!menuAjustesAbierto) return;
     function onClickOutside(event: MouseEvent) {
-      if (menuAjustesRef.current && !menuAjustesRef.current.contains(event.target as Node)) {
+      if (
+        menuAjustesRef.current &&
+        !menuAjustesRef.current.contains(event.target as Node)
+      ) {
         setMenuAjustesAbierto(false);
       }
     }
@@ -604,7 +737,11 @@ export function CalendarView({
               <button
                 type="button"
                 aria-expanded={menuAjustesAbierto}
-                aria-label={menuAjustesAbierto ? "Abrir configuración de calendario" : "Ajustes del calendario"}
+                aria-label={
+                  menuAjustesAbierto
+                    ? "Abrir configuración de calendario"
+                    : "Ajustes del calendario"
+                }
                 onClick={() => {
                   if (menuAjustesAbierto) {
                     setMenuAjustesAbierto(false);
@@ -624,7 +761,9 @@ export function CalendarView({
                 </span>
                 <span
                   className={`overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-300 ease-in-out ${
-                    menuAjustesAbierto ? "max-w-[16rem] pr-4 opacity-100" : "max-w-0 opacity-0"
+                    menuAjustesAbierto
+                      ? "max-w-[16rem] pr-4 opacity-100"
+                      : "max-w-0 opacity-0"
                   }`}
                 >
                   Configuración de calendario
@@ -681,7 +820,11 @@ export function CalendarView({
               >
                 ←
               </button>
-              <button type="button" onClick={irAHoy} className="px-3 py-1.5 font-medium hover:bg-arena">
+              <button
+                type="button"
+                onClick={irAHoy}
+                className="px-3 py-1.5 font-medium hover:bg-arena"
+              >
                 Hoy
               </button>
               <button
@@ -707,7 +850,8 @@ export function CalendarView({
                   turnos" al lado de la fecha) — mismo tono que los chips
                   de filtro de Turnos (`bg-salvia-claro`/`text-salvia-oscuro`). */}
               <span className="rounded-full bg-salvia-claro px-2.5 py-1 text-xs font-medium text-salvia-oscuro whitespace-nowrap">
-                {turnosEnRangoVisible} {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
+                {turnosEnRangoVisible}{" "}
+                {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
               </span>
             </div>
           </div>
@@ -747,7 +891,9 @@ export function CalendarView({
             interno recorta el contenido mientras la fila mide 0. */}
         <div
           className={`grid transition-[grid-template-rows] duration-500 ease-out ${
-            totalTurnosEnConflicto > 0 ? "grid-rows-[1fr] mb-4" : "grid-rows-[0fr]"
+            totalTurnosEnConflicto > 0
+              ? "grid-rows-[1fr] mb-4"
+              : "grid-rows-[0fr]"
           }`}
         >
           <div className="overflow-hidden">
@@ -762,8 +908,9 @@ export function CalendarView({
                 className="flex w-full items-center justify-between gap-3 rounded-card border-[0.5px] border-terracota bg-terracota/10 px-4 py-3 text-left text-sm font-medium text-terracota-oscuro hover:bg-terracota/15"
               >
                 <span>
-                  Tienes {totalTurnosEnConflicto} {totalTurnosEnConflicto === 1 ? "turno" : "turnos"} en conflictos,
-                  toca para ver
+                  Tienes {totalTurnosEnConflicto}{" "}
+                  {totalTurnosEnConflicto === 1 ? "turno" : "turnos"} en
+                  conflictos, toca para ver
                 </span>
               </button>
             )}
@@ -879,8 +1026,12 @@ export function CalendarView({
             // pasó dejó de ser un conflicto activo (ver "Turnos
             // resueltos" en BloqueoDetalleModal), así que TurnoDetalle no
             // debe mostrar ese aviso ahí tampoco.
-            const yaResuelto = Boolean(turno.horaFin) && new Date(turno.horaFin!).getTime() < Date.now();
-            setReglasEnConflictoDelTurno(yaResuelto ? [] : (reglasSeleccionadas ?? []));
+            const yaResuelto =
+              Boolean(turno.horaFin) &&
+              new Date(turno.horaFin!).getTime() < Date.now();
+            setReglasEnConflictoDelTurno(
+              yaResuelto ? [] : (reglasSeleccionadas ?? []),
+            );
             setReglasSeleccionadas(null);
             setTurnosEnConflictoSeleccionados([]);
             setTurnoSeleccionado(turno);

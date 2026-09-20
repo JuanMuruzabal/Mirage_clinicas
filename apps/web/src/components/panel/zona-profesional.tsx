@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { MiembroDelEquipo, VistaActual } from "@dental-mirage/shared-types";
+import type { VistaActual } from "@dental-mirage/shared-types";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
-import { IconChevronLeft, IconChevronRight, IconUsers } from "@/components/icons";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconUsers,
+} from "@/components/icons";
 
 // ZonaProfesional — el control con el que recepción elige de quién es la
 // vista que está mirando (Fase 3.2.6, mockups `panel-recepcionista-general.html`,
@@ -68,7 +72,11 @@ export function ZonaProfesional({
   useEffect(() => {
     if (!abierto) return;
     function alClickearAfuera(evento: MouseEvent) {
-      if (contenedor.current && !contenedor.current.contains(evento.target as Node)) setAbierto(false);
+      if (
+        contenedor.current &&
+        !contenedor.current.contains(evento.target as Node)
+      )
+        setAbierto(false);
     }
     function alApretarEscape(evento: KeyboardEvent) {
       if (evento.key === "Escape") setAbierto(false);
@@ -120,7 +128,9 @@ export function ZonaProfesional({
   const nombre = enFoco ? enFoco.nombre : etiquetaGeneral;
   const detalle = enFoco ? enFoco.detalle : detalleGeneral;
   const rotulo = enFoco ? (etiquetaConFoco ?? etiqueta) : etiqueta;
-  const conteo = enFoco ? `${actual + 1} de ${profesionales.length}` : etiquetaGeneral;
+  const conteo = enFoco
+    ? `${actual + 1} de ${profesionales.length}`
+    : etiquetaGeneral;
 
   return (
     <div className="flex w-full flex-col md:w-auto">
@@ -160,13 +170,19 @@ export function ZonaProfesional({
               aria-hidden="true"
               className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-salvia-claro font-[family-name:var(--font-display)] text-[13px] font-semibold text-salvia-oscuro"
             >
-              {enFoco ? iniciales(enFoco.nombre) : <IconUsers className="h-[18px] w-[18px]" />}
+              {enFoco ? (
+                iniciales(enFoco.nombre)
+              ) : (
+                <IconUsers className="h-[18px] w-[18px]" />
+              )}
             </span>
             <span className="min-w-0">
               <span className="block truncate font-[family-name:var(--font-display)] text-[17px] leading-tight font-semibold tracking-wide text-grafito">
                 {nombre}
               </span>
-              <span className="mt-0.5 block truncate text-[12.5px] text-grafito/60">{detalle}</span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-grafito/60">
+                {detalle}
+              </span>
             </span>
           </button>
 
@@ -181,7 +197,9 @@ export function ZonaProfesional({
           </button>
         </div>
 
-        <p className="mt-2 text-[13px] font-medium text-salvia-oscuro">{conteo}</p>
+        <p className="mt-2 text-[13px] font-medium text-salvia-oscuro">
+          {conteo}
+        </p>
 
         {abierto && (
           <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-[19rem] max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
@@ -211,7 +229,10 @@ export function ZonaProfesional({
             ))}
 
             {error && (
-              <p role="alert" className="px-3 py-2 text-xs text-terracota-oscuro">
+              <p
+                role="alert"
+                className="px-3 py-2 text-xs text-terracota-oscuro"
+              >
                 {error}
               </p>
             )}
@@ -257,7 +278,9 @@ function ItemDeVista({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{nombre}</span>
-        <span className="mt-0.5 block truncate text-[13px] text-grafito/60">{detalle}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-grafito/60">
+          {detalle}
+        </span>
       </span>
       {elegida && (
         <span aria-hidden="true" className="text-salvia-oscuro">
@@ -277,5 +300,9 @@ function iniciales(nombre: string): string {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  return ((partes[0]?.charAt(0) ?? "") + (partes[1]?.charAt(0) ?? "")).toUpperCase() || "?";
+  return (
+    (
+      (partes[0]?.charAt(0) ?? "") + (partes[1]?.charAt(0) ?? "")
+    ).toUpperCase() || "?"
+  );
 }

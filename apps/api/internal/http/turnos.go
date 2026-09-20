@@ -116,7 +116,18 @@ type turnoResponse struct {
 // En un lote y no por fila: resolver turno por turno sería N+1 sobre una
 // lista que se pinta entera, el mismo criterio que ya usa
 // nombresDeLosMiembros.
-func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Turno, out []turnoResponse) {
+//
+// `conNombre` decide SOLO si viaja el nombre del profesional, nunca el
+// resto. La distinción no es cosmética y se pagó con un test en rojo: lo
+// que esta función completa además del nombre es `esMio` —si el turno se
+// puede tocar— y el nombre del tipo de consulta. Saltearla entera para
+// esconder una columna dejaba a recepción, parada en la vista de un
+// profesional, con TODOS sus turnos en solo lectura: justo lo contrario
+// de *"el recepcionista puede navegar en todas las vistas... e
+// interactuar con estas vistas"*.
+func completarProfesionalDeTurnos(
+	gdb *gorm.DB, r *http.Request, turnos []db.Turno, out []turnoResponse, conNombre bool,
+) {
 	// El foco y no la sesión: `esMio` significa "es de la agenda que
 	// estoy mirando". Recepción parada en la vista de un profesional
 	// tiene que poder tocar los turnos de ESA agenda; en la vista
@@ -186,7 +197,9 @@ func completarProfesionalDeTurnos(gdb *gorm.DB, r *http.Request, turnos []db.Tur
 		}
 		s := id.String()
 		out[i].AtendidoPorUserID = &s
-		out[i].AtendidoPorNombre = nombres[*id]
+		if conNombre {
+			out[i].AtendidoPorNombre = nombres[*id]
+		}
 		out[i].EsMio = *id == yo
 	}
 }
@@ -360,16 +373,21 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 				out[i].PacienteVerificado = verificados[*t.PacienteID]
 			}
 		}
-		// QUIÉN ATIENDE CADA TURNO (Fase 3.2.6). Hasta acá esto solo se
-		// completaba en la ficha del paciente, y con razón: en la vista
-		// de un profesional todos los turnos son suyos, decirlo en cada
-		// fila sería ruido.
+		// QUIÉN ATIENDE CADA TURNO, solo en la VISTA GENERAL de recepción
+		// (Fase 3.2.6). Hasta acá esto solo se completaba en la ficha del
+		// paciente, y con razón: en la vista de un profesional todos los
+		// turnos son suyos, decirlo en cada fila sería ruido — y la
+		// columna que lo muestra sería una palabra repetida.
 		//
-		// La vista general de recepción cambia eso — son los turnos de
-		// TODOS los profesionales mezclados, y una lista que no dice de
-		// quién es cada uno no sirve para atender un teléfono. Es el
-		// mismo lote de dos consultas que ya usa la ficha, no un N+1.
-		completarProfesionalDeTurnos(gdb, r, turnos, out)
+		// La vista general cambia eso: son los turnos de TODOS los
+		// profesionales mezclados, y una lista que no dice de quién es
+		// cada uno no sirve para atender un teléfono. Es el mismo lote de
+		// dos consultas que ya usa la ficha, no un N+1.
+		//
+		// La condición vive acá y no en el frontend a propósito: la
+		// tabla dibuja la columna cuando el dato viene, así que "cuándo
+		// viene" es la regla, y tiene un solo dueño.
+		completarProfesionalDeTurnos(gdb, r, turnos, out, veTodaLaClinica(r))
 		writeJSON(w, http.StatusOK, out)
 	}
 }
@@ -1699,11 +1717,18 @@ type resumenTurnoItem struct {
 	// reversible. La tarjeta lo usa para pintar el contorno del botón
 	// elegido; el turno sigue pendiente o en proceso.
 	AsistenciaPreliminar string `json:"asistenciaPreliminar,omitempty"`
-	// Profesional — quién atiende (Fase 3.2.6). Viaja SOLO en la vista
-	// general de recepción, que es la única donde los turnos son de
-	// varias personas: en la vista de un profesional todos son suyos y
-	// repetir su nombre en cada fila sería ruido.
-	Profesional string `json:"profesional,omitempty"`
+	// Profesional / ProfesionalID — quién atiende (Fase 3.2.6). Viajan
+	// SOLO en la vista general de recepción, que es la única donde los
+	// turnos son de varias personas: en la vista de un profesional todos
+	// son suyos y repetir su nombre en cada fila sería ruido.
+	//
+	// El ID además del nombre porque tocar una fila desde la vista
+	// general no solo navega: primero se para en la agenda de ese
+	// profesional, así el módulo al que llega muestra lo que la fila
+	// prometía (QA de la 3.2.6: "el flujo deberá ser coherente con la
+	// vista").
+	Profesional   string `json:"profesional,omitempty"`
+	ProfesionalID string `json:"profesionalId,omitempty"`
 	// Los INSTANTES, además de "15:04" (2026-09-19). La tarjeta "Turnos
 	// de hoy" ahora dice si cada turno está PENDIENTE o EN PROCESO, y
 	// abre los botones de asistencia 5 minutos antes de que empiece: las
@@ -1736,6 +1761,9 @@ type resumenHorarioReservadoItem struct {
 	// caso. Ver etiquetaHorarioGeneral más abajo para el texto exacto
 	// según el Alcance.
 	EtiquetaGeneral *string `json:"etiquetaGeneral"`
+	// De quién es esta agenda (Fase 3.2.6), solo en la vista general.
+	Profesional   string `json:"profesional,omitempty"`
+	ProfesionalID string `json:"profesionalId,omitempty"`
 }
 
 // resumenPanelResponse — F2.3 extra, ítem 1 (rediseño del "Turnero"):
@@ -1902,12 +1930,21 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		nombres := map[uuid.UUID]string{}
 		if veTodaLaClinica(r) {
 			nombres = nombresDeQuienesAtienden(gdb, turnosHoyDB, turnosProximosDB, turnosResueltosDB)
+			// Los dueños de los horarios reservados salen de otra tabla,
+			// así que se suman aparte al mismo mapa.
+			for _, b := range bloqueos {
+				if b.UserID != nil {
+					if _, ya := nombres[*b.UserID]; !ya {
+						nombres[*b.UserID] = nombreDelProfesional(gdb, b.UserID)
+					}
+				}
+			}
 		}
 
 		writeJSON(w, http.StatusOK, resumenPanelResponse{
 			TurnosHoy:          toResumenTurnoItems(turnosHoyDB, nombres),
 			TurnosProximos:     toResumenTurnoItems(turnosProximosDB, nombres),
-			HorariosReservados: toResumenHorarioItems(bloqueos, hoy),
+			HorariosReservados: toResumenHorarioItems(bloqueos, hoy, nombres),
 			TotalConfirmados:   totalConfirmados,
 			TurnosResueltos:    toResumenTurnoItems(turnosResueltosDB, nombres),
 			TurnosAsistidos:    turnosAsistidos,
@@ -1945,13 +1982,17 @@ func toResumenTurnoItems(turnos []db.Turno, nombres map[uuid.UUID]string) []resu
 		if t.HoraFin != nil {
 			finISO = t.HoraFin.Format(time.RFC3339)
 		}
-		var profesional string
+		var profesional, profesionalID string
 		if t.AtendidoPorUserID != nil {
 			profesional = nombres[*t.AtendidoPorUserID]
+			if profesional != "" {
+				profesionalID = t.AtendidoPorUserID.String()
+			}
 		}
 		out[i] = resumenTurnoItem{
 			ID:                   t.ID.String(),
 			Profesional:          profesional,
+			ProfesionalID:        profesionalID,
 			Fecha:                fecha,
 			Hora:                 hora,
 			HoraFin:              horaFin,
@@ -2003,7 +2044,9 @@ func nombresDeQuienesAtienden(gdb *gorm.DB, lotes ...[]db.Turno) map[uuid.UUID]s
 // única fecha en la base (se repite por día de semana), así que se le
 // calcula la próxima ocurrencia desde hoy: sin eso, la tarjeta no tendría
 // a qué semana real del calendario llevar al tocarla.
-func toResumenHorarioItems(bloqueos []db.BloqueoHorario, hoy time.Time) []resumenHorarioReservadoItem {
+func toResumenHorarioItems(
+	bloqueos []db.BloqueoHorario, hoy time.Time, nombres map[uuid.UUID]string,
+) []resumenHorarioReservadoItem {
 	items := make([]resumenHorarioReservadoItem, 0, len(bloqueos))
 	for _, b := range bloqueos {
 		var fecha time.Time
@@ -2015,8 +2058,17 @@ func toResumenHorarioItems(bloqueos []db.BloqueoHorario, hoy time.Time) []resume
 		default:
 			continue // dato inconsistente (chk_bloqueo_horario_forma ya lo evita) — se salta por las dudas
 		}
+		var profesional, profesionalID string
+		if b.UserID != nil {
+			profesional = nombres[*b.UserID]
+			if profesional != "" {
+				profesionalID = b.UserID.String()
+			}
+		}
 		items = append(items, resumenHorarioReservadoItem{
 			ID:              b.ID.String(),
+			Profesional:     profesional,
+			ProfesionalID:   profesionalID,
 			Fecha:           fecha.Format("2006-01-02"),
 			HoraDesde:       b.HoraDesde,
 			HoraHasta:       b.HoraHasta,

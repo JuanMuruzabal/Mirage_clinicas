@@ -352,7 +352,9 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		// Quién atiende cada turno, para que el historial diga con quién
 		// fue cada uno y cuáles puede tocar quien mira.
-		completarProfesionalDeTurnos(gdb, r, turnos, turnosOut)
+		// Siempre con nombre: el historial de un paciente es de la CLÍNICA
+		// y su gracia es decir con quién fue cada turno (Fase 3.2.5).
+		completarProfesionalDeTurnos(gdb, r, turnos, turnosOut, true)
 
 		verificado, err := pacienteEstaVerificado(gdb, paciente)
 		if err != nil {
