@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { apiResumenPanel } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
-import { formatDiaCorto, parseFechaISOLocal } from "@/lib/calendar-utils";
+import { addDays, fechaISOLocal, formatDiaCorto, hoyEnCordoba, parseFechaISOLocal } from "@/lib/calendar-utils";
 import { TarjetaConLista, TarjetaEstadistica, TarjetaSimple, FilaResumen } from "@/components/panel/tarjeta-turnero";
 import { TarjetaTurnosDeHoy } from "@/components/panel/tarjeta-turnos-de-hoy";
 import {
@@ -52,6 +52,19 @@ export default async function PanelGeneralPage() {
   // `turno` (ese último sí abre el detalle, es el que ya usa cada fila
   // del cuerpo). Sin turnos, cae al link plano de siempre (no hay a
   // dónde deep-linkear).
+  // Las fechas de HOY y MAÑANA en Córdoba, para que los links a Turnos
+  // lleven el MISMO recorte que muestra cada tarjeta (2026-09-19, pedido
+  // del cliente: "te llevará a turnos pero aplicados los filtros que te
+  // muestran los turnos próximos con el mismo criterio que te muestra en
+  // la tarjeta"). `hoyEnCordoba` y no `new Date()`: el navegador del
+  // visitante puede estar en otra zona horaria, y estos filtros son
+  // siempre hora de Córdoba — mismo criterio que clock.Today() del
+  // backend.
+  const hoyISO = fechaISOLocal(hoyEnCordoba());
+  const mañanaISO = fechaISOLocal(addDays(hoyEnCordoba(), 1));
+  const filtroTurnos = (tab: string, desde: string, hasta: string) =>
+    `/panel/turnos?estado=${tab}&desde=${desde}&hasta=${hasta}`;
+
   const proximoTurnoHoy = resumen.turnosHoy[0];
   const proximoTurnoManana = resumen.turnosProximos[0];
   const hrefTurnosHoy = proximoTurnoHoy
@@ -88,14 +101,23 @@ export default async function PanelGeneralPage() {
             Es lo más urgente que mira un profesional al entrar, y era una
             tarjeta más del mismo tamaño que las otras cinco. */}
         <div className="md:col-span-2">
-          <TarjetaTurnosDeHoy turnos={resumen.turnosHoy} hrefCabecera={hrefTurnosHoy} />
+          <TarjetaTurnosDeHoy
+            turnos={resumen.turnosHoy}
+            hrefCabecera={hrefTurnosHoy}
+            hrefPie={filtroTurnos("agendado", hoyISO, hoyISO)}
+          />
         </div>
 
+        {/* "Ver en calendario" ubica el calendario en el turno más
+            próximo; el pie "Ver todos" abre Turnos con el MISMO recorte
+            que muestra esta tarjeta (mañana). */}
         <TarjetaConLista
           eyebrow="Turnos próximos"
           valor={resumen.turnosProximos.length}
           hrefCabecera={hrefTurnosProximos}
-          labelCabecera="Ver calendario"
+          labelCabecera="Ver en calendario"
+          hrefPie={filtroTurnos("agendado", mañanaISO, mañanaISO)}
+          labelPie="Ver todos"
           vacioMensaje="No hay turnos próximos."
           acento
           icono={<IconoAvance className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
@@ -146,8 +168,13 @@ export default async function PanelGeneralPage() {
           // día — siempre es hoy) más el resultado.
           eyebrow="Turnos resueltos hoy"
           valor={resumen.turnosResueltos.length}
-          hrefCabecera="/panel/turnos?estado=resuelto"
+          // "Ver turnos" lleva a los resueltos DE HOY, que es lo que
+          // esta tarjeta lista; el pie "Ver todos" abre los resueltos
+          // sin ningún filtro de fecha (2026-09-19, pedido del cliente).
+          hrefCabecera={filtroTurnos("resuelto", hoyISO, hoyISO)}
           labelCabecera="Ver turnos"
+          hrefPie="/panel/turnos?estado=resuelto"
+          labelPie="Ver todos"
           vacioMensaje="Todavía no se marcó ningún turno hoy."
           acento
           icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}

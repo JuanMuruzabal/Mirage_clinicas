@@ -35,10 +35,16 @@ func TestMarcarAsistencia_SePuedeMarcarAntesDeQueEmpiece(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
+	// Lo que se escribe es el BORRADOR, no la asistencia: el turno
+	// todavía no terminó y la elección se puede cambiar (ver
+	// asistencia_borrador_test.go).
 	var got turnoResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.Asistencia == nil || *got.Asistencia != "asistio" {
-		t.Errorf("asistencia = %v, esperaba \"asistio\"", got.Asistencia)
+	if got.AsistenciaPreliminar == nil || *got.AsistenciaPreliminar != "asistio" {
+		t.Errorf("asistenciaPreliminar = %v, esperaba \"asistio\"", got.AsistenciaPreliminar)
+	}
+	if got.Asistencia != nil {
+		t.Errorf("asistencia = %v, esperaba nil: marcar antes no resuelve el turno", got.Asistencia)
 	}
 }
 
@@ -107,10 +113,13 @@ func TestResumenPanel_MarcarAntesNoAdelantaElTurno(t *testing.T) {
 	if item == nil {
 		t.Fatalf("TurnosHoy = %+v, esperaba que siguiera ahí: el turno todavía no terminó", got.TurnosHoy)
 	}
-	// Y la tarjeta necesita la marca para mostrar "Asistido" en la
-	// columna de asistencia en vez de los botones.
-	if item.Asistencia != "asistio" {
-		t.Errorf("asistencia = %q, esperaba \"asistio\" — sin esto la fila volvería a ofrecer los botones", item.Asistencia)
+	// Y la tarjeta necesita el borrador para pintar el contorno del
+	// botón elegido; la asistencia de verdad sigue vacía.
+	if item.AsistenciaPreliminar != "asistio" {
+		t.Errorf("asistenciaPreliminar = %q, esperaba \"asistio\" — sin esto la fila no sabría cuál botón marcar", item.AsistenciaPreliminar)
+	}
+	if item.Asistencia != "" {
+		t.Errorf("asistencia = %q, esperaba vacía: el turno todavía no terminó", item.Asistencia)
 	}
 	if contieneTurno(got.TurnosResueltos, porEmpezar.ID.String()) {
 		t.Errorf("TurnosResueltos ya lo trae (%+v): el turno todavía no terminó", got.TurnosResueltos)

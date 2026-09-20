@@ -80,6 +80,11 @@ type turnoResponse struct {
 	// Asistencia (pedido explícito del cliente, 2026-09-04): nil hasta que
 	// se marca desde un turno ya resuelto (ver marcarAsistenciaHandler).
 	Asistencia *string `json:"asistencia,omitempty"`
+	// AsistenciaPreliminar — lo anotado por adelantado desde la tarjeta
+	// de "Turnos de hoy", todavía reversible (2026-09-19). Ver el
+	// comentario del campo en models.go: es un borrador, no la
+	// asistencia. Se vuelve definitivo solo cuando el turno termina.
+	AsistenciaPreliminar *string `json:"asistenciaPreliminar,omitempty"`
 	// Autoreservado (2026-09-08): true si este turno se movió con el botón
 	// "Autoreservar turnos" del modal de conflicto — el frontend lo pinta
 	// con rayas en el calendario y lo avisa en TurnoDetalle.
@@ -210,6 +215,7 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 		out.HoraFin = &s
 	}
 	out.Asistencia = t.Asistencia
+	out.AsistenciaPreliminar = t.AsistenciaPreliminar
 	out.Autoreservado = t.Autoreservado
 	out.EsParaOtro = t.EsParaOtro
 	out.TutorRelacion = t.TutorRelacion
@@ -1019,6 +1025,136 @@ var errConflictoPacienteSinResolver = errors.New(
 // disputa. Marcar antes ADELANTA esas consecuencias, no las saltea.
 const AnticipoAsistencia = 5 * time.Minute
 
+// aplicarAsistencia escribe la asistencia DEFINITIVA de un turno ya
+// terminado, con todas sus consecuencias: resuelve el conflicto de
+// identidad que ese turno originó, borra la ficha de un paciente sin
+// verificar que se ausentó a su primer turno, y deja conflictos
+// retroactivos si este turno acaba de verificar a alguien.
+//
+// Extraída de marcarAsistenciaHandler el 2026-09-19, cuando el sondeo de
+// turnos pendientes pasó a aplicar el borrador de la tarjeta al vencer
+// el turno. Tiene que ser EL MISMO camino y no una copia parecida: si
+// divergen, un turno marcado desde la tarjeta y otro marcado desde el
+// cartel dejarían la base en estados distintos, y justo en la parte
+// irreversible.
+//
+// Devuelve errConflictoPacienteSinResolver cuando hay un conflicto
+// pendiente del lado en disputa — el llamador decide qué hacer con eso
+// (el handler responde 409; el sondeo lo deja pendiente para que el
+// cartel lo pida a mano).
+func aplicarAsistencia(gdb *gorm.DB, turno *db.Turno, clinicID uuid.UUID, valor string) error {
+	return gdb.Transaction(func(tx *gorm.DB) error {
+		// Carve-out de TR-107 (1.3bis): si ESTE turno puntual es el
+		// que originó un ConflictoPaciente todavía pendiente
+		// (TurnoEnConflictoID), marcar su asistencia resuelve el
+		// conflicto ahí mismo en vez de chocar con el bloqueo general
+		// de abajo — "asistió" confirma que la ficha en conflicto es
+		// la misma persona (fusión estándar, dirección fija: nunca
+		// puede terminar borrando a la ya verificada, a diferencia
+		// del bug de TR-106); "ausente" borra la ficha en conflicto y
+		// cierra el ticket SIN bloquear su mail (un ausente no prueba
+		// fraude). Si el conflicto ya se resolvió por otra vía antes
+		// de esta fecha, el lookup no encuentra nada y cae al chequeo
+		// general de siempre (item 27 de la checklist del doc).
+		var conflictoDisputado db.ConflictoPaciente
+		errConflicto := tx.Where("turno_en_conflicto_id = ? AND resuelto = false", turno.ID).First(&conflictoDisputado).Error
+		if errConflicto != nil && !errors.Is(errConflicto, gorm.ErrRecordNotFound) {
+			return errConflicto
+		}
+		esCarveOutDeConflicto := errConflicto == nil
+
+		// SOLO EL LADO EN DISPUTA (corrección del 2026-09-15, pedido
+		// del cliente).
+		//
+		// El bloqueo miraba los DOS lados del ticket, así que un
+		// conflicto nuevo congelaba también los turnos de la ficha
+		// VERIFICADA — incluso turnos anteriores al conflicto, que no
+		// tienen nada que ver con él. Ese era el caso reportado: un
+		// turno viejo, de una ficha verificada, imposible de marcar
+		// porque alguien pidió turno con ese DNI horas después.
+		//
+		// Lo que la regla tiene que impedir sigue impedido: que la
+		// ficha EN CONFLICTO se verifique sola marcando asistencia en
+		// otro turno suyo, y que un "ausente" la borre dejando el
+		// ticket apuntando a una ficha que ya no existe. La verificada
+		// no necesita protección: su identidad no está en discusión —
+		// es el otro lado el que tiene que probar quién es.
+		//
+		// El turno que originó el conflicto queda afuera igual, por el
+		// carve-out de arriba: marcarle asistencia es justamente la
+		// forma de resolverlo.
+		if !esCarveOutDeConflicto && turno.PacienteID != nil {
+			var conflictosPendientes int64
+			if err := tx.Model(&db.ConflictoPaciente{}).
+				Where("resuelto = false AND paciente_en_conflicto_id = ?", *turno.PacienteID).
+				Count(&conflictosPendientes).Error; err != nil {
+				return err
+			}
+			if conflictosPendientes > 0 {
+				return errConflictoPacienteSinResolver
+			}
+		}
+
+		if err := tx.Exec("UPDATE turnos SET asistencia = ? WHERE id = ?", valor, turno.ID).Error; err != nil {
+			return err
+		}
+
+		if esCarveOutDeConflicto {
+			if valor == "asistio" {
+				if err := resolverConflictoComoVerdadero(tx, conflictoDisputado, &turno.ID); err != nil {
+					return err
+				}
+				turno.PacienteID = &conflictoDisputado.PacienteVerificadoID
+			} else {
+				if err := resolverConflictoComoFalso(tx, conflictoDisputado, clinicID, false, &turno.ID); err != nil {
+					return err
+				}
+				turno.PacienteID = nil
+			}
+			return nil
+		}
+		// Fase 2.4.1 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`),
+		// regla nueva pedida textualmente por el cliente: "para un
+		// paciente no verificado si se ausenta a lo que vendría siendo
+		// su PRIMER turno, eliminar de la tabla pacientes este
+		// paciente" — nunca llegó a demostrar que es real.
+		if valor == "ausente" && turno.PacienteID != nil {
+			borrado, err := borrarPacienteNoVerificadoSiSinHistorialReal(tx, *turno.PacienteID)
+			if err != nil {
+				return err
+			}
+			if borrado {
+				turno.PacienteID = nil
+			}
+		}
+		// Corrección de QA, pedido textual del cliente: "esto no se
+		// tiene que auto solucionar, se debe marcar al profesional
+		// para que lo resuelva manualmente" — si ESTE turno acaba de
+		// verificar a la ficha (o ya estaba verificada por otro lado),
+		// se detectan fichas "hermanas" (mismo DNI, sin ticket
+		// todavía) y se deja un ConflictoPaciente PENDIENTE para cada
+		// una — nunca se migra/cancela/borra nada acá, eso queda para
+		// resolverConflictoPacienteHandler (pacientes_conflicto_panel.go).
+		if valor == "asistio" && turno.PacienteID != nil {
+			var paciente db.Paciente
+			if err := tx.First(&paciente, "id = ?", *turno.PacienteID).Error; err == nil {
+				verificado, err := pacienteEstaVerificado(tx, paciente)
+				if err != nil {
+					return err
+				}
+				if verificado {
+					if err := generarConflictosRetroactivosPorDNI(tx, paciente); err != nil {
+						return err
+					}
+				}
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -1066,6 +1202,35 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// MIENTRAS EL TURNO NO TERMINÓ, lo que se guarda es un BORRADOR
+		// (2026-09-19, pedido del cliente: "la asistencia de la tarjeta es
+		// reversible... el último estado de la tarjeta es el que va a leer
+		// la asistencia final cuando el turno pase a estar resuelto").
+		//
+		// Reversible de verdad: se sobrescribe las veces que haga falta y
+		// no dispara NINGUNA de las consecuencias de abajo. Eso no es una
+		// simplificación — son irreversibles y destructivas (resolver el
+		// conflicto de identidad, borrar la ficha de un paciente sin
+		// verificar en un "ausente"), y no pueden colgar de algo que el
+		// profesional todavía puede cambiar: marcó ausente a las 10:10, la
+		// persona llegó tarde, corrige a asistió, y la ficha ya no está.
+		//
+		// Se aplica una sola vez cuando el turno cruza su hora de fin —
+		// ver aplicarAsistenciaPreliminar en
+		// turnos_pendientes_asistencia.go—, y desde ahí vale la regla de
+		// siempre.
+		if turno.HoraFin.After(clock.Now()) {
+			if err := gdb.Exec(
+				"UPDATE turnos SET asistencia_preliminar = ? WHERE id = ?", req.Asistencia, turno.ID,
+			).Error; err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo guardar la asistencia")
+				return
+			}
+			turno.AsistenciaPreliminar = &req.Asistencia
+			writeJSON(w, http.StatusOK, toTurnoResponse(turno))
+			return
+		}
+
 		// UPDATE directo por columna (no gdb.Model(&turno).Update con un
 		// *string): un valor por struct puede quedar ambiguo según cómo
 		// GORM detecte "zero value" — acá el valor ya está validado arriba
@@ -1075,116 +1240,7 @@ func marcarAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// segunda parte falla, no queda la asistencia marcada de un lado y
 		// el paciente sin borrar del otro (TR-092: la marca es
 		// irreversible, un estado a medias sería peor que fallar entero).
-		err = gdb.Transaction(func(tx *gorm.DB) error {
-			// Carve-out de TR-107 (1.3bis): si ESTE turno puntual es el
-			// que originó un ConflictoPaciente todavía pendiente
-			// (TurnoEnConflictoID), marcar su asistencia resuelve el
-			// conflicto ahí mismo en vez de chocar con el bloqueo general
-			// de abajo — "asistió" confirma que la ficha en conflicto es
-			// la misma persona (fusión estándar, dirección fija: nunca
-			// puede terminar borrando a la ya verificada, a diferencia
-			// del bug de TR-106); "ausente" borra la ficha en conflicto y
-			// cierra el ticket SIN bloquear su mail (un ausente no prueba
-			// fraude). Si el conflicto ya se resolvió por otra vía antes
-			// de esta fecha, el lookup no encuentra nada y cae al chequeo
-			// general de siempre (item 27 de la checklist del doc).
-			var conflictoDisputado db.ConflictoPaciente
-			errConflicto := tx.Where("turno_en_conflicto_id = ? AND resuelto = false", turno.ID).First(&conflictoDisputado).Error
-			if errConflicto != nil && !errors.Is(errConflicto, gorm.ErrRecordNotFound) {
-				return errConflicto
-			}
-			esCarveOutDeConflicto := errConflicto == nil
-
-			// SOLO EL LADO EN DISPUTA (corrección del 2026-09-15, pedido
-			// del cliente).
-			//
-			// El bloqueo miraba los DOS lados del ticket, así que un
-			// conflicto nuevo congelaba también los turnos de la ficha
-			// VERIFICADA — incluso turnos anteriores al conflicto, que no
-			// tienen nada que ver con él. Ese era el caso reportado: un
-			// turno viejo, de una ficha verificada, imposible de marcar
-			// porque alguien pidió turno con ese DNI horas después.
-			//
-			// Lo que la regla tiene que impedir sigue impedido: que la
-			// ficha EN CONFLICTO se verifique sola marcando asistencia en
-			// otro turno suyo, y que un "ausente" la borre dejando el
-			// ticket apuntando a una ficha que ya no existe. La verificada
-			// no necesita protección: su identidad no está en discusión —
-			// es el otro lado el que tiene que probar quién es.
-			//
-			// El turno que originó el conflicto queda afuera igual, por el
-			// carve-out de arriba: marcarle asistencia es justamente la
-			// forma de resolverlo.
-			if !esCarveOutDeConflicto && turno.PacienteID != nil {
-				var conflictosPendientes int64
-				if err := tx.Model(&db.ConflictoPaciente{}).
-					Where("resuelto = false AND paciente_en_conflicto_id = ?", *turno.PacienteID).
-					Count(&conflictosPendientes).Error; err != nil {
-					return err
-				}
-				if conflictosPendientes > 0 {
-					return errConflictoPacienteSinResolver
-				}
-			}
-
-			if err := tx.Exec("UPDATE turnos SET asistencia = ? WHERE id = ?", req.Asistencia, turno.ID).Error; err != nil {
-				return err
-			}
-
-			if esCarveOutDeConflicto {
-				if req.Asistencia == "asistio" {
-					if err := resolverConflictoComoVerdadero(tx, conflictoDisputado, &turno.ID); err != nil {
-						return err
-					}
-					turno.PacienteID = &conflictoDisputado.PacienteVerificadoID
-				} else {
-					if err := resolverConflictoComoFalso(tx, conflictoDisputado, profesionalID, false, &turno.ID); err != nil {
-						return err
-					}
-					turno.PacienteID = nil
-				}
-				return nil
-			}
-			// Fase 2.4.1 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`),
-			// regla nueva pedida textualmente por el cliente: "para un
-			// paciente no verificado si se ausenta a lo que vendría siendo
-			// su PRIMER turno, eliminar de la tabla pacientes este
-			// paciente" — nunca llegó a demostrar que es real.
-			if req.Asistencia == "ausente" && turno.PacienteID != nil {
-				borrado, err := borrarPacienteNoVerificadoSiSinHistorialReal(tx, *turno.PacienteID)
-				if err != nil {
-					return err
-				}
-				if borrado {
-					turno.PacienteID = nil
-				}
-			}
-			// Corrección de QA, pedido textual del cliente: "esto no se
-			// tiene que auto solucionar, se debe marcar al profesional
-			// para que lo resuelva manualmente" — si ESTE turno acaba de
-			// verificar a la ficha (o ya estaba verificada por otro lado),
-			// se detectan fichas "hermanas" (mismo DNI, sin ticket
-			// todavía) y se deja un ConflictoPaciente PENDIENTE para cada
-			// una — nunca se migra/cancela/borra nada acá, eso queda para
-			// resolverConflictoPacienteHandler (pacientes_conflicto_panel.go).
-			if req.Asistencia == "asistio" && turno.PacienteID != nil {
-				var paciente db.Paciente
-				if err := tx.First(&paciente, "id = ?", *turno.PacienteID).Error; err == nil {
-					verificado, err := pacienteEstaVerificado(tx, paciente)
-					if err != nil {
-						return err
-					}
-					if verificado {
-						if err := generarConflictosRetroactivosPorDNI(tx, paciente); err != nil {
-							return err
-						}
-					}
-				} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-					return err
-				}
-			}
-			return nil
-		})
+		err = aplicarAsistencia(gdb, &turno, profesionalID, req.Asistencia)
 		if err != nil {
 			if errors.Is(err, errConflictoPacienteSinResolver) {
 				writeError(w, http.StatusConflict, err.Error())
@@ -1617,6 +1673,10 @@ type resumenTurnoItem struct {
 	// próximos", son siempre turnos vigentes), así que toResumenTurnoItems
 	// lo deja vacío para esas y solo lo completa para turnosResueltos.
 	Asistencia string `json:"asistencia,omitempty"`
+	// AsistenciaPreliminar — lo anotado por adelantado y todavía
+	// reversible. La tarjeta lo usa para pintar el contorno del botón
+	// elegido; el turno sigue pendiente o en proceso.
+	AsistenciaPreliminar string `json:"asistenciaPreliminar,omitempty"`
 	// Los INSTANTES, además de "15:04" (2026-09-19). La tarjeta "Turnos
 	// de hoy" ahora dice si cada turno está PENDIENTE o EN PROCESO, y
 	// abre los botones de asistencia 5 minutos antes de que empiece: las
@@ -1835,6 +1895,10 @@ func toResumenTurnoItems(turnos []db.Turno) []resumenTurnoItem {
 		if t.Asistencia != nil {
 			asistencia = *t.Asistencia
 		}
+		var preliminar string
+		if t.AsistenciaPreliminar != nil {
+			preliminar = *t.AsistenciaPreliminar
+		}
 		var inicioISO, finISO string
 		if t.HoraInicio != nil {
 			inicioISO = t.HoraInicio.Format(time.RFC3339)
@@ -1843,14 +1907,15 @@ func toResumenTurnoItems(turnos []db.Turno) []resumenTurnoItem {
 			finISO = t.HoraFin.Format(time.RFC3339)
 		}
 		out[i] = resumenTurnoItem{
-			ID:            t.ID.String(),
-			Fecha:         fecha,
-			Hora:          hora,
-			HoraFin:       horaFin,
-			Nombre:        strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
-			Asistencia:    asistencia,
-			HoraInicioISO: inicioISO,
-			HoraFinISO:    finISO,
+			ID:                   t.ID.String(),
+			Fecha:                fecha,
+			Hora:                 hora,
+			HoraFin:              horaFin,
+			Nombre:               strings.TrimSpace(t.NombreContacto + " " + t.ApellidoContacto),
+			Asistencia:           asistencia,
+			AsistenciaPreliminar: preliminar,
+			HoraInicioISO:        inicioISO,
+			HoraFinISO:           finISO,
 		}
 	}
 	return out

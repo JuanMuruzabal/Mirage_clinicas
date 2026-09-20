@@ -455,6 +455,12 @@ export interface Turno {
   // Asistencia (pedido explícito del cliente, 2026-09-04): ausente hasta
   // que se marca desde un turno ya resuelto — "asistio" | "ausente" | nil.
   asistencia?: "asistio" | "ausente" | null;
+  /** Lo anotado por adelantado desde la tarjeta de "Turnos de hoy",
+   *  todavía reversible: se vuelve `asistencia` recién cuando el
+   *  turno cruza su hora de fin. Es una columna aparte porque
+   *  `asistencia` es irreversible y dispara consecuencias
+   *  destructivas (ver models.go). */
+  asistenciaPreliminar?: "asistio" | "ausente" | null;
   // Autoreservado (nueva función, 2026-09-08): true si el botón
   // "Autoreservar turnos" del modal de conflicto movió este turno al
   // próximo horario libre — se pinta con rayas en el calendario y avisa
@@ -524,6 +530,12 @@ export interface ResumenTurnoItem {
   // en `turnosHoy`/`turnosProximos` (un turno marcado sale de esas dos
   // listas), "asistio" | "ausente" en `turnosResueltos`.
   asistencia?: "asistio" | "ausente" | "";
+  /** Lo anotado POR ADELANTADO desde la tarjeta de "Turnos de hoy", y
+   *  todavía reversible (2026-09-19). No es la asistencia: el turno sigue
+   *  pendiente o en proceso, y esto es solo lo que va a decir cuando
+   *  termine. La tarjeta lo usa para pintar el contorno del botón
+   *  elegido. Ver `Turno.asistenciaPreliminar`. */
+  asistenciaPreliminar?: "asistio" | "ausente" | "";
   /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
    *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
    *  proceso, y abre los botones de asistencia 5 minutos antes de que

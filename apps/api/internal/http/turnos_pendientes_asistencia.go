@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/clock"
@@ -41,6 +42,52 @@ type turnosPendientesAsistenciaResponse struct {
 	ProximoVencimiento *string `json:"proximoVencimiento"`
 }
 
+// aplicarLosBorradoresQueVencieron convierte en definitiva la asistencia
+// que el profesional dejó anotada por adelantado en la tarjeta de "Turnos
+// de hoy", para los turnos que acaban de cruzar su hora de fin. Devuelve
+// los que SIGUEN pendientes (los que no tenían borrador, más los que no
+// se pudieron aplicar).
+//
+// ## Por qué acá, y no en un trabajo periódico
+//
+// Este endpoint es el que ya se pregunta, cada 30 segundos desde cada
+// panel abierto, "¿qué turnos acaban de terminar y hay que marcar?". Es
+// exactamente el momento en que un borrador deja de ser un borrador, así
+// que aplicarlo acá no agrega ningún mecanismo nuevo: el turno que tenía
+// anotado "asistió" simplemente no vuelve como pendiente, y el cartel no
+// aparece — que es todo lo que el profesional pidió al anotarlo antes.
+//
+// Escribir desde un GET no es gratis y hay que decirlo: es el mismo
+// patrón que `GET /equipo/presencia`, que es "el latido Y la lectura"
+// (TR-142). La alternativa era un proceso aparte que barriera la tabla
+// por hora; se descartó porque hoy corre una sola instancia del backend
+// y porque el efecto de aplicar el borrador solo importa cuando alguien
+// mira — si nadie abre el panel, tampoco hay cartel que evitar.
+//
+// ## Qué pasa si no se puede aplicar
+//
+// Un turno cuyo paciente tiene un conflicto de identidad sin resolver
+// rebota (errConflictoPacienteSinResolver) y se queda en la lista: el
+// cartel aparece y lo pide a mano, que es lo correcto — esa decisión
+// necesita a una persona mirando, no un borrador de hace una hora.
+// Cualquier otro error se trata igual, sin tumbar la respuesta: el
+// sondeo no puede romper el panel entero por un turno.
+func aplicarLosBorradoresQueVencieron(gdb *gorm.DB, vencidos []db.Turno, clinicID uuid.UUID) []db.Turno {
+	siguenPendientes := make([]db.Turno, 0, len(vencidos))
+	for i := range vencidos {
+		t := &vencidos[i]
+		if t.AsistenciaPreliminar == nil {
+			siguenPendientes = append(siguenPendientes, *t)
+			continue
+		}
+		if err := aplicarAsistencia(gdb, t, clinicID, *t.AsistenciaPreliminar); err != nil {
+			siguenPendientes = append(siguenPendientes, *t)
+			continue
+		}
+	}
+	return siguenPendientes
+}
+
 // turnosPendientesAsistenciaHandler — GET /turnos/pendientes-asistencia.
 func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +110,8 @@ func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudieron obtener los turnos pendientes de asistencia")
 			return
 		}
+
+		vencidos = aplicarLosBorradoresQueVencieron(gdb, vencidos, profesionalID)
 
 		// El turno vigente (a futuro) más próximo a resolverse nunca
 		// tiene asistencia marcada todavía (marcarAsistenciaHandler exige

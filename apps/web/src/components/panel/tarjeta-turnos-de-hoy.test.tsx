@@ -32,7 +32,13 @@ function turno(over: Partial<ResumenTurnoItem> = {}): ResumenTurnoItem {
 }
 
 function montar(turnos: ResumenTurnoItem[]) {
-  return render(<TarjetaTurnosDeHoy turnos={turnos} hrefCabecera="/panel/calendario?vista=dia" />);
+  return render(
+    <TarjetaTurnosDeHoy
+      turnos={turnos}
+      hrefCabecera="/panel/calendario?vista=dia"
+      hrefPie="/panel/turnos?estado=agendado&desde=2026-09-19&hasta=2026-09-19"
+    />,
+  );
 }
 
 beforeEach(() => {
@@ -199,32 +205,71 @@ describe("TarjetaTurnosDeHoy — el pie", () => {
     expect(screen.getByRole("link", { name: "Ver todos" })).toBeInTheDocument();
   });
 
-  it("un turno ya marcado tampoco cuenta como uno que falta", () => {
+  // Un turno anotado por adelantado SIGUE siendo un turno que falta
+  // atender: la persona todavía no vino, lo único que se guardó es qué
+  // va a decir cuando termine.
+  it("un turno ya anotado sigue contando como uno que falta", () => {
     montar([
-      turno({ id: "a", horaInicioIso: enMinutos(60), horaFinIso: enMinutos(90), asistencia: "asistio" }),
+      turno({ id: "a", horaInicioIso: enMinutos(60), horaFinIso: enMinutos(90), asistenciaPreliminar: "asistio" }),
       turno({ id: "b", horaInicioIso: enMinutos(120), horaFinIso: enMinutos(150) }),
     ]);
-    expect(screen.getByText("Queda 1 turno más hoy.")).toBeInTheDocument();
+    expect(screen.getByText("Quedan 2 turnos más hoy.")).toBeInTheDocument();
   });
 });
 
-// La corrección central de esta vuelta: marcar no adelanta el turno.
-describe("TarjetaTurnosDeHoy — un turno ya marcado", () => {
-  it("se queda en la tarjeta, con su marca en vez de los botones", () => {
-    montar([turno({ horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32), asistencia: "asistio" })]);
+// La corrección central de esta vuelta: marcar no adelanta el turno, y
+// lo anotado es REVERSIBLE hasta que el turno termine.
+describe("TarjetaTurnosDeHoy — un turno ya anotado", () => {
+  // Los botones se quedan: si la celda pasara a decir "Asistido" en solo
+  // lectura, diría que ya no se puede cambiar — y sí se puede.
+  it("deja los dos botones y marca el elegido con un contorno", () => {
+    montar([turno({ horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32), asistenciaPreliminar: "asistio" })]);
 
-    expect(screen.getByText("Asistido")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Asistió" })).not.toBeInTheDocument();
+    const asistio = screen.getByRole("button", { name: "Asistió" });
+    const noAsistio = screen.getByRole("button", { name: "No asistió" });
+    expect(asistio).toBeEnabled();
+    expect(noAsistio).toBeEnabled();
+    expect(asistio.className).toContain("ring-salvia-oscuro");
+    expect(noAsistio.className).not.toContain("ring-terracota-oscuro");
   });
 
-  // Y el ESTADO sigue saliendo del reloj: marcar la asistencia no
+  it("se puede cambiar de opinión: marcar el otro vuelve a llamar al backend", async () => {
+    montar([
+      turno({ id: "t-cambio", horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32), asistenciaPreliminar: "ausente" }),
+    ]);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Asistió" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(marcarAsistenciaActionMock).toHaveBeenCalledWith("t-cambio", "asistio");
+  });
+
+  // Y el ESTADO sigue saliendo del reloj: anotar la asistencia no
   // resuelve el turno, solo guarda qué va a decir cuando termine.
   it("sigue mostrando PENDIENTE o EN PROCESO, no resuelto", () => {
-    montar([turno({ horaInicioIso: enMinutos(-5), horaFinIso: enMinutos(25), asistencia: "ausente" })]);
+    montar([turno({ horaInicioIso: enMinutos(-5), horaFinIso: enMinutos(25), asistenciaPreliminar: "ausente" })]);
 
     expect(screen.getByText("En proceso")).toBeInTheDocument();
-    expect(screen.getByText("No asistió")).toBeInTheDocument();
     expect(screen.queryByText("Resuelto")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No asistió" }).className).toContain("ring-terracota-oscuro");
+  });
+});
+
+// Cuando un turno cruza su hora de fin deja de pertenecer a esta
+// tarjeta: el backend lo pasa a "Turnos resueltos hoy". Eso es un cambio
+// del servidor, así que la pantalla tiene que volver a pedirse sola.
+describe("TarjetaTurnosDeHoy — al vencer un turno", () => {
+  it("vuelve a pedir la pantalla cuando un turno cruza su hora de fin", async () => {
+    montar([turno({ horaInicioIso: enMinutos(-30), horaFinIso: enMinutos(1) })]);
+    expect(refreshMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * 60_000);
+    });
+
+    expect(refreshMock).toHaveBeenCalled();
   });
 });
 

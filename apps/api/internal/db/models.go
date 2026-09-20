@@ -611,6 +611,31 @@ type Turno struct {
 	// queda con esto en nil para siempre.
 	Asistencia *string `gorm:"column:asistencia;type:varchar(20);check:asistencia IN ('asistio','ausente')"`
 
+	// AsistenciaPreliminar — lo que el profesional dejó anotado ANTES de
+	// que el turno terminara (2026-09-19, pedido del cliente: "el
+	// profesional podrá anotar de antemano su presencia y evitar que al
+	// final del turno aparezca el otro cartel"; y después: "la asistencia
+	// de la tarjeta es reversible... el último estado de la tarjeta es el
+	// que va a leer la asistencia final cuando el turno pase a estar
+	// resuelto").
+	//
+	// ES UNA COLUMNA APARTE, y esa es la decisión. `Asistencia` es
+	// irreversible y tiene consecuencias inmediatas y destructivas —
+	// resuelve el conflicto de identidad que ese turno originó, y un
+	// "ausente" puede BORRAR la ficha de un paciente sin verificar. Nada
+	// de eso se puede deshacer, así que no puede dispararse con algo que
+	// el profesional todavía puede cambiar de opinión: marcó "ausente" a
+	// las 10:10, la persona llegó tarde, corrige a "asistió" — y la ficha
+	// ya no está.
+	//
+	// Así que mientras el turno no terminó esto es un BORRADOR: se
+	// sobrescribe las veces que haga falta y no toca nada más. Cuando el
+	// turno cruza su hora de fin, se aplica una sola vez sobre
+	// `Asistencia` con todas sus consecuencias (ver
+	// aplicarAsistenciaPreliminar en turnos_pendientes_asistencia.go) y
+	// desde ahí vale la regla de siempre: irreversible.
+	AsistenciaPreliminar *string `gorm:"column:asistencia_preliminar;type:varchar(20);check:asistencia_preliminar IN ('asistio','ausente')"`
+
 	// Autoreservado (nueva función, 2026-09-08): marca un turno movido por
 	// el botón "Autoreservar turnos" del modal de conflicto
 	// (bloqueo-detalle-modal.tsx) — el profesional pidió el traslado
