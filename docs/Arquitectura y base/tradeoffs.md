@@ -2590,9 +2590,21 @@ La alternativa era una sola columna con un flag "provisorio", o diferir las cons
 
 En la tarjeta, el botón elegido se marca con un contorno verde o rojo en vez de reemplazar la celda por "Asistido". Una celda de solo lectura diría que ya no se puede cambiar, y sí se puede: la forma tiene que decir lo mismo que la regla.
 
-### El scroll horizontal que no andaba
+Y la forma no alcanzaba sola: `BotonMantenerApretado` se disparaba **una sola vez por montaje**. Es la protección correcta en el cartel del final del turno —ahí la marca es irreversible y un segundo gesto solo consigue un error del backend por algo que el profesional hizo bien—, y exactamente lo contrario de lo que hace falta en la tarjeta. Queda como `repetible`, opt-in, con el default de antes.
 
-Faltaba `min-w-0` en el contenedor flex de la tarjeta. Un hijo de flex no baja de su ancho de contenido por default, así que el cuerpo se estiraba al ancho de la tabla y el `overflow-auto` no tenía nada que recortar. Es la trampa clásica de flexbox, y no se ve en escritorio.
+Los dos botones llevan además el mismo ancho fijo: "No asistió" es cuatro letras más largo que "Asistió", y que una de dos opciones equivalentes se vea más grande sugiere que pesa más.
+
+### El scroll horizontal que no andaba, y por qué el `min-w-0` no alcanzó
+
+Primer intento: faltaba `min-w-0` en el contenedor flex. Cierto, pero no era la causa — con eso puesto, el scroll seguía sin funcionar ni siquiera en el emulador de dispositivos de Edge, que **sí** aplica el ancho de viewport y las media queries y por lo tanto sí debería mostrarlo.
+
+La causa real: **`.panel-card-vidrio` fuerza `overflow-x: hidden`**. Lo necesita, y está escrito en su propio comentario — el pseudo-elemento que pinta la textura desenfocada se extiende con `inset: -16px` para que el `blur` no deje un borde nítido, y ese excedente lo recorta el contenedor. La clase incluso aclara que usa `overflow-x` y no el shorthand justamente para dejar libre el eje vertical.
+
+O sea: **el efecto vidrio y el scroll horizontal son incompatibles en el mismo elemento, por diseño de la clase.** La regla de `globals.css` le gana a la utility `overflow-auto` de Tailwind, así que la utility no hacía nada.
+
+Se separan en dos cajas: el vidrio afuera recortando lo suyo, el scroll adentro. Poner un modificador que desactivara el `overflow-x: hidden` habría sido más corto y peor: el `right: -16px` del pseudo-elemento pasaría a formar parte del área scrolleable y dejaría 16 px de vacío al final del scroll.
+
+**La lección que queda:** antes de dar por buena una utility de Tailwind sobre un elemento que ya lleva una clase propia del proyecto, hay que mirar qué declara esa clase. Misma especificidad, y las de `globals.css` no están en `@layer utilities`.
 
 ### Los pies de las tarjetas del Turnero
 
