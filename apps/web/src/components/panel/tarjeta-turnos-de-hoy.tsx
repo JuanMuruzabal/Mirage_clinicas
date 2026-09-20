@@ -62,9 +62,18 @@ const ANTICIPO_ASISTENCIA_MS = 5 * 60 * 1000;
 // Los anchos de las columnas, en un solo lugar para que la cabecera fija
 // y las filas no se puedan desalinear. El total define el ancho mínimo
 // de la tabla, que es lo que dispara el scroll horizontal en mobile.
-const COL_HORARIO = "w-[9.5rem]";
-const COL_PACIENTE = "w-[14rem]";
-const COL_ESTADO = "w-[9.5rem]";
+//
+// Van con `table-layout: fixed` (ver la tabla): con el layout automático
+// el navegador reparte el sobrante entre las columnas de texto, y la de
+// PACIENTE —la única con contenido de largo variable— se quedaba con
+// todo, empujando ESTADO y ASISTENCIA contra el borde derecho
+// (2026-09-19, pedido del cliente: "hay un gran espacio entre PACIENTE y
+// ESTADO"). Con el layout fijo los anchos se respetan tal cual y el
+// sobrante queda en ASISTENCIA, que es la última: las tres primeras
+// columnas quedan juntas a la izquierda.
+const COL_HORARIO = "w-[8.75rem]";
+const COL_PACIENTE = "w-[11rem]";
+const COL_ESTADO = "w-[8.5rem]";
 
 const CELDA = "px-4 py-3 align-middle";
 
@@ -146,15 +155,24 @@ export function TarjetaTurnosDeHoy({
             elemento, por diseño de la clase.
             Así que el vidrio queda afuera (recortando lo suyo) y el
             scroll adentro. `min-w-0` en los dos, para que ninguno de los
-            dos hijos de flex se niegue a bajar de su ancho de contenido. */}
-        <div className="panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1">
+            dos hijos de flex se niegue a bajar de su ancho de contenido.
+
+            `overflow-y-hidden` en el de afuera no sobra: con `overflow-x:
+            hidden` y el eje Y sin declarar, el navegador computa
+            `overflow-y: auto` (la combinación hidden/visible no es
+            válida) — o sea, la caja de afuera se volvía un segundo
+            contenedor de scroll vertical, sin `.panel-card-scroll`, y
+            aparecía la barra gris predeterminada del navegador al lado
+            de la beige. Cerrando el eje Y acá queda UNA sola caja que
+            scrollea, la de adentro, que es la que tiene el estilo. */}
+        <div className="panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden">
           {turnos.length === 0 ? (
             <p className="p-6 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
               No hay turnos para hoy.
             </p>
           ) : (
             <div className="panel-card-scroll w-full min-w-0 overflow-auto">
-            <table className="w-full min-w-[46rem] border-collapse text-left">
+            <table className="w-full min-w-[44rem] table-fixed border-collapse text-left">
               {/* La cabecera acompaña el scroll sin fondo propio: el
                   cuerpo tiene el efecto vidrio de las tarjetas del
                   Turnero y una banda opaca acá lo partía en dos. Los
