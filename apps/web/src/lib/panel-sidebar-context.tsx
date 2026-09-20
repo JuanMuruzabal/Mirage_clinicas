@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
@@ -23,7 +24,38 @@ interface PanelSidebarContextValue {
 const PanelSidebarContext = createContext<PanelSidebarContextValue | null>(null);
 
 export function PanelSidebarProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // EL DRAWER SE CIERRA EN CADA NAVEGACIÓN, y vive acá y no en
+  // `PanelSidebar` (2026-09-19, pedido del cliente: "cada vez que se
+  // salga de la página /panel en mobile retraer el sidebar, y cada vez
+  // que se entre este debe estar retraído").
+  //
+  // La lógica ESTABA en PanelSidebar, y ahí no alcanzaba: ese componente
+  // vive en `app/panel/layout.tsx`, así que **se desmonta al salir de
+  // /panel** — justo la navegación que había que atender. Se iba con el
+  // drawer abierto, y como este provider vive en el layout RAÍZ y
+  // sobrevive a la navegación, al volver a /panel el drawer aparecía ya
+  // desplegado. El estado y la regla que lo gobierna tienen que vivir en
+  // el mismo lugar.
+  //
+  // Cerrar en CUALQUIER cambio de ruta cubre las dos mitades del pedido
+  // de una sola vez: salir de /panel lo retrae, y entrar a /panel es
+  // también un cambio de ruta, así que nunca se llega con el drawer
+  // abierto. Una recarga parada en /panel arranca en `false` por el
+  // `useState`.
+  //
+  // "Adjusting state when a prop changes" (https://react.dev/learn/you-might-not-need-an-effect)
+  // y no un `useEffect`: es el patrón que ya usa el resto del proyecto
+  // (site-header-chrome.tsx, useEstadoDelServidor) y evita el setState
+  // síncrono dentro de un efecto, que el lint rechaza.
+  const [ultimaRuta, setUltimaRuta] = useState(pathname);
+  if (pathname !== ultimaRuta) {
+    setUltimaRuta(pathname);
+    if (open) setOpen(false);
+  }
+
   const value: PanelSidebarContextValue = {
     open,
     toggle: () => setOpen((o) => !o),

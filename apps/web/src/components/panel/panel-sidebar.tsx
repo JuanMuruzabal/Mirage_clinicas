@@ -45,16 +45,10 @@ export function PanelSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { open, close } = usePanelSidebar();
 
-  // Cerrar el drawer mobile al cambiar de ruta (clickear un link de acá
-  // adentro, o navegar por cualquier otro medio) — "adjusting state when
-  // a prop changes" (https://react.dev/learn/you-might-not-need-an-effect),
-  // mismo patrón ya usado en site-header-chrome.tsx para el menú mobile
-  // anónimo, en vez de un useEffect con setState síncrono.
-  const [sidebarPathname, setSidebarPathname] = useState(pathname);
-  if (pathname !== sidebarPathname) {
-    setSidebarPathname(pathname);
-    if (open) close();
-  }
+  // El cierre del drawer al navegar ya NO está acá: se mudó a
+  // `PanelSidebarProvider` (2026-09-19). Este componente se desmonta al
+  // salir de /panel, así que nunca llegaba a atender justo la navegación
+  // que importaba — ver el comentario largo en panel-sidebar-context.tsx.
 
   return (
     <>
