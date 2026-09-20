@@ -34,6 +34,7 @@ export function BotonMantenerApretado({
   disabled,
   onConfirmar,
   className = "",
+  repetible = false,
 }: {
   etiqueta: string;
   claseColor: string;
@@ -42,6 +43,19 @@ export function BotonMantenerApretado({
   /** Tamaño/tipografía del botón — el cartel lo quiere grande, la fila de
    *  la tarjeta de hoy lo quiere chico. El comportamiento no cambia. */
   className?: string;
+  /** Deja volver a confirmar después de la primera vez.
+   *
+   *  El default es `false` y no es un detalle: en el cartel del final del
+   *  turno la marca es IRREVERSIBLE, así que el botón tiene que dispararse
+   *  una sola vez por montaje —si no, un segundo gesto manda un pedido que
+   *  el backend va a rechazar y el profesional ve un error por algo que
+   *  hizo bien—.
+   *
+   *  En la tarjeta de "Turnos de hoy" es al revés: lo anotado es un
+   *  borrador y cambiar de opinión es el caso de uso (2026-09-19, bug
+   *  reportado: "no puedo poner asistió una vez que pongo no asistió...
+   *  debe poder hacerse de los 2 lados"). Ahí va `repetible`. */
+  repetible?: boolean;
 }) {
   const [progreso, setProgreso] = useState(0);
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -70,7 +84,7 @@ export function BotonMantenerApretado({
           intervaloRef.current = null;
         }
         if (!confirmadoRef.current) {
-          confirmadoRef.current = true;
+          confirmadoRef.current = repetible ? false : true;
           onConfirmar();
         }
       }

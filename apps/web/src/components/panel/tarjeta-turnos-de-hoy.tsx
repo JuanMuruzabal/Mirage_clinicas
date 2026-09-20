@@ -68,6 +68,11 @@ const COL_ESTADO = "w-[9.5rem]";
 
 const CELDA = "px-4 py-3 align-middle";
 
+// La cabecera se pega arriba celda por celda, no en el `<thead>` — ver
+// el comentario de la tabla. `bg-hueso` explícito: una celda sticky sin
+// fondo propio deja pasar las filas por debajo al scrollear.
+const TH_STICKY = "sticky top-0 z-10 bg-hueso px-4 py-2 align-middle";
+
 export function TarjetaTurnosDeHoy({
   turnos,
   hrefCabecera,
@@ -131,38 +136,57 @@ export function TarjetaTurnosDeHoy({
           </p>
         </div>
 
-        {/* `min-w-0` es lo que hace funcionar el scroll horizontal en
-            mobile: sin él, este hijo de flex se estira al ancho de la
-            tabla y el `overflow-auto` no tiene nada que recortar. */}
-        <div className="panel-card-scroll panel-card-vidrio max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-auto">
+        {/* DOS CAJAS, y esa es la corrección (2026-09-19, el scroll
+            horizontal no andaba ni siquiera en el emulador de Edge).
+            `.panel-card-vidrio` fuerza `overflow-x: hidden` —lo necesita
+            para recortar el `inset: -16px` del pseudo-elemento que pinta
+            la textura desenfocada—, y esa regla le gana a la utility
+            `overflow-auto` de Tailwind. O sea: la clase del efecto
+            vidrio y el scroll horizontal son incompatibles en el MISMO
+            elemento, por diseño de la clase.
+            Así que el vidrio queda afuera (recortando lo suyo) y el
+            scroll adentro. `min-w-0` en los dos, para que ninguno de los
+            dos hijos de flex se niegue a bajar de su ancho de contenido. */}
+        <div className="panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1">
           {turnos.length === 0 ? (
             <p className="p-6 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
               No hay turnos para hoy.
             </p>
           ) : (
-            <table className="w-full min-w-[42rem] border-collapse text-left">
-              {/* La cabecera acompaña el scroll (`sticky top-0`) pero NO
-                  lleva fondo propio: el cuerpo tiene el efecto vidrio de
-                  las tarjetas del Turnero y una banda opaca acá lo
-                  partía en dos. Lo que va en el verde de siempre son los
-                  rótulos, en la misma tipografía que el nombre del
-                  paciente — son parte de la misma lectura, no etiquetas
-                  de sistema. */}
-              <thead className="panel-card-vidrio sticky top-0 z-10">
-                <tr className="font-[family-name:var(--font-display)] text-xs font-bold tracking-wide text-salvia-oscuro uppercase">
-                  <th scope="col" className={`${CELDA} py-2 ${COL_HORARIO}`}>
+            <div className="panel-card-scroll w-full min-w-0 overflow-auto">
+            <table className="w-full min-w-[46rem] border-collapse text-left">
+              {/* La cabecera acompaña el scroll sin fondo propio: el
+                  cuerpo tiene el efecto vidrio de las tarjetas del
+                  Turnero y una banda opaca acá lo partía en dos. Los
+                  rótulos van en el verde de siempre y en la tipografía
+                  del nombre del paciente — son parte de la misma
+                  lectura, no etiquetas de sistema.
+
+                  El `sticky` va en cada `<th>` y no en el `<thead>`: es
+                  la decisión que ya tomó el proyecto para las tres
+                  tablas de gestión (ver `.panel-th-sticky` en
+                  globals.css), porque Safari de iOS despega un thead
+                  sticky durante el rebote elástico. */}
+              <thead>
+                <tr className="font-[family-name:var(--font-display)] text-sm font-bold tracking-wide text-salvia-oscuro uppercase">
+                  <th scope="col" className={`${TH_STICKY} ${COL_HORARIO}`}>
                     Horario
                   </th>
-                  <th scope="col" className={`${CELDA} py-2 ${COL_PACIENTE}`}>
+                  <th scope="col" className={`${TH_STICKY} ${COL_PACIENTE}`}>
                     Paciente
                   </th>
-                  <th scope="col" className={`${CELDA} py-2 ${COL_ESTADO}`}>
+                  {/* `pl-7` y no `pl-4`: la píldora de abajo tiene su
+                      propio `px-3`, así que su TEXTO arranca 12 px más
+                      adentro que su caja. Alineado contra la caja, el
+                      rótulo quedaba corrido respecto de la palabra que
+                      nombra (2026-09-19, pedido del cliente). */}
+                  <th scope="col" className={`${TH_STICKY} pl-7 ${COL_ESTADO}`}>
                     Estado
                   </th>
                   {/* Sin ancho: absorbe lo que sobra, y así ESTADO queda
                       pegado al nombre en vez de empujado al otro extremo
                       de la tarjeta. */}
-                  <th scope="col" className={`${CELDA} py-2`}>
+                  <th scope="col" className={TH_STICKY}>
                     Asistencia
                   </th>
                 </tr>
@@ -173,6 +197,7 @@ export function TarjetaTurnosDeHoy({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -325,6 +350,12 @@ function BotonAsistencia({
   onConfirmar: () => void;
 }) {
   const relleno = color === "salvia" ? "bg-salvia-oscuro" : "bg-terracota-oscuro";
+  // Ancho fijo para los dos: "No asistió" es cuatro letras más largo que
+  // "Asistió", y sin esto quedaban de tamaños distintos al lado uno del
+  // otro (2026-09-19, foto de referencia `correccion.png`). Es un par de
+  // opciones equivalentes; que una se vea más grande sugiere que pesa
+  // más.
+  const ancho = "w-[6.75rem]";
   const contorno =
     color === "salvia"
       ? "ring-2 ring-salvia-oscuro ring-offset-1 ring-offset-hueso"
@@ -335,11 +366,14 @@ function BotonAsistencia({
       claseColor={relleno}
       // Sin elegir, el botón va apagado: los dos llenos de color
       // competían entre sí y no se leía cuál estaba puesto.
-      className={`px-2.5 py-1.5 text-xs ${elegido ? contorno : "opacity-70"} ${
+      className={`${ancho} px-2.5 py-1.5 text-xs ${elegido ? contorno : "opacity-70"} ${
         disabled ? "cursor-not-allowed opacity-40" : ""
       }`}
       disabled={disabled}
       onConfirmar={onConfirmar}
+      // Se puede cambiar de opinión las veces que haga falta mientras el
+      // turno no termine: lo anotado es un borrador.
+      repetible
     />
   );
 }

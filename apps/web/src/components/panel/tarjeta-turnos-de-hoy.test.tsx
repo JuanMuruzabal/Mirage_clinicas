@@ -233,6 +233,36 @@ describe("TarjetaTurnosDeHoy — un turno ya anotado", () => {
     expect(noAsistio.className).not.toContain("ring-terracota-oscuro");
   });
 
+  // EL bug reportado (2026-09-19): "no puedo poner asistió una vez que
+  // pongo no asistió... debe poder hacerse de los 2 lados". El gesto de
+  // mantener apretado se disparaba UNA sola vez por montaje —protección
+  // correcta en el cartel del final, donde la marca es irreversible, y
+  // exactamente lo contrario de lo que hace falta acá—.
+  //
+  // Va y vuelve DOS veces a propósito: con la protección puesta, el
+  // tercer gesto es el primero que no dispara.
+  it("se puede ir y volver entre los dos, todas las veces que haga falta", async () => {
+    montar([turno({ id: "t-ida-vuelta", horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32) })]);
+
+    const apretar = async (nombre: string) => {
+      fireEvent.pointerDown(screen.getByRole("button", { name: nombre }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      fireEvent.pointerUp(screen.getByRole("button", { name: nombre }));
+    };
+
+    await apretar("No asistió");
+    await apretar("Asistió");
+    await apretar("No asistió");
+
+    expect(marcarAsistenciaActionMock.mock.calls).toEqual([
+      ["t-ida-vuelta", "ausente"],
+      ["t-ida-vuelta", "asistio"],
+      ["t-ida-vuelta", "ausente"],
+    ]);
+  });
+
   it("se puede cambiar de opinión: marcar el otro vuelve a llamar al backend", async () => {
     montar([
       turno({ id: "t-cambio", horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32), asistenciaPreliminar: "ausente" }),
@@ -270,6 +300,22 @@ describe("TarjetaTurnosDeHoy — al vencer un turno", () => {
     });
 
     expect(refreshMock).toHaveBeenCalled();
+  });
+});
+
+describe("TarjetaTurnosDeHoy — los botones se ven como un par", () => {
+  // "No asistió" es cuatro letras más largo que "Asistió": sin un ancho
+  // fijo quedaban de tamaños distintos, y una opción parecía pesar más
+  // que la otra (2026-09-19, foto `correccion.png`).
+  it("los dos tienen el mismo ancho", () => {
+    montar([turno({ horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32) })]);
+
+    const asistio = screen.getByRole("button", { name: "Asistió" });
+    const noAsistio = screen.getByRole("button", { name: "No asistió" });
+    const anchoDe = (el: HTMLElement) => el.className.split(/\s+/).find((c) => c.startsWith("w-["));
+
+    expect(anchoDe(asistio)).toBeDefined();
+    expect(anchoDe(asistio)).toBe(anchoDe(noAsistio));
   });
 });
 
