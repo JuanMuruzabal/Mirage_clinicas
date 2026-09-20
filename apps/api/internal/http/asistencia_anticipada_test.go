@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/testdb"
 )
 
@@ -159,6 +160,29 @@ func TestResumenPanel_AlTerminarPasaAResueltoConSuMarca(t *testing.T) {
 	}
 }
 
+// horaVigenteDeHoy — un turno que TODAVÍA NO TERMINÓ y que cae dentro
+// del día de HOY en Córdoba, que es lo que exige la tarjeta "Turnos de
+// hoy" (`hora_inicio` entre la medianoche de hoy y la de mañana, y
+// `hora_fin` en el futuro).
+//
+// `time.Now().Add(2*time.Hour)` no servía, y CI lo encontró: el runner
+// corre en UTC y el producto en Córdoba (UTC-3). A las 01:00 UTC ya son
+// las 22:00 del día anterior en Córdoba, así que "dentro de dos horas"
+// caía en el día siguiente y el turno no aparecía en la tarjeta. Mismo
+// problema que ya había resuelto `horaResueltaDeHoy` para el otro borde
+// del día, y misma salida: se arma la hora contra el reloj del PRODUCTO,
+// no contra el del proceso.
+func horaVigenteDeHoy(t *testing.T) time.Time {
+	t.Helper()
+	inicio := clock.Now().Add(10 * time.Minute)
+	fin := inicio.Add(30 * time.Minute)
+	mismoDia := clock.In(inicio).Format("2006-01-02") == clock.In(clock.Now()).Format("2006-01-02")
+	if !mismoDia || clock.In(fin).Format("2006-01-02") != clock.In(clock.Now()).Format("2006-01-02") {
+		t.Skip("no se puede construir un turno vigente de HOY a menos de 40 minutos de la medianoche de Córdoba — correr de nuevo en un rato")
+	}
+	return inicio
+}
+
 // TestResumenPanel_LosItemsLlevanLosInstantes — la tarjeta deriva el
 // estado y la ventana de asistencia del reloj, y para eso necesita un
 // instante: con "15:04" el navegador tendría que reinterpretarlo en su
@@ -167,7 +191,7 @@ func TestResumenPanel_LosItemsLlevanLosInstantes(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "anticipada5@example.com")
-	inicio := time.Now().Add(2 * time.Hour)
+	inicio := horaVigenteDeHoy(t)
 	creado := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, inicio)
 
 	var got resumenPanelResponse
