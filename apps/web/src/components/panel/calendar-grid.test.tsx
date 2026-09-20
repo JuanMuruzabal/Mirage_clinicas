@@ -927,4 +927,37 @@ describe("CalendarGrid — columnas por profesional", () => {
     // dos.
     expect(container.querySelectorAll('[data-testid="bloqueo"]').length + screen.queryAllByText(/Reunión/).length).toBe(1);
   });
+
+  // QA de la 3.2.6 (2026-09-20): *"la excepción de horario se filtra a
+  // los otros profesionales en la vista día del calendario con la vista
+  // general de la clínica"*.
+  //
+  // Las excepciones iban SIN filtrar mientras los horarios reservados sí
+  // se filtraban, así que el "No trabajo en este período" de uno le
+  // tapaba el día a todos los demás — que es peor que no pintarlo:
+  // alguien buscando dónde encajar un paciente ve cerrada una agenda
+  // abierta.
+  it("las excepciones de horario se quedan en la columna de su dueño", () => {
+    const excepcionDeU1 = {
+      id: "h-1",
+      userId: "u1",
+      alcance: "rango" as const,
+      fechaDesde: "2030-09-01",
+      fechaHasta: "2030-09-01",
+    };
+    render(
+      <CalendarGrid
+        columnas={columnas}
+        turnos={mixtos}
+        tiposConsulta={tiposConsulta}
+        horariosAtencion={[excepcionDeU1]}
+        onTurnoClick={vi.fn()}
+      />,
+    );
+
+    // Un cierre de día entero se agrupa con el turno que tapa, y esa
+    // tarjeta combinada lo nombra "1 horario de no trabajo". Una sola
+    // vez: en la columna de u1. Sin el filtro aparecía en las dos.
+    expect(screen.getAllByText(/horario de no trabajo/)).toHaveLength(1);
+  });
 });

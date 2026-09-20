@@ -402,6 +402,9 @@ export interface TipoConsulta {
 // BloqueoHorario, "la más específica gana" mientras esté vigente.
 // horaDesde/horaHasta ausentes a la vez = "no trabaja" ese período.
 export interface HorarioAtencion {
+  /** De quién es esta agenda (Fase 3.2.6). Lo usa la vista general del
+   *  calendario para poner cada excepción en la columna de su dueño. */
+  userId?: string;
   id: string;
   alcance: "general" | "semana" | "mes" | "rango";
   fechaDesde?: string;

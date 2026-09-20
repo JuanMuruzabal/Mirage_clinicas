@@ -47,6 +47,12 @@ type horarioAtencionResponse struct {
 	FechaHasta *string `json:"fechaHasta,omitempty"`
 	HoraDesde  *string `json:"horaDesde,omitempty"`
 	HoraHasta  *string `json:"horaHasta,omitempty"`
+	// UserID — de quién es esta agenda (QA de la 3.2.6). Lo necesita la
+	// vista general del calendario, que dibuja UNA COLUMNA POR
+	// PROFESIONAL: sin esto no puede saber en cuál va cada excepción de
+	// horario y las pintaba en todas, cerrándole el día a gente que
+	// trabaja. Mismo dato y mismo motivo que en `bloqueoHorarioResponse`.
+	UserID *string `json:"userId,omitempty"`
 }
 
 func toHorarioAtencionResponse(h db.HorarioAtencion) horarioAtencionResponse {
@@ -57,6 +63,7 @@ func toHorarioAtencionResponse(h db.HorarioAtencion) horarioAtencionResponse {
 		FechaHasta: formatFechaPtr(h.FechaHasta),
 		HoraDesde:  h.HoraDesde,
 		HoraHasta:  h.HoraHasta,
+		UserID:     uuidPtrAString(h.UserID),
 	}
 }
 

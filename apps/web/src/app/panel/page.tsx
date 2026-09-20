@@ -220,7 +220,7 @@ export default async function PanelGeneralPage() {
           labelCabecera="Ver turnos"
           hrefPie="/panel/turnos?estado=resuelto"
           labelPie="Ver todos"
-          vacioMensaje="Todavía no se marcó ningún turno hoy."
+          vacioMensaje="Todavía no terminó ningún turno hoy."
           acento
           icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
           filas={resumen.turnosResueltos.map((t) => ({
@@ -230,8 +230,26 @@ export default async function PanelGeneralPage() {
             contenido: (
               <FilaResumen hora={`${t.hora} a ${t.horaFin}`} profesional={t.profesional}>
                 {t.nombre}{" "}
-                <span className={t.asistencia === "asistio" ? "text-salvia-oscuro" : "text-terracota-oscuro"}>
-                  {t.asistencia === "asistio" ? "· Asistió" : "· Ausente"}
+                {/* SIN MARCA TAMBIÉN ENTRA ACÁ (QA de la 3.2.6). Un turno
+                    que terminó y al que nadie le marcó nada desaparecía
+                    de las dos tarjetas: de "Turnos de hoy" porque ya pasó
+                    su hora, y de esta porque no tenía marca. "Resuelto"
+                    es un hecho del reloj; la asistencia es un acto de
+                    alguien, y puede no haber ocurrido todavía. */}
+                <span
+                  className={
+                    t.asistencia === "asistio"
+                      ? "text-salvia-oscuro"
+                      : t.asistencia === "ausente"
+                        ? "text-terracota-oscuro"
+                        : "text-grafito/50"
+                  }
+                >
+                  {t.asistencia === "asistio"
+                    ? "· Asistió"
+                    : t.asistencia === "ausente"
+                      ? "· Ausente"
+                      : "· Asistencia pendiente"}
                 </span>
               </FilaResumen>
             ),

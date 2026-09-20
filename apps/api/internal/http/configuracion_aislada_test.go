@@ -308,3 +308,52 @@ func tiposDeColegas(t *testing.T, router http.Handler, token string) []string {
 	}
 	return nombres
 }
+
+// TestAsistencia_RecepcionNoTienePendientes — QA de la 3.2.6
+// (2026-09-20): *"el cartel de asistencia que aparece debe ser exclusivo
+// para el profesional, al recepcionista no le debería aparecer"*.
+//
+// Ese cartel es un modal incerrable que tapa la pantalla hasta que
+// alguien marca asistió/ausente, y marcar dispara consecuencias
+// irreversibles. La regla vive en el backend y no solo en el layout que
+// monta el cartel: esconderlo no es lo mismo que no tener la lista, y
+// desde la vista general esa lista serían los turnos de TODOS.
+func TestAsistencia_RecepcionNoTienePendientes(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "cartelrecep")
+
+	// Un turno del titular que ya terminó y al que nadie marcó nada.
+	crearTurnoAgendadoDePrueba(t, gdb, esc.titular.Profesional.ID, esc.tipoID, horaResueltaDeHoy(t))
+
+	// El profesional que atendió SÍ lo tiene pendiente: sin esto, el test
+	// pasaría también con el endpoint roto para todo el mundo.
+	if len(pendientesDeAsistencia(t, router, esc.titular.Token)) == 0 {
+		t.Error("el profesional que atendió no ve su turno pendiente de asistencia")
+	}
+
+	// Recepción, parada donde sea, no.
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if v := pendientesDeAsistencia(t, router, esc.recepToken); len(v) != 0 {
+		t.Errorf("recepción recibió %d turnos pendientes: el cartel no es suyo", len(v))
+	}
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	if v := pendientesDeAsistencia(t, router, esc.recepToken); len(v) != 0 {
+		t.Errorf("en la vista general recepción recibió %d turnos pendientes", len(v))
+	}
+}
+
+func pendientesDeAsistencia(t *testing.T, router http.Handler, token string) []turnoResponse {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/turnos/pendientes-asistencia", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /turnos/pendientes-asistencia: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out turnosPendientesAsistenciaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta ilegible: %v", err)
+	}
+	return out.Vencidos
+}

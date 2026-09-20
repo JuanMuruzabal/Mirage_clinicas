@@ -570,7 +570,13 @@ export function CalendarGrid({
             deLaColumna(bloqueosGenerales),
             deLaColumna(bloqueosEspecificas),
             turnosDelDia,
-            horariosAtencion,
+            // Las excepciones de horario también son de UNA agenda (QA de
+            // la 3.2.6). Iban sin filtrar mientras los horarios reservados
+            // sí se filtraban, así que en la vista general el "No trabajo
+            // en este período" de uno le tapaba el día a todos los demás.
+            columna.userId === undefined
+              ? horariosAtencion
+              : horariosAtencion.filter((h) => h.userId === columna.userId),
           );
           // Turnos absorbidos por un segmento "conflicto" (paso 2): se
           // dibujan DENTRO de esa tarjeta combinada, no en el loop de

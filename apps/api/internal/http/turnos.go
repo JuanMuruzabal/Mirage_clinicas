@@ -1895,9 +1895,43 @@ func resumenPanelHandler(gdb *gorm.DB) http.HandlerFunc {
 		// las 10:15 aparecía en esta tarjeta y en "Turnos de hoy" a la
 		// vez. Las dos listas son complementarias: la de arriba pide
 		// `hora_fin >= ahora`, esta pide lo contrario.
+		//
+		// LOS BORRADORES QUE YA VENCIERON, PRIMERO (QA de la 3.2.6,
+		// 2026-09-20). Lo anotado por adelantado desde la tarjeta "Turnos
+		// de hoy" se vuelve definitivo cuando el turno cruza su hora de
+		// fin, y hasta ahora eso lo disparaba SOLO el sondeo del cartel
+		// global. Ese cartel dejó de montarse para recepción, así que sin
+		// esto la marca que recepción anotó se quedaba en borrador hasta
+		// que el profesional abriera la app — y la tarjeta de resueltos
+		// diría "asistencia pendiente" sobre un turno que alguien ya
+		// resolvió.
+		//
+		// Escribir desde un GET es el mismo patrón que ya usan
+		// /turnos/pendientes-asistencia y /equipo/presencia: el dato tiene
+		// que estar al día para responder, y no hay proceso de fondo.
+		var borradoresVencidos []db.Turno
+		if err := gdb.Scopes(soloMisTurnos(r)).Where(
+			"clinic_id = ? AND estado = 'agendado' AND hora_fin < ? AND asistencia IS NULL AND asistencia_preliminar IS NOT NULL",
+			profesionalID, ahora,
+		).Find(&borradoresVencidos).Error; err == nil && len(borradoresVencidos) > 0 {
+			aplicarLosBorradoresQueVencieron(gdb, borradoresVencidos, profesionalID)
+		}
+
+		// SIN `asistencia IS NOT NULL` (QA de la 3.2.6, 2026-09-20). Un
+		// turno que terminó y al que nadie le marcó nada desaparecía de
+		// las DOS tarjetas: de "Turnos de hoy" porque ya pasó su hora de
+		// fin, y de esta porque no tenía marca. Quedaba solo en el cartel
+		// global, que es justamente lo que el cliente pidió sacarle a
+		// recepción.
+		//
+		// El pedido: *"el turno, si no se marca asistencia o ausencia
+		// desde la tarjeta de turnos de hoy, pasará a la tarjeta de turnos
+		// resueltos pero en asistencia pendiente hasta que el profesional
+		// marque"*. Resuelto es un hecho del reloj; la asistencia es un
+		// acto de alguien, y puede no haber ocurrido todavía.
 		var turnosResueltosDB []db.Turno
 		if err := gdb.Scopes(soloMisTurnos(r)).Where(
-			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND hora_fin < ? AND asistencia IS NOT NULL",
+			"clinic_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ? AND hora_fin < ?",
 			profesionalID, "agendado", hoy, mañana, ahora,
 		).
 			Order("hora_inicio").

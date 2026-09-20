@@ -61,7 +61,23 @@ import { NotificacionesConflictoGlobal } from "@/components/panel/notificaciones
 //     ningún stretch), `<main>` queda acotado siempre y es su propio
 //     `overflow-auto` el que absorbe el resto.
 export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
-  await requireOnboardingComplete();
+  const sesion = await requireOnboardingComplete();
+  // EL CARTEL DE ASISTENCIA ES DEL PROFESIONAL (QA de la 3.2.6,
+  // 2026-09-20: *"el cartel de asistencia que aparece debe ser exclusivo
+  // para el profesional, al recepcionista no le debería aparecer"*).
+  //
+  // Es un modal incerrable que tapa la pantalla hasta que alguien marca
+  // asistió/ausente, y marcar dispara consecuencias irreversibles
+  // (resuelve conflictos de identidad, un "ausente" puede borrar la ficha
+  // de un paciente sin verificar). Esa decisión es del profesional que
+  // atendió: es el único que sabe si la persona vino.
+  //
+  // Recepción sigue pudiendo marcar por adelantado desde la tarjeta
+  // "Turnos de hoy" —eso lo pidió el cliente explícitamente— y el turno
+  // sin marcar ya no se pierde: pasa a "Turnos resueltos" como
+  // "asistencia pendiente" hasta que el profesional responda.
+  const soloRecepcion =
+    sesion.roles.includes("recepcion") && !sesion.roles.includes("profesional");
 
   return (
     <PanelShell>
@@ -81,7 +97,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
           pantalla del panel esté el profesional cuando un turno cumple
           su hora de fin. Usa un portal al body (ModalPortal), así que su
           posición en este árbol no afecta dónde se pinta. */}
-      <AsistenciaCartelGlobal />
+      {!soloRecepcion && <AsistenciaCartelGlobal />}
     </PanelShell>
   );
 }
