@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CalendarGrid, esExcepcionSintetica } from "./calendar-grid";
+import { CalendarGrid, columnasDeDias, esExcepcionSintetica } from "./calendar-grid";
 
 const tiposConsulta = [
   { id: "tc-1", nombre: "Consulta general", color: "#E7D9BE" },
@@ -30,7 +30,7 @@ const turnos = [
 
 describe("CalendarGrid", () => {
   it("renderiza el turno en el día correcto con su nombre y hora", () => {
-    render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(within(bloque).getByText("María Games")).toBeInTheDocument();
     expect(within(bloque).getByText("09:00")).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe("CalendarGrid", () => {
 
   it("no muestra turnos de otro día", () => {
     render(
-      <CalendarGrid dias={[new Date(2030, 8, 2)]} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
+      <CalendarGrid columnas={columnasDeDias([new Date(2030, 8, 2)])} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
     );
     expect(screen.queryByText("María Games")).not.toBeInTheDocument();
   });
@@ -46,7 +46,7 @@ describe("CalendarGrid", () => {
   it("al hacer click en un turno, llama a onTurnoClick con ese turno", async () => {
     const onTurnoClick = vi.fn();
     const user = userEvent.setup();
-    render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={onTurnoClick} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={onTurnoClick} />);
 
     await user.click(screen.getByText("María Games"));
     expect(onTurnoClick).toHaveBeenCalledWith(turnos[0]);
@@ -55,7 +55,7 @@ describe("CalendarGrid", () => {
   // Corrección de QA (F2.3): el fondo sale del color CONFIGURADO para
   // ese tipo de consulta (tc-1 → #E7D9BE), no de un tema fijo por nombre.
   it("un turno se pinta con el color configurado para su tipo de consulta", () => {
-    render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveStyle({ background: "color-mix(in srgb, rgb(231, 217, 190) 25%, white)" });
   });
@@ -78,7 +78,7 @@ describe("CalendarGrid", () => {
         horaFin: new Date(Date.UTC(2030, 8, 1, 12, 30)).toISOString(),
       },
     ];
-    render(<CalendarGrid dias={dias} turnos={turnoUTC} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnoUTC} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     const bloque = screen.getByRole("button", { name: /María Games/ });
     // HORA_INICIO=6, PX_POR_HORA=64 (calendar-grid.tsx) — 09:00 Córdoba
     // menos las 06:00 con las que arranca la grilla, por 64px/hora.
@@ -86,7 +86,7 @@ describe("CalendarGrid", () => {
   });
 
   it("muestra las horas del día en la columna izquierda", () => {
-    render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     expect(screen.getByText("06:00")).toBeInTheDocument();
     expect(screen.getByText("24:00")).toBeInTheDocument();
   });
@@ -98,7 +98,7 @@ describe("CalendarGrid", () => {
   // detrás de la esquina fija (ahora con fondo opaco, F2.1). El resto de
   // las horas sigue centrado sobre su línea como siempre.
   it("la primera hora (06:00) no lleva el translate que la esconde detrás de la esquina fija", () => {
-    render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     expect(screen.getByText("06:00")).not.toHaveClass("-translate-y-1/2");
     expect(screen.getByText("09:00")).toHaveClass("-translate-y-1/2");
   });
@@ -110,7 +110,7 @@ describe("CalendarGrid", () => {
   it("la columna de horas queda fija en X, la fila de días en Y, la esquina en los dos ejes", () => {
     const dosDias = [new Date(2030, 8, 1), new Date(2030, 8, 2)];
     const { container } = render(
-      <CalendarGrid dias={dosDias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
+      <CalendarGrid columnas={columnasDeDias(dosDias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />,
     );
 
     const columnaHoras = container.querySelector(".w-16.flex-shrink-0")!;
@@ -135,7 +135,7 @@ describe("CalendarGrid", () => {
       horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(),
       horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
     };
-    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveStyle({ background: "var(--color-arena)" });
@@ -153,7 +153,7 @@ describe("CalendarGrid", () => {
       horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
       asistencia: "asistio" as const,
     };
-    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveClass("border-salvia-oscuro");
@@ -167,7 +167,7 @@ describe("CalendarGrid", () => {
       horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
       asistencia: "ausente" as const,
     };
-    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveClass("border-terracota-oscuro");
@@ -180,7 +180,7 @@ describe("CalendarGrid", () => {
       horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(),
       horaFin: new Date(2020, 0, 15, 9, 30).toISOString(),
     };
-    render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveClass("border-arena");
@@ -194,14 +194,14 @@ describe("CalendarGrid", () => {
   // un color aparte.
   it("un turno autoreservado se pinta con rayas, no con el color plano del tipo de consulta", () => {
     const turnoAutoreservado = { ...turnos[0], autoreservado: true };
-    render(<CalendarGrid dias={dias} turnos={[turnoAutoreservado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={[turnoAutoreservado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque.style.background).toContain("repeating-linear-gradient");
   });
 
   it("un turno normal (no autoreservado) sigue con el color plano del tipo de consulta", () => {
-    render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque.style.background).not.toContain("repeating-linear-gradient");
@@ -214,7 +214,7 @@ describe("CalendarGrid", () => {
   // selectores de hora al agendar un turno (ver
   // agregar-turno-modal.tsx/editar-turno-modal.tsx), nunca el grid.
   it("el rango de horas del grid es siempre fijo (06-24), CalendarGrid no recibe horario de atención", () => {
-    render(<CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
     expect(screen.getByText("06:00")).toBeInTheDocument();
     expect(screen.getByText("24:00")).toBeInTheDocument();
   });
@@ -241,7 +241,7 @@ describe("CalendarGrid", () => {
 
     it("pinta un bloqueo general que aplica ese día", () => {
       render(
-        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoGeneral]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoGeneral]} />,
       );
       expect(screen.getByLabelText("Horario bloqueado de 07:00 a 08:00")).toBeInTheDocument();
     });
@@ -249,7 +249,7 @@ describe("CalendarGrid", () => {
     it("no pinta un bloqueo general de otro día de la semana", () => {
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -267,7 +267,7 @@ describe("CalendarGrid", () => {
     it("una específica que se solapa con una general: un cluster que abarca la unión de las dos, con el mini-header arriba del todo", () => {
       const { container } = render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -316,7 +316,7 @@ describe("CalendarGrid", () => {
 
       const { container } = render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -355,7 +355,7 @@ describe("CalendarGrid", () => {
       const especificaQueCubreEntera = { ...bloqueoEspecifico, horaDesde: "06:30", horaHasta: "08:30" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -379,7 +379,7 @@ describe("CalendarGrid", () => {
       const especifica = { ...bloqueoEspecifico, motivo: "Reunión" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -403,7 +403,7 @@ describe("CalendarGrid", () => {
       const onBloqueoClick = vi.fn();
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -422,7 +422,7 @@ describe("CalendarGrid", () => {
       const onBloqueoClick = vi.fn();
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -445,7 +445,7 @@ describe("CalendarGrid", () => {
         const generalB = { ...bloqueoGeneral, id: "bg-3", horaDesde: "09:30", horaHasta: "10:30", motivo: "Revisión" };
         const { container } = render(
           <CalendarGrid
-            dias={dias}
+            columnas={columnasDeDias(dias)}
             turnos={[]}
             tiposConsulta={tiposConsulta}
             onTurnoClick={vi.fn()}
@@ -470,7 +470,7 @@ describe("CalendarGrid", () => {
         const generalB = { ...bloqueoGeneral, id: "bg-3", horaDesde: "09:30", horaHasta: "10:30" };
         render(
           <CalendarGrid
-            dias={dias}
+            columnas={columnasDeDias(dias)}
             turnos={[]}
             tiposConsulta={tiposConsulta}
             onTurnoClick={vi.fn()}
@@ -491,7 +491,7 @@ describe("CalendarGrid", () => {
         const especificaB = { ...bloqueoEspecifico, id: "be-3", horaDesde: "13:30", horaHasta: "14:30", motivo: "Capacitación" };
         const { container } = render(
           <CalendarGrid
-            dias={dias}
+            columnas={columnasDeDias(dias)}
             turnos={[]}
             tiposConsulta={tiposConsulta}
             onTurnoClick={vi.fn()}
@@ -523,7 +523,7 @@ describe("CalendarGrid", () => {
       const especificaC = { ...bloqueoEspecifico, id: "be-3", horaDesde: "10:15", horaHasta: "11:00" };
       const { container } = render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -551,7 +551,7 @@ describe("CalendarGrid", () => {
       const general = { ...bloqueoGeneral, motivo: "Limpieza" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -585,7 +585,7 @@ describe("CalendarGrid", () => {
     };
 
     it("un turno sin ningún horario reservado superpuesto se dibuja normal, sin pasar por 'Ver eventos'", () => {
-      render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoGeneral]} />);
+      render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoGeneral]} />);
       // El turno (09:00-09:30) no se solapa con el bloqueo (07:00-08:00)
       // — cada uno se dibuja por su cuenta, sin ninguna tarjeta combinada.
       expect(screen.getByText("María Games")).toBeInTheDocument();
@@ -595,7 +595,7 @@ describe("CalendarGrid", () => {
     it("un turno que se solapa con un horario reservado se agrupa en la misma tarjeta 'Ver eventos', y el turno no se dibuja aparte", () => {
       const bloqueoSolapado = { ...bloqueoGeneral, horaDesde: "08:45", horaHasta: "09:15" };
       const { container } = render(
-        <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoSolapado]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} bloqueosGenerales={[bloqueoSolapado]} />,
       );
 
       // Cluster 08:45 (bloqueo) a 09:30 (turno) — el turno no se dibuja
@@ -618,7 +618,7 @@ describe("CalendarGrid", () => {
       const bloqueoSolapado = { ...bloqueoGeneral, horaDesde: "08:45", horaHasta: "09:15" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={turnos}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -639,7 +639,7 @@ describe("CalendarGrid", () => {
       const especificaB = { id: "be-1", especifico: true, fecha: "2030-09-01", horaDesde: "09:05", horaHasta: "09:20", tipoRegla: "bloquear_horario" };
       const { container } = render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={turnos}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -667,7 +667,7 @@ describe("CalendarGrid", () => {
   describe("redondeo homogéneo entre las dos mitades de una tarjeta compuesta", () => {
     it("un turno CON postturno: el turno redondea solo arriba, el postturno solo abajo", () => {
       const tiposConPost = [{ ...tiposConsulta[0], tiempoPostConsultaMinutos: 15 }, tiposConsulta[1]];
-      render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConPost} onTurnoClick={vi.fn()} />);
+      render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConPost} onTurnoClick={vi.fn()} />);
 
       const turno = screen.getByRole("button", { name: /María Games/ });
       expect(turno.className).toContain("rounded-t-field");
@@ -678,7 +678,7 @@ describe("CalendarGrid", () => {
     });
 
     it("un turno SIN postturno sigue redondeando las cuatro esquinas", () => {
-      render(<CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+      render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
       const turno = screen.getByRole("button", { name: /María Games/ });
       expect(turno.className).toContain("rounded-field");
       expect(turno.className).not.toContain("rounded-t-field");
@@ -688,7 +688,7 @@ describe("CalendarGrid", () => {
       const diaPasado = new Date(2020, 0, 15);
       const tiposConPost = [{ ...tiposConsulta[0], tiempoPostConsultaMinutos: 15 }, tiposConsulta[1]];
       const turnoPasado = { ...turnos[0], horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(), horaFin: new Date(2020, 0, 15, 9, 30).toISOString() };
-      render(<CalendarGrid dias={[diaPasado]} turnos={[turnoPasado]} tiposConsulta={tiposConPost} onTurnoClick={vi.fn()} />);
+      render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConPost} onTurnoClick={vi.fn()} />);
       const turno = screen.getByRole("button", { name: /María Games/ });
       expect(turno.className).toContain("rounded-field");
       expect(turno.className).not.toContain("rounded-t-field");
@@ -703,7 +703,7 @@ describe("CalendarGrid", () => {
       };
       const { container } = render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -726,7 +726,7 @@ describe("CalendarGrid", () => {
       const especificaCorta = { id: "be-corta", especifico: true, fecha: "2030-09-01", horaDesde: "09:00", horaHasta: "09:15", tipoRegla: "bloquear_horario" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -749,7 +749,7 @@ describe("CalendarGrid", () => {
     it("\"no trabajo este período\" (sin horaDesde/horaHasta) cubre toda la grilla visible, sin nada real de por medio", () => {
       const excepcion = { id: "ha-1", alcance: "semana" as const, fechaDesde: "2030-08-26", fechaHasta: "2030-09-01" };
       render(
-        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
       const tarjeta = screen.getByText("No trabajo en este período");
       // Cubre de 06:00 (HORA_INICIO) a 24:00 (HORA_FIN) — 18 horas * 64px.
@@ -766,7 +766,7 @@ describe("CalendarGrid", () => {
       const excepcion = { id: "ha-1", alcance: "semana" as const, fechaDesde: "2030-08-26", fechaHasta: "2030-09-01" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -784,7 +784,7 @@ describe("CalendarGrid", () => {
     it("con horario reducido (horaDesde/horaHasta), cierra lo que queda AFUERA de esa ventana en dos tramos", () => {
       const excepcion = { id: "ha-2", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "14:00" };
       render(
-        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
       const tarjetas = screen.getAllByText("No trabajo en este período");
       expect(tarjetas).toHaveLength(2);
@@ -796,7 +796,7 @@ describe("CalendarGrid", () => {
     it("una excepción que no aplica ese día no dibuja nada", () => {
       const excepcion = { id: "ha-3", alcance: "rango" as const, fechaDesde: "2030-09-05", fechaHasta: "2030-09-10" };
       render(
-        <CalendarGrid dias={dias} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={[]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
       expect(screen.queryByText("No trabajo en este período")).not.toBeInTheDocument();
     });
@@ -811,7 +811,7 @@ describe("CalendarGrid", () => {
       const segunda = { id: "ha-5", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:30", horaHasta: "24:00" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -833,7 +833,7 @@ describe("CalendarGrid", () => {
       const bloqueo = { id: "b-1", especifico: true, fecha: "2030-09-01", horaDesde: "07:30", horaHasta: "08:30", tipoRegla: "bloquear_horario" };
       render(
         <CalendarGrid
-          dias={dias}
+          columnas={columnasDeDias(dias)}
           turnos={[]}
           tiposConsulta={tiposConsulta}
           onTurnoClick={vi.fn()}
@@ -850,12 +850,81 @@ describe("CalendarGrid", () => {
       const excepcion = { id: "ha-7", alcance: "rango" as const, fechaDesde: "2030-09-01", fechaHasta: "2030-09-01", horaDesde: "10:00", horaHasta: "20:00" };
       // Cierra 08:00-10:00 — se solapa con un turno 09:00-09:30.
       render(
-        <CalendarGrid dias={dias} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
+        <CalendarGrid columnas={columnasDeDias(dias)} turnos={turnos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} horariosAtencion={[excepcion]} />,
       );
       expect(screen.getByText("Ver eventos")).toBeInTheDocument();
       expect(screen.getByText("1 turno en conflicto")).toBeInTheDocument();
       expect(screen.getByText("1 horario de no trabajo")).toBeInTheDocument();
       expect(screen.queryByText("horario reservado")).not.toBeInTheDocument();
     });
+  });
+});
+
+// Fase 3.2.6 — la vista general de recepción: en vista Día, una columna
+// POR PROFESIONAL en vez de una sola con todo mezclado (mockup
+// `calendario-recepcion.html`).
+describe("CalendarGrid — columnas por profesional", () => {
+  const DIA = new Date(2030, 8, 1);
+  const deProfesional = (userId: string, nombre: string, hora: number) => ({
+    ...turnos[0],
+    id: `t-${userId}-${hora}`,
+    atendidoPorUserId: userId,
+    nombreContacto: nombre,
+    apellidoContacto: "",
+    horaInicio: new Date(2030, 8, 1, hora, 0).toISOString(),
+    horaFin: new Date(2030, 8, 1, hora, 30).toISOString(),
+  });
+
+  const columnas = [
+    { clave: "u1", dia: DIA, titulo: "Juan Muru", subtitulo: "1 turno", userId: "u1" },
+    { clave: "u2", dia: DIA, titulo: "Lucía Ferrer", subtitulo: "1 turno", userId: "u2" },
+  ];
+
+  const mixtos = [deProfesional("u1", "Paciente Uno", 9), deProfesional("u2", "Paciente Dos", 10)];
+
+  it("dibuja un encabezado por profesional, con su conteo", () => {
+    render(<CalendarGrid columnas={columnas} turnos={mixtos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    expect(screen.getByText("Juan Muru")).toBeInTheDocument();
+    expect(screen.getByText("Lucía Ferrer")).toBeInTheDocument();
+    expect(screen.getAllByText("1 turno")).toHaveLength(2);
+  });
+
+  // LO QUE DE VERDAD IMPORTA: cada columna muestra solo SU agenda. Con
+  // los turnos mezclados, recepción no podría decidir dónde encaja un
+  // paciente.
+  it("cada columna muestra solo los turnos de ese profesional", () => {
+    render(<CalendarGrid columnas={columnas} turnos={mixtos} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+    // Los dos están, una sola vez cada uno — no duplicados en ambas
+    // columnas, que es lo que pasaría sin el filtro.
+    expect(screen.getAllByRole("button", { name: /Paciente Uno/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Paciente Dos/ })).toHaveLength(1);
+  });
+
+  // Los horarios reservados de un profesional no pueden pintarse en la
+  // columna de otro: alguien buscando dónde encajar un paciente vería
+  // ocupado lo que está libre.
+  it("los horarios reservados se quedan en la columna de su dueño", () => {
+    const bloqueoDeU1 = {
+      id: "b-1",
+      userId: "u1",
+      especifico: true,
+      fecha: "2030-09-01",
+      horaDesde: "15:00",
+      horaHasta: "16:00",
+      tipoRegla: "bloquear_horario",
+      motivo: "Reunión",
+    };
+    const { container } = render(
+      <CalendarGrid
+        columnas={columnas}
+        turnos={mixtos}
+        tiposConsulta={tiposConsulta}
+        bloqueosEspecificas={[bloqueoDeU1]}
+        onTurnoClick={vi.fn()}
+      />,
+    );
+    // Una sola vez: en la columna de u1. Sin el filtro aparecería en las
+    // dos.
+    expect(container.querySelectorAll('[data-testid="bloqueo"]').length + screen.queryAllByText(/Reunión/).length).toBe(1);
   });
 });

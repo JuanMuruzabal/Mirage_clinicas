@@ -417,6 +417,11 @@ export interface HorarioAtencion {
 // alcance "todos"). Fechas como "YYYY-MM-DD", horas como "HH:MM".
 export interface BloqueoHorario {
   id: string;
+  /** De quién es esta agenda (Fase 3.2.6). Lo necesita la vista general
+   *  de recepción, donde el calendario del día dibuja una columna por
+   *  profesional: sin esto, los horarios reservados de uno se pintarían
+   *  en la columna de todos. Nulo en las filas anteriores a la 3.2.1. */
+  userId?: string | null;
   especifico: boolean;
   // "proxima_semana"/"proximo_mes" (corrección de QA, 2026-08-30): mismo
   // criterio "de una sola vez" que "semana"/"mes" (TR-084), ancladas a la

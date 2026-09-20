@@ -20,6 +20,7 @@ import {
 } from "@/lib/calendar-utils";
 import {
   CalendarGrid,
+  columnasDeDias,
   GUTTER_PX,
   COL_PX,
   HORA_INICIO,
@@ -40,6 +41,14 @@ import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 interface CalendarViewProps {
   tiposConsulta: TipoConsulta[];
   turnosIniciales: Turno[];
+  // Fase 3.2.6 — la vista general de recepción: en vista DÍA, una
+  // columna por profesional en vez de una sola con todo mezclado
+  // (mockup `calendario-recepcion.html`).
+  //
+  // Viene vacío en cualquier otro caso —un profesional mirando su propia
+  // agenda, o recepción parada en la vista de alguien— y entonces el
+  // calendario es exactamente el de siempre.
+  profesionalesDelDia?: { userId: string; nombre: string }[];
   // "?vista=semana" desde la tarjeta "Turnos próximos" del dashboard
   // (pedido explícito del cliente, 2026-08-27) — sin esto, "Hoy" (día)
   // sigue siendo el default de siempre (2026-08-23).
@@ -98,6 +107,7 @@ const VISTA_LABEL: Record<VistaCalendario, string> = { dia: "Día", semana: "Sem
 export function CalendarView({
   tiposConsulta,
   turnosIniciales,
+  profesionalesDelDia = [],
   vistaInicial,
   fechaInicialStr,
   turnoAFocalizarId,
@@ -369,6 +379,33 @@ export function CalendarView({
   }
 
   const dias = diasDeVista(fecha, vista);
+
+  // UNA COLUMNA POR PROFESIONAL, y solo en vista Día (Fase 3.2.6).
+  //
+  // En Semana la grilla ya usa las siete columnas para los días: meter
+  // ahí también a cada profesional daría 7 × N columnas, ilegible en
+  // cualquier pantalla. El mockup toma la misma decisión — Semana y Mes
+  // muestran el alcance elegido mezclado, y es en el Día donde se
+  // comparan las agendas.
+  //
+  // El conteo del encabezado sale de los mismos turnos que la columna va
+  // a dibujar, no de una consulta aparte: si dicen distinto, el que está
+  // mal es el número.
+  const porProfesional = vista === "dia" && profesionalesDelDia.length > 0;
+  const columnas = porProfesional
+    ? profesionalesDelDia.map((p) => {
+        const suyos = turnos.filter(
+          (t) => t.atendidoPorUserId === p.userId && t.horaInicio && isSameDay(new Date(t.horaInicio), fecha),
+        );
+        return {
+          clave: p.userId,
+          dia: fecha,
+          titulo: p.nombre,
+          subtitulo: `${suyos.length} ${suyos.length === 1 ? "turno" : "turnos"}`,
+          userId: p.userId,
+        };
+      })
+    : columnasDeDias(dias);
   const titulo = vista === "mes" ? formatMesAnio(fecha) : vista === "semana" ? formatRangoSemana(fecha) : formatDiaLargo(fecha);
   // turnosEnRangoVisible — corrección de estética (2026-09-06, foto de
   // referencia "nueva estetica calendario.png"): pastilla "2 turnos" al
@@ -758,7 +795,7 @@ export function CalendarView({
           )}
           {!cargando && vista !== "mes" && (
             <CalendarGrid
-              dias={dias}
+              columnas={columnas}
               turnos={turnos}
               tiposConsulta={tiposConsulta}
               onTurnoClick={(turno) => {

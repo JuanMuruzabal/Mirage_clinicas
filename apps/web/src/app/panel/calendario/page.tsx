@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { hoyEnCordoba, parseFechaISOLocal, rangoVisible, type VistaCalendario } from "@/lib/calendar-utils";
 import { CalendarView } from "@/components/panel/calendar-view";
 
@@ -67,7 +69,26 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
   const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
   const turnosIniciales = turnosResult?.ok ? turnosResult.data : [];
 
+  const sesion = await requireOnboardingComplete();
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
+  // Una columna por profesional SOLO en la vista general: parada en la
+  // agenda de alguien, recepción ve el calendario de siempre.
+  const enVistaGeneral = esRecepcion && vista?.profesional == null;
+
   return (
+    <>
+      {esRecepcion && (
+        <div className="px-8 pt-6 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3">
+          <ZonaProfesional
+            profesionales={profesionales}
+            vista={vista}
+            etiqueta="Viendo"
+            etiquetaConFoco="Viendo la agenda de"
+            etiquetaGeneral="Vista general"
+            detalleGeneral="Todos los profesionales del día"
+          />
+        </div>
+      )}
     <CalendarView
       tiposConsulta={tiposConsulta}
       turnosIniciales={turnosIniciales}
@@ -80,6 +101,8 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
       turnoAFocalizarId={turnoAFocalizarId}
       turnoAPosicionar={turnoAPosicionar}
       bloqueoAFocalizarId={bloqueoAFocalizarId}
+      profesionalesDelDia={enVistaGeneral ? profesionales : []}
     />
+    </>
   );
 }

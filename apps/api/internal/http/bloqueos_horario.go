@@ -39,6 +39,25 @@ type bloqueoHorarioResponse struct {
 	HoraHasta  string  `json:"horaHasta"`
 	TipoRegla  string  `json:"tipoRegla"`
 	Motivo     *string `json:"motivo,omitempty"`
+	// UserID — de quién es esta agenda (Fase 3.2.6). Lo necesita la vista
+	// general de recepción, donde el calendario del día dibuja una
+	// columna por profesional: sin esto, los horarios reservados de uno
+	// se pintarían en la columna de todos, que es peor que no pintarlos
+	// — alguien buscando dónde encajar un paciente vería ocupado lo que
+	// está libre.
+	//
+	// Nulo en las filas anteriores a la 3.2.1, que no tenían dueño.
+	UserID *string `json:"userId,omitempty"`
+}
+
+// uuidPtrAString — un uuid nullable, como lo espera un campo `omitempty`
+// de la respuesta.
+func uuidPtrAString(id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	s := id.String()
+	return &s
 }
 
 func formatFechaPtr(t *time.Time) *string {
@@ -60,6 +79,7 @@ func toBloqueoHorarioResponse(b db.BloqueoHorario) bloqueoHorarioResponse {
 		Fecha:      formatFechaPtr(b.Fecha),
 		HoraDesde:  b.HoraDesde,
 		HoraHasta:  b.HoraHasta,
+		UserID:     uuidPtrAString(b.UserID),
 		TipoRegla:  b.TipoRegla,
 		Motivo:     b.Motivo,
 	}

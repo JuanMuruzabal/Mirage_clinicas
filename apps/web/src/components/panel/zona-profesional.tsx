@@ -124,7 +124,12 @@ export function ZonaProfesional({
 
   return (
     <div className="flex w-full flex-col md:w-auto">
-      <p className="mb-2 font-[family-name:var(--font-mono)] text-xs tracking-[0.16em] text-grafito/50 uppercase">
+      {/* En verde, no en gris (2026-09-20, pedido del cliente: "para
+          mejor visualización"). El rótulo y el conteo dicen QUÉ estoy
+          mirando — en recepción eso no es metadato al margen, es la
+          primera cosa que hay que poder leer de un vistazo antes de
+          contestar un teléfono. */}
+      <p className="mb-2 font-[family-name:var(--font-mono)] text-xs font-semibold tracking-[0.16em] text-salvia-oscuro uppercase">
         {rotulo}
       </p>
 
@@ -176,7 +181,7 @@ export function ZonaProfesional({
           </button>
         </div>
 
-        <p className="mt-2 text-[13px] text-grafito/50">{conteo}</p>
+        <p className="mt-2 text-[13px] font-medium text-salvia-oscuro">{conteo}</p>
 
         {abierto && (
           <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-[19rem] max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">

@@ -59,6 +59,11 @@ const MINI_HEADER_PX = 24;
 // estos números.
 export const GUTTER_PX = 64;
 export const COL_PX = 130;
+// COL_PROF_PX — una columna de profesional (vista general de recepción,
+// Fase 3.2.6): más ancha que una de día porque el encabezado lleva
+// nombre y conteo, y adentro cada turno dice el paciente. El mockup usa
+// 200 contra 140; acá 190 contra los 130 que este calendario ya tenía.
+export const COL_PROF_PX = 190;
 
 // horaAMinutos/minutosAHoraDecimal — "HH:MM" (BloqueoHorario/HorarioAtencion,
 // F2.3) a minutos desde medianoche, para comparar rangos y calcular
@@ -399,8 +404,43 @@ export function segmentosParaVisualizar(
     .filter((seg): seg is SegmentoBloqueo => seg !== null);
 }
 
+// ColumnaCalendario — una columna de la grilla. Hasta la Fase 3.2.6
+// esto era siempre un DÍA (uno en vista Día, siete en Semana), y la
+// prop se llamaba `dias`.
+//
+// La vista general de recepción suma el otro caso: un solo día, una
+// columna POR PROFESIONAL (mockup `calendario-recepcion.html`). Las dos
+// cosas son "una franja vertical con su propio encabezado y su propio
+// subconjunto de turnos", así que se generalizó la prop en vez de
+// duplicar el componente — son 830 líneas de clustering de horarios
+// reservados y excepciones que no había ninguna razón para mantener por
+// duplicado.
+export interface ColumnaCalendario {
+  /** Key de React, y nada más. */
+  clave: string;
+  /** El día que la columna representa. En la vista por profesional es
+   *  el mismo para todas. */
+  dia: Date;
+  titulo: string;
+  /** Segunda línea del encabezado ("3 turnos"), solo por profesional. */
+  subtitulo?: string;
+  /** Acota la columna a la agenda de ese profesional. Sin esto, la
+   *  columna muestra todo lo del día (el comportamiento de siempre). */
+  userId?: string;
+}
+
+// columnasDeDias — la forma de siempre: una columna por día. Todo lo
+// que no sea la vista general de recepción usa esto.
+export function columnasDeDias(dias: Date[]): ColumnaCalendario[] {
+  return dias.map((dia) => ({
+    clave: dia.toISOString(),
+    dia,
+    titulo: formatDiaCorto(dia),
+  }));
+}
+
 interface CalendarGridProps {
-  dias: Date[];
+  columnas: ColumnaCalendario[];
   turnos: Turno[];
   tiposConsulta: TipoConsulta[];
   onTurnoClick: (turno: Turno) => void;
@@ -435,7 +475,7 @@ interface CalendarGridProps {
 // altura fija con scroll interno propio vive en CalendarView (el padre);
 // acá solo el contenido que se scrollea.
 export function CalendarGrid({
-  dias,
+  columnas,
   turnos,
   tiposConsulta,
   onTurnoClick,
@@ -458,7 +498,13 @@ export function CalendarGrid({
   // (`flex`) es el que de verdad recibe este ancho: su contenedor
   // (la caja de calendar-view.tsx) es quien scrollea horizontal cuando
   // corresponde, nunca la página.
-  const anchoMinPx = dias.length > 1 ? GUTTER_PX + dias.length * COL_PX : undefined;
+  // Una columna de profesional necesita más aire que una de día: lleva
+  // nombre y conteo en el encabezado, y adentro los turnos dicen el
+  // paciente (mockup: 200px contra 140px).
+  const hayColumnasDeProfesional = columnas.some((c) => c.userId !== undefined);
+  const anchoDeColumna = hayColumnasDeProfesional ? COL_PROF_PX : COL_PX;
+  const anchoMinPx =
+    columnas.length > 1 ? GUTTER_PX + columnas.length * anchoDeColumna : undefined;
 
   return (
     <div className="flex" style={anchoMinPx ? { minWidth: anchoMinPx } : undefined}>
@@ -503,10 +549,29 @@ export function CalendarGrid({
           ANCHO TOTAL de este `flex` cuando hay más de un día — estas
           columnas simplemente se reparten ese ancho ya forzado, `1fr`
           alcanza, sin piso propio por columna. */}
-      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))` }}>
-        {dias.map((dia) => {
-          const turnosDelDia = turnos.filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia));
-          const bloqueosDelDia = segmentosParaVisualizar(dia, bloqueosGenerales, bloqueosEspecificas, turnosDelDia, horariosAtencion);
+      <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
+        {columnas.map((columna) => {
+          const dia = columna.dia;
+          // La columna de un profesional muestra SOLO su agenda — turnos
+          // y horarios reservados. Mezclarlos sería peor que no
+          // pintarlos: alguien buscando dónde encajar un paciente vería
+          // ocupado lo que está libre.
+          const deLaColumna = (items: BloqueoHorario[]) =>
+            columna.userId === undefined ? items : items.filter((b) => b.userId === columna.userId);
+
+          const turnosDelDia = turnos.filter(
+            (t) =>
+              t.horaInicio &&
+              isSameDay(new Date(t.horaInicio), dia) &&
+              (columna.userId === undefined || t.atendidoPorUserId === columna.userId),
+          );
+          const bloqueosDelDia = segmentosParaVisualizar(
+            dia,
+            deLaColumna(bloqueosGenerales),
+            deLaColumna(bloqueosEspecificas),
+            turnosDelDia,
+            horariosAtencion,
+          );
           // Turnos absorbidos por un segmento "conflicto" (paso 2): se
           // dibujan DENTRO de esa tarjeta combinada, no en el loop de
           // turnos de siempre — evita duplicarlos en el grid.
@@ -514,14 +579,32 @@ export function CalendarGrid({
             bloqueosDelDia.filter((seg) => seg.variante === "conflicto").flatMap((seg) => seg.turnos.map((t) => t.id)),
           );
           return (
-            <div key={dia.toISOString()} className="border-l border-arena first:border-l-0">
+            <div key={columna.clave} className="border-l border-arena first:border-l-0">
               {/* F2.1: "verticalmente los días [me acompañan]" — fila de
                   día fija en Y (`sticky top-0`) sin fijarse en X (cada
                   columna sigue desplazándose horizontalmente con el
                   resto del grid, como siempre). `bg-marfil` explícito
                   por el mismo motivo que la columna de horas. */}
-              <div className="sticky top-0 z-10 flex h-10 items-center justify-center border-b border-arena bg-marfil font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-grafito/60">
-                {formatDiaCorto(dia)}
+              {/* Dos líneas cuando la columna es un profesional
+                  (nombre + "3 turnos"), una sola cuando es un día — el
+                  encabezado de siempre. */}
+              <div
+                className={`sticky top-0 z-10 flex flex-col items-center justify-center border-b border-arena bg-marfil ${
+                  columna.subtitulo ? "h-12 gap-0.5" : "h-10"
+                }`}
+              >
+                <span
+                  className={
+                    columna.subtitulo
+                      ? "max-w-full truncate px-1 font-[family-name:var(--font-display)] text-[13px] font-semibold text-grafito"
+                      : "font-[family-name:var(--font-mono)] text-xs tracking-wide text-grafito/60 uppercase"
+                  }
+                >
+                  {columna.titulo}
+                </span>
+                {columna.subtitulo && (
+                  <span className="text-[11px] text-grafito/50">{columna.subtitulo}</span>
+                )}
               </div>
               <div
                 className="relative"
