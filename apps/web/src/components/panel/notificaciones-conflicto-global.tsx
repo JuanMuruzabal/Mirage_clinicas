@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { PanelNotificacionesResponse } from "@dental-mirage/shared-types";
 import { panelNotificacionesAction } from "@/app/actions/panel";
 
@@ -27,6 +27,20 @@ import { panelNotificacionesAction } from "@/app/actions/panel";
 // sondeo es para el OTRO — una resolución alcanza a todos los tickets del
 // mismo mail, así que su aviso tiene que irse sin que él haga nada.
 //
+// Y NO ALCANZABA CON EL AVISO (2026-09-20, reportado probando de a dos:
+// "el otro profesional al cual se propaga la resolución tiene que
+// cambiar de pestaña para que se solucione"). El sondeo actualizaba su
+// propio contador —el cartel se iba en 2 s, correcto— pero se lo
+// guardaba para sí: la FICHA duplicada seguía en la tabla de pacientes y
+// el banner de /panel/pacientes seguía ofreciendo resolver algo que ya
+// no existía, porque esos dos salen del render del servidor y nada los
+// volvía a pedir. Cambiar de pestaña "lo arreglaba" por accidente: la
+// navegación es lo que refrescaba la página.
+//
+// Ahora, cuando el sondeo ve que el conteo CAMBIÓ, además pide la
+// pantalla de vuelta. Con eso los dos profesionales ven lo mismo al
+// mismo tiempo, sin tocar nada.
+//
 // 2s es barato acá y no en general: /panel/notificaciones son dos
 // consultas cortas con cortocircuito (sin horarios reservados no mira un
 // solo turno). No copiar este intervalo a un endpoint que liste o calcule
@@ -38,15 +52,42 @@ const INTERVALO_SONDEO_MS = 2_000;
 
 export function NotificacionesConflictoGlobal() {
   const pathname = usePathname();
+  const router = useRouter();
   const [notificaciones, setNotificaciones] = useState<PanelNotificacionesResponse>({
     conflictosPacientes: 0,
     conflictosCalendario: 0,
   });
   const montadoRef = useRef(true);
+  // El último conteo VISTO, para detectar el cambio. `null` hasta la
+  // primera respuesta: sin eso, el salto de los ceros iniciales al
+  // primer dato real contaría como cambio y dispararía un refresh en
+  // cada montaje y en cada navegación, que es exactamente el trabajo de
+  // más que este componente existía para evitar.
+  const ultimoConteoRef = useRef<string | null>(null);
 
   async function sondear() {
     const result = await panelNotificacionesAction();
-    if (montadoRef.current) setNotificaciones(result);
+    if (!montadoRef.current) return;
+    setNotificaciones(result);
+
+    // Solo cuando CAMBIA, no en cada sondeo: refrescar cada 2 s sería
+    // volver a renderizar la pantalla entera del servidor todo el
+    // tiempo. Un cambio en el conteo es la señal barata de que hay algo
+    // nuevo que mirar — hacia abajo (alguien resolvió) o hacia arriba
+    // (entró un conflicto nuevo, y la ficha duplicada tiene que
+    // aparecer en la tabla).
+    //
+    // Quien resuelve pide la pantalla dos veces —su propio
+    // `router.refresh()` y este—, y se acepta: son dos renders en el
+    // mismo segundo, y la alternativa (saber si la resolución fue
+    // propia) pide llevar estado entre componentes que hoy no se
+    // conocen.
+    const huella = `${result.conflictosPacientes}/${result.conflictosCalendario}`;
+    const anterior = ultimoConteoRef.current;
+    ultimoConteoRef.current = huella;
+    if (anterior !== null && anterior !== huella) {
+      router.refresh();
+    }
   }
 
   useEffect(() => {
