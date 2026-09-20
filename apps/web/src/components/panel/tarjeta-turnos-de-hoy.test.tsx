@@ -306,7 +306,7 @@ describe("TarjetaTurnosDeHoy — al vencer un turno", () => {
 describe("TarjetaTurnosDeHoy — los botones se ven como un par", () => {
   // "No asistió" es cuatro letras más largo que "Asistió": sin un ancho
   // fijo quedaban de tamaños distintos, y una opción parecía pesar más
-  // que la otra (2026-09-19, foto `correccion.png`).
+  // que la otra (2026-09-19, corrección pedida con captura).
   it("los dos tienen el mismo ancho", () => {
     montar([turno({ horaInicioIso: enMinutos(2), horaFinIso: enMinutos(32) })]);
 

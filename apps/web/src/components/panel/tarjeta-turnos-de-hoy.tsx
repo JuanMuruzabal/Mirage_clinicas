@@ -16,7 +16,7 @@ import { IconoReloj } from "./tarjeta-turnero-iconos";
 import { BotonMantenerApretado } from "./boton-mantener-apretado";
 
 // TarjetaTurnosDeHoy — la tarjeta principal del panel (2026-09-19,
-// rediseño pedido por el cliente, referencia `rediseñoTurnosHoy.png`).
+// rediseño pedido por el cliente).
 //
 // Hasta acá era una tarjeta más entre seis, del mismo tamaño que
 // "Horarios reservados", y decía hora y nombre. Es lo más urgente que
@@ -370,7 +370,7 @@ function BotonAsistencia({
   const relleno = color === "salvia" ? "bg-salvia-oscuro" : "bg-terracota-oscuro";
   // Ancho fijo para los dos: "No asistió" es cuatro letras más largo que
   // "Asistió", y sin esto quedaban de tamaños distintos al lado uno del
-  // otro (2026-09-19, foto de referencia `correccion.png`). Es un par de
+  // otro (2026-09-19, corrección pedida con captura). Es un par de
   // opciones equivalentes; que una se vea más grande sugiere que pesa
   // más.
   const ancho = "w-[6.75rem]";
