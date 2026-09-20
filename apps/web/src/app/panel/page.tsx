@@ -98,11 +98,23 @@ export default async function PanelGeneralPage() {
       {/* gap-3 (corrección de QA, 2026-09-06: "separar más el título
           General [del] subtítulo Turnero") — antes gap-1, quedaban casi
           pegados. */}
-      {/* La cabecera se parte en dos cuando recepción puede cambiar de
-          vista: título a la izquierda, el selector a la derecha (mockup
-          `panel-recepcionista-general.html`). Sin el selector queda
-          exactamente como estaba. */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+      {/* ARRIBA DEL TÍTULO, en su propia fila (QA de la 3.2.6:
+          *"el selector de carrusel debe estar por encima del título
+          principal... así queda alargado como se ve en calendario"*).
+          Al lado del título competía por el ancho con él y quedaba
+          apretado; en su propia fila respira, y es lo primero que se lee
+          — que es lo correcto: dice DE QUIÉN es todo lo que sigue. */}
+      {esRecepcion && (
+        <ZonaProfesional
+          profesionales={profesionales}
+          vista={vista}
+          etiqueta="Viendo"
+          etiquetaConFoco="Viendo la agenda de"
+          etiquetaGeneral="Toda la clínica"
+          detalleGeneral="Métricas y turnos de todo el equipo"
+        />
+      )}
+
       <div className="flex flex-col gap-3">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
           General
@@ -119,18 +131,6 @@ export default async function PanelGeneralPage() {
             {esRecepcion ? "Control general de los turnos de la clínica." : "Control general de tus turnos y pacientes."}
           </p>
         </div>
-      </div>
-
-      {esRecepcion && (
-        <ZonaProfesional
-          profesionales={profesionales}
-          vista={vista}
-          etiqueta="Viendo"
-          etiquetaConFoco="Viendo la agenda de"
-          etiquetaGeneral="Toda la clínica"
-          detalleGeneral="Métricas y turnos de todo el equipo"
-        />
-      )}
       </div>
 
       <div className="grid grid-cols-2 gap-6 max-md:min-w-[18rem] max-md:grid-cols-1">

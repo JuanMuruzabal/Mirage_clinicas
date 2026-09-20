@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { apiContarPacientes, apiListConflictosPaciente, apiListPacientesPaginado, apiListTiposConsulta } from "@/lib/api";
+import {
+  apiContarPacientes,
+  apiListConflictosPaciente,
+  apiListPacientesPaginado,
+  apiListTiposConsulta,
+} from "@/lib/api";
 import type { ListarPacientesParams } from "@/lib/api";
 import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
@@ -35,14 +40,19 @@ function parseTabPacientes(value: string | undefined): TabPacientes {
 // tabla en sí (fila clickeable de punta a punta, TR-023, + el panel
 // desplegable de DNI/Email en mobile) vive en PacientesTable, la única
 // pieza de cliente acá.
-export default async function PacientesPage({ searchParams }: PageProps<"/panel/pacientes">) {
+export default async function PacientesPage({
+  searchParams,
+}: PageProps<"/panel/pacientes">) {
   const resolved = await searchParams;
   const q = firstParam(resolved.q);
   const tab = parseTabPacientes(firstParam(resolved.estado));
 
   const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
-  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(
+    token,
+    sesion.roles,
+  );
 
   // Fase B de la auditoría: hasta acá esta pantalla pedía la lista
   // COMPLETA de fichas de la clínica y resolvía en el navegador tanto el
@@ -55,7 +65,12 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   // lado del cliente mostraría cualquier cosa.
   const filtros: ListarPacientesParams = {
     q,
-    verificacion: tab === "verificados" ? "verificado" : tab === "sin_verificar" ? "sin_verificar" : undefined,
+    verificacion:
+      tab === "verificados"
+        ? "verificado"
+        : tab === "sin_verificar"
+          ? "sin_verificar"
+          : undefined,
   };
   const [paginaPacientes, cTodos, cVerificados, cSinVerificar] = token
     ? await Promise.all([
@@ -66,7 +81,9 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
       ])
     : [null, 0, 0, 0];
 
-  const pacientesFiltrados = paginaPacientes?.ok ? paginaPacientes.data.items : [];
+  const pacientesFiltrados = paginaPacientes?.ok
+    ? paginaPacientes.data.items
+    : [];
   const totalPacientes = paginaPacientes?.ok ? paginaPacientes.data.total : 0;
   const conteoPorTab: Record<TabPacientes, number> = {
     todos: cTodos,
@@ -76,13 +93,16 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const querySecundaria = q ? `&q=${encodeURIComponent(q)}` : "";
   // hrefBaseSinQ — para BuscadorEnVivo (TR-115): mismo tab vigente, sin
   // `q` (el componente lo agrega solo, con cada tecla).
-  const hrefBaseSinQ = tab === "todos" ? "/panel/pacientes" : `/panel/pacientes?estado=${tab}`;
+  const hrefBaseSinQ =
+    tab === "todos" ? "/panel/pacientes" : `/panel/pacientes?estado=${tab}`;
 
   // Fase 2.4.1: conflictos de pacientes sin resolver (dos fichas
   // compitiendo por el mismo DNI, detectadas desde el formulario público)
   // — banner arriba de la tabla, igual criterio que el banner de
   // conflicto del calendario (TR-095).
-  const conflictosResult = token ? await apiListConflictosPaciente(token) : null;
+  const conflictosResult = token
+    ? await apiListConflictosPaciente(token)
+    : null;
   const conflictos = conflictosResult?.ok ? conflictosResult.data : [];
   // Corrección de QA: la pantalla de resolución de conflictos muestra el
   // NOMBRE del tipo de consulta del turno en conflicto (y del que ya
@@ -100,26 +120,38 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
       {/* Contador total (mismo criterio de estética que "Turnos 14 en
           total", corrección 2026-09-06, foto de referencia
           "nuevoestilopacientes.png"). */}
+      {/* ARRIBA DEL TÍTULO, en su propia fila (QA de la 3.2.6:
+          *"el selector de carrusel debe estar por encima del título
+          principal... así queda alargado como se ve en calendario"*).
+          Al lado del título competía por el ancho con él y quedaba
+          apretado; en su propia fila respira, y es lo primero que se lee
+          — que es lo correcto: dice DE QUIÉN es todo lo que sigue. */}
+      {esRecepcion && (
+        <ZonaProfesional
+          profesionales={profesionales}
+          vista={vista}
+          etiqueta="Mostrando"
+          etiquetaConFoco="Pacientes de"
+          etiquetaGeneral="Toda la clínica"
+          detalleGeneral="Pacientes de todo el equipo"
+        />
+      )}
+
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
             Pacientes
           </h1>
-          <span className="text-sm text-grafito/50">{conteoPorTab.todos} registrados</span>
+          <span className="text-sm text-grafito/50">
+            {conteoPorTab.todos} registrados
+          </span>
         </div>
-        {esRecepcion && (
-          <ZonaProfesional
-            profesionales={profesionales}
-            vista={vista}
-            etiqueta="Mostrando"
-            etiquetaConFoco="Pacientes de"
-            etiquetaGeneral="Toda la clínica"
-            detalleGeneral="Pacientes de todo el equipo"
-          />
-        )}
       </div>
 
-      <ConflictosPacienteBanner conflictos={conflictos} tiposConsulta={tiposConsulta} />
+      <ConflictosPacienteBanner
+        conflictos={conflictos}
+        tiposConsulta={tiposConsulta}
+      />
 
       {/* Corrección de estética (2026-09-06, foto de referencia): buscador
           + "+ Agregar paciente" van juntos en su fila, pestañas
@@ -134,7 +166,11 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
               method="get">` de antes, mismo pedido que en Turnos: "que me
               vaya apareciendo resultados sin tocar enter". */}
           <div className="max-w-md flex-1 max-md:w-full max-md:max-w-none">
-            <BuscadorEnVivo q={q} hrefBase={hrefBaseSinQ} placeholder="Nombre, apellido o DNI…" />
+            <BuscadorEnVivo
+              q={q}
+              hrefBase={hrefBaseSinQ}
+              placeholder="Nombre, apellido o DNI…"
+            />
           </div>
           <AgregarPacienteButton />
         </div>
@@ -147,14 +183,15 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
               (turnos/page.tsx): "pastilla" blanca (`bg-marfil` +
               `border-arena`) que envuelve las 3 pestañas, flotando sobre
               el fondo de la página. */}
-          <nav aria-label="Filtrar por verificación" className="flex flex-wrap items-center gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:rounded-full">
-            {(
-              [
-                { tab: "todos" as const, label: "Todos" },
-                { tab: "verificados" as const, label: "Verificados" },
-                { tab: "sin_verificar" as const, label: "Sin verificar" },
-              ]
-            ).map((t) => {
+          <nav
+            aria-label="Filtrar por verificación"
+            className="flex flex-wrap items-center gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:rounded-full"
+          >
+            {[
+              { tab: "todos" as const, label: "Todos" },
+              { tab: "verificados" as const, label: "Verificados" },
+              { tab: "sin_verificar" as const, label: "Sin verificar" },
+            ].map((t) => {
               const active = t.tab === tab;
               const href = `/panel/pacientes?estado=${t.tab}${querySecundaria}`;
               return (
@@ -164,7 +201,11 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
                   className={`flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-center font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
                 >
                   {t.label}
-                  <span className={active ? "text-marfil/70" : "text-grafito/40"}>{conteoPorTab[t.tab]}</span>
+                  <span
+                    className={active ? "text-marfil/70" : "text-grafito/40"}
+                  >
+                    {conteoPorTab[t.tab]}
+                  </span>
                 </Link>
               );
             })}
@@ -187,7 +228,11 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
                 : "No hay pacientes en esta pestaña."}
           </p>
         ) : (
-          <PacientesTable pacientes={pacientesFiltrados} totalInicial={totalPacientes} filtros={filtros} />
+          <PacientesTable
+            pacientes={pacientesFiltrados}
+            totalInicial={totalPacientes}
+            filtros={filtros}
+          />
         )}
       </div>
     </div>

@@ -227,3 +227,84 @@ func TestConfiguracion_SinAgendaNoHayDisponibilidad(t *testing.T) {
 		t.Errorf("status=%d, esperaba 409 pidiendo elegir profesional", rec.Code)
 	}
 }
+
+// TestConfiguracion_NoSugiereLoQueElProfesionalYaTiene — QA de la 3.2.6
+// (2026-09-20): *"en tipos de turno me sigue sugiriendo los tipos 'de
+// esta clínica' aunque ya los tenga configurado el profesional"*.
+//
+// `tipos_consulta_colegas.go` tenía el mismo bug que su hermano: armaba
+// "lo que ya tenés" contra el usuario de la SESIÓN. Para recepción eso es
+// alguien que no atiende y no tiene ningún tipo, así que nunca escondía
+// nada — y por el mismo motivo los tipos PROPIOS del profesional en foco
+// se listaban como si fueran de un colega.
+func TestConfiguracion_NoSugiereLoQueElProfesionalYaTiene(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "colegas")
+
+	// El colega ya tiene "Limpieza dental"; el titular también.
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", esc.recepToken, tipoConsultaRequest{
+		Nombre: "Limpieza dental", Color: "#E7D9BE", DuracionMinutos: 30,
+	}); rec.Code != http.StatusCreated {
+		t.Fatalf("crear tipo del colega: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	sugeridos := tiposDeColegas(t, router, esc.recepToken)
+	for _, s := range sugeridos {
+		if seParecen(s, "Limpieza dental") {
+			t.Errorf("se sugiere %q, que el profesional en foco YA tiene configurado", s)
+		}
+	}
+}
+
+// Y el otro lado: lo que tiene un COLEGA sí se ofrece.
+func TestConfiguracion_SiSugiereLoDeUnColega(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "colegasi")
+	titularID := userIDDelMail(t, gdb, "titular-colegasi@example.com")
+
+	if code := elegirVista(t, router, esc.recepToken, titularID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", esc.recepToken, tipoConsultaRequest{
+		Nombre: "Blanqueamiento del titular", Color: "#E7D9BE", DuracionMinutos: 30,
+	}); rec.Code != http.StatusCreated {
+		t.Fatalf("crear tipo: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Parada en el colega, el tipo del titular sí es "de un colega".
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	sugeridos := tiposDeColegas(t, router, esc.recepToken)
+	encontrado := false
+	for _, s := range sugeridos {
+		if s == "Blanqueamiento del titular" {
+			encontrado = true
+		}
+	}
+	if !encontrado {
+		t.Errorf("no se ofrece el tipo del titular; sugeridos = %v", sugeridos)
+	}
+}
+
+func tiposDeColegas(t *testing.T, router http.Handler, token string) []string {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/tipos-consulta/de-colegas", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /tipos-consulta/de-colegas: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out []tipoDeColegaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta ilegible: %v", err)
+	}
+	nombres := make([]string, 0, len(out))
+	for _, tipo := range out {
+		nombres = append(nombres, tipo.Nombre)
+	}
+	return nombres
+}

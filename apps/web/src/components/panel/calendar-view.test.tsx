@@ -888,6 +888,40 @@ describe("CalendarView", () => {
       expect(elegirVistaActionMock).not.toHaveBeenCalled();
     });
 
+    // QA de la 3.2.6 (2026-09-20): *"el horario reservado de un
+    // profesional se sigue filtrando a otros en SU CALENDARIO... a veces
+    // aparece y otras veces no"*.
+    //
+    // Los horarios reservados y el horario de atención son estado del
+    // CLIENTE, cargado al montar. Cambiar de profesional renovaba las
+    // props del servidor pero no volvía a pedirlos, así que el calendario
+    // seguía dibujando los bloqueos del anterior. La intermitencia era la
+    // pista: abrir y cerrar la configuración sí los recargaba, y recién
+    // ahí se corregía.
+    it("cambiar de profesional vuelve a pedir los horarios reservados", async () => {
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          zonaProfesional={zonaGeneral}
+          vistaKey="u1"
+        />,
+      );
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+      listBloqueosActionMock.mockClear();
+
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          zonaProfesional={zonaGeneral}
+          vistaKey="u2"
+        />,
+      );
+
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+    });
+
     // Para quien no es recepción el selector no existe — el aislamiento
     // de la 3.2.2 no se relaja por una pantalla.
     it("sin zonaProfesional el calendario es el de siempre", () => {

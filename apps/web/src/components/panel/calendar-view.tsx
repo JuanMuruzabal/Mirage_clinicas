@@ -328,18 +328,30 @@ export function CalendarView({
     });
   }
 
-  // Deliberadamente solo al montar: `cargarConfigCalendario` cierra sobre
-  // `bloqueoAFocalizarId`/`turnos`/`fecha` para la resolución del deep-link
-  // (más arriba), pero esa resolución solo debe intentarse UNA VEZ, con
-  // los valores iniciales — la propia guarda `focoBloqueoInicialHecho` ya
-  // impide que se repita después, así que agregar esas variables acá
-  // dispararía el efecto de nuevo sin necesidad (y las mutaciones
-  // reales del modal de configuración ya llaman a `cargarConfigCalendario`
-  // por su cuenta vía `cerrarConfig`, más abajo).
+  // Al montar Y AL CAMBIAR DE PROFESIONAL (`vistaKey`).
+  //
+  // Sin `vistaKey` acá quedaba el bug que reportó la QA: *"el horario
+  // reservado de un profesional se sigue filtrando a otros en su
+  // calendario, y a veces aparece y otras no"*. Los horarios reservados y
+  // el horario de atención son estado del CLIENTE, cargado una sola vez;
+  // cambiar de profesional dispara un `router.refresh()` que renueva las
+  // props del servidor, pero no vuelve a correr esto — así que el
+  // calendario seguía dibujando los bloqueos del profesional anterior.
+  //
+  // Y de ahí la intermitencia, que fue la mejor pista: abrir y cerrar
+  // "Configuración de calendario" llama a `cargarConfigCalendario` por su
+  // cuenta (`cerrarConfig`), así que recién ahí se corregía — el bloqueo
+  // aparecía o desaparecía según desde qué profesional se hubiera abierto
+  // la configuración la última vez.
+  //
+  // Las demás variables que la función lee (`bloqueoAFocalizarId`,
+  // `turnos`, `fecha`) siguen fuera a propósito: son para resolver el
+  // deep-link UNA sola vez, con los valores iniciales, y `focoBloqueoInicialHecho`
+  // ya impide que se repita.
   useEffect(() => {
     cargarConfigCalendario();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vistaKey]);
 
   function cerrarConfig() {
     setConfigAbierta(false);
@@ -1148,6 +1160,12 @@ export function CalendarView({
       {configAbierta && (
         <ConfiguracionCalendarioModal
           onClose={cerrarConfig}
+          // Elegir otro profesional DENTRO de la configuración mueve el
+          // foco de la sesión, así que la pantalla de atrás tiene que
+          // seguirlo: si no, el encabezado dice un nombre y el calendario
+          // dibuja la agenda de otro. Con el refresh cambia `vistaKey` y
+          // se recarga todo junto.
+          onAgendaCambiada={() => router.refresh()}
           reglaAFocalizarId={reglaAFocalizar ?? undefined}
           horarioAtencionAFocalizarId={horarioAtencionAFocalizar ?? undefined}
         />

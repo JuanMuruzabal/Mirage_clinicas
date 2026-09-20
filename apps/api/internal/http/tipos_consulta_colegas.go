@@ -149,21 +149,34 @@ func listarTiposDeColegasHandler(gdb *gorm.DB) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		session, hay := sessionFromContext(r)
-		if !hay {
-			writeError(w, http.StatusUnauthorized, "sesión inválida")
+		// DE QUIÉN SON "LOS MÍOS" — la agenda, no el usuario de la sesión
+		// (QA de la 3.2.6, 2026-09-20). Este archivo tenía el mismo bug que
+		// su hermano `tipos_consulta.go`: comparaba contra quien apretaba
+		// el botón. Para recepción eso es alguien que no atiende y no tiene
+		// ningún tipo, así que "lo que ya tenés" quedaba vacío y el modal
+		// le seguía sugiriendo tipos que el profesional YA tenía
+		// configurados — el síntoma reportado. Y por el mismo motivo los
+		// propios del profesional en foco aparecían listados como si
+		// fueran "de un colega".
+		duenio, ok := agendaAConfigurar(w, r, gdb, clinicID, r.URL.Query().Get("profesionalUserId"))
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			// Sin profesional elegido no hay "colegas" respecto de quién.
+			writeJSON(w, http.StatusOK, []tipoDeColegaResponse{})
 			return
 		}
 
 		var ajenos []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ? AND user_id IS NOT NULL AND user_id <> ?", clinicID, session.UserID).
+		if err := gdb.Where("clinic_id = ? AND user_id IS NOT NULL AND user_id <> ?", clinicID, duenio).
 			Order("created_at").Find(&ajenos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de tus colegas")
 			return
 		}
 
 		var mios []db.TipoConsulta
-		_ = gdb.Where("clinic_id = ? AND user_id = ?", clinicID, session.UserID).Find(&mios).Error
+		_ = gdb.Where("clinic_id = ? AND user_id = ?", clinicID, duenio).Find(&mios).Error
 
 		// Los nombres de cada colega, en una sola pasada: una consulta por
 		// tipo sería N+1 sobre una lista que se pinta entera.

@@ -26,6 +26,11 @@ import { TipoConsultaFormModal } from "./tipo-consulta-form-modal";
 
 interface ConfiguracionCalendarioModalProps {
   onClose: () => void;
+  // onAgendaCambiada — recepción eligió otro profesional acá adentro. Eso
+  // mueve el FOCO DE LA SESIÓN, así que la pantalla de atrás tiene que
+  // seguirlo: si no, el encabezado dice un nombre y el calendario dibuja
+  // la agenda de otro (bug real de QA, 2026-09-20).
+  onAgendaCambiada?: () => void;
   // "Ver regla" desde un bloqueo del calendario (F2.3.8, bloqueo-detalle-modal.tsx)
   // — el id de la regla a la que hay que llevar la vista apenas cargan
   // las tablas: scrollea hasta ella y la resalta un momento.
@@ -69,12 +74,16 @@ const ALCANCE_LABEL: Record<string, string> = {
 // ejemplo el botón de agregar turno".
 export function ConfiguracionCalendarioModal({
   onClose,
+  onAgendaCambiada,
   reglaAFocalizarId,
   horarioAtencionAFocalizarId,
 }: ConfiguracionCalendarioModalProps) {
   const [horarioGeneral, setHorarioGeneral] = useState<HorarioAtencion | null>(
     null,
   );
+  // Lo último que dijo el servidor, para saber si el formulario está a
+  // medio editar. Un ref y no estado: no se dibuja, solo se compara.
+  const horarioGuardadoRef = useRef<HorarioAtencion | null>(null);
   const [horarioError, setHorarioError] = useState<string | null>(null);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
   // Excepciones temporales (corrección de QA, 2026-09-01: "puede que un
@@ -119,6 +128,7 @@ export function ConfiguracionCalendarioModal({
     listHorarioAtencionAction().then(([general, ...resto]) => {
       if (activo) {
         setHorarioGeneral(general ?? null);
+        horarioGuardadoRef.current = general ?? null;
         setExcepciones(resto);
       }
     });
@@ -178,6 +188,7 @@ export function ConfiguracionCalendarioModal({
       return;
     }
     setHorarioGeneral(result.horario);
+    horarioGuardadoRef.current = result.horario;
   }
 
   function excepcionGuardada(horario: HorarioAtencion) {
@@ -283,7 +294,16 @@ export function ConfiguracionCalendarioModal({
               quién antes de leerlo. Para quien no es recepción no se
               dibuja nada. */}
           <SelectorDeVistaDeRecepcion
-            onCambio={() => setVersion((v) => v + 1)}
+            onCambio={() => {
+              setVersion((v) => v + 1);
+              onAgendaCambiada?.();
+            }}
+            hayCambiosSinGuardar={() =>
+              horarioGeneral?.horaDesde !==
+                horarioGuardadoRef.current?.horaDesde ||
+              horarioGeneral?.horaHasta !==
+                horarioGuardadoRef.current?.horaHasta
+            }
           />
 
           <div className="flex flex-col gap-8 p-6">
