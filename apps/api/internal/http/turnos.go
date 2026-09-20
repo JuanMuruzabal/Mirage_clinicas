@@ -402,6 +402,15 @@ type crearTurnoManualRequest struct {
 	TipoConsultaID   string `json:"tipoConsultaId"`
 	HoraInicio       string `json:"horaInicio"`
 	HoraFin          string `json:"horaFin"`
+	// ProfesionalUserID — a qué agenda entra este turno (QA de la Fase
+	// 3.2.6). Vacío = la regla de siempre (quien lo carga, o el
+	// profesional en foco si es recepción).
+	//
+	// Antes de esto, recepción en la vista general no podía cargar nada:
+	// el backend le pedía pararse primero en una agenda. Pedírselo
+	// mientras llena el formulario, en el formulario, es lo mismo sin el
+	// rodeo — y sin moverle la pantalla de atrás.
+	ProfesionalUserID string `json:"profesionalUserId"`
 	// PacienteID (opcional) — camino "paciente conocido" del modal: en vez
 	// de crear un Paciente nuevo a partir de los datos de contacto, vincula
 	// el turno a un paciente que ya existe (pedido explícito del cliente,
@@ -518,7 +527,16 @@ func crearTurnoManualHandler(gdb *gorm.DB) http.HandlerFunc {
 		// equipo—, sigue cayendo al owner hasta que la 3.2.6 traiga el
 		// selector de profesional, que es el caso que de verdad lo
 		// necesita.
+		elegida, ok := agendaElegida(w, r, gdb, profesionalID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
 		atiende, err := profesionalQueAtiende(gdb, r, profesionalID)
+		if elegida != nil {
+			// El carrusel del modal gana sobre el foco de la sesión: es
+			// una decisión tomada PARA ESTE turno, delante de la persona.
+			atiende, err = *elegida, nil
+		}
 		if errors.Is(err, errFaltaElegirProfesional) {
 			// No es una falla del servidor: recepción está en la vista
 			// general y hay que decirle de qué agenda se trata.

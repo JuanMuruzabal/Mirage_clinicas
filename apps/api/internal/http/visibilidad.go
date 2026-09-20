@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"dental-mirage/api/internal/db"
 
@@ -362,6 +363,57 @@ func soloMiAgenda(r *http.Request) func(*gorm.DB) *gorm.DB {
 		}
 		return tx.Where("user_id = ? OR user_id IS NULL", userID)
 	}
+}
+
+// puedeCargarEnLaAgendaDe — si esta sesión puede crear algo (un turno,
+// un horario reservado, un enlace) en la agenda de `elegido` (QA de la
+// Fase 3.2.6).
+//
+// Recepción sí, para cualquier profesional ACTIVO de la clínica: navegar
+// y operar las agendas ajenas es justamente lo que su rol habilita.
+// Cualquier otro rol, solo la propia — que un profesional le llenara la
+// agenda a un colega sería la fuga de la 3.2.2 por una puerta nueva, y
+// esconder el selector nunca fue cerrar la puerta (misma lección que
+// /personalizar-pagina en la 3.2.4).
+func puedeCargarEnLaAgendaDe(gdb *gorm.DB, r *http.Request, clinicID, elegido uuid.UUID) bool {
+	if !tieneAlgunRol(r, db.RoleRecepcion) {
+		yo, ok := usuarioDeLaSesion(r)
+		return ok && yo == elegido
+	}
+	var miembro db.ClinicMember
+	if err := gdb.Preload("Roles").Where("clinic_id = ? AND user_id = ? AND status = ?",
+		clinicID, elegido, db.ClinicMemberStatusActive).First(&miembro).Error; err != nil {
+		return false
+	}
+	return esProfesional(miembro)
+}
+
+// agendaElegida — resuelve el `profesionalUserId` que mandan los
+// formularios del panel ("+ Agregar turno", "Reservar horario",
+// "Compartir link") desde el carrusel.
+//
+// Devuelve `nil, true` cuando no vino ninguno: ahí manda la regla de
+// siempre (quien carga, o el profesional en foco). Escribe la respuesta y
+// devuelve `false` si el id es inválido o ajeno — 404 y no 403, mismo
+// criterio que la ficha de un paciente de otro: para quien no puede, esa
+// agenda no existe.
+func agendaElegida(
+	w http.ResponseWriter, r *http.Request, gdb *gorm.DB, clinicID uuid.UUID, pedido string,
+) (*uuid.UUID, bool) {
+	pedido = strings.TrimSpace(pedido)
+	if pedido == "" {
+		return nil, true
+	}
+	elegido, err := uuid.Parse(pedido)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "el profesional elegido no es válido")
+		return nil, false
+	}
+	if !puedeCargarEnLaAgendaDe(gdb, r, clinicID, elegido) {
+		writeError(w, http.StatusNotFound, "esa persona no atiende pacientes en esta clínica")
+		return nil, false
+	}
+	return &elegido, true
 }
 
 // profesionalQueAtiende — a quién se le asigna un turno cargado desde el

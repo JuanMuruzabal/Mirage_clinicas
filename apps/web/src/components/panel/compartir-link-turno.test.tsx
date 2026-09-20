@@ -2,9 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { crearEnlaceTurnoActionMock, listPacientesActionMock } = vi.hoisted(() => ({
+const {
+  crearEnlaceTurnoActionMock,
+  listPacientesActionMock,
+  opcionesDeAgendaActionMock,
+} = vi.hoisted(() => ({
   crearEnlaceTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
+  opcionesDeAgendaActionMock: vi.fn(),
 }));
 vi.mock("@/app/actions/turnos", () => ({
   crearEnlaceTurnoAction: crearEnlaceTurnoActionMock,
@@ -17,11 +22,41 @@ vi.mock("@/app/actions/turnos", () => ({
 vi.mock("@/app/actions/pacientes", () => ({
   listPacientesAction: listPacientesActionMock,
 }));
+// Desde la QA de la 3.2.6 el "¿con quién es el turno?" es el carrusel
+// del resto del panel, y sus opciones salen del servidor: para un
+// profesional, su propia agenda; para recepción, todas las de la clínica.
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: opcionesDeAgendaActionMock,
+}));
+
+const SOLO_YO = {
+  profesionales: [
+    { userId: "u-yo", nombre: "Lucía Gómez", detalle: "Ortodoncia" },
+  ],
+  miUserId: "u-yo",
+  puedeElegirOtros: false,
+};
+const RECEPCION = {
+  profesionales: [
+    { userId: "u-yo", nombre: "Lucía Gómez", detalle: "Ortodoncia" },
+    { userId: "u-2", nombre: "Marcos Díaz", detalle: "Endodoncia" },
+  ],
+  miUserId: null,
+  puedeElegirOtros: true,
+};
 
 const { CompartirLinkTurno } = await import("./compartir-link-turno");
 
 const PACIENTES = [
-  { id: "pac-1", nombre: "Bruno", apellido: "Iglesias", dni: "30111222", telefono: "+5493511234567", email: "bruno@example.com", verificado: true },
+  {
+    id: "pac-1",
+    nombre: "Bruno",
+    apellido: "Iglesias",
+    dni: "30111222",
+    telefono: "+5493511234567",
+    email: "bruno@example.com",
+    verificado: true,
+  },
 ];
 
 const URL_ENLACE = "https://dentalmirage.com.ar/clinica-x?enlace=abc123";
@@ -34,8 +69,12 @@ async function generarLink(user: ReturnType<typeof userEvent.setup>) {
 describe("CompartirLinkTurno", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    crearEnlaceTurnoActionMock.mockResolvedValue({ url: URL_ENLACE, expiraEn: "2026-09-07T13:00:00Z" });
+    crearEnlaceTurnoActionMock.mockResolvedValue({
+      url: URL_ENLACE,
+      expiraEn: "2026-09-07T13:00:00Z",
+    });
     listPacientesActionMock.mockResolvedValue(PACIENTES);
+    opcionesDeAgendaActionMock.mockResolvedValue(SOLO_YO);
     // `navigator.clipboard`/`navigator.share` son accessors heredados del
     // prototipo en este jsdom (no propiedades propias) — un spread
     // (`{...navigator}`) no los arrastra, y sobrescribirlos en la propia
@@ -45,7 +84,9 @@ describe("CompartirLinkTurno", () => {
     // del navigator real) — el componente solo necesita
     // `.share`/`.clipboard.writeText`, nada más de la interfaz real de
     // Navigator.
-    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   afterEach(() => {
@@ -55,50 +96,112 @@ describe("CompartirLinkTurno", () => {
 
   it("muestra 'Generar link' antes de generar nada", () => {
     render(<CompartirLinkTurno />);
-    expect(screen.getByRole("button", { name: "Generar link" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Link para compartir")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Generar link" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Link para compartir"),
+    ).not.toBeInTheDocument();
   });
 
   // Las dos decisiones del link (Fase 3.2.7b).
   describe("qué decide el link", () => {
-    it("por defecto es con vos y sin paciente: el comportamiento de siempre", async () => {
+    // El default sigue siendo el de siempre —mi agenda, sin ficha—, solo
+    // que ahora se dice con el nombre del profesional en vez de "Con vos".
+    it("por defecto es mi propia agenda y sin paciente", async () => {
       const user = userEvent.setup();
       render(<CompartirLinkTurno />);
+      await screen.findByText("Lucía Gómez");
       await generarLink(user);
 
       expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
         paraTodosLosProfesionales: false,
         pacienteId: undefined,
+        profesionalUserId: "u-yo",
       });
     });
 
-    it("con 'cualquier profesional' y una ficha elegida, las manda las dos", async () => {
+    // La opción general del carrusel ES el viejo "con cualquier
+    // profesional": el paciente elige con quién atenderse.
+    it("con 'Cualquier profesional' y una ficha elegida, las manda las dos", async () => {
       const user = userEvent.setup();
       render(<CompartirLinkTurno />);
+      await screen.findByText("Lucía Gómez");
 
-      await user.click(screen.getByRole("radio", { name: /Con cualquier profesional/ }));
+      await user.click(
+        screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: /Cualquier profesional/ }),
+      );
       await user.type(screen.getByLabelText("Buscar paciente"), "Bruno");
-      await user.click(await screen.findByRole("button", { name: /Bruno Iglesias/ }));
+      await user.click(
+        await screen.findByRole("button", { name: /Bruno Iglesias/ }),
+      );
       await generarLink(user);
 
       expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
         paraTodosLosProfesionales: true,
         pacienteId: "pac-1",
+        profesionalUserId: "",
       });
+    });
+
+    // Lo que antes no se podía expresar: recepción genera el link de la
+    // agenda de un colega puntual, que es para lo que existe su vista.
+    it("recepción puede generar el link de la agenda de un colega", async () => {
+      const user = userEvent.setup();
+      opcionesDeAgendaActionMock.mockResolvedValue(RECEPCION);
+      render(<CompartirLinkTurno />);
+      await screen.findByRole("button", {
+        name: "Elegir de quién es la vista",
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+      );
+      await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
+      await generarLink(user);
+
+      expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
+        paraTodosLosProfesionales: false,
+        pacienteId: undefined,
+        profesionalUserId: "u-2",
+      });
+    });
+
+    // Un profesional no ve más agenda que la suya. El aislamiento lo
+    // impone el backend, pero ofrecer lo que va a ser rechazado sería
+    // ofrecer un error.
+    it("un profesional solo se ve a sí mismo en el carrusel", async () => {
+      const user = userEvent.setup();
+      render(<CompartirLinkTurno />);
+      await screen.findByText("Lucía Gómez");
+
+      await user.click(
+        screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+      );
+      expect(
+        screen.queryByRole("button", { name: /Marcos Díaz/ }),
+      ).not.toBeInTheDocument();
     });
 
     it("la ficha elegida se puede quitar", async () => {
       const user = userEvent.setup();
       render(<CompartirLinkTurno />);
+      await screen.findByText("Lucía Gómez");
 
       await user.type(screen.getByLabelText("Buscar paciente"), "Bruno");
-      await user.click(await screen.findByRole("button", { name: /Bruno Iglesias/ }));
+      await user.click(
+        await screen.findByRole("button", { name: /Bruno Iglesias/ }),
+      );
       await user.click(screen.getByRole("button", { name: "Quitar" }));
       await generarLink(user);
 
       expect(crearEnlaceTurnoActionMock).toHaveBeenCalledWith({
         paraTodosLosProfesionales: false,
         pacienteId: undefined,
+        profesionalUserId: "u-yo",
       });
     });
   });
@@ -143,8 +246,12 @@ describe("CompartirLinkTurno", () => {
 
       await user.click(screen.getByRole("button", { name: "Copiar mensaje" }));
 
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining(URL_ENLACE));
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining("Es válido por 1 hora"));
+      expect(writeTextMock).toHaveBeenCalledWith(
+        expect.stringContaining(URL_ENLACE),
+      );
+      expect(writeTextMock).toHaveBeenCalledWith(
+        expect.stringContaining("Es válido por 1 hora"),
+      );
       expect(await screen.findByText("¡Copiado!")).toBeInTheDocument();
     });
   });
@@ -162,8 +269,12 @@ describe("CompartirLinkTurno", () => {
       render(<CompartirLinkTurno />);
       await generarLink(user);
 
-      expect(screen.getByRole("button", { name: "Compartir" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "WhatsApp Web" })).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Compartir" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "WhatsApp Web" }),
+      ).not.toBeInTheDocument();
     });
 
     it("comparte el mensaje informativo completo, sin duplicar el link en un campo `url` aparte", async () => {
@@ -176,20 +287,25 @@ describe("CompartirLinkTurno", () => {
       expect(navigator.share).toHaveBeenCalledWith(
         expect.objectContaining({ text: expect.stringContaining(URL_ENLACE) }),
       );
-      const llamada = (navigator.share as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const llamada = (navigator.share as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
       expect(llamada.text).toContain("Es válido por 1 hora");
       expect(llamada.url).toBeUndefined();
     });
   });
 
   it("un error al generar el link ofrece reintentar", async () => {
-    crearEnlaceTurnoActionMock.mockResolvedValue({ error: "no se pudo generar el link" });
+    crearEnlaceTurnoActionMock.mockResolvedValue({
+      error: "no se pudo generar el link",
+    });
     const user = userEvent.setup();
     render(<CompartirLinkTurno />);
 
     await user.click(screen.getByRole("button", { name: "Generar link" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo generar el link");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo generar el link",
+    );
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
     expect(crearEnlaceTurnoActionMock).toHaveBeenCalledTimes(2);
   });

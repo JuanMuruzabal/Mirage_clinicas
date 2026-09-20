@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type {
   BloqueoHorario,
   HorarioAtencion,
@@ -44,6 +45,9 @@ import { ConfiguracionCalendarioModal } from "./configuracion-calendario-modal";
 import { BloqueoDetalleModal } from "./bloqueo-detalle-modal";
 import { ReservarHorarioModal } from "./reservar-horario-modal";
 import { IconSettings } from "@/components/icons";
+import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
+import { elegirVistaAction } from "@/app/actions/topbar-panel";
+import type { VistaActual } from "@dental-mirage/shared-types";
 import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface CalendarViewProps {
@@ -57,6 +61,16 @@ interface CalendarViewProps {
   // agenda, o recepción parada en la vista de alguien— y entonces el
   // calendario es exactamente el de siempre.
   profesionalesDelDia?: { userId: string; nombre: string }[];
+  // El selector de vista de recepción, dibujado DESDE ACÁ y no desde la
+  // página (QA de la 3.2.6).
+  //
+  // Tiene que vivir del lado del cliente porque lo que puede ofrecer
+  // depende de Día/Semana/Mes, y eso es estado de este componente: la
+  // página no se entera cuando alguien toca "Semana".
+  zonaProfesional?: {
+    profesionales: OpcionProfesional[];
+    vista: VistaActual | null;
+  } | null;
   // vistaKey — QUIÉN es la vista actual: el userId del profesional en
   // foco, o "general" (Fase 3.2.6).
   //
@@ -129,6 +143,7 @@ export function CalendarView({
   tiposConsulta,
   turnosIniciales,
   profesionalesDelDia = [],
+  zonaProfesional = null,
   vistaKey = "general",
   vistaInicial,
   fechaInicialStr,
@@ -142,6 +157,11 @@ export function CalendarView({
   // directo en Semana cuando se llega desde la tarjeta "Turnos próximos"
   // del dashboard, sin tocar ese default para quien entra por el menú.
   const [vista, setVista] = useState<VistaCalendario>(vistaInicial ?? "dia");
+  const router = useRouter();
+  const [cambiandoDeFoco, iniciarCambioDeFoco] = useTransition();
+  // Recepción sin nadie en foco: la vista general de la clínica.
+  const enVistaGeneral =
+    zonaProfesional != null && zonaProfesional.vista?.profesional == null;
   // hoyEnCordoba() (encontrado investigando un error de hidratación de
   // React, 2026-08-30), no `new Date()` — este estado se calcula tanto en
   // el server (SSR) como al hidratar en el cliente, y `new Date()` leído
@@ -446,11 +466,67 @@ export function CalendarView({
     // objeto `Date` nuevo en cada llamada (siempre "cambia" para React,
     // aunque sea el mismo día) — acá `vista` es un string plano.
     if (v === vista) return;
+
+    // LA VISTA GENERAL ES EXCLUSIVA DE "DÍA" (QA de la 3.2.6, pedido
+    // textual: *"la vista general es exclusiva de la opción 'día' del
+    // calendario, ya al pasar semana o mes siempre seleccionar el
+    // profesional más próximo en la vista"*).
+    //
+    // No es una restricción arbitraria: en Día la vista general dibuja
+    // una columna por profesional, que es lo que la hace legible. En
+    // Semana las siete columnas ya son los días — meter ahí también a
+    // cada profesional daría 7 × N columnas. Sin columnas propias, "la
+    // agenda de todos" sería un amontonamiento de bloques sin dueño.
+    //
+    // Así que al salir de Día se elige a alguien. Quién: el profesional
+    // MÁS PRÓXIMO en lo que se está mirando — el dueño del primer turno
+    // del día, que es el que la persona tiene delante de los ojos. Si no
+    // hay ninguno, el primero de la lista, que es la primera columna.
+    if (enVistaGeneral && v !== "dia") {
+      const elegido = profesionalMasProximo();
+      if (elegido) {
+        setCargando(true);
+        setVista(v);
+        if (v === "semana") scrollPendienteRef.current = hoyEnCordoba();
+        cambiarDeFoco(elegido);
+        return;
+      }
+    }
+
     setCargando(true);
     setVista(v);
     // No se scrollea acá mismo — ver el efecto de abajo, guardado en
     // `scrollPendienteRef` hasta que `cargando` vuelva a `false`.
     if (v === "semana") scrollPendienteRef.current = hoyEnCordoba();
+  }
+
+  // profesionalMasProximo — de quién es el turno que viene primero en lo
+  // que se está mirando. Los turnos del día ya están en memoria (son los
+  // que la grilla dibuja), así que esto no pide nada al servidor.
+  function profesionalMasProximo(): string | null {
+    const delDia = turnos
+      .filter((t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha))
+      .filter((t) => t.atendidoPorUserId)
+      .sort((a, b) => (a.horaInicio ?? "").localeCompare(b.horaInicio ?? ""));
+    // Contra la lista del SELECTOR y no contra `profesionalesDelDia`:
+    // las dos traen lo mismo en la vista general, pero la del selector es
+    // la que define a quién se puede saltar. Atarlo a la otra dejaba esto
+    // dependiendo de que dos props viajaran siempre juntas.
+    const candidatos = zonaProfesional?.profesionales ?? [];
+    const conColumna = delDia.find((t) =>
+      candidatos.some((p) => p.userId === t.atendidoPorUserId),
+    );
+    return conColumna?.atendidoPorUserId ?? candidatos[0]?.userId ?? null;
+  }
+
+  function cambiarDeFoco(userId: string) {
+    iniciarCambioDeFoco(async () => {
+      await elegirVistaAction(userId);
+      // Cambiar de foco cambia lo que el servidor devuelve para esta
+      // pantalla, así que hay que volver a pedirla — el efecto de los
+      // turnos se despierta solo cuando llega el `vistaKey` nuevo.
+      router.refresh();
+    });
   }
 
   function irAHoy() {
@@ -701,6 +777,23 @@ export function CalendarView({
           `overflow-x-auto` unas líneas más abajo) — nunca la página. Mes
           no necesita nada de esto (7 columnas fluidas, sin overflow) y
           Día tampoco (una sola columna). */}
+      {/* El selector de vista de recepción, arriba de todo. Ofrece la
+          vista general SOLO en Día: en Semana/Mes no hay columnas por
+          profesional donde dibujarla, y por eso desde ahí tampoco se
+          puede volver a ella (QA de la 3.2.6: *"una vez dentro de semana
+          o mes no poder volver a poner vista general"*). */}
+      {zonaProfesional && (
+        <ZonaProfesional
+          profesionales={zonaProfesional.profesionales}
+          vista={zonaProfesional.vista}
+          etiqueta="Viendo"
+          etiquetaConFoco="Viendo la agenda de"
+          conVistaGeneral={vista === "dia"}
+          etiquetaGeneral="Vista general"
+          detalleGeneral="Todos los profesionales del día"
+        />
+      )}
+
       <div className="flex flex-col gap-4">
         {/* flex-col en mobile, flex-row desde md (corrección de QA:
             "en mobile el botón de agregar turno debe estar por debajo
@@ -871,8 +964,14 @@ export function CalendarView({
               <button
                 key={v}
                 type="button"
+                // Mientras el cambio de foco está en vuelo, el toggle
+                // no acepta otro: salir de la vista general dispara una
+                // escritura en el servidor, y encadenar dos dejaría el
+                // calendario mostrando una agenda y el selector diciendo
+                // otra.
+                disabled={cambiandoDeFoco}
                 onClick={() => cambiarVista(v)}
-                className={`rounded-full px-4 py-1.5 ${vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                className={`rounded-full px-4 py-1.5 disabled:opacity-60 ${vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
               >
                 {VISTA_LABEL[v]}
               </button>

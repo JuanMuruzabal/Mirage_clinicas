@@ -29,6 +29,21 @@ vi.mock("@/app/actions/calendario-config", () => ({
   editarTipoConsultaAction: vi.fn(),
   eliminarTipoConsultaAction: vi.fn(),
 }));
+// Los formularios del panel preguntan a qué agenda se le carga lo que
+// se está por crear (QA de la 3.2.6). Sin mockearlo corre la Server
+// Action de verdad y `cookies()` explota fuera de un request — el test
+// igual pasa, pero vitest cuenta el rechazo y falla la corrida.
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: async () => ({
+    profesionales: [
+      { userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" },
+    ],
+    miUserId: "u1",
+    puedeElegirOtros: false,
+    focoActual: null,
+  }),
+  elegirVistaAction: async () => ({}),
+}));
 
 const { AbrirConfiguracionBoton } = await import("./abrir-configuracion-boton");
 
@@ -49,16 +64,24 @@ describe("AbrirConfiguracionBoton", () => {
     const user = userEvent.setup();
     render(<AbrirConfiguracionBoton />);
 
-    await user.click(screen.getByRole("button", { name: "Ver horarios reservados" }));
+    await user.click(
+      screen.getByRole("button", { name: "Ver horarios reservados" }),
+    );
 
-    expect(await screen.findByRole("dialog", { name: "Configuración de calendario" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Configuración de calendario",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("cerrar el modal (X) vuelve a dejarlo cerrado", async () => {
     const user = userEvent.setup();
     render(<AbrirConfiguracionBoton />);
 
-    await user.click(screen.getByRole("button", { name: "Ver horarios reservados" }));
+    await user.click(
+      screen.getByRole("button", { name: "Ver horarios reservados" }),
+    );
     await screen.findByRole("dialog");
 
     await user.click(screen.getByRole("button", { name: "Cerrar" }));

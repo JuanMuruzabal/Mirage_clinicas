@@ -134,6 +134,11 @@ type crearBloqueoHorarioRequest struct {
 	// general puede ser limpieza semanal, una específica puede ser
 	// reposición de inventario".
 	Motivo string `json:"motivo"`
+	// ProfesionalUserID — de quién es la agenda que se reserva (QA de la
+	// Fase 3.2.6). Vacío = la de quien la crea, o la del profesional en
+	// foco si es recepción. Mismo criterio que en el alta de un turno:
+	// el horario reservado ocupa UNA agenda, y hay que poder decir cuál.
+	ProfesionalUserID string `json:"profesionalUserId"`
 }
 
 // startOfWeek/startOfMonth/endOfMonth resuelven el rango concreto de una
@@ -297,6 +302,13 @@ func crearBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// Con dueño: el horario que reservo es MÍO. Sin esto la fila nace
 		// huérfana y la ve toda la clínica.
 		bloqueo.UserID = profesionalEnFocoOpcional(r)
+		elegida, ok := agendaElegida(w, r, gdb, clinicID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
+		if elegida != nil {
+			bloqueo.UserID = elegida
+		}
 
 		if err := gdb.Create(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la regla")

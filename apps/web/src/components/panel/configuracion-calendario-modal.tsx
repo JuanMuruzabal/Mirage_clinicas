@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BloqueoHorario, HorarioAtencion, TipoConsulta } from "@dental-mirage/shared-types";
+import type {
+  BloqueoHorario,
+  HorarioAtencion,
+  TipoConsulta,
+} from "@dental-mirage/shared-types";
 import {
   eliminarBloqueoAction,
   eliminarHorarioAtencionAction,
@@ -13,7 +17,11 @@ import {
 } from "@/app/actions/calendario-config";
 import { ModalPortal } from "./modal-portal";
 import { AgregarReglaModal } from "./agregar-regla-modal";
-import { AgregarHorarioAtencionModal, ALCANCE_LABEL_EXCEPCION } from "./agregar-horario-atencion-modal";
+import {
+  AgregarHorarioAtencionModal,
+  ALCANCE_LABEL_EXCEPCION,
+} from "./agregar-horario-atencion-modal";
+import { SelectorDeVistaDeRecepcion } from "./selector-de-agenda";
 import { TipoConsultaFormModal } from "./tipo-consulta-form-modal";
 
 interface ConfiguracionCalendarioModalProps {
@@ -30,7 +38,15 @@ interface ConfiguracionCalendarioModalProps {
   horarioAtencionAFocalizarId?: string;
 }
 
-const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DIAS_SEMANA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 const ALCANCE_LABEL: Record<string, string> = {
   semana: "Esta semana",
   proxima_semana: "Próxima semana",
@@ -51,30 +67,52 @@ const ALCANCE_LABEL: Record<string, string> = {
 // (ModalPortal, backdrop con blur) — pedido explícito del cliente: "este
 // será del mismo tipo que los div que se generan cuando aprieto por
 // ejemplo el botón de agregar turno".
-export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horarioAtencionAFocalizarId }: ConfiguracionCalendarioModalProps) {
-  const [horarioGeneral, setHorarioGeneral] = useState<HorarioAtencion | null>(null);
+export function ConfiguracionCalendarioModal({
+  onClose,
+  reglaAFocalizarId,
+  horarioAtencionAFocalizarId,
+}: ConfiguracionCalendarioModalProps) {
+  const [horarioGeneral, setHorarioGeneral] = useState<HorarioAtencion | null>(
+    null,
+  );
   const [horarioError, setHorarioError] = useState<string | null>(null);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
   // Excepciones temporales (corrección de QA, 2026-09-01: "puede que un
   // profesional tenga horarios de atención variable") — CRUD aparte del
   // form simple de la general, mismo patrón alta/edición que `agregando`
   // de los horarios reservados un poco más abajo.
-  const [excepciones, setExcepciones] = useState<HorarioAtencion[] | null>(null);
-  const [agregandoExcepcion, setAgregandoExcepcion] = useState<HorarioAtencion | "nuevo" | null>(null);
+  const [excepciones, setExcepciones] = useState<HorarioAtencion[] | null>(
+    null,
+  );
+  const [agregandoExcepcion, setAgregandoExcepcion] = useState<
+    HorarioAtencion | "nuevo" | null
+  >(null);
 
   const [generales, setGenerales] = useState<BloqueoHorario[] | null>(null);
   const [especificas, setEspecificas] = useState<BloqueoHorario[] | null>(null);
   // Un solo estado para alta Y edición (corrección de QA, F2.3.6): sin
   // `regla`, es un alta nueva; con `regla`, AgregarReglaModal precarga
   // sus valores y guarda con PATCH en vez de POST.
-  const [agregando, setAgregando] = useState<{ especifico: boolean; regla?: BloqueoHorario } | null>(null);
+  const [agregando, setAgregando] = useState<{
+    especifico: boolean;
+    regla?: BloqueoHorario;
+  } | null>(null);
 
-  const [tiposConsulta, setTiposConsulta] = useState<TipoConsulta[] | null>(null);
-  const [editandoTipo, setEditandoTipo] = useState<TipoConsulta | "nuevo" | null>(null);
+  const [tiposConsulta, setTiposConsulta] = useState<TipoConsulta[] | null>(
+    null,
+  );
+  const [editandoTipo, setEditandoTipo] = useState<
+    TipoConsulta | "nuevo" | null
+  >(null);
   const [errorTipo, setErrorTipo] = useState<string | null>(null);
 
   const filaFocalizadaRef = useRef<HTMLTableRowElement | null>(null);
   const filaFocalizadaExcepcionRef = useRef<HTMLTableRowElement | null>(null);
+
+  // `version` sube cada vez que recepción cambia de profesional desde el
+  // carrusel de arriba: todo lo que el modal muestra es de UNA agenda, y
+  // al cambiarla hay que volver a leerlo entero.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let activo = true;
@@ -96,22 +134,29 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
     return () => {
       activo = false;
     };
-  }, []);
+  }, [version]);
 
   // Scrollea hasta la regla pedida por "Ver regla" apenas está disponible
   // en el DOM (las dos tablas ya cargaron) — se activa una sola vez por
   // cada id nuevo, no en cada render.
   useEffect(() => {
     if (!reglaAFocalizarId || !filaFocalizadaRef.current) return;
-    filaFocalizadaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    filaFocalizadaRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   }, [reglaAFocalizarId, generales, especificas]);
 
   // Mismo mecanismo, para "Ver excepción de horario" (nueva función,
   // 2026-09-08) — apunta a la tabla de excepciones en vez de horarios
   // reservados.
   useEffect(() => {
-    if (!horarioAtencionAFocalizarId || !filaFocalizadaExcepcionRef.current) return;
-    filaFocalizadaExcepcionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!horarioAtencionAFocalizarId || !filaFocalizadaExcepcionRef.current)
+      return;
+    filaFocalizadaExcepcionRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   }, [horarioAtencionAFocalizarId, excepciones]);
 
   async function guardarHorarioGeneral(e: React.FormEvent) {
@@ -123,7 +168,10 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
       return;
     }
     setGuardandoHorario(true);
-    const result = await putHorarioAtencionGeneralAction({ horaDesde: horarioGeneral.horaDesde, horaHasta: horarioGeneral.horaHasta });
+    const result = await putHorarioAtencionGeneralAction({
+      horaDesde: horarioGeneral.horaDesde,
+      horaHasta: horarioGeneral.horaHasta,
+    });
     setGuardandoHorario(false);
     if ("error" in result) {
       setHorarioError(result.error);
@@ -136,7 +184,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
     setExcepciones((actual) => {
       const lista = actual ?? [];
       const existe = lista.some((h) => h.id === horario.id);
-      return existe ? lista.map((h) => (h.id === horario.id ? horario : h)) : [...lista, horario];
+      return existe
+        ? lista.map((h) => (h.id === horario.id ? horario : h))
+        : [...lista, horario];
     });
     setAgregandoExcepcion(null);
   }
@@ -157,9 +207,14 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
     }
   }
 
-  function reemplazarOAgregar(lista: BloqueoHorario[], bloqueo: BloqueoHorario): BloqueoHorario[] {
+  function reemplazarOAgregar(
+    lista: BloqueoHorario[],
+    bloqueo: BloqueoHorario,
+  ): BloqueoHorario[] {
     const existe = lista.some((b) => b.id === bloqueo.id);
-    return existe ? lista.map((b) => (b.id === bloqueo.id ? bloqueo : b)) : [...lista, bloqueo];
+    return existe
+      ? lista.map((b) => (b.id === bloqueo.id ? bloqueo : b))
+      : [...lista, bloqueo];
   }
 
   function reglaGuardada(bloqueo: BloqueoHorario) {
@@ -175,7 +230,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
     setTiposConsulta((actual) => {
       const lista = actual ?? [];
       const existe = lista.some((t) => t.id === tipo.id);
-      return existe ? lista.map((t) => (t.id === tipo.id ? tipo : t)) : [...lista, tipo];
+      return existe
+        ? lista.map((t) => (t.id === tipo.id ? tipo : t))
+        : [...lista, tipo];
     });
     setEditandoTipo(null);
   }
@@ -208,11 +265,26 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
             panel. */}
         <div className="flex max-h-[90vh] w-full max-w-2xl max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
           <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Configuración de calendario</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+              Configuración de calendario
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
+            >
               ×
             </button>
           </div>
+
+          {/* Arriba del todo, antes que cualquier sección: todo lo que
+              sigue es la configuración de UNA agenda, y hay que saber de
+              quién antes de leerlo. Para quien no es recepción no se
+              dibuja nada. */}
+          <SelectorDeVistaDeRecepcion
+            onCambio={() => setVersion((v) => v + 1)}
+          />
 
           <div className="flex flex-col gap-8 p-6">
             {/* Horario de atención — la general, aplica a todos los días
@@ -220,16 +292,26 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 rediseño 2026-09-01, corrección de QA: "puede que un
                 profesional tenga horarios de atención variable"). */}
             <section className="flex flex-col gap-3">
-              <h3 className="font-semibold text-grafito">Horario de atención</h3>
+              <h3 className="font-semibold text-grafito">
+                Horario de atención
+              </h3>
               {horarioGeneral === null ? (
                 <p className="text-sm text-grafito/60">Cargando…</p>
               ) : (
-                <form onSubmit={guardarHorarioGeneral} className="flex flex-wrap items-end gap-4">
+                <form
+                  onSubmit={guardarHorarioGeneral}
+                  className="flex flex-wrap items-end gap-4"
+                >
                   <Campo label="Desde">
                     <input
                       type="time"
                       value={horarioGeneral.horaDesde ?? ""}
-                      onChange={(e) => setHorarioGeneral({ ...horarioGeneral, horaDesde: e.target.value })}
+                      onChange={(e) =>
+                        setHorarioGeneral({
+                          ...horarioGeneral,
+                          horaDesde: e.target.value,
+                        })
+                      }
                       className={inputClass}
                     />
                   </Campo>
@@ -237,7 +319,12 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                     <input
                       type="time"
                       value={horarioGeneral.horaHasta ?? ""}
-                      onChange={(e) => setHorarioGeneral({ ...horarioGeneral, horaHasta: e.target.value })}
+                      onChange={(e) =>
+                        setHorarioGeneral({
+                          ...horarioGeneral,
+                          horaHasta: e.target.value,
+                        })
+                      }
                       className={inputClass}
                     />
                   </Campo>
@@ -267,7 +354,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 /disponibilidad. */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">Excepciones de horario</h3>
+                <h3 className="font-semibold text-grafito">
+                  Excepciones de horario
+                </h3>
                 <button
                   type="button"
                   onClick={() => setAgregandoExcepcion("nuevo")}
@@ -282,8 +371,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 </button>
               </div>
               <p className="text-xs text-grafito/60">
-                Para un horario distinto al de siempre — esta semana, este mes, o un rango de fechas elegido a mano. También sirve
-                para marcar un período sin atención.
+                Para un horario distinto al de siempre — esta semana, este mes,
+                o un rango de fechas elegido a mano. También sirve para marcar
+                un período sin atención.
               </p>
               <ExcepcionesHorarioTable
                 excepciones={excepciones}
@@ -301,7 +391,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 solape (TR-084 en docs/Arquitectura y base/tradeoffs.md). */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">Horarios reservados generales</h3>
+                <h3 className="font-semibold text-grafito">
+                  Horarios reservados generales
+                </h3>
                 <button
                   type="button"
                   onClick={() => setAgregando({ especifico: false })}
@@ -313,7 +405,8 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 </button>
               </div>
               <p className="text-xs text-grafito/60">
-                Se repiten por día de la semana, en un rango amplio: esta semana, este mes, o todos los meses.
+                Se repiten por día de la semana, en un rango amplio: esta
+                semana, este mes, o todos los meses.
               </p>
               <ReglasTable
                 reglas={generales}
@@ -332,7 +425,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 que se solape ese mismo día/horario. */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">Horarios reservados específicos</h3>
+                <h3 className="font-semibold text-grafito">
+                  Horarios reservados específicos
+                </h3>
                 <button
                   type="button"
                   onClick={() => setAgregando({ especifico: true })}
@@ -344,7 +439,8 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 </button>
               </div>
               <p className="text-xs text-grafito/60">
-                Aplican a un día puntual — si se solapan con un horario reservado general, gana el específico.
+                Aplican a un día puntual — si se solapan con un horario
+                reservado general, gana el específico.
               </p>
               <ReglasTable
                 reglas={especificas}
@@ -362,7 +458,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                 podían ver (GET /tipos-consulta), no gestionar. */}
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">Tipos de consulta</h3>
+                <h3 className="font-semibold text-grafito">
+                  Tipos de consulta
+                </h3>
                 {/* Los tipos que ya usa la clínica viven ADENTRO de este
                     modal desde el 2026-09-14, como punto de partida del
                     formulario — no en un botón aparte que copiaba y
@@ -378,7 +476,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
               {tiposConsulta === null ? (
                 <p className="text-sm text-grafito/60">Cargando…</p>
               ) : tiposConsulta.length === 0 ? (
-                <p className="text-sm text-grafito/60">Todavía no cargaste ningún tipo de consulta.</p>
+                <p className="text-sm text-grafito/60">
+                  Todavía no cargaste ningún tipo de consulta.
+                </p>
               ) : (
                 // Organizado en tabla, mismo criterio visual que las
                 // reglas globales/específicas de arriba (corrección de
@@ -390,9 +490,15 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                     <thead>
                       <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
                         <th className="whitespace-nowrap px-4 py-2">Nombre</th>
-                        <th className="whitespace-nowrap px-4 py-2">Duración</th>
-                        <th className="whitespace-nowrap px-4 py-2">Post-consulta</th>
-                        <th className="whitespace-nowrap px-4 py-2">Sesiones</th>
+                        <th className="whitespace-nowrap px-4 py-2">
+                          Duración
+                        </th>
+                        <th className="whitespace-nowrap px-4 py-2">
+                          Post-consulta
+                        </th>
+                        <th className="whitespace-nowrap px-4 py-2">
+                          Sesiones
+                        </th>
                         {/* hidden md:table-cell (corrección de QA,
                             2026-08-30: "se forma un gap blanco que queda
                             mal") — esta columna de acciones no se ve en
@@ -407,7 +513,12 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
                     </thead>
                     <tbody>
                       {tiposConsulta.map((t) => (
-                        <FilaTipoConsulta key={t.id} tipo={t} onEditar={() => setEditandoTipo(t)} onEliminar={() => eliminarTipo(t.id)} />
+                        <FilaTipoConsulta
+                          key={t.id}
+                          tipo={t}
+                          onEditar={() => setEditandoTipo(t)}
+                          onEliminar={() => eliminarTipo(t.id)}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -442,7 +553,9 @@ export function ConfiguracionCalendarioModal({ onClose, reglaAFocalizarId, horar
 
       {agregandoExcepcion && (
         <AgregarHorarioAtencionModal
-          horarioExistente={agregandoExcepcion === "nuevo" ? undefined : agregandoExcepcion}
+          horarioExistente={
+            agregandoExcepcion === "nuevo" ? undefined : agregandoExcepcion
+          }
           onClose={() => setAgregandoExcepcion(null)}
           onGuardado={excepcionGuardada}
         />
@@ -472,7 +585,11 @@ function ExcepcionesHorarioTable({
     return <p className="text-sm text-grafito/60">Cargando…</p>;
   }
   if (excepciones.length === 0) {
-    return <p className="text-sm text-grafito/60">Todavía no cargaste ninguna excepción de horario.</p>;
+    return (
+      <p className="text-sm text-grafito/60">
+        Todavía no cargaste ninguna excepción de horario.
+      </p>
+    );
   }
 
   return (
@@ -527,10 +644,18 @@ function FilaExcepcionHorario({
           focalizada ? "bg-salvia-claro" : desplegada ? "bg-hueso" : ""
         }`}
       >
-        <td className="px-4 py-2 text-grafito">{ALCANCE_LABEL_EXCEPCION[h.alcance] ?? h.alcance}</td>
-        <td className="px-4 py-2 text-grafito/70">{h.fechaDesde && h.fechaHasta ? `${h.fechaDesde} – ${h.fechaHasta}` : "—"}</td>
+        <td className="px-4 py-2 text-grafito">
+          {ALCANCE_LABEL_EXCEPCION[h.alcance] ?? h.alcance}
+        </td>
+        <td className="px-4 py-2 text-grafito/70">
+          {h.fechaDesde && h.fechaHasta
+            ? `${h.fechaDesde} – ${h.fechaHasta}`
+            : "—"}
+        </td>
         <td className="px-4 py-2 font-[family-name:var(--font-mono)] text-grafito">
-          {h.horaDesde && h.horaHasta ? `${h.horaDesde}–${h.horaHasta}` : "No trabaja"}
+          {h.horaDesde && h.horaHasta
+            ? `${h.horaDesde}–${h.horaHasta}`
+            : "No trabaja"}
         </td>
         <td className="hidden px-4 py-2 text-right md:table-cell">
           <div className="flex justify-end gap-3">
@@ -596,8 +721,12 @@ function ReglasTable({
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
-            <th className="whitespace-nowrap px-4 py-2">{especifico ? "Fecha" : "Día"}</th>
-            {!especifico && <th className="whitespace-nowrap px-4 py-2">Alcance</th>}
+            <th className="whitespace-nowrap px-4 py-2">
+              {especifico ? "Fecha" : "Día"}
+            </th>
+            {!especifico && (
+              <th className="whitespace-nowrap px-4 py-2">Alcance</th>
+            )}
             <th className="whitespace-nowrap px-4 py-2">Horario</th>
             <th className="whitespace-nowrap px-4 py-2">Motivo</th>
             {/* hidden md:table-cell — ver el comentario igual en la tabla
@@ -663,9 +792,17 @@ function FilaRegla({
         } ${desplegada ? "" : "md:border-b-[0.5px]"}`}
       >
         <td className="px-4 py-2 text-grafito">
-          {especifico ? r.fecha : r.diaSemana !== undefined ? DIAS_SEMANA[r.diaSemana] : "—"}
+          {especifico
+            ? r.fecha
+            : r.diaSemana !== undefined
+              ? DIAS_SEMANA[r.diaSemana]
+              : "—"}
         </td>
-        {!especifico && <td className="px-4 py-2 text-grafito">{r.alcance ? ALCANCE_LABEL[r.alcance] : "—"}</td>}
+        {!especifico && (
+          <td className="px-4 py-2 text-grafito">
+            {r.alcance ? ALCANCE_LABEL[r.alcance] : "—"}
+          </td>
+        )}
         <td className="px-4 py-2 font-[family-name:var(--font-mono)] text-grafito">
           {r.horaDesde}–{r.horaHasta}
         </td>
@@ -729,13 +866,25 @@ function FilaTipoConsulta({
       >
         <td className="px-4 py-2 text-grafito">
           <span className="flex items-center gap-2">
-            <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ background: t.color }} aria-hidden="true" />
+            <span
+              className="h-3 w-3 flex-shrink-0 rounded-full"
+              style={{ background: t.color }}
+              aria-hidden="true"
+            />
             <span className="font-semibold">{t.nombre}</span>
           </span>
         </td>
-        <td className="px-4 py-2 text-grafito">{t.duracionMinutos ?? "—"} min</td>
-        <td className="px-4 py-2 text-grafito/70">{t.tiempoPostConsultaMinutos ? `${t.tiempoPostConsultaMinutos} min` : "—"}</td>
-        <td className="px-4 py-2 text-grafito/70">{t.cantidadSesiones ?? "—"}</td>
+        <td className="px-4 py-2 text-grafito">
+          {t.duracionMinutos ?? "—"} min
+        </td>
+        <td className="px-4 py-2 text-grafito/70">
+          {t.tiempoPostConsultaMinutos
+            ? `${t.tiempoPostConsultaMinutos} min`
+            : "—"}
+        </td>
+        <td className="px-4 py-2 text-grafito/70">
+          {t.cantidadSesiones ?? "—"}
+        </td>
         <td className="hidden px-4 py-2 text-right md:table-cell">
           <div className="flex justify-end gap-3">
             <AccionesFila
@@ -871,9 +1020,16 @@ function AccionesFila({
   );
 }
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass =
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium text-grafito">{label}</span>

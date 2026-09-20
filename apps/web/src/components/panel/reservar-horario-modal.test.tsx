@@ -10,6 +10,21 @@ vi.mock("@/app/actions/calendario-config", () => ({
   crearBloqueoAction: crearBloqueoActionMock,
   editarBloqueoAction: editarBloqueoActionMock,
 }));
+// Los formularios del panel preguntan a qué agenda se le carga lo que
+// se está por crear (QA de la 3.2.6). Sin mockearlo corre la Server
+// Action de verdad y `cookies()` explota fuera de un request — el test
+// igual pasa, pero vitest cuenta el rechazo y falla la corrida.
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: async () => ({
+    profesionales: [
+      { userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" },
+    ],
+    miUserId: "u1",
+    puedeElegirOtros: false,
+    focoActual: null,
+  }),
+  elegirVistaAction: async () => ({}),
+}));
 
 const { ReservarHorarioModal } = await import("./reservar-horario-modal");
 
@@ -26,9 +41,13 @@ describe("ReservarHorarioModal", () => {
 
   it("muestra las dos opciones con su explicación", () => {
     render(<ReservarHorarioModal onClose={vi.fn()} onGuardada={vi.fn()} />);
-    expect(screen.getByRole("dialog", { name: "Reservar horario" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Reservar horario" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("General")).toBeInTheDocument();
-    expect(screen.getByText(/Se repite: elegís un día de la semana/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Se repite: elegís un día de la semana/),
+    ).toBeInTheDocument();
     expect(screen.getByText("Específica")).toBeInTheDocument();
     expect(screen.getByText(/Una sola fecha puntual/)).toBeInTheDocument();
   });
@@ -47,7 +66,9 @@ describe("ReservarHorarioModal", () => {
     render(<ReservarHorarioModal onClose={vi.fn()} onGuardada={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Agregar general" }));
-    expect(screen.getByRole("dialog", { name: "Agregar horario reservado general" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Agregar horario reservado general" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Reservar horario")).not.toBeInTheDocument();
   });
 
@@ -55,8 +76,14 @@ describe("ReservarHorarioModal", () => {
     const user = userEvent.setup();
     render(<ReservarHorarioModal onClose={vi.fn()} onGuardada={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Agregar específica" }));
-    expect(screen.getByRole("dialog", { name: "Agregar horario reservado específico" })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Agregar específica" }),
+    );
+    expect(
+      screen.getByRole("dialog", {
+        name: "Agregar horario reservado específico",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("guardar con éxito llama a onGuardada con el bloqueo y cierra todo el acceso rápido", async () => {
@@ -64,17 +91,31 @@ describe("ReservarHorarioModal", () => {
     const onClose = vi.fn();
     const onGuardada = vi.fn();
     crearBloqueoActionMock.mockResolvedValue({
-      bloqueo: { id: "b-1", especifico: false, diaSemana: 1, alcance: "semana", horaDesde: "07:00", horaHasta: "08:00", tipoRegla: "bloquear_horario" },
+      bloqueo: {
+        id: "b-1",
+        especifico: false,
+        diaSemana: 1,
+        alcance: "semana",
+        horaDesde: "07:00",
+        horaHasta: "08:00",
+        tipoRegla: "bloquear_horario",
+      },
     });
     render(<ReservarHorarioModal onClose={onClose} onGuardada={onGuardada} />);
 
     await user.click(screen.getByRole("button", { name: "Agregar general" }));
-    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "07:00" } });
-    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "08:00" } });
+    fireEvent.change(screen.getByLabelText("Desde"), {
+      target: { value: "07:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Hasta"), {
+      target: { value: "08:00" },
+    });
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(crearBloqueoActionMock).toHaveBeenCalled();
-    expect(onGuardada).toHaveBeenCalledWith(expect.objectContaining({ id: "b-1" }));
+    expect(onGuardada).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "b-1" }),
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -83,7 +124,9 @@ describe("ReservarHorarioModal", () => {
     const onClose = vi.fn();
     render(<ReservarHorarioModal onClose={onClose} onGuardada={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Agregar específica" }));
+    await user.click(
+      screen.getByRole("button", { name: "Agregar específica" }),
+    );
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);

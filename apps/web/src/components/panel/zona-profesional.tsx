@@ -64,9 +64,80 @@ export function ZonaProfesional({
   detalleGeneral?: string;
 }) {
   const router = useRouter();
-  const [abierto, setAbierto] = useState(false);
   const [guardando, iniciar] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  function elegir(userId: string | null) {
+    iniciar(async () => {
+      setError(null);
+      const resultado = await elegirVistaAction(userId ?? "");
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
+      // Cambiar de vista cambia TODO lo que la pantalla muestra, y eso
+      // sale del servidor: sin volver a pedirla, el control diría un
+      // nombre y la tabla seguiría mostrando la agenda anterior.
+      router.refresh();
+    });
+  }
+
+  return (
+    <CarruselDeProfesionales
+      profesionales={profesionales}
+      valorId={vista?.profesional?.userId ?? null}
+      onElegir={elegir}
+      etiqueta={etiqueta}
+      etiquetaConFoco={etiquetaConFoco}
+      conVistaGeneral={conVistaGeneral}
+      etiquetaGeneral={etiquetaGeneral}
+      detalleGeneral={detalleGeneral}
+      guardando={guardando}
+      error={error}
+    />
+  );
+}
+
+/**
+ * CarruselDeProfesionales — el control en sí, sin saber qué significa
+ * elegir (QA de la Fase 3.2.6).
+ *
+ * Se separó de `ZonaProfesional` cuando el mismo control tuvo que
+ * aparecer DENTRO de formularios —"+ Agregar turno", "Reservar horario",
+ * "Compartir link", "Configuración de calendario"— donde elegir a alguien
+ * NO cambia la vista de la sesión: solo dice a qué agenda va lo que se
+ * está por cargar. Un control que ahí cambiara el foco le movería la
+ * pantalla de atrás a alguien que está llenando un formulario.
+ *
+ * Es el mismo dibujo en los dos casos a propósito: se pidió "el selector
+ * de carrusel que estamos usando", y un control que se ve igual pero se
+ * comporta distinto según dónde esté sería peor que dos controles.
+ */
+export function CarruselDeProfesionales({
+  profesionales,
+  valorId,
+  onElegir,
+  etiqueta,
+  etiquetaConFoco,
+  conVistaGeneral = true,
+  etiquetaGeneral = "Toda la clínica",
+  detalleGeneral = "Turnos de todos los profesionales",
+  guardando = false,
+  error = null,
+}: {
+  profesionales: OpcionProfesional[];
+  /** Quién está elegido; `null` es la opción general. */
+  valorId: string | null;
+  onElegir: (userId: string | null) => void;
+  etiqueta: string;
+  etiquetaConFoco?: string;
+  conVistaGeneral?: boolean;
+  etiquetaGeneral?: string;
+  detalleGeneral?: string;
+  guardando?: boolean;
+  error?: string | null;
+}) {
+  const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,25 +160,14 @@ export function ZonaProfesional({
     };
   }, [abierto]);
 
-  const enFocoId = vista?.profesional?.userId ?? null;
+  const enFocoId = valorId;
   const indice = profesionales.findIndex((p) => p.userId === enFocoId);
   // -1 es la vista general, igual que en los mockups.
   const actual = enFocoId === null ? -1 : indice;
 
-  function elegir(userId: string) {
-    iniciar(async () => {
-      setError(null);
-      const resultado = await elegirVistaAction(userId);
-      if (resultado.error) {
-        setError(resultado.error);
-        return;
-      }
-      setAbierto(false);
-      // Cambiar de vista cambia TODO lo que la pantalla muestra, y eso
-      // sale del servidor: sin volver a pedirla, el control diría un
-      // nombre y la tabla seguiría mostrando la agenda anterior.
-      router.refresh();
-    });
+  function elegir(userId: string | null) {
+    setAbierto(false);
+    onElegir(userId);
   }
 
   // El recorrido de las flechas incluye la vista general cuando existe,
@@ -121,16 +181,22 @@ export function ZonaProfesional({
     if (rueda.length === 0) return;
     const posActual = rueda.indexOf(enFocoId);
     const siguiente = rueda[(posActual + paso + rueda.length) % rueda.length];
-    elegir(siguiente ?? "");
+    elegir(siguiente ?? null);
   }
 
   const enFoco = actual >= 0 ? profesionales[actual] : null;
   const nombre = enFoco ? enFoco.nombre : etiquetaGeneral;
   const detalle = enFoco ? enFoco.detalle : detalleGeneral;
   const rotulo = enFoco ? (etiquetaConFoco ?? etiqueta) : etiqueta;
+  // El renglón de abajo NO repite el nombre de arriba cuando no hay
+  // nadie elegido y tampoco hay opción general (el caso de los
+  // formularios): ahí diría dos veces "Elegí un profesional", una arriba
+  // y otra abajo. Dice cuántos hay para elegir, que es lo que falta.
   const conteo = enFoco
     ? `${actual + 1} de ${profesionales.length}`
-    : etiquetaGeneral;
+    : conVistaGeneral
+      ? etiquetaGeneral
+      : `${profesionales.length} ${profesionales.length === 1 ? "profesional" : "profesionales"}`;
 
   return (
     <div className="flex w-full flex-col md:w-auto">
@@ -213,7 +279,7 @@ export function ZonaProfesional({
                 detalle={detalleGeneral}
                 elegida={actual === -1}
                 disabled={guardando}
-                onElegir={() => elegir("")}
+                onElegir={() => elegir(null)}
               />
             )}
 
@@ -227,16 +293,16 @@ export function ZonaProfesional({
                 onElegir={() => elegir(p.userId)}
               />
             ))}
-
-            {error && (
-              <p
-                role="alert"
-                className="px-3 py-2 text-xs text-terracota-oscuro"
-              >
-                {error}
-              </p>
-            )}
           </div>
+        )}
+
+        {/* El error va FUERA del menú, y no adentro como estaba: elegir
+            cierra el menú, así que un error dibujado ahí se iba con él y
+            la persona no se enteraba de por qué no pasó nada. */}
+        {error && (
+          <p role="alert" className="mt-2 text-xs text-terracota-oscuro">
+            {error}
+          </p>
         )}
       </div>
     </div>

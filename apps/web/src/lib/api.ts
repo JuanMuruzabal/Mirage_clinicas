@@ -351,6 +351,10 @@ export interface CrearEnlaceTurnoOpciones {
   paraTodosLosProfesionales?: boolean;
   /** Ficha ya elegida: el wizard no vuelve a pedir lo que ya tiene cargado. */
   pacienteId?: string;
+  /** De quién es la agenda a la que entra el turno (QA de la 3.2.6).
+   *  Vacío = la de quien genera el enlace. Recepción puede elegir a
+   *  cualquier profesional de la clínica; el backend rechaza el resto. */
+  profesionalUserId?: string;
 }
 
 // apiCrearEnlaceTurno (autenticado, panel) — la clínica se resuelve por
@@ -362,6 +366,7 @@ export function apiCrearEnlaceTurno(token: string, opciones?: CrearEnlaceTurnoOp
     body: JSON.stringify({
       paraTodosLosProfesionales: opciones?.paraTodosLosProfesionales ?? false,
       pacienteId: opciones?.pacienteId ?? "",
+      profesionalUserId: opciones?.profesionalUserId ?? "",
     }),
   });
 }
@@ -937,6 +942,9 @@ export interface CrearBloqueoPayload {
   horaDesde: string;
   horaHasta: string;
   motivo?: string;
+  /** De quién es la agenda que se reserva (QA de la 3.2.6). Vacío = la de
+   *  quien la crea, o la del profesional en foco si es recepción. */
+  profesionalUserId?: string;
 }
 
 export function apiCrearBloqueo(token: string, payload: CrearBloqueoPayload): Promise<ApiResult<BloqueoHorario>> {
@@ -1068,6 +1076,9 @@ export interface CrearTurnoManualPayload {
   tutorNombre?: string;
   tutorTelefono?: string;
   tutorEmail?: string;
+  /** A qué agenda entra el turno (QA de la 3.2.6). Vacío = la regla de
+   *  siempre: quien lo carga, o el profesional en foco si es recepción. */
+  profesionalUserId?: string;
 }
 
 // Camino "paciente nuevo" del modal "+ Agregar turno" (spec §4.3).
