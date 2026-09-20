@@ -1384,3 +1384,49 @@ En la tarjeta, el botón elegido lleva un **contorno** en vez de reemplazar la c
 Lo demás de esta vuelta: la cabecera de columnas deja de ser una banda verde opaca (partía en dos el efecto vidrio del cuerpo) y lo que va en verde son los rótulos, en la tipografía del nombre; "Pendiente"/"En proceso" pasa al tamaño del nombre; el **scroll horizontal de mobile** empieza a funcionar al agregar `min-w-0` al contenedor flex (sin él, un hijo de flex no baja de su ancho de contenido y el `overflow-auto` no tiene nada que recortar — la trampa clásica, invisible en escritorio); y la tarjeta vuelve a pedir la pantalla sola cuando un turno cruza su hora de fin, así pasa a "Turnos resueltos hoy" sin que nadie navegue.
 
 **Los pies de las otras tarjetas.** "Turnos próximos" y "Turnos resueltos hoy" ganan el pie de "Turnos de hoy". El link de la cabecera y el del pie llevan a lugares distintos a propósito: el de arriba ubica el dato en su pantalla natural con el MISMO recorte que la tarjeta muestra, el del pie abre la lista completa sin filtros. Antes, "Ver turnos" de los resueltos de hoy llevaba a todos los resueltos de la historia.
+
+---
+
+## 3.2.6 — La vista del recepcionista (2026-09-20, TR-160)
+
+La subfase que quedó para el final por ser "la más grande", y terminó siendo la más chica de escribir.
+
+### El concepto
+
+`sessions.viendo_user_id`: de quién es la agenda que recepción está mirando.
+
+- **Sin foco** → la clínica entera. Es la vista general: todos los turnos de todos los profesionales, las métricas de la clínica.
+- **Con foco** → la sesión se comporta exactamente como ese profesional, en las cuatro pantallas.
+
+### Por qué salió barato
+
+Los seis scopes de `visibilidad.go` ya se bifurcaban en `veTodaLaClinica(r)` y ya resolvían un usuario con `usuarioDeLaSesion(r)`. Cambiando qué responden esas dos preguntas, las 25 consultas del panel funcionan para recepción **sin tocar una sola**.
+
+No es casualidad: el comentario de ese archivo lo viene diciendo desde la 3.2.2 — *"un solo lugar que auditar y un solo lugar que cambiar cuando la Fase 3.2.6 sume la vista del recepcionista por profesional"*. Esta subfase es esa apuesta cobrada.
+
+### Por qué no hay pantallas nuevas
+
+El cliente descartó las dos funciones que el brief original le atribuía a recepción, porque el trabajo de las rondas anteriores ya las había resuelto de otra forma:
+
+- **Pasar pacientes entre profesionales** → pararse en la vista del que lo va a atender y usar "+ Agregar paciente > De la clínica" (3.2.7d).
+- **Marcar la asistencia por adelantado** → la tarjeta "Turnos de hoy" (3.2.7e).
+
+Duplicar las cuatro pantallas para recepción habría sido mantener dos versiones de cada una, con la segunda siempre atrasada.
+
+### Las escrituras también siguen el foco
+
+Con solo las lecturas, recepción vería una agenda y escribiría en otra. Todo lo que guardaba `user_id` desde la sesión guardaba **de quién es la fila**, no quién apretó el botón: horario de atención, bloqueos, enlaces compartidos, `creado_por_user_id`, `pacientes_en_mi_lista`. La única excepción deliberada es `esVos` del perfil de un colega, que sí habla de la persona logueada.
+
+Y `profesionalQueAtiende` deja de caer al **titular** — el provisorio de la 3.2.1, y la razón por la que un turno cargado por recepción aparecía en la agenda del dueño de la clínica. Sin foco no se adivina: **409 pidiendo elegir una vista**. La vista general es para mirar; para actuar hay que pararse en una agenda.
+
+### El aislamiento no se relaja
+
+Un profesional **no** puede mirar la agenda de un colega: 403 explícito, no un selector escondido en el frontend. Solo se puede mirar a quien atiende (409 para un administrador de página) y dentro de la propia clínica (404, mismo criterio que la ficha de un paciente ajeno).
+
+El foco se valida en **cada request** contra la membresía activa. Si cambió de clínica, lo quitaron del equipo o le sacaron el rol, se cae solo a la vista general — el estado seguro, porque es lo que su rol permite igual.
+
+### Lo que la vista general necesitaba, y lo encontró un test
+
+Un listado de turnos de varios profesionales que no dice de quién es cada uno no sirve para atender un teléfono. Lo destapó un test que escribí esperando otra cosa: `listTurnosHandler` nunca completaba quién atiende — y con razón, porque en la vista de un profesional todos los turnos son suyos y decirlo en cada fila sería ruido.
+
+Ahora lo completa, con el mismo lote de dos consultas que ya usaba la ficha del paciente. El resumen manda el nombre en cada item **solo en la vista general**, y la tarjeta de "Turnos de hoy" suma su columna cuando el dato viene.

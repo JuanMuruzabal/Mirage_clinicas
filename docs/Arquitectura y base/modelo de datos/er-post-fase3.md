@@ -310,6 +310,20 @@ La conversión ocurre una sola vez, cuando el turno cruza su hora de fin (`aplic
 
 **Sin foreign key ni índice nuevos:** es una columna de estado sobre una fila que ya se lee por su clave primaria.
 
+### 19 — El profesional en foco (2026-09-20, 3.2.6, TR-160)
+
+```sql
+ALTER TABLE sessions ADD COLUMN viendo_user_id uuid;
+```
+
+De quién es la agenda que recepción está mirando. `NULL` es la vista general de la clínica.
+
+**Solo tiene efecto para `recepcion`.** La columna existe en cualquier sesión, pero para el resto de los roles mirar la agenda de otro no es una operación que exista — devolverla abriría el aislamiento que la 3.2.2 vino a cerrar.
+
+**En la SESIÓN y no en el usuario**, igual que `clinic_id` (cambio 11) y por el mismo motivo: es dónde estoy parado ahora, no una preferencia de la cuenta. El costo aceptado es que dos pestañas del mismo navegador comparten el foco.
+
+**Sin foreign key, también igual que `clinic_id`:** una sesión apuntando a alguien que ya no está en el equipo no puede romper nada, porque el middleware valida el foco contra la membresía activa en **cada request** y cae a la vista general si no da. Una FK obligaría además a decidir qué pasa al quitar a un miembro, para un dato que se corrige solo.
+
 ## Lo que este modelo todavía no resuelve
 
 - **Presencia en tiempo real** de colaboradores (requisito no funcional del brief). No es una tabla: es una decisión de transporte (WebSocket / SSE / polling) que conviene tomar aparte, y que interactúa con el hecho de que hoy corre **una sola instancia** del backend.
