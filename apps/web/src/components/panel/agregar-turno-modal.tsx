@@ -8,7 +8,10 @@ import type {
 } from "@dental-mirage/shared-types";
 import { crearTurnoManualAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
-import { listDisponibilidadAction } from "@/app/actions/calendario-config";
+import {
+  listDisponibilidadAction,
+  listTiposConsultaAction,
+} from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
 import { ModalPortal } from "./modal-portal";
@@ -123,9 +126,17 @@ export function AgregarTurnoModal({
   );
   const [verificandoDni, setVerificandoDni] = useState(false);
 
+  // LOS TIPOS SON LOS DE LA AGENDA ELEGIDA (QA de la 3.2.6, 2026-09-20).
+  //
+  // `tiposConsulta` viene del servidor resuelto contra el profesional EN
+  // FOCO. Desde que el modal elige agenda por su cuenta, esas dos cosas
+  // pueden no ser la misma persona — y un tipo de consulta es de UN
+  // profesional: con el tipo de uno y la agenda de otro, el backend no
+  // encuentra la fila y la pantalla dice "no hay horarios disponibles"
+  // sobre una agenda que está perfectamente libre.
+  const [tipos, setTipos] = useState<TipoConsulta[]>(tiposConsulta);
   const tipoGeneral =
-    tiposConsulta.find((t) => t.nombre === "Consulta general") ??
-    tiposConsulta[0];
+    tipos.find((t) => t.nombre === "Consulta general") ?? tipos[0];
   const [tipoConsultaId, setTipoConsultaId] = useState(tipoGeneral?.id ?? "");
   // No se puede agendar un turno en el pasado (2026-08-23) — `min` es solo
   // una ayuda nativa del date picker, la validación real pasa en confirmar().
@@ -188,7 +199,15 @@ export function AgregarTurnoModal({
     // cuando la respuesta llega.
     if (!tipoConsultaId) return;
     let activo = true;
-    listDisponibilidadAction(tipoConsultaId, fecha).then((disponibilidad) => {
+    // `agenda` en la llamada Y en las dependencias: el backend resuelve
+    // el tipo y los huecos contra ESE profesional, así que cambiar de
+    // agenda tiene que volver a preguntar.
+    listDisponibilidadAction(
+      tipoConsultaId,
+      fecha,
+      undefined,
+      agenda ?? undefined,
+    ).then((disponibilidad) => {
       if (!activo) return;
       setSlots(disponibilidad.slots);
       setCargandoSlots(false);
@@ -201,7 +220,32 @@ export function AgregarTurnoModal({
     return () => {
       activo = false;
     };
-  }, [tipoConsultaId, fecha]);
+  }, [tipoConsultaId, fecha, agenda]);
+
+  // Al cambiar de agenda, los tipos se vuelven a pedir PARA ESA AGENDA y
+  // el tipo elegido se reemplaza por uno que exista ahí. Sin el segundo
+  // paso quedaría seleccionado el id de un tipo del profesional anterior,
+  // que es exactamente el caso que rompe la disponibilidad.
+  useEffect(() => {
+    if (!agenda) return;
+    let activo = true;
+    listTiposConsultaAction(agenda).then((lista) => {
+      if (!activo) return;
+      setTipos(lista);
+      setTipoConsultaId((actual) => {
+        if (lista.some((t) => t.id === actual)) return actual;
+        setCargandoSlots(true);
+        return (
+          lista.find((t) => t.nombre === "Consulta general")?.id ??
+          lista[0]?.id ??
+          ""
+        );
+      });
+    });
+    return () => {
+      activo = false;
+    };
+  }, [agenda]);
 
   // Carga los pacientes ya cargados recién cuando el profesional entra a
   // esa pestaña — evita el pedido si nunca la abre (el mount ya la pide
@@ -375,7 +419,7 @@ export function AgregarTurnoModal({
     // pero no forma parte del turno en sí — se pinta aparte en el
     // calendario (ver calendar-grid.tsx).
     const duracion =
-      tiposConsulta.find((t) => t.id === tipoConsultaId)?.duracionMinutos ?? 30;
+      tipos.find((t) => t.id === tipoConsultaId)?.duracionMinutos ?? 30;
     const horaInicio = new Date(`${fecha}T${hora}:00`);
     const horaFin = new Date(horaInicio.getTime() + duracion * 60_000);
 
@@ -769,7 +813,7 @@ export function AgregarTurnoModal({
                   }}
                   className={inputClass}
                 >
-                  {tiposConsulta.map((t) => (
+                  {tipos.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.nombre}
                     </option>

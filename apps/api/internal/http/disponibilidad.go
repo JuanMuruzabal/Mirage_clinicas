@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -77,29 +76,39 @@ func listDisponibilidadHandler(gdb *gorm.DB) http.HandlerFunc {
 			excluirTurnoID = &id
 		}
 
+		// UNA SOLA AGENDA PARA LAS DOS COSAS (QA de la 3.2.6, 2026-09-20).
+		//
+		// Antes el tipo se buscaba con el scope de la sesión y los huecos
+		// se calculaban con `profesionalQueAtiende`: dos respuestas que
+		// podían ser de personas distintas. Con "+ Agregar turno"
+		// eligiendo agenda en el propio modal eso deja de ser teórico —
+		// el tipo elegido es del profesional del modal y los huecos serían
+		// los del que está en foco. El resultado no es la agenda de
+		// ninguno de los dos.
+		//
+		// `?profesionalUserId=` es lo que manda el modal; sin él vale el
+		// foco, y para un profesional su propia agenda.
+		profesionalID, ok := agendaAConfigurar(w, r, gdb, clinicID, r.URL.Query().Get("profesionalUserId"))
+		if !ok {
+			return
+		}
+		if profesionalID == uuid.Nil {
+			// Recepción en la vista general: hay que decirle de qué agenda
+			// se trata antes de poder ofrecer un horario.
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+
 		var tipo db.TipoConsulta
-		// El tipo tiene que ser MÍO: calcular la disponibilidad para el
-		// tipo de un colega mezclaría su duración y su preferencia horaria
-		// con mi agenda, y el resultado no sería la de ninguno.
-		if err := gdb.Scopes(soloMisTiposDeConsulta(r)).
+		// El tipo tiene que ser DE ESA AGENDA: calcular la disponibilidad
+		// con el tipo de un colega mezclaría su duración y su preferencia
+		// horaria con otra agenda, y el resultado no sería la de ninguno.
+		if err := gdb.Scopes(soloDeLaAgendaDe(profesionalID)).
 			Where("id = ? AND clinic_id = ?", tipoConsultaID, clinicID).First(&tipo).Error; err != nil {
 			writeError(w, http.StatusNotFound, "tipo de consulta no encontrado")
 			return
 		}
 
-		// Los huecos de quien pregunta, si atiende. Misma regla que para
-		// asignar un turno nuevo (ver profesionalQueAtiende).
-		profesionalID, err := profesionalQueAtiende(gdb, r, clinicID)
-		if errors.Is(err, errFaltaElegirProfesional) {
-			// No es una falla del servidor: recepción está en la vista
-			// general y hay que decirle de qué agenda se trata.
-			writeError(w, http.StatusConflict, err.Error())
-			return
-		}
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
-			return
-		}
 		slots, err := calcularDisponibilidad(gdb, clinicID, profesionalID, tipo, fecha, excluirTurnoID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad")

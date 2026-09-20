@@ -182,6 +182,65 @@ func profesionalParaEscribir(w http.ResponseWriter, r *http.Request) (uuid.UUID,
 	return userID, true
 }
 
+// duenioDeLaAgenda — de quién es la agenda que este request lee o
+// escribe, cuando la pregunta NO admite "toda la clínica" (QA de la
+// 3.2.6, 2026-09-20).
+//
+// La diferencia con `profesionalEnFoco` es el caso de recepción sin foco.
+// Ahí aquella cae al usuario de la sesión, que para recepción es alguien
+// que no atiende: leer su configuración devuelve la de nadie, y
+// escribirla crea filas que no son de ninguna agenda.
+//
+// Para una LISTA de turnos "toda la clínica" significa algo. Para una
+// CONFIGURACIÓN DE AGENDA no: el horario de atención, los horarios
+// reservados y los tipos de consulta son de una persona. *"La
+// configuración debería ser totalmente aislada para el profesional que se
+// selecciona"* — así que sin profesional elegido no hay nada que mostrar
+// ni dónde guardar, y esto devuelve `false` para que cada handler lo diga
+// (lista vacía al leer, 409 al escribir).
+func duenioDeLaAgenda(r *http.Request) (uuid.UUID, bool) {
+	if foco := focoDeLaSesion(r); foco != nil {
+		return *foco, true
+	}
+	if tieneAlgunRol(r, db.RoleRecepcion) {
+		return uuid.Nil, false
+	}
+	return usuarioDeLaSesion(r)
+}
+
+// agendaAConfigurar — la agenda concreta sobre la que trabaja un endpoint
+// de configuración: lo que pida explícitamente el request (validado
+// contra el permiso), y si no vino, la de `duenioDeLaAgenda`.
+//
+// Devuelve `false` con la respuesta YA escrita cuando el id pedido es
+// inválido o ajeno; devuelve `uuid.Nil, true` cuando simplemente no hay
+// agenda que resolver, y ahí decide el handler.
+func agendaAConfigurar(
+	w http.ResponseWriter, r *http.Request, gdb *gorm.DB, clinicID uuid.UUID, pedido string,
+) (uuid.UUID, bool) {
+	elegida, ok := agendaElegida(w, r, gdb, clinicID, pedido)
+	if !ok {
+		return uuid.Nil, false
+	}
+	if elegida != nil {
+		return *elegida, true
+	}
+	duenio, hay := duenioDeLaAgenda(r)
+	if !hay {
+		return uuid.Nil, true
+	}
+	return duenio, true
+}
+
+// soloDeLaAgendaDe — el mismo criterio que `soloMiAgenda`, pero sobre un
+// profesional YA resuelto en vez de sobre la sesión. `user_id IS NULL`
+// entra por la misma razón: son las filas anteriores a la 3.2.1.
+func soloDeLaAgendaDe(userID uuid.UUID) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
+}
+
 // soloMisTurnos — scope que acota los turnos a los del profesional de la
 // sesión, cuando corresponde. Para quien ve toda la clínica es un no-op.
 func soloMisTurnos(r *http.Request) func(*gorm.DB) *gorm.DB {

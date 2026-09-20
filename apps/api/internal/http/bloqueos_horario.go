@@ -299,16 +299,20 @@ func crearBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		bloqueo.ClinicID = clinicID
-		// Con dueño: el horario que reservo es MÍO. Sin esto la fila nace
-		// huérfana y la ve toda la clínica.
-		bloqueo.UserID = profesionalEnFocoOpcional(r)
-		elegida, ok := agendaElegida(w, r, gdb, clinicID, req.ProfesionalUserID)
+		// CON DUEÑO, SIEMPRE. Una fila con `user_id` NULL no es "de la
+		// clínica": `soloMiAgenda` la incluye para TODOS los profesionales
+		// (son las filas anteriores a la 3.2.1), así que el horario que
+		// recepción reservaba desde la vista general aparecía en la agenda
+		// de todo el mundo. Bug real de QA, 2026-09-20.
+		duenio, ok := agendaAConfigurar(w, r, gdb, clinicID, req.ProfesionalUserID)
 		if !ok {
 			return
 		}
-		if elegida != nil {
-			bloqueo.UserID = elegida
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
 		}
+		bloqueo.UserID = &duenio
 
 		if err := gdb.Create(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la regla")

@@ -19,11 +19,13 @@ const {
   crearEnlaceTurnoActionMock,
   listPacientesActionMock,
   listDisponibilidadActionMock,
+  listTiposConsultaActionMock,
 } = vi.hoisted(() => ({
   crearTurnoManualActionMock: vi.fn(),
   crearEnlaceTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
+  listTiposConsultaActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/turnos", () => ({
@@ -40,6 +42,10 @@ vi.mock("@/app/actions/pacientes", () => ({
 // explota fuera de un request real de Next.js (unhandled rejection).
 vi.mock("@/app/actions/calendario-config", () => ({
   listDisponibilidadAction: listDisponibilidadActionMock,
+  // Los tipos se vuelven a pedir PARA LA AGENDA elegida en el modal (QA
+  // de la 3.2.6): un tipo de consulta es de un profesional, y con el de
+  // uno y la agenda de otro el backend no encuentra la fila.
+  listTiposConsultaAction: listTiposConsultaActionMock,
 }));
 // Los formularios del panel preguntan a qué agenda se le carga lo que
 // se está por crear (QA de la 3.2.6). Sin mockearlo corre la Server
@@ -89,6 +95,9 @@ describe("AgregarTurnoModal", () => {
     listDisponibilidadActionMock.mockResolvedValue({
       slots: ["09:00", "09:15", "09:30"],
     });
+    // Los mismos que llegan por prop: el modal los vuelve a pedir para la
+    // agenda elegida, y la de estos tests es la del propio profesional.
+    listTiposConsultaActionMock.mockResolvedValue(tiposConsulta);
   });
 
   it("lista los pacientes conocidos al abrir (pestaña por defecto)", async () => {
@@ -516,9 +525,14 @@ describe("AgregarTurnoModal", () => {
 
     await user.click(await screen.findByText("Bruno Iglesias"));
     await waitFor(() =>
+      // Cuatro argumentos desde la QA de la 3.2.6: el tercero es el turno
+      // a excluir al reprogramar, el cuarto la AGENDA — el backend
+      // resuelve el tipo y los huecos contra ese mismo profesional.
       expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
         "tc-1",
         expect.any(String),
+        undefined,
+        "u1",
       ),
     );
 
@@ -528,6 +542,52 @@ describe("AgregarTurnoModal", () => {
       expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
         "tc-2",
         expect.any(String),
+        undefined,
+        "u1",
+      ),
+    );
+  });
+
+  // QA de la 3.2.6 (2026-09-20): *"al sacar turno la disponibilidad y
+  // tipo de consulta debe ser coherente con la configuración y los
+  // horarios disponibles del profesional seleccionado"*.
+  //
+  // Un tipo de consulta es de UN profesional. Los que llegan por prop son
+  // los del que está en foco; si el modal elige otra agenda y sigue
+  // ofreciendo esos, el backend no encuentra la fila y la pantalla dice
+  // "no hay horarios disponibles" sobre una agenda perfectamente libre.
+  it("los tipos de consulta se vuelven a pedir para la agenda elegida", async () => {
+    const user = userEvent.setup();
+    listTiposConsultaActionMock.mockResolvedValue([
+      { id: "tc-colega", nombre: "Ortodoncia", color: "#E7D9BE" },
+    ]);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByText("Bruno Iglesias"));
+
+    await waitFor(() =>
+      expect(listTiposConsultaActionMock).toHaveBeenCalledWith("u1"),
+    );
+    // Y el <select> ofrece los de esa agenda, no los de la prop.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Tipo de consulta")).toHaveValue("tc-colega"),
+    );
+    expect(screen.queryByRole("option", { name: "Urgencia" })).not.toBeInTheDocument();
+
+    // La disponibilidad se pide con ese tipo Y esa agenda: las dos cosas
+    // tienen que hablar del mismo profesional.
+    await waitFor(() =>
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
+        "tc-colega",
+        expect.any(String),
+        undefined,
+        "u1",
       ),
     );
   });

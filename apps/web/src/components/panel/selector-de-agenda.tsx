@@ -49,9 +49,13 @@ export function SelectorDeAgenda({
     opcionesDeAgendaAction().then((datos) => {
       if (!vivo) return;
       setOpciones(datos);
-      // El default es la agenda propia; recepción no tiene una y arranca
-      // sin elegir, que es exactamente lo que hay que preguntarle.
-      if (datos.miUserId) onElegir(datos.miUserId);
+      // El default es la agenda propia y, para recepción, la del
+      // profesional en el que ya está parada: si vino mirando a alguien,
+      // lo más probable es que le esté cargando el turno a esa persona.
+      // Solo desde la vista general arranca sin elegir, que es
+      // exactamente el caso en el que hay que preguntar.
+      const inicial = datos.miUserId ?? datos.focoActual;
+      if (inicial) onElegir(inicial);
     });
     return () => {
       vivo = false;
@@ -116,11 +120,43 @@ export function SelectorDeVistaDeRecepcion({
     opcionesDeAgendaAction().then((datos) => {
       if (!vivo) return;
       setOpciones(datos);
-      setFoco(datos.focoActual);
+
+      // SIEMPRE ARRANCA CON UN PROFESIONAL (QA de la 3.2.6, pedido
+      // textual: *"el selector de configuración de calendario sí o sí
+      // debe arrancar con un profesional"*).
+      //
+      // No es una comodidad. Sin nadie elegido, recepción estaba
+      // configurando "la clínica", que no existe: los horarios reservados
+      // que guardaba nacían sin dueño —y una fila sin dueño la ve TODA la
+      // agenda, porque son las filas anteriores a la 3.2.1— y los tipos
+      // de consulta quedaban a su nombre, que no atiende a nadie. Por eso
+      // se le filtraban a los demás profesionales.
+      //
+      // El backend ahora rechaza las dos cosas con un 409, así que esto
+      // no es lo que protege nada: es para que nadie llegue a ver ese
+      // error haciendo lo normal.
+      //
+      // Solo si este control se va a dibujar. Para quien no es recepción
+      // no hay nada que elegir, y mover el foco igual sería una escritura
+      // invisible que además le hace releer el modal entero.
+      if (!datos.puedeElegirOtros) return;
+      const inicial =
+        datos.focoActual ?? datos.profesionales[0]?.userId ?? null;
+      setFoco(inicial);
+      if (inicial && inicial !== datos.focoActual) {
+        iniciar(async () => {
+          await elegirVistaAction(inicial);
+          onCambio();
+        });
+      }
     });
     return () => {
       vivo = false;
     };
+    // Solo al montar: `onCambio` cambia de identidad en cada render del
+    // padre, y volver a correr esto reelegiría el primer profesional
+    // encima de lo que la persona acaba de elegir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!opciones?.puedeElegirOtros) return null;
