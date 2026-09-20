@@ -2672,6 +2672,33 @@ Ahora lo completa (el mismo lote de dos consultas que ya usaba la ficha del paci
 
 `usuarioDeLaSesionOpcional` quedó sin llamadas al mudarlas todas al foco. Se borra en vez de dejarla: una función que ya no se usa después se lee como si hubiera un caso que la necesita (misma razón que el chequeo muerto de TR-149).
 
+### Addendum (QA de la subfase, 2026-09-20): mirar y cargar son dos preguntas
+
+La QA obligó a separar algo que la primera entrega tenía junto: **de quién es la vista** y **a quién se le carga esto**.
+
+Parada en la vista general, recepción no podía dar de alta nada — el backend le devolvía un 409 pidiéndole que se parara primero en una agenda. Era correcto (no se adivina), pero le pedía salir del formulario para contestar algo que el formulario podía preguntar. Y usar ahí el selector de vista del encabezado tampoco servía: le movería la pantalla de atrás a alguien que está tipeando.
+
+Así que el carrusel tiene dos envoltorios sobre el mismo control (`CarruselDeProfesionales`):
+
+- **`ZonaProfesional`** cambia el foco de la sesión. Va en la cabecera de cada pantalla, y también arriba de "Configuración de calendario" — ahí *tiene* que mover el foco, porque lo que ese modal muestra se lee con los scopes de `visibilidad.go`.
+- **`SelectorDeAgenda`** no cambia nada de la sesión: solo elige el destino de lo que se está por crear. Va en "+ Agregar turno", en el acceso rápido "Reservar horario" y en "Compartir link".
+
+Se ven iguales a propósito — el cliente pidió *"el selector de carrusel que estamos usando"*, y un control que se ve igual pero se comporta distinto según dónde esté sería peor que dos controles.
+
+El campo nuevo es `profesionalUserId` en `POST /turnos`, `POST /bloqueos` y `POST /enlaces-turno`. **Que exista no relaja el aislamiento**: `puedeCargarEnLaAgendaDe` deja a recepción elegir cualquier profesional activo de la clínica y a cualquier otro rol solo la propia, con **404 y no 403** — mismo criterio que la ficha de un paciente ajeno: para quien no puede, esa agenda no existe. Un profesional llenándole la agenda a un colega sería la fuga de la 3.2.2 por una puerta nueva.
+
+**Lo que se sacrifica:** un endpoint de escritura más que puede nombrar a un tercero, y por lo tanto un guard más que auditar. La alternativa —obligar a cambiar de vista antes de cada alta— dejaba a recepción navegando de ida y vuelta para cargar un turno, que es su trabajo principal.
+
+### Addendum: la vista general del calendario es exclusiva de "Día"
+
+En Día la vista general dibuja una columna por profesional. En Semana las siete columnas ya son los días: sumarle N profesionales daría 7 × N, ilegible en cualquier pantalla. Sin columnas propias, "la agenda de todos" sería un amontonamiento de bloques sin dueño.
+
+Al pasar a Semana o Mes se elige solo al dueño del primer turno del día (el que la persona tiene delante), y desde ahí el selector ya no ofrece volver a la general.
+
+**Lo que se sacrifica:** no existe una vista semanal de toda la clínica. Es la misma decisión que ya tomaba el mockup, y la alternativa que se descartó —una grilla de 7 × N— no era una vista peor, era una vista que no se puede leer.
+
+**Efecto de diseño:** el selector pasó de la página a `CalendarView`. Lo que puede ofrecer depende de Día/Semana/Mes, que es estado del cliente — la página no se entera cuando alguien toca "Semana".
+
 
 ---
 
