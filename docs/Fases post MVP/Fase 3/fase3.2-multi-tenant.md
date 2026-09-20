@@ -1372,3 +1372,15 @@ Tres detalles que no son estéticos:
 ### El reloj
 
 `useAhora` (`lib/reloj.ts`) usa `useSyncExternalStore`, no un `useState` con efecto: `setState` sincrónico adentro de un efecto dispara renders en cascada y el lint del repo lo rechaza, y `getServerSnapshot` es lo que evita el mismatch de hidratación entre el reloj del contenedor y el del navegador. El valor viene redondeado al intervalo porque `getSnapshot` tiene que devolver lo mismo entre notificaciones.
+
+### Segunda vuelta de QA: el borrador reversible (TR-159)
+
+Anotar la asistencia por adelantado dejaba de ser reversible apenas se tocaba el botón — y el caso real es trivial: se marca "no asistió" porque la persona no llegó, llega tarde, y no hay forma de corregir.
+
+Pero `asistencia` no puede volverse reversible sin más: es irreversible por diseño y dispara consecuencias destructivas (resuelve el conflicto de identidad del turno, y un "ausente" puede borrar la ficha de un paciente sin verificar). Así que son **dos columnas**: `asistencia_preliminar` es el borrador, reversible y sin consecuencias mientras el turno no termine; `asistencia` sigue igual que siempre. El borrador se vuelve definitivo cuando el turno cruza su hora de fin, dentro del mismo sondeo que alimenta el cartel — el turno con borrador simplemente no vuelve como pendiente, que es todo lo que el profesional compró al anotarlo antes.
+
+En la tarjeta, el botón elegido lleva un **contorno** en vez de reemplazar la celda por un texto: una celda de solo lectura diría que ya no se puede cambiar, y sí se puede.
+
+Lo demás de esta vuelta: la cabecera de columnas deja de ser una banda verde opaca (partía en dos el efecto vidrio del cuerpo) y lo que va en verde son los rótulos, en la tipografía del nombre; "Pendiente"/"En proceso" pasa al tamaño del nombre; el **scroll horizontal de mobile** empieza a funcionar al agregar `min-w-0` al contenedor flex (sin él, un hijo de flex no baja de su ancho de contenido y el `overflow-auto` no tiene nada que recortar — la trampa clásica, invisible en escritorio); y la tarjeta vuelve a pedir la pantalla sola cuando un turno cruza su hora de fin, así pasa a "Turnos resueltos hoy" sin que nadie navegue.
+
+**Los pies de las otras tarjetas.** "Turnos próximos" y "Turnos resueltos hoy" ganan el pie de "Turnos de hoy". El link de la cabecera y el del pie llevan a lugares distintos a propósito: el de arriba ubica el dato en su pantalla natural con el MISMO recorte que la tarjeta muestra, el del pie abre la lista completa sin filtros. Antes, "Ver turnos" de los resueltos de hoy llevaba a todos los resueltos de la historia.

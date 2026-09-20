@@ -295,6 +295,21 @@ CREATE TABLE pacientes_en_mi_lista (
 
 La clave única es `(paciente_id, user_id)`: sumar dos veces a la misma persona es idempotente. `clinic_id` está por conveniencia de las consultas y para poder acotar por clínica sin un join más; la identidad de la fila la da el par.
 
+### 18 — El borrador de asistencia (2026-09-19, 3.2.7e, TR-159)
+
+```sql
+ALTER TABLE turnos ADD COLUMN asistencia_preliminar varchar(20)
+  CHECK (asistencia_preliminar IN ('asistio','ausente'));
+```
+
+Dos columnas para lo que parece un solo dato, y el motivo es que **no son el mismo dato**.
+
+`asistencia` es irreversible (TR-092) y dispara consecuencias que no se pueden deshacer: resuelve el conflicto de identidad que ese turno originó, y un `ausente` puede BORRAR la ficha de un paciente sin verificar. `asistencia_preliminar` es lo que el profesional anota desde la tarjeta de "Turnos de hoy" antes de que el turno termine: se sobrescribe las veces que haga falta y no toca nada más.
+
+La conversión ocurre una sola vez, cuando el turno cruza su hora de fin (`aplicarLosBorradoresQueVencieron`). Una fila con las dos columnas puestas es un turno que se marcó por adelantado; el borrador no se limpia, queda como registro de eso.
+
+**Sin foreign key ni índice nuevos:** es una columna de estado sobre una fila que ya se lee por su clave primaria.
+
 ## Lo que este modelo todavía no resuelve
 
 - **Presencia en tiempo real** de colaboradores (requisito no funcional del brief). No es una tabla: es una decisión de transporte (WebSocket / SSE / polling) que conviene tomar aparte, y que interactúa con el hecho de que hoy corre **una sola instancia** del backend.

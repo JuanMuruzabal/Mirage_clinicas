@@ -2554,6 +2554,55 @@ Ahora recorre los huecos del día y toma el primero libre **para esa persona**. 
 
 ---
 
+## TR-159: Dos columnas para la asistencia, porque son dos cosas distintas
+
+- **Contexto:** Fase 3.2.7e, 2026-09-19. Ronda de QA sobre la tarjeta de "Turnos de hoy".
+- **De dónde salió:** *"la asistencia de la tarjeta es reversible, es decir, que yo puedo marcar no asistió y después asistió... el último estado de la tarjeta es el que va a leer la asistencia final cuando el turno pase a estar resuelto"*.
+
+### El problema
+
+Anotar la asistencia por adelantado dejaba de ser reversible apenas se tocaba el botón. El caso real es trivial y frecuente: se marca "no asistió" porque la persona no llegó, la persona llega tarde, y ya no hay forma de corregir.
+
+Pero `asistencia` **no puede volverse reversible sin más**. Es irreversible por diseño (TR-092) y dispara consecuencias destructivas: resuelve el conflicto de identidad que ese turno originó, y un "ausente" puede **borrar la ficha de un paciente sin verificar** (`borrarPacienteNoVerificadoSiSinHistorialReal`, Fase 2.4.1). Deshacer eso no existe.
+
+### La decisión: una columna aparte
+
+`turnos.asistencia_preliminar`, nullable, mismo dominio de valores.
+
+- **Mientras el turno no terminó**, `PATCH /turnos/{id}/asistencia` escribe ahí. Se sobrescribe las veces que haga falta y **no dispara ninguna consecuencia**.
+- **Cuando el turno terminó**, escribe `asistencia` exactamente como antes: irreversible, con todo.
+
+La alternativa era una sola columna con un flag "provisorio", o diferir las consecuencias con una cola. La primera deja la parte destructiva a un `if` de distancia de un dato que el usuario sigue editando; la segunda agrega infraestructura para un problema que no la necesita.
+
+### Quién convierte el borrador en definitivo
+
+`aplicarLosBorradoresQueVencieron`, dentro de `GET /turnos/pendientes-asistencia`. Ese endpoint ya se pregunta, cada 30 segundos desde cada panel abierto, "¿qué turnos acaban de terminar y hay que marcar?" — que es exactamente el instante en que un borrador deja de serlo. Aplicarlo ahí no agrega ningún mecanismo: el turno con borrador simplemente no vuelve como pendiente, y el cartel no aparece. Que es todo lo que el profesional compró al anotarlo antes.
+
+**Escribir desde un GET no es gratis y queda dicho.** Es el mismo patrón que `GET /equipo/presencia`, que es "el latido Y la lectura" (TR-142). La alternativa —un proceso periódico que barra la tabla— se descartó porque hoy corre una sola instancia del backend y porque el efecto solo importa cuando alguien mira: si nadie abre el panel, tampoco hay cartel que evitar.
+
+**Si el borrador no se puede aplicar** (un conflicto de identidad sin resolver), el turno se queda pendiente y el cartel lo pide a mano. Correcto: esa decisión necesita a una persona mirando, no un borrador de hace una hora.
+
+### Un solo camino, no dos parecidos
+
+`aplicarAsistencia` se extrae de `marcarAsistenciaHandler` para que el cartel y el sondeo escriban por el MISMO código. Si divergieran, un turno marcado desde la tarjeta y otro desde el cartel dejarían la base en estados distintos — y justo en la parte irreversible.
+
+### Por qué un contorno y no un texto
+
+En la tarjeta, el botón elegido se marca con un contorno verde o rojo en vez de reemplazar la celda por "Asistido". Una celda de solo lectura diría que ya no se puede cambiar, y sí se puede: la forma tiene que decir lo mismo que la regla.
+
+### El scroll horizontal que no andaba
+
+Faltaba `min-w-0` en el contenedor flex de la tarjeta. Un hijo de flex no baja de su ancho de contenido por default, así que el cuerpo se estiraba al ancho de la tabla y el `overflow-auto` no tenía nada que recortar. Es la trampa clásica de flexbox, y no se ve en escritorio.
+
+### Los pies de las tarjetas del Turnero
+
+"Turnos próximos" y "Turnos resueltos hoy" ganan el pie de "Turnos de hoy". **El link de la cabecera y el del pie llevan a lugares distintos a propósito:** el de arriba ubica el dato en su pantalla natural con el MISMO recorte que la tarjeta muestra (el calendario en el turno más próximo; Turnos filtrado por ese día), el del pie abre la lista completa sin filtros. Sin esa distinción, "Ver turnos" de los resueltos de hoy llevaba a todos los resueltos de la historia.
+
+Las fechas de esos filtros salen de `hoyEnCordoba()`, no de `new Date()`: el navegador del visitante puede estar en otra zona horaria y estos filtros son siempre hora de Córdoba — mismo criterio que `clock.Today()` en el backend.
+
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
