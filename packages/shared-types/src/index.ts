@@ -106,6 +106,10 @@ export interface MiembroDelEquipo {
   roles: ClinicRole[];
   esTitular: boolean;
   esVos: boolean;
+  /** La primera especialidad del perfil, para nombrar a cada profesional
+   *  en el selector de vista de recepción (Fase 3.2.6). Ausente para
+   *  quien no atiende o todavía no cargó perfil. */
+  especialidad?: string;
   /** Presencia (Fase 3.2.5). Null para quien no tiene ninguna sesión viva
    *  en esta clínica. Es el instante y no un booleano porque la pantalla
    *  muestra "hace 20 min". */

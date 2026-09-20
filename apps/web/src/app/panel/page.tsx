@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { apiResumenPanel } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { addDays, fechaISOLocal, formatDiaCorto, hoyEnCordoba, parseFechaISOLocal } from "@/lib/calendar-utils";
 import { TarjetaConLista, TarjetaEstadistica, TarjetaSimple, FilaResumen } from "@/components/panel/tarjeta-turnero";
 import { TarjetaTurnosDeHoy } from "@/components/panel/tarjeta-turnos-de-hoy";
@@ -26,7 +28,11 @@ export const metadata: Metadata = { title: "General — PRISMA" };
 // implementado después según el orden confirmado por el cliente) — este
 // dashboard solo deja de tener una tarjeta propia para eso.
 export default async function PanelGeneralPage() {
+  const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
+  // Fase 3.2.6: de quién es la agenda que recepción está mirando. Para
+  // cualquier otro rol vuelve vacío y el control no se dibuja.
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
   const resumenResult = token ? await apiResumenPanel(token) : null;
   const resumen = resumenResult?.ok
     ? resumenResult.data
@@ -79,6 +85,11 @@ export default async function PanelGeneralPage() {
       {/* gap-3 (corrección de QA, 2026-09-06: "separar más el título
           General [del] subtítulo Turnero") — antes gap-1, quedaban casi
           pegados. */}
+      {/* La cabecera se parte en dos cuando recepción puede cambiar de
+          vista: título a la izquierda, el selector a la derecha (mockup
+          `panel-recepcionista-general.html`). Sin el selector queda
+          exactamente como estaba. */}
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
       <div className="flex flex-col gap-3">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
           General
@@ -91,8 +102,22 @@ export default async function PanelGeneralPage() {
           <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-wide text-salvia-oscuro uppercase">
             Turnero
           </h2>
-          <p className="text-sm text-grafito/60">Control general de tus turnos y pacientes.</p>
+          <p className="text-sm text-grafito/60">
+            {esRecepcion ? "Control general de los turnos de la clínica." : "Control general de tus turnos y pacientes."}
+          </p>
         </div>
+      </div>
+
+      {esRecepcion && (
+        <ZonaProfesional
+          profesionales={profesionales}
+          vista={vista}
+          etiqueta="Viendo"
+          etiquetaConFoco="Viendo la agenda de"
+          etiquetaGeneral="Toda la clínica"
+          detalleGeneral="Métricas y turnos de todo el equipo"
+        />
+      )}
       </div>
 
       <div className="grid grid-cols-2 gap-6 max-md:min-w-[18rem] max-md:grid-cols-1">

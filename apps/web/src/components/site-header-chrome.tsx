@@ -10,12 +10,7 @@ import { IconMenu, IconX } from "./icons";
 import { isHerramientaRoute, isPanelRoute, mostrarColaboradoresEnHeader } from "@/lib/site-routes";
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
-import {
-  EquipoDelPanel,
-  PanelTopbarProvider,
-  SelectorClinicaDelPanel,
-  VistaDelPanel,
-} from "@/components/panel/panel-topbar";
+import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -244,10 +239,6 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                   contexto del lugar, no una acción. Se dibuja solo dentro
                   de /panel/**; lo decide él, no este archivo. */}
               <SelectorClinicaDelPanel />
-              {/* Fase 3.2.6: de quién es la agenda que recepción está
-                  mirando. Al lado del selector de clínica porque
-                  contestan la misma pregunta a distinta escala. */}
-              <VistaDelPanel />
             </>
           ) : esClinicas ? (
             <span className="flex items-center gap-2 text-current">

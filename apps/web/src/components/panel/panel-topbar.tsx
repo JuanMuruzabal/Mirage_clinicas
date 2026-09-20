@@ -7,7 +7,6 @@ import { datosDelTopbarAction, type DatosDelTopbar } from "@/app/actions/topbar-
 import { isPanelRoute, mostrarColaboradoresEnHeader } from "@/lib/site-routes";
 import { SelectorClinica } from "@/app/seleccionar-servicio/selector-clinica";
 import { EquipoPopover } from "@/components/panel/equipo-popover";
-import { SelectorVistaProfesional } from "@/components/panel/selector-vista-profesional";
 
 // El topbar de /panel: en qué clínica estás parado (izquierda) y quién
 // trabaja acá (derecha) — Fase 3.2.5, mockup `panel-profesional.html`.
@@ -129,34 +128,12 @@ export function SelectorClinicaDelPanel() {
   );
 }
 
-// VistaDelPanel — en qué vista de profesional está parada recepción
-// (Fase 3.2.6). Solo se dibuja para recepción, y solo dentro del panel:
-// es una propiedad de lo que el panel muestra, no del sitio.
-//
-// Va al lado del selector de clínica y no al otro extremo: los dos
-// responden la misma pregunta —"qué estoy mirando"— a distinta escala
-// (en qué clínica, y de quién dentro de ella). Colaboradores sigue del
-// otro lado, porque contesta otra cosa.
-export function VistaDelPanel() {
-  const datos = useTopbarDelPanel(isPanelRoute);
-  const sidebar = usePanelSidebar();
-  if (!datos?.puedeCambiarDeVista) return null;
-
-  // Solo los que atienden: la vista de un administrador de página o de
-  // otro recepcionista no existe, y el backend la rechaza con un 409.
-  const profesionales = (datos.equipo?.miembros ?? []).filter((m) => m.roles.includes("profesional"));
-
-  return (
-    <>
-      <span aria-hidden="true" className="hidden h-6 w-px flex-shrink-0 bg-linea md:block" />
-      <SelectorVistaProfesional
-        profesionales={profesionales}
-        vista={datos.vista}
-        bloqueado={sidebar.open}
-      />
-    </>
-  );
-}
+// El selector de vista de recepción NO vive acá (Fase 3.2.6). La
+// primera versión lo puso en este header como un dropdown, y estaba mal:
+// los cuatro mockups de recepción lo dibujan en la cabecera de CADA
+// pantalla, al lado del título — y tiene sentido, porque lo que se elige
+// es el alcance de ESA pantalla, no del sitio. Ver
+// `components/panel/zona-profesional.tsx`.
 
 // EquipoDelPanel — quién trabaja en esta clínica y quién está ahora. Al
 // otro extremo que el selector a propósito: uno dice dónde estás, el otro
