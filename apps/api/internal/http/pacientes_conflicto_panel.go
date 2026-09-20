@@ -57,7 +57,10 @@ type conflictoPacienteResponse struct {
 // ficha son de un profesional distinto al que está mirando. Es lo que el
 // modal usa para avisar el alcance real de resolver el conflicto.
 func contarTurnosDeOtrosProfesionales(gdb *gorm.DB, r *http.Request, pacienteID uuid.UUID) int {
-	yo, ok := usuarioDeLaSesion(r)
+	// "El que está mirando" es literal: con recepción parada en la vista
+	// de un profesional, los turnos "de otros" son los que no son de ESA
+	// agenda.
+	yo, ok := profesionalEnFoco(r)
 	if !ok {
 		return 0
 	}

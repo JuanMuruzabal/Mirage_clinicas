@@ -50,7 +50,9 @@ export async function listHorarioAtencionAction(): Promise<HorarioAtencion[]> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiListHorarioAtencion(token);
-  return result.ok ? result.data : [{ id: "", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" }];
+  return result.ok
+    ? result.data
+    : [{ id: "", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" }];
 }
 
 export async function putHorarioAtencionGeneralAction(
@@ -87,7 +89,9 @@ export async function editarHorarioAtencionAction(
   return { horario: result.data };
 }
 
-export async function eliminarHorarioAtencionAction(id: string): Promise<CalendarioConfigActionResult | { ok: true }> {
+export async function eliminarHorarioAtencionAction(
+  id: string,
+): Promise<CalendarioConfigActionResult | { ok: true }> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiEliminarHorarioAtencion(token, id);
@@ -96,7 +100,9 @@ export async function eliminarHorarioAtencionAction(id: string): Promise<Calenda
   return { ok: true };
 }
 
-export async function listBloqueosAction(especifico?: boolean): Promise<BloqueoHorario[]> {
+export async function listBloqueosAction(
+  especifico?: boolean,
+): Promise<BloqueoHorario[]> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiListBloqueos(token, especifico);
@@ -126,7 +132,9 @@ export async function editarBloqueoAction(
   return { bloqueo: result.data };
 }
 
-export async function eliminarBloqueoAction(id: string): Promise<CalendarioConfigActionResult | { ok: true }> {
+export async function eliminarBloqueoAction(
+  id: string,
+): Promise<CalendarioConfigActionResult | { ok: true }> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiEliminarBloqueo(token, id);
@@ -142,10 +150,17 @@ export async function listDisponibilidadAction(
   tipoConsultaId: string,
   fecha: string,
   excluirTurnoId?: string,
+  profesionalUserId?: string,
 ): Promise<Disponibilidad> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
-  const result = await apiListDisponibilidad(token, tipoConsultaId, fecha, excluirTurnoId);
+  const result = await apiListDisponibilidad(
+    token,
+    tipoConsultaId,
+    fecha,
+    excluirTurnoId,
+    profesionalUserId,
+  );
   return result.ok ? result.data : { slots: [] };
 }
 
@@ -153,15 +168,19 @@ export async function listDisponibilidadAction(
 // modal de configuración necesita su propia copia client-side (antes
 // solo se pedía server-side, en app/panel/calendario/page.tsx, para
 // pasarla como prop de solo lectura a CalendarView/CalendarGrid).
-export async function listTiposConsultaAction(): Promise<TipoConsulta[]> {
+export async function listTiposConsultaAction(
+  profesionalUserId?: string,
+): Promise<TipoConsulta[]> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
-  const result = await apiListTiposConsulta(token);
+  const result = await apiListTiposConsulta(token, profesionalUserId);
   return result.ok ? result.data : [];
 }
 
 // Fase 3.2.5 — los tipos de los colegas de la clínica, para incluirlos.
-export async function listTiposConsultaDeColegasAction(): Promise<TipoConsultaDeColega[]> {
+export async function listTiposConsultaDeColegasAction(): Promise<
+  TipoConsultaDeColega[]
+> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiTiposConsultaDeColegas(token);
@@ -191,7 +210,9 @@ export async function editarTipoConsultaAction(
   return { tipoConsulta: result.data };
 }
 
-export async function eliminarTipoConsultaAction(id: string): Promise<CalendarioConfigActionResult | { ok: true }> {
+export async function eliminarTipoConsultaAction(
+  id: string,
+): Promise<CalendarioConfigActionResult | { ok: true }> {
   const token = await getSessionToken();
   if (!token) redirect("/ingresar");
   const result = await apiEliminarTipoConsulta(token, id);

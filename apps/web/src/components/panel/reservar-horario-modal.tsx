@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { BloqueoHorario } from "@dental-mirage/shared-types";
 import { AgregarReglaModal } from "./agregar-regla-modal";
 import { ModalPortal } from "./modal-portal";
+import { SelectorDeAgenda } from "./selector-de-agenda";
 
 interface ReservarHorarioModalProps {
   onClose: () => void;
@@ -30,13 +31,25 @@ interface ReservarHorarioModalProps {
 //      acceso rápido desde cero. Editar/eliminar/listar reglas existentes
 //      sigue siendo cosa exclusiva de "Configuración de calendario" — este
 //      acceso rápido es solo para agregar una nueva.
-export function ReservarHorarioModal({ onClose, onGuardada }: ReservarHorarioModalProps) {
-  const [tipoElegido, setTipoElegido] = useState<"general" | "especifica" | null>(null);
+export function ReservarHorarioModal({
+  onClose,
+  onGuardada,
+}: ReservarHorarioModalProps) {
+  const [tipoElegido, setTipoElegido] = useState<
+    "general" | "especifica" | null
+  >(null);
+  // De quién es la agenda que se va a reservar (QA de la 3.2.6). Se
+  // pregunta ACÁ y no en el formulario del paso 2 porque es la misma
+  // pregunta para los dos tipos, y porque leerla antes de elegir general
+  // o específica es el orden en que se piensa: primero de quién, después
+  // qué.
+  const [agenda, setAgenda] = useState<string | null>(null);
 
   if (tipoElegido !== null) {
     return (
       <AgregarReglaModal
         especifico={tipoElegido === "especifica"}
+        profesionalUserId={agenda}
         onClose={onClose}
         onGuardada={(bloqueo) => {
           onGuardada(bloqueo);
@@ -59,12 +72,27 @@ export function ReservarHorarioModal({ onClose, onGuardada }: ReservarHorarioMod
       >
         <div className="flex w-full max-w-lg flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
           <div className="flex items-center justify-between">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Reservar horario</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
+              Reservar horario
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
+            >
               ×
             </button>
           </div>
-          <p className="text-sm text-grafito/60">Elegí qué tipo de horario reservado querés agregar:</p>
+          <SelectorDeAgenda
+            valor={agenda}
+            onElegir={setAgenda}
+            etiqueta="¿En qué agenda?"
+          />
+
+          <p className="text-sm text-grafito/60">
+            Elegí qué tipo de horario reservado querés agregar:
+          </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <TarjetaTipo
@@ -84,10 +112,20 @@ export function ReservarHorarioModal({ onClose, onGuardada }: ReservarHorarioMod
   );
 }
 
-function TarjetaTipo({ titulo, descripcion, onAgregar }: { titulo: string; descripcion: string; onAgregar: () => void }) {
+function TarjetaTipo({
+  titulo,
+  descripcion,
+  onAgregar,
+}: {
+  titulo: string;
+  descripcion: string;
+  onAgregar: () => void;
+}) {
   return (
     <div className="flex flex-col gap-3 rounded-field border-[0.5px] border-arena bg-hueso p-4">
-      <p className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">{titulo}</p>
+      <p className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">
+        {titulo}
+      </p>
       <p className="flex-1 text-xs text-grafito/70">{descripcion}</p>
       <button
         type="button"

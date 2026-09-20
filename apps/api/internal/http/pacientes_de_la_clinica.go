@@ -113,7 +113,10 @@ func buscarPacienteDeLaClinicaHandler(gdb *gorm.DB) http.HandlerFunc {
 // Tres consultas para el lote, no una por ficha.
 func idsDeMisPacientes(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID, pacientes []db.Paciente) map[uuid.UUID]bool {
 	out := make(map[uuid.UUID]bool, len(pacientes))
-	yo, ok := usuarioDeLaSesion(r)
+	// "Mío" es de la vista en la que estoy, no de quien está logueado:
+	// es lo que decide si la pestaña "De la clínica" ofrece sumar esta
+	// ficha o la da por presente.
+	yo, ok := profesionalEnFoco(r)
 	if !ok || len(pacientes) == 0 {
 		return out
 	}
@@ -162,9 +165,12 @@ func sumarPacienteAMiListaHandler(gdb *gorm.DB) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		yo, ok := usuarioDeLaSesion(r)
+		// Con recepción, la ficha entra en la lista del profesional en
+		// foco — que es justo el camino que el cliente describió para
+		// pasar un paciente de un profesional a otro: pararse en su
+		// vista y agregarlo. Sin foco no hay lista a la que sumar.
+		yo, ok := profesionalParaEscribir(w, r)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "sesión inválida")
 			return
 		}
 		pacienteID, err := uuid.Parse(chi.URLParam(r, "id"))

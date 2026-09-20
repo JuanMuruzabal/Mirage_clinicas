@@ -106,6 +106,17 @@ export function IconChevronRight({ className }: IconProps) {
   );
 }
 
+// IconChevronLeft — el par de IconChevronRight. Las flechas del
+// selector de profesional de recepción (Fase 3.2.6, mockups): pasar de
+// una agenda a otra sin abrir ningún menú.
+export function IconChevronLeft({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <polyline points="15 6 9 12 15 18" />
+    </svg>
+  );
+}
+
 // IconPhone/IconMail — segunda ronda de correcciones (2026-09-06, fotos
 // "fichadiseño1.png"/"fichadiseño2.png"): íconos de línea junto a
 // teléfono/email en "Datos de contacto" y "Datos de tutores" de la ficha

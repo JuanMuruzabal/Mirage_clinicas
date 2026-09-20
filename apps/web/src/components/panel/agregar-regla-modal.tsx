@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import type { BloqueoHorario } from "@dental-mirage/shared-types";
-import { crearBloqueoAction, editarBloqueoAction } from "@/app/actions/calendario-config";
+import {
+  crearBloqueoAction,
+  editarBloqueoAction,
+} from "@/app/actions/calendario-config";
 import { fechaISOLocal, horaISOLocal } from "@/lib/calendar-utils";
 
 interface AgregarReglaModalProps {
@@ -13,6 +16,12 @@ interface AgregarReglaModalProps {
   // (bloquear_horario) — el backend está pensado para sumar más
   // adelante, acá no hace falta ningún selector todavía.
   especifico: boolean;
+  // profesionalUserId (QA de la 3.2.6) — de quién es la agenda que se
+  // reserva. Solo viaja desde el acceso rápido "Reservar horario", que es
+  // donde el cliente pidió poder elegirlo; dentro de "Configuración de
+  // calendario" el profesional ya está elegido arriba, en el selector de
+  // vista, y preguntarlo dos veces sería peor que no preguntarlo.
+  profesionalUserId?: string | null;
   // Si viene, es edición (precarga sus valores y llama a PATCH en vez de
   // POST) — corrección de QA (F2.3.6): "agregar la edición para reglas
   // globales y específicas", antes solo se podía crear o borrar.
@@ -21,7 +30,15 @@ interface AgregarReglaModalProps {
   onGuardada: (bloqueo: BloqueoHorario) => void;
 }
 
-const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DIAS_SEMANA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 
 // AgregarReglaModal — F2.3.6 (docs/Arquitectura y base/implementation-plan.md §11.3). Se abre
 // ENCIMA del modal de "Configuración de calendario" (que queda con blur
@@ -39,14 +56,20 @@ const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Vier
 // eso descarta directo, sin cartel de por medio (no hay nada que perder
 // todavía). Se aplica igual en edición: si abrís "Editar" y no tocás
 // nada, cerrar no pregunta.
-export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuardada }: AgregarReglaModalProps) {
+export function AgregarReglaModal({
+  especifico,
+  reglaExistente,
+  profesionalUserId,
+  onClose,
+  onGuardada,
+}: AgregarReglaModalProps) {
   const editando = reglaExistente !== undefined;
   const [tocado, setTocado] = useState(false);
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
 
-  const [alcance, setAlcance] = useState<"semana" | "proxima_semana" | "mes" | "proximo_mes" | "todos">(
-    reglaExistente?.alcance ?? "semana",
-  );
+  const [alcance, setAlcance] = useState<
+    "semana" | "proxima_semana" | "mes" | "proximo_mes" | "todos"
+  >(reglaExistente?.alcance ?? "semana");
   const [diaSemana, setDiaSemana] = useState(reglaExistente?.diaSemana ?? 1); // lunes por default
   const [fecha, setFecha] = useState(reglaExistente?.fecha ?? fechaISOLocal());
   const [horaDesde, setHoraDesde] = useState(reglaExistente?.horaDesde ?? "");
@@ -81,21 +104,47 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
     // completos (no solo la fecha calendario), mismo criterio que
     // combinarFechaYHora en el backend: HOY con un horario que ya
     // terminó también cuenta como pasado.
-    if (especifico && fecha === fechaISOLocal() && horaHasta && horaHasta <= horaISOLocal()) {
-      setError("No se puede reservar un horario en una fecha u hora que ya pasó.");
+    if (
+      especifico &&
+      fecha === fechaISOLocal() &&
+      horaHasta &&
+      horaHasta <= horaISOLocal()
+    ) {
+      setError(
+        "No se puede reservar un horario en una fecha u hora que ya pasó.",
+      );
       return false;
     }
     if (especifico && fecha < fechaISOLocal()) {
-      setError("No se puede reservar un horario en una fecha u hora que ya pasó.");
+      setError(
+        "No se puede reservar un horario en una fecha u hora que ya pasó.",
+      );
       return false;
     }
 
     const payload = especifico
-      ? { especifico: true as const, fecha, horaDesde, horaHasta, motivo: motivo.trim() }
-      : { especifico: false as const, alcance, diaSemana, horaDesde, horaHasta, motivo: motivo.trim() };
+      ? {
+          especifico: true as const,
+          fecha,
+          horaDesde,
+          horaHasta,
+          motivo: motivo.trim(),
+          profesionalUserId: profesionalUserId ?? "",
+        }
+      : {
+          especifico: false as const,
+          alcance,
+          diaSemana,
+          horaDesde,
+          horaHasta,
+          motivo: motivo.trim(),
+          profesionalUserId: profesionalUserId ?? "",
+        };
 
     setPending(true);
-    const result = editando ? await editarBloqueoAction(reglaExistente.id, payload) : await crearBloqueoAction(payload);
+    const result = editando
+      ? await editarBloqueoAction(reglaExistente.id, payload)
+      : await crearBloqueoAction(payload);
     setPending(false);
 
     if ("error" in result) {
@@ -139,8 +188,15 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
     >
       <div className="flex w-full max-w-md flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
-          <button type="button" onClick={pedirCerrar} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
+          <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
+            {titulo}
+          </h2>
+          <button
+            type="button"
+            onClick={pedirCerrar}
+            aria-label="Cerrar"
+            className="text-2xl leading-none text-grafito/50 hover:text-grafito"
+          >
             ×
           </button>
         </div>
@@ -151,12 +207,18 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
             el globo nativo del navegador) es la de `guardar()` de arriba,
             mismo criterio que el resto de este formulario. */}
         {!confirmandoSalida && (
-          <form onSubmit={guardarDesdeElFormulario} noValidate className="flex flex-col gap-4 p-6">
+          <form
+            onSubmit={guardarDesdeElFormulario}
+            noValidate
+            className="flex flex-col gap-4 p-6"
+          >
             {/* Tipo de horario reservado — hoy el único valor posible,
                 mostrado como dato fijo (no hace falta un selector para
                 una sola opción). */}
             <Campo label="Tipo de horario reservado">
-              <p className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito">Bloquear horario</p>
+              <p className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito">
+                Bloquear horario
+              </p>
             </Campo>
 
             {especifico ? (
@@ -229,7 +291,11 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
                 <input
                   type="time"
                   value={horaDesde}
-                  min={especifico && fecha === fechaISOLocal() ? horaISOLocal() : undefined}
+                  min={
+                    especifico && fecha === fechaISOLocal()
+                      ? horaISOLocal()
+                      : undefined
+                  }
                   onChange={(e) => {
                     setHoraDesde(e.target.value);
                     setTocado(true);
@@ -241,7 +307,11 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
                 <input
                   type="time"
                   value={horaHasta}
-                  min={especifico && fecha === fechaISOLocal() ? horaISOLocal() : undefined}
+                  min={
+                    especifico && fecha === fechaISOLocal()
+                      ? horaISOLocal()
+                      : undefined
+                  }
                   onChange={(e) => {
                     setHoraHasta(e.target.value);
                     setTocado(true);
@@ -287,7 +357,9 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
 
         {confirmandoSalida && (
           <div className="flex flex-col gap-4 p-6">
-            <p className="text-sm text-grafito">Tenés cambios sin guardar en este horario reservado.</p>
+            <p className="text-sm text-grafito">
+              Tenés cambios sin guardar en este horario reservado.
+            </p>
             {error && (
               <p role="alert" className="text-sm text-terracota-oscuro">
                 {error}
@@ -324,9 +396,16 @@ export function AgregarReglaModal({ especifico, reglaExistente, onClose, onGuard
   );
 }
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass =
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium text-grafito">{label}</span>

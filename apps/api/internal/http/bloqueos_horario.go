@@ -39,6 +39,25 @@ type bloqueoHorarioResponse struct {
 	HoraHasta  string  `json:"horaHasta"`
 	TipoRegla  string  `json:"tipoRegla"`
 	Motivo     *string `json:"motivo,omitempty"`
+	// UserID — de quién es esta agenda (Fase 3.2.6). Lo necesita la vista
+	// general de recepción, donde el calendario del día dibuja una
+	// columna por profesional: sin esto, los horarios reservados de uno
+	// se pintarían en la columna de todos, que es peor que no pintarlos
+	// — alguien buscando dónde encajar un paciente vería ocupado lo que
+	// está libre.
+	//
+	// Nulo en las filas anteriores a la 3.2.1, que no tenían dueño.
+	UserID *string `json:"userId,omitempty"`
+}
+
+// uuidPtrAString — un uuid nullable, como lo espera un campo `omitempty`
+// de la respuesta.
+func uuidPtrAString(id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	s := id.String()
+	return &s
 }
 
 func formatFechaPtr(t *time.Time) *string {
@@ -60,6 +79,7 @@ func toBloqueoHorarioResponse(b db.BloqueoHorario) bloqueoHorarioResponse {
 		Fecha:      formatFechaPtr(b.Fecha),
 		HoraDesde:  b.HoraDesde,
 		HoraHasta:  b.HoraHasta,
+		UserID:     uuidPtrAString(b.UserID),
 		TipoRegla:  b.TipoRegla,
 		Motivo:     b.Motivo,
 	}
@@ -114,6 +134,11 @@ type crearBloqueoHorarioRequest struct {
 	// general puede ser limpieza semanal, una específica puede ser
 	// reposición de inventario".
 	Motivo string `json:"motivo"`
+	// ProfesionalUserID — de quién es la agenda que se reserva (QA de la
+	// Fase 3.2.6). Vacío = la de quien la crea, o la del profesional en
+	// foco si es recepción. Mismo criterio que en el alta de un turno:
+	// el horario reservado ocupa UNA agenda, y hay que poder decir cuál.
+	ProfesionalUserID string `json:"profesionalUserId"`
 }
 
 // startOfWeek/startOfMonth/endOfMonth resuelven el rango concreto de una
@@ -274,9 +299,20 @@ func crearBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		bloqueo.ClinicID = clinicID
-		// Con dueño: el horario que reservo es MÍO. Sin esto la fila nace
-		// huérfana y la ve toda la clínica.
-		bloqueo.UserID = usuarioDeLaSesionOpcional(r)
+		// CON DUEÑO, SIEMPRE. Una fila con `user_id` NULL no es "de la
+		// clínica": `soloMiAgenda` la incluye para TODOS los profesionales
+		// (son las filas anteriores a la 3.2.1), así que el horario que
+		// recepción reservaba desde la vista general aparecía en la agenda
+		// de todo el mundo. Bug real de QA, 2026-09-20.
+		duenio, ok := agendaAConfigurar(w, r, gdb, clinicID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+		bloqueo.UserID = &duenio
 
 		if err := gdb.Create(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la regla")

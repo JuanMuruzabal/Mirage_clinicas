@@ -1,7 +1,9 @@
 package http
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"dental-mirage/api/internal/db"
 
@@ -52,9 +54,70 @@ import (
 // depende la detección de conflictos de identidad de la Fase 2.4— y a la
 // vez permite la vista aislada.
 
-// veTodaLaClinica — ¿este usuario ve la clínica entera, o solo lo suyo?
+// FASE 3.2.6 — EL PROFESIONAL EN FOCO.
+//
+// Recepción es el único rol que ve la clínica entera, y el brief pide
+// además que pueda "navegar en todas las vistas de los profesionales" e
+// INTERACTUAR con ellas. Esas dos cosas se resuelven con un solo
+// concepto: el profesional en foco (`sessions.viendo_user_id`).
+//
+//   - Sin foco  → recepción ve la clínica entera. Es la VISTA GENERAL:
+//                 todos los turnos de todos los profesionales, las
+//                 métricas de la clínica.
+//   - Con foco  → la sesión se comporta EXACTAMENTE como ese
+//                 profesional, en las cuatro pantallas del panel.
+//
+// Lo que hace barato el cambio es que las seis consultas de abajo ya se
+// bifurcaban acá y ya resolvían un usuario con `usuarioDeLaSesion`.
+// Cambiando qué responden esas dos preguntas, las 25 consultas del panel
+// funcionan para recepción sin tocar una sola de ellas. El comentario de
+// arriba de este archivo lo anticipaba desde la 3.2.2.
+//
+// Para cualquier otro rol nada de esto existe: `profesionalEnFoco`
+// devuelve al usuario de la sesión y `veTodaLaClinica` sigue siendo
+// falso.
+
+// veTodaLaClinica — ¿este request ve la clínica entera, o una sola
+// agenda? Recepción SIN foco es el único caso que ve todo.
 func veTodaLaClinica(r *http.Request) bool {
-	return tieneAlgunRol(r, db.RoleRecepcion)
+	if !tieneAlgunRol(r, db.RoleRecepcion) {
+		return false
+	}
+	return focoDeLaSesion(r) == nil
+}
+
+// focoDeLaSesion — el profesional que recepción está mirando, o nil.
+//
+// Solo tiene efecto para `recepcion`: la columna existe en la sesión de
+// cualquiera, pero para el resto de los roles mirar la agenda de otro no
+// es una operación que exista, y devolverla acá abriría el aislamiento
+// que la 3.2.2 vino a cerrar.
+//
+// El middleware ya validó que ese usuario sea miembro ACTIVO de la
+// clínica (ver membresiaDeLaSesion); acá solo se lee.
+func focoDeLaSesion(r *http.Request) *uuid.UUID {
+	if !tieneAlgunRol(r, db.RoleRecepcion) {
+		return nil
+	}
+	session, ok := sessionFromContext(r)
+	if !ok {
+		return nil
+	}
+	return session.ViendoUserID
+}
+
+// profesionalEnFoco — de quién es la agenda que este request está
+// mirando. Para un profesional, la suya; para recepción con foco, la del
+// profesional elegido.
+//
+// Devuelve `false` cuando no hay a quién acotar, y los scopes traducen
+// eso a "no muestres nada" en vez de a "mostrá todo": ante la duda, la
+// respuesta segura es la que no filtra datos de más.
+func profesionalEnFoco(r *http.Request) (uuid.UUID, bool) {
+	if foco := focoDeLaSesion(r); foco != nil {
+		return *foco, true
+	}
+	return usuarioDeLaSesion(r)
 }
 
 // usuarioDeLaSesion — el user autenticado. Solo existe después de
@@ -67,14 +130,115 @@ func usuarioDeLaSesion(r *http.Request) (uuid.UUID, bool) {
 	return session.UserID, true
 }
 
-// usuarioDeLaSesionOpcional — el mismo dato, en la forma que esperan los
-// campos nullable del modelo.
-func usuarioDeLaSesionOpcional(r *http.Request) *uuid.UUID {
-	userID, ok := usuarioDeLaSesion(r)
+// `usuarioDeLaSesionOpcional` vivía acá hasta la Fase 3.2.6. Todas sus
+// llamadas guardaban DE QUIÉN ES una fila (de qué agenda es este
+// bloqueo, en la lista de quién entra esta ficha), no quién apretó el
+// botón — así que pasaron a `profesionalEnFocoOpcional`, que sigue el
+// profesional en foco. Se borra en vez de dejarla sin usar: una función
+// que ya no se llama después se lee como si hubiera un caso que la
+// necesita.
+
+// profesionalEnFocoOpcional — el mismo dato, en la forma que esperan las
+// columnas nullable del modelo (`creado_por_user_id`, `user_id`).
+//
+// Lo que se guarda es DE QUIÉN ES la fila —de qué agenda es este bloqueo,
+// en la lista de quién entra esta ficha—, no quién apretó el botón. Por
+// eso sigue el foco: recepción parada en la vista de un profesional está
+// trabajando SOBRE esa agenda, y una fila que quedara a su nombre no
+// aparecería en ninguna vista útil.
+func profesionalEnFocoOpcional(r *http.Request) *uuid.UUID {
+	userID, ok := profesionalEnFoco(r)
 	if !ok {
 		return nil
 	}
 	return &userID
+}
+
+// errFaltaElegirProfesional — recepción SIN foco intentando escribir algo
+// que pertenece a la agenda de alguien.
+//
+// La vista general es para mirar la clínica entera; para actuar hay que
+// pararse en la vista de un profesional, que es exactamente el gesto que
+// el cliente describió ("bastaría que el recepcionista se mueva a la
+// vista de ese profesional"). Adivinar acá —caer al owner, como hacía el
+// provisorio de la 3.2.1— es cómo un turno terminaba en la agenda
+// equivocada sin que nadie lo pidiera.
+var errFaltaElegirProfesional = errors.New(
+	"elegí primero de qué profesional es esta vista para poder hacer este cambio",
+)
+
+// profesionalParaEscribir — el dueño de la fila que se está por crear, o
+// un 409 pidiendo que se elija.
+func profesionalParaEscribir(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	if veTodaLaClinica(r) {
+		writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+		return uuid.Nil, false
+	}
+	userID, ok := profesionalEnFoco(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "sesión inválida")
+		return uuid.Nil, false
+	}
+	return userID, true
+}
+
+// duenioDeLaAgenda — de quién es la agenda que este request lee o
+// escribe, cuando la pregunta NO admite "toda la clínica" (QA de la
+// 3.2.6, 2026-09-20).
+//
+// La diferencia con `profesionalEnFoco` es el caso de recepción sin foco.
+// Ahí aquella cae al usuario de la sesión, que para recepción es alguien
+// que no atiende: leer su configuración devuelve la de nadie, y
+// escribirla crea filas que no son de ninguna agenda.
+//
+// Para una LISTA de turnos "toda la clínica" significa algo. Para una
+// CONFIGURACIÓN DE AGENDA no: el horario de atención, los horarios
+// reservados y los tipos de consulta son de una persona. *"La
+// configuración debería ser totalmente aislada para el profesional que se
+// selecciona"* — así que sin profesional elegido no hay nada que mostrar
+// ni dónde guardar, y esto devuelve `false` para que cada handler lo diga
+// (lista vacía al leer, 409 al escribir).
+func duenioDeLaAgenda(r *http.Request) (uuid.UUID, bool) {
+	if foco := focoDeLaSesion(r); foco != nil {
+		return *foco, true
+	}
+	if tieneAlgunRol(r, db.RoleRecepcion) {
+		return uuid.Nil, false
+	}
+	return usuarioDeLaSesion(r)
+}
+
+// agendaAConfigurar — la agenda concreta sobre la que trabaja un endpoint
+// de configuración: lo que pida explícitamente el request (validado
+// contra el permiso), y si no vino, la de `duenioDeLaAgenda`.
+//
+// Devuelve `false` con la respuesta YA escrita cuando el id pedido es
+// inválido o ajeno; devuelve `uuid.Nil, true` cuando simplemente no hay
+// agenda que resolver, y ahí decide el handler.
+func agendaAConfigurar(
+	w http.ResponseWriter, r *http.Request, gdb *gorm.DB, clinicID uuid.UUID, pedido string,
+) (uuid.UUID, bool) {
+	elegida, ok := agendaElegida(w, r, gdb, clinicID, pedido)
+	if !ok {
+		return uuid.Nil, false
+	}
+	if elegida != nil {
+		return *elegida, true
+	}
+	duenio, hay := duenioDeLaAgenda(r)
+	if !hay {
+		return uuid.Nil, true
+	}
+	return duenio, true
+}
+
+// soloDeLaAgendaDe — el mismo criterio que `soloMiAgenda`, pero sobre un
+// profesional YA resuelto en vez de sobre la sesión. `user_id IS NULL`
+// entra por la misma razón: son las filas anteriores a la 3.2.1.
+func soloDeLaAgendaDe(userID uuid.UUID) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ? OR user_id IS NULL", userID)
+	}
 }
 
 // soloMisTurnos — scope que acota los turnos a los del profesional de la
@@ -84,7 +248,7 @@ func soloMisTurnos(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
 			return tx
 		}
-		userID, ok := usuarioDeLaSesion(r)
+		userID, ok := profesionalEnFoco(r)
 		if !ok {
 			// Sin sesión no debería llegarse acá (requireSession corre
 			// antes), pero ante la duda se acota a nada en vez de abrir.
@@ -108,7 +272,7 @@ func soloMisPacientes(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
 			return tx
 		}
-		userID, ok := usuarioDeLaSesion(r)
+		userID, ok := profesionalEnFoco(r)
 		if !ok {
 			return tx.Where("1 = 0")
 		}
@@ -138,7 +302,7 @@ func soloMisTiposDeConsulta(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
 			return tx
 		}
-		userID, ok := usuarioDeLaSesion(r)
+		userID, ok := profesionalEnFoco(r)
 		if !ok {
 			return tx.Where("1 = 0")
 		}
@@ -162,7 +326,7 @@ func soloMisConflictos(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
 			return tx
 		}
-		userID, ok := usuarioDeLaSesion(r)
+		userID, ok := profesionalEnFoco(r)
 		if !ok {
 			return tx.Where("1 = 0")
 		}
@@ -252,12 +416,63 @@ func soloMiAgenda(r *http.Request) func(*gorm.DB) *gorm.DB {
 		if veTodaLaClinica(r) {
 			return tx
 		}
-		userID, ok := usuarioDeLaSesion(r)
+		userID, ok := profesionalEnFoco(r)
 		if !ok {
 			return tx.Where("1 = 0")
 		}
 		return tx.Where("user_id = ? OR user_id IS NULL", userID)
 	}
+}
+
+// puedeCargarEnLaAgendaDe — si esta sesión puede crear algo (un turno,
+// un horario reservado, un enlace) en la agenda de `elegido` (QA de la
+// Fase 3.2.6).
+//
+// Recepción sí, para cualquier profesional ACTIVO de la clínica: navegar
+// y operar las agendas ajenas es justamente lo que su rol habilita.
+// Cualquier otro rol, solo la propia — que un profesional le llenara la
+// agenda a un colega sería la fuga de la 3.2.2 por una puerta nueva, y
+// esconder el selector nunca fue cerrar la puerta (misma lección que
+// /personalizar-pagina en la 3.2.4).
+func puedeCargarEnLaAgendaDe(gdb *gorm.DB, r *http.Request, clinicID, elegido uuid.UUID) bool {
+	if !tieneAlgunRol(r, db.RoleRecepcion) {
+		yo, ok := usuarioDeLaSesion(r)
+		return ok && yo == elegido
+	}
+	var miembro db.ClinicMember
+	if err := gdb.Preload("Roles").Where("clinic_id = ? AND user_id = ? AND status = ?",
+		clinicID, elegido, db.ClinicMemberStatusActive).First(&miembro).Error; err != nil {
+		return false
+	}
+	return esProfesional(miembro)
+}
+
+// agendaElegida — resuelve el `profesionalUserId` que mandan los
+// formularios del panel ("+ Agregar turno", "Reservar horario",
+// "Compartir link") desde el carrusel.
+//
+// Devuelve `nil, true` cuando no vino ninguno: ahí manda la regla de
+// siempre (quien carga, o el profesional en foco). Escribe la respuesta y
+// devuelve `false` si el id es inválido o ajeno — 404 y no 403, mismo
+// criterio que la ficha de un paciente de otro: para quien no puede, esa
+// agenda no existe.
+func agendaElegida(
+	w http.ResponseWriter, r *http.Request, gdb *gorm.DB, clinicID uuid.UUID, pedido string,
+) (*uuid.UUID, bool) {
+	pedido = strings.TrimSpace(pedido)
+	if pedido == "" {
+		return nil, true
+	}
+	elegido, err := uuid.Parse(pedido)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "el profesional elegido no es válido")
+		return nil, false
+	}
+	if !puedeCargarEnLaAgendaDe(gdb, r, clinicID, elegido) {
+		writeError(w, http.StatusNotFound, "esa persona no atiende pacientes en esta clínica")
+		return nil, false
+	}
+	return &elegido, true
 }
 
 // profesionalQueAtiende — a quién se le asigna un turno cargado desde el
@@ -278,6 +493,20 @@ func profesionalQueAtiende(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID) (u
 		if session, ok := sessionFromContext(r); ok {
 			return session.UserID, nil
 		}
+	}
+	// RECEPCIÓN: el profesional en foco (Fase 3.2.6). Acá termina el
+	// provisorio de la 3.2.1 que caía al titular — era la razón por la
+	// que un turno cargado por recepción aparecía en la agenda del
+	// dueño de la clínica en vez de la de quien iba a atenderlo.
+	//
+	// Sin foco no se adivina: `errFaltaElegirProfesional` le pide a
+	// recepción que se pare en una vista. Caer al owner "por defecto" es
+	// exactamente el error que esto corrige.
+	if tieneAlgunRol(r, db.RoleRecepcion) {
+		if foco := focoDeLaSesion(r); foco != nil {
+			return *foco, nil
+		}
+		return uuid.Nil, errFaltaElegirProfesional
 	}
 	return db.OwnerDeLaClinica(gdb, clinicID)
 }

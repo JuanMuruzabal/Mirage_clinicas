@@ -106,6 +106,10 @@ export interface MiembroDelEquipo {
   roles: ClinicRole[];
   esTitular: boolean;
   esVos: boolean;
+  /** La primera especialidad del perfil, para nombrar a cada profesional
+   *  en el selector de vista de recepción (Fase 3.2.6). Ausente para
+   *  quien no atiende o todavía no cargó perfil. */
+  especialidad?: string;
   /** Presencia (Fase 3.2.5). Null para quien no tiene ninguna sesión viva
    *  en esta clínica. Es el instante y no un booleano porque la pantalla
    *  muestra "hace 20 min". */
@@ -186,6 +190,13 @@ export interface PerfilDeColega {
   esTitular: boolean;
   esVos: boolean;
   perfil?: PerfilProfesional;
+}
+
+/** Espejo de vistaActualResponse (internal/http/vista_recepcion.go).
+ *  En qué vista de profesional está parada la sesión de recepción, o
+ *  `null` en la vista general de la clínica (Fase 3.2.6). */
+export interface VistaActual {
+  profesional: { userId: string; nombre: string } | null;
 }
 
 export interface Equipo {
@@ -406,6 +417,11 @@ export interface HorarioAtencion {
 // alcance "todos"). Fechas como "YYYY-MM-DD", horas como "HH:MM".
 export interface BloqueoHorario {
   id: string;
+  /** De quién es esta agenda (Fase 3.2.6). Lo necesita la vista general
+   *  de recepción, donde el calendario del día dibuja una columna por
+   *  profesional: sin esto, los horarios reservados de uno se pintarían
+   *  en la columna de todos. Nulo en las filas anteriores a la 3.2.1. */
+  userId?: string | null;
   especifico: boolean;
   // "proxima_semana"/"proximo_mes" (corrección de QA, 2026-08-30): mismo
   // criterio "de una sola vez" que "semana"/"mes" (TR-084), ancladas a la
@@ -536,6 +552,14 @@ export interface ResumenTurnoItem {
    *  termine. La tarjeta lo usa para pintar el contorno del botón
    *  elegido. Ver `Turno.asistenciaPreliminar`. */
   asistenciaPreliminar?: "asistio" | "ausente" | "";
+  /** Quién atiende (Fase 3.2.6). Presente SOLO en la vista general de
+   *  recepción, que es la única donde los turnos son de varias personas:
+   *  en la vista de un profesional todos son suyos y repetir el nombre en
+   *  cada fila sería ruido. */
+  profesional?: string;
+  /** El id del profesional, para que tocar la fila se pare en SU agenda
+   *  antes de navegar (Fase 3.2.6). Presente junto con `profesional`. */
+  profesionalId?: string;
   /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
    *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
    *  proceso, y abre los botones de asistencia 5 minutos antes de que
@@ -561,6 +585,10 @@ export interface ResumenHorarioReservadoItem {
   // Alcance. null para un horario ESPECÍFICO — el frontend cae al día
   // corto de siempre en ese caso.
   etiquetaGeneral: string | null;
+  /** De quién es esta agenda (Fase 3.2.6), solo en la vista general de
+   *  recepción. */
+  profesional?: string;
+  profesionalId?: string;
 }
 
 // ResumenPanel (F2.3 extra, ítem 1 — rediseño del "Turnero",

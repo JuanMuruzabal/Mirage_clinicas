@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { apiContarTurnos, apiListTiposConsulta, apiListTurnosPaginado } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { filtrosDeTab, parseTab, parseVerificacion, type Tab } from "@/lib/turnos-filtros";
 import { TurnosTable } from "@/components/panel/turnos-table";
@@ -64,7 +66,11 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   // arranca ya desplegada, ver TurnosTable/abrirId.
   const abrirId = firstParam(resolved.turno);
 
+  const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
+  // Fase 3.2.6 — el alcance de ESTA pantalla: toda la clínica, o los
+  // turnos de un profesional.
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
   const filtros = filtrosDeTab(tab, q, desde, hasta, tipoConsultaId, verificacion);
   // querySecundaria — se repite en el href de cada tab/atajo de fecha de
   // abajo para no perder los demás filtros activos al navegar entre
@@ -154,11 +160,25 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           referencia del cliente: "Turnos 14 en total") — la cuenta de
           "todas" (agendados + cancelados, sin duplicar confirmados/
           resueltos que ya son subconjuntos de agendados). */}
-      <div className="flex flex-wrap items-baseline gap-2">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-          Turnos
-        </h1>
-        <span className="text-sm text-grafito/50">{conteoPorTab.todas} en total</span>
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+            Turnos
+          </h1>
+          {/* Los contadores ya salen del alcance elegido: el backend
+              acota por el profesional en foco, así que "14 en total"
+              dice lo de la vista actual y no lo de la clínica entera. */}
+          <span className="text-sm text-grafito/50">{conteoPorTab.todas} en total</span>
+        </div>
+        {esRecepcion && (
+          <ZonaProfesional
+            profesionales={profesionales}
+            vista={vista}
+            etiqueta="Mostrando"
+            etiquetaGeneral="Toda la clínica"
+            detalleGeneral="Turnos de todos los profesionales"
+          />
+        )}
       </div>
 
       {/* Corrección de estética (2026-09-06, foto de referencia

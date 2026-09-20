@@ -33,6 +33,7 @@ import type {
   PanelNotificacionesResponse,
   PerfilDeColega,
   PerfilProfesional,
+  VistaActual,
   ReenviarVerificacionPayload,
   RecuperarPasswordPayload,
   RegisterPayload,
@@ -64,7 +65,8 @@ const API_URL = process.env.API_URL ?? "http://localhost:8080";
 // corta antes de tiempo del lado del frontend.
 const requestTimeoutMs = 35_000;
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
+export type ApiResult<T> =
+  { ok: true; data: T } | { ok: false; status: number; error: string };
 
 // Pagina<T> — una tanda de un listado paginado, más el total que hay
 // detrás de los filtros actuales (Fase B de la auditoría, ver
@@ -75,7 +77,10 @@ export interface Pagina<T> {
   total: number;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResult<T>> {
   const res = await requestRaw<T>(path, init);
   if (!res.ok) return res;
   return { ok: true, data: res.data };
@@ -88,11 +93,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResult<T
 // viene —porque no se pidió paginar, o porque un proxy lo filtró— se cae
 // a la cantidad de items recibidos: el peor caso es que la UI no ofrezca
 // "Cargar más", nunca que rompa.
-async function requestPaginado<T>(path: string, init?: RequestInit): Promise<ApiResult<Pagina<T>>> {
+async function requestPaginado<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResult<Pagina<T>>> {
   const res = await requestRaw<T[]>(path, init);
   if (!res.ok) return res;
   const crudo = res.headers.get("X-Total-Count");
-  const total = crudo !== null && crudo !== "" && !Number.isNaN(Number(crudo)) ? Number(crudo) : res.data.length;
+  const total =
+    crudo !== null && crudo !== "" && !Number.isNaN(Number(crudo))
+      ? Number(crudo)
+      : res.data.length;
   return { ok: true, data: { items: res.data, total } };
 }
 
@@ -137,7 +148,9 @@ function esIPPublica(valor: string): boolean {
   const ip = valor.trim();
   if (!ip) return false;
   // Privadas (RFC1918), loopback, link-local y sus equivalentes IPv6.
-  return !/^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fe80:|f[cd])/i.test(ip);
+  return !/^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fe80:|f[cd])/i.test(
+    ip,
+  );
 }
 
 async function ipDelVisitante(): Promise<string> {
@@ -149,7 +162,10 @@ async function ipDelVisitante(): Promise<string> {
 
     const crudo = h.get("x-forwarded-for");
     if (!crudo) return "";
-    const partes = crudo.split(",").map((p) => p.trim()).filter(Boolean);
+    const partes = crudo
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
     for (let i = partes.length - 1; i >= 0; i--) {
       if (esIPPublica(partes[i])) return partes[i];
     }
@@ -165,12 +181,17 @@ async function cabecerasDeIP(): Promise<Record<string, string>> {
   return { "X-Prisma-Client-IP": ip, "X-Prisma-Bff-Auth": BFF_SHARED_SECRET };
 }
 
-type RawResult<T> = { ok: true; data: T; headers: Headers } | { ok: false; status: number; error: string };
+type RawResult<T> =
+  | { ok: true; data: T; headers: Headers }
+  | { ok: false; status: number; error: string };
 
 // requestRaw — el fetch real. Existe separado de `request` solo para que
 // requestPaginado pueda mirar los headers de la respuesta sin duplicar
 // todo el manejo de errores/timeout.
-async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResult<T>> {
+async function requestRaw<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<RawResult<T>> {
   let res: Response;
   // Las cabeceras de IP van PRIMERO en el objeto para que un `init.headers`
   // nunca pueda pisarlas por accidente desde un call site.
@@ -184,15 +205,29 @@ async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResul
       ...init,
       headers: esFormData
         ? { ...deIP, ...(init?.headers ?? {}) }
-        : { "Content-Type": "application/json", ...deIP, ...(init?.headers ?? {}) },
+        : {
+            "Content-Type": "application/json",
+            ...deIP,
+            ...(init?.headers ?? {}),
+          },
       cache: "no-store",
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
   } catch (err) {
     if (err instanceof Error && err.name === "TimeoutError") {
-      return { ok: false, status: 0, error: "El servidor tardó demasiado en responder. Probá de nuevo en un momento." };
+      return {
+        ok: false,
+        status: 0,
+        error:
+          "El servidor tardó demasiado en responder. Probá de nuevo en un momento.",
+      };
     }
-    return { ok: false, status: 0, error: "No se pudo conectar con el servidor. Probá de nuevo en un momento." };
+    return {
+      ok: false,
+      status: 0,
+      error:
+        "No se pudo conectar con el servidor. Probá de nuevo en un momento.",
+    };
   }
 
   let body: unknown = null;
@@ -203,7 +238,9 @@ async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResul
   }
 
   if (!res.ok) {
-    const message = isErrorBody(body) ? body.error : "Ocurrió un error inesperado.";
+    const message = isErrorBody(body)
+      ? body.error
+      : "Ocurrió un error inesperado.";
     return { ok: false, status: res.status, error: message };
   }
 
@@ -211,7 +248,12 @@ async function requestRaw<T>(path: string, init?: RequestInit): Promise<RawResul
 }
 
 function isErrorBody(body: unknown): body is { error: string } {
-  return typeof body === "object" && body !== null && "error" in body && typeof (body as { error: unknown }).error === "string";
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "error" in body &&
+    typeof (body as { error: unknown }).error === "string"
+  );
 }
 
 export function apiListEspecialidades(): Promise<ApiResult<Especialidad[]>> {
@@ -225,7 +267,9 @@ export interface BuscarClinicasParams {
 
 // Buscador público de clínicas (spec §6, FR-10) — adelantado desde Sprint 4
 // (T4.5), ver TR-012 en docs/Arquitectura y base/tradeoffs.md.
-export function apiBuscarClinicas(params: BuscarClinicasParams): Promise<ApiResult<ClinicaResultado[]>> {
+export function apiBuscarClinicas(
+  params: BuscarClinicasParams,
+): Promise<ApiResult<ClinicaResultado[]>> {
   const query = new URLSearchParams();
   if (params.q) query.set("q", params.q);
   if (params.especialidad) query.set("especialidad", params.especialidad);
@@ -236,7 +280,9 @@ export function apiBuscarClinicas(params: BuscarClinicasParams): Promise<ApiResu
 // Página pública de la clínica (T3.1/T3.2, stub de contenido hasta T4.3) —
 // sin autenticación, incluye teléfono para armar el link de WhatsApp
 // (TR-003).
-export function apiGetClinicaPublica(slug: string): Promise<ApiResult<ClinicaPublica>> {
+export function apiGetClinicaPublica(
+  slug: string,
+): Promise<ApiResult<ClinicaPublica>> {
   return request<ClinicaPublica>(`/clinicas/${slug}`);
 }
 
@@ -257,12 +303,19 @@ export interface TipoConsultaPublico {
 // contacto: qué tipos de consulta ofrece la clínica (E5.3). Un tipo que
 // no atiende ningún profesional activo no viene — ofrecerlo llevaría a
 // una pantalla sin nadie a quien elegir.
-export function apiListTiposConsultaPublico(slug: string, enlaceToken?: string): Promise<ApiResult<TipoConsultaPublico[]>> {
+export function apiListTiposConsultaPublico(
+  slug: string,
+  enlaceToken?: string,
+): Promise<ApiResult<TipoConsultaPublico[]>> {
   // Con enlace, solo los tipos de quien lo generó: el enlace ya decide con
   // quién es el turno, y ofrecer uno que esa persona no atiende mandaría
   // al paciente contra una pared recién al confirmar.
-  const query = enlaceToken ? `?${new URLSearchParams({ enlaceToken }).toString()}` : "";
-  return request<TipoConsultaPublico[]>(`/clinicas/${slug}/tipos-consulta${query}`);
+  const query = enlaceToken
+    ? `?${new URLSearchParams({ enlaceToken }).toString()}`
+    : "";
+  return request<TipoConsultaPublico[]>(
+    `/clinicas/${slug}/tipos-consulta${query}`,
+  );
 }
 
 // ProfesionalPublico — una tarjeta de "¿con quién te atendés?" (Fase
@@ -277,9 +330,14 @@ export interface ProfesionalPublico {
   proximoDisponible?: string;
 }
 
-export function apiListProfesionalesPublico(slug: string, tipo: string): Promise<ApiResult<ProfesionalPublico[]>> {
+export function apiListProfesionalesPublico(
+  slug: string,
+  tipo: string,
+): Promise<ApiResult<ProfesionalPublico[]>> {
   const query = new URLSearchParams({ tipo });
-  return request<ProfesionalPublico[]>(`/clinicas/${slug}/profesionales?${query.toString()}`);
+  return request<ProfesionalPublico[]>(
+    `/clinicas/${slug}/profesionales?${query.toString()}`,
+  );
 }
 
 // DisponibilidadPublicaParams — el tipo (por nombre) y con quién.
@@ -311,7 +369,9 @@ export function apiListDisponibilidadPublica(
 ): Promise<ApiResult<Disponibilidad>> {
   const query = queryDisponibilidad(params);
   query.set("fecha", fecha);
-  return request<Disponibilidad>(`/clinicas/${slug}/disponibilidad?${query.toString()}`);
+  return request<Disponibilidad>(
+    `/clinicas/${slug}/disponibilidad?${query.toString()}`,
+  );
 }
 
 // DisponibilidadMes — docs/Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md §3.8 (panel de
@@ -329,7 +389,9 @@ export function apiListDisponibilidadMesPublica(
 ): Promise<ApiResult<DisponibilidadMes>> {
   const query = queryDisponibilidad(params);
   query.set("mes", mes);
-  return request<DisponibilidadMes>(`/clinicas/${slug}/disponibilidad-mes?${query.toString()}`);
+  return request<DisponibilidadMes>(
+    `/clinicas/${slug}/disponibilidad-mes?${query.toString()}`,
+  );
 }
 
 // EnlaceTurno — Fase 2, ítem 5 ("compartir calendario"): link de 1h que
@@ -350,17 +412,25 @@ export interface CrearEnlaceTurnoOpciones {
   paraTodosLosProfesionales?: boolean;
   /** Ficha ya elegida: el wizard no vuelve a pedir lo que ya tiene cargado. */
   pacienteId?: string;
+  /** De quién es la agenda a la que entra el turno (QA de la 3.2.6).
+   *  Vacío = la de quien genera el enlace. Recepción puede elegir a
+   *  cualquier profesional de la clínica; el backend rechaza el resto. */
+  profesionalUserId?: string;
 }
 
 // apiCrearEnlaceTurno (autenticado, panel) — la clínica se resuelve por
 // sesión, no hace falta pasar el slug.
-export function apiCrearEnlaceTurno(token: string, opciones?: CrearEnlaceTurnoOpciones): Promise<ApiResult<EnlaceTurno>> {
+export function apiCrearEnlaceTurno(
+  token: string,
+  opciones?: CrearEnlaceTurnoOpciones,
+): Promise<ApiResult<EnlaceTurno>> {
   return request<EnlaceTurno>("/enlaces-turno", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({
       paraTodosLosProfesionales: opciones?.paraTodosLosProfesionales ?? false,
       pacienteId: opciones?.pacienteId ?? "",
+      profesionalUserId: opciones?.profesionalUserId ?? "",
     }),
   });
 }
@@ -388,9 +458,14 @@ export interface EnlaceTurnoInfo {
   };
 }
 
-export function apiValidarEnlaceTurnoPublico(slug: string, token: string): Promise<ApiResult<EnlaceTurnoInfo>> {
+export function apiValidarEnlaceTurnoPublico(
+  slug: string,
+  token: string,
+): Promise<ApiResult<EnlaceTurnoInfo>> {
   const query = new URLSearchParams({ token });
-  return request<EnlaceTurnoInfo>(`/clinicas/${slug}/enlaces-turno/validar?${query.toString()}`);
+  return request<EnlaceTurnoInfo>(
+    `/clinicas/${slug}/enlaces-turno/validar?${query.toString()}`,
+  );
 }
 
 export interface SolicitarTurnoPublicoPayload {
@@ -477,20 +552,30 @@ export function apiEnviarVerificacionTurnoPublico(
   email: string,
   captchaToken: string,
 ): Promise<ApiResult<EnviarVerificacionTurnoPublicoResponse>> {
-  return request<EnviarVerificacionTurnoPublicoResponse>(`/clinicas/${slug}/verificacion-email`, {
-    method: "POST",
-    body: JSON.stringify({ email, captchaToken }),
-  });
+  return request<EnviarVerificacionTurnoPublicoResponse>(
+    `/clinicas/${slug}/verificacion-email`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email, captchaToken }),
+    },
+  );
 }
 
 // apiConfirmarVerificacionTurnoPublico (E5.6) — valida el código y, si es
 // correcto, devuelve el token de prueba que el resto del wizard tiene que
 // mandar junto con el pedido de turno final.
-export function apiConfirmarVerificacionTurnoPublico(slug: string, email: string, codigo: string): Promise<ApiResult<{ token: string }>> {
-  return request<{ token: string }>(`/clinicas/${slug}/verificacion-email/confirmar`, {
-    method: "POST",
-    body: JSON.stringify({ email, codigo }),
-  });
+export function apiConfirmarVerificacionTurnoPublico(
+  slug: string,
+  email: string,
+  codigo: string,
+): Promise<ApiResult<{ token: string }>> {
+  return request<{ token: string }>(
+    `/clinicas/${slug}/verificacion-email/confirmar`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email, codigo }),
+    },
+  );
 }
 
 // PacienteVerificadoPublico — Fase 2.4.1, camino "ya he venido antes":
@@ -522,7 +607,9 @@ export function apiGetPacienteVerificadoPublico(
   credencial: { verificacionToken: string } | { enlaceToken: string },
 ): Promise<ApiResult<PacienteVerificadoPublico>> {
   const query = new URLSearchParams({ dni, email, ...credencial });
-  return request<PacienteVerificadoPublico>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
+  return request<PacienteVerificadoPublico>(
+    `/clinicas/${slug}/pacientes/verificado?${query.toString()}`,
+  );
 }
 
 // apiGetPacientesVerificadosDeTutorPublico (Fase 2.4.2, camino "sacar
@@ -538,7 +625,9 @@ export function apiGetPacientesVerificadosDeTutorPublico(
   credencial: { verificacionToken: string } | { enlaceToken: string },
 ): Promise<ApiResult<PacienteVerificadoPublico[]>> {
   const query = new URLSearchParams({ tutorEmail, ...credencial });
-  return request<PacienteVerificadoPublico[]>(`/clinicas/${slug}/pacientes/verificado?${query.toString()}`);
+  return request<PacienteVerificadoPublico[]>(
+    `/clinicas/${slug}/pacientes/verificado?${query.toString()}`,
+  );
 }
 
 export interface SolicitarTurnoPublicoResponse {
@@ -584,9 +673,15 @@ export interface MisTurnoPublico {
 // textual del cliente): sin código de verificación de por medio (a
 // diferencia de "ya he venido antes") — DNI+mail directo, la mitigación
 // contra abuso es el rate limit por IP del lado del backend.
-export function apiMisTurnoPublico(slug: string, dni: string, email: string): Promise<ApiResult<MisTurnoPublico>> {
+export function apiMisTurnoPublico(
+  slug: string,
+  dni: string,
+  email: string,
+): Promise<ApiResult<MisTurnoPublico>> {
   const query = new URLSearchParams({ dni, email });
-  return request<MisTurnoPublico>(`/clinicas/${slug}/mis-turnos?${query.toString()}`);
+  return request<MisTurnoPublico>(
+    `/clinicas/${slug}/mis-turnos?${query.toString()}`,
+  );
 }
 
 // --- Auth/onboarding (docs/Login/feature-sumarte-login.md) ---
@@ -594,23 +689,41 @@ export function apiMisTurnoPublico(slug: string, dni: string, email: string): Pr
 // argumento explícito (server-only, la cookie la lee/escribe lib/session.ts)
 // y lo reenvían como Authorization: Bearer, igual que el resto de la API.
 
-export function apiRegister(payload: RegisterPayload): Promise<ApiResult<RegisterResponse>> {
-  return request<RegisterResponse>("/auth/register", { method: "POST", body: JSON.stringify(payload) });
+export function apiRegister(
+  payload: RegisterPayload,
+): Promise<ApiResult<RegisterResponse>> {
+  return request<RegisterResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
-export function apiLogin(payload: LoginPayload): Promise<ApiResult<LoginResponse>> {
-  return request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) });
+export function apiLogin(
+  payload: LoginPayload,
+): Promise<ApiResult<LoginResponse>> {
+  return request<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function apiGoogleState(): Promise<ApiResult<GoogleStateResponse>> {
   return request<GoogleStateResponse>("/auth/google/state");
 }
 
-export function apiGoogleLogin(payload: GooglePayload): Promise<ApiResult<GoogleResponse>> {
-  return request<GoogleResponse>("/auth/google", { method: "POST", body: JSON.stringify(payload) });
+export function apiGoogleLogin(
+  payload: GooglePayload,
+): Promise<ApiResult<GoogleResponse>> {
+  return request<GoogleResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
-export function apiVerificarEmail(payload: VerificarEmailPayload, token?: string): Promise<ApiResult<VerificarEmailResponse>> {
+export function apiVerificarEmail(
+  payload: VerificarEmailPayload,
+  token?: string,
+): Promise<ApiResult<VerificarEmailResponse>> {
   return request<VerificarEmailResponse>("/auth/verificar-email", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -618,27 +731,48 @@ export function apiVerificarEmail(payload: VerificarEmailPayload, token?: string
   });
 }
 
-export function apiReenviarVerificacion(payload: ReenviarVerificacionPayload): Promise<ApiResult<MensajeResponse>> {
-  return request<MensajeResponse>("/auth/reenviar-verificacion", { method: "POST", body: JSON.stringify(payload) });
+export function apiReenviarVerificacion(
+  payload: ReenviarVerificacionPayload,
+): Promise<ApiResult<MensajeResponse>> {
+  return request<MensajeResponse>("/auth/reenviar-verificacion", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
-export function apiRecuperarPassword(payload: RecuperarPasswordPayload): Promise<ApiResult<MensajeResponse>> {
-  return request<MensajeResponse>("/auth/recuperar-password", { method: "POST", body: JSON.stringify(payload) });
+export function apiRecuperarPassword(
+  payload: RecuperarPasswordPayload,
+): Promise<ApiResult<MensajeResponse>> {
+  return request<MensajeResponse>("/auth/recuperar-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
-export function apiResetPassword(payload: ResetPasswordPayload): Promise<ApiResult<ResetPasswordResponse>> {
-  return request<ResetPasswordResponse>("/auth/reset-password", { method: "POST", body: JSON.stringify(payload) });
+export function apiResetPassword(
+  payload: ResetPasswordPayload,
+): Promise<ApiResult<ResetPasswordResponse>> {
+  return request<ResetPasswordResponse>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function apiLogout(token: string): Promise<ApiResult<{ ok: boolean }>> {
-  return request<{ ok: boolean }>("/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  return request<{ ok: boolean }>("/auth/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function apiMe(token: string): Promise<ApiResult<Me>> {
   return request<Me>("/me", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-export function apiUpdateMe(token: string, payload: OnboardingPerfilPayload): Promise<ApiResult<PerfilProfesional>> {
+export function apiUpdateMe(
+  token: string,
+  payload: OnboardingPerfilPayload,
+): Promise<ApiResult<PerfilProfesional>> {
   return request<PerfilProfesional>("/me", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -646,7 +780,10 @@ export function apiUpdateMe(token: string, payload: OnboardingPerfilPayload): Pr
   });
 }
 
-export function apiOnboardingPerfil(token: string, payload: OnboardingPerfilPayload): Promise<ApiResult<PerfilProfesional>> {
+export function apiOnboardingPerfil(
+  token: string,
+  payload: OnboardingPerfilPayload,
+): Promise<ApiResult<PerfilProfesional>> {
   return request<PerfilProfesional>("/onboarding/perfil", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -654,7 +791,10 @@ export function apiOnboardingPerfil(token: string, payload: OnboardingPerfilPayl
   });
 }
 
-export function apiOnboardingClinica(token: string, payload: OnboardingClinicaPayload): Promise<ApiResult<OnboardingClinicaResponse>> {
+export function apiOnboardingClinica(
+  token: string,
+  payload: OnboardingClinicaPayload,
+): Promise<ApiResult<OnboardingClinicaResponse>> {
   return request<OnboardingClinicaResponse>("/onboarding/clinica", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -665,10 +805,15 @@ export function apiOnboardingClinica(token: string, payload: OnboardingClinicaPa
 // --- Fase 3.2.3: "¿Dónde trabajás hoy?" ---
 
 export function apiMisClinicas(token: string): Promise<ApiResult<MisClinicas>> {
-  return request<MisClinicas>("/me/clinicas", { headers: { Authorization: `Bearer ${token}` } });
+  return request<MisClinicas>("/me/clinicas", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
-export function apiElegirClinicaActiva(token: string, clinicaId: string): Promise<ApiResult<{ clinicaId: string }>> {
+export function apiElegirClinicaActiva(
+  token: string,
+  clinicaId: string,
+): Promise<ApiResult<{ clinicaId: string }>> {
   return request<{ clinicaId: string }>("/me/clinica-activa", {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
@@ -676,7 +821,9 @@ export function apiElegirClinicaActiva(token: string, clinicaId: string): Promis
   });
 }
 
-export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<CodigoInvitacion>> {
+export function apiGenerarCodigoInvitacion(
+  token: string,
+): Promise<ApiResult<CodigoInvitacion>> {
   return request<CodigoInvitacion>("/me/codigo-invitacion", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -686,13 +833,18 @@ export function apiGenerarCodigoInvitacion(token: string): Promise<ApiResult<Cod
 // --- Fase 3.2.4: el equipo de la clínica ---
 
 export function apiEquipo(token: string): Promise<ApiResult<Equipo>> {
-  return request<Equipo>("/equipo", { headers: { Authorization: `Bearer ${token}` } });
+  return request<Equipo>("/equipo", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // apiPacientesDeLaClinica — las fichas de TODA la clínica, para el
 // selector de "paciente conocido" al cargar un turno. El listado de
 // /panel/pacientes sigue siendo el propio: son dos preguntas distintas.
-export function apiPacientesDeLaClinica(token: string, q?: string): Promise<ApiResult<PacienteConocido[]>> {
+export function apiPacientesDeLaClinica(
+  token: string,
+  q?: string,
+): Promise<ApiResult<PacienteConocido[]>> {
   const qs = q ? `?q=${encodeURIComponent(q)}` : "";
   return request<PacienteConocido[]>(`/pacientes/de-la-clinica${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -702,23 +854,59 @@ export function apiPacientesDeLaClinica(token: string, q?: string): Promise<ApiR
 // apiSumarPacienteAMiLista — "+ Agregar paciente > De la clínica"
 // (2026-09-19): la ficha ya existe en la clínica y este profesional la
 // suma a SU lista de trabajo, sin inventarle un turno para lograrlo.
-export function apiSumarPacienteAMiLista(token: string, pacienteId: string): Promise<ApiResult<{ mensaje: string }>> {
+export function apiSumarPacienteAMiLista(
+  token: string,
+  pacienteId: string,
+): Promise<ApiResult<{ mensaje: string }>> {
   return request<{ mensaje: string }>(`/pacientes/${pacienteId}/en-mi-lista`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
+// --- Fase 3.2.6: la vista del recepcionista ---
+//
+// `recepcion` es el único rol que puede pararse en la agenda de otro; el
+// backend lo impone con un 403, esto solo lo pide.
+
+export function apiVistaActual(token: string): Promise<ApiResult<VistaActual>> {
+  return request<VistaActual>("/me/vista", {
+    headers: { Authorization: `Bearer ${token}` },
+    // Nunca cacheada: es "dónde estoy parado ahora".
+    cache: "no-store",
+  });
+}
+
+// apiElegirVista — `userId` vacío vuelve a la vista general.
+export function apiElegirVista(
+  token: string,
+  userId: string,
+): Promise<ApiResult<VistaActual>> {
+  return request<VistaActual>("/me/vista", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId }),
+  });
+}
+
 // apiPerfilDeColega — la pantalla "Ver perfil" de Colaboradores
 // (2026-09-19). El backend responde 404 si esa persona no trabaja en la
 // clínica activa: tener el id no alcanza.
-export function apiPerfilDeColega(token: string, userId: string): Promise<ApiResult<PerfilDeColega>> {
+export function apiPerfilDeColega(
+  token: string,
+  userId: string,
+): Promise<ApiResult<PerfilDeColega>> {
   return request<PerfilDeColega>(`/equipo/miembros/${userId}/perfil`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiTiposConsultaDeColegas(token: string): Promise<ApiResult<TipoConsultaDeColega[]>> {
+export function apiTiposConsultaDeColegas(
+  token: string,
+): Promise<ApiResult<TipoConsultaDeColega[]>> {
   return request<TipoConsultaDeColega[]>("/tipos-consulta/de-colegas", {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -735,7 +923,10 @@ export function apiPresencia(token: string): Promise<ApiResult<Presencia>> {
   });
 }
 
-export function apiInvitarColaborador(token: string, payload: InvitarColaboradorPayload): Promise<ApiResult<unknown>> {
+export function apiInvitarColaborador(
+  token: string,
+  payload: InvitarColaboradorPayload,
+): Promise<ApiResult<unknown>> {
   return request<unknown>("/equipo/invitaciones", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -743,21 +934,31 @@ export function apiInvitarColaborador(token: string, payload: InvitarColaborador
   });
 }
 
-export function apiReenviarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+export function apiReenviarInvitacion(
+  token: string,
+  id: string,
+): Promise<ApiResult<unknown>> {
   return request<unknown>(`/equipo/invitaciones/${id}/reenviar`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiCancelarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+export function apiCancelarInvitacion(
+  token: string,
+  id: string,
+): Promise<ApiResult<unknown>> {
   return request<unknown>(`/equipo/invitaciones/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiCambiarRoles(token: string, userId: string, roles: string[]): Promise<ApiResult<unknown>> {
+export function apiCambiarRoles(
+  token: string,
+  userId: string,
+  roles: string[],
+): Promise<ApiResult<unknown>> {
   return request<unknown>(`/equipo/miembros/${userId}/roles`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
@@ -765,21 +966,30 @@ export function apiCambiarRoles(token: string, userId: string, roles: string[]):
   });
 }
 
-export function apiQuitarColaborador(token: string, userId: string): Promise<ApiResult<unknown>> {
+export function apiQuitarColaborador(
+  token: string,
+  userId: string,
+): Promise<ApiResult<unknown>> {
   return request<unknown>(`/equipo/miembros/${userId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiAceptarInvitacion(token: string, id: string): Promise<ApiResult<{ clinicaId: string }>> {
+export function apiAceptarInvitacion(
+  token: string,
+  id: string,
+): Promise<ApiResult<{ clinicaId: string }>> {
   return request<{ clinicaId: string }>(`/me/invitaciones/${id}/aceptar`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiRechazarInvitacion(token: string, id: string): Promise<ApiResult<unknown>> {
+export function apiRechazarInvitacion(
+  token: string,
+  id: string,
+): Promise<ApiResult<unknown>> {
   return request<unknown>(`/me/invitaciones/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
@@ -788,13 +998,28 @@ export function apiRechazarInvitacion(token: string, id: string): Promise<ApiRes
 
 // --- Sprint 2: shell de gestión + calendario (spec §4.2, §4.3) ---
 
-export function apiListTiposConsulta(token: string): Promise<ApiResult<TipoConsulta[]>> {
-  return request<TipoConsulta[]>("/tipos-consulta", { headers: { Authorization: `Bearer ${token}` } });
+// profesionalUserId (QA de la 3.2.6): de qué agenda son los tipos. Sin él
+// vale el profesional en foco, que es lo que quiere la configuración de
+// calendario. Con él, "+ Agregar turno" pide los del profesional que se
+// eligió EN EL MODAL, sin cambiarle la vista a la pantalla de atrás.
+export function apiListTiposConsulta(
+  token: string,
+  profesionalUserId?: string,
+): Promise<ApiResult<TipoConsulta[]>> {
+  const query = profesionalUserId
+    ? `?${new URLSearchParams({ profesionalUserId }).toString()}`
+    : "";
+  return request<TipoConsulta[]>(`/tipos-consulta${query}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // --- F2.3: ajustes de calendario (docs/Arquitectura y base/implementation-plan.md §11.3) ---
 
 export interface TipoConsultaPayload {
+  /** En qué agenda se crea (QA de la 3.2.6). Vacío = la del profesional
+   *  en foco; recepción crea tipos PARA un profesional, no para sí. */
+  profesionalUserId?: string;
   nombre: string;
   color: string;
   duracionMinutos: number;
@@ -807,7 +1032,10 @@ export interface TipoConsultaPayload {
   preferenciaHoraHasta?: string;
 }
 
-export function apiCrearTipoConsulta(token: string, payload: TipoConsultaPayload): Promise<ApiResult<TipoConsulta>> {
+export function apiCrearTipoConsulta(
+  token: string,
+  payload: TipoConsultaPayload,
+): Promise<ApiResult<TipoConsulta>> {
   return request<TipoConsulta>("/tipos-consulta", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -827,7 +1055,10 @@ export function apiEditarTipoConsulta(
   });
 }
 
-export function apiEliminarTipoConsulta(token: string, id: string): Promise<ApiResult<null>> {
+export function apiEliminarTipoConsulta(
+  token: string,
+  id: string,
+): Promise<ApiResult<null>> {
   return request<null>(`/tipos-consulta/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
@@ -837,8 +1068,12 @@ export function apiEliminarTipoConsulta(token: string, id: string): Promise<ApiR
 // apiListHorarioAtencion — GET /horario-atencion (rediseño 2026-09-01):
 // devuelve la LISTA completa, la general primero. Reemplaza el viejo
 // apiGetHorarioAtencion (un único objeto).
-export function apiListHorarioAtencion(token: string): Promise<ApiResult<HorarioAtencion[]>> {
-  return request<HorarioAtencion[]>("/horario-atencion", { headers: { Authorization: `Bearer ${token}` } });
+export function apiListHorarioAtencion(
+  token: string,
+): Promise<ApiResult<HorarioAtencion[]>> {
+  return request<HorarioAtencion[]>("/horario-atencion", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface PutHorarioAtencionGeneralPayload {
@@ -894,16 +1129,24 @@ export function apiEditarHorarioAtencion(
   });
 }
 
-export function apiEliminarHorarioAtencion(token: string, id: string): Promise<ApiResult<null>> {
+export function apiEliminarHorarioAtencion(
+  token: string,
+  id: string,
+): Promise<ApiResult<null>> {
   return request<null>(`/horario-atencion/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiListBloqueos(token: string, especifico?: boolean): Promise<ApiResult<BloqueoHorario[]>> {
+export function apiListBloqueos(
+  token: string,
+  especifico?: boolean,
+): Promise<ApiResult<BloqueoHorario[]>> {
   const qs = especifico === undefined ? "" : `?especifico=${especifico}`;
-  return request<BloqueoHorario[]>(`/bloqueos${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+  return request<BloqueoHorario[]>(`/bloqueos${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface CrearBloqueoPayload {
@@ -914,9 +1157,15 @@ export interface CrearBloqueoPayload {
   horaDesde: string;
   horaHasta: string;
   motivo?: string;
+  /** De quién es la agenda que se reserva (QA de la 3.2.6). Vacío = la de
+   *  quien la crea, o la del profesional en foco si es recepción. */
+  profesionalUserId?: string;
 }
 
-export function apiCrearBloqueo(token: string, payload: CrearBloqueoPayload): Promise<ApiResult<BloqueoHorario>> {
+export function apiCrearBloqueo(
+  token: string,
+  payload: CrearBloqueoPayload,
+): Promise<ApiResult<BloqueoHorario>> {
   return request<BloqueoHorario>("/bloqueos", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -924,7 +1173,11 @@ export function apiCrearBloqueo(token: string, payload: CrearBloqueoPayload): Pr
   });
 }
 
-export function apiEditarBloqueo(token: string, id: string, payload: CrearBloqueoPayload): Promise<ApiResult<BloqueoHorario>> {
+export function apiEditarBloqueo(
+  token: string,
+  id: string,
+  payload: CrearBloqueoPayload,
+): Promise<ApiResult<BloqueoHorario>> {
   return request<BloqueoHorario>(`/bloqueos/${id}`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -932,7 +1185,10 @@ export function apiEditarBloqueo(token: string, id: string, payload: CrearBloque
   });
 }
 
-export function apiEliminarBloqueo(token: string, id: string): Promise<ApiResult<null>> {
+export function apiEliminarBloqueo(
+  token: string,
+  id: string,
+): Promise<ApiResult<null>> {
   return request<null>(`/bloqueos/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
@@ -949,10 +1205,17 @@ export function apiListDisponibilidad(
   tipoConsultaId: string,
   fecha: string,
   excluirTurnoId?: string,
+  profesionalUserId?: string,
 ): Promise<ApiResult<Disponibilidad>> {
   const query = new URLSearchParams({ tipoConsultaId, fecha });
   if (excluirTurnoId) query.set("excluirTurnoId", excluirTurnoId);
-  return request<Disponibilidad>(`/disponibilidad?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+  // La MISMA agenda con la que se pidieron los tipos: el backend resuelve
+  // el tipo y los huecos contra este profesional, y si no coinciden el
+  // resultado no es la agenda de ninguno de los dos.
+  if (profesionalUserId) query.set("profesionalUserId", profesionalUserId);
+  return request<Disponibilidad>(`/disponibilidad?${query.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface ListarTurnosParams {
@@ -980,15 +1243,21 @@ function queryDeTurnos(params: ListarTurnosParams): URLSearchParams {
   if (params.desde) query.set("desde", params.desde);
   if (params.hasta) query.set("hasta", params.hasta);
   if (params.q) query.set("q", params.q);
-  if (params.resuelto !== undefined) query.set("resuelto", String(params.resuelto));
+  if (params.resuelto !== undefined)
+    query.set("resuelto", String(params.resuelto));
   if (params.tipoConsultaId) query.set("tipoConsultaId", params.tipoConsultaId);
   if (params.verificacion) query.set("verificacion", params.verificacion);
   return query;
 }
 
-export function apiListTurnos(token: string, params: ListarTurnosParams = {}): Promise<ApiResult<Turno[]>> {
+export function apiListTurnos(
+  token: string,
+  params: ListarTurnosParams = {},
+): Promise<ApiResult<Turno[]>> {
   const qs = queryDeTurnos(params).toString();
-  return request<Turno[]>(`/turnos${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+  return request<Turno[]>(`/turnos${qs ? `?${qs}` : ""}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // apiListTurnosPaginado — la variante que usa la VISTA DE LISTA
@@ -1005,7 +1274,9 @@ export function apiListTurnosPaginado(
   const query = queryDeTurnos(params);
   query.set("limit", String(limit));
   query.set("offset", String(offset));
-  return requestPaginado<Turno>(`/turnos?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+  return requestPaginado<Turno>(`/turnos?${query.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // apiContarTurnos — SOLO el total detrás de un filtro, sin traer las
@@ -1016,7 +1287,10 @@ export function apiListTurnosPaginado(
 // Lo usan los contadores de las pestañas de /panel/turnos ("Confirmadas
 // 8", "Resueltos 4"...). Antes esa cuenta salía de pedir las 4 listas
 // enteras y hacer `.length` — el costo que esta función elimina.
-export async function apiContarTurnos(token: string, params: ListarTurnosParams): Promise<number> {
+export async function apiContarTurnos(
+  token: string,
+  params: ListarTurnosParams,
+): Promise<number> {
   const res = await apiListTurnosPaginado(token, params, 1, 0);
   return res.ok ? res.data.total : 0;
 }
@@ -1045,10 +1319,16 @@ export interface CrearTurnoManualPayload {
   tutorNombre?: string;
   tutorTelefono?: string;
   tutorEmail?: string;
+  /** A qué agenda entra el turno (QA de la 3.2.6). Vacío = la regla de
+   *  siempre: quien lo carga, o el profesional en foco si es recepción. */
+  profesionalUserId?: string;
 }
 
 // Camino "paciente nuevo" del modal "+ Agregar turno" (spec §4.3).
-export function apiCrearTurnoManual(token: string, payload: CrearTurnoManualPayload): Promise<ApiResult<Turno>> {
+export function apiCrearTurnoManual(
+  token: string,
+  payload: CrearTurnoManualPayload,
+): Promise<ApiResult<Turno>> {
   return request<Turno>("/turnos", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -1065,7 +1345,11 @@ export interface ReprogramarTurnoPayload {
 // reprogramarTurno — "Editar" de un turno ya confirmado (2026-08-23): solo
 // cambia el horario y el motivo de consulta, nunca los datos de contacto
 // (esos se corrigen desde "Editar paciente", TR-104).
-export function apiReprogramarTurno(token: string, turnoId: string, payload: ReprogramarTurnoPayload): Promise<ApiResult<Turno>> {
+export function apiReprogramarTurno(
+  token: string,
+  turnoId: string,
+  payload: ReprogramarTurnoPayload,
+): Promise<ApiResult<Turno>> {
   return request<Turno>(`/turnos/${turnoId}/hora`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -1079,7 +1363,10 @@ export function apiReprogramarTurno(token: string, turnoId: string, payload: Rep
 // prioridad, calculado del lado del backend — ver
 // autoreservarTurnosHandler en apps/api). Devuelve el horario ANTERIOR y
 // el NUEVO de cada uno para la pantalla de confirmación.
-export function apiAutoreservarTurnos(token: string, turnoIds: string[]): Promise<ApiResult<AutoreservarTurnosResponse>> {
+export function apiAutoreservarTurnos(
+  token: string,
+  turnoIds: string[],
+): Promise<ApiResult<AutoreservarTurnosResponse>> {
   return request<AutoreservarTurnosResponse>("/turnos/autoreservar", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -1089,22 +1376,33 @@ export function apiAutoreservarTurnos(token: string, turnoIds: string[]): Promis
 
 // T2.2 (F2.3 extra ítem 1 lo reescribe de punta a punta, docs/Arquitectura y base/implementation-plan.md
 // §11.5): datos de las 5 tarjetas del dashboard "Turnero".
-export function apiResumenPanel(token: string): Promise<ApiResult<ResumenPanel>> {
-  return request<ResumenPanel>("/panel/resumen", { headers: { Authorization: `Bearer ${token}` } });
+export function apiResumenPanel(
+  token: string,
+): Promise<ApiResult<ResumenPanel>> {
+  return request<ResumenPanel>("/panel/resumen", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // apiPanelNotificaciones — TR-108 (docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md):
 // fuente de datos del aviso global de conflictos (fuera de Pacientes/
 // Calendario) — ver NotificacionesConflictoGlobal.
-export function apiPanelNotificaciones(token: string): Promise<ApiResult<PanelNotificacionesResponse>> {
-  return request<PanelNotificacionesResponse>("/panel/notificaciones", { headers: { Authorization: `Bearer ${token}` } });
+export function apiPanelNotificaciones(
+  token: string,
+): Promise<ApiResult<PanelNotificacionesResponse>> {
+  return request<PanelNotificacionesResponse>("/panel/notificaciones", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // --- Sprint 3: Turnos entrantes + Pacientes (spec §4.4, §4.5) ---
 
 // Cancelar (T3.3) es idempotente del lado del backend — llamarlo sobre un
 // turno ya cancelado no es un error.
-export function apiCancelarTurno(token: string, turnoId: string): Promise<ApiResult<Turno>> {
+export function apiCancelarTurno(
+  token: string,
+  turnoId: string,
+): Promise<ApiResult<Turno>> {
   return request<Turno>(`/turnos/${turnoId}/cancelar`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -1119,11 +1417,16 @@ export interface CancelarTurnosSinVerificarResponse {
   cancelados: number;
 }
 
-export function apiCancelarTurnosSinVerificar(token: string): Promise<ApiResult<CancelarTurnosSinVerificarResponse>> {
-  return request<CancelarTurnosSinVerificarResponse>("/turnos/cancelar-sin-verificar", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function apiCancelarTurnosSinVerificar(
+  token: string,
+): Promise<ApiResult<CancelarTurnosSinVerificarResponse>> {
+  return request<CancelarTurnosSinVerificarResponse>(
+    "/turnos/cancelar-sin-verificar",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
 }
 
 // marcarAsistencia (pedido explícito del cliente, 2026-09-04): solo tiene
@@ -1146,16 +1449,26 @@ export function apiMarcarAsistencia(
 // apiTurnosPendientesAsistencia — TR-107 (1.3ter): fuente de datos de
 // AsistenciaCartelGlobal. Sin ningún parámetro de fecha a propósito — ver
 // el comentario grande en turnosPendientesAsistenciaResponse (Go).
-export function apiTurnosPendientesAsistencia(token: string): Promise<ApiResult<TurnosPendientesAsistenciaResponse>> {
-  return request<TurnosPendientesAsistenciaResponse>("/turnos/pendientes-asistencia", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function apiTurnosPendientesAsistencia(
+  token: string,
+): Promise<ApiResult<TurnosPendientesAsistenciaResponse>> {
+  return request<TurnosPendientesAsistenciaResponse>(
+    "/turnos/pendientes-asistencia",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
 }
 
 // T3.5: tabla de pacientes, buscador por nombre/apellido/DNI.
-export function apiListPacientes(token: string, q?: string): Promise<ApiResult<Paciente[]>> {
+export function apiListPacientes(
+  token: string,
+  q?: string,
+): Promise<ApiResult<Paciente[]>> {
   const qs = q ? `?q=${encodeURIComponent(q)}` : "";
-  return request<Paciente[]>(`/pacientes${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+  return request<Paciente[]>(`/pacientes${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // ListarPacientesParams — `verificacion` es el filtro de las pestañas
@@ -1182,12 +1495,17 @@ export function apiListPacientesPaginado(
   if (params.verificacion) query.set("verificacion", params.verificacion);
   query.set("limit", String(limit));
   query.set("offset", String(offset));
-  return requestPaginado<Paciente>(`/pacientes?${query.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+  return requestPaginado<Paciente>(`/pacientes?${query.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 // apiContarPacientes — igual que apiContarTurnos, para las pestañas
 // Todos/Verificados/Sin verificar de /panel/pacientes.
-export async function apiContarPacientes(token: string, params: ListarPacientesParams): Promise<number> {
+export async function apiContarPacientes(
+  token: string,
+  params: ListarPacientesParams,
+): Promise<number> {
   const res = await apiListPacientesPaginado(token, params, 1, 0);
   return res.ok ? res.data.total : 0;
 }
@@ -1215,7 +1533,10 @@ export interface CrearPacientePayload {
 // un paciente existente por DNI, turnos.go), acá un DNI repetido es un
 // error real — el backend lo rechaza con 409 en vez de reusar en silencio
 // una ficha que el profesional no eligió.
-export function apiCrearPaciente(token: string, payload: CrearPacientePayload): Promise<ApiResult<Paciente>> {
+export function apiCrearPaciente(
+  token: string,
+  payload: CrearPacientePayload,
+): Promise<ApiResult<Paciente>> {
   return request<Paciente>("/pacientes", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -1224,8 +1545,13 @@ export function apiCrearPaciente(token: string, payload: CrearPacientePayload): 
 }
 
 // T3.6: detalle de paciente + historial completo de turnos.
-export function apiGetPaciente(token: string, id: string): Promise<ApiResult<PacienteDetalle>> {
-  return request<PacienteDetalle>(`/pacientes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+export function apiGetPaciente(
+  token: string,
+  id: string,
+): Promise<ApiResult<PacienteDetalle>> {
+  return request<PacienteDetalle>(`/pacientes/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface EditarPacientePayload {
@@ -1237,7 +1563,11 @@ export interface EditarPacientePayload {
 // Corrige DNI/teléfono/email de la ficha del paciente (2026-08-23, "por si
 // hay alguna actualización en estos datos") — nombre/apellido no son
 // editables acá todavía.
-export function apiEditarPaciente(token: string, id: string, payload: EditarPacientePayload): Promise<ApiResult<Paciente>> {
+export function apiEditarPaciente(
+  token: string,
+  id: string,
+  payload: EditarPacientePayload,
+): Promise<ApiResult<Paciente>> {
   return request<Paciente>(`/pacientes/${id}`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -1250,8 +1580,12 @@ export function apiEditarPaciente(token: string, id: string, payload: EditarPaci
 // compitiendo por el mismo DNI porque el mail no coincidía con el de una
 // ficha ya VERIFICADA (ver crearPacientePublicoConDeteccionDeConflicto,
 // backend).
-export function apiListConflictosPaciente(token: string): Promise<ApiResult<ConflictoPaciente[]>> {
-  return request<ConflictoPaciente[]>("/pacientes/conflictos", { headers: { Authorization: `Bearer ${token}` } });
+export function apiListConflictosPaciente(
+  token: string,
+): Promise<ApiResult<ConflictoPaciente[]>> {
+  return request<ConflictoPaciente[]>("/pacientes/conflictos", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface ResolverConflictoPacientePayload {
@@ -1265,39 +1599,62 @@ export function apiResolverConflictoPaciente(
   conflictoId: string,
   payload: ResolverConflictoPacientePayload,
 ): Promise<ApiResult<{ mensaje: string }>> {
-  return request<{ mensaje: string }>(`/pacientes/conflictos/${conflictoId}/resolver`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  return request<{ mensaje: string }>(
+    `/pacientes/conflictos/${conflictoId}/resolver`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 // apiListBloqueosSeguridad/apiDesbloquearMail/apiDesbloquearIP —
 // corrección de seguridad (Fase 2.4.1): "el apartado de auditoría de
 // turnos de bloqueos, donde muestre los mails bloqueados etc, por las
 // dudas de algún malentendido" — /panel/seguridad.
-export function apiListBloqueosSeguridad(token: string): Promise<ApiResult<BloqueosSeguridad>> {
-  return request<BloqueosSeguridad>("/pacientes/seguridad/bloqueos", { headers: { Authorization: `Bearer ${token}` } });
-}
-
-export function apiDesbloquearMail(token: string, id: string): Promise<ApiResult<{ mensaje: string }>> {
-  return request<{ mensaje: string }>(`/pacientes/seguridad/bloqueos-mail/${id}`, {
-    method: "DELETE",
+export function apiListBloqueosSeguridad(
+  token: string,
+): Promise<ApiResult<BloqueosSeguridad>> {
+  return request<BloqueosSeguridad>("/pacientes/seguridad/bloqueos", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function apiDesbloquearIP(token: string, id: string): Promise<ApiResult<{ mensaje: string }>> {
-  return request<{ mensaje: string }>(`/pacientes/seguridad/bloqueos-ip/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function apiDesbloquearMail(
+  token: string,
+  id: string,
+): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(
+    `/pacientes/seguridad/bloqueos-mail/${id}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+}
+
+export function apiDesbloquearIP(
+  token: string,
+  id: string,
+): Promise<ApiResult<{ mensaje: string }>> {
+  return request<{ mensaje: string }>(
+    `/pacientes/seguridad/bloqueos-ip/${id}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
 }
 
 // --- Sprint 4: edición y deploy de página pública (spec §5, T4.1/T4.2) ---
 
-export function apiGetPaginaPublica(token: string): Promise<ApiResult<PaginaPublica>> {
-  return request<PaginaPublica>("/panel/pagina", { headers: { Authorization: `Bearer ${token}` } });
+export function apiGetPaginaPublica(
+  token: string,
+): Promise<ApiResult<PaginaPublica>> {
+  return request<PaginaPublica>("/panel/pagina", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export interface OcultarPaginaPublicaPayload {
@@ -1320,7 +1677,9 @@ export function apiOcultarPaginaPublica(
 // Deployar (T4.2, spec §5.2) es de una sola dirección — publica la página
 // por primera vez, sin body. El backend es idempotente: llamarlo de nuevo
 // no pisa la fecha del primer deploy (ver internal/http/pagina_publica.go).
-export function apiDeployarPaginaPublica(token: string): Promise<ApiResult<PaginaPublica>> {
+export function apiDeployarPaginaPublica(
+  token: string,
+): Promise<ApiResult<PaginaPublica>> {
   return request<PaginaPublica>("/panel/pagina/deployar", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
@@ -1398,7 +1757,10 @@ export interface SubirFotoPaginaPublicaResponse {
 // de archivo de todo el repo hoy. Sin Storage configurado del lado del
 // backend, la API responde 501 (mismo criterio que Google/Turnstile sin
 // credenciales) — el caller lo recibe como un ApiResult no-ok más.
-export function apiSubirFotoPaginaPublica(token: string, foto: File): Promise<ApiResult<SubirFotoPaginaPublicaResponse>> {
+export function apiSubirFotoPaginaPublica(
+  token: string,
+  foto: File,
+): Promise<ApiResult<SubirFotoPaginaPublicaResponse>> {
   const form = new FormData();
   form.append("foto", foto);
   return request<SubirFotoPaginaPublicaResponse>("/panel/pagina/fotos", {

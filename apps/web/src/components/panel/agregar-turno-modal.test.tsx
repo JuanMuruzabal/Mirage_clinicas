@@ -9,14 +9,23 @@ import userEvent from "@testing-library/user-event";
 // una fecha bien futura antes de confirmar, para que el test no dependa
 // de a qué hora del día se ejecuta.
 function fijarFechaFutura() {
-  fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2030-01-01" } });
+  fireEvent.change(screen.getByLabelText("Fecha"), {
+    target: { value: "2030-01-01" },
+  });
 }
 
-const { crearTurnoManualActionMock, crearEnlaceTurnoActionMock, listPacientesActionMock, listDisponibilidadActionMock } = vi.hoisted(() => ({
+const {
+  crearTurnoManualActionMock,
+  crearEnlaceTurnoActionMock,
+  listPacientesActionMock,
+  listDisponibilidadActionMock,
+  listTiposConsultaActionMock,
+} = vi.hoisted(() => ({
   crearTurnoManualActionMock: vi.fn(),
   crearEnlaceTurnoActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
   listDisponibilidadActionMock: vi.fn(),
+  listTiposConsultaActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/turnos", () => ({
@@ -33,6 +42,25 @@ vi.mock("@/app/actions/pacientes", () => ({
 // explota fuera de un request real de Next.js (unhandled rejection).
 vi.mock("@/app/actions/calendario-config", () => ({
   listDisponibilidadAction: listDisponibilidadActionMock,
+  // Los tipos se vuelven a pedir PARA LA AGENDA elegida en el modal (QA
+  // de la 3.2.6): un tipo de consulta es de un profesional, y con el de
+  // uno y la agenda de otro el backend no encuentra la fila.
+  listTiposConsultaAction: listTiposConsultaActionMock,
+}));
+// Los formularios del panel preguntan a qué agenda se le carga lo que
+// se está por crear (QA de la 3.2.6). Sin mockearlo corre la Server
+// Action de verdad y `cookies()` explota fuera de un request — el test
+// igual pasa, pero vitest cuenta el rechazo y falla la corrida.
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: async () => ({
+    profesionales: [
+      { userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" },
+    ],
+    miUserId: "u1",
+    puedeElegirOtros: false,
+    focoActual: null,
+  }),
+  elegirVistaAction: async () => ({}),
 }));
 
 const { AgregarTurnoModal } = await import("./agregar-turno-modal");
@@ -64,21 +92,40 @@ describe("AgregarTurnoModal", () => {
     // Lista fija de horarios "disponibles" — no interfiere con los tests
     // existentes, que no ejercitan el cálculo de disponibilidad en sí
     // (eso lo cubre disponibilidad_test.go, contra el backend real).
-    listDisponibilidadActionMock.mockResolvedValue({ slots: ["09:00", "09:15", "09:30"] });
+    listDisponibilidadActionMock.mockResolvedValue({
+      slots: ["09:00", "09:15", "09:30"],
+    });
+    // Los mismos que llegan por prop: el modal los vuelve a pedir para la
+    // agenda elegida, y la de estos tests es la del propio profesional.
+    listTiposConsultaActionMock.mockResolvedValue(tiposConsulta);
   });
 
   it("lista los pacientes conocidos al abrir (pestaña por defecto)", async () => {
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     expect(await screen.findByText("Bruno Iglesias")).toBeInTheDocument();
     expect(listPacientesActionMock).toHaveBeenCalledWith();
   });
 
   it("camino 'paciente conocido': elegir uno precarga sus datos y manda pacienteId", async () => {
-    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-1", estado: "agendado" } });
+    crearTurnoManualActionMock.mockResolvedValue({
+      turno: { id: "nuevo-1", estado: "agendado" },
+    });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
     // Paso "detalle": el tipo de consulta ya viene con "Consulta general" por default.
@@ -86,18 +133,31 @@ describe("AgregarTurnoModal", () => {
     fijarFechaFutura();
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1),
+    );
     const [payload] = crearTurnoManualActionMock.mock.calls[0];
     expect(payload.pacienteId).toBe("pac-bruno");
     expect(payload.dniContacto).toBe("30111222");
-    expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-1", estado: "agendado" });
+    expect(onSuccess).toHaveBeenCalledWith({
+      id: "nuevo-1",
+      estado: "agendado",
+    });
   });
 
   it("camino 'paciente nuevo': crea con crearTurnoManualAction", async () => {
-    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-1", estado: "agendado" } });
+    crearTurnoManualActionMock.mockResolvedValue({
+      turno: { id: "nuevo-1", estado: "agendado" },
+    });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+      />,
+    );
 
     await screen.findByText("Bruno Iglesias");
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
@@ -113,11 +173,16 @@ describe("AgregarTurnoModal", () => {
     fijarFechaFutura();
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1),
+    );
     const [payload] = crearTurnoManualActionMock.mock.calls[0];
     expect(payload.nombreContacto).toBe("Julián");
     expect(payload.dniContacto).toBe("30222333");
-    expect(onSuccess).toHaveBeenCalledWith({ id: "nuevo-1", estado: "agendado" });
+    expect(onSuccess).toHaveBeenCalledWith({
+      id: "nuevo-1",
+      estado: "agendado",
+    });
   });
 
   // Corrección de bug reportado por el cliente: "desde el calendario me
@@ -137,7 +202,13 @@ describe("AgregarTurnoModal", () => {
     };
     listPacientesActionMock.mockResolvedValue([existente]);
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
@@ -148,9 +219,13 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo generar el turno: el paciente con DNI 30222333 ya existe y es Julián Ortiz");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo generar el turno: el paciente con DNI 30222333 ya existe y es Julián Ortiz",
+    );
     // No avanzó al paso "detalle" — el select de tipo de consulta no aparece.
-    expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Confirmar" }),
+    ).not.toBeInTheDocument();
     expect(crearTurnoManualActionMock).not.toHaveBeenCalled();
   });
 
@@ -165,9 +240,17 @@ describe("AgregarTurnoModal", () => {
       createdAt: new Date().toISOString(),
     };
     listPacientesActionMock.mockResolvedValue([existente]);
-    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-3", estado: "agendado" } });
+    crearTurnoManualActionMock.mockResolvedValue({
+      turno: { id: "nuevo-3", estado: "agendado" },
+    });
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Otro Nombre");
@@ -178,19 +261,29 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Email"), "bruno@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await user.click(await screen.findByRole("button", { name: "Usar este paciente" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Usar este paciente" }),
+    );
     expect(screen.getByText(/Julián Ortiz/)).toBeInTheDocument();
     fijarFechaFutura();
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1),
+    );
     const [payload] = crearTurnoManualActionMock.mock.calls[0];
     expect(payload.pacienteId).toBe("pac-existente");
   });
 
   it("paciente nuevo: exige nombre/apellido/DNI/teléfono antes de continuar", async () => {
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
@@ -199,10 +292,18 @@ describe("AgregarTurnoModal", () => {
   });
 
   it("T2.5: muestra el error de solapamiento devuelto por la Server Action, sin cerrar el modal", async () => {
-    crearTurnoManualActionMock.mockResolvedValue({ error: "ese horario se superpone con otro turno ya agendado" });
+    crearTurnoManualActionMock.mockResolvedValue({
+      error: "ese horario se superpone con otro turno ya agendado",
+    });
     const onSuccess = vi.fn();
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={onSuccess} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
     fijarFechaFutura();
@@ -215,7 +316,13 @@ describe("AgregarTurnoModal", () => {
   it("se cierra con el botón X", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={onClose}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onClose).toHaveBeenCalled();
@@ -224,20 +331,36 @@ describe("AgregarTurnoModal", () => {
   it("camino 'paciente conocido': buscar filtra la lista con el texto tipeado", async () => {
     listPacientesActionMock.mockResolvedValue([]);
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await screen.findByText(/No encontramos pacientes/);
 
     await user.type(screen.getByLabelText("Buscar paciente"), "Julián");
     await user.click(screen.getByRole("button", { name: "Buscar" }));
 
-    await waitFor(() => expect(listPacientesActionMock).toHaveBeenCalledWith("Julián"));
+    await waitFor(() =>
+      expect(listPacientesActionMock).toHaveBeenCalledWith("Julián"),
+    );
   });
 
   it("camino 'paciente nuevo': el motivo tipeado en el paso 1 llega a crearTurnoManualAction", async () => {
-    crearTurnoManualActionMock.mockResolvedValue({ turno: { id: "nuevo-1", estado: "agendado" } });
+    crearTurnoManualActionMock.mockResolvedValue({
+      turno: { id: "nuevo-1", estado: "agendado" },
+    });
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     await user.type(screen.getByLabelText("Nombre"), "Julián");
@@ -246,15 +369,22 @@ describe("AgregarTurnoModal", () => {
     await user.type(screen.getByLabelText("Teléfono"), "+5493511111111");
     // Obligatorio desde el 2026-09-15, ver agregar-paciente-modal.test.tsx.
     await user.type(screen.getByLabelText("Email"), "bruno@example.com");
-    await user.type(screen.getByLabelText("Motivo de consulta (opcional)"), "Dolor de muela");
+    await user.type(
+      screen.getByLabelText("Motivo de consulta (opcional)"),
+      "Dolor de muela",
+    );
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
     // En "detalle" el motivo ya viene precargado con lo tipeado en el paso 1.
-    expect(screen.getByLabelText("Motivo de consulta (opcional)")).toHaveValue("Dolor de muela");
+    expect(screen.getByLabelText("Motivo de consulta (opcional)")).toHaveValue(
+      "Dolor de muela",
+    );
     fijarFechaFutura();
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(crearTurnoManualActionMock).toHaveBeenCalledTimes(1),
+    );
     const [payload] = crearTurnoManualActionMock.mock.calls[0];
     expect(payload.motivo).toBe("Dolor de muela");
   });
@@ -265,7 +395,13 @@ describe("AgregarTurnoModal", () => {
   // nuevo" mostraba el formulario ya lleno con los datos de ese paciente.
   it("volver de 'paciente conocido' a 'paciente nuevo' no deja precargados los datos del conocido", async () => {
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
 
@@ -282,10 +418,18 @@ describe("AgregarTurnoModal", () => {
 
   it("no permite confirmar un turno en una fecha pasada", async () => {
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
-    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2020-01-01" } });
+    fireEvent.change(screen.getByLabelText("Fecha"), {
+      target: { value: "2020-01-01" },
+    });
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("fecha pasada");
@@ -297,12 +441,22 @@ describe("AgregarTurnoModal", () => {
   // los slots que YA vienen calculados por el backend (/disponibilidad),
   // nunca con horas libres tipeadas a mano.
   it("el selector de hora arranca colapsado, mostrando el horario ya elegido", async () => {
-    listDisponibilidadActionMock.mockResolvedValue({ slots: ["10:00", "10:30"] });
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    listDisponibilidadActionMock.mockResolvedValue({
+      slots: ["10:00", "10:30"],
+    });
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
     const user = userEvent.setup();
     await user.click(await screen.findByText("Bruno Iglesias"));
 
-    expect(await screen.findByRole("button", { name: "Hora: 10:00" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Hora: 10:00" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
@@ -313,12 +467,22 @@ describe("AgregarTurnoModal", () => {
   // También corrección de QA: "quiero que aparezca colapsada primero...
   // y una vez que la apriete se vean los horarios".
   it("tocar el selector de hora despliega una lista inline con scroll propio, no un <select> nativo", async () => {
-    listDisponibilidadActionMock.mockResolvedValue({ slots: ["10:00", "10:30"] });
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    listDisponibilidadActionMock.mockResolvedValue({
+      slots: ["10:00", "10:30"],
+    });
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
     const user = userEvent.setup();
     await user.click(await screen.findByText("Bruno Iglesias"));
 
-    await user.click(await screen.findByRole("button", { name: "Hora: 10:00" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Hora: 10:00" }),
+    );
     const lista = screen.getByRole("listbox", { name: "Hora" });
     expect(lista.tagName).not.toBe("SELECT");
     expect(screen.getByRole("option", { name: "10:30" })).toBeInTheDocument();
@@ -327,34 +491,121 @@ describe("AgregarTurnoModal", () => {
   it("no permite confirmar sin ningún horario disponible", async () => {
     listDisponibilidadActionMock.mockResolvedValue({ slots: [] });
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
-    await waitFor(() => expect(screen.getByText("No hay horarios disponibles")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText("No hay horarios disponibles"),
+      ).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Elegí un horario disponible");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Elegí un horario disponible",
+    );
     expect(crearTurnoManualActionMock).not.toHaveBeenCalled();
   });
 
   it("pide de nuevo la disponibilidad cuando cambia el tipo de consulta o la fecha", async () => {
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await user.click(await screen.findByText("Bruno Iglesias"));
-    await waitFor(() => expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-1", expect.any(String)));
+    await waitFor(() =>
+      // Cuatro argumentos desde la QA de la 3.2.6: el tercero es el turno
+      // a excluir al reprogramar, el cuarto la AGENDA — el backend
+      // resuelve el tipo y los huecos contra ese mismo profesional.
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
+        "tc-1",
+        expect.any(String),
+        undefined,
+        "u1",
+      ),
+    );
 
     listDisponibilidadActionMock.mockClear();
     await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "tc-2");
-    await waitFor(() => expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-2", expect.any(String)));
+    await waitFor(() =>
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
+        "tc-2",
+        expect.any(String),
+        undefined,
+        "u1",
+      ),
+    );
+  });
+
+  // QA de la 3.2.6 (2026-09-20): *"al sacar turno la disponibilidad y
+  // tipo de consulta debe ser coherente con la configuración y los
+  // horarios disponibles del profesional seleccionado"*.
+  //
+  // Un tipo de consulta es de UN profesional. Los que llegan por prop son
+  // los del que está en foco; si el modal elige otra agenda y sigue
+  // ofreciendo esos, el backend no encuentra la fila y la pantalla dice
+  // "no hay horarios disponibles" sobre una agenda perfectamente libre.
+  it("los tipos de consulta se vuelven a pedir para la agenda elegida", async () => {
+    const user = userEvent.setup();
+    listTiposConsultaActionMock.mockResolvedValue([
+      { id: "tc-colega", nombre: "Ortodoncia", color: "#E7D9BE" },
+    ]);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByText("Bruno Iglesias"));
+
+    await waitFor(() =>
+      expect(listTiposConsultaActionMock).toHaveBeenCalledWith("u1"),
+    );
+    // Y el <select> ofrece los de esa agenda, no los de la prop.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Tipo de consulta")).toHaveValue("tc-colega"),
+    );
+    expect(screen.queryByRole("option", { name: "Urgencia" })).not.toBeInTheDocument();
+
+    // La disponibilidad se pide con ese tipo Y esa agenda: las dos cosas
+    // tienen que hablar del mismo profesional.
+    await waitFor(() =>
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
+        "tc-colega",
+        expect.any(String),
+        undefined,
+        "u1",
+      ),
+    );
   });
 
   it("muestra un texto explicando a qué se refiere cada pestaña", async () => {
     const user = userEvent.setup();
-    render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <AgregarTurnoModal
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
 
     await screen.findByText("Bruno Iglesias");
-    expect(screen.getByText(/no hace falta volver a tipear sus datos/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no hace falta volver a tipear sus datos/),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Paciente nuevo" }));
     expect(screen.getByText(/nunca tuvo un turno con vos/)).toBeInTheDocument();
@@ -363,29 +614,54 @@ describe("AgregarTurnoModal", () => {
   // Fase 2, ítem 5 ("compartir calendario") — tercera pestaña.
   describe("pestaña 'Compartir link'", () => {
     it("genera el link y lo muestra en el campo de texto", async () => {
-      crearEnlaceTurnoActionMock.mockResolvedValue({ url: "https://dentalmirage.com.ar/clinica-x?enlace=abc123", expiraEn: "2026-09-07T13:00:00Z" });
+      crearEnlaceTurnoActionMock.mockResolvedValue({
+        url: "https://dentalmirage.com.ar/clinica-x?enlace=abc123",
+        expiraEn: "2026-09-07T13:00:00Z",
+      });
       const user = userEvent.setup();
-      render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+      render(
+        <AgregarTurnoModal
+          tiposConsulta={tiposConsulta}
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />,
+      );
 
       await user.click(screen.getByRole("button", { name: "Compartir link" }));
       expect(screen.getByText(/Mandale un link de 1 hora/)).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Generar link" }));
 
-      expect(await screen.findByDisplayValue("https://dentalmirage.com.ar/clinica-x?enlace=abc123")).toBeInTheDocument();
+      expect(
+        await screen.findByDisplayValue(
+          "https://dentalmirage.com.ar/clinica-x?enlace=abc123",
+        ),
+      ).toBeInTheDocument();
       expect(crearEnlaceTurnoActionMock).toHaveBeenCalledTimes(1);
     });
 
     it("un error al generar el link ofrece reintentar", async () => {
-      crearEnlaceTurnoActionMock.mockResolvedValue({ error: "no se pudo generar el link" });
+      crearEnlaceTurnoActionMock.mockResolvedValue({
+        error: "no se pudo generar el link",
+      });
       const user = userEvent.setup();
-      render(<AgregarTurnoModal tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
+      render(
+        <AgregarTurnoModal
+          tiposConsulta={tiposConsulta}
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />,
+      );
 
       await user.click(screen.getByRole("button", { name: "Compartir link" }));
       await user.click(screen.getByRole("button", { name: "Generar link" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(/No se pudo generar/);
-      expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /No se pudo generar/,
+      );
+      expect(
+        screen.getByRole("button", { name: "Reintentar" }),
+      ).toBeInTheDocument();
     });
   });
 });

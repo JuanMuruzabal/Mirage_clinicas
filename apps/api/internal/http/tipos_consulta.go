@@ -95,13 +95,32 @@ func listTiposConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// vaciaría la pantalla a una clínica vieja; incluirlas no le
 		// muestra a nadie nada ajeno, porque la migración se las da al
 		// owner y en una clínica de uno solo el owner es el único que hay.
-		session, hay := sessionFromContext(r)
-		if !hay {
-			writeError(w, http.StatusUnauthorized, "sesión inválida")
+		//
+		// LA AGENDA, NO EL USUARIO DE LA SESIÓN (QA de la 3.2.6,
+		// 2026-09-20). Este archivo se quedó en `session.UserID` cuando la
+		// 3.2.6 mudó todo lo demás al foco, y por eso recepción veía
+		// SIEMPRE la misma lista —la suya, la de alguien que no atiende—
+		// sin importar qué profesional tuviera elegido. El tipo que creaba
+		// ahí nacía a su nombre, así que después no lo encontraba para
+		// editarlo ni borrarlo ("tipo de consulta no encontrado") y la
+		// disponibilidad de "+ Agregar turno" no daba ningún horario.
+		//
+		// `?profesionalUserId=` permite además pedir los de otra agenda
+		// sin cambiar la vista: es lo que necesita "+ Agregar turno" para
+		// que los tipos que ofrece sean los del profesional elegido EN EL
+		// MODAL.
+		duenio, ok := agendaAConfigurar(w, r, gdb, profesionalID, r.URL.Query().Get("profesionalUserId"))
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			// Recepción sin profesional elegido: no hay una configuración
+			// "de toda la clínica" que mostrar.
+			writeJSON(w, http.StatusOK, []tipoConsultaResponse{})
 			return
 		}
 		var tipos []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", profesionalID, session.UserID).
+		if err := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloDeLaAgendaDe(duenio)).
 			Order("created_at").Find(&tipos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
 			return
@@ -130,6 +149,10 @@ type tipoConsultaRequest struct {
 	// validar más abajo) — nunca un HoraDesde sin su Hasta a medias.
 	PreferenciaHoraDesde string `json:"preferenciaHoraDesde"`
 	PreferenciaHoraHasta string `json:"preferenciaHoraHasta"`
+	// ProfesionalUserID — en qué agenda se crea este tipo (QA de la
+	// 3.2.6). Vacío = la del profesional en foco, o la propia. Recepción
+	// crea tipos PARA un profesional, nunca para sí misma: no atiende.
+	ProfesionalUserID string `json:"profesionalUserId"`
 }
 
 // validar corrige espacios y devuelve un mensaje de error controlado (nunca
@@ -191,12 +214,6 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Con dueño: lo que se crea en "mi configuración de agenda" es mío.
-		session, hay := sessionFromContext(r)
-		if !hay {
-			writeError(w, http.StatusUnauthorized, "sesión inválida")
-			return
-		}
 		// NO DOS VECES EL MISMO TIPO (corrección del 2026-09-15,
 		// reportada por el cliente). Tener "Consulta general" dos veces en
 		// la propia lista no es una elección: es un error de tipeo o un
@@ -218,8 +235,19 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// Solo contra los PROPIOS: que un colega tenga "Consulta general"
 		// no impide tener la tuya, con tus tiempos. Ese es justamente el
 		// sentido de copiar en vez de compartir (TR-142).
+		// De la agenda que se está configurando, no de quien apreta el
+		// botón: recepción crea tipos PARA un profesional.
+		duenio, ok := agendaAConfigurar(w, r, gdb, profesionalID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+
 		var mios []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", profesionalID, session.UserID).
+		if err := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloDeLaAgendaDe(duenio)).
 			Find(&mios).Error; err == nil {
 			for _, mio := range mios {
 				if normalizarNombreTipo(mio.Nombre) == normalizarNombreTipo(req.Nombre) {
@@ -230,10 +258,9 @@ func crearTipoConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 		}
 
-		userID := session.UserID
 		tipo := db.TipoConsulta{
 			ClinicID:                  profesionalID,
-			UserID:                    &userID,
+			UserID:                    &duenio,
 			Nombre:                    req.Nombre,
 			Color:                     req.Color,
 			DuracionMinutos:           req.DuracionMinutos,

@@ -1384,3 +1384,130 @@ En la tarjeta, el botón elegido lleva un **contorno** en vez de reemplazar la c
 Lo demás de esta vuelta: la cabecera de columnas deja de ser una banda verde opaca (partía en dos el efecto vidrio del cuerpo) y lo que va en verde son los rótulos, en la tipografía del nombre; "Pendiente"/"En proceso" pasa al tamaño del nombre; el **scroll horizontal de mobile** empieza a funcionar al agregar `min-w-0` al contenedor flex (sin él, un hijo de flex no baja de su ancho de contenido y el `overflow-auto` no tiene nada que recortar — la trampa clásica, invisible en escritorio); y la tarjeta vuelve a pedir la pantalla sola cuando un turno cruza su hora de fin, así pasa a "Turnos resueltos hoy" sin que nadie navegue.
 
 **Los pies de las otras tarjetas.** "Turnos próximos" y "Turnos resueltos hoy" ganan el pie de "Turnos de hoy". El link de la cabecera y el del pie llevan a lugares distintos a propósito: el de arriba ubica el dato en su pantalla natural con el MISMO recorte que la tarjeta muestra, el del pie abre la lista completa sin filtros. Antes, "Ver turnos" de los resueltos de hoy llevaba a todos los resueltos de la historia.
+
+---
+
+## 3.2.6 — La vista del recepcionista (2026-09-20, TR-160)
+
+La subfase que quedó para el final por ser "la más grande", y terminó siendo la más chica de escribir.
+
+### El concepto
+
+`sessions.viendo_user_id`: de quién es la agenda que recepción está mirando.
+
+- **Sin foco** → la clínica entera. Es la vista general: todos los turnos de todos los profesionales, las métricas de la clínica.
+- **Con foco** → la sesión se comporta exactamente como ese profesional, en las cuatro pantallas.
+
+### Por qué salió barato
+
+Los seis scopes de `visibilidad.go` ya se bifurcaban en `veTodaLaClinica(r)` y ya resolvían un usuario con `usuarioDeLaSesion(r)`. Cambiando qué responden esas dos preguntas, las 25 consultas del panel funcionan para recepción **sin tocar una sola**.
+
+No es casualidad: el comentario de ese archivo lo viene diciendo desde la 3.2.2 — *"un solo lugar que auditar y un solo lugar que cambiar cuando la Fase 3.2.6 sume la vista del recepcionista por profesional"*. Esta subfase es esa apuesta cobrada.
+
+### Por qué no hay pantallas nuevas
+
+El cliente descartó las dos funciones que el brief original le atribuía a recepción, porque el trabajo de las rondas anteriores ya las había resuelto de otra forma:
+
+- **Pasar pacientes entre profesionales** → pararse en la vista del que lo va a atender y usar "+ Agregar paciente > De la clínica" (3.2.7d).
+- **Marcar la asistencia por adelantado** → la tarjeta "Turnos de hoy" (3.2.7e).
+
+Duplicar las cuatro pantallas para recepción habría sido mantener dos versiones de cada una, con la segunda siempre atrasada.
+
+### Las escrituras también siguen el foco
+
+Con solo las lecturas, recepción vería una agenda y escribiría en otra. Todo lo que guardaba `user_id` desde la sesión guardaba **de quién es la fila**, no quién apretó el botón: horario de atención, bloqueos, enlaces compartidos, `creado_por_user_id`, `pacientes_en_mi_lista`. La única excepción deliberada es `esVos` del perfil de un colega, que sí habla de la persona logueada.
+
+Y `profesionalQueAtiende` deja de caer al **titular** — el provisorio de la 3.2.1, y la razón por la que un turno cargado por recepción aparecía en la agenda del dueño de la clínica. Sin foco no se adivina: **409 pidiendo elegir una vista**. La vista general es para mirar; para actuar hay que pararse en una agenda.
+
+### El aislamiento no se relaja
+
+Un profesional **no** puede mirar la agenda de un colega: 403 explícito, no un selector escondido en el frontend. Solo se puede mirar a quien atiende (409 para un administrador de página) y dentro de la propia clínica (404, mismo criterio que la ficha de un paciente ajeno).
+
+El foco se valida en **cada request** contra la membresía activa. Si cambió de clínica, lo quitaron del equipo o le sacaron el rol, se cae solo a la vista general — el estado seguro, porque es lo que su rol permite igual.
+
+### Lo que la vista general necesitaba, y lo encontró un test
+
+Un listado de turnos de varios profesionales que no dice de quién es cada uno no sirve para atender un teléfono. Lo destapó un test que escribí esperando otra cosa: `listTurnosHandler` nunca completaba quién atiende — y con razón, porque en la vista de un profesional todos los turnos son suyos y decirlo en cada fila sería ruido.
+
+Ahora lo completa, con el mismo lote de dos consultas que ya usaba la ficha del paciente. El resumen manda el nombre en cada item **solo en la vista general**, y la tarjeta de "Turnos de hoy" suma su columna cuando el dato viene.
+
+### La QA de la subfase (2026-09-20)
+
+Tres rondas de correcciones sobre lo entregado. La primera fue un rechazo de fondo — *"no respetó mis indicaciones de frontend que le puse en el docs, se tenía que fijar en los mockups"*: el selector estaba hecho como un desplegable en el header global, y los cuatro mockups lo dibujan como un **carrusel en la cabecera de cada pantalla**, al lado del título. Se borró y se rehizo como `ZonaProfesional`.
+
+Lo que sigue son las dos rondas de detalle.
+
+#### Las tarjetas de la vista general dicen de quién es cada fila
+
+*"En general de la vista 'Toda la clínica' las tarjetas deben tener también el profesional"*, con su límite en la misma oración: *"esto solo aplicarlo a la vista 'Toda la clínica', en la vista de los demás profesionales debe quedar como está ahora mismo"*.
+
+Las dos mitades importan por igual y tiran en direcciones opuestas. Sin el nombre, la lista no se puede atender. Con el nombre en la vista de un profesional, la columna es su nombre repetido en cada fila.
+
+La condición vive en el backend (`veTodaLaClinica`), no en la pantalla: la tabla dibuja la columna cuando el dato viene, así que *"cuándo viene"* tiene un solo dueño.
+
+Además del nombre viaja el **id**. No es un extra: tocar una fila desde la vista general no solo navega, primero se para en la agenda de ese profesional (`LinkConVista`). Sin eso, el módulo de destino mostraría algo distinto de lo que la fila prometía — el pedido, textual, fue *"si toco botones desde la vista de un profesional el botón me llevará al siguiente módulo pero con la vista de ese profesional"*.
+
+Y "Turnos próximos" y "Horarios reservados" **pierden su link de cabecera** en la vista general: un link único no puede llevar a la agenda correcta cuando las filas son de gente distinta. Queda el cuerpo, que sí sabe de quién es cada una.
+
+#### Un test en rojo que evitó dejar a recepción en solo lectura
+
+Gatear la columna era, aparentemente, no llamar a `completarProfesionalDeTurnos` fuera de la vista general. Eso rompió `TestVistaRecepcion_ConFocoVeSoloEsaAgenda`, y con razón: esa función completa además **`esMio`** —si el turno se puede tocar— y el nombre del tipo de consulta. Saltearla entera para esconder una columna dejaba a recepción, parada en la vista de un profesional, con **todos** sus turnos en solo lectura: lo contrario de *"el recepcionista puede navegar en todas las vistas e interactuar con estas vistas"*.
+
+La función recibe ahora `conNombre`. Lo que se esconde es el nombre, no la capacidad de operar.
+
+#### El calendario no se actualizaba al cambiar de profesional
+
+*"Para ver bien los turnos correspondientes a cada uno tengo que presionar Hoy porque no se actualizan apenas cambio de vista."*
+
+El efecto que pide los turnos miraba `[fecha, vista]`. Cambiar de profesional dispara un `router.refresh()`, que sí trae turnos nuevos — pero para el rango **por defecto**, no para la semana a la que el cliente ya navegó. Tocar "Hoy" cambiaba `fecha` y lo despertaba de rebote; de ahí el síntoma exacto. Entra `vistaKey` en las dependencias.
+
+#### La vista general es exclusiva de "Día"
+
+*"La vista general es exclusiva de la opción 'día' del calendario, ya al pasar semana o mes siempre seleccionar el profesional más próximo en la vista y una vez dentro de semana o mes no poder volver a poner vista general."*
+
+No es una preferencia estética. En Día la vista general dibuja **una columna por profesional**, y eso es lo que la hace legible. En Semana las siete columnas ya son los días: sumarle N profesionales daría 7 × N columnas. Sin columnas propias, "la agenda de todos" sería un amontonamiento de bloques sin dueño.
+
+Al salir de Día se elige al **dueño del primer turno del día** —el que la persona tiene delante de los ojos—, y si no hay ninguno, la primera columna.
+
+Esto obligó a mover el selector: lo dibuja `CalendarView` y no la página, porque lo que puede ofrecer depende de Día/Semana/Mes y eso es estado del cliente. La página no se entera cuando alguien toca "Semana".
+
+#### Cada formulario dice a qué agenda le carga
+
+*"Faltan, para agregar turno o agregar horario reservado (solo en el atajo al lado de agregar turno), elegir el profesional a quien se le cargará."*
+
+Hasta acá recepción tenía que pararse primero en la vista de alguien: desde la vista general, `profesionalQueAtiende` le devolvía un 409 pidiéndole exactamente eso. Preguntárselo **en el formulario** es lo mismo sin el rodeo — y sin moverle la pantalla de atrás mientras lo está llenando, que es lo que haría el selector de vista del encabezado.
+
+De ahí la separación en dos controles con el mismo dibujo:
+
+| | Qué hace elegir | Dónde |
+|---|---|---|
+| `ZonaProfesional` | Cambia el **foco de la sesión** | Cabecera de cada pantalla, y "Configuración de calendario" |
+| `SelectorDeAgenda` | Solo dice **a quién se le carga esto** | "+ Agregar turno", "Reservar horario", "Compartir link" |
+
+Los dos envuelven a `CarruselDeProfesionales`, que es el control y no sabe qué significa elegir. Se ven iguales a propósito: se pidió *"el selector de carrusel que estamos usando"*, y un control que se ve igual pero se comporta distinto según dónde esté sería peor que dos controles.
+
+`profesionalUserId` viaja ahora en `POST /turnos`, `POST /bloqueos` y `POST /enlaces-turno`. Quién puede usarlo lo decide `puedeCargarEnLaAgendaDe`: recepción, cualquier profesional activo de la clínica; el resto, solo la propia. **404 y no 403** para los demás, mismo criterio que la ficha de un paciente ajeno — para quien no puede, esa agenda no existe. Que el campo exista no relaja nada: un profesional llenándole la agenda a un colega sería la fuga de la 3.2.2 por una puerta nueva.
+
+En "+ Agregar turno" el carrusel **le gana al foco de la sesión**: es una decisión tomada para ese turno, delante de la persona.
+
+#### "Compartir link": el carrusel en lugar de dos opciones fijas
+
+*"Acá no debería aparecer el 'Con vos' 'con cualquier profesional', debería aparecer el selector de carrusel que estamos usando."*
+
+Las dos opciones no desaparecen, cambian de forma: la opción general del carrusel **es** "con cualquier profesional", y elegirse a uno mismo **es** "con vos". Lo que se gana es el caso que antes no se podía expresar — recepción generando el link de la agenda de un colega puntual, que es justamente para lo que existe su vista.
+
+Vale para todos, no solo para recepción: un profesional ve una sola opción, la suya, con su nombre en vez del "Con vos" genérico.
+
+#### "Configuración de calendario": el carrusel arriba del todo
+
+Este sí mueve el foco de la sesión, y tiene que hacerlo: horario de atención, horarios reservados y tipos de consulta se leen con los scopes de `visibilidad.go`, que responden al profesional en foco. Elegir ahí sin mover el foco mostraría la configuración de otro. El modal vuelve a leer todo lo suyo al cambiar.
+
+**Sin opción general**: configurar "la agenda de toda la clínica" no significa nada — el horario de atención es de cada profesional desde la 3.2.5.
+
+El efecto lateral es que la pantalla de atrás también cambia de profesional. Es coherente: al cerrar el modal, lo que se ve es la agenda que se acaba de configurar.
+
+#### Dos arreglos menores que salieron de lo anterior
+
+- **El error del carrusel se dibujaba dentro del menú**, y elegir lo cierra: un rechazo del backend se iba con el menú y la persona no se enteraba de por qué no pasó nada. Ahora va afuera.
+- **El renglón de abajo repetía el nombre de arriba** cuando no hay nadie elegido y tampoco hay opción general: decía dos veces "Elegí un profesional". Ahora dice cuántos hay.
+

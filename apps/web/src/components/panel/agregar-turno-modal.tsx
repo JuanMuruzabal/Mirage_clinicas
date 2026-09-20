@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { PacienteConocido, TipoConsulta, Turno } from "@dental-mirage/shared-types";
+import type {
+  PacienteConocido,
+  TipoConsulta,
+  Turno,
+} from "@dental-mirage/shared-types";
 import { crearTurnoManualAction } from "@/app/actions/turnos";
 import { listPacientesAction } from "@/app/actions/pacientes";
-import { listDisponibilidadAction } from "@/app/actions/calendario-config";
+import {
+  listDisponibilidadAction,
+  listTiposConsultaAction,
+} from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
 import { ModalPortal } from "./modal-portal";
 import { CompartirLinkTurno } from "./compartir-link-turno";
+import { SelectorDeAgenda } from "./selector-de-agenda";
 
 interface AgregarTurnoModalProps {
   tiposConsulta: TipoConsulta[];
@@ -56,25 +64,44 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // todo en Extra 2.3.3 (TR-104): ese estado ya no existe, el formulario
 // público asigna horario real desde Extra 2.3.5.
 const DESCRIPCION_ORIGEN: Record<Origen, string> = {
-  conocido: "Elegí de tu lista de Pacientes ya cargados — no hace falta volver a tipear sus datos.",
-  nuevo: "Para alguien que nunca tuvo un turno con vos: se crea su ficha de paciente en este mismo paso.",
+  conocido:
+    "Elegí de tu lista de Pacientes ya cargados — no hace falta volver a tipear sus datos.",
+  nuevo:
+    "Para alguien que nunca tuvo un turno con vos: se crea su ficha de paciente en este mismo paso.",
   // "compartir" (Fase 2, ítem 5): pensado para cuando ya hablaste con la
   // persona (por teléfono, en el consultorio) y solo necesita elegir día
   // y horario por su cuenta — sin repetir el código de verificación.
-  compartir: "Mandale un link de 1 hora para que elija día y horario ella misma.",
+  compartir:
+    "Mandale un link de 1 hora para que elija día y horario ella misma.",
 };
 
 // Modal "+ Agregar turno" (spec §4.3, renombrado de "+ Nueva sesión") — dos
 // caminos de paciente (conocido / nuevo), tipo de consulta + hora + motivo,
 // confirmar. Fondo con blur (backdrop-blur) como pide la spec.
-export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: AgregarTurnoModalProps) {
+export function AgregarTurnoModal({
+  tiposConsulta,
+  onClose,
+  onSuccess,
+}: AgregarTurnoModalProps) {
   const [paso, setPaso] = useState<Paso>("paciente");
   const [origen, setOrigen] = useState<Origen>("conocido");
+  // EN QUÉ AGENDA ENTRA ESTE TURNO (QA de la Fase 3.2.6).
+  //
+  // Hasta acá recepción tenía que pararse primero en la vista de alguien;
+  // desde la vista general el backend le rechazaba el alta pidiéndole
+  // exactamente eso. Se lo pregunta el formulario, que es donde ya está
+  // parada, y sin moverle la pantalla de atrás.
+  //
+  // Para un profesional el control tiene una sola opción —él mismo— y el
+  // resultado es el de siempre.
+  const [agenda, setAgenda] = useState<string | null>(null);
 
   // PacienteConocido y no Paciente: desde la Fase 3.2.5 el selector busca
   // en TODA la clínica y lo que vuelve es deliberadamente mínimo —lo justo
   // para reconocer a la persona—, no la ficha completa de un colega.
-  const [pacientesConocidos, setPacientesConocidos] = useState<PacienteConocido[] | null>(null);
+  const [pacientesConocidos, setPacientesConocidos] = useState<
+    PacienteConocido[] | null
+  >(null);
   // Arranca en "cargando" (a diferencia de las demás pestañas, "conocido"
   // es la que se elige por defecto desde Extra 2.3.3 — TR-104 — así que
   // siempre hay un pedido en vuelo apenas se monta el modal, ver el
@@ -83,7 +110,9 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   // `cargandoSlots` un poco más abajo.
   const [cargandoPacientes, setCargandoPacientes] = useState(true);
   const [buscarPaciente, setBuscarPaciente] = useState("");
-  const [pacienteElegidoId, setPacienteElegidoId] = useState<string | null>(null);
+  const [pacienteElegidoId, setPacienteElegidoId] = useState<string | null>(
+    null,
+  );
 
   const [nuevoPaciente, setNuevoPaciente] = useState(NUEVO_PACIENTE_INICIAL);
   // tutor (Fase 2.4.2) — bloque "Con tutor" del camino "Paciente nuevo".
@@ -92,10 +121,22 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   // más abajo): paciente encontrado por DNI exacto al intentar avanzar
   // desde "Paciente nuevo", para poder ofrecer "Usar este paciente" sin
   // que el profesional tenga que ir a buscarlo a mano en "conocido".
-  const [duplicadoDni, setDuplicadoDni] = useState<PacienteConocido | null>(null);
+  const [duplicadoDni, setDuplicadoDni] = useState<PacienteConocido | null>(
+    null,
+  );
   const [verificandoDni, setVerificandoDni] = useState(false);
 
-  const tipoGeneral = tiposConsulta.find((t) => t.nombre === "Consulta general") ?? tiposConsulta[0];
+  // LOS TIPOS SON LOS DE LA AGENDA ELEGIDA (QA de la 3.2.6, 2026-09-20).
+  //
+  // `tiposConsulta` viene del servidor resuelto contra el profesional EN
+  // FOCO. Desde que el modal elige agenda por su cuenta, esas dos cosas
+  // pueden no ser la misma persona — y un tipo de consulta es de UN
+  // profesional: con el tipo de uno y la agenda de otro, el backend no
+  // encuentra la fila y la pantalla dice "no hay horarios disponibles"
+  // sobre una agenda que está perfectamente libre.
+  const [tipos, setTipos] = useState<TipoConsulta[]>(tiposConsulta);
+  const tipoGeneral =
+    tipos.find((t) => t.nombre === "Consulta general") ?? tipos[0];
   const [tipoConsultaId, setTipoConsultaId] = useState(tipoGeneral?.id ?? "");
   // No se puede agendar un turno en el pasado (2026-08-23) — `min` es solo
   // una ayuda nativa del date picker, la validación real pasa en confirmar().
@@ -123,7 +164,9 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
   // caso normal — tipoGeneral siempre existe si hay algún tipo cargado):
   // evita quedarse mostrando "Buscando horarios…" para siempre si no hay
   // ningún tipo de consulta configurado, ver el useEffect de abajo.
-  const [cargandoSlots, setCargandoSlots] = useState(() => Boolean(tipoConsultaId));
+  const [cargandoSlots, setCargandoSlots] = useState(() =>
+    Boolean(tipoConsultaId),
+  );
   // Motivo de consulta (2026-08-23): un solo campo en el paso "detalle",
   // compartido por los dos caminos — se precarga con lo tipeado en
   // "Paciente nuevo" y queda editable ahí mismo antes de confirmar.
@@ -156,16 +199,53 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     // cuando la respuesta llega.
     if (!tipoConsultaId) return;
     let activo = true;
-    listDisponibilidadAction(tipoConsultaId, fecha).then((disponibilidad) => {
+    // `agenda` en la llamada Y en las dependencias: el backend resuelve
+    // el tipo y los huecos contra ESE profesional, así que cambiar de
+    // agenda tiene que volver a preguntar.
+    listDisponibilidadAction(
+      tipoConsultaId,
+      fecha,
+      undefined,
+      agenda ?? undefined,
+    ).then((disponibilidad) => {
       if (!activo) return;
       setSlots(disponibilidad.slots);
       setCargandoSlots(false);
-      setHora((actual) => (disponibilidad.slots.includes(actual) ? actual : (disponibilidad.slots[0] ?? "")));
+      setHora((actual) =>
+        disponibilidad.slots.includes(actual)
+          ? actual
+          : (disponibilidad.slots[0] ?? ""),
+      );
     });
     return () => {
       activo = false;
     };
-  }, [tipoConsultaId, fecha]);
+  }, [tipoConsultaId, fecha, agenda]);
+
+  // Al cambiar de agenda, los tipos se vuelven a pedir PARA ESA AGENDA y
+  // el tipo elegido se reemplaza por uno que exista ahí. Sin el segundo
+  // paso quedaría seleccionado el id de un tipo del profesional anterior,
+  // que es exactamente el caso que rompe la disponibilidad.
+  useEffect(() => {
+    if (!agenda) return;
+    let activo = true;
+    listTiposConsultaAction(agenda).then((lista) => {
+      if (!activo) return;
+      setTipos(lista);
+      setTipoConsultaId((actual) => {
+        if (lista.some((t) => t.id === actual)) return actual;
+        setCargandoSlots(true);
+        return (
+          lista.find((t) => t.nombre === "Consulta general")?.id ??
+          lista[0]?.id ??
+          ""
+        );
+      });
+    });
+    return () => {
+      activo = false;
+    };
+  }, [agenda]);
 
   // Carga los pacientes ya cargados recién cuando el profesional entra a
   // esa pestaña — evita el pedido si nunca la abre (el mount ya la pide
@@ -250,16 +330,24 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     setDuplicadoDni(null);
     const dni = nuevoPaciente.dniContacto.trim();
     const telefono = nuevoPaciente.telefonoContacto.trim();
-    if (!nuevoPaciente.nombreContacto.trim() || !nuevoPaciente.apellidoContacto.trim() || !dni) {
+    if (
+      !nuevoPaciente.nombreContacto.trim() ||
+      !nuevoPaciente.apellidoContacto.trim() ||
+      !dni
+    ) {
       setError("Nombre, apellido y DNI son obligatorios.");
       return;
     }
     if (!tutor.conTutor && !TELEFONO_REGEX.test(telefono)) {
-      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      setError(
+        "El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).",
+      );
       return;
     }
     if (tutor.conTutor && telefono && !TELEFONO_REGEX.test(telefono)) {
-      setError("El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).");
+      setError(
+        "El teléfono no tiene un formato válido (10 a 13 dígitos, podés incluir el +).",
+      );
       return;
     }
     // El mail es obligatorio al crear una ficha nueva (2026-09-15). Una
@@ -268,8 +356,13 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     // dispara un conflicto de identidad que después bloquea marcar
     // asistencia. Con tutor queda opcional — ahí la identidad la aporta
     // el tutor, cuyo mail sí se exige abajo.
-    if (!tutor.conTutor && !EMAIL_REGEX.test(nuevoPaciente.emailContacto.trim())) {
-      setError("El email es obligatorio: sin él no se puede reconocer al paciente cuando pida turno por la página.");
+    if (
+      !tutor.conTutor &&
+      !EMAIL_REGEX.test(nuevoPaciente.emailContacto.trim())
+    ) {
+      setError(
+        "El email es obligatorio: sin él no se puede reconocer al paciente cuando pida turno por la página.",
+      );
       return;
     }
     if (tutor.conTutor) {
@@ -297,7 +390,9 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     const existente = encontrados.find((p) => p.dni === dni);
     if (existente) {
       setDuplicadoDni(existente);
-      setError(`No se pudo generar el turno: el paciente con DNI ${dni} ya existe y es ${existente.nombre} ${existente.apellido}.`);
+      setError(
+        `No se pudo generar el turno: el paciente con DNI ${dni} ya existe y es ${existente.nombre} ${existente.apellido}.`,
+      );
       return;
     }
 
@@ -323,7 +418,8 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     // limpieza/orden que ocupa la agenda (así lo descuenta /disponibilidad)
     // pero no forma parte del turno en sí — se pinta aparte en el
     // calendario (ver calendar-grid.tsx).
-    const duracion = tiposConsulta.find((t) => t.id === tipoConsultaId)?.duracionMinutos ?? 30;
+    const duracion =
+      tipos.find((t) => t.id === tipoConsultaId)?.duracionMinutos ?? 30;
     const horaInicio = new Date(`${fecha}T${hora}:00`);
     const horaFin = new Date(horaInicio.getTime() + duracion * 60_000);
 
@@ -351,6 +447,7 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
       horaInicio: horaInicio.toISOString(),
       horaFin: horaFin.toISOString(),
       pacienteId: pacienteElegidoId ?? undefined,
+      profesionalUserId: agenda ?? "",
       ...(esParaOtro
         ? {
             paraOtro: true,
@@ -370,260 +467,374 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
     onSuccess(result.turno);
   }
 
-  const nombrePaciente = `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
+  const nombrePaciente =
+    `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
 
   return (
     <ModalPortal>
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Agregar turno"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-        <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Agregar turno</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-            ×
-          </button>
-        </div>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Agregar turno"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+              Agregar turno
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
+            >
+              ×
+            </button>
+          </div>
 
-        {paso === "paciente" && (
-          <div className="flex flex-col gap-4 p-6">
-            <div className="flex gap-1 rounded-full border-[0.5px] border-arena p-1">
-              <button
-                type="button"
-                onClick={abrirPestañaConocido}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "conocido" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                Paciente conocido
-              </button>
-              <button
-                type="button"
-                onClick={abrirPestañaNuevo}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                Paciente nuevo
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrigen("compartir")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "compartir" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                Compartir link
-              </button>
-            </div>
-            {/* El texto de la pestaña "Compartir link" explica de qué va
+          {paso === "paciente" && (
+            <div className="flex flex-col gap-4 p-6">
+              <div className="flex gap-1 rounded-full border-[0.5px] border-arena p-1">
+                <button
+                  type="button"
+                  onClick={abrirPestañaConocido}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "conocido" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  Paciente conocido
+                </button>
+                <button
+                  type="button"
+                  onClick={abrirPestañaNuevo}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  Paciente nuevo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrigen("compartir")}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "compartir" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  Compartir link
+                </button>
+              </div>
+              {/* El texto de la pestaña "Compartir link" explica de qué va
                 todo lo de abajo, y estaba en el mismo gris chico que una
                 nota al pie (2026-09-19). Los otros dos sí son notas. */}
-            <p className={origen === "compartir" ? "text-sm text-grafito" : "text-xs text-grafito/60"}>
-              {DESCRIPCION_ORIGEN[origen]}
-            </p>
+              <p
+                className={
+                  origen === "compartir"
+                    ? "text-sm text-grafito"
+                    : "text-xs text-grafito/60"
+                }
+              >
+                {DESCRIPCION_ORIGEN[origen]}
+              </p>
 
-            {origen === "compartir" && <CompartirLinkTurno />}
+              {origen === "compartir" && <CompartirLinkTurno />}
 
-            {origen === "conocido" && (
-              <div className="flex flex-col gap-3">
-                <form onSubmit={buscarPacientesConocidos} className="flex gap-2">
-                  <input
-                    type="search"
-                    value={buscarPaciente}
-                    onChange={(e) => setBuscarPaciente(e.target.value)}
-                    placeholder="Nombre, apellido o DNI…"
-                    aria-label="Buscar paciente"
-                    className={`flex-1 ${inputClass}`}
-                  />
-                  <button type="submit" className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro">
-                    Buscar
-                  </button>
-                </form>
-                {/* max-h + overflow-y-auto (corrección de QA): "a medida
+              {origen === "conocido" && (
+                <div className="flex flex-col gap-3">
+                  <form
+                    onSubmit={buscarPacientesConocidos}
+                    className="flex gap-2"
+                  >
+                    <input
+                      type="search"
+                      value={buscarPaciente}
+                      onChange={(e) => setBuscarPaciente(e.target.value)}
+                      placeholder="Nombre, apellido o DNI…"
+                      aria-label="Buscar paciente"
+                      className={`flex-1 ${inputClass}`}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                    >
+                      Buscar
+                    </button>
+                  </form>
+                  {/* max-h + overflow-y-auto (corrección de QA): "a medida
                     que se van acumulando pacientes conocidos... se
                     agranda la pestaña, organizar esto con un scrollbar"
                     — el buscador de arriba queda fijo, solo scrollean
                     los resultados. */}
-                <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                  {cargandoPacientes && <p className="text-sm text-grafito/60">Cargando…</p>}
-                  {!cargandoPacientes && pacientesConocidos?.length === 0 && (
-                    <p className="text-sm text-grafito/60">No encontramos pacientes para esa búsqueda.</p>
-                  )}
-                  {!cargandoPacientes &&
-                    pacientesConocidos?.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => elegirConocido(p)}
-                        className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
-                      >
-                        <span className="text-sm font-semibold text-grafito">
-                          {p.nombre} {p.apellido}
-                        </span>
-                        <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">DNI {p.dni}</span>
-                      </button>
-                    ))}
+                  <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                    {cargandoPacientes && (
+                      <p className="text-sm text-grafito/60">Cargando…</p>
+                    )}
+                    {!cargandoPacientes && pacientesConocidos?.length === 0 && (
+                      <p className="text-sm text-grafito/60">
+                        No encontramos pacientes para esa búsqueda.
+                      </p>
+                    )}
+                    {!cargandoPacientes &&
+                      pacientesConocidos?.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => elegirConocido(p)}
+                          className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
+                        >
+                          <span className="text-sm font-semibold text-grafito">
+                            {p.nombre} {p.apellido}
+                          </span>
+                          <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">
+                            DNI {p.dni}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {origen === "nuevo" && (
-              <form onSubmit={continuarConNuevo} className="flex flex-col gap-4">
-                <Campo label="Nombre">
-                  <input
-                    value={nuevoPaciente.nombreContacto}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, nombreContacto: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="Apellido">
-                  <input
-                    value={nuevoPaciente.apellidoContacto}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, apellidoContacto: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="DNI">
-                  <input
-                    value={nuevoPaciente.dniContacto}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, dniContacto: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label={tutor.conTutor ? "Teléfono (opcional)" : "Teléfono"}>
-                  <input
-                    value={nuevoPaciente.telefonoContacto}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, telefonoContacto: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label={tutor.conTutor ? "Email (opcional)" : "Email"}>
-                  <input
-                    type="email"
-                    value={nuevoPaciente.emailContacto}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, emailContacto: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="Motivo de consulta (opcional)">
-                  <input
-                    value={nuevoPaciente.motivo}
-                    onChange={(e) => setNuevoPaciente((p) => ({ ...p, motivo: e.target.value }))}
-                    className={inputClass}
-                  />
-                </Campo>
+              {origen === "nuevo" && (
+                <form
+                  onSubmit={continuarConNuevo}
+                  className="flex flex-col gap-4"
+                >
+                  <Campo label="Nombre">
+                    <input
+                      value={nuevoPaciente.nombreContacto}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          nombreContacto: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="Apellido">
+                    <input
+                      value={nuevoPaciente.apellidoContacto}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          apellidoContacto: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="DNI">
+                    <input
+                      value={nuevoPaciente.dniContacto}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          dniContacto: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo
+                    label={tutor.conTutor ? "Teléfono (opcional)" : "Teléfono"}
+                  >
+                    <input
+                      value={nuevoPaciente.telefonoContacto}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          telefonoContacto: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label={tutor.conTutor ? "Email (opcional)" : "Email"}>
+                    <input
+                      type="email"
+                      value={nuevoPaciente.emailContacto}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          emailContacto: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="Motivo de consulta (opcional)">
+                    <input
+                      value={nuevoPaciente.motivo}
+                      onChange={(e) =>
+                        setNuevoPaciente((p) => ({
+                          ...p,
+                          motivo: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
 
-                {/* Con tutor (Fase 2.4.2) — mismo criterio que
+                  {/* Con tutor (Fase 2.4.2) — mismo criterio que
                     AgregarPacienteModal/pedir-turno-form.tsx: el turno lo
                     gestiona otra persona (ej. madre/padre de un paciente
                     menor). */}
-                <label className="flex items-center gap-2 text-sm font-medium text-grafito">
-                  <input
-                    type="checkbox"
-                    checked={tutor.conTutor}
-                    onChange={(e) => setTutor((t) => ({ ...t, conTutor: e.target.checked }))}
-                    className="h-4 w-4 rounded border-arena accent-salvia-oscuro"
-                  />
-                  Con tutor (el turno lo gestiona otra persona, ej. madre/padre)
-                </label>
+                  <label className="flex items-center gap-2 text-sm font-medium text-grafito">
+                    <input
+                      type="checkbox"
+                      checked={tutor.conTutor}
+                      onChange={(e) =>
+                        setTutor((t) => ({ ...t, conTutor: e.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-arena accent-salvia-oscuro"
+                    />
+                    Con tutor (el turno lo gestiona otra persona, ej.
+                    madre/padre)
+                  </label>
 
-                {tutor.conTutor && (
-                  <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Datos del tutor</p>
-                    <Campo label="Relación con el paciente">
-                      <select
-                        value={tutor.tutorRelacion}
-                        onChange={(e) => setTutor((t) => ({ ...t, tutorRelacion: e.target.value }))}
-                        className={inputClass}
-                      >
-                        <option value="">Elegir…</option>
-                        <option value="familiar">Familiar</option>
-                        <option value="amigo">Amigo/a</option>
-                        <option value="otro">Otro</option>
-                      </select>
-                    </Campo>
-                    <Campo label="Nombre completo">
-                      <input value={tutor.tutorNombre} onChange={(e) => setTutor((t) => ({ ...t, tutorNombre: e.target.value }))} className={inputClass} />
-                    </Campo>
-                    <Campo label="Teléfono">
-                      <input value={tutor.tutorTelefono} onChange={(e) => setTutor((t) => ({ ...t, tutorTelefono: e.target.value }))} className={inputClass} />
-                    </Campo>
-                    <Campo label="Email">
-                      <input type="email" value={tutor.tutorEmail} onChange={(e) => setTutor((t) => ({ ...t, tutorEmail: e.target.value }))} className={inputClass} />
-                    </Campo>
-                  </div>
-                )}
-
-                {error && <ErrorMsg>{error}</ErrorMsg>}
-
-                <div className="flex items-center justify-end gap-3">
-                  {duplicadoDni && (
-                    <button
-                      type="button"
-                      onClick={() => elegirConocido(duplicadoDni)}
-                      className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                    >
-                      Usar este paciente
-                    </button>
+                  {tutor.conTutor && (
+                    <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">
+                        Datos del tutor
+                      </p>
+                      <Campo label="Relación con el paciente">
+                        <select
+                          value={tutor.tutorRelacion}
+                          onChange={(e) =>
+                            setTutor((t) => ({
+                              ...t,
+                              tutorRelacion: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">Elegir…</option>
+                          <option value="familiar">Familiar</option>
+                          <option value="amigo">Amigo/a</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      </Campo>
+                      <Campo label="Nombre completo">
+                        <input
+                          value={tutor.tutorNombre}
+                          onChange={(e) =>
+                            setTutor((t) => ({
+                              ...t,
+                              tutorNombre: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        />
+                      </Campo>
+                      <Campo label="Teléfono">
+                        <input
+                          value={tutor.tutorTelefono}
+                          onChange={(e) =>
+                            setTutor((t) => ({
+                              ...t,
+                              tutorTelefono: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        />
+                      </Campo>
+                      <Campo label="Email">
+                        <input
+                          type="email"
+                          value={tutor.tutorEmail}
+                          onChange={(e) =>
+                            setTutor((t) => ({
+                              ...t,
+                              tutorEmail: e.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        />
+                      </Campo>
+                    </div>
                   )}
-                  <button
-                    type="submit"
-                    disabled={verificandoDni}
-                    className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-                  >
-                    {verificandoDni ? "Verificando…" : "Continuar"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
 
-        {paso === "detalle" && (
-          // noValidate: el input de fecha tiene `min` como ayuda nativa del
-          // date picker, pero la validación real (con el mensaje en
-          // español, mismo estilo que el resto de la app) la maneja
-          // confirmar() — sin esto, el navegador bloquea el submit en
-          // silencio cuando el valor queda por debajo de `min`, y el
-          // mensaje propio nunca llega a mostrarse.
-          <form onSubmit={confirmar} noValidate className="flex flex-col gap-5 p-6">
-            <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
-              <span className="text-grafito/60">Paciente: </span>
-              <span className="font-semibold text-grafito">{nombrePaciente}</span>
+                  {error && <ErrorMsg>{error}</ErrorMsg>}
+
+                  <div className="flex items-center justify-end gap-3">
+                    {duplicadoDni && (
+                      <button
+                        type="button"
+                        onClick={() => elegirConocido(duplicadoDni)}
+                        className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                      >
+                        Usar este paciente
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={verificandoDni}
+                      className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                    >
+                      {verificandoDni ? "Verificando…" : "Continuar"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
+          )}
 
-            <Campo label="Tipo de consulta">
-              <select
-                value={tipoConsultaId}
-                onChange={(e) => {
-                  setTipoConsultaId(e.target.value);
-                  setCargandoSlots(true);
-                }}
-                className={inputClass}
-              >
-                {tiposConsulta.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </select>
-            </Campo>
+          {paso === "detalle" && (
+            // noValidate: el input de fecha tiene `min` como ayuda nativa del
+            // date picker, pero la validación real (con el mensaje en
+            // español, mismo estilo que el resto de la app) la maneja
+            // confirmar() — sin esto, el navegador bloquea el submit en
+            // silencio cuando el valor queda por debajo de `min`, y el
+            // mensaje propio nunca llega a mostrarse.
+            <form
+              onSubmit={confirmar}
+              noValidate
+              className="flex flex-col gap-5 p-6"
+            >
+              <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
+                <span className="text-grafito/60">Paciente: </span>
+                <span className="font-semibold text-grafito">
+                  {nombrePaciente}
+                </span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="Fecha">
-                <input
-                  type="date"
-                  value={fecha}
-                  min={hoyISO}
+              {/* Arriba de todo lo demás: de qué agenda se está hablando
+                cambia qué horarios están libres, así que leerlo después
+                de elegir la hora sería leerlo tarde. */}
+              <SelectorDeAgenda
+                valor={agenda}
+                onElegir={setAgenda}
+                etiqueta="¿En qué agenda?"
+              />
+
+              <Campo label="Tipo de consulta">
+                <select
+                  value={tipoConsultaId}
                   onChange={(e) => {
-                    setFecha(e.target.value);
+                    setTipoConsultaId(e.target.value);
                     setCargandoSlots(true);
                   }}
                   className={inputClass}
-                />
+                >
+                  {tipos.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
               </Campo>
-              {/* Sin <Campo> acá a propósito: ese helper envuelve todo en
+
+              <div className="grid grid-cols-2 gap-4">
+                <Campo label="Fecha">
+                  <input
+                    type="date"
+                    value={fecha}
+                    min={hoyISO}
+                    onChange={(e) => {
+                      setFecha(e.target.value);
+                      setCargandoSlots(true);
+                    }}
+                    className={inputClass}
+                  />
+                </Campo>
+                {/* Sin <Campo> acá a propósito: ese helper envuelve todo en
                   un <label>, y un <label> le pega su propio texto como
                   nombre accesible a CUALQUIER elemento etiquetable que
                   contenga (button incluido) — cada opción del HoraPicker
@@ -634,45 +845,61 @@ export function AgregarTurnoModal({ tiposConsulta, onClose, onSuccess }: Agregar
                   ver hora-picker.test.tsx). El <span> de acá abajo es
                   puramente visual; HoraPicker ya trae su propio
                   aria-label="Hora" en el contenedor. */}
-              <div className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-grafito">Hora</span>
-                <HoraPicker slots={slots} value={hora} onChange={setHora} cargando={cargandoSlots} />
+                <div className="flex flex-col gap-1.5 text-sm">
+                  <span className="font-medium text-grafito">Hora</span>
+                  <HoraPicker
+                    slots={slots}
+                    value={hora}
+                    onChange={setHora}
+                    cargando={cargandoSlots}
+                  />
+                </div>
               </div>
-            </div>
 
-            <Campo label="Motivo de consulta (opcional)">
-              <input value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} className={inputClass} />
-            </Campo>
+              <Campo label="Motivo de consulta (opcional)">
+                <input
+                  value={motivoDetalle}
+                  onChange={(e) => setMotivoDetalle(e.target.value)}
+                  className={inputClass}
+                />
+              </Campo>
 
-            {error && <ErrorMsg>{error}</ErrorMsg>}
+              {error && <ErrorMsg>{error}</ErrorMsg>}
 
-            <div className="flex justify-between">
-              <button
-                type="button"
-                onClick={() => setPaso("paciente")}
-                className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Atrás
-              </button>
-              <button
-                type="submit"
-                disabled={pending}
-                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-              >
-                {pending ? "Confirmando…" : "Confirmar"}
-              </button>
-            </div>
-          </form>
-        )}
+              <div className="flex justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPaso("paciente")}
+                  className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                >
+                  Atrás
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                >
+                  {pending ? "Confirmando…" : "Confirmar"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass =
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium text-grafito">{label}</span>

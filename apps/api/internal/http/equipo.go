@@ -79,6 +79,11 @@ type miembroDelEquipoResponse struct {
 	// ("no te podés quitar a vos mismo", brief) y va primero.
 	EsTitular bool `json:"esTitular"`
 	EsVos     bool `json:"esVos"`
+	// Especialidad — la primera del perfil, para nombrar a cada
+	// profesional en el selector de vista de recepción (Fase 3.2.6,
+	// mockups: "Juan Muru / Odontología general"). Vacía para quien no
+	// atiende o todavía no cargó perfil; ahí la pantalla cae al rol.
+	Especialidad string `json:"especialidad,omitempty"`
 	// Presencia (Fase 3.2.5). Viene ya en esta respuesta, además de en
 	// /equipo/presencia, para que la primera pintura del popover no
 	// muestre a todo el mundo ausente hasta el primer latido.
@@ -135,15 +140,23 @@ func listarEquipoHandler(gdb *gorm.DB) http.HandlerFunc {
 				continue
 			}
 			nombre := user.Email
+			var especialidad string
 			var perfil db.ProfessionalProfile
-			if err := gdb.First(&perfil, "user_id = ?", miembro.UserID).Error; err == nil {
+			// Preload de las especialidades: ya se leía el perfil acá para
+			// el nombre, así que la de la vista de recepción no suma una
+			// consulta por miembro.
+			if err := gdb.Preload("Especialidades").First(&perfil, "user_id = ?", miembro.UserID).Error; err == nil {
 				nombre = strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido)
+				if len(perfil.Especialidades) > 0 {
+					especialidad = perfil.Especialidades[0].Nombre
+				}
 			}
 			fila := miembroDelEquipoResponse{
 				UserID: miembro.UserID.String(), Nombre: nombre, Email: user.Email,
-				Roles:     rolesDe(miembro),
-				EsTitular: clinica.OwnerID == miembro.UserID,
-				EsVos:     session != nil && session.UserID == miembro.UserID,
+				Roles:        rolesDe(miembro),
+				Especialidad: especialidad,
+				EsTitular:    clinica.OwnerID == miembro.UserID,
+				EsVos:        session != nil && session.UserID == miembro.UserID,
 			}
 			if ultima, hay := ultimaPorUsuario[miembro.UserID]; hay {
 				copia := ultima

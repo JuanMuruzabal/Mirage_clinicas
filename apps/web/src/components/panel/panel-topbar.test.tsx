@@ -31,6 +31,10 @@ function datos(over: Partial<DatosDelTopbar> = {}): DatosDelTopbar {
       { id: "c2", nombre: "Clínica Sur", slug: "sur", rolPrincipal: "recepcion", activa: false },
     ] as DatosDelTopbar["clinicas"],
     nombreClinicaActual: "Clínica Norte",
+    // Fase 3.2.6: por default, alguien que NO es recepción — el selector
+    // de vista no se dibuja y estos tests siguen midiendo lo de antes.
+    vista: null,
+    puedeCambiarDeVista: false,
     equipo: {
       miembros: [
         {

@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
-import { hoyEnCordoba, parseFechaISOLocal, rangoVisible, type VistaCalendario } from "@/lib/calendar-utils";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import {
+  hoyEnCordoba,
+  parseFechaISOLocal,
+  rangoVisible,
+  type VistaCalendario,
+} from "@/lib/calendar-utils";
 import { CalendarView } from "@/components/panel/calendar-view";
 
 export const metadata: Metadata = { title: "Calendario — PRISMA" };
@@ -30,9 +36,12 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 // los datos, mismo patrón que `turno` en /panel/turnos (TurnosTable/
 // abrirId); `bloqueo` hace lo mismo para el "Ver eventos" de un horario
 // reservado (o del cluster de solapamiento al que pertenezca).
-export default async function CalendarioPage({ searchParams }: PageProps<"/panel/calendario">) {
+export default async function CalendarioPage({
+  searchParams,
+}: PageProps<"/panel/calendario">) {
   const resolved = await searchParams;
-  const vistaInicial: VistaCalendario = firstParam(resolved.vista) === "semana" ? "semana" : "dia";
+  const vistaInicial: VistaCalendario =
+    firstParam(resolved.vista) === "semana" ? "semana" : "dia";
   const fechaParam = firstParam(resolved.fecha);
   const turnoAFocalizarId = firstParam(resolved.turno);
   // posicionar (corrección de QA, 2026-09-08): "Ver calendario ->" de
@@ -54,18 +63,33 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
   // turnos de MAÑANA como si fueran "hoy", hasta que el efecto del
   // cliente (que sí calcula bien "hoy") pedía de nuevo el rango correcto
   // — un flash de datos equivocados, no solo un problema de hidratación.
-  const fechaInicial = fechaParam ? parseFechaISOLocal(fechaParam) : hoyEnCordoba();
+  const fechaInicial = fechaParam
+    ? parseFechaISOLocal(fechaParam)
+    : hoyEnCordoba();
   const { desde, hasta } = rangoVisible(fechaInicial, vistaInicial);
 
   const [tiposResult, turnosResult] = token
     ? await Promise.all([
         apiListTiposConsulta(token),
-        apiListTurnos(token, { estado: "agendado", desde: desde.toISOString(), hasta: hasta.toISOString() }),
+        apiListTurnos(token, {
+          estado: "agendado",
+          desde: desde.toISOString(),
+          hasta: hasta.toISOString(),
+        }),
       ])
     : [null, null];
 
   const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
   const turnosIniciales = turnosResult?.ok ? turnosResult.data : [];
+
+  const sesion = await requireOnboardingComplete();
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(
+    token,
+    sesion.roles,
+  );
+  // Una columna por profesional SOLO en la vista general: parada en la
+  // agenda de alguien, recepción ve el calendario de siempre.
+  const enVistaGeneral = esRecepcion && vista?.profesional == null;
 
   return (
     <CalendarView
@@ -80,6 +104,14 @@ export default async function CalendarioPage({ searchParams }: PageProps<"/panel
       turnoAFocalizarId={turnoAFocalizarId}
       turnoAPosicionar={turnoAPosicionar}
       bloqueoAFocalizarId={bloqueoAFocalizarId}
+      profesionalesDelDia={enVistaGeneral ? profesionales : []}
+      // El selector lo DIBUJA CalendarView, no esta página: lo que puede
+      // ofrecer depende de Día/Semana/Mes, y esa es su decisión (ver el
+      // comentario de `cambiarVista`). Acá solo viajan los datos.
+      zonaProfesional={esRecepcion ? { profesionales, vista } : null}
+      // De quién es la vista: lo que hace que el calendario vuelva a
+      // pedir los turnos al cambiar de profesional, en cualquier fecha.
+      vistaKey={vista?.profesional?.userId ?? "general"}
     />
   );
 }

@@ -2615,6 +2615,93 @@ Las fechas de esos filtros salen de `hoyEnCordoba()`, no de `new Date()`: el nav
 
 ---
 
+## TR-160: La vista del recepcionista es un profesional en foco, no un módulo aparte
+
+- **Contexto:** Fase 3.2.6, 2026-09-20. La subfase que quedó para el final, y terminó siendo la más chica de escribir.
+- **De dónde salió:** el brief (*"Recepcionista: tiene acceso a todas las vistas de los N profesionales dentro de la aplicación"*) y la precisión del cliente al arrancarla: *"el recepcionista puede navegar en todas las vistas de los profesionales e interactuar con estas vistas"*.
+
+### La decisión
+
+`sessions.viendo_user_id`, nullable, con efecto **solo para `recepcion`**:
+
+- **Sin foco** → ve la clínica entera. Es la vista general: todos los turnos de todos los profesionales, las métricas de la clínica.
+- **Con foco** → la sesión se comporta **exactamente** como ese profesional, en las cuatro pantallas del panel.
+
+### Por qué salió barato
+
+Los seis scopes de `visibilidad.go` ya se bifurcaban en `veTodaLaClinica(r)` y ya resolvían un usuario con `usuarioDeLaSesion(r)`. Cambiando qué responden **esas dos preguntas**, las 25 consultas del panel funcionan para recepción sin tocar una sola de ellas.
+
+No es suerte: el comentario de ese archivo lo dice desde la 3.2.2 — *"Concentrarlo acá deja un solo lugar que auditar y un solo lugar que cambiar cuando la Fase 3.2.6 sume la vista del recepcionista por profesional"*. Esta subfase es la factura de esa decisión, cobrada a favor.
+
+### Por qué NO hay pantallas nuevas
+
+El cliente descartó explícitamente las dos funciones que el brief original le atribuía a recepción:
+
+- **Pasar pacientes de un profesional a otro.** Ya está: pararse en la vista del que lo va a atender y usar "+ Agregar paciente > De la clínica" (TR-157).
+- **Marcar la asistencia por adelantado.** Ya está: la tarjeta "Turnos de hoy" (TR-158/159).
+
+Las dos salen gratis de poder pararse en la vista de cada uno. Duplicar las cuatro pantallas para recepción habría sido mantener dos versiones de cada una, y la segunda siempre atrasada.
+
+### Las escrituras también siguen el foco, y eso no era obvio
+
+Con solo las lecturas, recepción vería la agenda de un profesional y escribiría en la suya. Todo lo que guardaba `user_id` desde la sesión guardaba **de quién es la fila** —de qué agenda es este bloqueo, en la lista de quién entra esta ficha—, no quién apretó el botón: horario de atención, bloqueos, enlaces compartidos, `creado_por_user_id`, `pacientes_en_mi_lista`. Todas pasan a `profesionalEnFocoOpcional`.
+
+La excepción deliberada: `esVos` del perfil de un colega, que sí significa "la persona logueada".
+
+**Y `profesionalQueAtiende` deja de caer al titular.** Ese era el provisorio de la 3.2.1 y la razón por la que un turno cargado por recepción aparecía en la agenda del dueño de la clínica. Sin foco **no se adivina**: 409 pidiendo elegir una vista. La vista general es para mirar; para actuar hay que pararse en una agenda — que es exactamente el gesto que el cliente describió.
+
+### Lo que no se relaja
+
+- Un profesional **no** puede mirar la agenda de un colega: **403 explícito**, no un selector escondido. Esconder el control nunca fue cerrar la puerta (misma lección que `/personalizar-pagina` en la 3.2.4).
+- Solo se puede mirar a **quien atiende**: 409 para un administrador de página o un segundo recepcionista, que no tienen agenda.
+- Y dentro de la **propia clínica**: 404, mismo criterio que la ficha de un paciente ajeno (TR-138).
+
+**El foco se valida en CADA request** contra la membresía activa, igual que la clínica activa y por el mismo motivo: una elección vieja no puede sobrevivir sola a que cambien las condiciones. Si cambió de clínica, lo quitaron del equipo o le sacaron el rol de profesional, se cae sola a la vista general — el estado seguro, porque es lo que su rol permite de todos modos. No se persiste la corrección: sería un UPDATE por request para un caso que se resuelve solo la próxima vez que elija.
+
+### Sesión y no URL
+
+Igual que la clínica activa (TR-139) y por el mismo motivo: es dónde estoy parado ahora, no una preferencia de la cuenta. **El costo aceptado:** dos pestañas del mismo navegador comparten el foco. La alternativa —llevarlo en la URL— obligaría a enhebrarlo por cada Server Action del BFF, que no ve la URL; el patrón entero del proyecto lee el contexto desde la sesión.
+
+### Lo que la vista general necesitaba
+
+Un listado de turnos de varios profesionales que **no dice de quién es cada uno** no sirve para atender un teléfono. Lo encontró un test que escribí esperando otra cosa: `listTurnosHandler` nunca completaba quién atiende — y con razón, porque en la vista de un profesional todos los turnos son suyos.
+
+Ahora lo completa (el mismo lote de dos consultas que ya usaba la ficha del paciente, no un N+1) y el resumen manda el nombre en cada item **solo en la vista general**. La tarjeta de "Turnos de hoy" suma su columna cuando el dato viene, y queda igual que siempre cuando no.
+
+### Una función que se borró
+
+`usuarioDeLaSesionOpcional` quedó sin llamadas al mudarlas todas al foco. Se borra en vez de dejarla: una función que ya no se usa después se lee como si hubiera un caso que la necesita (misma razón que el chequeo muerto de TR-149).
+
+### Addendum (QA de la subfase, 2026-09-20): mirar y cargar son dos preguntas
+
+La QA obligó a separar algo que la primera entrega tenía junto: **de quién es la vista** y **a quién se le carga esto**.
+
+Parada en la vista general, recepción no podía dar de alta nada — el backend le devolvía un 409 pidiéndole que se parara primero en una agenda. Era correcto (no se adivina), pero le pedía salir del formulario para contestar algo que el formulario podía preguntar. Y usar ahí el selector de vista del encabezado tampoco servía: le movería la pantalla de atrás a alguien que está tipeando.
+
+Así que el carrusel tiene dos envoltorios sobre el mismo control (`CarruselDeProfesionales`):
+
+- **`ZonaProfesional`** cambia el foco de la sesión. Va en la cabecera de cada pantalla, y también arriba de "Configuración de calendario" — ahí *tiene* que mover el foco, porque lo que ese modal muestra se lee con los scopes de `visibilidad.go`.
+- **`SelectorDeAgenda`** no cambia nada de la sesión: solo elige el destino de lo que se está por crear. Va en "+ Agregar turno", en el acceso rápido "Reservar horario" y en "Compartir link".
+
+Se ven iguales a propósito — el cliente pidió *"el selector de carrusel que estamos usando"*, y un control que se ve igual pero se comporta distinto según dónde esté sería peor que dos controles.
+
+El campo nuevo es `profesionalUserId` en `POST /turnos`, `POST /bloqueos` y `POST /enlaces-turno`. **Que exista no relaja el aislamiento**: `puedeCargarEnLaAgendaDe` deja a recepción elegir cualquier profesional activo de la clínica y a cualquier otro rol solo la propia, con **404 y no 403** — mismo criterio que la ficha de un paciente ajeno: para quien no puede, esa agenda no existe. Un profesional llenándole la agenda a un colega sería la fuga de la 3.2.2 por una puerta nueva.
+
+**Lo que se sacrifica:** un endpoint de escritura más que puede nombrar a un tercero, y por lo tanto un guard más que auditar. La alternativa —obligar a cambiar de vista antes de cada alta— dejaba a recepción navegando de ida y vuelta para cargar un turno, que es su trabajo principal.
+
+### Addendum: la vista general del calendario es exclusiva de "Día"
+
+En Día la vista general dibuja una columna por profesional. En Semana las siete columnas ya son los días: sumarle N profesionales daría 7 × N, ilegible en cualquier pantalla. Sin columnas propias, "la agenda de todos" sería un amontonamiento de bloques sin dueño.
+
+Al pasar a Semana o Mes se elige solo al dueño del primer turno del día (el que la persona tiene delante), y desde ahí el selector ya no ofrece volver a la general.
+
+**Lo que se sacrifica:** no existe una vista semanal de toda la clínica. Es la misma decisión que ya tomaba el mockup, y la alternativa que se descartó —una grilla de 7 × N— no era una vista peor, era una vista que no se puede leer.
+
+**Efecto de diseño:** el selector pasó de la página a `CalendarView`. Lo que puede ofrecer depende de Día/Semana/Mes, que es estado del cliente — la página no se entera cuando alguien toca "Semana".
+
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

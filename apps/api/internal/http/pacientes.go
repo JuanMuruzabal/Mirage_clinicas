@@ -352,7 +352,9 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		// Quién atiende cada turno, para que el historial diga con quién
 		// fue cada uno y cuáles puede tocar quien mira.
-		completarProfesionalDeTurnos(gdb, r, turnos, turnosOut)
+		// Siempre con nombre: el historial de un paciente es de la CLÍNICA
+		// y su gracia es decir con quién fue cada turno (Fase 3.2.5).
+		completarProfesionalDeTurnos(gdb, r, turnos, turnosOut, true)
 
 		verificado, err := pacienteEstaVerificado(gdb, paciente)
 		if err != nil {
@@ -625,7 +627,7 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			// Quién la cargó — lo que hace que siga siendo visible para esa
 			// persona antes de que exista el primer turno (Fase 3.2.3, ver
 			// soloMisPacientes).
-			CreadoPorUserID: usuarioDeLaSesionOpcional(r),
+			CreadoPorUserID: profesionalEnFocoOpcional(r),
 			Nombre:          req.Nombre,
 			Apellido:        req.Apellido,
 			DNI:             req.DNI,

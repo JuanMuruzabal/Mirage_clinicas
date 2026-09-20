@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { LinkConVista } from "./link-con-vista";
 
 // TarjetaTurnero* (F2.3 extra ítem 1 — rediseño del dashboard "Turnero",
 // docs/Arquitectura y base/implementation-plan.md §11.5, docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md)
@@ -17,6 +18,11 @@ interface TarjetaFila {
   key: string;
   href: string;
   contenido: ReactNode;
+  // De qué agenda es esta fila (Fase 3.2.6). Desde la vista general de
+  // recepción, tocarla se para en ESA agenda antes de navegar — si no,
+  // la pantalla de destino mostraría otra cosa que la que la fila
+  // prometía. Vacío en la vista de un profesional: ya se está ahí.
+  userId?: string;
 }
 
 interface TarjetaConListaProps {
@@ -79,6 +85,11 @@ export function TarjetaConLista({
         <div className="relative z-10 flex flex-col gap-2">
           <div className={CABECERA_BASE}>
             <p className={EYEBROW_BASE}>{eyebrow}</p>
+            {/* Sin link de cabecera, la tarjeta queda solo con su
+                cuerpo interactuable — que es lo que se pidió para
+                "Turnos próximos" y "Horarios reservados" en la vista
+                general: ahí un link único no puede llevar a la agenda
+                correcta, porque cada fila es de alguien distinto. */}
             {cabeceraCustom ??
               (hrefCabecera && labelCabecera && (
                 <Link href={hrefCabecera} className={`${LABEL_CABECERA_BASE} text-salvia-oscuro hover:text-grafito`}>
@@ -118,9 +129,9 @@ export function TarjetaConLista({
           <ul>
             {filas.map((f) => (
               <li key={f.key} className="border-b-[0.5px] border-arena/60 last:border-b-0">
-                <Link href={f.href} className="block px-4 py-3 hover:bg-arena/40">
+                <LinkConVista href={f.href} userId={f.userId} className="block px-4 py-3 hover:bg-arena/40">
                   {f.contenido}
-                </Link>
+                </LinkConVista>
               </li>
             ))}
           </ul>
@@ -142,6 +153,10 @@ export function TarjetaConLista({
 }
 
 interface FilaResumenProps {
+  // Profesional (Fase 3.2.6) — solo llega en la vista general de
+  // recepción, donde cada fila puede ser de alguien distinto. En la
+  // vista de un profesional viene vacío y la fila queda como siempre.
+  profesional?: string;
   // Etiqueta chica arriba de la hora (el día — "MAR 1") — se omite en la
   // tarjeta "Turnos de hoy", donde el día siempre es el mismo, hoy.
   etiqueta?: string;
@@ -175,7 +190,7 @@ interface FilaResumenProps {
 // pedido explícito del cliente — un texto muy largo corta con "…" en vez
 // de romper la fila a una segunda línea (eso también rompía la
 // alineación vertical entre filas).
-export function FilaResumen({ etiqueta, hora, children, uppercase = true }: FilaResumenProps) {
+export function FilaResumen({ etiqueta, hora, children, uppercase = true, profesional }: FilaResumenProps) {
   return (
     <div className="flex flex-col gap-0.5">
       {etiqueta && (
@@ -196,6 +211,11 @@ export function FilaResumen({ etiqueta, hora, children, uppercase = true }: Fila
         >
           {children}
         </span>
+        {/* Al final de la fila y en tono menor: es de quién, no qué —
+            la hora y el paciente siguen siendo lo que se lee primero. */}
+        {profesional && (
+          <span className="max-w-[9rem] shrink-0 truncate text-xs text-grafito/60">{profesional}</span>
+        )}
       </div>
     </div>
   );

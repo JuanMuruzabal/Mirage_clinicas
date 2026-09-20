@@ -136,14 +136,31 @@ func putHorarioAtencionGeneralHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// DE QUIÉN ES ESTE HORARIO. Sin resolverlo antes, recepción en la
+		// vista general escribía una fila con `user_id` NULL — que
+		// `soloMiAgenda` le muestra a TODOS los profesionales, porque son
+		// las filas anteriores a la 3.2.1. Bug real de QA, 2026-09-20.
+		duenio, ok := agendaAConfigurar(w, r, gdb, clinicID, "")
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+
 		// UNO POR PROFESIONAL, no uno por clínica (corrección del
 		// 2026-09-14). Sin el filtro por dueño, este PUT encontraba la
 		// fila `general` del colega y la pisaba: guardar el horario propio
 		// le cambiaba el horario de atención al otro, y ninguno de los dos
 		// se enteraba hasta que el calendario ofrecía huecos equivocados.
+		//
+		// Contra la agenda ya resuelta y no contra `soloMiAgenda(r)`: ese
+		// scope es un no-op en la vista general, y ahí este PUT volvía a
+		// encontrar la fila de cualquiera.
 		var existente db.HorarioAtencion
 		err := gdb.Where("clinic_id = ? AND alcance = ?", clinicID, db.HorarioAtencionAlcanceGeneral).
-			Scopes(soloMiAgenda(r)).First(&existente).Error
+			Scopes(soloDeLaAgendaDe(duenio)).First(&existente).Error
 		if err == nil {
 			existente.HoraDesde, existente.HoraHasta = &req.HoraDesde, &req.HoraHasta
 			if err := gdb.Save(&existente).Error; err != nil {
@@ -156,7 +173,7 @@ func putHorarioAtencionGeneralHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		nuevo := db.HorarioAtencion{
 			ClinicID:  clinicID,
-			UserID:    usuarioDeLaSesionOpcional(r),
+			UserID:    &duenio,
 			Alcance:   db.HorarioAtencionAlcanceGeneral,
 			HoraDesde: &req.HoraDesde,
 			HoraHasta: &req.HoraHasta,
@@ -264,7 +281,17 @@ func crearHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		horario.ClinicID = clinicID
-		horario.UserID = usuarioDeLaSesionOpcional(r)
+		// Con dueño, por lo mismo que arriba: una excepción de horario sin
+		// `user_id` se la come la agenda de todos.
+		duenio, ok := agendaAConfigurar(w, r, gdb, clinicID, "")
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+		horario.UserID = &duenio
 
 		if err := gdb.Create(&horario).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el horario de atención")

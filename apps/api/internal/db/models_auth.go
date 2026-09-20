@@ -314,6 +314,35 @@ type Session struct {
 	UserAgent string     `gorm:"column:user_agent;type:varchar(255)"`
 	IP        string     `gorm:"column:ip;type:varchar(64)"`
 
+	// ViendoUserID — EL PROFESIONAL EN FOCO (Fase 3.2.6).
+	//
+	// Solo lo usa `recepcion`, que es el único rol que ve la clínica
+	// entera: es "la vista de quién estoy mirando ahora". Nil significa
+	// la VISTA GENERAL —todos los turnos de todos los profesionales, las
+	// métricas de la clínica—, y con un profesional puesto la sesión se
+	// comporta exactamente como él en los seis scopes de visibilidad.
+	//
+	// Un solo concepto en vez de una vista paralela: el brief pide que
+	// recepción tenga "acceso a todas las vistas de los N profesionales"
+	// e interactúe con ellas, no una pantalla distinta. Poniendo el foco
+	// en `visibilidad.go` —el único lugar donde ya se decidía qué ve
+	// cada uno— las cuatro pantallas del panel funcionan sin tocar
+	// ninguna de sus 25 consultas. El comentario de ese archivo ya lo
+	// anticipaba: "un solo lugar que cambiar cuando la Fase 3.2.6 sume
+	// la vista del recepcionista por profesional".
+	//
+	// Vive en la SESIÓN, igual que ClinicID y por el mismo motivo: es
+	// dónde estoy parado ahora, no una preferencia de la cuenta. El
+	// costo aceptado es que dos pestañas del mismo navegador comparten el
+	// foco; la alternativa (llevarlo en la URL) obligaría a enhebrarlo
+	// por cada Server Action del BFF, que no ve la URL.
+	//
+	// Sin foreign key, igual que ClinicID: una sesión vieja apuntando a
+	// alguien que ya no está en el equipo no puede romper nada — el
+	// middleware la valida contra la membresía activa en cada request, y
+	// si no da, cae a la vista general.
+	ViendoUserID *uuid.UUID `gorm:"column:viendo_user_id;type:uuid"`
+
 	// ClinicID — la clínica elegida en "¿Dónde trabajás hoy?" (Fase
 	// 3.2.3). Nil mientras no se eligió ninguna, y ahí `requireClinic`
 	// vuelve al criterio de la 3.2.2 (la membresía activa más antigua).

@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PacienteConocido } from "@dental-mirage/shared-types";
 import { crearEnlaceTurnoAction } from "@/app/actions/turnos";
+import {
+  opcionesDeAgendaAction,
+  type OpcionesDeAgenda,
+} from "@/app/actions/topbar-panel";
 import { BuscadorPacientes } from "./buscador-pacientes";
+import { CarruselDeProfesionales } from "./zona-profesional";
 
 // armarMensaje — un solo texto informativo, reusado en TODAS las formas
 // de compartir (nativo, WhatsApp, mail, copiar) — pedido explícito del
@@ -31,25 +36,58 @@ function armarMensaje(url: string): string {
  * tienen, y ahí la opción nativa es igual de válida).
  */
 export function CompartirLinkTurno() {
-  const [estado, setEstado] = useState<"inicial" | "generando" | "listo" | "error">("inicial");
+  const [estado, setEstado] = useState<
+    "inicial" | "generando" | "listo" | "error"
+  >("inicial");
   const [url, setUrl] = useState("");
   const [copiado, setCopiado] = useState(false);
 
-  // Las dos decisiones del link (Fase 3.2.7b). Los defaults son el
-  // comportamiento de siempre: mi agenda, sin paciente elegido — el caso
-  // para el que se creó esta pestaña.
-  const [paraTodos, setParaTodos] = useState(false);
+  // CON QUIÉN ES EL TURNO — el mismo carrusel que el resto del panel
+  // (QA de la 3.2.6, pedido textual: *"acá no debería aparecer el 'Con
+  // vos' 'con cualquier profesional', debería aparecer el selector de
+  // carrusel que estamos usando"*).
+  //
+  // Las dos opciones de antes no desaparecen, cambian de forma: la
+  // general del carrusel ES "con cualquier profesional", y elegirse a
+  // uno mismo ES "con vos". Lo que se gana es el caso que antes no se
+  // podía expresar — recepción generando el link de la agenda de un
+  // colega puntual, que es justamente para lo que existe su vista.
+  //
+  // `undefined` mientras no se sabe todavía quién es esta sesión; una vez
+  // que llega, el default es la propia agenda (el caso de siempre).
+  const [agenda, setAgenda] = useState<string | null | undefined>(undefined);
+  const [opciones, setOpciones] = useState<OpcionesDeAgenda | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    opcionesDeAgendaAction().then((datos) => {
+      if (!vivo) return;
+      setOpciones(datos);
+      setAgenda(datos.miUserId);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  // `null` en el carrusel es la opción general: el paciente elige.
+  const paraTodos = agenda === null;
   // La ficha entera y no solo su id: el buscador compartido la devuelve
   // completa, y es lo que hace falta para mostrar a quién se eligió.
   const [elegido, setElegido] = useState<PacienteConocido | null>(null);
 
-  const puedeCompartirNativo = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const puedeCompartirNativo =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function generar() {
     setEstado("generando");
     const resultado = await crearEnlaceTurnoAction({
       paraTodosLosProfesionales: paraTodos,
       pacienteId: elegido?.id,
+      // Vacío cuando es para todos (no hay agenda) o cuando todavía no
+      // llegaron las opciones: ahí el backend usa la de quien lo genera,
+      // que es el comportamiento de siempre.
+      profesionalUserId: agenda ?? "",
     });
     if ("error" in resultado) {
       setEstado("error");
@@ -96,58 +134,26 @@ export function CompartirLinkTurno() {
           pestaña, dos veces seguidas y con distinto texto. */}
       {estado === "inicial" && (
         <div className="flex flex-col gap-4">
-          {/* Con quién es el turno (Fase 3.2.7b). "Vos mismo" es el
-              default y el caso para el que se creó esta pestaña: ya
-              hablaste con la persona y solo falta que elija horario EN TU
-              agenda. "Todos" es el link de mostrador. */}
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-[13px] font-medium text-grafito">¿Con quién es el turno?</legend>
-            {[
-              { valor: false, titulo: "Con vos", detalle: "El turno entra en tu agenda y no se le pregunta nada." },
-              { valor: true, titulo: "Con cualquier profesional", detalle: "La persona elige con quién atenderse." },
-            ].map((opcion) => (
-              <label
-                key={String(opcion.valor)}
-                className={`flex cursor-pointer items-start gap-2.5 rounded-field border px-3 py-2.5 transition-colors ${
-                  paraTodos === opcion.valor ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-hueso hover:border-salvia"
-                }`}
-              >
-                {/* Cuadrado con checkmark, no el radio redondo azul del
-                    navegador (2026-09-19): el azul de sistema no existe
-                    en la paleta, y el resto del panel marca las opciones
-                    así. `sr-only` deja el input real —foco, teclado,
-                    lectores de pantalla— y lo que se ve es la caja. */}
-                <input
-                  type="radio"
-                  name="alcance-enlace"
-                  checked={paraTodos === opcion.valor}
-                  onChange={() => setParaTodos(opcion.valor)}
-                  className="peer sr-only"
-                />
-                <span
-                  aria-hidden="true"
-                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border peer-focus-visible:ring-2 peer-focus-visible:ring-salvia ${
-                    paraTodos === opcion.valor ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea bg-marfil"
-                  }`}
-                >
-                  {paraTodos === opcion.valor && (
-                    <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M2.5 6.5l2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-sm font-medium text-grafito">{opcion.titulo}</span>
-                  <span className="text-xs text-grafito/60">{opcion.detalle}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          {/* Con quién es el turno. Ofrece la opción general —"el
+              paciente elige con quién atenderse"— y una entrada por
+              agenda: la propia para un profesional, todas las de la
+              clínica para recepción. */}
+          <CarruselDeProfesionales
+            profesionales={opciones?.profesionales ?? []}
+            valorId={agenda ?? null}
+            onElegir={setAgenda}
+            etiqueta="¿Con quién es el turno?"
+            etiquetaGeneral="Cualquier profesional"
+            detalleGeneral="La persona elige con quién atenderse"
+            guardando={opciones === null}
+          />
 
           {/* La ficha, opcional: con ella el wizard no le vuelve a pedir
               los datos que ya tenemos. */}
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-medium text-grafito">¿Para quién? (opcional)</span>
+            <span className="text-[13px] font-medium text-grafito">
+              ¿Para quién? (opcional)
+            </span>
             {elegido ? (
               <div className="flex items-center justify-between gap-3 rounded-field border border-salvia-oscuro bg-salvia-claro px-3 py-2.5">
                 <span className="text-sm text-grafito">
@@ -167,7 +173,10 @@ export function CompartirLinkTurno() {
                 {/* El mismo buscador que "Paciente conocido" (2026-09-19):
                     eran dos campos distintos preguntando lo mismo sobre
                     la misma lista. */}
-                <BuscadorPacientes onElegir={setElegido} altoMaximo="max-h-48" />
+                <BuscadorPacientes
+                  onElegir={setElegido}
+                  altoMaximo="max-h-48"
+                />
                 <p className="text-xs text-grafito/60">
                   Si la elegís, no va a tener que cargar sus datos de nuevo.
                 </p>
@@ -185,14 +194,20 @@ export function CompartirLinkTurno() {
         </div>
       )}
 
-      {estado === "generando" && <p className="text-sm text-grafito/60">Generando…</p>}
+      {estado === "generando" && (
+        <p className="text-sm text-grafito/60">Generando…</p>
+      )}
 
       {estado === "error" && (
         <div className="flex flex-col gap-2">
           <p role="alert" className="text-sm text-terracota-oscuro">
             No se pudo generar el link. Intentá de nuevo.
           </p>
-          <button type="button" onClick={generar} className="self-start text-sm font-medium text-salvia-oscuro hover:underline">
+          <button
+            type="button"
+            onClick={generar}
+            className="self-start text-sm font-medium text-salvia-oscuro hover:underline"
+          >
             Reintentar
           </button>
         </div>
@@ -208,7 +223,9 @@ export function CompartirLinkTurno() {
             onFocus={(e) => e.target.select()}
             className="w-full rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2.5 text-sm text-grafito"
           />
-          <p className="text-xs text-grafito/50">Válido por 1 hora desde que se generó.</p>
+          <p className="text-xs text-grafito/50">
+            Válido por 1 hora desde que se generó.
+          </p>
 
           {puedeCompartirNativo ? (
             <button

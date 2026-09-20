@@ -3,7 +3,9 @@ import Link from "next/link";
 import { apiContarPacientes, apiListConflictosPaciente, apiListPacientesPaginado, apiListTiposConsulta } from "@/lib/api";
 import type { ListarPacientesParams } from "@/lib/api";
 import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
-import { getSessionToken } from "@/lib/session";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { PacientesTable } from "@/components/panel/pacientes-table";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
 import { ConflictosPacienteBanner } from "@/components/panel/conflictos-paciente-banner";
@@ -38,7 +40,9 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
   const q = firstParam(resolved.q);
   const tab = parseTabPacientes(firstParam(resolved.estado));
 
+  const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
 
   // Fase B de la auditoría: hasta acá esta pantalla pedía la lista
   // COMPLETA de fichas de la clínica y resolvía en el navegador tanto el
@@ -96,11 +100,23 @@ export default async function PacientesPage({ searchParams }: PageProps<"/panel/
       {/* Contador total (mismo criterio de estética que "Turnos 14 en
           total", corrección 2026-09-06, foto de referencia
           "nuevoestilopacientes.png"). */}
-      <div className="flex flex-wrap items-baseline gap-2">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-          Pacientes
-        </h1>
-        <span className="text-sm text-grafito/50">{conteoPorTab.todos} registrados</span>
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+            Pacientes
+          </h1>
+          <span className="text-sm text-grafito/50">{conteoPorTab.todos} registrados</span>
+        </div>
+        {esRecepcion && (
+          <ZonaProfesional
+            profesionales={profesionales}
+            vista={vista}
+            etiqueta="Mostrando"
+            etiquetaConFoco="Pacientes de"
+            etiquetaGeneral="Toda la clínica"
+            detalleGeneral="Pacientes de todo el equipo"
+          />
+        )}
       </div>
 
       <ConflictosPacienteBanner conflictos={conflictos} tiposConsulta={tiposConsulta} />

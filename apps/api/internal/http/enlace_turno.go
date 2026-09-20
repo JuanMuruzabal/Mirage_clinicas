@@ -43,6 +43,17 @@ type crearEnlaceTurnoRequest struct {
 	// PacienteID — opcional. Con una ficha elegida, el wizard no vuelve a
 	// pedir los datos que esa ficha ya tiene.
 	PacienteID string `json:"pacienteId"`
+	// ProfesionalUserID — de quién es la agenda a la que entra el turno
+	// (QA de la Fase 3.2.6). Vacío = la agenda de quien genera el enlace,
+	// que es el comportamiento de siempre.
+	//
+	// Existe porque el control pasó a ser el mismo carrusel del resto del
+	// panel: "Todos los profesionales" o uno puntual. Recepción puede
+	// elegir a cualquiera de la clínica — es la razón de ser de su vista.
+	// Un profesional solo puede elegirse a sí mismo, y el backend lo
+	// impone: el aislamiento de la 3.2.2 no depende de qué dibuje la
+	// pantalla.
+	ProfesionalUserID string `json:"profesionalUserId"`
 }
 
 // crearEnlaceTurnoHandler — genera el link de 1h y arma la URL completa
@@ -94,6 +105,17 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 			pacienteID = &paciente.ID
 		}
 
+		// De quién es la agenda del enlace. Por default, la de quien lo
+		// genera (o la del profesional en foco, si es recepción).
+		dueño := profesionalEnFocoOpcional(r)
+		elegida, ok := agendaElegida(w, r, gdb, clinicID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
+		if elegida != nil {
+			dueño = elegida
+		}
+
 		token, tokenHash, err := security.NewToken()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el link")
@@ -103,7 +125,7 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 		// Con dueño: el enlace es de quien lo genera, y es lo que decide a
 		// qué agenda entran los turnos que se saquen con él (Fase 3.2.5).
 		enlace := db.EnlaceTurno{
-			UserID:                    usuarioDeLaSesionOpcional(r),
+			UserID:                    dueño,
 			ClinicID:                  clinicID,
 			TokenHash:                 tokenHash,
 			ExpiraEn:                  expiraEn,

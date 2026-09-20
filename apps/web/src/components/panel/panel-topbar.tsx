@@ -128,6 +128,13 @@ export function SelectorClinicaDelPanel() {
   );
 }
 
+// El selector de vista de recepción NO vive acá (Fase 3.2.6). La
+// primera versión lo puso en este header como un dropdown, y estaba mal:
+// los cuatro mockups de recepción lo dibujan en la cabecera de CADA
+// pantalla, al lado del título — y tiene sentido, porque lo que se elige
+// es el alcance de ESA pantalla, no del sitio. Ver
+// `components/panel/zona-profesional.tsx`.
+
 // EquipoDelPanel — quién trabaja en esta clínica y quién está ahora. Al
 // otro extremo que el selector a propósito: uno dice dónde estás, el otro
 // con quién.

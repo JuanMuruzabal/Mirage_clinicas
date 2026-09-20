@@ -53,6 +53,12 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 	scopes := []string{
 		"soloMisTurnos", "soloMisPacientes", "soloMiAgenda",
 		"soloMisConflictos", "soloMisTiposDeConsulta",
+		// soloDeLaAgendaDe (QA de la 3.2.6): el mismo criterio que
+		// `soloMiAgenda`, pero sobre un profesional YA resuelto en vez de
+		// sobre la sesión. Lo usan los endpoints de configuración, donde
+		// "toda la clínica" no es una respuesta posible y la agenda puede
+		// venir pedida en el propio request.
+		"soloDeLaAgendaDe",
 	}
 	// El filtro escrito a mano en el propio WHERE cuenta igual: lo que
 	// importa es que la consulta esté acotada, no por qué vía.

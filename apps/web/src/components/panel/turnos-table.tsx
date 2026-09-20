@@ -71,6 +71,12 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
     setTotal(totalInicial ?? frescos.length),
   );
   const [cargandoMas, setCargandoMas] = useState(false);
+  // La columna "Profesional" aparece sola cuando los turnos traen de
+  // quién son — el backend lo manda solo en la vista general de
+  // recepción (Fase 3.2.6). Basta con que UNO lo traiga: viene para
+  // todos o para ninguno, y mirar la lista entera evita depender de que
+  // el primero exista.
+  const conProfesional = turnos.some((t) => Boolean(t.atendidoPorNombre));
   // tipoPorId — corrección de QA: "dar un indicador visual en la tabla de
   // turnos el tipo de consulta, ya que está ausente" — mismo criterio que
   // paciente-turnos-table.tsx (temaTipoConsulta, punto de color + nombre,
@@ -404,6 +410,13 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                   wizard público (Turno.EsParaOtro), No en cualquier otro
                   caso (incluido "para mí" y alta manual del panel). */}
               <th className="panel-th-sticky max-md:hidden px-4 py-3">Sacado por otro</th>
+              {/* Profesional (Fase 3.2.6) — SOLO en la vista general de
+                  recepción, que es la única donde los turnos son de
+                  varias personas. En la vista de un profesional todos
+                  son suyos y la columna sería una palabra repetida en
+                  cada fila. El backend manda el dato con el mismo
+                  criterio. */}
+              {conProfesional && <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>}
               <th className="panel-th-sticky w-10 px-4 py-3" aria-hidden="true" />
             </tr>
           </thead>
@@ -496,6 +509,11 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                     </td>
                     <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
                     <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{t.esParaOtro ? "Sí" : "No"}</td>
+                    {conProfesional && (
+                      <td className="max-md:hidden px-4 py-3 text-xs text-grafito/70">
+                        {t.atendidoPorNombre || "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
@@ -535,7 +553,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                           todo el ancho real ya resuelto de la tabla —
                           truco estándar de CSS para este problema
                           puntual, no afecta el resto de las columnas. */}
-                      <td colSpan={9} className="w-px px-4 py-3">
+                      <td colSpan={conProfesional ? 10 : 9} className="w-px px-4 py-3">
                         <div className="min-w-full">
                         {/* Contacto/Motivo/Origen — ocultos como columna en
                             mobile (arriba), reaparecen ACÁ al desplegar la
