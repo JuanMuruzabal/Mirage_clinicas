@@ -335,6 +335,24 @@ describe("TarjetaTurnosDeHoy — la cabecera de columnas", () => {
   });
 });
 
+// Fase 3.2.6 — la vista general de recepción: los turnos son de varias
+// personas y la tabla tiene que decir de quién es cada uno.
+describe("TarjetaTurnosDeHoy — la columna Profesional", () => {
+  it("aparece cuando los turnos traen quién atiende", () => {
+    montar([turno({ profesional: "Dra. Lucía Ferrer" })]);
+    expect(screen.getByRole("columnheader", { name: "Profesional" })).toBeInTheDocument();
+    expect(screen.getByText("Dra. Lucía Ferrer")).toBeInTheDocument();
+  });
+
+  // En la vista de un profesional todos los turnos son suyos: repetir su
+  // nombre en cada fila sería ruido, y el backend directamente no manda
+  // el dato.
+  it("no aparece cuando no viene el dato", () => {
+    montar([turno()]);
+    expect(screen.queryByRole("columnheader", { name: "Profesional" })).not.toBeInTheDocument();
+  });
+});
+
 describe("textoRestantes", () => {
   it("concuerda en singular y plural", () => {
     expect(textoRestantes(1)).toBe("Queda 1 turno más hoy.");

@@ -74,6 +74,7 @@ const ANTICIPO_ASISTENCIA_MS = 5 * 60 * 1000;
 const COL_HORARIO = "w-[8.75rem]";
 const COL_PACIENTE = "w-[11rem]";
 const COL_ESTADO = "w-[8.5rem]";
+const COL_PROFESIONAL = "w-[11rem]";
 
 const CELDA = "px-4 py-3 align-middle";
 
@@ -88,6 +89,10 @@ export function TarjetaTurnosDeHoy({
   hrefPie,
 }: {
   turnos: ResumenTurnoItem[];
+  // `profesional` viene solo en la vista general de recepción (ver
+  // resumenTurnoItem en el backend). Con el dato presente la tabla suma
+  // una columna; sin él queda igual que siempre, que es lo que ve un
+  // profesional en su propia agenda.
   /** "Ver en calendario" — ubica el calendario en el turno más próximo. */
   hrefCabecera: string;
   /** "Ver todos" — Turnos con el mismo recorte que muestra la tarjeta. */
@@ -99,6 +104,10 @@ export function TarjetaTurnosDeHoy({
   // saliera de esa hora el HTML del servidor podría discrepar del
   // cliente justo en el minuto en que un turno arranca. Ver lib/reloj.ts.
   const ahora = useAhora(INTERVALO_RELOJ_MS);
+  // Basta con que UN turno lo traiga: el backend lo manda para todos o
+  // para ninguno, y mirar la lista entera evita depender de que el
+  // primero exista.
+  const conProfesional = turnos.some((t) => Boolean(t.profesional));
 
   // Cuando un turno cruza su hora de fin deja de pertenecer a esta
   // tarjeta: el backend lo pasa a "Turnos resueltos hoy" (aplicando el
@@ -172,7 +181,9 @@ export function TarjetaTurnosDeHoy({
             </p>
           ) : (
             <div className="panel-card-scroll w-full min-w-0 overflow-auto">
-            <table className="w-full min-w-[44rem] table-fixed border-collapse text-left">
+            <table
+              className={`w-full table-fixed border-collapse text-left ${conProfesional ? "min-w-[55rem]" : "min-w-[44rem]"}`}
+            >
               {/* La cabecera acompaña el scroll sin fondo propio: el
                   cuerpo tiene el efecto vidrio de las tarjetas del
                   Turnero y una banda opaca acá lo partía en dos. Los
@@ -193,6 +204,14 @@ export function TarjetaTurnosDeHoy({
                   <th scope="col" className={`${TH_STICKY} ${COL_PACIENTE}`}>
                     Paciente
                   </th>
+                  {/* Solo en la vista general de recepción: ahí los
+                      turnos son de varias personas y la lista tiene que
+                      decir de quién es cada uno. */}
+                  {conProfesional && (
+                    <th scope="col" className={`${TH_STICKY} ${COL_PROFESIONAL}`}>
+                      Profesional
+                    </th>
+                  )}
                   {/* `pl-7` y no `pl-4`: la píldora de abajo tiene su
                       propio `px-3`, así que su TEXTO arranca 12 px más
                       adentro que su caja. Alineado contra la caja, el
@@ -211,7 +230,7 @@ export function TarjetaTurnosDeHoy({
               </thead>
               <tbody>
                 {turnos.map((t) => (
-                  <FilaTurnoDeHoy key={t.id} turno={t} ahora={ahora} />
+                  <FilaTurnoDeHoy key={t.id} turno={t} ahora={ahora} conProfesional={conProfesional} />
                 ))}
               </tbody>
             </table>
@@ -246,7 +265,15 @@ function estadoDelItem(turno: ResumenTurnoItem, ahora: number): EstadoDeTurno {
   );
 }
 
-function FilaTurnoDeHoy({ turno, ahora }: { turno: ResumenTurnoItem; ahora: number | null }) {
+function FilaTurnoDeHoy({
+  turno,
+  ahora,
+  conProfesional,
+}: {
+  turno: ResumenTurnoItem;
+  ahora: number | null;
+  conProfesional: boolean;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [guardando, iniciar] = useTransition();
@@ -299,6 +326,11 @@ function FilaTurnoDeHoy({ turno, ahora }: { turno: ResumenTurnoItem; ahora: numb
             {turno.nombre}
           </Link>
         </td>
+        {conProfesional && (
+          <td className={`${CELDA} ${COL_PROFESIONAL}`}>
+            <span className="block truncate text-sm text-grafito/70">{turno.profesional ?? "—"}</span>
+          </td>
+        )}
         <td className={`${CELDA} ${COL_ESTADO}`}>
           {estado && (
             // Del tamaño del nombre y en su misma tipografía (pedido del
@@ -339,7 +371,7 @@ function FilaTurnoDeHoy({ turno, ahora }: { turno: ResumenTurnoItem; ahora: numb
           nada, y no hay forma de saber por qué. */}
       {error && (
         <tr className="border-b-[0.5px] border-arena/60">
-          <td colSpan={4} className="px-4 pb-3 text-xs text-terracota-oscuro">
+          <td colSpan={conProfesional ? 5 : 4} className="px-4 pb-3 text-xs text-terracota-oscuro">
             <span role="alert">{error}</span>
           </td>
         </tr>

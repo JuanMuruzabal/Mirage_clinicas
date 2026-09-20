@@ -90,6 +90,12 @@ func requireClinic(gdb *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Fase 3.2.6: la vista de profesional en la que está parada
+			// recepción se valida acá, junto con la membresía y por el
+			// mismo motivo — una elección vieja no puede sobrevivir a que
+			// cambien las condiciones. Ver validarFocoDeLaSesion.
+			validarFocoDeLaSesion(gdb, session, member)
+
 			// Una membresía activa sin ningún rol no debería existir, pero
 			// si existiera dejaría a la persona adentro del panel sin que
 			// ninguna regla de autorización pueda decidir nada sobre ella.
@@ -206,6 +212,41 @@ func membresiaDeLaSesion(gdb *gorm.DB, session *db.Session) (db.ClinicMember, bo
 		return db.ClinicMember{}, false
 	}
 	return masAntigua, true
+}
+
+// validarFocoDeLaSesion — el profesional en foco tiene que seguir siendo
+// un profesional ACTIVO de la clínica que esta sesión resolvió (Fase
+// 3.2.6).
+//
+// Se valida en cada request, igual que la membresía y por el mismo
+// motivo: la elección de mirar la agenda de alguien no puede sobrevivir
+// sola a que las condiciones cambien. Los tres casos reales:
+//
+//   - **Cambió de clínica.** El foco quedó apuntando a alguien de la
+//     clínica anterior. Sin esto la sesión pediría los turnos de un
+//     profesional que no trabaja acá: no es una fuga —el filtro por
+//     `clinic_id` sigue puesto— pero la pantalla quedaría vacía sin
+//     ninguna explicación.
+//   - **Lo quitaron del equipo.** La membresía pasa a `removed` y su
+//     agenda deja de ser de esta clínica.
+//   - **Le sacaron el rol de profesional.** Ya no tiene agenda que
+//     mirar.
+//
+// En los tres se cae a la VISTA GENERAL, que es el estado seguro de
+// recepción: ve la clínica entera, que es lo que su rol permite de
+// todos modos. No se escribe nada en la base — se ignora el valor y
+// listo; persistir la corrección obligaría a un UPDATE por request para
+// un caso que se resuelve solo la próxima vez que elija una vista.
+func validarFocoDeLaSesion(gdb *gorm.DB, session *db.Session, miembro db.ClinicMember) {
+	if session.ViendoUserID == nil {
+		return
+	}
+	var objetivo db.ClinicMember
+	err := gdb.Preload("Roles").Where("clinic_id = ? AND user_id = ? AND status = ?",
+		miembro.ClinicID, *session.ViendoUserID, db.ClinicMemberStatusActive).First(&objetivo).Error
+	if err != nil || !esProfesional(objetivo) {
+		session.ViendoUserID = nil
+	}
 }
 
 func sessionFromContext(r *http.Request) (*db.Session, bool) {

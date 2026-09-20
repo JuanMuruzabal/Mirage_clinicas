@@ -625,7 +625,7 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			// Quién la cargó — lo que hace que siga siendo visible para esa
 			// persona antes de que exista el primer turno (Fase 3.2.3, ver
 			// soloMisPacientes).
-			CreadoPorUserID: usuarioDeLaSesionOpcional(r),
+			CreadoPorUserID: profesionalEnFocoOpcional(r),
 			Nombre:          req.Nombre,
 			Apellido:        req.Apellido,
 			DNI:             req.DNI,

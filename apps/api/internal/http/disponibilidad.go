@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -89,6 +90,12 @@ func listDisponibilidadHandler(gdb *gorm.DB) http.HandlerFunc {
 		// Los huecos de quien pregunta, si atiende. Misma regla que para
 		// asignar un turno nuevo (ver profesionalQueAtiende).
 		profesionalID, err := profesionalQueAtiende(gdb, r, clinicID)
+		if errors.Is(err, errFaltaElegirProfesional) {
+			// No es una falla del servidor: recepción está en la vista
+			// general y hay que decirle de qué agenda se trata.
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el profesional de la clínica")
 			return

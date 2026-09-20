@@ -103,7 +103,7 @@ func crearEnlaceTurnoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc {
 		// Con dueño: el enlace es de quien lo genera, y es lo que decide a
 		// qué agenda entran los turnos que se saquen con él (Fase 3.2.5).
 		enlace := db.EnlaceTurno{
-			UserID:                    usuarioDeLaSesionOpcional(r),
+			UserID:                    profesionalEnFocoOpcional(r),
 			ClinicID:                  clinicID,
 			TokenHash:                 tokenHash,
 			ExpiraEn:                  expiraEn,

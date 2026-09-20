@@ -1,8 +1,8 @@
 "use server";
 
-import { apiEquipo, apiMe, apiMisClinicas } from "@/lib/api";
+import { apiEquipo, apiMe, apiMisClinicas, apiVistaActual, apiElegirVista } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
-import type { ClinicaDelUsuario, Equipo } from "@dental-mirage/shared-types";
+import type { ClinicaDelUsuario, Equipo, VistaActual } from "@dental-mirage/shared-types";
 
 export interface DatosDelTopbar {
   clinicas: ClinicaDelUsuario[];
@@ -11,6 +11,13 @@ export interface DatosDelTopbar {
    *  la lista: ese vale solo cuando alguien eligió una a mano. */
   nombreClinicaActual: string | null;
   equipo: Equipo | null;
+  /** Fase 3.2.6 — en qué vista de profesional está parada la sesión.
+   *  `null` para quien no es recepción (no tiene vistas ajenas) y para
+   *  recepción parada en la vista general de la clínica. */
+  vista: VistaActual | null;
+  /** Si esta sesión puede cambiar de vista. Lo decide el backend por el
+   *  rol; acá solo decide si el selector se dibuja. */
+  puedeCambiarDeVista: boolean;
 }
 
 // datosDelTopbarAction — lo que el topbar de /panel necesita: en qué
@@ -34,10 +41,11 @@ export async function datosDelTopbarAction(): Promise<DatosDelTopbar | null> {
 
   // En paralelo: son independientes y encadenarlas sumaría dos vueltas
   // completas a la API al pintado del panel.
-  const [meResult, clinicasResult, equipoResult] = await Promise.all([
+  const [meResult, clinicasResult, equipoResult, vistaResult] = await Promise.all([
     apiMe(token),
     apiMisClinicas(token),
     apiEquipo(token),
+    apiVistaActual(token),
   ]);
 
   const clinicaDeLaSesion = meResult.ok ? meResult.data.clinica : null;
@@ -47,9 +55,30 @@ export async function datosDelTopbarAction(): Promise<DatosDelTopbar | null> {
     activa: clinicaDeLaSesion ? clinica.id === clinicaDeLaSesion.id : clinica.activa,
   }));
 
+  // El rol manda: solo recepción tiene vistas ajenas que mirar. Para el
+  // resto el selector no existe, y el backend además responde 403 — esto
+  // es lo que se dibuja, no lo que se permite.
+  const esRecepcion = clinicaDeLaSesion?.roles?.includes("recepcion") ?? false;
+
   return {
     clinicas,
     nombreClinicaActual: clinicaDeLaSesion?.nombre ?? null,
     equipo: equipoResult.ok ? equipoResult.data : null,
+    vista: vistaResult.ok ? vistaResult.data : null,
+    puedeCambiarDeVista: esRecepcion,
   };
+}
+
+// elegirVistaAction — pararse en la vista de un profesional, o volver a
+// la general mandando el id vacío (Fase 3.2.6).
+//
+// El permiso lo decide el backend (403 si no es recepción): esconder el
+// selector nunca fue cerrar la puerta, misma lección que
+// /personalizar-pagina en la 3.2.4.
+export async function elegirVistaAction(userId: string): Promise<{ error?: string }> {
+  const token = await getSessionToken();
+  if (!token) return { error: "sesión vencida" };
+  const result = await apiElegirVista(token, userId);
+  if (!result.ok) return { error: result.error };
+  return {};
 }

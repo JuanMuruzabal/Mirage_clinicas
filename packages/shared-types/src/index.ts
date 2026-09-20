@@ -188,6 +188,13 @@ export interface PerfilDeColega {
   perfil?: PerfilProfesional;
 }
 
+/** Espejo de vistaActualResponse (internal/http/vista_recepcion.go).
+ *  En qué vista de profesional está parada la sesión de recepción, o
+ *  `null` en la vista general de la clínica (Fase 3.2.6). */
+export interface VistaActual {
+  profesional: { userId: string; nombre: string } | null;
+}
+
 export interface Equipo {
   miembros: MiembroDelEquipo[];
   pendientes: InvitacionPendiente[];
@@ -536,6 +543,11 @@ export interface ResumenTurnoItem {
    *  termine. La tarjeta lo usa para pintar el contorno del botón
    *  elegido. Ver `Turno.asistenciaPreliminar`. */
   asistenciaPreliminar?: "asistio" | "ausente" | "";
+  /** Quién atiende (Fase 3.2.6). Presente SOLO en la vista general de
+   *  recepción, que es la única donde los turnos son de varias personas:
+   *  en la vista de un profesional todos son suyos y repetir el nombre en
+   *  cada fila sería ruido. */
+  profesional?: string;
   /** Los instantes, además del texto "15:04" (2026-09-19). La tarjeta
    *  "Turnos de hoy" deriva del reloj si el turno está pendiente o en
    *  proceso, y abre los botones de asistencia 5 minutos antes de que

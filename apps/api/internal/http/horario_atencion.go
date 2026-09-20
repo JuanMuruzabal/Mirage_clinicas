@@ -156,7 +156,7 @@ func putHorarioAtencionGeneralHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		nuevo := db.HorarioAtencion{
 			ClinicID:  clinicID,
-			UserID:    usuarioDeLaSesionOpcional(r),
+			UserID:    profesionalEnFocoOpcional(r),
 			Alcance:   db.HorarioAtencionAlcanceGeneral,
 			HoraDesde: &req.HoraDesde,
 			HoraHasta: &req.HoraHasta,
@@ -264,7 +264,7 @@ func crearHorarioAtencionHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		horario.ClinicID = clinicID
-		horario.UserID = usuarioDeLaSesionOpcional(r)
+		horario.UserID = profesionalEnFocoOpcional(r)
 
 		if err := gdb.Create(&horario).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el horario de atención")

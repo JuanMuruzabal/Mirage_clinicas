@@ -276,7 +276,7 @@ func crearBloqueoHandler(gdb *gorm.DB) http.HandlerFunc {
 		bloqueo.ClinicID = clinicID
 		// Con dueño: el horario que reservo es MÍO. Sin esto la fila nace
 		// huérfana y la ve toda la clínica.
-		bloqueo.UserID = usuarioDeLaSesionOpcional(r)
+		bloqueo.UserID = profesionalEnFocoOpcional(r)
 
 		if err := gdb.Create(&bloqueo).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear la regla")

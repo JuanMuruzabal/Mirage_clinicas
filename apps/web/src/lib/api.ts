@@ -33,6 +33,7 @@ import type {
   PanelNotificacionesResponse,
   PerfilDeColega,
   PerfilProfesional,
+  VistaActual,
   ReenviarVerificacionPayload,
   RecuperarPasswordPayload,
   RegisterPayload,
@@ -706,6 +707,28 @@ export function apiSumarPacienteAMiLista(token: string, pacienteId: string): Pro
   return request<{ mensaje: string }>(`/pacientes/${pacienteId}/en-mi-lista`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// --- Fase 3.2.6: la vista del recepcionista ---
+//
+// `recepcion` es el único rol que puede pararse en la agenda de otro; el
+// backend lo impone con un 403, esto solo lo pide.
+
+export function apiVistaActual(token: string): Promise<ApiResult<VistaActual>> {
+  return request<VistaActual>("/me/vista", {
+    headers: { Authorization: `Bearer ${token}` },
+    // Nunca cacheada: es "dónde estoy parado ahora".
+    cache: "no-store",
+  });
+}
+
+// apiElegirVista — `userId` vacío vuelve a la vista general.
+export function apiElegirVista(token: string, userId: string): Promise<ApiResult<VistaActual>> {
+  return request<VistaActual>("/me/vista", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
   });
 }
 
