@@ -49,7 +49,6 @@ import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
 import { panelNotificacionesAction } from "@/app/actions/panel";
 import type { VistaActual } from "@dental-mirage/shared-types";
-import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface CalendarViewProps {
   tiposConsulta: TipoConsulta[];
@@ -176,7 +175,38 @@ export function CalendarView({
   );
   // Ver pacientes-table.tsx: sin esto, un turno editado o un conflicto
   // de calendario resuelto seguían pintados hasta refrescar a mano.
-  const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales);
+  // TURNOS: EL PROP DEL SERVIDOR ES UNA SEÑAL, NO EL DATO (QA de la
+  // 3.2.6, 2026-09-21).
+  //
+  // Acá estaba `useEstadoDelServidor`, y en esta pantalla hacía daño. Ese
+  // hook existe para el caso normal del panel —el servidor manda, el
+  // cliente refleja (TR-156)— pero el calendario es la excepción: pide
+  // SU propio rango de fechas, el que la persona está mirando, y el prop
+  // que baja el servidor describe siempre el rango INICIAL de la página.
+  //
+  // Con el hook, cualquier `revalidatePath("/panel/calendario")` —que
+  // dispara casi toda acción de turnos— pisaba lo que el cliente acababa
+  // de traer con la lista del rango de arranque. De ahí los dos síntomas
+  // reportados: el turno autoreservado que "no se asigna en tiempo real"
+  // (se movió a otro día y quedaba fuera de esa lista), y el horario
+  // reservado recién creado que mostraba la tarjeta gris pero no la de
+  // solapamiento (el turno con el que choca se había caído del estado, y
+  // sin turno no hay cluster que formar).
+  //
+  // La señal igual sirve, y hay que escucharla: `TurnoDetalle` edita y
+  // cancela sin avisarle a esta pantalla, confiando en la revalidación.
+  // Así que cuando el prop cambia de identidad no se copia su contenido
+  // — se vuelve a pedir EL RANGO VISIBLE, que es la pregunta correcta.
+  const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  const [ultimoDelServidor, setUltimoDelServidor] = useState(turnosIniciales);
+  const [versionServidor, setVersionServidor] = useState(0);
+  if (ultimoDelServidor !== turnosIniciales) {
+    setUltimoDelServidor(turnosIniciales);
+    // Sin `setCargando(true)`: lo que ya está en pantalla sigue siendo
+    // válido hasta que llegue lo nuevo, y un "Cargando…" en cada
+    // revalidación haría parpadear el calendario entero.
+    setVersionServidor((v) => v + 1);
+  }
   const [cargando, setCargando] = useState(false);
   const [cargandoConfig, setCargandoConfig] = useState(false);
   // Al cambiar de profesional, la pantalla entra en "Cargando…"
@@ -456,7 +486,11 @@ export function CalendarView({
     // `setTurnos` está en la lista por el lint: sale de
     // `useEstadoDelServidor`, que devuelve el setter de un `useState` y
     // por lo tanto es estable — sumarlo no cambia cuándo corre esto.
-  }, [fecha, vista, vistaKey, setTurnos]);
+    //
+    // `versionServidor`: una revalidación del servidor es la única
+    // noticia que tenemos de una edición hecha desde `TurnoDetalle`, que
+    // no avisa por callback. Ver el comentario del estado más arriba.
+  }, [fecha, vista, vistaKey, versionServidor]);
 
   function irA(nuevaFecha: Date, nuevaVista?: VistaCalendario) {
     setCargando(true);
@@ -569,14 +603,38 @@ export function CalendarView({
     return conColumna?.atendidoPorUserId ?? candidatos[0]?.userId ?? null;
   }
 
-  function cambiarDeFoco(userId: string) {
+  function cambiarDeFoco(userId: string, alTerminar?: () => void) {
     iniciarCambioDeFoco(async () => {
       await elegirVistaAction(userId);
       // Cambiar de foco cambia lo que el servidor devuelve para esta
       // pantalla, así que hay que volver a pedirla — el efecto de los
       // turnos se despierta solo cuando llega el `vistaKey` nuevo.
       router.refresh();
+      // `alTerminar` corre DESPUÉS de que el foco ya está escrito: lo usa
+      // "Ver regla", que abre la configuración y necesita que el modal
+      // lea el profesional nuevo, no el anterior.
+      alTerminar?.();
     });
+  }
+
+  // duenioDeLaRegla — de quién es el horario reservado (o la excepción de
+  // horario) que se está mirando.
+  //
+  // Hace falta para "Ver regla" desde la VISTA GENERAL (QA de la 3.2.6,
+  // 2026-09-21: *"los horarios reservados o las excepciones de horarios no
+  // llevan a la configuración de calendario del profesional correcto"*).
+  // Ahí la pantalla muestra las agendas de todos, así que abrir la
+  // configuración sin decir de quién es la regla caía en el profesional
+  // que estuviera en foco — o en ninguno — y la tabla no tenía esa fila.
+  function duenioDeLaRegla(reglaId: string): string | undefined {
+    const idExcepcion = idRealDeExcepcion(reglaId);
+    if (idExcepcion) {
+      return horariosAtencion.find((h) => h.id === idExcepcion)?.userId ?? undefined;
+    }
+    const bloqueo =
+      bloqueosEspecificas.find((b) => b.id === reglaId) ??
+      bloqueosGenerales.find((b) => b.id === reglaId);
+    return bloqueo?.userId ?? undefined;
   }
 
   function irAHoy() {
@@ -1291,14 +1349,26 @@ export function CalendarView({
             // reservado real: lleva la vista a la tabla de excepciones de
             // Configuración de calendario, no a la de horarios reservados.
             const idExcepcion = idRealDeExcepcion(reglaId);
-            if (idExcepcion) {
-              setHorarioAtencionAFocalizar(idExcepcion);
-            } else {
-              setReglaAFocalizar(reglaId);
+            const abrirConfig = () => {
+              if (idExcepcion) {
+                setHorarioAtencionAFocalizar(idExcepcion);
+              } else {
+                setReglaAFocalizar(reglaId);
+              }
+              setReglasSeleccionadas(null);
+              setTurnosEnConflictoSeleccionados([]);
+              setConfigAbierta(true);
+            };
+
+            // Desde la vista general la regla puede ser de cualquiera: hay
+            // que pararse en SU agenda antes de abrir la configuración, o
+            // la tabla no va a tener esa fila para resaltar.
+            const duenio = duenioDeLaRegla(reglaId);
+            if (duenio && duenio !== vistaKey) {
+              cambiarDeFoco(duenio, abrirConfig);
+              return;
             }
-            setReglasSeleccionadas(null);
-            setTurnosEnConflictoSeleccionados([]);
-            setConfigAbierta(true);
+            abrirConfig();
           }}
           onVerTurno={(turno) => {
             // Pasa las reglas del cluster actual a TurnoDetalle, para que

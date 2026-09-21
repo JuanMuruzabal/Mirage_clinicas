@@ -1178,4 +1178,64 @@ describe("CalendarView", () => {
       expect(await screen.findByText(/24 de diciembre de 2030/i)).toBeInTheDocument();
     });
   });
+
+  // QA de la 3.2.6 (2026-09-21): *"los turnos autoreservados no se asignan
+  // en tiempo real sino que al recargar o cambiar de vista y volver recién
+  // se ven"*, y su gemelo *"cuando se crea un horario reservado que se
+  // solapa solo se ve la tarjeta gris, no la de solapamiento"*.
+  //
+  // Los dos salían de lo mismo: el calendario tomaba el prop del servidor
+  // con `useEstadoDelServidor`, y cualquier `revalidatePath` pisaba lo que
+  // el cliente había traído para el rango que la persona está mirando con
+  // la lista del rango INICIAL de la página.
+  describe("los datos del servidor no pisan el rango visible", () => {
+    it("una revalidación vuelve a pedir el rango VISIBLE, no copia el prop", async () => {
+      const delServidor = [
+        {
+          id: "t-viejo",
+          estado: "agendado",
+          nombreContacto: "Del",
+          apellidoContacto: "Servidor",
+          horaInicio: new Date(2030, 5, 15, 9, 0).toISOString(),
+          horaFin: new Date(2030, 5, 15, 9, 30).toISOString(),
+        },
+      ] as never[];
+      const delRangoVisible = [
+        {
+          id: "t-nuevo",
+          estado: "agendado",
+          nombreContacto: "Del",
+          apellidoContacto: "Cliente",
+          horaInicio: new Date(2030, 5, 15, 11, 0).toISOString(),
+          horaFin: new Date(2030, 5, 15, 11, 30).toISOString(),
+        },
+      ] as never[];
+      listTurnosActionMock.mockResolvedValue(delRangoVisible);
+
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={delServidor}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+      expect(await screen.findByText(/Del Cliente/)).toBeInTheDocument();
+
+      listTurnosActionMock.mockClear();
+      // Una revalidación del servidor: mismo contenido, array nuevo.
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[...delServidor]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      // Vuelve a preguntar por el rango visible...
+      await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalled());
+      // ...y NO reemplaza lo que muestra con la lista del servidor.
+      expect(await screen.findByText(/Del Cliente/)).toBeInTheDocument();
+      expect(screen.queryByText(/Del Servidor/)).not.toBeInTheDocument();
+    });
+  });
 });
