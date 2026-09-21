@@ -60,13 +60,35 @@ describe("NotificacionesConflictoGlobal", () => {
     expect(screen.queryByRole("link", { name: /conflictos con los pacientes/ })).not.toBeInTheDocument();
   });
 
-  it("estando en /panel/calendario, NO repite el aviso de conflicto de calendario (esa pantalla ya tiene el suyo)", async () => {
+  // LA REGLA CAMBIÓ (QA de la 3.2.6, 2026-09-21). Antes este aviso se
+  // escondía en /panel/calendario porque esa pantalla tiene el suyo. Eso
+  // dejó de alcanzar cuando recepción pasó a ver los conflictos de TODA
+  // la clínica: el banner de adentro solo conoce lo que la vista actual
+  // tiene cargado —un día, un profesional—, así que un conflicto de otra
+  // agenda no aparecía en ninguna parte.
+  //
+  // El pedido fue explícito: *"cualquier vista de clínica y cualquier
+  // vista del calendario me tendría que llevar al conflicto, sin importar
+  // de qué profesional es"*.
+  it("en /panel/calendario TAMBIÉN avisa: el banner de esa pantalla solo ve la vista actual", async () => {
     usePathnameMock.mockReturnValue("/panel/calendario");
     panelNotificacionesActionMock.mockResolvedValue(notificaciones({ conflictosCalendario: 1 }));
     render(<NotificacionesConflictoGlobal />);
 
+    expect(
+      await screen.findByRole("link", { name: /turno en conflicto en el calendario/ }),
+    ).toBeInTheDocument();
+  });
+
+  // El de PACIENTES sigue escondiéndose en su propia pantalla: ahí la
+  // lista completa está a la vista, no hay nada que el aviso agregue.
+  it("el aviso de pacientes sí se sigue escondiendo en su propia pantalla", async () => {
+    usePathnameMock.mockReturnValue("/panel/pacientes");
+    panelNotificacionesActionMock.mockResolvedValue(notificaciones({ conflictosPacientes: 1 }));
+    render(<NotificacionesConflictoGlobal />);
+
     await waitFor(() => expect(panelNotificacionesActionMock).toHaveBeenCalled());
-    expect(screen.queryByRole("link", { name: /turno en conflicto en el calendario/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /conflictos con los pacientes/ })).not.toBeInTheDocument();
   });
 
   it("estando en /panel/pacientes, SÍ muestra el de calendario si corresponde (son avisos independientes)", async () => {

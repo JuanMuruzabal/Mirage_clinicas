@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -21,6 +22,20 @@ import (
 type panelNotificacionesResponse struct {
 	ConflictosPacientes  int64 `json:"conflictosPacientes"`
 	ConflictosCalendario int64 `json:"conflictosCalendario"`
+	// ConflictoCalendarioProfesionalID — de quién es la agenda del
+	// conflicto más próximo (QA de la 3.2.6, 2026-09-21).
+	//
+	// Recepción ve los conflictos de TODA la clínica desde cualquier
+	// vista, así que el aviso puede estar hablando de una agenda que no
+	// es la que tiene delante. Sin este dato, tocarlo la llevaría al
+	// calendario del profesional equivocado y el conflicto no estaría
+	// por ningún lado: *"cualquier vista de clínica y cualquier vista del
+	// calendario me tendría que llevar al conflicto, sin importar de qué
+	// profesional es"*.
+	//
+	// Vacío cuando no hay conflictos, o cuando quien pregunta es un
+	// profesional (ahí siempre es su propia agenda).
+	ConflictoCalendarioProfesionalID string `json:"conflictoCalendarioProfesionalId,omitempty"`
 }
 
 func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
@@ -44,71 +59,104 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		conflictosCalendario, err := contarTurnosEnConflictoConBloqueos(gdb, r, profesionalID)
+		conflictosCalendario, duenio, err := contarTurnosEnConflictoConBloqueos(gdb, r, profesionalID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, panelNotificacionesResponse{
+		respuesta := panelNotificacionesResponse{
 			ConflictosPacientes:  conflictosPacientes,
 			ConflictosCalendario: conflictosCalendario,
-		})
+		}
+		if duenio != nil {
+			respuesta.ConflictoCalendarioProfesionalID = duenio.String()
+		}
+		writeJSON(w, http.StatusOK, respuesta)
 	}
 }
 
 // contarTurnosEnConflictoConBloqueos — mismo criterio de "conflicto" que
 // segmentosParaVisualizar del lado del front (calendar-grid.tsx: un turno
-// VIGENTE que se superpone con un horario reservado vigente), pero acá
-// se necesita un número global, sin acotarse al rango de fechas que la
-// grilla tiene cargado en un momento dado — reusa bloqueosDelDia/
-// intervaloMinutos.solapaCon/horaAMinutos/minutosDesdeMedianoche
-// (disponibilidad.go, ya usados por calcularDisponibilidad) para no
-// triplicar la lógica de "cuándo aplica un bloqueo general/específico" en
-// un tercer lugar del código. TR-090: un conflicto cuyo turno ya pasó
-// deja de contar como activo — de ahí el filtro `hora_fin >= ahora`,
-// igual que el banner del calendario.
-// Recibe `r` además de la clínica desde la Fase 3.2.5: el conteo es de
-// LOS TURNOS PROPIOS contra LOS BLOQUEOS PROPIOS. Con los dos conjuntos
-// mezclados, la tarjeta de "General" avisaba de conflictos entre el turno
-// de uno y el horario reservado del otro — un conflicto que no existe, y
-// que además no se puede resolver desde ninguna de las dos pantallas.
-func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, r *http.Request, profesionalID uuid.UUID) (int64, error) {
+// VIGENTE que se superpone con un horario reservado vigente o con una
+// excepción de horario de atención), pero acá se necesita un número
+// global, sin acotarse al rango de fechas que la grilla tiene cargado en
+// un momento dado — reusa bloqueosDelDia/intervaloMinutos.solapaCon/
+// horaAMinutos/minutosDesdeMedianoche (disponibilidad.go, ya usados por
+// calcularDisponibilidad) para no triplicar la lógica de "cuándo aplica
+// un bloqueo general/específico" en un tercer lugar del código. TR-090:
+// un conflicto cuyo turno ya pasó deja de contar como activo — de ahí el
+// filtro `hora_fin >= ahora`, igual que el banner del calendario.
+//
+// DOS REGLAS QUE NO SON LA MISMA (QA de la 3.2.6, 2026-09-21). La ronda
+// anterior las confundió y rompió la segunda:
+//
+//   - AISLAMIENTO: cada turno se compara SOLO contra su propia agenda. El
+//     turno de uno contra el horario reservado de otro no es un
+//     conflicto, y contarlo avisaba de algo que no existe y que no se
+//     podía resolver desde ninguna pantalla.
+//   - VISIBILIDAD: recepción tiene que enterarse de CUALQUIER conflicto
+//     de la clínica, esté parada donde esté — *"el recepcionista tiene
+//     que estar al tanto de cualquier conflicto, sea la vista que sea"*.
+//     Acotar esto al profesional en foco escondía los conflictos reales
+//     de los demás.
+//
+// Devuelve además de quién es la agenda del conflicto más próximo, para
+// que el aviso pueda llevar hasta él.
+func contarTurnosEnConflictoConBloqueos(
+	gdb *gorm.DB, r *http.Request, clinicID uuid.UUID,
+) (int64, *uuid.UUID, error) {
 	ahora := clock.Now()
+
+	// Recepción: toda la clínica, con foco o sin foco. Cualquier otro
+	// rol: lo suyo, como siempre.
+	acotarAMiAgenda := func(tx *gorm.DB) *gorm.DB { return tx }
+	acotarAMisTurnos := acotarAMiAgenda
+	if !tieneAlgunRol(r, db.RoleRecepcion) {
+		acotarAMiAgenda = soloMiAgenda(r)
+		acotarAMisTurnos = soloMisTurnos(r)
+	}
+
 	var turnos []db.Turno
-	if err := gdb.Scopes(soloMisTurnos(r)).
-		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", profesionalID, ahora).
+	if err := gdb.Scopes(acotarAMisTurnos).
+		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", clinicID, ahora).
+		Order("hora_inicio").
 		Find(&turnos).Error; err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	if len(turnos) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	hoy := clock.Today()
 	var bloqueos []db.BloqueoHorario
-	if err := gdb.Scopes(soloMiAgenda(r)).Where(
+	if err := gdb.Scopes(acotarAMiAgenda).Where(
 		"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
-		profesionalID, hoy, hoy,
+		clinicID, hoy, hoy,
 	).Find(&bloqueos).Error; err != nil {
-		return 0, err
-	}
-	if len(bloqueos) == 0 {
-		return 0, nil
+		return 0, nil, err
 	}
 
-	// CADA AGENDA CONTRA SÍ MISMA (QA de la 3.2.6, 2026-09-20).
-	//
-	// Los scopes de arriba resuelven el caso de un profesional mirando lo
-	// suyo, pero en la VISTA GENERAL de recepción los dos son un no-op: ahí
-	// vuelven a quedar todos los turnos contra todos los horarios
-	// reservados, y el turno de uno contra el horario del otro se cuenta
-	// como conflicto. Es el mismo error que el comentario de arriba ya
-	// describía, entrando por la puerta que la 3.2.6 abrió.
-	//
-	// Los bloqueos sin dueño (`user_id` NULL, anteriores a la 3.2.1) valen
-	// para cualquiera: es el mismo criterio con el que los muestran los
-	// scopes.
+	// LAS EXCEPCIONES DE HORARIO TAMBIÉN CUENTAN (pedido de la QA: *"la
+	// tarjeta global también tendría que contar los conflictos por
+	// excepción de horario"*). El banner del calendario ya las miraba;
+	// este contador no, así que un turno encima de un "No trabajo en este
+	// período" se veía en el calendario y en ningún otro lado.
+	var excepciones []db.HorarioAtencion
+	if err := gdb.Scopes(acotarAMiAgenda).Where(
+		"clinic_id = ? AND alcance <> ? AND fecha_hasta >= ?",
+		clinicID, db.HorarioAtencionAlcanceGeneral, hoy,
+	).Find(&excepciones).Error; err != nil {
+		return 0, nil, err
+	}
+
+	if len(bloqueos) == 0 && len(excepciones) == 0 {
+		return 0, nil, nil
+	}
+
+	// CADA AGENDA CONTRA SÍ MISMA. Las filas sin dueño (`user_id` NULL,
+	// anteriores a la 3.2.1) valen para cualquiera: mismo criterio con el
+	// que las muestran los scopes.
 	generalesPorAgenda := map[uuid.UUID][]db.BloqueoHorario{}
 	especificasPorAgenda := map[uuid.UUID][]db.BloqueoHorario{}
 	var generalesDeTodos, especificasDeTodos []db.BloqueoHorario
@@ -128,33 +176,93 @@ func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, r *http.Request, profesion
 		}
 	}
 
+	excepcionesPorAgenda := map[uuid.UUID][]db.HorarioAtencion{}
+	var excepcionesDeTodos []db.HorarioAtencion
+	for _, h := range excepciones {
+		if h.UserID == nil {
+			excepcionesDeTodos = append(excepcionesDeTodos, h)
+			continue
+		}
+		excepcionesPorAgenda[*h.UserID] = append(excepcionesPorAgenda[*h.UserID], h)
+	}
+
 	var count int64
+	var primerDuenio *uuid.UUID
 	for _, t := range turnos {
 		if t.HoraInicio == nil || t.HoraFin == nil {
 			continue
 		}
-		// Copias y no `append` sobre los slices compartidos: appendear
+		// Copias y no `append` sobre los lotes compartidos: appendear
 		// sobre `generalesDeTodos` puede escribir en su array de respaldo
 		// y arrastrar lo de un turno al siguiente.
 		var generales, especificas []db.BloqueoHorario
 		generales = append(generales, generalesDeTodos...)
 		especificas = append(especificas, especificasDeTodos...)
+		misExcepciones := append([]db.HorarioAtencion{}, excepcionesDeTodos...)
 		if t.AtendidoPorUserID != nil {
 			generales = append(generales, generalesPorAgenda[*t.AtendidoPorUserID]...)
 			especificas = append(especificas, especificasPorAgenda[*t.AtendidoPorUserID]...)
+			misExcepciones = append(misExcepciones, excepcionesPorAgenda[*t.AtendidoPorUserID]...)
 		}
-		delDia := bloqueosDelDia(clock.In(*t.HoraInicio), generales, especificas)
-		if len(delDia) == 0 {
-			continue
-		}
-		intervaloTurno := intervaloMinutos{Desde: minutosDesdeMedianoche(*t.HoraInicio), Hasta: minutosDesdeMedianoche(*t.HoraFin)}
-		for _, b := range delDia {
-			intervaloBloqueo := intervaloMinutos{Desde: horaAMinutos(b.HoraDesde), Hasta: horaAMinutos(b.HoraHasta)}
-			if intervaloTurno.solapaCon(intervaloBloqueo) {
-				count++
-				break
+
+		if turnoChocaConSuAgenda(*t.HoraInicio, *t.HoraFin, generales, especificas, misExcepciones) {
+			count++
+			if primerDuenio == nil {
+				primerDuenio = t.AtendidoPorUserID
 			}
 		}
 	}
-	return count, nil
+	return count, primerDuenio, nil
+}
+
+// turnoChocaConSuAgenda — si este turno se superpone con algún horario
+// reservado o queda fuera del horario que deja una excepción de ese día.
+func turnoChocaConSuAgenda(
+	inicio, fin time.Time,
+	generales, especificas []db.BloqueoHorario,
+	excepciones []db.HorarioAtencion,
+) bool {
+	dia := clock.In(inicio)
+	intervaloTurno := intervaloMinutos{
+		Desde: minutosDesdeMedianoche(inicio),
+		Hasta: minutosDesdeMedianoche(fin),
+	}
+
+	for _, b := range bloqueosDelDia(dia, generales, especificas) {
+		intervaloBloqueo := intervaloMinutos{
+			Desde: horaAMinutos(b.HoraDesde),
+			Hasta: horaAMinutos(b.HoraHasta),
+		}
+		if intervaloTurno.solapaCon(intervaloBloqueo) {
+			return true
+		}
+	}
+
+	// Una excepción que cubre el día lo cierra entero (sin horas) o lo
+	// achica a [horaDesde, horaHasta] — mismo criterio que
+	// `cierresDeExcepciones` en calendar-grid.tsx. El turno choca si no
+	// entra completo en esa ventana.
+	fecha := dia.Format("2006-01-02")
+	for _, h := range excepciones {
+		if h.FechaDesde == nil || h.FechaHasta == nil {
+			continue
+		}
+		// `.Format` directo y NO `clock.In(...)`: `fecha_desde`/`fecha_hasta`
+		// son columnas DATE, que GORM trae como medianoche UTC. Pasarlas a
+		// Córdoba (UTC-3) las corre al día anterior, y la excepción dejaba
+		// de cubrir su propio día. Mismo criterio que `formatFechaPtr`, que
+		// es como se serializan estas fechas en toda la API.
+		if fecha < h.FechaDesde.Format("2006-01-02") ||
+			fecha > h.FechaHasta.Format("2006-01-02") {
+			continue
+		}
+		if h.HoraDesde == nil || h.HoraHasta == nil {
+			return true
+		}
+		abre, cierra := horaAMinutos(*h.HoraDesde), horaAMinutos(*h.HoraHasta)
+		if intervaloTurno.Desde < abre || intervaloTurno.Hasta > cierra {
+			return true
+		}
+	}
+	return false
 }

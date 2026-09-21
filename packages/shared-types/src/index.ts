@@ -627,6 +627,11 @@ export interface TurnosPendientesAsistenciaResponse {
 export interface PanelNotificacionesResponse {
   conflictosPacientes: number;
   conflictosCalendario: number;
+  /** De quién es la agenda del conflicto de calendario más próximo (Fase
+   *  3.2.6). Recepción ve los conflictos de toda la clínica desde
+   *  cualquier vista, así que el aviso tiene que poder llevarla a la
+   *  agenda correcta. Ausente para un profesional: siempre es la suya. */
+  conflictoCalendarioProfesionalId?: string;
 }
 
 // --- Sprint 3: turnos entrantes + pacientes + formulario público ---

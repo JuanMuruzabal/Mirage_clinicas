@@ -429,3 +429,148 @@ func conflictosConBloqueos(t *testing.T, router http.Handler, token string) int6
 	}
 	return int64(f)
 }
+
+// AISLAR NO ES ESCONDER — QA de la 3.2.6 (2026-09-21).
+//
+// La ronda anterior arregló el aislamiento (no cruzar agendas) pero de
+// paso acotó QUÉ conflictos ve recepción al profesional en foco, y eso
+// no era parte del pedido: *"el recepcionista tiene que estar al tanto de
+// cualquier conflicto, sea la vista que sea, como se hacía antes"*.
+
+func TestNotificaciones_RecepcionVeLosConflictosDeTodaLaClinica(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "conflictotodos")
+	titularID := userIDDelMail(t, gdb, "titular-conflictotodos@example.com")
+
+	// Un conflicto REAL del titular: su turno sobre su propio horario
+	// reservado.
+	inicio := horaVigenteDeHoy(t)
+	turno := crearTurnoAgendadoDePrueba(t, gdb, esc.titular.Profesional.ID, esc.tipoID, inicio)
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("atendido_por_user_id", titularID).Error; err != nil {
+		t.Fatalf("no se pudo asignar el turno: %v", err)
+	}
+	if code := elegirVista(t, router, esc.recepToken, titularID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	rec := doJSONAuth(t, router, http.MethodPost, "/bloqueos", esc.recepToken, crearBloqueoHorarioRequest{
+		Especifico: true,
+		Fecha:      clock.In(inicio).Format("2006-01-02"),
+		HoraDesde:  clock.In(inicio).Format("15:04"),
+		HoraHasta:  clock.In(inicio.Add(45 * time.Minute)).Format("15:04"),
+		Motivo:     "Reunión",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear bloqueo: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Ahora recepción se para en el COLEGA, que no tiene nada. El
+	// conflicto del titular tiene que seguir avisándose.
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n == 0 {
+		t.Error("parada en el colega, recepción no se entera del conflicto del titular")
+	}
+	// Y desde la vista general también.
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n == 0 {
+		t.Error("en la vista general recepción no se entera del conflicto del titular")
+	}
+
+	// Y el aviso dice DE QUIÉN es, para poder llevar hasta ahí.
+	if duenio := duenioDelConflicto(t, router, esc.recepToken); duenio != titularID.String() {
+		t.Errorf("conflictoCalendarioProfesionalId = %q, esperaba el titular (%s)", duenio, titularID)
+	}
+}
+
+// Un profesional sigue viendo SOLO lo suyo: el aislamiento de la 3.2.2 no
+// se relaja por hacer visible lo de recepción.
+func TestNotificaciones_UnProfesionalNoVeElConflictoDeUnColega(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "conflictoajeno")
+
+	inicio := horaVigenteDeHoy(t)
+	turno := crearTurnoAgendadoDePrueba(t, gdb, esc.titular.Profesional.ID, esc.tipoID, inicio)
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("atendido_por_user_id", esc.colegaID).Error; err != nil {
+		t.Fatalf("no se pudo asignar el turno: %v", err)
+	}
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if rec := doJSONAuth(t, router, http.MethodPost, "/bloqueos", esc.recepToken, crearBloqueoHorarioRequest{
+		Especifico: true,
+		Fecha:      clock.In(inicio).Format("2006-01-02"),
+		HoraDesde:  clock.In(inicio).Format("15:04"),
+		HoraHasta:  clock.In(inicio.Add(45 * time.Minute)).Format("15:04"),
+		Motivo:     "Reunión del colega",
+	}); rec.Code != http.StatusCreated {
+		t.Fatalf("crear bloqueo: status=%d", rec.Code)
+	}
+
+	if n := conflictosConBloqueos(t, router, esc.titular.Token); n != 0 {
+		t.Errorf("el titular cuenta %d conflictos que son del colega", n)
+	}
+}
+
+// TestNotificaciones_CuentaLasExcepcionesDeHorario — pedido de la QA: *"la
+// tarjeta global también tendría que contar los conflictos por excepción
+// de horario"*. El banner del calendario ya las miraba; este contador no,
+// así que un turno encima de un "No trabajo en este período" se veía en
+// el calendario y en ningún otro lado.
+func TestNotificaciones_CuentaLasExcepcionesDeHorario(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "conflictoexc")
+	titularID := userIDDelMail(t, gdb, "titular-conflictoexc@example.com")
+
+	inicio := horaVigenteDeHoy(t)
+	turno := crearTurnoAgendadoDePrueba(t, gdb, esc.titular.Profesional.ID, esc.tipoID, inicio)
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("atendido_por_user_id", titularID).Error; err != nil {
+		t.Fatalf("no se pudo asignar el turno: %v", err)
+	}
+
+	// Una excepción del TITULAR que cierra el día entero.
+	fecha := clock.In(inicio).Format("2006-01-02")
+	if code := elegirVista(t, router, esc.recepToken, titularID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	rec := doJSONAuth(t, router, http.MethodPost, "/horario-atencion", esc.recepToken, crearHorarioAtencionRequest{
+		Alcance: "rango", FechaDesde: fecha, FechaHasta: fecha, NoTrabaja: true,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear excepción: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n == 0 {
+		t.Error("no cuenta el turno que cae dentro de una excepción de horario")
+	}
+
+	// Y sigue sin cruzarse: la excepción es del titular, no del colega.
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("atendido_por_user_id", esc.colegaID).Error; err != nil {
+		t.Fatalf("no se pudo mudar el turno: %v", err)
+	}
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n != 0 {
+		t.Errorf("cuenta %d: el turno del colega no cae en la excepción del titular", n)
+	}
+}
+
+func duenioDelConflicto(t *testing.T, router http.Handler, token string) string {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/notificaciones", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /panel/notificaciones: status=%d", rec.Code)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta ilegible: %v", err)
+	}
+	s, _ := out["conflictoCalendarioProfesionalId"].(string)
+	return s
+}

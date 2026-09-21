@@ -177,6 +177,7 @@ export function CalendarView({
   // de calendario resuelto seguían pintados hasta refrescar a mano.
   const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales);
   const [cargando, setCargando] = useState(false);
+  const [cargandoConfig, setCargandoConfig] = useState(false);
   // Al cambiar de profesional, la pantalla entra en "Cargando…"
   // hasta que llega la tanda nueva. Sin esto se vería, por un
   // instante, el rango por defecto que trajo el `router.refresh()`
@@ -184,10 +185,18 @@ export function CalendarView({
   // correctos de un rango equivocado, que es peor que un spinner.
   // Mismo patrón de "ajustar estado cuando cambia una prop" que usa
   // el resto del proyecto.
+  //
+  // Y LA CONFIGURACIÓN TAMBIÉN CUENTA COMO "CARGANDO" (QA de la 3.2.6,
+  // 2026-09-21). `cargando` seguía solo a los turnos, así que al cambiar
+  // de profesional la grilla volvía a dibujarse en cuanto llegaban los
+  // turnos NUEVOS, todavía con los horarios reservados VIEJOS: por unos
+  // segundos aparecía la tarjeta de conflicto del profesional anterior.
+  // Son dos pedidos independientes y hay que esperar a los dos.
   const [ultimaVista, setUltimaVista] = useState(vistaKey);
   if (ultimaVista !== vistaKey) {
     setUltimaVista(vistaKey);
     setCargando(true);
+    setCargandoConfig(true);
   }
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -281,15 +290,36 @@ export function CalendarView({
   // se vuelve a llamar (ej. al cerrar Configuración de calendario).
   const focoBloqueoInicialHecho = useRef(false);
 
+  // LA RESPUESTA VIEJA NO PISA A LA NUEVA (QA de la 3.2.6, 2026-09-21).
+  //
+  // Reportado así: *"veo la tarjeta de conflicto, cambio a otro
+  // profesional y me muestra por unos segundos la del profesional
+  // anterior; al volver, la tarjeta desaparece y tengo que ir a otra
+  // vista para arreglarlo"*.
+  //
+  // Esta función se dispara al montar, al cambiar de profesional y al
+  // cerrar la configuración, y no tenía forma de cancelarse: dos pedidos
+  // en vuelo terminaban en el orden en que contestara el servidor, no en
+  // el que se pidieron. El que llegaba último ganaba, aunque fuera el
+  // viejo — de ahí el parpadeo, y de ahí que al volver quedara pegada la
+  // respuesta equivocada hasta que otra navegación la refrescara.
+  //
+  // Un contador y no un booleano: hay que poder descartar CUALQUIER
+  // respuesta anterior, no solo la inmediatamente previa.
+  const cargaConfigRef = useRef(0);
+
   function cargarConfigCalendario() {
+    const miCarga = ++cargaConfigRef.current;
     Promise.all([
       listBloqueosAction(false),
       listBloqueosAction(true),
       listHorarioAtencionAction(),
     ]).then(([generales, especificas, horarios]) => {
+      if (miCarga !== cargaConfigRef.current) return;
       setBloqueosGenerales(generales);
       setBloqueosEspecificas(especificas);
       setHorariosAtencion(horarios);
+      setCargandoConfig(false);
       // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
       // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
       // Horarios reservados], también llevarme a la tarjeta de ese
@@ -558,6 +588,7 @@ export function CalendarView({
   }
 
   const dias = diasDeVista(fecha, vista);
+  const esperando = cargando || cargandoConfig;
 
   // UNA COLUMNA POR PROFESIONAL, y solo en vista Día (Fase 3.2.6).
   //
@@ -1065,8 +1096,11 @@ export function CalendarView({
           className="relative h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
-          {!cargando && vista === "mes" && (
+          {/* `esperando`: los turnos Y la configuración. Con solo los
+              turnos, la grilla se redibujaba con los horarios reservados
+              del profesional anterior todavía en memoria. */}
+          {esperando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
+          {!esperando && vista === "mes" && (
             <CalendarMonthGrid
               dias={dias}
               mesReferencia={fecha}
@@ -1075,7 +1109,7 @@ export function CalendarView({
               onDiaClick={(dia) => irA(dia, "dia")}
             />
           )}
-          {!cargando && vista !== "mes" && (
+          {!esperando && vista !== "mes" && (
             <CalendarGrid
               columnas={columnas}
               turnos={turnos}
