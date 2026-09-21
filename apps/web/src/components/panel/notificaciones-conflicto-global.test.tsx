@@ -60,24 +60,40 @@ describe("NotificacionesConflictoGlobal", () => {
     expect(screen.queryByRole("link", { name: /conflictos con los pacientes/ })).not.toBeInTheDocument();
   });
 
-  // LA REGLA CAMBIÓ (QA de la 3.2.6, 2026-09-21). Antes este aviso se
-  // escondía en /panel/calendario porque esa pantalla tiene el suyo. Eso
-  // dejó de alcanzar cuando recepción pasó a ver los conflictos de TODA
-  // la clínica: el banner de adentro solo conoce lo que la vista actual
-  // tiene cargado —un día, un profesional—, así que un conflicto de otra
-  // agenda no aparecía en ninguna parte.
+  // FUERA DEL CALENDARIO Y NADA MÁS (QA de la 3.2.6, 2026-09-21).
   //
-  // El pedido fue explícito: *"cualquier vista de clínica y cualquier
-  // vista del calendario me tendría que llevar al conflicto, sin importar
-  // de qué profesional es"*.
-  it("en /panel/calendario TAMBIÉN avisa: el banner de esa pantalla solo ve la vista actual", async () => {
+  // Probé mostrarlo también adentro, para que recepción no se perdiera un
+  // conflicto de otra agenda, y el cliente lo rechazó: *"siempre esta
+  // debe aparecer afuera del calendario, no adentro, ya que 2
+  // notificaciones lo hace confuso"*.
+  //
+  // El reparto quedó así: este avisa desde afuera y LLEVA al calendario,
+  // ubicándolo en el día del conflicto; una vez adentro, el banner propio
+  // del calendario —que desde esta misma ronda tampoco desaparece al
+  // cambiar de día— es el que abre la pantalla de resolución.
+  it("estando en /panel/calendario NO repite el aviso: esa pantalla tiene el suyo", async () => {
     usePathnameMock.mockReturnValue("/panel/calendario");
     panelNotificacionesActionMock.mockResolvedValue(notificaciones({ conflictosCalendario: 1 }));
     render(<NotificacionesConflictoGlobal />);
 
+    await waitFor(() => expect(panelNotificacionesActionMock).toHaveBeenCalled());
     expect(
-      await screen.findByRole("link", { name: /turno en conflicto en el calendario/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole("link", { name: /turno en conflicto en el calendario/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  // Y cuando avisa, lleva al DÍA del conflicto: sin la fecha, quien lo
+  // toca aterriza en hoy y tiene que salir a buscarlo.
+  it("el aviso lleva al día del conflicto", async () => {
+    usePathnameMock.mockReturnValue("/panel");
+    panelNotificacionesActionMock.mockResolvedValue({
+      ...notificaciones({ conflictosCalendario: 1 }),
+      conflictoCalendarioFecha: "2030-12-24",
+    });
+    render(<NotificacionesConflictoGlobal />);
+
+    const link = await screen.findByRole("link", { name: /turno en conflicto en el calendario/ });
+    expect(link).toHaveAttribute("href", "/panel/calendario?vista=dia&fecha=2030-12-24");
   });
 
   // El de PACIENTES sigue escondiéndose en su propia pantalla: ahí la

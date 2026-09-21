@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { PanelNotificacionesResponse } from "@dental-mirage/shared-types";
 
 const {
   listTurnosActionMock,
@@ -82,6 +83,19 @@ vi.mock("@/app/actions/calendario-config", () => ({
   crearBloqueoAction: crearBloqueoActionMock,
   editarBloqueoAction: editarBloqueoActionMock,
   eliminarBloqueoAction: vi.fn(),
+}));
+
+// El banner de conflictos del calendario pide el conteo al servidor
+// desde la QA de la 3.2.6: ya no sale de lo que la vista tiene cargado,
+// porque así desaparecía al cambiar de día.
+const panelNotificacionesActionMock = vi.fn(
+  async (): Promise<PanelNotificacionesResponse | null> => ({
+    conflictosPacientes: 0,
+    conflictosCalendario: 0,
+  }),
+);
+vi.mock("@/app/actions/panel", () => ({
+  panelNotificacionesAction: () => panelNotificacionesActionMock(),
 }));
 
 const { CalendarView } = await import("./calendar-view");
@@ -1057,6 +1071,79 @@ describe("CalendarView", () => {
       expect(
         screen.queryByLabelText("Elegir de quién es la vista"),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // QA de la 3.2.6 (2026-09-21): *"si yo me voy a otro día, o semana que
+  // no muestre ese día, la notificación de abajo del selector del
+  // calendario desaparece; es ese el que no debe desaparecer"*.
+  //
+  // El número salía de los clusters calculados sobre lo que la vista
+  // tiene CARGADO, así que un conflicto de otro día dejaba de existir
+  // apenas mirabas otra fecha — justo cuando hace falta que avise.
+  describe("el aviso de conflicto del calendario", () => {
+    it("sigue avisando aunque el conflicto no esté en la vista actual", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      // La vista está en junio y el conflicto es en diciembre: sin el
+      // conteo del servidor, acá no habría ningún aviso.
+      expect(
+        await screen.findByText(/en conflictos, toca para ver/),
+      ).toBeInTheDocument();
+    });
+
+    it("sin conflictos no avisa nada", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 0,
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(panelNotificacionesActionMock).toHaveBeenCalled(),
+      );
+      expect(
+        screen.queryByText(/en conflictos, toca para ver/),
+      ).not.toBeInTheDocument();
+    });
+
+    // *"Me tendría que llevar a ese día y abrir la pantalla de resolución
+    // de conflicto"*.
+    it("al tocarlo viaja al día del conflicto", async () => {
+      const user = userEvent.setup();
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await user.click(await screen.findByText(/en conflictos, toca para ver/));
+
+      expect(await screen.findByText(/24 de diciembre de 2030/i)).toBeInTheDocument();
     });
   });
 });

@@ -130,17 +130,21 @@ export function NotificacionesConflictoGlobal() {
   }, [pathname]);
 
   const mostrarPacientes = notificaciones.conflictosPacientes > 0 && !pathname.startsWith("/panel/pacientes");
-  // EL AVISO DEL CALENDARIO SE MUESTRA TAMBIÉN EN EL CALENDARIO (QA de
-  // la 3.2.6, 2026-09-21).
+  // FUERA DEL CALENDARIO Y NADA MÁS (QA de la 3.2.6, 2026-09-21).
   //
-  // Se escondía ahí porque el calendario tiene su propio banner. Eso deja
-  // de alcanzar desde que recepción ve los conflictos de TODA la clínica:
-  // el banner de adentro solo conoce lo que la vista actual tiene
-  // cargado —un día, un profesional—, así que un conflicto de otra agenda
-  // no aparecía en ninguna parte. El pedido fue explícito: *"cualquier
-  // vista de clínica y cualquier vista del calendario me tendría que
-  // llevar al conflicto, sin importar de qué profesional es"*.
-  const mostrarCalendario = notificaciones.conflictosCalendario > 0;
+  // Probé mostrarlo también adentro para que recepción no se perdiera un
+  // conflicto de otra agenda, y el cliente lo rechazó: *"siempre esta
+  // debe aparecer afuera del calendario, no adentro, ya que 2
+  // notificaciones lo hace confuso"*. Tiene razón — son dos avisos de lo
+  // mismo en la misma pantalla.
+  //
+  // El reparto quedó así: este avisa desde afuera y LLEVA al calendario,
+  // ubicándolo en el día del conflicto y en la agenda de su dueño; una
+  // vez adentro, el banner propio del calendario es el que abre la
+  // pantalla de resolución.
+  const mostrarCalendario =
+    notificaciones.conflictosCalendario > 0 &&
+    !pathname.startsWith("/panel/calendario");
 
   if (!mostrarPacientes && !mostrarCalendario) return null;
 
@@ -171,7 +175,11 @@ export function NotificacionesConflictoGlobal() {
           // profesional (siempre es la suya) y ahí se comporta como el
           // link de siempre.
           <LinkConVista
-            href="/panel/calendario"
+            href={
+              notificaciones.conflictoCalendarioFecha
+                ? `/panel/calendario?vista=dia&fecha=${notificaciones.conflictoCalendarioFecha}`
+                : "/panel/calendario"
+            }
             userId={notificaciones.conflictoCalendarioProfesionalId}
             className="flex items-center justify-between gap-3 rounded-card border-[0.5px] border-terracota bg-terracota/10 px-4 py-3 text-left text-sm font-medium text-terracota-oscuro hover:bg-terracota/15"
           >

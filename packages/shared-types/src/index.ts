@@ -632,6 +632,10 @@ export interface PanelNotificacionesResponse {
    *  cualquier vista, así que el aviso tiene que poder llevarla a la
    *  agenda correcta. Ausente para un profesional: siempre es la suya. */
   conflictoCalendarioProfesionalId?: string;
+  /** El día del conflicto más próximo (YYYY-MM-DD, Córdoba). Con esto el
+   *  aviso ubica el calendario donde está el problema en vez de dejar a
+   *  la persona buscándolo. */
+  conflictoCalendarioFecha?: string;
 }
 
 // --- Sprint 3: turnos entrantes + pacientes + formulario público ---

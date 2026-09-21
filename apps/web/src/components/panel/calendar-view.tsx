@@ -47,6 +47,7 @@ import { ReservarHorarioModal } from "./reservar-horario-modal";
 import { IconSettings } from "@/components/icons";
 import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
+import { panelNotificacionesAction } from "@/app/actions/panel";
 import type { VistaActual } from "@dental-mirage/shared-types";
 import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
@@ -307,6 +308,10 @@ export function CalendarView({
   // Un contador y no un booleano: hay que poder descartar CUALQUIER
   // respuesta anterior, no solo la inmediatamente previa.
   const cargaConfigRef = useRef(0);
+  // Pendiente de abrir apenas lleguen los datos del día al que estamos
+  // viajando (ver `abrirConflictoMasProximo`). Un ref y no estado: no se
+  // dibuja, solo se consulta.
+  const conflictoPendienteRef = useRef(false);
 
   function cargarConfigCalendario() {
     const miCarga = ++cargaConfigRef.current;
@@ -320,6 +325,9 @@ export function CalendarView({
       setBloqueosEspecificas(especificas);
       setHorariosAtencion(horarios);
       setCargandoConfig(false);
+      // Agregar o borrar un horario reservado puede crear o resolver un
+      // conflicto, y el número de arriba sale del servidor.
+      releerConflictos();
       // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
       // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
       // Horarios reservados], también llevarme a la tarjeta de ese
@@ -697,10 +705,74 @@ export function CalendarView({
       turnosActivos: seg.turnos.filter((t) => !turnoResuelto(t)),
     }))
     .filter((seg) => seg.turnosActivos.length > 0);
-  const totalTurnosEnConflicto = segmentosConConflicto.reduce(
+  const turnosEnConflictoALaVista = segmentosConConflicto.reduce(
     (acc, seg) => acc + seg.turnosActivos.length,
     0,
   );
+
+  // EL AVISO NO DESAPARECE AL CAMBIAR DE DÍA (QA de la 3.2.6,
+  // 2026-09-21).
+  //
+  // Reportado así: *"si yo me voy a otro día, o semana que no muestre ese
+  // día, la notificación de abajo del selector del calendario desaparece;
+  // es ese el que no debe desaparecer"*.
+  //
+  // El número salía de `segmentosConConflicto`, que se calcula sobre lo
+  // que la vista tiene CARGADO — un día en Día, una semana en Semana. Un
+  // conflicto del martes dejaba de existir apenas mirabas el miércoles,
+  // que es justo cuando hace falta que avise.
+  //
+  // Ahora el conteo viene del backend, que mira la clínica entera sin
+  // tope de fechas (`contarTurnosEnConflictoConBloqueos`), y trae además
+  // el día y el dueño del más próximo para poder llevar hasta él.
+  const [conflictosGlobales, setConflictosGlobales] = useState<{
+    total: number;
+    fecha?: string;
+    profesionalUserId?: string;
+  }>({ total: 0 });
+
+  function releerConflictos() {
+    panelNotificacionesAction().then((n) => {
+      if (!n) return;
+      setConflictosGlobales({
+        total: n.conflictosCalendario,
+        fecha: n.conflictoCalendarioFecha,
+        profesionalUserId: n.conflictoCalendarioProfesionalId,
+      });
+    });
+  }
+
+  // Al montar, al cambiar de profesional, y cada vez que se toca algo que
+  // puede crear o resolver un conflicto (ver `cargarConfigCalendario`).
+  useEffect(() => {
+    releerConflictos();
+  }, [vistaKey]);
+
+  const totalTurnosEnConflicto = Math.max(
+    conflictosGlobales.total,
+    turnosEnConflictoALaVista,
+  );
+
+  // Llegamos al día del conflicto: se abre la pantalla de resolución.
+  //
+  // DURANTE EL RENDER y no en un `useEffect`: es el mismo patrón de
+  // "ajustar estado cuando cambia lo que se está mirando" que usa
+  // `ultimaVista` más arriba y `useEstadoDelServidor` en el resto del
+  // panel. Con un efecto, el lint del proyecto lo rechaza
+  // (`react-hooks/set-state-in-effect`) y además quedaría un frame con el
+  // calendario ya en el día correcto y el modal todavía sin abrir.
+  //
+  // El ref es la guarda: sin él, cada render volvería a abrirlo.
+  if (
+    conflictoPendienteRef.current &&
+    !esperando &&
+    segmentosConConflicto.length > 0
+  ) {
+    conflictoPendienteRef.current = false;
+    const seg = segmentosConConflicto[0];
+    setReglasSeleccionadas(seg.reglas);
+    setTurnosEnConflictoSeleccionados(seg.turnos);
+  }
 
   // Al tocar el banner, abre el "Ver eventos" del conflicto MÁS PRÓXIMO en
   // el tiempo — pedido textual: "al tocar toca para ver abrirá el ver
@@ -715,11 +787,34 @@ export function CalendarView({
         })),
       )
       .sort((a, b) => a.horaInicio - b.horaInicio);
-    if (candidatos.length === 0) return;
-    const { seg } = candidatos[0];
-    setReglasSeleccionadas(seg.reglas);
-    setTurnosEnConflictoSeleccionados(seg.turnos);
+
+    if (candidatos.length > 0) {
+      const { seg } = candidatos[0];
+      setReglasSeleccionadas(seg.reglas);
+      setTurnosEnConflictoSeleccionados(seg.turnos);
+      return;
+    }
+
+    // NO ESTÁ A LA VISTA: hay que ir hasta él. *"Si estoy por fuera de la
+    // vista de conflicto de ese día, me tendría que llevar a ese día y
+    // abrir la pantalla de resolución de conflicto"*.
+    const { fecha: fechaConflicto, profesionalUserId } = conflictosGlobales;
+    if (!fechaConflicto) return;
+
+    conflictoPendienteRef.current = true;
+    setCargando(true);
+    setCargandoConfig(true);
+    setFecha(parseFechaISOLocal(fechaConflicto));
+    setVista("dia");
+
+    // Si es de otra agenda, primero hay que pararse ahí: el calendario de
+    // este profesional no tiene ese conflicto ni puede resolverlo.
+    if (profesionalUserId && profesionalUserId !== vistaKey) {
+      cambiarDeFoco(profesionalUserId);
+    }
   }
+
+
 
   // Resuelve el scroll pendiente de "Hoy"/toggle "Semana" (ver
   // `cambiarVista`/`irAHoy` de arriba). No puede dispararse en el mismo

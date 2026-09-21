@@ -36,6 +36,15 @@ type panelNotificacionesResponse struct {
 	// Vacío cuando no hay conflictos, o cuando quien pregunta es un
 	// profesional (ahí siempre es su propia agenda).
 	ConflictoCalendarioProfesionalID string `json:"conflictoCalendarioProfesionalId,omitempty"`
+	// ConflictoCalendarioFecha — el día del conflicto más próximo
+	// (YYYY-MM-DD, Córdoba).
+	//
+	// Sin la fecha, el aviso solo sabe decir "hay un conflicto": quien lo
+	// toca aterriza en el día de hoy y tiene que salir a buscarlo. Con
+	// ella, el calendario se ubica en el día correcto y abre la pantalla
+	// de resolución, que es lo que se pidió — *"me tendría que llevar a
+	// ese día y abrir la pantalla de resolución de conflicto"*.
+	ConflictoCalendarioFecha string `json:"conflictoCalendarioFecha,omitempty"`
 }
 
 func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
@@ -59,7 +68,7 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		conflictosCalendario, duenio, err := contarTurnosEnConflictoConBloqueos(gdb, r, profesionalID)
+		conflictosCalendario, duenio, fechaConflicto, err := contarTurnosEnConflictoConBloqueos(gdb, r, profesionalID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudieron calcular las notificaciones")
 			return
@@ -71,6 +80,9 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		if duenio != nil {
 			respuesta.ConflictoCalendarioProfesionalID = duenio.String()
+		}
+		if fechaConflicto != nil {
+			respuesta.ConflictoCalendarioFecha = clock.In(*fechaConflicto).Format("2006-01-02")
 		}
 		writeJSON(w, http.StatusOK, respuesta)
 	}
@@ -105,7 +117,7 @@ func panelNotificacionesHandler(gdb *gorm.DB) http.HandlerFunc {
 // que el aviso pueda llevar hasta él.
 func contarTurnosEnConflictoConBloqueos(
 	gdb *gorm.DB, r *http.Request, clinicID uuid.UUID,
-) (int64, *uuid.UUID, error) {
+) (int64, *uuid.UUID, *time.Time, error) {
 	ahora := clock.Now()
 
 	// Recepción: toda la clínica, con foco o sin foco. Cualquier otro
@@ -122,10 +134,10 @@ func contarTurnosEnConflictoConBloqueos(
 		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", clinicID, ahora).
 		Order("hora_inicio").
 		Find(&turnos).Error; err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	if len(turnos) == 0 {
-		return 0, nil, nil
+		return 0, nil, nil, nil
 	}
 
 	hoy := clock.Today()
@@ -134,7 +146,7 @@ func contarTurnosEnConflictoConBloqueos(
 		"clinic_id = ? AND ((especifico = true AND fecha >= ?) OR (especifico = false AND (fecha_hasta IS NULL OR fecha_hasta >= ?)))",
 		clinicID, hoy, hoy,
 	).Find(&bloqueos).Error; err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 
 	// LAS EXCEPCIONES DE HORARIO TAMBIÉN CUENTAN (pedido de la QA: *"la
@@ -147,11 +159,11 @@ func contarTurnosEnConflictoConBloqueos(
 		"clinic_id = ? AND alcance <> ? AND fecha_hasta >= ?",
 		clinicID, db.HorarioAtencionAlcanceGeneral, hoy,
 	).Find(&excepciones).Error; err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 
 	if len(bloqueos) == 0 && len(excepciones) == 0 {
-		return 0, nil, nil
+		return 0, nil, nil, nil
 	}
 
 	// CADA AGENDA CONTRA SÍ MISMA. Las filas sin dueño (`user_id` NULL,
@@ -188,6 +200,7 @@ func contarTurnosEnConflictoConBloqueos(
 
 	var count int64
 	var primerDuenio *uuid.UUID
+	var primeraFecha *time.Time
 	for _, t := range turnos {
 		if t.HoraInicio == nil || t.HoraFin == nil {
 			continue
@@ -207,12 +220,16 @@ func contarTurnosEnConflictoConBloqueos(
 
 		if turnoChocaConSuAgenda(*t.HoraInicio, *t.HoraFin, generales, especificas, misExcepciones) {
 			count++
-			if primerDuenio == nil {
+			// El PRIMERO en el tiempo: los turnos vienen ordenados por
+			// `hora_inicio`, así que el primero que choca es el más
+			// próximo — que es a dónde tiene que llevar el aviso.
+			if primeraFecha == nil {
 				primerDuenio = t.AtendidoPorUserID
+				primeraFecha = t.HoraInicio
 			}
 		}
 	}
-	return count, primerDuenio, nil
+	return count, primerDuenio, primeraFecha, nil
 }
 
 // turnoChocaConSuAgenda — si este turno se superpone con algún horario
