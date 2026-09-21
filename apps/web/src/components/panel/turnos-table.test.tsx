@@ -383,6 +383,47 @@ describe("TurnosTable", () => {
     expect(await screen.findByRole("dialog", { name: "Editar turno" })).toBeInTheDocument();
   });
 
+  // QA de la 3.2.6 (2026-09-21): *"falta en la tabla de turnos en mobile
+  // el dato del profesional en la vista de toda la clínica, tendría que
+  // verse cuando se despliega la fila"*.
+  //
+  // La columna propia es `max-md:hidden`, así que en mobile el único
+  // lugar donde puede verse es el panel desplegado — y sin eso, en una
+  // lista que mezcla las agendas de varias personas la fila no decía de
+  // quién era el turno por ningún lado.
+  describe("el profesional en el panel desplegado (vista de toda la clínica)", () => {
+    const deLaClinica = { ...turnoAgendado, atendidoPorNombre: "Lucía Gómez" };
+
+    it("al desplegar la fila, dice de quién es el turno", () => {
+      render(
+        <TurnosTable
+          turnosIniciales={[deLaClinica]}
+          tiposConsulta={tiposConsulta}
+          filtros={{}}
+          abrirId="agen-1"
+        />,
+      );
+      const panel = screen.getByRole("button", { name: "Editar" }).closest("tr")!;
+      expect(within(panel).getByText("Profesional")).toBeInTheDocument();
+      expect(within(panel).getAllByText("Lucía Gómez").length).toBeGreaterThan(0);
+    });
+
+    // En la vista de UN profesional todos los turnos son suyos: el
+    // backend no manda el nombre, y repetirlo en cada fila sería ruido.
+    it("en la vista de un profesional no aparece", () => {
+      render(
+        <TurnosTable
+          turnosIniciales={[turnoAgendado]}
+          tiposConsulta={tiposConsulta}
+          filtros={{}}
+          abrirId="agen-1"
+        />,
+      );
+      const panel = screen.getByRole("button", { name: "Editar" }).closest("tr")!;
+      expect(within(panel).queryByText("Profesional")).not.toBeInTheDocument();
+    });
+  });
+
   it("con abrirId, la fila correspondiente arranca desplegada (deep-link desde 'Ver turno')", () => {
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} abrirId="agen-1" />);
     expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();

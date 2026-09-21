@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { conPaletaPrecargada } from "@/lib/paleta-recepcion";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import {
@@ -172,7 +173,15 @@ export default async function TurnosPage({
         ])
       : [null, null, 0, 0, 0, 0];
 
-  const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
+  // LA PALETA DE RECEPCIÓN en la vista de toda la clínica (QA de la
+  // 3.2.6, 2026-09-21) — mismo criterio que el calendario: el color no
+  // puede salir del dueño de cada tipo, porque son paletas que nadie
+  // coordinó entre sí. Ver `lib/paleta-recepcion.ts`.
+  const enVistaGeneral = esRecepcion && vista?.profesional == null;
+  const tiposDelServidor = tiposResult?.ok ? tiposResult.data : [];
+  const tiposConsulta = enVistaGeneral
+    ? conPaletaPrecargada(tiposDelServidor)
+    : tiposDelServidor;
   const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];
   const totalTurnos = paginaTurnos?.ok ? paginaTurnos.data.total : 0;
   const conteoPorTab: Record<Tab, number> = {

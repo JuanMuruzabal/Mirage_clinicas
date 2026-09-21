@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { conPaletaPrecargada } from "@/lib/paleta-recepcion";
 import {
   hoyEnCordoba,
   parseFechaISOLocal,
@@ -91,9 +92,23 @@ export default async function CalendarioPage({
   // agenda de alguien, recepción ve el calendario de siempre.
   const enVistaGeneral = esRecepcion && vista?.profesional == null;
 
+  // LA PALETA DE RECEPCIÓN (QA de la 3.2.6, 2026-09-21).
+  //
+  // En la vista general el color no puede salir del dueño de cada tipo:
+  // son paletas que nadie coordinó entre sí, y el verde de uno puede ser
+  // "Limpieza" mientras el de otro es "Urgencia". Recepción tiene la
+  // suya, precargada y asignada por NOMBRE, así que las dos filas de
+  // "Limpieza dental" —la de cada profesional— se ven del mismo color.
+  //
+  // Se repinta acá, sobre la lista que baja del servidor: todo lo que
+  // hay abajo sigue resolviendo el tipo por id como siempre.
+  const tiposParaLaVista = enVistaGeneral
+    ? conPaletaPrecargada(tiposConsulta)
+    : tiposConsulta;
+
   return (
     <CalendarView
-      tiposConsulta={tiposConsulta}
+      tiposConsulta={tiposParaLaVista}
       turnosIniciales={turnosIniciales}
       vistaInicial={vistaInicial}
       // El string crudo, no `fechaInicial` (el Date de arriba, que

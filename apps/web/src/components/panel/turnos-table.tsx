@@ -611,6 +611,24 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                             PacientesTable (DNI/Teléfono/Email, cada uno
                             su fila), nunca dos datos combinados en una. */}
                         <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 text-base md:hidden">
+                          {/* PROFESIONAL, PRIMERO (QA de la 3.2.6,
+                              2026-09-21). Su columna propia es
+                              `max-md:hidden`, así que en mobile solo se
+                              puede ver acá — y sin eso, en la vista de
+                              toda la clínica la fila no decía de quién
+                              era el turno por ningún lado.
+                              Arriba de todo y no al final como en
+                              escritorio: en una lista que mezcla las
+                              agendas de varias personas, de quién es
+                              enmarca todo lo que sigue. `conProfesional`
+                              ya es falso en la vista de un profesional,
+                              donde sería su nombre repetido. */}
+                          {conProfesional && (
+                            <>
+                              <dt className="text-xs font-semibold tracking-wide text-grafito/50 uppercase">Profesional</dt>
+                              <dd className="min-w-0 text-grafito">{t.atendidoPorNombre || "—"}</dd>
+                            </>
+                          )}
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tipo de consulta</dt>
                           <dd className="min-w-0 text-grafito">{renderTipoConsulta(tipo)}</dd>
                           <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
