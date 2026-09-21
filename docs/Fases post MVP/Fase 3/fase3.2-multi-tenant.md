@@ -1625,3 +1625,14 @@ Los dos ítems del módulo, según el mockup `pacientes-recepcion.html`.
 
 **Y el mismo patrón, una vez más:** los tres son una regla que la subfase movió y una pantalla que se quedó con la versión vieja. Vale la pena leerlos juntos con los de la sección anterior — es el tipo de error que esta subfase produce, y el que hay que ir a buscar antes de que lo encuentre la QA.
 
+### Una pasada por la documentación misma (2026-09-21)
+
+Al cerrar la subfase revisé lo que los documentos afirman contra lo que el código hace, y **cuatro afirmaciones de `CLAUDE.md` estaban viejas** — ninguna es un bug de producto, pero las cuatro le habrían hecho perder tiempo a quien las leyera:
+
+- *"El `EXCLUDE` de no-solapamiento **hay que** mudarlo a `atendido_por_user_id`; hoy es sobre `profesional_id`"* — se mudó en la 3.2.1 (TR-137), y el mismo archivo lo decía bien unas secciones más arriba. Se borró el bullet: una tarea ya hecha listada como pendiente es peor que no listarla.
+- *"**Falta** llevarlo al wizard público"*, sobre el no-solapamiento entre profesionales — está en `turno_publico.go` desde la 3.2.7.
+- *"39 acotadas y 18 clínica-wide"* en el test de aislamiento. **Medido instrumentando el test**: 15 archivos, 40 consultas acotadas y 21 excepciones declaradas en 6 archivos.
+- *"6 queries de turnos y 3 de pacientes"* pasan por los scopes: hoy son **16** y 3.
+
+Los dos últimos son el mismo problema: **un número que se cuenta a mano envejece en silencio**. Quedan fechados y con el método anotado, para que la próxima vez se vuelva a medir en vez de copiarlos.
+

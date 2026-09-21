@@ -474,7 +474,7 @@ he venido antes", detección de conflictos, 3 detectores anti-abuso,
 "sacar turno para otro" con tutor) quedan implementados, aprobados por el
 cliente y mergeados a `dev`.
 
-**Fase 3 — multi-tenant, en curso (desde 2026-09-12).** N profesionales por clínica y N clínicas por profesional. Brief del cliente y bitácoras en `docs/Fases post MVP/Fase 3/`; modelo de datos con los diagramas ER de antes y después en `docs/Arquitectura y base/modelo de datos/`; plan por subfases en `implementation-plan.md` §13; decisiones en `tradeoffs.md` TR-133 a TR-139.
+**Fase 3 — multi-tenant, en curso (desde 2026-09-12).** N profesionales por clínica y N clínicas por profesional. Brief del cliente y bitácoras en `docs/Fases post MVP/Fase 3/`; modelo de datos con los diagramas ER de antes y después en `docs/Arquitectura y base/modelo de datos/`; plan por subfases en `implementation-plan.md` §13; decisiones en `tradeoffs.md` TR-133 a TR-160.
 
 | Subfase | Estado |
 |---|---|
@@ -484,9 +484,12 @@ cliente y mergeados a `dev`.
 | 3.2.2 — roles y permisos en el backend, y el aislamiento entre colegas | ✅ 2026-09-13 (TR-138) |
 | 3.2.3 — onboarding y "¿dónde trabajás hoy?": la clínica activa se elige y vive en la sesión; el perfil deja de asumir que todos atienden pacientes (quien no tiene matrícula la completa antes de crear su clínica o de entrar a una como profesional) | ✅ 2026-09-13 (TR-139) |
 | 3.2.4 — colaboradores: invitar por código o mail, confirmar del otro lado, roles con exclusión | ✅ 2026-09-14 (TR-140) |
-| 3.2.5 a 3.2.8 — panel del profesional, vista del recepcionista, wizard con selección de profesional, tiempo real | pendientes |
+| 3.2.5 — panel del profesional: selector de clínica en el topbar, colaboradores con presencia real, tipos de consulta de colegas que se copian al incluirlos, y el historial del paciente con su dueño | ✅ 2026-09-14/15 (TR-142 a TR-145) |
+| 3.2.7 — el wizard público elige tipo y después profesional (adelantada a la 3.2.6 por decisión del cliente), el enlace compartido decide con quién y para quién, y dos rondas de ajustes previas a recepción | ✅ 2026-09-15/19 (TR-146 a TR-149, TR-156 a TR-159) |
+| 3.2.6 — vista del recepcionista: un **profesional en foco** guardado en la sesión, no un módulo aparte. Sin foco, la vista general de la clínica; con foco, las mismas cuatro pantallas comportándose como ese profesional | ✅ 2026-09-20/21 (TR-160) |
+| 3.2.8 — latencia y cierre (el tiempo real salió de acá: la presencia se resolvió en la 3.2.5 sin decisión de transporte) | pendiente |
 
-Dos cosas de esta fase valen para cualquiera que toque el código: **la columna que apunta a la clínica se llama `clinic_id`** en todo el esquema (antes `profesional_id`, que ya guardaba un `clinics.id`), y **el aislamiento entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en cada query — ver CLAUDE.md.
+Tres cosas de esta fase valen para cualquiera que toque el código: **la columna que apunta a la clínica se llama `clinic_id`** en todo el esquema (antes `profesional_id`, que ya guardaba un `clinics.id`); **el aislamiento entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en cada query; y **quién es "yo" puede no ser quien apretó el botón** — recepción trabaja parada en la vista de un profesional, así que lo que guarda "de quién es esta fila" sale del foco y no de la sesión. Ver CLAUDE.md.
 
 **Primera radiografía técnica completada (2026-09-09):** con la Fase 2
 cerrada, el sistema pasó por una auditoría completa de seguridad,
