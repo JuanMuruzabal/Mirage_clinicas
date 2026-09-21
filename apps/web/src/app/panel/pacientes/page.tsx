@@ -4,12 +4,12 @@ import {
   apiContarPacientes,
   apiListConflictosPaciente,
   apiListPacientesPaginado,
-  apiListTiposConsulta,
 } from "@/lib/api";
 import type { ListarPacientesParams } from "@/lib/api";
 import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { tiposConsultaDeLaVista } from "@/lib/tipos-de-la-vista";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { PacientesTable } from "@/components/panel/pacientes-table";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
@@ -108,8 +108,9 @@ export default async function PacientesPage({
   // NOMBRE del tipo de consulta del turno en conflicto (y del que ya
   // estuviera activo, si hay colisión) — el endpoint de conflictos solo
   // trae el id.
-  const tiposConsultaResult = token ? await apiListTiposConsulta(token) : null;
-  const tiposConsulta = tiposConsultaResult?.ok ? tiposConsultaResult.data : [];
+  // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
+  // precargada. Ver `lib/tipos-de-la-vista.ts`.
+  const tiposConsulta = await tiposConsultaDeLaVista(token, sesion.roles);
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta

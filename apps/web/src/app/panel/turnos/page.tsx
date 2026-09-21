@@ -173,13 +173,10 @@ export default async function TurnosPage({
         ])
       : [null, null, 0, 0, 0, 0];
 
-  // LA PALETA DE RECEPCIÓN en la vista de toda la clínica (QA de la
-  // 3.2.6, 2026-09-21) — mismo criterio que el calendario: el color no
-  // puede salir del dueño de cada tipo, porque son paletas que nadie
-  // coordinó entre sí. Ver `lib/paleta-recepcion.ts`.
-  const enVistaGeneral = esRecepcion && vista?.profesional == null;
+  // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
+  // precargada, en todas sus vistas. Ver `lib/tipos-de-la-vista.ts`.
   const tiposDelServidor = tiposResult?.ok ? tiposResult.data : [];
-  const tiposConsulta = enVistaGeneral
+  const tiposConsulta = esRecepcion
     ? conPaletaPrecargada(tiposDelServidor)
     : tiposDelServidor;
   const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Turno } from "@dental-mirage/shared-types";
-import { apiGetPaciente, apiListTiposConsulta } from "@/lib/api";
-import { getSessionToken } from "@/lib/session";
+import { apiGetPaciente } from "@/lib/api";
+import { tiposConsultaDeLaVista } from "@/lib/tipos-de-la-vista";
+import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PacienteDatos } from "@/components/panel/paciente-datos";
 import { PacienteTurnosTable } from "@/components/panel/paciente-turnos-table";
 import { AvatarIniciales } from "@/components/panel/avatar-iniciales";
@@ -32,14 +33,23 @@ function esActivo(t: Turno): boolean {
 export default async function PacienteDetallePage({ params }: PageProps<"/panel/pacientes/[id]">) {
   const { id } = await params;
   const token = await getSessionToken();
-  const [result, tiposResult] = token
-    ? await Promise.all([apiGetPaciente(token, id), apiListTiposConsulta(token)])
-    : [null, null];
+  // El color de un tipo de consulta es de QUIEN MIRA (TR-145) — esta
+  // ficha fue justamente donde se estrenó la regla: el turno de un colega
+  // se pinta con el color que ese tipo tiene en la paleta de quien abre
+  // la ficha. Para recepción, esa paleta es la precargada. Ver
+  // `lib/tipos-de-la-vista.ts`.
+  const sesion = await requireOnboardingComplete();
+  const [result, tiposConsulta] = token
+    ? await Promise.all([
+        apiGetPaciente(token, id),
+        tiposConsultaDeLaVista(token, sesion.roles),
+      ])
+    : [null, []];
   if (!result?.ok) {
     notFound();
   }
   const paciente = result.data;
-  const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
+
   const activos = paciente.turnos.filter(esActivo);
   // Historial — TR-074 (2026-08-27) sacaba los cancelados de acá ("no
   // deben aparecer turnos cancelados"); revertido en la ronda de
