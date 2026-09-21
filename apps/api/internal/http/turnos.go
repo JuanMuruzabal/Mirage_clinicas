@@ -1719,11 +1719,17 @@ func isExclusionViolation(err error) bool {
 const resumenListLimit = 20
 
 type resumenTurnoItem struct {
-	ID      string `json:"id"`
-	Fecha   string `json:"fecha"`   // YYYY-MM-DD, Córdoba
-	Hora    string `json:"hora"`    // HH:MM, Córdoba
-	HoraFin string `json:"horaFin"` // HH:MM, Córdoba — corrección de QA: "agregar de que hora a que hora porque solo dice la hora de inicio"
-	Nombre  string `json:"nombre"`
+	ID string `json:"id"`
+	// PacienteID — la ficha de la persona (QA de la 3.2.6, 2026-09-21).
+	// En la tarjeta "Turnos de hoy", el horario lleva al turno en el
+	// calendario y el NOMBRE lleva a la ficha: son dos preguntas
+	// distintas —"¿qué pasa a esta hora?" y "¿quién es esta persona?"— y
+	// hasta acá las dos llevaban al mismo lado.
+	PacienteID string `json:"pacienteId,omitempty"`
+	Fecha      string `json:"fecha"`   // YYYY-MM-DD, Córdoba
+	Hora       string `json:"hora"`    // HH:MM, Córdoba
+	HoraFin    string `json:"horaFin"` // HH:MM, Córdoba — corrección de QA: "agregar de que hora a que hora porque solo dice la hora de inicio"
+	Nombre     string `json:"nombre"`
 	// Asistencia (corrección de QA — rediseño de "Turnos resueltos" del
 	// dashboard, ver el comentario grande en resumenPanelHandler más
 	// abajo): "asistio" | "ausente" | omitido — el resto de las tarjetas
@@ -2041,8 +2047,13 @@ func toResumenTurnoItems(turnos []db.Turno, nombres map[uuid.UUID]string) []resu
 				profesionalID = t.AtendidoPorUserID.String()
 			}
 		}
+		var pacienteID string
+		if t.PacienteID != nil {
+			pacienteID = t.PacienteID.String()
+		}
 		out[i] = resumenTurnoItem{
 			ID:                   t.ID.String(),
+			PacienteID:           pacienteID,
 			Profesional:          profesional,
 			ProfesionalID:        profesionalID,
 			Fecha:                fecha,

@@ -225,4 +225,38 @@ describe("AgregarPacienteModal", () => {
       );
     });
   });
+
+  // QA de la 3.2.6 (2026-09-21): *"en la vista toda la clínica, al
+  // agregar paciente no me debería aparecer 'de la clínica', porque
+  // justamente eso estoy viendo en esa vista"*.
+  //
+  // "De la clínica" existe para sumar a MI lista una ficha que ya está
+  // cargada. Desde la vista general no hay lista propia a la que sumar, y
+  // el backend lo rechaza con un 409 — ofrecer la pestaña es ofrecer un
+  // error.
+  describe("en la vista general de recepción", () => {
+    it("no ofrece 'De la clínica': ahí ya se ven todas las fichas", () => {
+      render(
+        <AgregarPacienteModal sinListaPropia onClose={vi.fn()} onSuccess={vi.fn()} />,
+      );
+
+      expect(screen.queryByRole("button", { name: "De la clínica" })).not.toBeInTheDocument();
+    });
+
+    it("abre directo en el alta, sin pestaña de por medio", () => {
+      render(
+        <AgregarPacienteModal sinListaPropia onClose={vi.fn()} onSuccess={vi.fn()} />,
+      );
+
+      expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    });
+
+    // Parada en la vista de un profesional sí aparece: es el camino que
+    // el cliente describió para pasarle un paciente a alguien.
+    it("parada en un profesional, la pestaña vuelve", () => {
+      render(<AgregarPacienteModal onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      expect(screen.getByRole("button", { name: "De la clínica" })).toBeInTheDocument();
+    });
+  });
 });

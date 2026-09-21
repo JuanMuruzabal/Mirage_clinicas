@@ -359,3 +359,35 @@ describe("textoRestantes", () => {
     expect(textoRestantes(4)).toBe("Quedan 4 turnos más hoy.");
   });
 });
+
+// QA de la 3.2.6 (2026-09-21): *"al tocar el horario me lleva a la
+// tarjeta del turno, eso está bien, pero al tocar el nombre del
+// paciente me debería llevar a la ficha"*.
+//
+// Son dos preguntas distintas —"¿qué pasa a esta hora?" y "¿quién es
+// esta persona?"— y hasta acá las dos terminaban en el calendario.
+describe("a dónde lleva cada celda", () => {
+  it("el horario al turno en el calendario, el nombre a la ficha", () => {
+    montar([turno({ pacienteId: "pac-1" })]);
+
+    expect(screen.getByRole("link", { name: /12:00 a 12:30/ })).toHaveAttribute(
+      "href",
+      "/panel/calendario?vista=dia&fecha=2026-09-19&turno=t1",
+    );
+    expect(screen.getByRole("link", { name: "Juan Paciente" })).toHaveAttribute(
+      "href",
+      "/panel/pacientes/pac-1",
+    );
+  });
+
+  // Un turno sin ficha vinculada: un link a ninguna parte sería peor
+  // que el de siempre.
+  it("sin ficha, el nombre se queda con el link al calendario", () => {
+    montar([turno()]);
+
+    expect(screen.getByRole("link", { name: "Juan Paciente" })).toHaveAttribute(
+      "href",
+      "/panel/calendario?vista=dia&fecha=2026-09-19&turno=t1",
+    );
+  });
+});

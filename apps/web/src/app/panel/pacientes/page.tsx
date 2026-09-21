@@ -108,6 +108,11 @@ export default async function PacientesPage({
   // NOMBRE del tipo de consulta del turno en conflicto (y del que ya
   // estuviera activo, si hay colisión) — el endpoint de conflictos solo
   // trae el id.
+  // Recepción sin nadie en foco: ahí ya se ven todas las fichas de la
+  // clínica, así que "+ Agregar paciente > De la clínica" no tiene a qué
+  // lista sumar (ver AgregarPacienteModal).
+  const enVistaGeneral = esRecepcion && vista?.profesional == null;
+
   // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
   // precargada. Ver `lib/tipos-de-la-vista.ts`.
   const tiposConsulta = await tiposConsultaDeLaVista(token, sesion.roles);
@@ -173,7 +178,7 @@ export default async function PacientesPage({
               placeholder="Nombre, apellido o DNI…"
             />
           </div>
-          <AgregarPacienteButton />
+          <AgregarPacienteButton sinListaPropia={enVistaGeneral} />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">

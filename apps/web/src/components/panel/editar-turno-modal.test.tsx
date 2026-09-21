@@ -112,7 +112,7 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
     render(<EditarTurnoModal turno={turnoAgendado} tiposConsulta={tiposConsulta} onClose={vi.fn()} onSuccess={vi.fn()} />);
 
     await waitFor(() =>
-      expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-1", expect.any(String), "turno-2"),
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith("tc-1", expect.any(String), "turno-2", undefined),
     );
   });
 
@@ -233,5 +233,33 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
 
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  // QA de la 3.2.6 (2026-09-21): *"en la vista toda la clínica no me deja
+  // editar los turnos, dice que no hay horarios disponibles"*.
+  //
+  // Sin decir de quién es la agenda, el backend la resuelve por el
+  // profesional en foco — y desde la vista general no hay ninguno, así
+  // que respondía 409 y la lista de horarios llegaba vacía. Se está
+  // editando ESE turno: los huecos que importan son los de quien lo
+  // atiende.
+  it("pide los horarios de la agenda del turno, no la de quien mira", async () => {
+    render(
+      <EditarTurnoModal
+        turno={{ ...turnoAgendado, atendidoPorUserId: "u-colega" }}
+        tiposConsulta={tiposConsulta}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(listDisponibilidadActionMock).toHaveBeenCalledWith(
+        "tc-1",
+        expect.any(String),
+        "turno-2",
+        "u-colega",
+      ),
+    );
   });
 });

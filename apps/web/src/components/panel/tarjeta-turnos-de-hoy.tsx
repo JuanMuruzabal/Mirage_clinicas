@@ -324,8 +324,19 @@ function FilaTurnoDeHoy({
           </LinkConVista>
         </td>
         <td className={`${CELDA} ${COL_PACIENTE}`}>
+          {/* EL NOMBRE LLEVA A LA FICHA, no al turno (QA de la 3.2.6,
+              2026-09-21). El horario de al lado sigue llevando al
+              calendario: son dos preguntas distintas —"¿qué pasa a esta
+              hora?" y "¿quién es esta persona?"— y hasta acá las dos
+              terminaban en el mismo lugar.
+              Sin ficha (un turno sin paciente vinculado) se queda con el
+              link de siempre: un link a ninguna parte sería peor. */}
           <LinkConVista
-            href={`/panel/calendario?vista=dia&fecha=${turno.fecha}&turno=${turno.id}`}
+            href={
+              turno.pacienteId
+                ? `/panel/pacientes/${turno.pacienteId}`
+                : `/panel/calendario?vista=dia&fecha=${turno.fecha}&turno=${turno.id}`
+            }
             userId={turno.profesionalId}
             className="block truncate font-[family-name:var(--font-display)] text-base leading-tight font-bold text-grafito uppercase hover:underline"
           >

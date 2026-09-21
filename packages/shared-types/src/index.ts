@@ -540,6 +540,9 @@ export interface AutoreservarTurnosResponse {
 
 export interface ResumenTurnoItem {
   id: string;
+  /** La ficha de la persona (Fase 3.2.6): en "Turnos de hoy" el horario
+   *  lleva al turno en el calendario y el nombre a la ficha. */
+  pacienteId?: string;
   fecha: string; // YYYY-MM-DD, Córdoba
   hora: string; // HH:MM, Córdoba
   horaFin: string; // HH:MM, Córdoba
