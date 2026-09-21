@@ -768,6 +768,10 @@ export interface Paciente {
   // pacientes.
   emailsAlternativos?: string[];
   telefonosAlternativos?: string[];
+  /** Quiénes tienen a esta persona entre sus pacientes (Fase 3.2.6).
+   *  Solo viaja en la vista general de recepción: en la vista de un
+   *  profesional son todas suyas. */
+  profesionales?: { userId: string; nombre: string }[];
 }
 
 // Espejo de pacienteDetalleResponse — datos personales + historial

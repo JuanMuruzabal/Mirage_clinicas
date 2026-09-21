@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"net/mail"
+	"sort"
 	"strings"
 	"time"
 
@@ -63,6 +64,23 @@ type pacienteResponse struct {
 	// mayoría de los pacientes, que nunca tuvo un conflicto.
 	EmailsAlternativos    []string `json:"emailsAlternativos,omitempty"`
 	TelefonosAlternativos []string `json:"telefonosAlternativos,omitempty"`
+	// Profesionales — quiénes tienen a esta persona entre sus pacientes
+	// (Fase 3.2.6, mockup `pacientes-recepcion.html`: una columna de
+	// avatares apilados).
+	//
+	// Viaja SOLO en la vista general de recepción, que es la única donde
+	// la lista mezcla las de varios: en la vista de un profesional son
+	// todos suyos y la columna sería su inicial repetida en cada fila.
+	// Mismo criterio que la columna de profesional en Turnos.
+	Profesionales []profesionalDePacienteResponse `json:"profesionales,omitempty"`
+}
+
+// profesionalDePacienteResponse — el id además del nombre porque la
+// columna es clickeable: tocar un avatar se para en esa agenda antes de
+// abrir la ficha, igual que las filas de las tarjetas de General.
+type profesionalDePacienteResponse struct {
+	UserID string `json:"userId"`
+	Nombre string `json:"nombre"`
 }
 
 // tutorResponse — un tutor conocido/confirmado de un paciente (ver
@@ -290,9 +308,21 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Quiénes atienden a cada persona, SOLO en la vista general
+		// (Fase 3.2.6). En la vista de un profesional son todos suyos.
+		var profesionales map[uuid.UUID][]profesionalDePacienteResponse
+		if veTodaLaClinica(r) {
+			profesionales, err = profesionalesPorPaciente(gdb, profesionalID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo obtener los pacientes")
+				return
+			}
+		}
+
 		out := make([]pacienteResponse, len(pacientes))
 		for i, p := range pacientes {
 			out[i] = toPacienteResponse(p, verificados[p.ID], tutores[p.ID], emailsAlt[p.ID], telsAlt[p.ID], tutorTelAlt)
+			out[i].Profesionales = profesionales[p.ID]
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -503,11 +533,15 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 }
 
 type crearPacienteRequest struct {
-	Nombre   string `json:"nombre"`
-	Apellido string `json:"apellido"`
-	DNI      string `json:"dni"`
-	Telefono string `json:"telefono"`
-	Email    string `json:"email"`
+	// ProfesionalUserID — de quién va a ser esta ficha (Fase 3.2.6).
+	// Vacío = el profesional en foco, o uno mismo. Recepción tiene que
+	// elegirlo: sin dueño la ficha no aparece en la lista de nadie.
+	ProfesionalUserID string `json:"profesionalUserId"`
+	Nombre            string `json:"nombre"`
+	Apellido          string `json:"apellido"`
+	DNI               string `json:"dni"`
+	Telefono          string `json:"telefono"`
+	Email             string `json:"email"`
 	// ConTutor/Tutor* (Fase 2.4.2) — opción "Con tutor" del alta directa
 	// desde el panel (`docs/Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md` 3.7bis): con
 	// ConTutor=true, Telefono/Email pasan a ser opcionales (son del
@@ -622,12 +656,30 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// DE QUIÉN VA A SER ESTA FICHA (Fase 3.2.6, mockup
+		// `pacientes-recepcion.html`: "Profesional · Obligatorio").
+		//
+		// `creado_por_user_id` es uno de los tres criterios de
+		// `soloMisPacientes`, así que sin dueño la ficha nace invisible:
+		// no aparece en la lista de nadie hasta que alguien le invente un
+		// turno. Recepción sin profesional elegido no tiene a quién
+		// asignársela, y adivinar sería peor — por eso el modal lo pide
+		// antes que cualquier otro dato, y acá se rechaza con 409.
+		duenio, ok := agendaAConfigurar(w, r, gdb, profesionalID, req.ProfesionalUserID)
+		if !ok {
+			return
+		}
+		if duenio == uuid.Nil {
+			writeError(w, http.StatusConflict, errFaltaElegirProfesional.Error())
+			return
+		}
+
 		paciente := db.Paciente{
 			ClinicID: profesionalID,
 			// Quién la cargó — lo que hace que siga siendo visible para esa
 			// persona antes de que exista el primer turno (Fase 3.2.3, ver
 			// soloMisPacientes).
-			CreadoPorUserID: profesionalEnFocoOpcional(r),
+			CreadoPorUserID: &duenio,
 			Nombre:          req.Nombre,
 			Apellido:        req.Apellido,
 			DNI:             req.DNI,
@@ -679,4 +731,91 @@ func crearPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusCreated, toPacienteResponse(paciente, verificado, tutores, nil, nil, nil))
 	}
+}
+
+// profesionalesPorPaciente — para cada ficha de la clínica, quiénes la
+// tienen entre sus pacientes (Fase 3.2.6).
+//
+// LOS MISMOS TRES CRITERIOS QUE `soloMisPacientes`, leídos al revés. Allá
+// la pregunta es "¿esta ficha es mía?"; acá, "¿de quiénes es esta ficha?".
+// Si divergen, la columna diría que un paciente es de alguien que no lo
+// ve en su propia lista — y eso no se nota mirando una sola pantalla.
+//
+//  1. tengo turnos con esa persona,
+//  2. yo cargué la ficha (`creado_por_user_id`),
+//  3. la sumé a mi lista desde "+ Agregar paciente > De la clínica".
+//
+// Un UNION y no tres consultas: es una sola pasada por la lista entera,
+// mismo criterio de lote que `pacientesVerificadosIDs` y los otros
+// helpers de este archivo — una consulta por fila sería N+1 sobre una
+// tabla que se pinta completa.
+func profesionalesPorPaciente(
+	gdb *gorm.DB, clinicID uuid.UUID,
+) (map[uuid.UUID][]profesionalDePacienteResponse, error) {
+	type fila struct {
+		PacienteID uuid.UUID
+		UserID     uuid.UUID
+	}
+	var filas []fila
+	if err := gdb.Raw(`
+		SELECT t.paciente_id AS paciente_id, t.atendido_por_user_id AS user_id
+		  FROM turnos t
+		 WHERE t.clinic_id = ? AND t.paciente_id IS NOT NULL AND t.atendido_por_user_id IS NOT NULL
+		UNION
+		SELECT p.id AS paciente_id, p.creado_por_user_id AS user_id
+		  FROM pacientes p
+		 WHERE p.clinic_id = ? AND p.creado_por_user_id IS NOT NULL
+		UNION
+		SELECT l.paciente_id AS paciente_id, l.user_id AS user_id
+		  FROM pacientes_en_mi_lista l
+		  JOIN pacientes p2 ON p2.id = l.paciente_id
+		 WHERE p2.clinic_id = ?
+	`, clinicID, clinicID, clinicID).Scan(&filas).Error; err != nil {
+		return nil, err
+	}
+	if len(filas) == 0 {
+		return map[uuid.UUID][]profesionalDePacienteResponse{}, nil
+	}
+
+	// Los nombres en una sola pasada, igual que nombresDeQuienesAtienden.
+	ids := make([]uuid.UUID, 0, len(filas))
+	vistos := map[uuid.UUID]bool{}
+	for _, f := range filas {
+		if !vistos[f.UserID] {
+			vistos[f.UserID] = true
+			ids = append(ids, f.UserID)
+		}
+	}
+	nombres := make(map[uuid.UUID]string, len(ids))
+	var perfiles []db.ProfessionalProfile
+	_ = gdb.Where("user_id IN ?", ids).Find(&perfiles).Error
+	for _, perfil := range perfiles {
+		nombres[perfil.UserID] = strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido)
+	}
+	// Quien todavía no cargó perfil, por su mail — nunca un id crudo.
+	var users []db.User
+	_ = gdb.Where("id IN ?", ids).Find(&users).Error
+	for _, u := range users {
+		if nombres[u.ID] == "" {
+			nombres[u.ID] = u.Email
+		}
+	}
+
+	out := map[uuid.UUID][]profesionalDePacienteResponse{}
+	for _, f := range filas {
+		nombre := nombres[f.UserID]
+		if nombre == "" {
+			// Un usuario que ya no existe: no se inventa una inicial.
+			continue
+		}
+		out[f.PacienteID] = append(out[f.PacienteID], profesionalDePacienteResponse{
+			UserID: f.UserID.String(),
+			Nombre: nombre,
+		})
+	}
+	// Orden estable: la columna no puede reordenarse sola entre recargas.
+	for id := range out {
+		sort.Slice(out[id], func(i, j int) bool { return out[id][i].Nombre < out[id][j].Nombre })
+	}
+	return out, nil
 }

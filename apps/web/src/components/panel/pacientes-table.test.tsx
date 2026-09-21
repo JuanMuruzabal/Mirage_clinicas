@@ -350,4 +350,50 @@ describe("PacientesTable", () => {
     expect(screen.queryByText("Muru Zabal")).not.toBeInTheDocument();
     expect(screen.getByText("Bruno Iglesias")).toBeInTheDocument();
   });
+
+  // Fase 3.2.6, mockup `pacientes-recepcion.html`: en la vista general
+  // cada ficha muestra avatares apilados de quiénes la tienen entre sus
+  // pacientes.
+  describe("la columna Profesionales (vista de toda la clínica)", () => {
+    const conDos = {
+      ...paciente,
+      profesionales: [
+        { userId: "u1", nombre: "Lucía Gómez" },
+        { userId: "u2", nombre: "Marcos Díaz" },
+      ],
+    };
+
+    it("dibuja una inicial por profesional, con el nombre completo al pasar el mouse", () => {
+      render(<PacientesTable pacientes={[conDos]} />);
+
+      expect(screen.getByText("Profesionales")).toBeInTheDocument();
+      expect(screen.getByTitle("Lucía Gómez")).toHaveTextContent("LG");
+      expect(screen.getByTitle("Marcos Díaz")).toHaveTextContent("MD");
+    });
+
+    // Pasado el tercero la pila deja de leerse y el número dice lo mismo
+    // en menos espacio (es lo que dibuja el mockup).
+    it("con más de tres, muestra tres y un +N", () => {
+      const conCinco = {
+        ...paciente,
+        profesionales: [1, 2, 3, 4, 5].map((n) => ({
+          userId: `u${n}`,
+          nombre: `Nombre${n} Apellido${n}`,
+        })),
+      };
+      render(<PacientesTable pacientes={[conCinco]} />);
+
+      expect(screen.getByText("+2")).toBeInTheDocument();
+      expect(screen.getByTitle("Nombre1 Apellido1")).toBeInTheDocument();
+      expect(screen.queryByTitle("Nombre4 Apellido4")).not.toBeInTheDocument();
+    });
+
+    // En la vista de un profesional son todas suyas: el backend no manda
+    // el dato y la columna no se dibuja.
+    it("sin el dato, la columna no existe", () => {
+      render(<PacientesTable pacientes={[paciente]} />);
+
+      expect(screen.queryByText("Profesionales")).not.toBeInTheDocument();
+    });
+  });
 });

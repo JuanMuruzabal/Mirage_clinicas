@@ -1511,6 +1511,10 @@ export async function apiContarPacientes(
 }
 
 export interface CrearPacientePayload {
+  /** De quién va a ser la ficha (Fase 3.2.6). Vacío = el profesional en
+   *  foco, o uno mismo. Recepción tiene que elegirlo: sin dueño la ficha
+   *  no aparece en la lista de nadie. */
+  profesionalUserId?: string;
   nombre: string;
   apellido: string;
   dni: string;

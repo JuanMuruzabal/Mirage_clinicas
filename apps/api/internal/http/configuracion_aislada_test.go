@@ -638,3 +638,68 @@ func crearTipoPara(t *testing.T, router http.Handler, token string, duenio uuid.
 		t.Fatalf("crear tipo %q: status=%d body=%s", nombre, rec.Code, rec.Body.String())
 	}
 }
+
+// LA COLUMNA "PROFESIONALES" DE PACIENTES — Fase 3.2.6, mockup
+// `pacientes-recepcion.html`: en la vista general cada ficha muestra
+// avatares apilados de quiénes la tienen entre sus pacientes.
+//
+// Usa los mismos TRES criterios que `soloMisPacientes`, leídos al revés:
+// allá la pregunta es "¿esta ficha es mía?", acá "¿de quiénes es?". Si
+// divergen, la columna diría que un paciente es de alguien que no lo ve
+// en su propia lista — y eso no se nota mirando una sola pantalla.
+func TestPacientes_LaVistaGeneralDiceDeQuienEsCadaFicha(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "pacprofs")
+
+	// Un turno del colega con esta persona: criterio 1.
+	turnoDePruebaParaElColega(t, router, esc, "41900001", "ana-pacprofs@example.com", manianaALas10(t))
+
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	fichas := listarPacientes(t, router, esc.recepToken)
+	if len(fichas) == 0 {
+		t.Fatal("la vista general no trajo ninguna ficha")
+	}
+	if len(fichas[0].Profesionales) == 0 {
+		t.Fatal("la ficha no dice de quién es: la columna quedaría vacía")
+	}
+	if fichas[0].Profesionales[0].UserID != esc.colegaID.String() {
+		t.Errorf("userId = %q, esperaba el colega (%s)",
+			fichas[0].Profesionales[0].UserID, esc.colegaID)
+	}
+	if fichas[0].Profesionales[0].Nombre == "" {
+		t.Error("el avatar no tiene con qué armar la inicial")
+	}
+}
+
+// La otra mitad: en la vista de un profesional son todos suyos, y la
+// columna sería su inicial repetida en cada fila.
+func TestPacientes_EnLaVistaDeUnProfesionalNoViajaLaColumna(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "pacprofsfoco")
+
+	turnoDePruebaParaElColega(t, router, esc, "41900002", "ana-pacprofsfoco@example.com", manianaALas10(t))
+	// Sin volver a la general: recepción sigue parada en el colega.
+
+	fichas := listarPacientes(t, router, esc.recepToken)
+	if len(fichas) == 0 {
+		t.Fatal("la vista del colega no trajo su propia ficha")
+	}
+	if len(fichas[0].Profesionales) != 0 {
+		t.Errorf("profesionales = %+v; en la vista de uno son todos suyos", fichas[0].Profesionales)
+	}
+}
+
+func listarPacientes(t *testing.T, router http.Handler, token string) []pacienteResponse {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/pacientes", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /pacientes: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out []pacienteResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta ilegible: %v", err)
+	}
+	return out
+}

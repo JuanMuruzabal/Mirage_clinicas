@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Paciente, PacienteConocido } from "@dental-mirage/shared-types";
 import { crearPacienteAction, sumarPacienteAMiListaAction } from "@/app/actions/pacientes";
+import { SelectorDeAgenda } from "./selector-de-agenda";
 import { ModalPortal } from "./modal-portal";
 import { BuscadorPacientes } from "./buscador-pacientes";
 
@@ -44,6 +45,9 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   //
   // "De la clínica" solo lista las que NO están en mi lista: sumar una
   // que ya tengo no haría nada, y ofrecerlo sería ruido.
+  // De quién va a ser la ficha. Sin esto el alta queda bloqueada: ver el
+  // comentario del SelectorDeAgenda más abajo.
+  const [agenda, setAgenda] = useState<string | null>(null);
   const [origen, setOrigen] = useState<"clinica" | "nuevo">("clinica");
   const [sumando, setSumando] = useState(false);
 
@@ -109,8 +113,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
       }
     }
 
+    if (!agenda) {
+      setError("Elegí primero el profesional para seguir.");
+      return;
+    }
+
     setPending(true);
     const result = await crearPacienteAction({
+      profesionalUserId: agenda ?? "",
       nombre: nombreTrim,
       apellido: apellidoTrim,
       dni: dniTrim,
@@ -226,6 +236,29 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
 
           {origen === "nuevo" && (
           <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
+            {/* PROFESIONAL, ANTES QUE CUALQUIER OTRO DATO (Fase 3.2.6,
+                mockup `pacientes-recepcion.html`: "Profesional ·
+                Obligatorio").
+                `creado_por_user_id` es uno de los tres criterios por los
+                que una ficha aparece en la lista de alguien: sin dueño
+                nace invisible y no la ve nadie hasta que le inventen un
+                turno. El backend lo rechaza con un 409; esto es para que
+                nadie llegue a ver ese error llenando el formulario
+                entero primero.
+                Para un profesional se autoelige él mismo, así que el
+                paso no se siente. Recepción es la única que decide. */}
+            <div className="flex flex-col gap-2">
+              <SelectorDeAgenda
+                valor={agenda}
+                onElegir={setAgenda}
+                etiqueta="Profesional · Obligatorio"
+              />
+              {!agenda && (
+                <p className="text-xs text-grafito/60">
+                  Elegí primero el profesional: la ficha queda en su lista de pacientes.
+                </p>
+              )}
+            </div>
             <Campo label="Nombre">
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
             </Campo>

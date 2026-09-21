@@ -81,6 +81,16 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 			`"id = ? AND clinic_id = ?", *t.TipoConsultaID`,
 		},
 		"pacientes.go": {
+			// La columna "Profesionales" de la vista general (Fase 3.2.6):
+			// la pregunta es justamente "¿de QUIÉNES es esta ficha?", así
+			// que acotarla a uno la volvería inútil. Se llama solo cuando
+			// `veTodaLaClinica(r)`, y usa los mismos tres criterios que
+			// `soloMisPacientes` leídos al revés — si divergen, la columna
+			// diría que un paciente es de alguien que no lo ve en su
+			// propia lista.
+			`WHERE t.clinic_id = ? AND t.paciente_id IS NOT NULL`,
+			`WHERE p.clinic_id = ? AND p.creado_por_user_id IS NOT NULL`,
+			`WHERE p2.clinic_id = ?`,
 			// Unicidad de DNI por clínica (TR-100): una persona, una ficha.
 			`clinic_id = ? AND dni = ?`,
 			// Mapas auxiliares: se consultan solo para pacientes que ya
