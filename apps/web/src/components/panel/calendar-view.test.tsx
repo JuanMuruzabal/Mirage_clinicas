@@ -1103,6 +1103,51 @@ describe("CalendarView", () => {
       ).toBeInTheDocument();
     });
 
+    // QA de la 3.2.6 (2026-09-21): *"la notificación de conflicto dentro
+    // del módulo de calendario también se tiene que actualizar en tiempo
+    // real"*.
+    //
+    // El conteo sale del servidor —por eso no desaparece al cambiar de
+    // día— pero solo se releía al cambiar de profesional y al tocar la
+    // configuración. Un turno agendado, cancelado o autoreservado cambia
+    // si hay conflicto o no, y el número quedaba viejo hasta recargar.
+    it("se actualiza cuando vuelven a llegar los turnos, sin recargar", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+      expect(
+        await screen.findByText(/en conflictos, toca para ver/),
+      ).toBeInTheDocument();
+
+      // Se resolvió el conflicto y el servidor revalida.
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 0,
+      });
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText(/en conflictos, toca para ver/),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
     it("sin conflictos no avisa nada", async () => {
       panelNotificacionesActionMock.mockResolvedValue({
         conflictosPacientes: 0,

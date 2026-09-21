@@ -462,6 +462,18 @@ export function CalendarView({
       if (activo) {
         setTurnos(data);
         setCargando(false);
+        // EL AVISO DE CONFLICTO, EN TIEMPO REAL (QA de la 3.2.6,
+        // 2026-09-21). El conteo sale del servidor —por eso no
+        // desaparece al cambiar de día— pero hasta acá solo se releía al
+        // cambiar de profesional y al tocar la configuración. Un turno
+        // agendado, cancelado, editado o autoreservado cambia si hay
+        // conflicto o no, y el número quedaba viejo hasta recargar.
+        //
+        // Colgado del mismo lugar donde llegan los turnos: cualquier cosa
+        // que los haga volver a pedir —navegar, cambiar de agenda, o una
+        // revalidación del servidor tras una acción— trae también el
+        // conteo al día.
+        releerConflictos();
       }
     });
     return () => {
@@ -650,7 +662,12 @@ export function CalendarView({
       estado: "agendado",
       desde: desde.toISOString(),
       hasta: hasta.toISOString(),
-    }).then(setTurnos);
+    }).then((data) => {
+      setTurnos(data);
+      // Mover un turno con "Autoreservar" o dar de alta uno nuevo puede
+      // resolver o crear un conflicto.
+      releerConflictos();
+    });
   }
 
   const dias = diasDeVista(fecha, vista);
