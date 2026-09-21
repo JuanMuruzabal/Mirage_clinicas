@@ -623,19 +623,43 @@ export function CalendarView({
   // `turnoResuelto`: un conflicto cuyo turno ya pasó deja de contar como
   // activo (TR-090) — "dado el caso de agendar algo con reserva y al
   // final no hacer nada con eso" no debería seguir sumando al contador.
+  //
+  // UN CÁLCULO POR AGENDA, NO UNO SOLO MEZCLADO (QA de la 3.2.6,
+  // 2026-09-20). Este banner recalcula los clusters por su cuenta, y lo
+  // hacía sobre TODOS los turnos contra TODOS los horarios reservados y
+  // excepciones. En la vista general de la clínica eso cruza gente: el
+  // turno de uno contra la excepción de horario de otro, marcado como
+  // conflicto — *"cosa que no existe"*, y que además no se podría
+  // resolver desde ninguna pantalla.
+  //
+  // La grilla ya separaba por columna; esto no, y por eso el bloque de la
+  // excepción desaparecía del día pero el turno seguía contando como en
+  // conflicto. Mismo criterio que allá: cada agenda se compara solo
+  // consigo misma.
+  const agendasAComparar: (string | undefined)[] = porProfesional
+    ? profesionalesDelDia.map((p) => p.userId)
+    : [undefined];
+
   const segmentosConConflicto = dias
-    .flatMap((dia) => {
-      const turnosDelDia = turnos.filter(
-        (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia),
-      );
-      return segmentosParaVisualizar(
-        dia,
-        bloqueosGenerales,
-        bloqueosEspecificas,
-        turnosDelDia,
-        horariosAtencion,
-      );
-    })
+    .flatMap((dia) =>
+      agendasAComparar.flatMap((userId) => {
+        const deLaAgenda = <T extends { userId?: string | null }>(items: T[]) =>
+          userId === undefined ? items : items.filter((i) => i.userId === userId);
+        const turnosDelDia = turnos.filter(
+          (t) =>
+            t.horaInicio &&
+            isSameDay(new Date(t.horaInicio), dia) &&
+            (userId === undefined || t.atendidoPorUserId === userId),
+        );
+        return segmentosParaVisualizar(
+          dia,
+          deLaAgenda(bloqueosGenerales),
+          deLaAgenda(bloqueosEspecificas),
+          turnosDelDia,
+          deLaAgenda(horariosAtencion),
+        );
+      }),
+    )
     .filter((seg) => seg.variante === "conflicto")
     .map((seg) => ({
       ...seg,

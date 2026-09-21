@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fireEvent,
   render,
@@ -920,6 +920,131 @@ describe("CalendarView", () => {
       );
 
       await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+    });
+
+    // QA de la 3.2.6 (2026-09-20): *"si bien no aparece el horario de
+    // excepción, me marca como conflicto con un horario de excepción del
+    // otro profesional, cosa que no existe"*.
+    //
+    // El banner recalcula los clusters por su cuenta, y lo hacía sobre
+    // TODOS los turnos contra TODAS las excepciones. La grilla ya
+    // separaba por columna, así que el bloque desaparecía del día pero el
+    // turno seguía contando como en conflicto.
+    //
+    // Con reloj fijo: un conflicto cuyo turno YA PASÓ deja de contar
+    // (TR-090), así que sin fijar la hora el test pasaría de casualidad a
+    // partir de cierto momento del día — que es exactamente lo que hacía
+    // antes de escribirlo así.
+    describe("conflicto entre agendas distintas", () => {
+      const AHORA = new Date(2030, 8, 2, 9, 0, 0);
+      const FECHA = "2030-09-02";
+
+      beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        vi.setSystemTime(AHORA);
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const turnoDeU2 = {
+        id: "t-u2",
+        estado: "agendado",
+        nombreContacto: "Ana",
+        apellidoContacto: "Paciente",
+        atendidoPorUserId: "u2",
+        horaInicio: new Date(2030, 8, 2, 14, 0).toISOString(),
+        horaFin: new Date(2030, 8, 2, 14, 30).toISOString(),
+      } as never;
+
+      const columnas = [
+        { userId: "u1", nombre: "Lucía Gómez" },
+        { userId: "u2", nombre: "Marcos Díaz" },
+      ];
+
+      function montar(duenioDeLaExcepcion: string) {
+        listTurnosActionMock.mockResolvedValue([turnoDeU2]);
+        listHorarioAtencionActionMock.mockResolvedValue([
+          { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+          {
+            id: "exc",
+            userId: duenioDeLaExcepcion,
+            alcance: "rango",
+            fechaDesde: FECHA,
+            fechaHasta: FECHA,
+          },
+        ]);
+        render(
+          <CalendarView
+            tiposConsulta={tiposConsulta}
+            turnosIniciales={[turnoDeU2]}
+            fechaInicialStr={FECHA}
+            zonaProfesional={zonaGeneral}
+            profesionalesDelDia={columnas}
+          />,
+        );
+      }
+
+      // El caso de control: con la excepción del MISMO profesional el
+      // conflicto sí existe. Sin esto, el test de abajo pasaría también
+      // con el banner roto para todo el mundo.
+      it("con la excepción del mismo profesional, avisa", async () => {
+        montar("u2");
+        expect(await screen.findByText(/en conflictos, toca para ver/)).toBeInTheDocument();
+      });
+
+      it("con la excepción de OTRO profesional, no avisa", async () => {
+        montar("u1");
+        await waitFor(() => expect(listHorarioAtencionActionMock).toHaveBeenCalled());
+        expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+      });
+
+      // Lo mismo con un horario reservado, que es el otro dato que entra
+      // en el cálculo (QA: *"además el mismo bug ocurre con horarios
+      // reservados"*). Son dos tablas distintas y el banner las mezclaba
+      // igual.
+      function montarConBloqueo(duenioDelBloqueo: string) {
+        listTurnosActionMock.mockResolvedValue([turnoDeU2]);
+        listHorarioAtencionActionMock.mockResolvedValue([
+          { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+        ]);
+        listBloqueosActionMock.mockImplementation(async (especifico: boolean) =>
+          especifico
+            ? [
+                {
+                  id: "b-1",
+                  userId: duenioDelBloqueo,
+                  especifico: true,
+                  fecha: FECHA,
+                  horaDesde: "14:00",
+                  horaHasta: "15:00",
+                  tipoRegla: "bloquear_horario",
+                  motivo: "Reunión",
+                },
+              ]
+            : [],
+        );
+        render(
+          <CalendarView
+            tiposConsulta={tiposConsulta}
+            turnosIniciales={[turnoDeU2]}
+            fechaInicialStr={FECHA}
+            zonaProfesional={zonaGeneral}
+            profesionalesDelDia={columnas}
+          />,
+        );
+      }
+
+      it("con el horario reservado del mismo profesional, avisa", async () => {
+        montarConBloqueo("u2");
+        expect(await screen.findByText(/en conflictos, toca para ver/)).toBeInTheDocument();
+      });
+
+      it("con el horario reservado de OTRO profesional, no avisa", async () => {
+        montarConBloqueo("u1");
+        await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+        expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+      });
     });
 
     // Para quien no es recepción el selector no existe — el aislamiento

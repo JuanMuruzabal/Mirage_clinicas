@@ -97,12 +97,34 @@ func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, r *http.Request, profesion
 		return 0, nil
 	}
 
-	var generales, especificas []db.BloqueoHorario
+	// CADA AGENDA CONTRA SÍ MISMA (QA de la 3.2.6, 2026-09-20).
+	//
+	// Los scopes de arriba resuelven el caso de un profesional mirando lo
+	// suyo, pero en la VISTA GENERAL de recepción los dos son un no-op: ahí
+	// vuelven a quedar todos los turnos contra todos los horarios
+	// reservados, y el turno de uno contra el horario del otro se cuenta
+	// como conflicto. Es el mismo error que el comentario de arriba ya
+	// describía, entrando por la puerta que la 3.2.6 abrió.
+	//
+	// Los bloqueos sin dueño (`user_id` NULL, anteriores a la 3.2.1) valen
+	// para cualquiera: es el mismo criterio con el que los muestran los
+	// scopes.
+	generalesPorAgenda := map[uuid.UUID][]db.BloqueoHorario{}
+	especificasPorAgenda := map[uuid.UUID][]db.BloqueoHorario{}
+	var generalesDeTodos, especificasDeTodos []db.BloqueoHorario
 	for _, b := range bloqueos {
+		if b.UserID == nil {
+			if b.Especifico {
+				especificasDeTodos = append(especificasDeTodos, b)
+			} else {
+				generalesDeTodos = append(generalesDeTodos, b)
+			}
+			continue
+		}
 		if b.Especifico {
-			especificas = append(especificas, b)
+			especificasPorAgenda[*b.UserID] = append(especificasPorAgenda[*b.UserID], b)
 		} else {
-			generales = append(generales, b)
+			generalesPorAgenda[*b.UserID] = append(generalesPorAgenda[*b.UserID], b)
 		}
 	}
 
@@ -110,6 +132,16 @@ func contarTurnosEnConflictoConBloqueos(gdb *gorm.DB, r *http.Request, profesion
 	for _, t := range turnos {
 		if t.HoraInicio == nil || t.HoraFin == nil {
 			continue
+		}
+		// Copias y no `append` sobre los slices compartidos: appendear
+		// sobre `generalesDeTodos` puede escribir en su array de respaldo
+		// y arrastrar lo de un turno al siguiente.
+		var generales, especificas []db.BloqueoHorario
+		generales = append(generales, generalesDeTodos...)
+		especificas = append(especificas, especificasDeTodos...)
+		if t.AtendidoPorUserID != nil {
+			generales = append(generales, generalesPorAgenda[*t.AtendidoPorUserID]...)
+			especificas = append(especificas, especificasPorAgenda[*t.AtendidoPorUserID]...)
 		}
 		delDia := bloqueosDelDia(clock.In(*t.HoraInicio), generales, especificas)
 		if len(delDia) == 0 {

@@ -357,3 +357,75 @@ func pendientesDeAsistencia(t *testing.T, router http.Handler, token string) []t
 	}
 	return out.Vencidos
 }
+
+// TestNotificaciones_NoCruzaElTurnoDeUnoConElHorarioDeOtro — el mismo
+// falso conflicto que el banner del calendario, por la otra puerta.
+//
+// El comentario de `contarTurnosEnConflictoConBloqueos` ya avisaba de
+// esto ("con los dos conjuntos mezclados... un conflicto que no existe"),
+// y los scopes lo resolvían para un profesional. Pero en la VISTA GENERAL
+// de recepción los dos scopes son un no-op: vuelven a quedar todos los
+// turnos contra todos los horarios reservados.
+func TestNotificaciones_NoCruzaElTurnoDeUnoConElHorarioDeOtro(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "conflictocruzado")
+	titularID := userIDDelMail(t, gdb, "titular-conflictocruzado@example.com")
+
+	// Un turno del TITULAR, y un horario reservado del COLEGA a la misma
+	// hora. Ninguno de los dos tiene un conflicto: son agendas distintas.
+	inicio := horaVigenteDeHoy(t)
+	turno := crearTurnoAgendadoDePrueba(t, gdb, esc.titular.Profesional.ID, esc.tipoID, inicio)
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("atendido_por_user_id", titularID).Error; err != nil {
+		t.Fatalf("no se pudo asignar el turno: %v", err)
+	}
+
+	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	hhmm := clock.In(inicio).Format("15:04")
+	finHHMM := clock.In(inicio.Add(45 * time.Minute)).Format("15:04")
+	rec := doJSONAuth(t, router, http.MethodPost, "/bloqueos", esc.recepToken, crearBloqueoHorarioRequest{
+		Especifico: true,
+		Fecha:      clock.In(inicio).Format("2006-01-02"),
+		HoraDesde:  hhmm, HoraHasta: finHHMM,
+		Motivo: "Reunión del colega",
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear bloqueo: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Desde la vista general, donde los scopes no acotan nada.
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n != 0 {
+		t.Errorf("cuenta %d conflictos: el turno del titular no choca con el horario del colega", n)
+	}
+
+	// Y el control: con el horario reservado en LA MISMA agenda, sí.
+	if err := gdb.Model(&db.BloqueoHorario{}).
+		Where("clinic_id = ? AND user_id = ?", esc.clinicID, esc.colegaID).
+		Update("user_id", titularID).Error; err != nil {
+		t.Fatalf("no se pudo mudar el bloqueo: %v", err)
+	}
+	if n := conflictosConBloqueos(t, router, esc.recepToken); n == 0 {
+		t.Error("no cuenta el conflicto real dentro de una misma agenda")
+	}
+}
+
+func conflictosConBloqueos(t *testing.T, router http.Handler, token string) int64 {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/notificaciones", token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /panel/notificaciones: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respuesta ilegible: %v", err)
+	}
+	f, ok := out["conflictosCalendario"].(float64)
+	if !ok {
+		t.Fatalf("la respuesta no trae conflictosCalendario: %s", rec.Body.String())
+	}
+	return int64(f)
+}
