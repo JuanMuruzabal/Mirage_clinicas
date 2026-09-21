@@ -1124,6 +1124,38 @@ describe("CalendarView", () => {
       ).not.toBeInTheDocument();
     });
 
+    // EL CASO QUE SE ROMPIÓ (QA, 2026-09-21): *"cuando toco el conflicto
+    // de la noti, el calendario queda en cargando y no se muestra... no
+    // ocurre si el conflicto es de otro profesional"*.
+    //
+    // `cargandoConfig` solo se apaga cuando se recarga la configuración,
+    // y eso pasa únicamente al cambiar de profesional. Con el conflicto
+    // del que YA está en foco, nadie la apagaba y la grilla no volvía
+    // nunca. Por eso este test NO manda `conflictoCalendarioProfesionalId`
+    // distinto: es el camino que quedaba trabado.
+    it("con el conflicto del profesional ya en foco, la grilla vuelve a mostrarse", async () => {
+      const user = userEvent.setup();
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await user.click(await screen.findByText(/en conflictos, toca para ver/));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Cargando…")).not.toBeInTheDocument(),
+      );
+      expect(await screen.findByText(/24 de diciembre de 2030/i)).toBeInTheDocument();
+    });
+
     // *"Me tendría que llevar a ese día y abrir la pantalla de resolución
     // de conflicto"*.
     it("al tocarlo viaja al día del conflicto", async () => {

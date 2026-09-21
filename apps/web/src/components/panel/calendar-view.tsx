@@ -763,15 +763,17 @@ export function CalendarView({
   // calendario ya en el día correcto y el modal todavía sin abrir.
   //
   // El ref es la guarda: sin él, cada render volvería a abrirlo.
-  if (
-    conflictoPendienteRef.current &&
-    !esperando &&
-    segmentosConConflicto.length > 0
-  ) {
+  if (conflictoPendienteRef.current && !esperando) {
+    // Se limpia haya o no algo que abrir: si el día de destino no tiene
+    // ningún cluster (el conflicto se resolvió mientras viajábamos, por
+    // ejemplo), dejar la bandera encendida haría que se abriera solo el
+    // primer conflicto que apareciera en cualquier navegación futura.
     conflictoPendienteRef.current = false;
     const seg = segmentosConConflicto[0];
-    setReglasSeleccionadas(seg.reglas);
-    setTurnosEnConflictoSeleccionados(seg.turnos);
+    if (seg) {
+      setReglasSeleccionadas(seg.reglas);
+      setTurnosEnConflictoSeleccionados(seg.turnos);
+    }
   }
 
   // Al tocar el banner, abre el "Ver eventos" del conflicto MÁS PRÓXIMO en
@@ -802,8 +804,24 @@ export function CalendarView({
     if (!fechaConflicto) return;
 
     conflictoPendienteRef.current = true;
+    // SOLO `setCargando`, NUNCA `setCargandoConfig` acá (bug de QA,
+    // 2026-09-21: *"cuando toco el conflicto de la noti, el calendario
+    // queda en cargando y no se muestra... no ocurre si el conflicto es
+    // de otro profesional"*).
+    //
+    // `cargandoConfig` lo apaga `cargarConfigCalendario`, que solo vuelve
+    // a correr cuando cambia `vistaKey`. Si el conflicto es del
+    // profesional que YA está en foco, ese valor no cambia, nadie
+    // recarga, y la bandera queda encendida para siempre. De ahí que
+    // funcionara justo en el caso contrario — al saltar a otra agenda,
+    // `vistaKey` cambia y la recarga la apaga de rebote.
+    //
+    // Y no hace falta: los horarios reservados y el horario de atención
+    // no se piden por rango de fechas. Cambiar de día no invalida nada de
+    // eso; lo único que hay que volver a traer son los turnos, que es lo
+    // que `cargando` cubre. Cuando además cambia el profesional, la
+    // reconciliación de `ultimaVista` prende las dos banderas sola.
     setCargando(true);
-    setCargandoConfig(true);
     setFecha(parseFechaISOLocal(fechaConflicto));
     setVista("dia");
 
