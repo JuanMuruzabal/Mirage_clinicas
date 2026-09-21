@@ -113,15 +113,31 @@ func listTiposConsultaHandler(gdb *gorm.DB) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if duenio == uuid.Nil {
-			// Recepción sin profesional elegido: no hay una configuración
-			// "de toda la clínica" que mostrar.
+		var tipos []db.TipoConsulta
+		consulta := gdb.Where("clinic_id = ?", profesionalID)
+		switch {
+		case duenio != uuid.Nil:
+			consulta = consulta.Scopes(soloDeLaAgendaDe(duenio))
+		case veTodaLaClinica(r):
+			// LA VISTA GENERAL SÍ TIENE TIPOS: los de todos (QA de la
+			// 3.2.6, 2026-09-21).
+			//
+			// Devolvía una lista vacía, y eso dejaba al calendario de la
+			// vista general sin con qué resolver el tipo de cada turno: la
+			// tarjeta decía "—" y se pintaba del gris neutro en vez del
+			// color que eligió el profesional.
+			//
+			// Cada turno trae el id de la fila de SU dueño (un tipo es de
+			// un profesional, TR-145), así que con la lista completa cada
+			// uno encuentra la suya —nombre y color— sin mezclar nada. Que
+			// haya dos "Consulta general" con ids distintos no molesta:
+			// se busca por id, no por nombre.
+		default:
+			// Sin agenda y sin ver toda la clínica no hay nada que listar.
 			writeJSON(w, http.StatusOK, []tipoConsultaResponse{})
 			return
 		}
-		var tipos []db.TipoConsulta
-		if err := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloDeLaAgendaDe(duenio)).
-			Order("created_at").Find(&tipos).Error; err != nil {
+		if err := consulta.Order("created_at").Find(&tipos).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener los tipos de consulta")
 			return
 		}

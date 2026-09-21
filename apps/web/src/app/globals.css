@@ -66,6 +66,12 @@
      rounded-full nativo de Tailwind para el pill de botones/chips. --- */
   --radius-card: 18px;
   --radius-field: 12px;
+  /* --radius-turno: la tarjeta de un turno en el calendario (QA de la
+     3.2.6, 2026-09-21: *"en vez de píldoras serán rectángulos con bordes
+     redondeados"*). A 12px sobre un bloque de media hora —unos 30px de
+     alto— las dos esquinas se tocaban y el turno se leía como una
+     píldora, no como una tarjeta. A 8px vuelve a ser un rectángulo. */
+  --radius-turno: 8px;
 
   /* Sombra difusa muy suave para separar del fondo con textura sin volver
      a bordes duros (TR-013) — nunca la sombra dura tipo bungie.net que
@@ -114,6 +120,7 @@
   --color-linea: var(--color-linea);
   --radius-card: var(--radius-card);
   --radius-field: var(--radius-field);
+  --radius-turno: var(--radius-turno);
   --shadow-soft: var(--shadow-soft);
   --font-display: var(--font-display);
   --font-body: var(--font-body);

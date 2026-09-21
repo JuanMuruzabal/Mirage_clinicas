@@ -108,12 +108,22 @@ export function SelectorDeAgenda({
  */
 export function SelectorDeVistaDeRecepcion({
   onCambio,
+  hayCambiosSinGuardar,
 }: {
   onCambio: () => void;
+  /** Si hay edición a medio hacer, se pregunta antes de cambiar: pasar de
+   *  profesional vuelve a leer TODO, y lo tipeado se pierde. */
+  hayCambiosSinGuardar?: () => boolean;
 }) {
   const [opciones, setOpciones] = useState<OpcionesDeAgenda | null>(null);
   const [foco, setFoco] = useState<string | null>(null);
   const [guardando, iniciar] = useTransition();
+  // El cambio que está esperando confirmación. `undefined` = no hay
+  // ninguno pendiente (y no `null`, que es un userId válido: la opción
+  // general — acá no se usa, pero el tipo del carrusel la admite).
+  const [aConfirmar, setAConfirmar] = useState<string | null | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let vivo = true;
@@ -161,26 +171,70 @@ export function SelectorDeVistaDeRecepcion({
 
   if (!opciones?.puedeElegirOtros) return null;
 
+  function cambiarA(userId: string | null) {
+    iniciar(async () => {
+      await elegirVistaAction(userId ?? "");
+      setFoco(userId);
+      setAConfirmar(undefined);
+      // Y volver a leer lo que el modal muestra: es la configuración de
+      // otra persona.
+      onCambio();
+    });
+  }
+
   return (
     <div className="border-b border-linea bg-hueso px-6 py-4">
       <CarruselDeProfesionales
         profesionales={opciones.profesionales}
         valorId={foco}
-        onElegir={(userId) =>
-          iniciar(async () => {
-            await elegirVistaAction(userId ?? "");
-            setFoco(userId);
-            // Y volver a leer lo que el modal muestra: es la
-            // configuración de otra persona.
-            onCambio();
-          })
-        }
+        onElegir={(userId) => {
+          // AVISO ANTES DE CAMBIAR (QA de la 3.2.6). Cambiar de
+          // profesional vuelve a leer la configuración entera, así que lo
+          // que esté tipeado y sin guardar se pierde. Se pregunta solo
+          // cuando de verdad hay algo que perder: un cartel que aparece
+          // siempre se aprende a ignorar.
+          if (hayCambiosSinGuardar?.()) {
+            setAConfirmar(userId);
+            return;
+          }
+          cambiarA(userId);
+        }}
         etiqueta="Configurando la agenda de"
         conVistaGeneral={false}
         etiquetaGeneral="Elegí un profesional"
         detalleGeneral="Cada uno tiene su propio horario de atención"
         guardando={guardando}
       />
+
+      {aConfirmar !== undefined && (
+        <div
+          role="alertdialog"
+          aria-label="Cambios sin guardar"
+          className="mt-3 flex flex-col gap-2 rounded-field border border-arena bg-marfil p-3"
+        >
+          <p className="text-sm text-grafito">
+            Tenés cambios sin guardar en el horario de atención. Si cambiás de
+            profesional se van a perder.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={() => cambiarA(aConfirmar)}
+              className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+            >
+              Cambiar igual
+            </button>
+            <button
+              type="button"
+              onClick={() => setAConfirmar(undefined)}
+              className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            >
+              Seguir acá
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

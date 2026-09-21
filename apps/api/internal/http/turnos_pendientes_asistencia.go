@@ -97,6 +97,31 @@ func turnosPendientesAsistenciaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		ahora := clock.Now()
 
+		// RECEPCIÓN NO TIENE NADA QUE RESOLVER ACÁ (QA de la 3.2.6,
+		// 2026-09-20: *"el cartel de asistencia que aparece debe ser
+		// exclusivo para el profesional, al recepcionista no le debería
+		// aparecer"*).
+		//
+		// Este endpoint alimenta un modal incerrable que tapa la pantalla
+		// hasta que alguien marca asistió/ausente, y marcar dispara
+		// consecuencias irreversibles: resuelve conflictos de identidad y
+		// un "ausente" puede borrar la ficha de un paciente sin verificar.
+		// Esa decisión es de quien atendió — es el único que sabe si la
+		// persona vino.
+		//
+		// La regla vive acá y no solo en el layout que monta el cartel:
+		// esconder el cartel no es lo mismo que no tener la lista, y desde
+		// la vista general esa lista serían los turnos de TODOS. Recepción
+		// sigue pudiendo marcar por adelantado desde "Turnos de hoy", que
+		// es otro endpoint y otra cosa: ahí anota un borrador reversible.
+		//
+		// Los roles son excluyentes (índice único parcial): quien tiene
+		// `recepcion` no tiene `profesional`.
+		if tieneAlgunRol(r, db.RoleRecepcion) {
+			writeJSON(w, http.StatusOK, turnosPendientesAsistenciaResponse{Vencidos: []turnoResponse{}})
+			return
+		}
+
 		// Los MÍOS: marcar asistencia es irreversible, y este listado es
 		// el que invita a hacerlo. Con los del colega adentro, la primera
 		// acción del día podía ser cerrarle un turno ajeno.

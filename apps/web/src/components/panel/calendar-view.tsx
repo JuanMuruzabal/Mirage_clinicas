@@ -47,8 +47,8 @@ import { ReservarHorarioModal } from "./reservar-horario-modal";
 import { IconSettings } from "@/components/icons";
 import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
+import { panelNotificacionesAction } from "@/app/actions/panel";
 import type { VistaActual } from "@dental-mirage/shared-types";
-import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
 
 interface CalendarViewProps {
   tiposConsulta: TipoConsulta[];
@@ -175,8 +175,40 @@ export function CalendarView({
   );
   // Ver pacientes-table.tsx: sin esto, un turno editado o un conflicto
   // de calendario resuelto seguían pintados hasta refrescar a mano.
-  const [turnos, setTurnos] = useEstadoDelServidor<Turno[]>(turnosIniciales);
+  // TURNOS: EL PROP DEL SERVIDOR ES UNA SEÑAL, NO EL DATO (QA de la
+  // 3.2.6, 2026-09-21).
+  //
+  // Acá estaba `useEstadoDelServidor`, y en esta pantalla hacía daño. Ese
+  // hook existe para el caso normal del panel —el servidor manda, el
+  // cliente refleja (TR-156)— pero el calendario es la excepción: pide
+  // SU propio rango de fechas, el que la persona está mirando, y el prop
+  // que baja el servidor describe siempre el rango INICIAL de la página.
+  //
+  // Con el hook, cualquier `revalidatePath("/panel/calendario")` —que
+  // dispara casi toda acción de turnos— pisaba lo que el cliente acababa
+  // de traer con la lista del rango de arranque. De ahí los dos síntomas
+  // reportados: el turno autoreservado que "no se asigna en tiempo real"
+  // (se movió a otro día y quedaba fuera de esa lista), y el horario
+  // reservado recién creado que mostraba la tarjeta gris pero no la de
+  // solapamiento (el turno con el que choca se había caído del estado, y
+  // sin turno no hay cluster que formar).
+  //
+  // La señal igual sirve, y hay que escucharla: `TurnoDetalle` edita y
+  // cancela sin avisarle a esta pantalla, confiando en la revalidación.
+  // Así que cuando el prop cambia de identidad no se copia su contenido
+  // — se vuelve a pedir EL RANGO VISIBLE, que es la pregunta correcta.
+  const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales);
+  const [ultimoDelServidor, setUltimoDelServidor] = useState(turnosIniciales);
+  const [versionServidor, setVersionServidor] = useState(0);
+  if (ultimoDelServidor !== turnosIniciales) {
+    setUltimoDelServidor(turnosIniciales);
+    // Sin `setCargando(true)`: lo que ya está en pantalla sigue siendo
+    // válido hasta que llegue lo nuevo, y un "Cargando…" en cada
+    // revalidación haría parpadear el calendario entero.
+    setVersionServidor((v) => v + 1);
+  }
   const [cargando, setCargando] = useState(false);
+  const [cargandoConfig, setCargandoConfig] = useState(false);
   // Al cambiar de profesional, la pantalla entra en "Cargando…"
   // hasta que llega la tanda nueva. Sin esto se vería, por un
   // instante, el rango por defecto que trajo el `router.refresh()`
@@ -184,10 +216,18 @@ export function CalendarView({
   // correctos de un rango equivocado, que es peor que un spinner.
   // Mismo patrón de "ajustar estado cuando cambia una prop" que usa
   // el resto del proyecto.
+  //
+  // Y LA CONFIGURACIÓN TAMBIÉN CUENTA COMO "CARGANDO" (QA de la 3.2.6,
+  // 2026-09-21). `cargando` seguía solo a los turnos, así que al cambiar
+  // de profesional la grilla volvía a dibujarse en cuanto llegaban los
+  // turnos NUEVOS, todavía con los horarios reservados VIEJOS: por unos
+  // segundos aparecía la tarjeta de conflicto del profesional anterior.
+  // Son dos pedidos independientes y hay que esperar a los dos.
   const [ultimaVista, setUltimaVista] = useState(vistaKey);
   if (ultimaVista !== vistaKey) {
     setUltimaVista(vistaKey);
     setCargando(true);
+    setCargandoConfig(true);
   }
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -281,15 +321,43 @@ export function CalendarView({
   // se vuelve a llamar (ej. al cerrar Configuración de calendario).
   const focoBloqueoInicialHecho = useRef(false);
 
+  // LA RESPUESTA VIEJA NO PISA A LA NUEVA (QA de la 3.2.6, 2026-09-21).
+  //
+  // Reportado así: *"veo la tarjeta de conflicto, cambio a otro
+  // profesional y me muestra por unos segundos la del profesional
+  // anterior; al volver, la tarjeta desaparece y tengo que ir a otra
+  // vista para arreglarlo"*.
+  //
+  // Esta función se dispara al montar, al cambiar de profesional y al
+  // cerrar la configuración, y no tenía forma de cancelarse: dos pedidos
+  // en vuelo terminaban en el orden en que contestara el servidor, no en
+  // el que se pidieron. El que llegaba último ganaba, aunque fuera el
+  // viejo — de ahí el parpadeo, y de ahí que al volver quedara pegada la
+  // respuesta equivocada hasta que otra navegación la refrescara.
+  //
+  // Un contador y no un booleano: hay que poder descartar CUALQUIER
+  // respuesta anterior, no solo la inmediatamente previa.
+  const cargaConfigRef = useRef(0);
+  // Pendiente de abrir apenas lleguen los datos del día al que estamos
+  // viajando (ver `abrirConflictoMasProximo`). Un ref y no estado: no se
+  // dibuja, solo se consulta.
+  const conflictoPendienteRef = useRef(false);
+
   function cargarConfigCalendario() {
+    const miCarga = ++cargaConfigRef.current;
     Promise.all([
       listBloqueosAction(false),
       listBloqueosAction(true),
       listHorarioAtencionAction(),
     ]).then(([generales, especificas, horarios]) => {
+      if (miCarga !== cargaConfigRef.current) return;
       setBloqueosGenerales(generales);
       setBloqueosEspecificas(especificas);
       setHorariosAtencion(horarios);
+      setCargandoConfig(false);
+      // Agregar o borrar un horario reservado puede crear o resolver un
+      // conflicto, y el número de arriba sale del servidor.
+      releerConflictos();
       // bloqueoAFocalizarId (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md
       // §11.5): "cuando dé click a un elemento del cuerpo [de la tarjeta
       // Horarios reservados], también llevarme a la tarjeta de ese
@@ -328,18 +396,30 @@ export function CalendarView({
     });
   }
 
-  // Deliberadamente solo al montar: `cargarConfigCalendario` cierra sobre
-  // `bloqueoAFocalizarId`/`turnos`/`fecha` para la resolución del deep-link
-  // (más arriba), pero esa resolución solo debe intentarse UNA VEZ, con
-  // los valores iniciales — la propia guarda `focoBloqueoInicialHecho` ya
-  // impide que se repita después, así que agregar esas variables acá
-  // dispararía el efecto de nuevo sin necesidad (y las mutaciones
-  // reales del modal de configuración ya llaman a `cargarConfigCalendario`
-  // por su cuenta vía `cerrarConfig`, más abajo).
+  // Al montar Y AL CAMBIAR DE PROFESIONAL (`vistaKey`).
+  //
+  // Sin `vistaKey` acá quedaba el bug que reportó la QA: *"el horario
+  // reservado de un profesional se sigue filtrando a otros en su
+  // calendario, y a veces aparece y otras no"*. Los horarios reservados y
+  // el horario de atención son estado del CLIENTE, cargado una sola vez;
+  // cambiar de profesional dispara un `router.refresh()` que renueva las
+  // props del servidor, pero no vuelve a correr esto — así que el
+  // calendario seguía dibujando los bloqueos del profesional anterior.
+  //
+  // Y de ahí la intermitencia, que fue la mejor pista: abrir y cerrar
+  // "Configuración de calendario" llama a `cargarConfigCalendario` por su
+  // cuenta (`cerrarConfig`), así que recién ahí se corregía — el bloqueo
+  // aparecía o desaparecía según desde qué profesional se hubiera abierto
+  // la configuración la última vez.
+  //
+  // Las demás variables que la función lee (`bloqueoAFocalizarId`,
+  // `turnos`, `fecha`) siguen fuera a propósito: son para resolver el
+  // deep-link UNA sola vez, con los valores iniciales, y `focoBloqueoInicialHecho`
+  // ya impide que se repita.
   useEffect(() => {
     cargarConfigCalendario();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vistaKey]);
 
   function cerrarConfig() {
     setConfigAbierta(false);
@@ -382,6 +462,18 @@ export function CalendarView({
       if (activo) {
         setTurnos(data);
         setCargando(false);
+        // EL AVISO DE CONFLICTO, EN TIEMPO REAL (QA de la 3.2.6,
+        // 2026-09-21). El conteo sale del servidor —por eso no
+        // desaparece al cambiar de día— pero hasta acá solo se releía al
+        // cambiar de profesional y al tocar la configuración. Un turno
+        // agendado, cancelado, editado o autoreservado cambia si hay
+        // conflicto o no, y el número quedaba viejo hasta recargar.
+        //
+        // Colgado del mismo lugar donde llegan los turnos: cualquier cosa
+        // que los haga volver a pedir —navegar, cambiar de agenda, o una
+        // revalidación del servidor tras una acción— trae también el
+        // conteo al día.
+        releerConflictos();
       }
     });
     return () => {
@@ -406,7 +498,11 @@ export function CalendarView({
     // `setTurnos` está en la lista por el lint: sale de
     // `useEstadoDelServidor`, que devuelve el setter de un `useState` y
     // por lo tanto es estable — sumarlo no cambia cuándo corre esto.
-  }, [fecha, vista, vistaKey, setTurnos]);
+    //
+    // `versionServidor`: una revalidación del servidor es la única
+    // noticia que tenemos de una edición hecha desde `TurnoDetalle`, que
+    // no avisa por callback. Ver el comentario del estado más arriba.
+  }, [fecha, vista, vistaKey, versionServidor]);
 
   function irA(nuevaFecha: Date, nuevaVista?: VistaCalendario) {
     setCargando(true);
@@ -519,14 +615,38 @@ export function CalendarView({
     return conColumna?.atendidoPorUserId ?? candidatos[0]?.userId ?? null;
   }
 
-  function cambiarDeFoco(userId: string) {
+  function cambiarDeFoco(userId: string, alTerminar?: () => void) {
     iniciarCambioDeFoco(async () => {
       await elegirVistaAction(userId);
       // Cambiar de foco cambia lo que el servidor devuelve para esta
       // pantalla, así que hay que volver a pedirla — el efecto de los
       // turnos se despierta solo cuando llega el `vistaKey` nuevo.
       router.refresh();
+      // `alTerminar` corre DESPUÉS de que el foco ya está escrito: lo usa
+      // "Ver regla", que abre la configuración y necesita que el modal
+      // lea el profesional nuevo, no el anterior.
+      alTerminar?.();
     });
+  }
+
+  // duenioDeLaRegla — de quién es el horario reservado (o la excepción de
+  // horario) que se está mirando.
+  //
+  // Hace falta para "Ver regla" desde la VISTA GENERAL (QA de la 3.2.6,
+  // 2026-09-21: *"los horarios reservados o las excepciones de horarios no
+  // llevan a la configuración de calendario del profesional correcto"*).
+  // Ahí la pantalla muestra las agendas de todos, así que abrir la
+  // configuración sin decir de quién es la regla caía en el profesional
+  // que estuviera en foco — o en ninguno — y la tabla no tenía esa fila.
+  function duenioDeLaRegla(reglaId: string): string | undefined {
+    const idExcepcion = idRealDeExcepcion(reglaId);
+    if (idExcepcion) {
+      return horariosAtencion.find((h) => h.id === idExcepcion)?.userId ?? undefined;
+    }
+    const bloqueo =
+      bloqueosEspecificas.find((b) => b.id === reglaId) ??
+      bloqueosGenerales.find((b) => b.id === reglaId);
+    return bloqueo?.userId ?? undefined;
   }
 
   function irAHoy() {
@@ -542,10 +662,16 @@ export function CalendarView({
       estado: "agendado",
       desde: desde.toISOString(),
       hasta: hasta.toISOString(),
-    }).then(setTurnos);
+    }).then((data) => {
+      setTurnos(data);
+      // Mover un turno con "Autoreservar" o dar de alta uno nuevo puede
+      // resolver o crear un conflicto.
+      releerConflictos();
+    });
   }
 
   const dias = diasDeVista(fecha, vista);
+  const esperando = cargando || cargandoConfig;
 
   // UNA COLUMNA POR PROFESIONAL, y solo en vista Día (Fase 3.2.6).
   //
@@ -611,29 +737,119 @@ export function CalendarView({
   // `turnoResuelto`: un conflicto cuyo turno ya pasó deja de contar como
   // activo (TR-090) — "dado el caso de agendar algo con reserva y al
   // final no hacer nada con eso" no debería seguir sumando al contador.
+  //
+  // UN CÁLCULO POR AGENDA, NO UNO SOLO MEZCLADO (QA de la 3.2.6,
+  // 2026-09-20). Este banner recalcula los clusters por su cuenta, y lo
+  // hacía sobre TODOS los turnos contra TODOS los horarios reservados y
+  // excepciones. En la vista general de la clínica eso cruza gente: el
+  // turno de uno contra la excepción de horario de otro, marcado como
+  // conflicto — *"cosa que no existe"*, y que además no se podría
+  // resolver desde ninguna pantalla.
+  //
+  // La grilla ya separaba por columna; esto no, y por eso el bloque de la
+  // excepción desaparecía del día pero el turno seguía contando como en
+  // conflicto. Mismo criterio que allá: cada agenda se compara solo
+  // consigo misma.
+  const agendasAComparar: (string | undefined)[] = porProfesional
+    ? profesionalesDelDia.map((p) => p.userId)
+    : [undefined];
+
   const segmentosConConflicto = dias
-    .flatMap((dia) => {
-      const turnosDelDia = turnos.filter(
-        (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), dia),
-      );
-      return segmentosParaVisualizar(
-        dia,
-        bloqueosGenerales,
-        bloqueosEspecificas,
-        turnosDelDia,
-        horariosAtencion,
-      );
-    })
+    .flatMap((dia) =>
+      agendasAComparar.flatMap((userId) => {
+        const deLaAgenda = <T extends { userId?: string | null }>(items: T[]) =>
+          userId === undefined ? items : items.filter((i) => i.userId === userId);
+        const turnosDelDia = turnos.filter(
+          (t) =>
+            t.horaInicio &&
+            isSameDay(new Date(t.horaInicio), dia) &&
+            (userId === undefined || t.atendidoPorUserId === userId),
+        );
+        return segmentosParaVisualizar(
+          dia,
+          deLaAgenda(bloqueosGenerales),
+          deLaAgenda(bloqueosEspecificas),
+          turnosDelDia,
+          deLaAgenda(horariosAtencion),
+        );
+      }),
+    )
     .filter((seg) => seg.variante === "conflicto")
     .map((seg) => ({
       ...seg,
       turnosActivos: seg.turnos.filter((t) => !turnoResuelto(t)),
     }))
     .filter((seg) => seg.turnosActivos.length > 0);
-  const totalTurnosEnConflicto = segmentosConConflicto.reduce(
+  const turnosEnConflictoALaVista = segmentosConConflicto.reduce(
     (acc, seg) => acc + seg.turnosActivos.length,
     0,
   );
+
+  // EL AVISO NO DESAPARECE AL CAMBIAR DE DÍA (QA de la 3.2.6,
+  // 2026-09-21).
+  //
+  // Reportado así: *"si yo me voy a otro día, o semana que no muestre ese
+  // día, la notificación de abajo del selector del calendario desaparece;
+  // es ese el que no debe desaparecer"*.
+  //
+  // El número salía de `segmentosConConflicto`, que se calcula sobre lo
+  // que la vista tiene CARGADO — un día en Día, una semana en Semana. Un
+  // conflicto del martes dejaba de existir apenas mirabas el miércoles,
+  // que es justo cuando hace falta que avise.
+  //
+  // Ahora el conteo viene del backend, que mira la clínica entera sin
+  // tope de fechas (`contarTurnosEnConflictoConBloqueos`), y trae además
+  // el día y el dueño del más próximo para poder llevar hasta él.
+  const [conflictosGlobales, setConflictosGlobales] = useState<{
+    total: number;
+    fecha?: string;
+    profesionalUserId?: string;
+  }>({ total: 0 });
+
+  function releerConflictos() {
+    panelNotificacionesAction().then((n) => {
+      if (!n) return;
+      setConflictosGlobales({
+        total: n.conflictosCalendario,
+        fecha: n.conflictoCalendarioFecha,
+        profesionalUserId: n.conflictoCalendarioProfesionalId,
+      });
+    });
+  }
+
+  // Al montar, al cambiar de profesional, y cada vez que se toca algo que
+  // puede crear o resolver un conflicto (ver `cargarConfigCalendario`).
+  useEffect(() => {
+    releerConflictos();
+  }, [vistaKey]);
+
+  const totalTurnosEnConflicto = Math.max(
+    conflictosGlobales.total,
+    turnosEnConflictoALaVista,
+  );
+
+  // Llegamos al día del conflicto: se abre la pantalla de resolución.
+  //
+  // DURANTE EL RENDER y no en un `useEffect`: es el mismo patrón de
+  // "ajustar estado cuando cambia lo que se está mirando" que usa
+  // `ultimaVista` más arriba y `useEstadoDelServidor` en el resto del
+  // panel. Con un efecto, el lint del proyecto lo rechaza
+  // (`react-hooks/set-state-in-effect`) y además quedaría un frame con el
+  // calendario ya en el día correcto y el modal todavía sin abrir.
+  //
+  // El ref es la guarda: sin él, cada render volvería a abrirlo.
+  if (conflictoPendienteRef.current && !esperando) {
+    // Se limpia haya o no algo que abrir: si el día de destino no tiene
+    // ningún cluster (el conflicto se resolvió mientras viajábamos, por
+    // ejemplo), dejar la bandera encendida haría que se abriera solo el
+    // primer conflicto que apareciera en cualquier navegación futura.
+    conflictoPendienteRef.current = false;
+    const seg = segmentosConConflicto[0];
+    if (seg) {
+      setReglasSeleccionadas(seg.reglas);
+      setTurnosEnConflictoSeleccionados(seg.turnos);
+    }
+  }
 
   // Al tocar el banner, abre el "Ver eventos" del conflicto MÁS PRÓXIMO en
   // el tiempo — pedido textual: "al tocar toca para ver abrirá el ver
@@ -648,11 +864,50 @@ export function CalendarView({
         })),
       )
       .sort((a, b) => a.horaInicio - b.horaInicio);
-    if (candidatos.length === 0) return;
-    const { seg } = candidatos[0];
-    setReglasSeleccionadas(seg.reglas);
-    setTurnosEnConflictoSeleccionados(seg.turnos);
+
+    if (candidatos.length > 0) {
+      const { seg } = candidatos[0];
+      setReglasSeleccionadas(seg.reglas);
+      setTurnosEnConflictoSeleccionados(seg.turnos);
+      return;
+    }
+
+    // NO ESTÁ A LA VISTA: hay que ir hasta él. *"Si estoy por fuera de la
+    // vista de conflicto de ese día, me tendría que llevar a ese día y
+    // abrir la pantalla de resolución de conflicto"*.
+    const { fecha: fechaConflicto, profesionalUserId } = conflictosGlobales;
+    if (!fechaConflicto) return;
+
+    conflictoPendienteRef.current = true;
+    // SOLO `setCargando`, NUNCA `setCargandoConfig` acá (bug de QA,
+    // 2026-09-21: *"cuando toco el conflicto de la noti, el calendario
+    // queda en cargando y no se muestra... no ocurre si el conflicto es
+    // de otro profesional"*).
+    //
+    // `cargandoConfig` lo apaga `cargarConfigCalendario`, que solo vuelve
+    // a correr cuando cambia `vistaKey`. Si el conflicto es del
+    // profesional que YA está en foco, ese valor no cambia, nadie
+    // recarga, y la bandera queda encendida para siempre. De ahí que
+    // funcionara justo en el caso contrario — al saltar a otra agenda,
+    // `vistaKey` cambia y la recarga la apaga de rebote.
+    //
+    // Y no hace falta: los horarios reservados y el horario de atención
+    // no se piden por rango de fechas. Cambiar de día no invalida nada de
+    // eso; lo único que hay que volver a traer son los turnos, que es lo
+    // que `cargando` cubre. Cuando además cambia el profesional, la
+    // reconciliación de `ultimaVista` prende las dos banderas sola.
+    setCargando(true);
+    setFecha(parseFechaISOLocal(fechaConflicto));
+    setVista("dia");
+
+    // Si es de otra agenda, primero hay que pararse ahí: el calendario de
+    // este profesional no tiene ese conflicto ni puede resolverlo.
+    if (profesionalUserId && profesionalUserId !== vistaKey) {
+      cambiarDeFoco(profesionalUserId);
+    }
   }
+
+
 
   // Resuelve el scroll pendiente de "Hoy"/toggle "Semana" (ver
   // `cambiarVista`/`irAHoy` de arriba). No puede dispararse en el mismo
@@ -1029,8 +1284,11 @@ export function CalendarView({
           className="relative h-[600px] overflow-x-auto overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {cargando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
-          {!cargando && vista === "mes" && (
+          {/* `esperando`: los turnos Y la configuración. Con solo los
+              turnos, la grilla se redibujaba con los horarios reservados
+              del profesional anterior todavía en memoria. */}
+          {esperando && <p className="p-4 text-sm text-grafito/60">Cargando…</p>}
+          {!esperando && vista === "mes" && (
             <CalendarMonthGrid
               dias={dias}
               mesReferencia={fecha}
@@ -1039,7 +1297,7 @@ export function CalendarView({
               onDiaClick={(dia) => irA(dia, "dia")}
             />
           )}
-          {!cargando && vista !== "mes" && (
+          {!esperando && vista !== "mes" && (
             <CalendarGrid
               columnas={columnas}
               turnos={turnos}
@@ -1108,14 +1366,26 @@ export function CalendarView({
             // reservado real: lleva la vista a la tabla de excepciones de
             // Configuración de calendario, no a la de horarios reservados.
             const idExcepcion = idRealDeExcepcion(reglaId);
-            if (idExcepcion) {
-              setHorarioAtencionAFocalizar(idExcepcion);
-            } else {
-              setReglaAFocalizar(reglaId);
+            const abrirConfig = () => {
+              if (idExcepcion) {
+                setHorarioAtencionAFocalizar(idExcepcion);
+              } else {
+                setReglaAFocalizar(reglaId);
+              }
+              setReglasSeleccionadas(null);
+              setTurnosEnConflictoSeleccionados([]);
+              setConfigAbierta(true);
+            };
+
+            // Desde la vista general la regla puede ser de cualquiera: hay
+            // que pararse en SU agenda antes de abrir la configuración, o
+            // la tabla no va a tener esa fila para resaltar.
+            const duenio = duenioDeLaRegla(reglaId);
+            if (duenio && duenio !== vistaKey) {
+              cambiarDeFoco(duenio, abrirConfig);
+              return;
             }
-            setReglasSeleccionadas(null);
-            setTurnosEnConflictoSeleccionados([]);
-            setConfigAbierta(true);
+            abrirConfig();
           }}
           onVerTurno={(turno) => {
             // Pasa las reglas del cluster actual a TurnoDetalle, para que
@@ -1148,6 +1418,12 @@ export function CalendarView({
       {configAbierta && (
         <ConfiguracionCalendarioModal
           onClose={cerrarConfig}
+          // Elegir otro profesional DENTRO de la configuración mueve el
+          // foco de la sesión, así que la pantalla de atrás tiene que
+          // seguirlo: si no, el encabezado dice un nombre y el calendario
+          // dibuja la agenda de otro. Con el refresh cambia `vistaKey` y
+          // se recarga todo junto.
+          onAgendaCambiada={() => router.refresh()}
           reglaAFocalizarId={reglaAFocalizar ?? undefined}
           horarioAtencionAFocalizarId={horarioAtencionAFocalizar ?? undefined}
         />

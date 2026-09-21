@@ -92,6 +92,21 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 			`clinic_id = ? AND user_id IS NOT NULL`,
 			`clinic_id = ? AND user_id = ?`,
 		},
+		// CLÍNICA-WIDE A PROPÓSITO, y solo para recepción: el aviso de
+		// conflictos tiene que alcanzar a toda la clínica desde cualquier
+		// vista — *"el recepcionista tiene que estar al tanto de cualquier
+		// conflicto, sea la vista que sea"* (QA de la 3.2.6, 2026-09-21).
+		//
+		// Para cualquier otro rol la función SÍ aplica `soloMisTurnos` /
+		// `soloMiAgenda`, elegidos unas líneas más arriba de cada consulta
+		// (por eso el patrón de este test no los ve acá). Y el cruce entre
+		// agendas se corta igual: cada turno se compara solo contra la
+		// suya, ver `turnoChocaConSuAgenda`.
+		"panel_notificaciones.go": {
+			`clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?`,
+			`(especifico = true AND fecha >= ?)`,
+			`clinic_id = ? AND alcance <> ? AND fecha_hasta >= ?`,
+		},
 		"disponibilidad.go": {
 			// Mapa de duraciones por id; se consulta solo para turnos ya
 			// acotados.

@@ -58,6 +58,19 @@ func turnoDePruebaParaElColega(
 	return creado
 }
 
+// manianaALas10 — mañana a las 10 de la mañana EN CÓRDOBA.
+//
+// Y no `manianaALas10(t)`, que es lo que decía antes y fallaba
+// según la hora a la que corriera la suite: a las 22:00 esas 26 horas caen
+// en PASADO mañana, y la tarjeta "Turnos próximos" —que muestra el día
+// siguiente y nada más— quedaba vacía. Mismo problema que ya había
+// resuelto `horaVigenteDeHoy` para el otro extremo del día.
+func manianaALas10(t *testing.T) time.Time {
+	t.Helper()
+	maniana := clock.In(clock.Now()).AddDate(0, 0, 1)
+	return time.Date(maniana.Year(), maniana.Month(), maniana.Day(), 10, 0, 0, 0, maniana.Location())
+}
+
 // volverALaVistaGeneral deja a recepción sin foco: es la vista general.
 func volverALaVistaGeneral(t *testing.T, router http.Handler, token string) {
 	t.Helper()
@@ -92,7 +105,7 @@ func TestVistaGeneral_LasTarjetasDicenDeQuienEsCadaFila(t *testing.T) {
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "tarjetas")
 
 	turnoDePruebaParaElColega(t, router, esc, "41500001", "ana-tarjetas@example.com",
-		time.Now().Add(26*time.Hour))
+		manianaALas10(t))
 	volverALaVistaGeneral(t, router, esc.recepToken)
 
 	resumen := resumenDelPanel(t, router, esc.recepToken)
@@ -118,7 +131,7 @@ func TestVistaDeUnProfesional_LasTarjetasNoRepitenSuNombre(t *testing.T) {
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "tarjetasfoco")
 
 	turnoDePruebaParaElColega(t, router, esc, "41500002", "ana-tarjetasfoco@example.com",
-		time.Now().Add(26*time.Hour))
+		manianaALas10(t))
 	// Sin volver a la general: recepción sigue parada en el colega.
 
 	resumen := resumenDelPanel(t, router, esc.recepToken)
@@ -176,7 +189,7 @@ func TestVistaGeneral_LaColumnaProfesionalDeTurnosEsExclusiva(t *testing.T) {
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "columna")
 
 	turnoDePruebaParaElColega(t, router, esc, "41500003", "ana-columna@example.com",
-		time.Now().Add(30*time.Hour))
+		manianaALas10(t))
 
 	// Parado en el colega: sin nombre.
 	var enFoco []turnoResponse
@@ -221,7 +234,7 @@ func TestVistaGeneral_UnProfesionalNuncaVeLaColumna(t *testing.T) {
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "aisladacol")
 
 	turnoDePruebaParaElColega(t, router, esc, "41500004", "ana-aisladacol@example.com",
-		time.Now().Add(34*time.Hour))
+		manianaALas10(t))
 
 	resumen := resumenDelPanel(t, router, esc.titular.Token)
 	for _, it := range resumen.TurnosProximos {
@@ -329,7 +342,7 @@ func TestAgendaElegida_RecepcionCargaUnTurnoSinPararseEnLaVista(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "elegirturno")
 
-	inicio := time.Now().Add(52 * time.Hour)
+	inicio := manianaALas10(t)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", esc.recepToken, crearTurnoManualRequest{
 		NombreContacto: "Ana", ApellidoContacto: "Paciente", DNIContacto: "41600001",
 		TelefonoContacto: "3510000000", EmailContacto: "ana-elegirturno@example.com",
@@ -366,7 +379,7 @@ func TestAgendaElegida_LeGanaAlFocoDeLaSesion(t *testing.T) {
 	if code := elegirVista(t, router, esc.recepToken, esc.colegaID.String()); code != http.StatusOK {
 		t.Fatalf("elegir vista: status=%d", code)
 	}
-	inicio := time.Now().Add(56 * time.Hour)
+	inicio := manianaALas10(t).Add(2 * time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", esc.recepToken, crearTurnoManualRequest{
 		NombreContacto: "Ana", ApellidoContacto: "Paciente", DNIContacto: "41600002",
 		TelefonoContacto: "3510000000", EmailContacto: "ana-elegirgana@example.com",
@@ -398,7 +411,7 @@ func TestAgendaElegida_UnProfesionalNoLeCargaUnTurnoAUnColega(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "elegirajeno")
 
-	inicio := time.Now().Add(60 * time.Hour)
+	inicio := manianaALas10(t).Add(4 * time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", esc.titular.Token, crearTurnoManualRequest{
 		NombreContacto: "Ana", ApellidoContacto: "Paciente", DNIContacto: "41600003",
 		TelefonoContacto: "3510000000", EmailContacto: "ana-elegirajeno@example.com",
@@ -444,7 +457,7 @@ func TestAgendaElegida_UnIDInventadoNoPasa(t *testing.T) {
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "elegirinventado")
 
-	inicio := time.Now().Add(64 * time.Hour)
+	inicio := manianaALas10(t).Add(6 * time.Hour)
 	rec := doJSONAuth(t, router, http.MethodPost, "/turnos", esc.recepToken, crearTurnoManualRequest{
 		NombreContacto: "Ana", ApellidoContacto: "Paciente", DNIContacto: "41600004",
 		TelefonoContacto: "3510000000", EmailContacto: "ana-elegirinventado@example.com",

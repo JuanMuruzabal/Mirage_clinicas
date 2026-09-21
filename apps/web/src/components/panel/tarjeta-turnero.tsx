@@ -10,8 +10,10 @@ import { LinkConVista } from "./link-con-vista";
 // cabecera y las filas del cuerpo pasan a ser links independientes.
 
 const CABECERA_BASE = "flex items-baseline justify-between gap-3";
-const EYEBROW_BASE = "font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50";
-const VALOR_BASE = "font-[family-name:var(--font-display)] text-5xl font-medium";
+const EYEBROW_BASE =
+  "font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50";
+const VALOR_BASE =
+  "font-[family-name:var(--font-display)] text-5xl font-medium";
 const LABEL_CABECERA_BASE = "text-sm font-medium whitespace-nowrap";
 
 interface TarjetaFila {
@@ -92,12 +94,19 @@ export function TarjetaConLista({
                 correcta, porque cada fila es de alguien distinto. */}
             {cabeceraCustom ??
               (hrefCabecera && labelCabecera && (
-                <Link href={hrefCabecera} className={`${LABEL_CABECERA_BASE} text-salvia-oscuro hover:text-grafito`}>
+                <Link
+                  href={hrefCabecera}
+                  className={`${LABEL_CABECERA_BASE} text-salvia-oscuro hover:text-grafito`}
+                >
                   {labelCabecera}
                 </Link>
               ))}
           </div>
-          <p className={`${VALOR_BASE} ${acento ? "text-salvia-oscuro" : "text-grafito"}`}>{valor}</p>
+          <p
+            className={`${VALOR_BASE} ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+          >
+            {valor}
+          </p>
         </div>
       </div>
 
@@ -117,25 +126,47 @@ export function TarjetaConLista({
           a este cuerpo a ocupar siempre el resto del alto disponible —
           el efecto vidrio pasa a cubrir la tarjeta completa, tenga
           contenido o no. */}
-      <div className="panel-card-scroll panel-card-vidrio max-h-52 flex-1 overflow-y-auto">
-        {filas.length === 0 ? (
-          // Misma tipografía de display que las filas con contenido
-          // (corrección de QA, 2026-09-06: "cambiar el font para que
-          // quede coherente con el font de las tarjetas con contenido",
-          // ver cambiar2.png en docs/) — antes quedaba en la fuente
-          // sans-serif por default, discordante con el resto del cuerpo.
-          <p className="p-4 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">{vacioMensaje}</p>
-        ) : (
-          <ul>
-            {filas.map((f) => (
-              <li key={f.key} className="border-b-[0.5px] border-arena/60 last:border-b-0">
-                <LinkConVista href={f.href} userId={f.userId} className="block px-4 py-3 hover:bg-arena/40">
-                  {f.contenido}
-                </LinkConVista>
-              </li>
-            ))}
-          </ul>
-        )}
+      {/* DOS CAJAS Y NO UNA (QA de la 3.2.6). El scroll HORIZONTAL —
+          pedido "por las dudas de que sea muy grande el nombre del
+          profesional"— no se puede poner en la misma caja que
+          `.panel-card-vidrio`: esa clase fuerza `overflow-x: hidden` para
+          recortar el `inset` negativo de su pseudo-elemento, y le gana a
+          la utility de Tailwind. Es exactamente el mismo desdoblamiento
+          que ya había hecho falta en la tarjeta "Turnos de hoy".
+          `overflow-y-hidden` en la de afuera no es decorativo: con la X
+          en `hidden` y la Y sin declarar, la Y computa `auto` y esta caja
+          se convierte en un segundo contenedor de scroll — una barra
+          extra, y encima la del navegador en vez de la beige. */}
+      <div className="panel-card-vidrio max-h-52 flex-1 overflow-y-hidden">
+        <div className="panel-card-scroll h-full overflow-auto">
+          {filas.length === 0 ? (
+            // Misma tipografía de display que las filas con contenido
+            // (corrección de QA, 2026-09-06: "cambiar el font para que
+            // quede coherente con el font de las tarjetas con contenido",
+            // ver cambiar2.png en docs/) — antes quedaba en la fuente
+            // sans-serif por default, discordante con el resto del cuerpo.
+            <p className="p-4 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
+              {vacioMensaje}
+            </p>
+          ) : (
+            <ul>
+              {filas.map((f) => (
+                <li
+                  key={f.key}
+                  className="border-b-[0.5px] border-arena/60 last:border-b-0"
+                >
+                  <LinkConVista
+                    href={f.href}
+                    userId={f.userId}
+                    className="block px-4 py-3 hover:bg-arena/40"
+                  >
+                    {f.contenido}
+                  </LinkConVista>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* El mismo pie que "Turnos de hoy": la salida a la lista
@@ -143,7 +174,10 @@ export function TarjetaConLista({
           recorte que la tarjeta está mostrando. */}
       {hrefPie && labelPie && (
         <div className="flex items-center justify-end border-t-[0.5px] border-arena bg-marfil px-6 py-3">
-          <Link href={hrefPie} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+          <Link
+            href={hrefPie}
+            className="text-sm font-medium text-salvia-oscuro hover:text-grafito"
+          >
             {labelPie}
           </Link>
         </div>
@@ -190,7 +224,13 @@ interface FilaResumenProps {
 // pedido explícito del cliente — un texto muy largo corta con "…" en vez
 // de romper la fila a una segunda línea (eso también rompía la
 // alineación vertical entre filas).
-export function FilaResumen({ etiqueta, hora, children, uppercase = true, profesional }: FilaResumenProps) {
+export function FilaResumen({
+  etiqueta,
+  hora,
+  children,
+  uppercase = true,
+  profesional,
+}: FilaResumenProps) {
   return (
     <div className="flex flex-col gap-0.5">
       {etiqueta && (
@@ -206,15 +246,30 @@ export function FilaResumen({ etiqueta, hora, children, uppercase = true, profes
         <span className="w-[8.5rem] shrink-0 font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-salvia-oscuro">
           {hora}
         </span>
+        {/* `min-w-[9rem]` y no `min-w-0`: el nombre del paciente sigue
+            cortando con "…" (pedido explícito del cliente), pero deja de
+            poder encogerse hasta desaparecer. Ese piso es lo que hace que
+            un nombre de profesional largo desborde la fila en vez de
+            comerse al paciente — y ese desborde es el que la tarjeta
+            scrollea de costado. */}
         <span
-          className={`min-w-0 flex-1 truncate font-[family-name:var(--font-display)] text-base leading-tight font-bold text-grafito ${uppercase ? "uppercase" : ""}`}
+          className={`min-w-[9rem] flex-1 truncate font-[family-name:var(--font-display)] text-base leading-tight font-bold text-grafito ${uppercase ? "uppercase" : ""}`}
         >
           {children}
         </span>
-        {/* Al final de la fila y en tono menor: es de quién, no qué —
-            la hora y el paciente siguen siendo lo que se lee primero. */}
+        {/* Al final de la fila: es de quién, no qué — la hora y el
+            paciente siguen siendo lo que se lee primero.
+            LA MISMA TIPOGRAFÍA QUE EL RESTO DE LA TARJETA (QA de la
+            3.2.6): estaba en la fuente del cuerpo y a 12px, y al lado de
+            un nombre en display se leía como una nota al pie de otra
+            pantalla. Lo que lo pone en segundo plano ahora es el peso y
+            el tono, no una familia distinta.
+            Sin `truncate` ni ancho máximo: el nombre se lee entero y, si
+            no entra, la tarjeta scrollea de costado (ver TarjetaConLista). */}
         {profesional && (
-          <span className="max-w-[9rem] shrink-0 truncate text-xs text-grafito/60">{profesional}</span>
+          <span className="shrink-0 font-[family-name:var(--font-display)] text-base leading-tight font-medium whitespace-nowrap text-grafito/60">
+            {profesional}
+          </span>
         )}
       </div>
     </div>
@@ -232,7 +287,14 @@ interface TarjetaSimpleProps {
 
 // Sin cuerpo (tarjeta "Turnos confirmados", que solo pide un número) —
 // mismo diseño que el ResumenCard original, toda la tarjeta es un link.
-export function TarjetaSimple({ eyebrow, valor, href, titulo, acento = false, icono }: TarjetaSimpleProps) {
+export function TarjetaSimple({
+  eyebrow,
+  valor,
+  href,
+  titulo,
+  acento = false,
+  icono,
+}: TarjetaSimpleProps) {
   return (
     <Link
       href={href}
@@ -241,8 +303,14 @@ export function TarjetaSimple({ eyebrow, valor, href, titulo, acento = false, ic
       {icono}
       <div className="relative z-10 flex flex-col gap-2">
         <p className={EYEBROW_BASE}>{eyebrow}</p>
-        <p className={`${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}>{valor}</p>
-        <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">{titulo}</p>
+        <p
+          className={`${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+        >
+          {valor}
+        </p>
+        <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">
+          {titulo}
+        </p>
       </div>
     </Link>
   );
@@ -261,7 +329,12 @@ interface TarjetaEstadisticaProps {
 // rojo") — puramente informativa, sin link (no hay a dónde navegar desde
 // "cuántos asistieron en total"), acumulado histórico completo, no
 // acotado a hoy/la semana como las demás tarjetas.
-export function TarjetaEstadistica({ eyebrow, asistieron, ausentes, icono }: TarjetaEstadisticaProps) {
+export function TarjetaEstadistica({
+  eyebrow,
+  asistieron,
+  ausentes,
+  icono,
+}: TarjetaEstadisticaProps) {
   return (
     <div className="relative flex flex-col gap-4 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft">
       {icono}
@@ -269,11 +342,15 @@ export function TarjetaEstadistica({ eyebrow, asistieron, ausentes, icono }: Tar
         <p className={EYEBROW_BASE}>{eyebrow}</p>
         <div className="flex gap-8">
           <div className="flex flex-col gap-1">
-            <p className={`${VALOR_BASE} text-5xl text-salvia-oscuro`}>{asistieron}</p>
+            <p className={`${VALOR_BASE} text-5xl text-salvia-oscuro`}>
+              {asistieron}
+            </p>
             <p className="text-sm font-medium text-grafito/60">Asistieron</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className={`${VALOR_BASE} text-5xl text-terracota-oscuro`}>{ausentes}</p>
+            <p className={`${VALOR_BASE} text-5xl text-terracota-oscuro`}>
+              {ausentes}
+            </p>
             <p className="text-sm font-medium text-grafito/60">Ausentes</p>
           </div>
         </div>

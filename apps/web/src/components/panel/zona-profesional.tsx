@@ -268,7 +268,13 @@ export function CarruselDeProfesionales({
         </p>
 
         {abierto && (
-          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-[19rem] max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
+          // Centrado bajo el control y no pegado a su borde derecho (QA
+          // de la 3.2.6, 2026-09-21: *"este se despliega muy hacia la
+          // derecha, hacer que se despliegue en el centro"*). El control
+          // es ancho —flecha, nombre, flecha— así que anclarlo a la
+          // derecha lo tiraba lejos del nombre, que es donde está la
+          // mirada al abrirlo.
+          <div className="absolute top-[calc(100%+0.5rem)] left-1/2 z-20 flex w-[19rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
             <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] tracking-[0.16em] text-grafito/45 uppercase">
               Profesionales de la clínica
             </p>

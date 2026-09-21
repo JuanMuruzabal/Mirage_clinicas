@@ -402,6 +402,9 @@ export interface TipoConsulta {
 // BloqueoHorario, "la más específica gana" mientras esté vigente.
 // horaDesde/horaHasta ausentes a la vez = "no trabaja" ese período.
 export interface HorarioAtencion {
+  /** De quién es esta agenda (Fase 3.2.6). Lo usa la vista general del
+   *  calendario para poner cada excepción en la columna de su dueño. */
+  userId?: string;
   id: string;
   alcance: "general" | "semana" | "mes" | "rango";
   fechaDesde?: string;
@@ -624,6 +627,15 @@ export interface TurnosPendientesAsistenciaResponse {
 export interface PanelNotificacionesResponse {
   conflictosPacientes: number;
   conflictosCalendario: number;
+  /** De quién es la agenda del conflicto de calendario más próximo (Fase
+   *  3.2.6). Recepción ve los conflictos de toda la clínica desde
+   *  cualquier vista, así que el aviso tiene que poder llevarla a la
+   *  agenda correcta. Ausente para un profesional: siempre es la suya. */
+  conflictoCalendarioProfesionalId?: string;
+  /** El día del conflicto más próximo (YYYY-MM-DD, Córdoba). Con esto el
+   *  aviso ubica el calendario donde está el problema en vez de dejar a
+   *  la persona buscándolo. */
+  conflictoCalendarioFecha?: string;
 }
 
 // --- Sprint 3: turnos entrantes + pacientes + formulario público ---

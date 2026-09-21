@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fireEvent,
   render,
@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { PanelNotificacionesResponse } from "@dental-mirage/shared-types";
 
 const {
   listTurnosActionMock,
@@ -82,6 +83,19 @@ vi.mock("@/app/actions/calendario-config", () => ({
   crearBloqueoAction: crearBloqueoActionMock,
   editarBloqueoAction: editarBloqueoActionMock,
   eliminarBloqueoAction: vi.fn(),
+}));
+
+// El banner de conflictos del calendario pide el conteo al servidor
+// desde la QA de la 3.2.6: ya no sale de lo que la vista tiene cargado,
+// porque así desaparecía al cambiar de día.
+const panelNotificacionesActionMock = vi.fn(
+  async (): Promise<PanelNotificacionesResponse | null> => ({
+    conflictosPacientes: 0,
+    conflictosCalendario: 0,
+  }),
+);
+vi.mock("@/app/actions/panel", () => ({
+  panelNotificacionesAction: () => panelNotificacionesActionMock(),
 }));
 
 const { CalendarView } = await import("./calendar-view");
@@ -888,6 +902,165 @@ describe("CalendarView", () => {
       expect(elegirVistaActionMock).not.toHaveBeenCalled();
     });
 
+    // QA de la 3.2.6 (2026-09-20): *"el horario reservado de un
+    // profesional se sigue filtrando a otros en SU CALENDARIO... a veces
+    // aparece y otras veces no"*.
+    //
+    // Los horarios reservados y el horario de atención son estado del
+    // CLIENTE, cargado al montar. Cambiar de profesional renovaba las
+    // props del servidor pero no volvía a pedirlos, así que el calendario
+    // seguía dibujando los bloqueos del anterior. La intermitencia era la
+    // pista: abrir y cerrar la configuración sí los recargaba, y recién
+    // ahí se corregía.
+    it("cambiar de profesional vuelve a pedir los horarios reservados", async () => {
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          zonaProfesional={zonaGeneral}
+          vistaKey="u1"
+        />,
+      );
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+      listBloqueosActionMock.mockClear();
+
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          zonaProfesional={zonaGeneral}
+          vistaKey="u2"
+        />,
+      );
+
+      await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+    });
+
+    // QA de la 3.2.6 (2026-09-20): *"si bien no aparece el horario de
+    // excepción, me marca como conflicto con un horario de excepción del
+    // otro profesional, cosa que no existe"*.
+    //
+    // El banner recalcula los clusters por su cuenta, y lo hacía sobre
+    // TODOS los turnos contra TODAS las excepciones. La grilla ya
+    // separaba por columna, así que el bloque desaparecía del día pero el
+    // turno seguía contando como en conflicto.
+    //
+    // Con reloj fijo: un conflicto cuyo turno YA PASÓ deja de contar
+    // (TR-090), así que sin fijar la hora el test pasaría de casualidad a
+    // partir de cierto momento del día — que es exactamente lo que hacía
+    // antes de escribirlo así.
+    describe("conflicto entre agendas distintas", () => {
+      const AHORA = new Date(2030, 8, 2, 9, 0, 0);
+      const FECHA = "2030-09-02";
+
+      beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        vi.setSystemTime(AHORA);
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const turnoDeU2 = {
+        id: "t-u2",
+        estado: "agendado",
+        nombreContacto: "Ana",
+        apellidoContacto: "Paciente",
+        atendidoPorUserId: "u2",
+        horaInicio: new Date(2030, 8, 2, 14, 0).toISOString(),
+        horaFin: new Date(2030, 8, 2, 14, 30).toISOString(),
+      } as never;
+
+      const columnas = [
+        { userId: "u1", nombre: "Lucía Gómez" },
+        { userId: "u2", nombre: "Marcos Díaz" },
+      ];
+
+      function montar(duenioDeLaExcepcion: string) {
+        listTurnosActionMock.mockResolvedValue([turnoDeU2]);
+        listHorarioAtencionActionMock.mockResolvedValue([
+          { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+          {
+            id: "exc",
+            userId: duenioDeLaExcepcion,
+            alcance: "rango",
+            fechaDesde: FECHA,
+            fechaHasta: FECHA,
+          },
+        ]);
+        render(
+          <CalendarView
+            tiposConsulta={tiposConsulta}
+            turnosIniciales={[turnoDeU2]}
+            fechaInicialStr={FECHA}
+            zonaProfesional={zonaGeneral}
+            profesionalesDelDia={columnas}
+          />,
+        );
+      }
+
+      // El caso de control: con la excepción del MISMO profesional el
+      // conflicto sí existe. Sin esto, el test de abajo pasaría también
+      // con el banner roto para todo el mundo.
+      it("con la excepción del mismo profesional, avisa", async () => {
+        montar("u2");
+        expect(await screen.findByText(/en conflictos, toca para ver/)).toBeInTheDocument();
+      });
+
+      it("con la excepción de OTRO profesional, no avisa", async () => {
+        montar("u1");
+        await waitFor(() => expect(listHorarioAtencionActionMock).toHaveBeenCalled());
+        expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+      });
+
+      // Lo mismo con un horario reservado, que es el otro dato que entra
+      // en el cálculo (QA: *"además el mismo bug ocurre con horarios
+      // reservados"*). Son dos tablas distintas y el banner las mezclaba
+      // igual.
+      function montarConBloqueo(duenioDelBloqueo: string) {
+        listTurnosActionMock.mockResolvedValue([turnoDeU2]);
+        listHorarioAtencionActionMock.mockResolvedValue([
+          { id: "gen-h", alcance: "general", horaDesde: "08:00", horaHasta: "18:00" },
+        ]);
+        listBloqueosActionMock.mockImplementation(async (especifico: boolean) =>
+          especifico
+            ? [
+                {
+                  id: "b-1",
+                  userId: duenioDelBloqueo,
+                  especifico: true,
+                  fecha: FECHA,
+                  horaDesde: "14:00",
+                  horaHasta: "15:00",
+                  tipoRegla: "bloquear_horario",
+                  motivo: "Reunión",
+                },
+              ]
+            : [],
+        );
+        render(
+          <CalendarView
+            tiposConsulta={tiposConsulta}
+            turnosIniciales={[turnoDeU2]}
+            fechaInicialStr={FECHA}
+            zonaProfesional={zonaGeneral}
+            profesionalesDelDia={columnas}
+          />,
+        );
+      }
+
+      it("con el horario reservado del mismo profesional, avisa", async () => {
+        montarConBloqueo("u2");
+        expect(await screen.findByText(/en conflictos, toca para ver/)).toBeInTheDocument();
+      });
+
+      it("con el horario reservado de OTRO profesional, no avisa", async () => {
+        montarConBloqueo("u1");
+        await waitFor(() => expect(listBloqueosActionMock).toHaveBeenCalled());
+        expect(screen.queryByText(/en conflictos, toca para ver/)).not.toBeInTheDocument();
+      });
+    });
+
     // Para quien no es recepción el selector no existe — el aislamiento
     // de la 3.2.2 no se relaja por una pantalla.
     it("sin zonaProfesional el calendario es el de siempre", () => {
@@ -898,6 +1071,216 @@ describe("CalendarView", () => {
       expect(
         screen.queryByLabelText("Elegir de quién es la vista"),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // QA de la 3.2.6 (2026-09-21): *"si yo me voy a otro día, o semana que
+  // no muestre ese día, la notificación de abajo del selector del
+  // calendario desaparece; es ese el que no debe desaparecer"*.
+  //
+  // El número salía de los clusters calculados sobre lo que la vista
+  // tiene CARGADO, así que un conflicto de otro día dejaba de existir
+  // apenas mirabas otra fecha — justo cuando hace falta que avise.
+  describe("el aviso de conflicto del calendario", () => {
+    it("sigue avisando aunque el conflicto no esté en la vista actual", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      // La vista está en junio y el conflicto es en diciembre: sin el
+      // conteo del servidor, acá no habría ningún aviso.
+      expect(
+        await screen.findByText(/en conflictos, toca para ver/),
+      ).toBeInTheDocument();
+    });
+
+    // QA de la 3.2.6 (2026-09-21): *"la notificación de conflicto dentro
+    // del módulo de calendario también se tiene que actualizar en tiempo
+    // real"*.
+    //
+    // El conteo sale del servidor —por eso no desaparece al cambiar de
+    // día— pero solo se releía al cambiar de profesional y al tocar la
+    // configuración. Un turno agendado, cancelado o autoreservado cambia
+    // si hay conflicto o no, y el número quedaba viejo hasta recargar.
+    it("se actualiza cuando vuelven a llegar los turnos, sin recargar", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+      expect(
+        await screen.findByText(/en conflictos, toca para ver/),
+      ).toBeInTheDocument();
+
+      // Se resolvió el conflicto y el servidor revalida.
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 0,
+      });
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText(/en conflictos, toca para ver/),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
+    it("sin conflictos no avisa nada", async () => {
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 0,
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(panelNotificacionesActionMock).toHaveBeenCalled(),
+      );
+      expect(
+        screen.queryByText(/en conflictos, toca para ver/),
+      ).not.toBeInTheDocument();
+    });
+
+    // EL CASO QUE SE ROMPIÓ (QA, 2026-09-21): *"cuando toco el conflicto
+    // de la noti, el calendario queda en cargando y no se muestra... no
+    // ocurre si el conflicto es de otro profesional"*.
+    //
+    // `cargandoConfig` solo se apaga cuando se recarga la configuración,
+    // y eso pasa únicamente al cambiar de profesional. Con el conflicto
+    // del que YA está en foco, nadie la apagaba y la grilla no volvía
+    // nunca. Por eso este test NO manda `conflictoCalendarioProfesionalId`
+    // distinto: es el camino que quedaba trabado.
+    it("con el conflicto del profesional ya en foco, la grilla vuelve a mostrarse", async () => {
+      const user = userEvent.setup();
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await user.click(await screen.findByText(/en conflictos, toca para ver/));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Cargando…")).not.toBeInTheDocument(),
+      );
+      expect(await screen.findByText(/24 de diciembre de 2030/i)).toBeInTheDocument();
+    });
+
+    // *"Me tendría que llevar a ese día y abrir la pantalla de resolución
+    // de conflicto"*.
+    it("al tocarlo viaja al día del conflicto", async () => {
+      const user = userEvent.setup();
+      panelNotificacionesActionMock.mockResolvedValue({
+        conflictosPacientes: 0,
+        conflictosCalendario: 1,
+        conflictoCalendarioFecha: "2030-12-24",
+      });
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      await user.click(await screen.findByText(/en conflictos, toca para ver/));
+
+      expect(await screen.findByText(/24 de diciembre de 2030/i)).toBeInTheDocument();
+    });
+  });
+
+  // QA de la 3.2.6 (2026-09-21): *"los turnos autoreservados no se asignan
+  // en tiempo real sino que al recargar o cambiar de vista y volver recién
+  // se ven"*, y su gemelo *"cuando se crea un horario reservado que se
+  // solapa solo se ve la tarjeta gris, no la de solapamiento"*.
+  //
+  // Los dos salían de lo mismo: el calendario tomaba el prop del servidor
+  // con `useEstadoDelServidor`, y cualquier `revalidatePath` pisaba lo que
+  // el cliente había traído para el rango que la persona está mirando con
+  // la lista del rango INICIAL de la página.
+  describe("los datos del servidor no pisan el rango visible", () => {
+    it("una revalidación vuelve a pedir el rango VISIBLE, no copia el prop", async () => {
+      const delServidor = [
+        {
+          id: "t-viejo",
+          estado: "agendado",
+          nombreContacto: "Del",
+          apellidoContacto: "Servidor",
+          horaInicio: new Date(2030, 5, 15, 9, 0).toISOString(),
+          horaFin: new Date(2030, 5, 15, 9, 30).toISOString(),
+        },
+      ] as never[];
+      const delRangoVisible = [
+        {
+          id: "t-nuevo",
+          estado: "agendado",
+          nombreContacto: "Del",
+          apellidoContacto: "Cliente",
+          horaInicio: new Date(2030, 5, 15, 11, 0).toISOString(),
+          horaFin: new Date(2030, 5, 15, 11, 30).toISOString(),
+        },
+      ] as never[];
+      listTurnosActionMock.mockResolvedValue(delRangoVisible);
+
+      const { rerender } = render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={delServidor}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+      expect(await screen.findByText(/Del Cliente/)).toBeInTheDocument();
+
+      listTurnosActionMock.mockClear();
+      // Una revalidación del servidor: mismo contenido, array nuevo.
+      rerender(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[...delServidor]}
+          fechaInicialStr="2030-06-15"
+        />,
+      );
+
+      // Vuelve a preguntar por el rango visible...
+      await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalled());
+      // ...y NO reemplaza lo que muestra con la lista del servidor.
+      expect(await screen.findByText(/Del Cliente/)).toBeInTheDocument();
+      expect(screen.queryByText(/Del Servidor/)).not.toBeInTheDocument();
     });
   });
 });

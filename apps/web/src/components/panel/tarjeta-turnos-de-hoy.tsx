@@ -334,7 +334,14 @@ function FilaTurnoDeHoy({
         </td>
         {conProfesional && (
           <td className={`${CELDA} ${COL_PROFESIONAL}`}>
-            <span className="block truncate text-sm text-grafito/70">{turno.profesional ?? "—"}</span>
+            {/* La misma tipografía que el nombre del paciente (QA de la
+                3.2.6). Estaba en la fuente del cuerpo y a 14px: al lado
+                de una fila entera en display se leía como si fuera de
+                otra pantalla. Lo que lo deja en segundo plano es el peso
+                y el tono, no una familia distinta. */}
+            <span className="block truncate font-[family-name:var(--font-display)] text-base leading-tight font-medium text-grafito/70">
+              {turno.profesional ?? "—"}
+            </span>
           </td>
         )}
         <td className={`${CELDA} ${COL_ESTADO}`}>

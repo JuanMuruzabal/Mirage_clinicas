@@ -9,7 +9,8 @@ vi.mock("@/app/actions/topbar-panel", () => ({
   elegirVistaAction: (...args: unknown[]) => elegirVistaActionMock(...args),
 }));
 
-const { SelectorDeAgenda, SelectorDeVistaDeRecepcion } = await import("./selector-de-agenda");
+const { SelectorDeAgenda, SelectorDeVistaDeRecepcion } =
+  await import("./selector-de-agenda");
 
 const LUCIA = { userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" };
 const MARCOS = { userId: "u2", nombre: "Marcos Díaz", detalle: "Endodoncia" };
@@ -64,7 +65,9 @@ describe("SelectorDeAgenda", () => {
     render(<SelectorDeAgenda valor={null} onElegir={onElegir} />);
     await screen.findByText("Elegí un profesional");
 
-    await user.click(screen.getByRole("button", { name: "Elegir de quién es la vista" }));
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
     await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
 
     expect(onElegir).toHaveBeenCalledWith("u2");
@@ -83,9 +86,13 @@ describe("SelectorDeAgenda", () => {
     render(<SelectorDeAgenda valor={null} onElegir={vi.fn()} />);
     await screen.findByText("Elegí un profesional");
 
-    await user.click(screen.getByRole("button", { name: "Elegir de quién es la vista" }));
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
 
-    expect(screen.queryByRole("button", { name: /Toda la clínica/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Toda la clínica/ }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -93,7 +100,9 @@ describe("SelectorDeAgenda", () => {
 // selector carrusel".
 describe("SelectorDeVistaDeRecepcion", () => {
   it("para quien no es recepción no se dibuja nada", async () => {
-    const { container } = render(<SelectorDeVistaDeRecepcion onCambio={vi.fn()} />);
+    const { container } = render(
+      <SelectorDeVistaDeRecepcion onCambio={vi.fn()} />,
+    );
 
     await waitFor(() => expect(opcionesDeAgendaActionMock).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
@@ -114,13 +123,124 @@ describe("SelectorDeVistaDeRecepcion", () => {
     render(<SelectorDeVistaDeRecepcion onCambio={onCambio} />);
     await screen.findByText("Lucía Gómez");
 
-    await user.click(screen.getByRole("button", { name: "Elegir de quién es la vista" }));
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
     await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
 
-    await waitFor(() => expect(elegirVistaActionMock).toHaveBeenCalledWith("u2"));
+    await waitFor(() =>
+      expect(elegirVistaActionMock).toHaveBeenCalledWith("u2"),
+    );
     // Sin esto, el modal seguiría mostrando el horario de atención del
     // profesional anterior con el nombre del nuevo arriba.
     await waitFor(() => expect(onCambio).toHaveBeenCalled());
+  });
+
+  // QA de la 3.2.6: "si agrega esto de avisar antes de cambiar".
+  // Cambiar de profesional vuelve a leer la configuración entera, así que
+  // lo tipeado y sin guardar se pierde.
+  it("con cambios sin guardar pregunta antes de cambiar", async () => {
+    opcionesDeAgendaActionMock.mockResolvedValue({
+      profesionales: [LUCIA, MARCOS],
+      miUserId: null,
+      puedeElegirOtros: true,
+      focoActual: "u1",
+    });
+    const user = userEvent.setup();
+    render(
+      <SelectorDeVistaDeRecepcion
+        onCambio={vi.fn()}
+        hayCambiosSinGuardar={() => true}
+      />,
+    );
+    await screen.findByText("Lucía Gómez");
+
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
+    await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
+
+    // Todavía no cambió nada: primero hay que contestar.
+    expect(elegirVistaActionMock).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cambiar igual" }));
+    await waitFor(() =>
+      expect(elegirVistaActionMock).toHaveBeenCalledWith("u2"),
+    );
+  });
+
+  it("'Seguir acá' cancela el cambio", async () => {
+    opcionesDeAgendaActionMock.mockResolvedValue({
+      profesionales: [LUCIA, MARCOS],
+      miUserId: null,
+      puedeElegirOtros: true,
+      focoActual: "u1",
+    });
+    const user = userEvent.setup();
+    render(
+      <SelectorDeVistaDeRecepcion
+        onCambio={vi.fn()}
+        hayCambiosSinGuardar={() => true}
+      />,
+    );
+    await screen.findByText("Lucía Gómez");
+
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
+    await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
+    await user.click(await screen.findByRole("button", { name: "Seguir acá" }));
+
+    expect(elegirVistaActionMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    // Y sigue mostrando a quien estaba.
+    expect(screen.getByText("Lucía Gómez")).toBeInTheDocument();
+  });
+
+  // Un cartel que aparece siempre se aprende a ignorar: sin nada que
+  // perder, el cambio es directo.
+  it("sin cambios pendientes no pregunta nada", async () => {
+    opcionesDeAgendaActionMock.mockResolvedValue({
+      profesionales: [LUCIA, MARCOS],
+      miUserId: null,
+      puedeElegirOtros: true,
+      focoActual: "u1",
+    });
+    const user = userEvent.setup();
+    render(
+      <SelectorDeVistaDeRecepcion
+        onCambio={vi.fn()}
+        hayCambiosSinGuardar={() => false}
+      />,
+    );
+    await screen.findByText("Lucía Gómez");
+
+    await user.click(
+      screen.getByRole("button", { name: "Elegir de quién es la vista" }),
+    );
+    await user.click(screen.getByRole("button", { name: /Marcos Díaz/ }));
+
+    await waitFor(() =>
+      expect(elegirVistaActionMock).toHaveBeenCalledWith("u2"),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  // Sin nadie en foco elige al primero: "el selector de configuración de
+  // calendario sí o sí debe arrancar con un profesional".
+  it("sin foco arranca en el primer profesional", async () => {
+    opcionesDeAgendaActionMock.mockResolvedValue({
+      profesionales: [LUCIA, MARCOS],
+      miUserId: null,
+      puedeElegirOtros: true,
+      focoActual: null,
+    });
+    render(<SelectorDeVistaDeRecepcion onCambio={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(elegirVistaActionMock).toHaveBeenCalledWith("u1"),
+    );
   });
 
   it("parte del profesional en el que ya está parada la sesión", async () => {

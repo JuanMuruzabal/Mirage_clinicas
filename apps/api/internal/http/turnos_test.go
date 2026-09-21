@@ -926,24 +926,78 @@ func TestResumenPanel_TurnosResueltos(t *testing.T) {
 	}
 }
 
-// TestResumenPanel_TurnosResueltos_NoIncluyeSinMarcar — reemplaza al
-// viejo TestResumenPanel_TurnosResueltos_NoIncluyeYaMarcados: la regla se
-// invirtió del todo (antes escondía lo YA marcado, ahora esta tarjeta
-// ÚNICAMENTE muestra lo ya marcado) — un turno resuelto sin asistencia
-// todavía no corresponde acá, es responsabilidad exclusiva del cartel.
-func TestResumenPanel_TurnosResueltos_NoIncluyeSinMarcar(t *testing.T) {
+// TestResumenPanel_TurnosResueltos_IncluyeSinMarcar — LA REGLA VOLVIÓ A
+// CAMBIAR (QA de la 3.2.6, 2026-09-20), y esta vez por un agujero real.
+//
+// Hasta acá la tarjeta mostraba ÚNICAMENTE lo ya marcado, y un turno
+// resuelto sin asistencia era "responsabilidad exclusiva del cartel".
+// Eso se rompió cuando el cartel dejó de aparecerle a recepción: el
+// turno desaparecía de las DOS tarjetas —de "Turnos de hoy" porque ya
+// pasó su hora, de esta porque no tenía marca— y no quedaba en ninguna
+// pantalla.
+//
+// El pedido: *"el turno, si no se marca asistencia o ausencia desde la
+// tarjeta de turnos de hoy, pasará a la tarjeta de turnos resueltos pero
+// en asistencia pendiente hasta que el profesional marque"*. Resuelto es
+// un hecho del reloj; la asistencia es un acto de alguien.
+func TestResumenPanel_TurnosResueltos_IncluyeSinMarcar(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
 	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen4b@example.com")
 
-	crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, horaResueltaDeHoy(t))
+	sinMarcar := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, horaResueltaDeHoy(t))
 
 	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
 	var got resumenPanelResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
 
-	if len(got.TurnosResueltos) != 0 {
-		t.Errorf("TurnosResueltos = %+v, esperaba vacío (todavía sin marcar)", got.TurnosResueltos)
+	if len(got.TurnosResueltos) != 1 || got.TurnosResueltos[0].ID != sinMarcar.ID.String() {
+		t.Fatalf("TurnosResueltos = %+v, esperaba el turno resuelto sin marcar (%s)", got.TurnosResueltos, sinMarcar.ID)
+	}
+	// Sin marca y sin inventarla: la pantalla lo lee como "asistencia
+	// pendiente" justamente porque este campo viene vacío.
+	if got.TurnosResueltos[0].Asistencia != "" {
+		t.Errorf("Asistencia = %q, esperaba vacío", got.TurnosResueltos[0].Asistencia)
+	}
+}
+
+// TestResumenPanel_TurnosResueltos_AplicaElBorradorVencido — lo anotado
+// por adelantado desde "Turnos de hoy" se vuelve definitivo cuando el
+// turno cruza su hora de fin.
+//
+// Eso lo disparaba SOLO el sondeo del cartel global, que ya no se monta
+// para recepción: sin esto, la marca que recepción anotó se quedaba en
+// borrador hasta que el profesional abriera la app, y la tarjeta diría
+// "asistencia pendiente" sobre un turno que alguien ya resolvió.
+func TestResumenPanel_TurnosResueltos_AplicaElBorradorVencido(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "resumen4d@example.com")
+
+	turno := crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID, horaResueltaDeHoy(t))
+	borrador := "asistio"
+	if err := gdb.Model(&db.Turno{}).Where("id = ?", turno.ID).
+		Update("asistencia_preliminar", &borrador).Error; err != nil {
+		t.Fatalf("no se pudo anotar el borrador: %v", err)
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/resumen", reg.Token, nil)
+	var got resumenPanelResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+
+	if len(got.TurnosResueltos) != 1 {
+		t.Fatalf("TurnosResueltos = %+v, esperaba un turno", got.TurnosResueltos)
+	}
+	if got.TurnosResueltos[0].Asistencia != "asistio" {
+		t.Errorf("Asistencia = %q, esperaba \"asistio\": el borrador vencido tenía que volverse definitivo",
+			got.TurnosResueltos[0].Asistencia)
+	}
+	var enLaBase db.Turno
+	if err := gdb.First(&enLaBase, "id = ?", turno.ID).Error; err != nil {
+		t.Fatalf("no se pudo leer el turno: %v", err)
+	}
+	if enLaBase.Asistencia == nil || *enLaBase.Asistencia != "asistio" {
+		t.Errorf("en la base asistencia = %v, esperaba \"asistio\"", enLaBase.Asistencia)
 	}
 }
 

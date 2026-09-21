@@ -583,7 +583,13 @@ describe("ConfiguracionCalendarioModal", () => {
       .findByText("Martes")
       .then((td) => td.closest("tr")!);
     expect(fila).toHaveClass("bg-salvia-claro");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // `waitFor` y no una aserción seca (CI, 2026-09-21): `findByText`
+    // resuelve con la mutación del DOM, que puede ocurrir ANTES de que
+    // React corra el efecto que scrollea. Local pasaba siempre; en CI,
+    // más cargado, no. El test hermano de abajo ya lo hacía así.
+    await waitFor(() =>
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled(),
+    );
   });
 
   // "Ver excepción de horario" (nueva función, 2026-09-08, bloqueo-detalle-modal.tsx)

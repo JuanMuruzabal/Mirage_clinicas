@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { apiContarTurnos, apiListTiposConsulta, apiListTurnosPaginado } from "@/lib/api";
+import {
+  apiContarTurnos,
+  apiListTiposConsulta,
+  apiListTurnosPaginado,
+} from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
-import { filtrosDeTab, parseTab, parseVerificacion, type Tab } from "@/lib/turnos-filtros";
+import {
+  filtrosDeTab,
+  parseTab,
+  parseVerificacion,
+  type Tab,
+} from "@/lib/turnos-filtros";
 import { TurnosTable } from "@/components/panel/turnos-table";
 import { TurnosFiltros } from "@/components/panel/turnos-filtros";
 import { BuscadorEnVivo } from "@/components/panel/buscador-en-vivo";
@@ -46,7 +55,9 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 // cambio de filtro navega y re-renderiza en el servidor, sin estado
 // cliente para eso. Las acciones por fila (Confirmar/Editar/Cancelar) sí
 // necesitan cliente — viven en TurnosTable.
-export default async function TurnosPage({ searchParams }: PageProps<"/panel/turnos">) {
+export default async function TurnosPage({
+  searchParams,
+}: PageProps<"/panel/turnos">) {
   const resolved = await searchParams;
   const tab = parseTab(firstParam(resolved.estado));
   const q = firstParam(resolved.q);
@@ -70,8 +81,18 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   const token = await getSessionToken();
   // Fase 3.2.6 — el alcance de ESTA pantalla: toda la clínica, o los
   // turnos de un profesional.
-  const { profesionales, vista, esRecepcion } = await datosDeLaVista(token, sesion.roles);
-  const filtros = filtrosDeTab(tab, q, desde, hasta, tipoConsultaId, verificacion);
+  const { profesionales, vista, esRecepcion } = await datosDeLaVista(
+    token,
+    sesion.roles,
+  );
+  const filtros = filtrosDeTab(
+    tab,
+    q,
+    desde,
+    hasta,
+    tipoConsultaId,
+    verificacion,
+  );
   // querySecundaria — se repite en el href de cada tab/atajo de fecha de
   // abajo para no perder los demás filtros activos al navegar entre
   // ellos (mismo criterio que ya se aplicaba a tipoConsultaId, extendido
@@ -99,16 +120,57 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
   // otras tres piden únicamente el total (apiContarTurnos: 1 fila +
   // X-Total-Count). El conteo de la activa ya viene en su propia
   // respuesta paginada, así que no se pide dos veces.
-  const [tiposResult, paginaTurnos, cAgendado, cResuelto, cCancelada, cTodas] = token
-    ? await Promise.all([
-        apiListTiposConsulta(token),
-        apiListTurnosPaginado(token, filtros, TURNOS_POR_PAGINA, 0),
-        apiContarTurnos(token, filtrosDeTab("agendado", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiContarTurnos(token, filtrosDeTab("resuelto", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiContarTurnos(token, filtrosDeTab("cancelada", q, desde, hasta, tipoConsultaId, verificacion)),
-        apiContarTurnos(token, filtrosDeTab("todas", q, desde, hasta, tipoConsultaId, verificacion)),
-      ])
-    : [null, null, 0, 0, 0, 0];
+  const [tiposResult, paginaTurnos, cAgendado, cResuelto, cCancelada, cTodas] =
+    token
+      ? await Promise.all([
+          apiListTiposConsulta(token),
+          apiListTurnosPaginado(token, filtros, TURNOS_POR_PAGINA, 0),
+          apiContarTurnos(
+            token,
+            filtrosDeTab(
+              "agendado",
+              q,
+              desde,
+              hasta,
+              tipoConsultaId,
+              verificacion,
+            ),
+          ),
+          apiContarTurnos(
+            token,
+            filtrosDeTab(
+              "resuelto",
+              q,
+              desde,
+              hasta,
+              tipoConsultaId,
+              verificacion,
+            ),
+          ),
+          apiContarTurnos(
+            token,
+            filtrosDeTab(
+              "cancelada",
+              q,
+              desde,
+              hasta,
+              tipoConsultaId,
+              verificacion,
+            ),
+          ),
+          apiContarTurnos(
+            token,
+            filtrosDeTab(
+              "todas",
+              q,
+              desde,
+              hasta,
+              tipoConsultaId,
+              verificacion,
+            ),
+          ),
+        ])
+      : [null, null, 0, 0, 0, 0];
 
   const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
   const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];
@@ -126,7 +188,11 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
     const calculado = rangoRapidoFechas(r);
     return desde === calculado.desde && hasta === calculado.hasta;
   });
-  const RANGO_CHIP_LABEL: Record<"hoy" | "semana" | "mes", string> = { hoy: "Hoy", semana: "Esta semana", mes: "Este mes" };
+  const RANGO_CHIP_LABEL: Record<"hoy" | "semana" | "mes", string> = {
+    hoy: "Hoy",
+    semana: "Esta semana",
+    mes: "Este mes",
+  };
   const chips: { label: string; hrefSinEste: string }[] = [];
   if (desde || hasta) {
     chips.push({
@@ -160,6 +226,22 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           referencia del cliente: "Turnos 14 en total") — la cuenta de
           "todas" (agendados + cancelados, sin duplicar confirmados/
           resueltos que ya son subconjuntos de agendados). */}
+      {/* ARRIBA DEL TÍTULO, en su propia fila (QA de la 3.2.6:
+          *"el selector de carrusel debe estar por encima del título
+          principal... así queda alargado como se ve en calendario"*).
+          Al lado del título competía por el ancho con él y quedaba
+          apretado; en su propia fila respira, y es lo primero que se lee
+          — que es lo correcto: dice DE QUIÉN es todo lo que sigue. */}
+      {esRecepcion && (
+        <ZonaProfesional
+          profesionales={profesionales}
+          vista={vista}
+          etiqueta="Mostrando"
+          etiquetaGeneral="Toda la clínica"
+          detalleGeneral="Turnos de todos los profesionales"
+        />
+      )}
+
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
@@ -168,17 +250,10 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
           {/* Los contadores ya salen del alcance elegido: el backend
               acota por el profesional en foco, así que "14 en total"
               dice lo de la vista actual y no lo de la clínica entera. */}
-          <span className="text-sm text-grafito/50">{conteoPorTab.todas} en total</span>
+          <span className="text-sm text-grafito/50">
+            {conteoPorTab.todas} en total
+          </span>
         </div>
-        {esRecepcion && (
-          <ZonaProfesional
-            profesionales={profesionales}
-            vista={vista}
-            etiqueta="Mostrando"
-            etiquetaGeneral="Toda la clínica"
-            detalleGeneral="Turnos de todos los profesionales"
-          />
-        )}
       </div>
 
       {/* Corrección de estética (2026-09-06, foto de referencia
@@ -197,7 +272,11 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
             con los filtros vigentes (`hrefBaseSinQ`) y navega solo, con
             debounce. */}
         <div className="flex flex-wrap items-center gap-2">
-          <BuscadorEnVivo q={q} hrefBase={hrefBaseSinQ} placeholder="Nombre, apellido, DNI o email…" />
+          <BuscadorEnVivo
+            q={q}
+            hrefBase={hrefBaseSinQ}
+            placeholder="Nombre, apellido, DNI o email…"
+          />
           {/* Corrección de QA (2026-09-06), pedido textual del cliente:
               "los filtros de búsqueda... pasan a aparecer cuando se toca
               un botón... bottom sheet en mobile... en vez de decir
@@ -250,7 +329,9 @@ export default async function TurnosPage({ searchParams }: PageProps<"/panel/tur
                     lado de cada pestaña ("Confirmadas 8") — mismo tono
                     que el texto de la pestaña, solo un poco más tenue,
                     para no competir con la etiqueta. */}
-                <span className={active ? "text-marfil/70" : "text-grafito/40"}>{conteoPorTab[t.tab]}</span>
+                <span className={active ? "text-marfil/70" : "text-grafito/40"}>
+                  {conteoPorTab[t.tab]}
+                </span>
               </Link>
             );
           })}

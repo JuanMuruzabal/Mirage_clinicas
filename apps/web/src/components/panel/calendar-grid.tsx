@@ -570,7 +570,13 @@ export function CalendarGrid({
             deLaColumna(bloqueosGenerales),
             deLaColumna(bloqueosEspecificas),
             turnosDelDia,
-            horariosAtencion,
+            // Las excepciones de horario también son de UNA agenda (QA de
+            // la 3.2.6). Iban sin filtrar mientras los horarios reservados
+            // sí se filtraban, así que en la vista general el "No trabajo
+            // en este período" de uno le tapaba el día a todos los demás.
+            columna.userId === undefined
+              ? horariosAtencion
+              : horariosAtencion.filter((h) => h.userId === columna.userId),
           );
           // Turnos absorbidos por un segmento "conflicto" (paso 2): se
           // dibujan DENTRO de esa tarjeta combinada, no en el loop de
@@ -873,10 +879,20 @@ export function CalendarGrid({
                       <button
                         type="button"
                         onClick={() => onTurnoClick(t)}
-                        style={{ top, height: alto, background }}
+                        style={{
+                          top,
+                          height: alto,
+                          background,
+                          // Contorno del MISMO color, un tono más
+                          // saturado: separa tarjetas vecinas sin
+                          // transparencia (QA de la 3.2.6). El borde de
+                          // asistencia de un turno resuelto le gana, que
+                          // es información y no decoración.
+                          borderColor: resuelto ? undefined : tema.borde,
+                        }}
                         className={`absolute inset-x-1 overflow-hidden border px-2 py-1 text-left text-xs hover:brightness-95 ${
-                          hayPost ? "rounded-t-field" : "rounded-field"
-                        } ${resuelto ? `${bordeResuelto} text-grafito/60` : "border-transparent"}`}
+                          hayPost ? "rounded-t-turno" : "rounded-turno"
+                        } ${resuelto ? `${bordeResuelto} text-grafito/60` : ""}`}
                       >
                         <span className="block truncate font-semibold" style={resuelto ? undefined : { color: tema.texto }}>
                           {t.nombreContacto} {t.apellidoContacto}
@@ -892,10 +908,22 @@ export function CalendarGrid({
                         // ningún texto, solo el color atenuado.
                         <div
                           aria-hidden="true"
-                          style={{ top: top + alto, height: altoPost, background: tema.fondo, opacity: 0.45 }}
-                          className="absolute inset-x-1 overflow-hidden rounded-b-field px-2 py-0.5"
+                          // `fondoPost` y no `opacity`: la transparencia
+                          // dejaba ver la grilla de horas a través del
+                          // bloque y apagaba el color. Es el mismo tono,
+                          // resuelto a mano contra blanco.
+                          style={{
+                            top: top + alto,
+                            height: altoPost,
+                            background: tema.fondoPost,
+                            borderColor: tema.borde,
+                          }}
+                          className="absolute inset-x-1 overflow-hidden rounded-b-turno border border-t-0 px-2 py-0.5"
                         >
-                          <span className="block truncate text-[10px] font-medium leading-tight" style={{ color: tema.texto }}>
+                          <span
+                            className="block truncate text-[10px] leading-tight font-medium"
+                            style={{ color: tema.texto }}
+                          >
                             Postturno {tiempoPost}min
                           </span>
                         </div>

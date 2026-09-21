@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { PanelNotificacionesResponse } from "@dental-mirage/shared-types";
 import { panelNotificacionesAction } from "@/app/actions/panel";
+import { LinkConVista } from "./link-con-vista";
 
 // NotificacionesConflictoGlobal — pedido textual del cliente: "si estoy
 // afuera de la sección pacientes mostrar las notificaciones de conflicto
@@ -129,7 +130,21 @@ export function NotificacionesConflictoGlobal() {
   }, [pathname]);
 
   const mostrarPacientes = notificaciones.conflictosPacientes > 0 && !pathname.startsWith("/panel/pacientes");
-  const mostrarCalendario = notificaciones.conflictosCalendario > 0 && !pathname.startsWith("/panel/calendario");
+  // FUERA DEL CALENDARIO Y NADA MÁS (QA de la 3.2.6, 2026-09-21).
+  //
+  // Probé mostrarlo también adentro para que recepción no se perdiera un
+  // conflicto de otra agenda, y el cliente lo rechazó: *"siempre esta
+  // debe aparecer afuera del calendario, no adentro, ya que 2
+  // notificaciones lo hace confuso"*. Tiene razón — son dos avisos de lo
+  // mismo en la misma pantalla.
+  //
+  // El reparto quedó así: este avisa desde afuera y LLEVA al calendario,
+  // ubicándolo en el día del conflicto y en la agenda de su dueño; una
+  // vez adentro, el banner propio del calendario es el que abre la
+  // pantalla de resolución.
+  const mostrarCalendario =
+    notificaciones.conflictosCalendario > 0 &&
+    !pathname.startsWith("/panel/calendario");
 
   if (!mostrarPacientes && !mostrarCalendario) return null;
 
@@ -153,15 +168,26 @@ export function NotificacionesConflictoGlobal() {
           </Link>
         )}
         {mostrarCalendario && (
-          <Link
-            href="/panel/calendario"
+          // LinkConVista y no un Link pelado: el conflicto puede ser de
+          // una agenda que no es la que se está mirando, y llegar al
+          // calendario del profesional equivocado es no llegar. Con el
+          // userId, el link se para primero en esa agenda. Vacío para un
+          // profesional (siempre es la suya) y ahí se comporta como el
+          // link de siempre.
+          <LinkConVista
+            href={
+              notificaciones.conflictoCalendarioFecha
+                ? `/panel/calendario?vista=dia&fecha=${notificaciones.conflictoCalendarioFecha}`
+                : "/panel/calendario"
+            }
+            userId={notificaciones.conflictoCalendarioProfesionalId}
             className="flex items-center justify-between gap-3 rounded-card border-[0.5px] border-terracota bg-terracota/10 px-4 py-3 text-left text-sm font-medium text-terracota-oscuro hover:bg-terracota/15"
           >
             <span>
               Tenés {notificaciones.conflictosCalendario} {notificaciones.conflictosCalendario === 1 ? "turno" : "turnos"} en conflicto en
               el calendario, tocá para ver
             </span>
-          </Link>
+          </LinkConVista>
         )}
       </div>
     </div>
