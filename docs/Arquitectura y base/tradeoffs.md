@@ -2699,6 +2699,29 @@ Al pasar a Semana o Mes se elige solo al dueño del primer turno del día (el qu
 
 **Efecto de diseño:** el selector pasó de la página a `CalendarView`. Lo que puede ofrecer depende de Día/Semana/Mes, que es estado del cliente — la página no se entera cuando alguien toca "Semana".
 
+### Addendum (QA posterior al merge, 2026-09-21): aislar no es esconder
+
+La primera corrección de conflictos arregló el aislamiento —el turno de uno contra el horario reservado de otro no es un conflicto— y de paso **acotó qué conflictos VE recepción** al profesional en foco. Eso nunca se pidió, y escondía conflictos reales de los demás.
+
+Son dos reglas, y hay que poder nombrarlas por separado:
+
+- **Aislamiento** (cómo se calcula): cada turno se compara SOLO contra su propia agenda. Vale para todos.
+- **Visibilidad** (qué se muestra): recepción ve los conflictos de TODA la clínica desde cualquier vista; un profesional, los suyos.
+
+Confundirlas es fácil porque las dos se implementan con scopes, en la misma función. La señal de que se están mezclando: un cambio que "arregla el aislamiento" y de paso hace desaparecer datos de la pantalla.
+
+**Lo que se sacrifica:** el contador recorre los turnos de la clínica entera para recepción en vez de un subconjunto. Es una consulta acotada por fecha (`hora_fin >= ahora`) y se sondea cada 60 s; si alguna vez pesa, el camino es cachear el conteo, no volver a acotarlo por foco.
+
+### Addendum: el calendario es dueño de su rango de fechas
+
+`useEstadoDelServidor` (TR-156) es la regla del panel: el servidor manda, el cliente refleja. **El calendario es la excepción, y usarlo ahí causó tres bugs distintos.**
+
+Esa pantalla pide su propio rango —el que la persona está mirando— mientras que el prop del servidor describe siempre el rango inicial de la página. Con el hook, cada `revalidatePath("/panel/calendario")` pisaba lo recién traído con la lista de arranque: el turno autoreservado que se movió a otro día desaparecía, y el turno con el que choca un horario reservado nuevo se caía del estado, dejando el bloqueo suelto sin su tarjeta de solapamiento.
+
+**La regla que queda:** cuando un componente pide sus propios datos con parámetros que el servidor no conoce (un rango, un filtro local), el prop del servidor es una SEÑAL de que algo cambió, no el dato. Se escucha su cambio de identidad y se vuelve a pedir lo que corresponde.
+
+**Lo que se sacrifica:** un fetch extra por revalidación, contra el riesgo de mostrar datos de un rango que la persona no está mirando. Se eligió el fetch.
+
 
 ---
 

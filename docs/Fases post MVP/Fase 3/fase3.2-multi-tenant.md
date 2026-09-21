@@ -1511,3 +1511,83 @@ El efecto lateral es que la pantalla de atrás también cambia de profesional. E
 - **El error del carrusel se dibujaba dentro del menú**, y elegir lo cierra: un rechazo del backend se iba con el menú y la persona no se enteraba de por qué no pasó nada. Ahora va afuera.
 - **El renglón de abajo repetía el nombre de arriba** cuando no hay nadie elegido y tampoco hay opción general: decía dos veces "Elegí un profesional". Ahora dice cuántos hay.
 
+### La QA posterior al merge (2026-09-20 / 21)
+
+La 3.2.6 se mergeó a `dev` (PR #47) y el cliente siguió probando sobre el entorno real. Lo que salió de ahí está en el PR #48 y es, casi todo, la misma familia de errores: **una regla que la subfase movió de lugar, y un archivo o una pantalla que se quedó con la versión vieja.**
+
+#### La configuración de agenda no es de la clínica
+
+*"La configuración debería ser totalmente aislada para el profesional que se selecciona."*
+
+Tres bugs distintos daban esa impresión:
+
+1. **`tipos_consulta.go` nunca pasó al foco.** Se quedó leyendo y escribiendo con `session.UserID` cuando la 3.2.6 mudó todo lo demás. Recepción veía SIEMPRE la misma lista —la suya, la de alguien que no atiende— eligiera a quien eligiera, y el tipo que creaba nacía a su nombre: después no lo encontraba para editarlo ni borrarlo (*"tipo de consulta no encontrado"*, el mensaje exacto que reportó el cliente) porque esas dos rutas sí usaban el scope del foco. `tipos_consulta_colegas.go` tenía el mismo bug, y por eso seguía sugiriendo tipos que el profesional ya tenía.
+2. **Las escrituras de agenda caían a `user_id` NULL.** Una fila sin dueño NO es "de la clínica": los scopes la incluyen para TODOS los profesionales, porque son las filas anteriores a la 3.2.1. El horario reservado que recepción guardaba desde la vista general aparecía en la agenda de todo el mundo.
+3. **La disponibilidad mezclaba dos profesionales.** Resolvía el tipo con el scope de la sesión y los huecos con `profesionalQueAtiende`: dos respuestas que podían ser de personas distintas. Con "+ Agregar turno" eligiendo agenda en el propio modal dejó de ser teórico — y en pantalla se lee "no hay horarios disponibles" sobre una agenda libre.
+
+Entra **`duenioDeLaAgenda`**: a diferencia de `profesionalEnFoco`, para recepción sin foco devuelve *"no hay agenda"* en vez de caer al usuario de la sesión. Para una LISTA de turnos "toda la clínica" significa algo; para una CONFIGURACIÓN de agenda, no. Los endpoints de configuración responden **409** en vez de escribir una fila huérfana.
+
+**La lección, para la próxima vez que una subfase cambie quién es "yo":** buscar el concepto viejo en todo el paquete, no solo donde uno recuerda haberlo puesto. `session.UserID` seguía en dos archivos, y los dos se notaban recién en QA.
+
+#### Aislar conflictos no es esconderlos
+
+La primera corrección arregló el aislamiento —el turno de uno contra el horario reservado de otro no es un conflicto— y **de paso acotó qué conflictos ve recepción al profesional en foco**. Eso no era parte del pedido, y el cliente lo marcó: *"lo único que tenía que realizar es el aislamiento de conflictos"*.
+
+Son dos reglas distintas y conviene tenerlas separadas:
+
+| | Qué dice | Dónde vive |
+|---|---|---|
+| **Aislamiento** | Cada turno se compara SOLO contra su propia agenda | `turnoChocaConSuAgenda`, y el agrupado por columna del banner |
+| **Visibilidad** | Recepción se entera de CUALQUIER conflicto de la clínica, esté parada donde esté | el scope de `contarTurnosEnConflictoConBloqueos` |
+
+El aviso lleva además **a dónde está el problema**: la respuesta trae el día y el dueño del conflicto más próximo, y el link se para en esa agenda antes de navegar. Llegar al calendario del profesional equivocado es no llegar.
+
+Y **las excepciones de horario cuentan**: el banner del calendario ya las miraba, este contador no, así que un turno encima de un "No trabajo en este período" se veía en el calendario y en ningún otro lado.
+
+#### Dos avisos, dos trabajos
+
+Probé mostrar el aviso global también dentro del calendario, para que recepción no se perdiera un conflicto de otra agenda. El cliente lo rechazó: *"siempre esta debe aparecer afuera del calendario, no adentro, ya que 2 notificaciones lo hace confuso"*. El reparto quedó:
+
+- **El de arriba del todo** avisa desde afuera y LLEVA al calendario, ubicándolo en el día del conflicto y en la agenda de su dueño.
+- **El del calendario** abre la pantalla de resolución. Y **no desaparece al cambiar de día**: su número sale del servidor, no de los clusters calculados sobre lo que la vista tiene cargado. Antes, un conflicto del martes dejaba de existir apenas mirabas el miércoles — justo cuando hace falta que avise.
+
+#### El calendario es dueño de su rango de fechas
+
+El bug más caro de la ronda, y el que explicaba tres síntomas que parecían distintos: *"el turno autoreservado no se asigna en tiempo real"*, *"el horario reservado que se solapa muestra la tarjeta gris pero no la de solapamiento"*, y *"al resolver el conflicto tampoco se actualiza"*.
+
+El calendario tomaba sus turnos con `useEstadoDelServidor`. Ese hook es la regla del panel —el servidor manda, el cliente refleja, TR-156— pero esta pantalla es **la excepción**: pide SU propio rango de fechas, el que la persona está mirando, y el prop que baja el servidor describe siempre el rango INICIAL de la página.
+
+Así, cualquier `revalidatePath("/panel/calendario")` —que dispara casi toda acción de turnos— pisaba lo recién traído con la lista del rango de arranque. El turno autoreservado se había movido a otro día y quedaba fuera; el turno con el que choca un horario reservado nuevo se caía del estado, y sin turno no hay cluster que formar, solo el bloqueo suelto en gris.
+
+**Ahora el prop del servidor se trata como una SEÑAL de que algo cambió, no como el dato**: cuando cambia, se vuelve a pedir el rango visible. La señal sigue haciendo falta porque `TurnoDetalle` edita y cancela sin avisarle a esta pantalla.
+
+Del mismo lugar cuelga la relectura del conteo de conflictos, así que agendar, cancelar o autoreservar lo actualiza sin recargar.
+
+#### Un "Cargando…" que no terminaba nunca
+
+Al viajar hasta un conflicto se prendía `cargandoConfig`, pero esa bandera la apaga `cargarConfigCalendario`, que solo vuelve a correr cuando cambia `vistaKey`. Si el conflicto era del profesional que YA estaba en foco, nadie la apagaba.
+
+La pista fue del cliente y era exacta: *"no ocurre si hago click al conflicto desde otro profesional al cual no le pertenece"* — saltar a otra agenda cambia `vistaKey` y la apagaba de rebote. Los tres tests que había escrito pasaban con el bug puesto porque **todos saltaban de agenda**.
+
+#### La tarjeta de un turno
+
+Dos cosas, una de datos y una de diseño:
+
+- **El "—" y el gris de la vista general no eran del calendario**: `/tipos-consulta` devolvía una lista vacía ahí, así que la pantalla no tenía con qué resolver el tipo de cada turno. Ahora devuelve los de toda la clínica cuando quien mira la ve entera; cada turno trae el id de la fila de SU dueño (TR-145), así que cada uno encuentra su nombre y su color sin mezclarse.
+- **Rectángulos, más color, cero opacidad** (pedido textual): el relleno pasa de un 25% del color sobre blanco a un 55%, entra un `borde` del mismo color para separar tarjetas vecinas sin transparencia, el bloque de post-consulta cambia `opacity: 0.45` por un tono sólido, y el radio baja de 12px a 8px (`--radius-turno`) — sobre un bloque de media hora, 12px en ambos extremos se tocaban y el turno se leía como una píldora.
+
+#### Otros ajustes de la misma ronda
+
+- **El cartel de asistencia es del profesional.** Es un modal incerrable y marcar dispara consecuencias irreversibles; esa decisión es de quien atendió. La regla vive en el backend además del layout: esconder el cartel no es lo mismo que no tener la lista, y desde la vista general esa lista serían los turnos de todos.
+- **Un turno que terminó sin marcar ya no se pierde**: pasa a "Turnos resueltos" como *asistencia pendiente*. Antes se caía de las dos tarjetas. Como el sondeo del cartel era lo único que convertía los borradores vencidos en definitivos, `/panel/resumen` también los aplica.
+- **Las excepciones de horario se filtraban entre columnas** en la vista general de Día: iban sin filtrar mientras los horarios reservados sí se filtraban, así que el "No trabajo en este período" de uno le tapaba el día a todos. `horarioAtencionResponse` expone `userId` y la grilla filtra por columna.
+- **`fecha_desde`/`fecha_hasta` son columnas DATE** y GORM las trae como medianoche UTC: pasarlas a Córdoba las corre al día anterior. Se comparan con `.Format` directo, como hace `formatFechaPtr`.
+- El carrusel va **arriba del título** en General, Turnos y Pacientes, y su desplegable se abre **centrado**.
+
+#### Lo que esta ronda dejó como método
+
+Dos cosas que funcionaron y conviene repetir:
+
+- **Verificar cada arreglo revirtiéndolo.** Tres veces un test mío pasaba con el bug puesto: el del conflicto cruzado (fixture sin reloj fijo), el del prop del servidor (revertí media corrección) y el del "Cargando…" colgado. Revertir es lo único que distingue un test que protege de uno que acompaña.
+- **Un caso de control junto a cada test de aislamiento.** "No aparece el conflicto de otro" pasa también con el aviso roto para todo el mundo; al lado va "con el del mismo profesional SÍ aparece".
+
