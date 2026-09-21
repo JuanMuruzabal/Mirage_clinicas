@@ -2,6 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ ZONA EN OBRA — Prisma Engine (plan de personalización de página, en curso)
+
+**Estado del aviso: ACTIVO.** Se mantiene hasta que **todas las filas de la tabla de abajo estén en ✅**, o hasta que Kevin lo cancele explícitamente. Quien mergee un PE actualiza la tabla en ese mismo PR; quien mergee el último borra esta sección entera y el puntero de la Fase 4.
+
+Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalización de la página pública: `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Todavía no está implementado**, y lo que ese plan marca **[SUJETO A REVISIÓN]** puede cambiar si Juan opina distinto. Este aviso existe para que nadie construya sobre algo que el plan va a reemplazar, o lo pise, antes de que Kevin lo termine.
+
+**Instrucción para Claude Code (obligatoria).** Antes de editar, borrar o mover cualquier archivo o área de la lista "Áreas cubiertas", **frená y avisale al usuario** con algo como: *"Ojo: esto toca una zona del plan Prisma Engine de Kevin (PE-N). Puede chocar con su trabajo, o quedar obsoleto cuando entre PE-1. ¿Seguimos igual, o lo hablás antes con Kevin?"* — y esperá la respuesta. **No es un bloqueo**: si el usuario confirma, seguí, pero dejá dicho en el PR qué área del plan tocaste. Antes de empezar, corré `git fetch --prune`, `git branch -r --list "origin/*pe-*"` y `gh pr list --state open --search "Prisma Engine"` para ver si ya hay ramas o PRs del plan abiertos sobre esos archivos.
+
+**No hace falta avisar** si la rama actual es `feature/pe-*` o `docs/prisma-engine*` (es trabajo del propio plan), ni si el usuario dice explícitamente que está trabajando sobre el plan.
+
+**Áreas cubiertas** (por el plan, en cualquiera de sus PRs):
+- **Frontend, página pública y editor:** `apps/web/src/lib/pagina-publica/`, `apps/web/src/lib/temas-pagina-publica/`, `apps/web/src/components/editor-pagina/`, `apps/web/src/components/pagina-editor.tsx`, `apps/web/src/components/public/` (la plantilla y `modulos-publicos.tsx`), `apps/web/src/app/personalizar-pagina/`, `apps/web/src/app/[slug]/`, `apps/web/src/app/uploads/`.
+- **Frontend, perfil y transversales:** `apps/web/src/app/perfil/` (aval del profesional y foto de perfil), `apps/web/src/components/scroll-reveal.tsx` y `expandable-card.tsx` (la dependencia `framer-motion`), `apps/web/src/middleware.ts` (CSP), `apps/web/next.config.ts`, las dependencias `zod` y `framer-motion` de `apps/web/package.json`.
+- **Backend:** `apps/api/internal/http/pagina_publica.go` (validación de módulos y temas, `PATCH /panel/pagina`), `clinicas.go` (el `GET` público), `me.go` (perfil), `apps/api/internal/storage/` y `buildStorage` en `cmd/api/main.go`.
+- **Modelo de datos:** `PaginaPublica`, `PaginaPublicaModulo`, `ClinicMember` (columna de aval), `ProfessionalProfile` (foto y descripción) y la tabla nueva `horarios_clinica`; y por eso `apps/api/internal/db/migrate.go` y `migrate_una_vez.go` en lo que toque esas tablas.
+- **Estructura nueva:** `packages/prisma-engine/` y `apps/api/internal/prismaengine/` (los crea PE-1), el script `pnpm engine:generar`, y los cambios de `pnpm-workspace.yaml`, `apps/web/Dockerfile`, `render.yaml` y `.github/workflows/ci.yml` que PE-1 necesita.
+
+**Qué evitar mientras el aviso esté activo:**
+- **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** (los `switch` de `editor-de-modulo.tsx` y `modulos-publicos.tsx`, y `tiposModuloValidos` en Go): PE-1 los reemplaza por un registro único y habría que reescribirlos. Si es urgente, coordinalo con Kevin.
+- **No cambies la semántica de `PATCH /panel/pagina`** (hoy guardar = publicar) ni la de `deployada_en`: es de PE-8.
+- **No agregues columnas ni migraciones** sobre `paginas_publicas`, `pagina_publica_modulos`, `clinic_members` ni `professional_profiles` sin revisar el plan: chocan con `schema_version`, con el aval del profesional y con `horarios_clinica`.
+- **La subida de foto de perfil** deja de estar fuera de alcance solo si Kevin y Juan confirman esa decisión (marcada **[SUJETO A REVISIÓN]** en el plan). Hasta entonces sigue fuera.
+- Los arreglos chicos (un bug de una línea, un texto) están bien: avisá igual, y si podés, dejalos en un commit aparte.
+- **Numeración de TR:** Kevin va a usar TR-161 en adelante para las decisiones del plan. Si Juan necesita una TR nueva antes de que eso esté mergeado, que coordine el número para no chocar.
+
+**Estado de los PRs del plan** (⬜ pendiente · 🔄 en curso, con la rama · ✅ mergeado a `dev`):
+
+| PR | Qué | Estado |
+|---|---|---|
+| PE-1 | Núcleo: registro único de módulos y catálogo compartido | ⬜ |
+| PE-8 | Borrador, Publicar = Deployar e historial | ⬜ |
+| PE-2 | Tokens de diseño | ⬜ |
+| PE-3 | Variantes por módulo | ⬜ |
+| PE-4 | Motor de efectos | ⬜ |
+| PE-5 | Fondos tranquilos y texto avanzado | ⬜ |
+| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ⬜ |
+| PE-7 | Plantillas y presets | ⬜ |
+| PE-9 | SEO, compartir y rendimiento | ⬜ |
+| Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
+
 ## Qué es esto
 
 PRISMA: plataforma para odontólogos de Córdoba que combina gestión de clínica (turnero, agenda, pacientes) con una página pública propia deployable donde los pacientes piden turno, más un buscador público de clínicas. La especificación completa vive en `docs/Arquitectura y base/dental-mirage-spec.md`; el plan de implementación fase por fase en `docs/Arquitectura y base/implementation-plan.md`; las decisiones de arquitectura/alcance con sus alternativas descartadas en `docs/Arquitectura y base/tradeoffs.md`. Leé esos tres antes de planificar o tocar un módulo nuevo — son la fuente de verdad, este archivo es solo el mapa rápido. El sistema de auth/onboarding (Google OAuth, verificación de mail por código de 6 dígitos, clínicas individuales/organización) queda documentado como cierre de feature en `docs/Login/feature-sumarte-login-resumen.md` (qué se implementó, variables de entorno, repaso de seguridad) y como decisiones puntuales en `docs/Arquitectura y base/tradeoffs.md` TR-036 a TR-047 — el flujo post-TR-047 cambió: `/sumarse` es solo crear cuenta + confirmar código (2 pasos), perfil profesional y clínica se completan después en un modal de "bienvenida" sobre `/seleccionar-servicio` (TR-057 a TR-059) — `docs/Login/feature-sumarte-login.md` fue el prompt original de esa feature, no un documento vivo, y puede quedar desactualizado. `README.md` (raíz) tiene la puerta de entrada para levantar el proyecto de cero (setup, comandos, CI, deploy).
@@ -119,7 +159,7 @@ Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.do
 - **En "para otro / primera vez" el código de verificación sale al terminar los datos del TUTOR**, no después de los del paciente. No es cosmético: con el mail probado, el wizard decide si ofrecerle sus pacientes ya conocidos (`otro-tarjeta-paciente`) o pedirle los datos de uno nuevo (`otro-paciente`). **Esa lista nunca puede mostrarse antes del código** — diría qué pacientes tiene un tutor a cualquiera que tipee su mail.
 - **La búsqueda de pacientes de un tutor es por MAIL, nunca por teléfono.** El código se manda al mail: es lo único que la persona demuestra tener. Sumar el teléfono al criterio dejaría ver los pacientes de un tutor ajeno verificando la propia dirección. Requiere verificación por SMS, hoy fuera de alcance.
 
-**Fase 3.2 — multi-tenant, en curso desde 2026-09-13.** Documento vivo: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`. Modelo de datos con los diagramas ER pre y post: `docs/Arquitectura y base/modelo de datos/`. Plan por subfases (3.2.1 a 3.2.8) en `implementation-plan.md` §13.2. Lo que hay que saber antes de tocar el modelo:
+**Fase 3.2 — multi-tenant, en curso desde 2026-09-13.** Documento vivo: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`. Modelo de datos con los diagramas ER pre y post: `docs/Arquitectura y base/modelo de datos/`. Plan por subfases (3.2.1 a 3.2.8) en `implementation-plan.md` §13.2 — **completas hasta la 3.2.7e y la 3.2.6 (vista del recepcionista, 2026-09-20/21, TR-160); solo queda la 3.2.8 (latencia y cierre)**. Lo que hay que saber antes de tocar el modelo:
 
 - **La identidad del paciente es de la CLÍNICA; la lista de trabajo es de cada profesional** (Fase 3.2.5): son dos preguntas y dos endpoints. `/pacientes` acotado ("a quiénes atiendo yo"), `/pacientes/de-la-clinica` sin acotar ("¿esta persona ya está cargada?") — este último devuelve lo mínimo para reconocerla, no la ficha completa de un colega. Sin eso, cargar un turno tipeaba de nuevo a alguien que ya existía y el índice único de DNI rechazaba el alta.
 - **Un paciente no puede tener dos turnos encimados, ni siquiera con profesionales distintos** (Fase 3.2.5): el `EXCLUDE` protege al profesional, no a la persona. `turnoSuperpuestoDeOtroProfesional` valida el RANGO dentro de la misma transacción, **en el alta, al reprogramar Y al AUTORESERVAR** (Fase 3.2.7e — `calcularDisponibilidad` mira la agenda del profesional, no la de la persona, así que autoreservar tomaba el primer hueco y creaba el encimado; era el último camino abierto). El 409 dice con quién y **de qué hora a qué hora**, y desde la 3.2.7 rige también en el **wizard público** (`turno_publico.go`).
@@ -185,15 +225,15 @@ Brief del cliente en `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.do
 
 ## Fase 4 — Personalización de la página pública
 
-Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio — el resto (UI del panel de gestión) queda para después, todavía sin fases numeradas. Definición funcional completa en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; estado de la implementación (para retomar) en `docs/Fases post MVP/Fase 4/fase4.4-4.5-estado-implementacion.md` (la 4.1 a 4.3 está en `fase4.1-a-4.3-estado-implementacion.md`, mergeada). Decisiones: `docs/Arquitectura y base/tradeoffs.md` TR-150 a TR-153; plan: `implementation-plan.md` §14.
+Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de un revamp de frontend más amplio — el resto (UI del panel de gestión) queda para después, todavía sin fases numeradas. Definición funcional completa en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; estado de la implementación (para retomar) en `docs/Fases post MVP/Fase 4/fase4.4-4.5-estado-implementacion.md` (la 4.1 a 4.3 está en `fase4.1-a-4.3-estado-implementacion.md`, mergeada). Decisiones: `docs/Arquitectura y base/tradeoffs.md` TR-150 a TR-155; plan: `implementation-plan.md` §14. **Las subfases 4.4 y 4.5 entraron a `dev` como "etapa intermedia" (PR #44, 2026-09-18): el cliente va a sumar secciones extra de fine-tuning todavía sin definir, así que la Fase 4 no está cerrada.**
 
 | Subfase | Qué | Estado |
 |---|---|---|
 | 4.1 | Modelo de datos: `PaginaPublica` extendida (bio, tema/variante/tipografía, foto de portada, redes sociales, mapa, dirección override) + tabla `PaginaPublicaModulo` | ✅ |
 | 4.2 | Endpoints backend y frontend: `GET/PATCH /panel/pagina` (reemplazo completo, mismo criterio que `PUT /horario-atencion/general`), `POST /panel/pagina/fotos` (primer upload multipart del repo), estadísticas reales (pacientes atendidos/turnos realizados, nunca un valor cargado a mano), y el fix del bug owner-only (especialidades/búsqueda por nombre pasan a ser la unión de TODOS los profesionales activos, no solo el owner) | ✅ |
 | 4.3 | Catálogo de temas: 5 temas × 3 variantes de color cada uno + 5 pares de tipografía **compartidos entre temas** (no uno por tema, para no cargar hasta 15 pares de Google Fonts) — validado con CHECK en Postgres (`chk_pagina_publica_tema*`) y en el handler (`temaEsValido`, que sí valida la relación tema↔variante — el CHECK de la base valida cada columna contra su propio catálogo plano, no esa relación cruzada) | ✅ |
-| 4.4 | Editor: borrador único que se guarda de una vez, módulos reordenables (`@dnd-kit` + flechas), selector de tema, subida de fotos, vista previa móvil/tablet/escritorio | ✅ implementada, sin QA en navegador |
-| 4.5 | `ClinicaPublicaTemplate` dibuja el tema y los módulos persistidos | ✅ implementada, sin QA en navegador |
+| 4.4 | Editor: borrador único que se guarda de una vez, módulos reordenables (`@dnd-kit` + flechas), selector de tema, subida de fotos, vista previa móvil/tablet/escritorio | ✅ mergeada a `dev` (PR #44), sin QA en navegador |
+| 4.5 | `ClinicaPublicaTemplate` dibuja el tema y los módulos persistidos | ✅ mergeada a `dev` (PR #44), sin QA en navegador |
 | 4.6 | Storage real en producción (Cloudflare R2, TR-046) — hoy `internal/storage` solo tiene `LocalStorage` (disco, dev); `STORAGE_R2_BUCKET` configurado hace fallar el arranque a propósito en vez de degradar en silencio a un storage que se pierde en cada deploy | pendiente |
 
 Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
@@ -210,8 +250,17 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
+**Continuación: Prisma Engine (plan aprobado, sin implementar).** Kevin definió el 2026-09-21 cómo sigue esta vertical — registro único de módulos, tokens de diseño, variantes, efectos, módulos del rubro (Equipo, Horarios del edificio, Servicios), plantillas, borrador/Publicar con historial y SEO — en `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
+
 ## Flujo de ramas
 
 Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`. **Ojo: "push libre" no es inocuo** — un push a `dev` corre CI (web, api, test-api con `-race` y gate 80%, test-web) y, si pasa, dispara el deploy en Render (un solo entorno, TR-021); `main` corre el mismo CI pero no despliega.
+
+**Convenciones que el remoto realmente usa** (verificadas con `gh` y el historial de `origin/dev`, 2026-09-21) — no hay `PULL_REQUEST_TEMPLATE`, `CONTRIBUTING`, commitlint ni hooks en el repo, así que esto es costumbre, no una regla que algo haga cumplir:
+- **Commits:** Conventional Commits en castellano, `tipo(alcance): descripción` — `feat`/`fix`/`docs`/`test`, con la subfase como alcance (`fix(3.2.6): …`, `feat(4.4-4.5): …`, `docs(panel): …`). La mayoría lleva el trailer `Co-Authored-By: Claude … <noreply@anthropic.com>`. Los docs (TR, plan, spec) suelen ir en su propio commit `docs(...)` aparte del código.
+- **PRs:** de una rama `feature/…` o `fix/…` **a `dev`** (nunca a `main` directo), con el título en el mismo formato y el cuerpo en castellano explicando el porqué (secciones `##`, y una advertencia arriba cuando es una etapa intermedia, como el PR #44). Se mergean con **merge commit** (`Merge pull request #N from …`), no squash ni rebase, aunque el repo permite los tres. Una misma rama puede reabrirse en PRs sucesivos (#47, #48 y #49 salen de `feature/fase3.2.6-vista-recepcion`, uno por ronda de QA).
+- **Sin barreras en GitHub:** ni rulesets, ni revisión obligatoria (`reviewDecision` vacío en los PRs mergeados), ni auto-merge, y `delete_branch_on_merge` está apagado — por eso `origin` acumula ramas viejas y los locales quedan con el upstream `gone`. Lo único que frena un merge es el CI (`web`, `api`, `test-api`, `test-web`). La cuenta `Kevinmass` tiene permiso de `push`, sin `admin`, así que no puede ver ni cambiar la protección de ramas.
+- **Autores:** dos personas mergean en el mismo repo (`JuanMuruzabal`, dueño, y `Kevinmass`); conviene un `git fetch --prune` antes de empezar a trabajar.
+- **`main` y `dev` divergieron:** `main` tiene 4 commits que `dev` no (los merges de los PR #17, #25, #26 y un `Update README.md` hecho directo), así que `git merge --ff-only` de `dev` a `main` **falla hoy**. Hay que traer `main` a `dev` primero (o pedirle al usuario cómo quiere resolverlo) — no forzar ni reescribir `main`.
 
 **Fase 2 — proceso de QA por ítem (TR-083 en `docs/Arquitectura y base/tradeoffs.md`):** pedido explícito del cliente en `docs/Fases post MVP/Fase 2/fase2-dental-mirage.md` — implementar los 5 ítems uno por uno, cada uno en su propia rama `feature/fase2-NN-descripcion` (no una sola rama larga para toda la fase). **Nunca hacer commit ni push de un ítem hasta que el cliente apruebe su QA** — a diferencia del resto del proyecto, donde push a `dev` es libre. Una vez aprobado un ítem, commit a su rama y PR a `dev` (no push directo). Este proceso aplica solo mientras dure la Fase 2, no cambia el flujo general de arriba para el resto del trabajo.
