@@ -93,9 +93,15 @@ export const ESTADO_DERIVADO_PILL: Record<EstadoDeTurno, string> = {
 };
 
 export interface TemaTipoConsulta {
-  /** Fondo pastel — bloques del calendario (par con contraste AA junto a `texto`). */
+  /** Relleno de la tarjeta — par con contraste AA junto a `texto`. */
   fondo: string;
-  /** Texto/borde oscuro sobre `fondo` — 6.7:1 mínimo, ver TR-013. */
+  /** El mismo color, más claro: el bloque de post-consulta pegado abajo.
+   *  Sólido y no `opacity`, que apagaba el color y dejaba ver la grilla. */
+  fondoPost: string;
+  /** Contorno: separa una tarjeta de la de al lado sin transparencia. */
+  borde: string;
+  /** Texto oscuro sobre `fondo` — mezclado con negro para que aguante
+   *  cualquier color que el profesional elija, ver TR-013. */
   texto: string;
   /** Versión saturada — puntos/indicadores decorativos, no portan texto encima. */
   acento: string;
@@ -115,13 +121,42 @@ export interface TemaTipoConsulta {
 // pastel (mezclado con blanco) y texto un tono oscuro (mezclado con
 // negro) del MISMO color — funciona para cualquier hex de la paleta,
 // clara u oscura, sin tener que mantener una tabla de contraste a mano.
+// MÁS COLOR Y CERO OPACIDAD (QA de la 3.2.6, 2026-09-21: *"hacer el color
+// más vibrante y evitar opacidad en las tarjetas, hacerlas más llamativas
+// y lindas a la vista"*).
+//
+// El relleno era un 25% del color sobre blanco: a esa altura dos tipos de
+// consulta distintos se distinguían apenas, y el calendario entero se
+// leía como una sola mancha beige. Sube a 55%, que es donde el color
+// empieza a identificar de un vistazo sin comerse el texto.
+//
+// `borde` es nuevo y hace el trabajo que antes intentaba la opacidad:
+// separa la tarjeta de su vecina con un tono más saturado del MISMO
+// color, en vez de con transparencia. La opacidad, además de apagar, deja
+// ver lo que hay detrás —la grilla de horas— y ensucia.
+//
+// `fondoPost` reemplaza al `opacity: 0.45` del bloque de post-consulta:
+// el mismo color, mezclado a mano con blanco, da un tono sólido y
+// predecible en vez de uno que depende de lo que haya debajo.
+//
+// El texto se mezcla con negro y no con el color puro: tiene que seguir
+// leyéndose sobre cualquier color que el profesional elija, incluido uno
+// oscuro.
 export function temaTipoConsulta(tipo: Pick<TipoConsulta, "color"> | undefined): TemaTipoConsulta {
   if (!tipo?.color) {
-    return { fondo: "var(--color-arena)", texto: "var(--color-grafito)", acento: "var(--color-arena)" };
+    return {
+      fondo: "var(--color-arena)",
+      fondoPost: "var(--color-hueso)",
+      borde: "var(--color-linea)",
+      texto: "var(--color-grafito)",
+      acento: "var(--color-arena)",
+    };
   }
   return {
-    fondo: `color-mix(in srgb, ${tipo.color} 25%, white)`,
-    texto: `color-mix(in srgb, ${tipo.color} 65%, black)`,
+    fondo: `color-mix(in srgb, ${tipo.color} 55%, white)`,
+    fondoPost: `color-mix(in srgb, ${tipo.color} 24%, white)`,
+    borde: `color-mix(in srgb, ${tipo.color} 78%, white)`,
+    texto: `color-mix(in srgb, ${tipo.color} 72%, black)`,
     acento: tipo.color,
   };
 }

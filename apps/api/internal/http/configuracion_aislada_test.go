@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/testdb"
@@ -573,4 +575,66 @@ func duenioDelConflicto(t *testing.T, router http.Handler, token string) string 
 	}
 	s, _ := out["conflictoCalendarioProfesionalId"].(string)
 	return s
+}
+
+// TestConfiguracion_LaVistaGeneralTieneLosTiposDeTodos — QA de la 3.2.6
+// (2026-09-21): *"en la vista general del calendario las tarjetas de los
+// turnos ponen tipo de turno '—' y no muestran el color que el
+// profesional eligió"*.
+//
+// La causa no estaba en el calendario: `/tipos-consulta` devolvía una
+// lista VACÍA en la vista general, así que la pantalla no tenía con qué
+// resolver el tipo de cada turno. Cada turno trae el id de la fila de SU
+// dueño (un tipo es de un profesional, TR-145), y con la lista completa
+// cada uno encuentra la suya —nombre y color— sin mezclar nada.
+func TestConfiguracion_LaVistaGeneralTieneLosTiposDeTodos(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "tiposgeneral")
+	titularID := userIDDelMail(t, gdb, "titular-tiposgeneral@example.com")
+
+	crearTipoPara(t, router, esc.recepToken, titularID, "Ortodoncia del titular")
+	crearTipoPara(t, router, esc.recepToken, esc.colegaID, "Endodoncia del colega")
+
+	volverALaVistaGeneral(t, router, esc.recepToken)
+	if !tieneTipo(t, router, esc.recepToken, "Ortodoncia del titular") {
+		t.Error("la vista general no trae el tipo del titular: la tarjeta de su turno diría \"—\"")
+	}
+	if !tieneTipo(t, router, esc.recepToken, "Endodoncia del colega") {
+		t.Error("la vista general no trae el tipo del colega")
+	}
+
+	// Y parada en uno, sigue viendo SOLO lo suyo: la vista general no
+	// relaja el aislamiento de la configuración.
+	if code := elegirVista(t, router, esc.recepToken, titularID.String()); code != http.StatusOK {
+		t.Fatalf("elegir vista: status=%d", code)
+	}
+	if tieneTipo(t, router, esc.recepToken, "Endodoncia del colega") {
+		t.Error("parada en el titular, aparece el tipo del colega")
+	}
+}
+
+// Un profesional nunca ve los tipos de un colega en este listado, mire
+// desde donde mire: no tiene vista general.
+func TestConfiguracion_UnProfesionalNoVeLosTiposDeUnColega(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	esc := clinicaConDosProfesionalesYRecepcion(t, gdb, router, "tipospropios")
+
+	crearTipoPara(t, router, esc.recepToken, esc.colegaID, "Solo del colega otra vez")
+
+	if tieneTipo(t, router, esc.titular.Token, "Solo del colega otra vez") {
+		t.Error("el titular ve un tipo del colega en /tipos-consulta")
+	}
+}
+
+func crearTipoPara(t *testing.T, router http.Handler, token string, duenio uuid.UUID, nombre string) {
+	t.Helper()
+	rec := doJSONAuth(t, router, http.MethodPost, "/tipos-consulta", token, tipoConsultaRequest{
+		Nombre: nombre, Color: "#E7D9BE", DuracionMinutos: 30,
+		ProfesionalUserID: duenio.String(),
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("crear tipo %q: status=%d body=%s", nombre, rec.Code, rec.Body.String())
+	}
 }
