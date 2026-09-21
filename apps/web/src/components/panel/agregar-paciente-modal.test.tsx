@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const { crearPacienteActionMock, sumarPacienteAMiListaActionMock, listPacientesActionMock } = vi.hoisted(() => ({
   crearPacienteActionMock: vi.fn(),
   sumarPacienteAMiListaActionMock: vi.fn(),
   listPacientesActionMock: vi.fn(),
+}));
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: async () => ({
+    profesionales: [{ userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" }],
+    miUserId: "u1",
+    puedeElegirOtros: false,
+    focoActual: null,
+  }),
+  elegirVistaAction: async () => ({}),
 }));
 vi.mock("@/app/actions/pacientes", () => ({
   crearPacienteAction: crearPacienteActionMock,
@@ -104,7 +113,10 @@ describe("AgregarPacienteModal", () => {
     await completarCampos(user);
     await user.click(screen.getByRole("button", { name: "Agregar" }));
 
+    // `profesionalUserId` desde la Fase 3.2.6: sin dueño la ficha nace
+    // invisible (es uno de los tres criterios de `soloMisPacientes`).
     expect(crearPacienteActionMock).toHaveBeenCalledWith({
+      profesionalUserId: "u1",
       nombre: "Bruno",
       apellido: "Iglesias",
       dni: "30111222",
@@ -181,6 +193,70 @@ describe("AgregarPacienteModal", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent("paciente no encontrado");
       expect(onSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  // Fase 3.2.6, mockup `pacientes-recepcion.html`: "Profesional ·
+  // Obligatorio". `creado_por_user_id` es uno de los tres criterios por
+  // los que una ficha aparece en la lista de alguien, así que sin dueño
+  // nace invisible: no la ve nadie hasta que le inventen un turno.
+  describe("el profesional es obligatorio", () => {
+    it("lo pide antes que cualquier otro dato", async () => {
+      const user = userEvent.setup();
+      render(<AgregarPacienteModal onClose={vi.fn()} onSuccess={vi.fn()} />);
+      await irAPacienteNuevo(user);
+
+      expect(
+        await screen.findByText(/Profesional · Obligatorio/i),
+      ).toBeInTheDocument();
+    });
+
+    // Para un profesional se autoelige él mismo, así que el paso no se
+    // siente y el aviso no llega a mostrarse.
+    it("con una sola agenda queda elegida sola y el alta sigue de largo", async () => {
+      const user = userEvent.setup();
+      render(<AgregarPacienteModal onClose={vi.fn()} onSuccess={vi.fn()} />);
+      await irAPacienteNuevo(user);
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText(/Elegí primero el profesional/i),
+        ).not.toBeInTheDocument(),
+      );
+    });
+  });
+
+  // QA de la 3.2.6 (2026-09-21): *"en la vista toda la clínica, al
+  // agregar paciente no me debería aparecer 'de la clínica', porque
+  // justamente eso estoy viendo en esa vista"*.
+  //
+  // "De la clínica" existe para sumar a MI lista una ficha que ya está
+  // cargada. Desde la vista general no hay lista propia a la que sumar, y
+  // el backend lo rechaza con un 409 — ofrecer la pestaña es ofrecer un
+  // error.
+  describe("en la vista general de recepción", () => {
+    it("no ofrece 'De la clínica': ahí ya se ven todas las fichas", () => {
+      render(
+        <AgregarPacienteModal sinListaPropia onClose={vi.fn()} onSuccess={vi.fn()} />,
+      );
+
+      expect(screen.queryByRole("button", { name: "De la clínica" })).not.toBeInTheDocument();
+    });
+
+    it("abre directo en el alta, sin pestaña de por medio", () => {
+      render(
+        <AgregarPacienteModal sinListaPropia onClose={vi.fn()} onSuccess={vi.fn()} />,
+      );
+
+      expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    });
+
+    // Parada en la vista de un profesional sí aparece: es el camino que
+    // el cliente describió para pasarle un paciente a alguien.
+    it("parada en un profesional, la pestaña vuelve", () => {
+      render(<AgregarPacienteModal onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      expect(screen.getByRole("button", { name: "De la clínica" })).toBeInTheDocument();
     });
   });
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { apiListTiposConsulta, apiListTurnos } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { conPaletaPrecargada } from "@/lib/paleta-recepcion";
 import {
   hoyEnCordoba,
   parseFechaISOLocal,
@@ -91,9 +92,16 @@ export default async function CalendarioPage({
   // agenda de alguien, recepción ve el calendario de siempre.
   const enVistaGeneral = esRecepcion && vista?.profesional == null;
 
+  // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
+  // precargada, en todas sus vistas — también parada en la de un
+  // profesional. Ver `lib/tipos-de-la-vista.ts`.
+  const tiposParaLaVista = sesion.roles.includes("recepcion")
+    ? conPaletaPrecargada(tiposConsulta)
+    : tiposConsulta;
+
   return (
     <CalendarView
-      tiposConsulta={tiposConsulta}
+      tiposConsulta={tiposParaLaVista}
       turnosIniciales={turnosIniciales}
       vistaInicial={vistaInicial}
       // El string crudo, no `fechaInicial` (el Date de arriba, que

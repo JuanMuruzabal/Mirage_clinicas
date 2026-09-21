@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
+import { conPaletaPrecargada } from "@/lib/paleta-recepcion";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import {
@@ -172,7 +173,12 @@ export default async function TurnosPage({
         ])
       : [null, null, 0, 0, 0, 0];
 
-  const tiposConsulta = tiposResult?.ok ? tiposResult.data : [];
+  // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
+  // precargada, en todas sus vistas. Ver `lib/tipos-de-la-vista.ts`.
+  const tiposDelServidor = tiposResult?.ok ? tiposResult.data : [];
+  const tiposConsulta = esRecepcion
+    ? conPaletaPrecargada(tiposDelServidor)
+    : tiposDelServidor;
   const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];
   const totalTurnos = paginaTurnos?.ok ? paginaTurnos.data.total : 0;
   const conteoPorTab: Record<Tab, number> = {

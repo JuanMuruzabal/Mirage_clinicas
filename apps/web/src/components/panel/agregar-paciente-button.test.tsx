@@ -10,6 +10,18 @@ const { refreshMock, crearPacienteActionMock, sumarPacienteAMiListaActionMock, l
 }));
 // mismo mock que pacientes-table.test.tsx/clickable-table-row.test.tsx.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock }) }));
+// El modal pregunta a qué agenda va la ficha (Fase 3.2.6) — sin
+// mockearlo corre la Server Action de verdad y `cookies()` explota fuera
+// de un request.
+vi.mock("@/app/actions/topbar-panel", () => ({
+  opcionesDeAgendaAction: async () => ({
+    profesionales: [{ userId: "u1", nombre: "Lucía Gómez", detalle: "Ortodoncia" }],
+    miUserId: "u1",
+    puedeElegirOtros: false,
+    focoActual: null,
+  }),
+  elegirVistaAction: async () => ({}),
+}));
 vi.mock("@/app/actions/pacientes", () => ({
   crearPacienteAction: crearPacienteActionMock,
   sumarPacienteAMiListaAction: sumarPacienteAMiListaActionMock,

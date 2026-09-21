@@ -60,6 +60,11 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
   );
   const [cargandoMas, setCargandoMas] = useState(false);
 
+  // La columna se dibuja cuando el dato viene, y el backend solo lo manda
+  // en la vista general (Fase 3.2.6) — así la regla de "cuándo se ve"
+  // tiene un solo dueño, igual que la columna de profesional en Turnos.
+  const conProfesionales = pacientes.some((p) => (p.profesionales?.length ?? 0) > 0);
+
   // cargarMas — la siguiente tanda desde donde quedó la anterior. El
   // total se refresca en cada tanda: entre un click y el otro pudo
   // haberse dado de alta (o borrado) una ficha.
@@ -106,6 +111,13 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                 paciente, solo cuando la ficha se cargó por "sacar turno
                 para otro"; "—" en cualquier otro caso. */}
             <th className="panel-th-sticky max-md:hidden px-4 py-3">Tutor</th>
+            {/* Profesionales (Fase 3.2.6, mockup `pacientes-recepcion.html`)
+                — solo en la vista general de recepción, que es la única
+                donde las fichas son de varias personas. En la vista de un
+                profesional son todas suyas y la columna sería su inicial
+                repetida en cada fila. Misma regla que la columna de
+                profesional en Turnos: se dibuja cuando el dato viene. */}
+            {conProfesionales && <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesionales</th>}
             <th className="panel-th-sticky px-4 py-3" />
           </tr>
         </thead>
@@ -182,6 +194,11 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                       p.tutores?.[0]?.nombre || "—"
                     )}
                   </td>
+                  {conProfesionales && (
+                    <td className="max-md:hidden px-4 py-3">
+                      <AvataresDeProfesionales profesionales={p.profesionales ?? []} />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-3">
                       {/* Chevron — solo mobile: desde `md` el DNI/Email ya
@@ -234,7 +251,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                         `min-w-full` de adentro ocupa todo el ancho real
                         ya resuelto de la tabla — mismo truco que
                         TurnosTable. */}
-                    <td colSpan={7} className="w-px px-4 py-3">
+                    <td colSpan={conProfesionales ? 8 : 7} className="w-px px-4 py-3">
                       <div className="min-w-full">
                       {/* grid-cols-[auto_minmax(0,1fr)] — corrección de QA
                           (2026-09-06): con `1fr` a secas, una celda con
@@ -282,6 +299,18 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                             mails[0] || "—"
                           )}
                         </dd>
+                        {/* Profesionales — su columna es `max-md:hidden`,
+                            así que en mobile solo se ve acá. Mismo
+                            criterio que el profesional en la tabla de
+                            Turnos. */}
+                        {conProfesionales && (
+                          <>
+                            <dt className="text-xs font-semibold tracking-wide text-grafito/50 uppercase">Profesionales</dt>
+                            <dd className="min-w-0 text-grafito">
+                              {(p.profesionales ?? []).map((prof) => prof.nombre).join(", ") || "—"}
+                            </dd>
+                          </>
+                        )}
                         {/* Tutor (Fase 2.4.2) — la columna propia queda
                             max-md:hidden, así que en mobile solo se ve
                             acá, dentro del panel desplegado. */}
@@ -324,4 +353,60 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
     <CargarMas cargados={pacientes.length} total={total} cargando={cargandoMas} onCargarMas={cargarMas} sustantivo="pacientes" />
     </>
   );
+}
+
+/**
+ * AvataresDeProfesionales — quiénes tienen a esta persona entre sus
+ * pacientes (Fase 3.2.6, mockup `pacientes-recepcion.html`).
+ *
+ * Apilados y con iniciales, no una lista de nombres: en una tabla de
+ * muchas filas lo que se necesita saber de un vistazo es "¿es de uno o de
+ * varios?", y tres nombres completos por fila comerían el ancho de la
+ * columna que de verdad importa, el del paciente.
+ *
+ * Tope de tres y un "+N": el mockup lo dibuja así, y tiene sentido —
+ * pasado ese punto la pila deja de leerse y el número dice lo mismo en
+ * menos espacio. El nombre completo va en el `title` de cada avatar.
+ */
+function AvataresDeProfesionales({
+  profesionales,
+}: {
+  profesionales: { userId: string; nombre: string }[];
+}) {
+  if (profesionales.length === 0) {
+    return <span className="text-grafito/40">—</span>;
+  }
+  const visibles = profesionales.slice(0, 3);
+  const resto = profesionales.length - visibles.length;
+  return (
+    <div className="flex items-center gap-2">
+      {/* `ms-[-9px]` salvo en el primero: es lo que hace la pila. El
+          borde del color de la fila los separa entre sí. */}
+      <span className="flex items-center">
+        {visibles.map((prof, i) => (
+          <span
+            key={prof.userId}
+            title={prof.nombre}
+            className={`flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full border-2 border-marfil bg-salvia-claro font-[family-name:var(--font-display)] text-[11.5px] font-semibold text-salvia-oscuro ${
+              i > 0 ? "-ms-[9px]" : ""
+            }`}
+          >
+            {inicialesDeProfesional(prof.nombre)}
+          </span>
+        ))}
+      </span>
+      {resto > 0 && <span className="text-[13.5px] text-grafito/50">+{resto}</span>}
+    </div>
+  );
+}
+
+// Las mismas iniciales que el resto del panel (ver zona-profesional.tsx):
+// el tratamiento no distingue a nadie en una clínica llena de odontólogos.
+function inicialesDeProfesional(nombre: string): string {
+  const partes = nombre
+    .replace(/^(Dra?\.|Od\.|Lic\.)\s*/i, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return ((partes[0]?.charAt(0) ?? "") + (partes[1]?.charAt(0) ?? "")).toUpperCase() || "?";
 }

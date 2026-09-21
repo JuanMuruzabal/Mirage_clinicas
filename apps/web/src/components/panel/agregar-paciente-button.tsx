@@ -12,7 +12,13 @@ import { AgregarPacienteModal } from "./agregar-paciente-modal";
 // propia: PacientesPage es un Server Component que resuelve la lista
 // desde sus props, no un fetch de cliente — refresh() vuelve a correr ese
 // Server Component con la lista ya actualizada.
-export function AgregarPacienteButton() {
+export function AgregarPacienteButton({
+  sinListaPropia = false,
+}: {
+  /** La vista general de recepción: no hay una lista propia a la que
+   *  sumar una ficha que ya existe. Ver `AgregarPacienteModal`. */
+  sinListaPropia?: boolean;
+} = {}) {
   const [abierto, setAbierto] = useState(false);
   const router = useRouter();
 
@@ -27,6 +33,7 @@ export function AgregarPacienteButton() {
       </button>
       {abierto && (
         <AgregarPacienteModal
+          sinListaPropia={sinListaPropia}
           onClose={() => setAbierto(false)}
           onSuccess={() => {
             setAbierto(false);

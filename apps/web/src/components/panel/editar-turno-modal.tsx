@@ -114,7 +114,24 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
     // la respuesta llega.
     if (!turno.tipoConsultaId) return;
     let activo = true;
-    listDisponibilidadAction(turno.tipoConsultaId, fecha, turno.id).then((disponibilidad) => {
+    // LA AGENDA DE ESTE TURNO, no la de quien mira (QA de la 3.2.6,
+    // 2026-09-21: *"en la vista toda la clínica no me deja editar los
+    // turnos, dice que no hay horarios disponibles"*).
+    //
+    // Sin el cuarto argumento, el backend resuelve la agenda por el
+    // profesional en foco — y desde la vista general no hay ninguno, así
+    // que respondía 409 y la lista llegaba vacía. Se está editando ESE
+    // turno: los huecos que importan son los de quien lo atiende.
+    //
+    // `atendidoPorUserId` viaja solo en la vista general (ahí es donde
+    // hace falta); en la vista de un profesional queda vacío y el backend
+    // usa el foco, como siempre.
+    listDisponibilidadAction(
+      turno.tipoConsultaId,
+      fecha,
+      turno.id,
+      turno.atendidoPorUserId ?? undefined,
+    ).then((disponibilidad) => {
       if (!activo) return;
       setSlots(disponibilidad.slots);
       setCargandoSlots(false);
@@ -123,7 +140,7 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
     return () => {
       activo = false;
     };
-  }, [turno.tipoConsultaId, turno.id, fecha]);
+  }, [turno.tipoConsultaId, turno.id, turno.atendidoPorUserId, fecha]);
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();

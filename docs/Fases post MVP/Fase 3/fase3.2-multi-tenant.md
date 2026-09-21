@@ -1591,3 +1591,48 @@ Dos cosas que funcionaron y conviene repetir:
 - **Verificar cada arreglo revirtiéndolo.** Tres veces un test mío pasaba con el bug puesto: el del conflicto cruzado (fixture sin reloj fijo), el del prop del servidor (revertí media corrección) y el del "Cargando…" colgado. Revertir es lo único que distingue un test que protege de uno que acompaña.
 - **Un caso de control junto a cada test de aislamiento.** "No aparece el conflicto de otro" pasa también con el aviso roto para todo el mundo; al lado va "con el del mismo profesional SÍ aparece".
 
+### La paleta de recepción (2026-09-21)
+
+TR-145 dice que **el color de un tipo de consulta significa lo que decidió QUIEN MIRA**, no quien lo creó: el color no viaja con el turno, lo resuelve la pantalla contra los tipos de quien abre la ficha, buscando por nombre.
+
+En la vista general esa regla se quedaba sin quien mire. La ronda anterior hizo que cada turno se pintara con el color de su dueño, y eso mezcla paletas que nadie coordinó entre sí: el verde de uno puede ser "Limpieza" mientras el de otro es "Urgencia". El cliente lo planteó como lo que es, una inconsistencia con algo ya resuelto: *"es lo mismo que hicimos cuando en el historial de turnos el tipo de consulta traía el color del otro profesional"*.
+
+**Recepción tiene ahora su propia paleta, igual que cualquier profesional — solo que no la configura: viene precargada** (`lib/paleta-recepcion.ts`). Tres decisiones dentro de eso:
+
+- **Se asigna por NOMBRE**, que es lo que identifica a un tipo en toda la clínica (TR-145). Las dos filas de "Limpieza dental" —la de cada profesional, con sus propios minutos y su propio color— se ven del mismo color acá.
+- **Un hash del nombre, no el índice en la lista.** El orden cambia con cada alta: con un índice, el calendario entero se recoloreaba cuando alguien creaba un tipo nuevo.
+- **Se repinta en la PÁGINA**, sobre la lista que baja del servidor (`tiposConsultaDeLaVista`, `lib/tipos-de-la-vista.ts`). La grilla, la vista de mes, el detalle de un turno y el modal de alta siguen resolviendo el tipo por id y no saben nada de esto.
+
+La primera entrega la aplicó solo en la vista general, y el cliente marcó que eso es la misma inconsistencia por la otra puerta: parada en la agenda de un profesional volvía a ver los colores de él. **Vale en las cuatro pantallas del panel.**
+
+**La excepción, a propósito:** "Configuración de calendario" muestra el color REAL. Ahí recepción está editando la configuración de ese profesional, y el color que ve es el que va a guardar — repintarlo sería mentirle sobre lo que está tocando.
+
+### Pacientes: de quién es cada ficha (2026-09-21)
+
+Los dos ítems del módulo, según el mockup `pacientes-recepcion.html`.
+
+**La columna "Profesionales".** Hasta tres avatares apilados con iniciales, más un "+N". Apilados y no una lista de nombres porque en una tabla de muchas filas lo que hace falta de un vistazo es *"¿es de uno o de varios?"*; el nombre entero va en el `title`, y en mobile —donde la columna es `max-md:hidden`— al desplegar la fila.
+
+`profesionalesPorPaciente` usa **los mismos tres criterios que `soloMisPacientes`, leídos al revés**: allá la pregunta es "¿esta ficha es mía?", acá "¿de quiénes es?". Si divergen, la columna diría que un paciente es de alguien que no lo ve en su propia lista — y eso no se nota mirando una sola pantalla. Va un UNION y no tres consultas, con el mismo criterio de lote que los helpers vecinos.
+
+**"Profesional · Obligatorio" en el alta.** `creado_por_user_id` es uno de esos tres criterios, así que **una ficha sin dueño nace invisible**: no aparece en la lista de nadie hasta que alguien le invente un turno. El modal lo pide antes que cualquier otro dato y el backend lo exige con un 409. Para un profesional se autoelige él mismo y el paso no se siente; recepción es la única que decide.
+
+### Las tres últimas correcciones (2026-09-21)
+
+- **"De la clínica" no existe en la vista general.** Esa pestaña sirve para sumar A MI LISTA una ficha que ya existe; desde la vista general no hay lista propia a la que sumarla y las fichas de toda la clínica ya están a la vista. Era una pestaña que solo podía terminar en el 409 de `profesionalParaEscribir`. Parada en la agenda de un profesional sigue apareciendo, que es el caso para el que se hizo.
+- **Editar un turno buscaba los huecos de la agenda equivocada** (*"dice 'no hay horarios disponibles' cuando, si cambio a la vista del profesional, el mismo turno sí los tiene"*). La misma familia que los bugs de configuración: la disponibilidad se resolvía por el profesional en foco y en la vista general no hay ninguno. Se está editando ESE turno, así que la agenda que importa es la de quien lo atiende. Guardar ya funcionaba —`reprogramarTurnoHandler` acota con `soloMisTurnos`, que en la vista general no filtra nada—: lo único roto era la lista de horarios que se ofrecía.
+- **El nombre del paciente lleva a su ficha**, el horario sigue llevando al turno en el calendario. Dos preguntas distintas que hasta acá terminaban en el mismo lugar. `/panel/resumen` suma `pacienteId`; un turno sin ficha vinculada se queda con el destino de siempre, porque un link a ninguna parte sería peor.
+
+**Y el mismo patrón, una vez más:** los tres son una regla que la subfase movió y una pantalla que se quedó con la versión vieja. Vale la pena leerlos juntos con los de la sección anterior — es el tipo de error que esta subfase produce, y el que hay que ir a buscar antes de que lo encuentre la QA.
+
+### Una pasada por la documentación misma (2026-09-21)
+
+Al cerrar la subfase revisé lo que los documentos afirman contra lo que el código hace, y **cuatro afirmaciones de `CLAUDE.md` estaban viejas** — ninguna es un bug de producto, pero las cuatro le habrían hecho perder tiempo a quien las leyera:
+
+- *"El `EXCLUDE` de no-solapamiento **hay que** mudarlo a `atendido_por_user_id`; hoy es sobre `profesional_id`"* — se mudó en la 3.2.1 (TR-137), y el mismo archivo lo decía bien unas secciones más arriba. Se borró el bullet: una tarea ya hecha listada como pendiente es peor que no listarla.
+- *"**Falta** llevarlo al wizard público"*, sobre el no-solapamiento entre profesionales — está en `turno_publico.go` desde la 3.2.7.
+- *"39 acotadas y 18 clínica-wide"* en el test de aislamiento. **Medido instrumentando el test**: 15 archivos, 40 consultas acotadas y 21 excepciones declaradas en 6 archivos.
+- *"6 queries de turnos y 3 de pacientes"* pasan por los scopes: hoy son **16** y 3.
+
+Los dos últimos son el mismo problema: **un número que se cuenta a mano envejece en silencio**. Quedan fechados y con el método anotado, para que la próxima vez se vuelva a medir en vez de copiarlos.
+

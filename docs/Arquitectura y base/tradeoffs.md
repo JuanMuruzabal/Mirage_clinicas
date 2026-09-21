@@ -2722,6 +2722,30 @@ Esa pantalla pide su propio rango —el que la persona está mirando— mientras
 
 **Lo que se sacrifica:** un fetch extra por revalidación, contra el riesgo de mostrar datos de un rango que la persona no está mirando. Se eligió el fetch.
 
+### Addendum: recepción tiene su propia paleta de tipos de consulta
+
+TR-145 dice que **el color de un tipo significa lo que decidió QUIEN MIRA**: no viaja con el turno, lo resuelve la pantalla contra los tipos propios buscando por nombre. En la vista general esa regla se quedaba sin quien mire — cada turno se pintaba con el color de su dueño, y eso mezcla paletas que nadie coordinó entre sí (el verde de uno es "Limpieza", el de otro "Urgencia").
+
+**Recepción tiene ahora una paleta como cualquier profesional, solo que precargada** (`lib/paleta-recepcion.ts`) y en **todas** sus vistas, no solo en la general: parada en la agenda de un profesional volvía a ver los colores de él, que es la misma inconsistencia por la otra puerta.
+
+Tres decisiones dentro:
+
+- **Por NOMBRE**, que es lo que identifica a un tipo en toda la clínica (TR-145): las dos filas de "Limpieza dental" se ven del mismo color acá.
+- **Un hash del nombre, no el índice en la lista** — el orden cambia con cada alta, y con un índice el calendario entero se recoloreaba cuando alguien creaba un tipo nuevo.
+- **Se repinta en la PÁGINA** (`tiposConsultaDeLaVista`), sobre la lista que baja del servidor: la grilla, la vista de mes, el detalle y el modal de alta siguen resolviendo por id y no saben nada de esto.
+
+**La excepción, a propósito:** "Configuración de calendario" muestra el color REAL. Ahí recepción edita la configuración de ese profesional y el color que ve es el que va a guardar; repintarlo sería mentirle sobre lo que está tocando.
+
+**Lo que se sacrifica:** dos personas mirando la misma clínica ven el mismo turno de distinto color. Es el precio que TR-145 ya había elegido pagar, extendido al único rol que no configuraba una paleta propia.
+
+### Addendum: una ficha sin dueño nace invisible
+
+`soloMisPacientes` tiene tres criterios (TR-157) y uno de ellos es `creado_por_user_id`. Recepción podía dar de alta una ficha desde la vista general sin ninguno de los tres: quedaba cargada en la clínica y **fuera de la lista de todos**, hasta que alguien le inventara un turno.
+
+Por eso el alta pide **"Profesional · Obligatorio"** antes que cualquier otro dato y el backend lo exige con un 409. Para un profesional se autoelige él mismo y el paso no se siente.
+
+Del mismo par de preguntas sale la columna **"Profesionales"** de la tabla: `profesionalesPorPaciente` usa los mismos tres criterios leídos al revés —allá "¿esta ficha es mía?", acá "¿de quiénes es?"—. **Si divergen, la columna afirma que un paciente es de alguien que no lo ve en su propia lista**, y eso no se nota mirando una sola pantalla.
+
 
 ---
 

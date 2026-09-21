@@ -3,12 +3,26 @@
 import { useState } from "react";
 import type { Paciente, PacienteConocido } from "@dental-mirage/shared-types";
 import { crearPacienteAction, sumarPacienteAMiListaAction } from "@/app/actions/pacientes";
+import { SelectorDeAgenda } from "./selector-de-agenda";
 import { ModalPortal } from "./modal-portal";
 import { BuscadorPacientes } from "./buscador-pacientes";
 
 interface AgregarPacienteModalProps {
   onClose: () => void;
   onSuccess: (paciente: Paciente) => void;
+  // sinListaPropia — la vista general de recepción (Fase 3.2.6, QA del
+  // 2026-09-21).
+  //
+  // "De la clínica" existe para sumar a MI lista una ficha que ya está
+  // cargada. Desde la vista general eso no significa nada: ahí ya se
+  // están viendo todas las fichas de la clínica, y recepción no tiene
+  // lista propia a la que sumarlas. El backend lo rechaza igual
+  // (`profesionalParaEscribir` responde 409 sin foco); esto evita
+  // ofrecer una pestaña que solo puede terminar en ese error.
+  //
+  // Parada en la vista de un profesional sí aparece: es justamente el
+  // camino que el cliente describió para pasarle un paciente a alguien.
+  sinListaPropia?: boolean;
 }
 
 // Mismas reglas de formato que TR-002 (docs/Arquitectura y base/tradeoffs.md) — feedback
@@ -22,7 +36,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // EditarPacienteModal, con nombre/apellido sumados (esos SÍ son editables
 // acá — a diferencia de EditarPacienteModal, que los deja fijos porque ya
 // vienen del turno que originó la ficha).
-export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModalProps) {
+export function AgregarPacienteModal({ onClose, onSuccess, sinListaPropia = false }: AgregarPacienteModalProps) {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [dni, setDni] = useState("");
@@ -44,7 +58,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
   //
   // "De la clínica" solo lista las que NO están en mi lista: sumar una
   // que ya tengo no haría nada, y ofrecerlo sería ruido.
-  const [origen, setOrigen] = useState<"clinica" | "nuevo">("clinica");
+  // De quién va a ser la ficha. Sin esto el alta queda bloqueada: ver el
+  // comentario del SelectorDeAgenda más abajo.
+  const [agenda, setAgenda] = useState<string | null>(null);
+  // Sin lista propia no hay a dónde sumar: el alta directa es el único
+  // camino, y arranca abierto en vez de detrás de una pestaña.
+  const [origen, setOrigen] = useState<"clinica" | "nuevo">(
+    sinListaPropia ? "nuevo" : "clinica",
+  );
   const [sumando, setSumando] = useState(false);
 
   async function guardar(e: React.FormEvent) {
@@ -109,8 +130,14 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
       }
     }
 
+    if (!agenda) {
+      setError("Elegí primero el profesional para seguir.");
+      return;
+    }
+
     setPending(true);
     const result = await crearPacienteAction({
+      profesionalUserId: agenda ?? "",
       nombre: nombreTrim,
       apellido: apellidoTrim,
       dni: dniTrim,
@@ -185,22 +212,28 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
           </div>
 
           <div className="flex flex-col gap-3 px-6 pt-6">
-            <div className="flex gap-1 rounded-full bg-hueso p-1">
-              <button
-                type="button"
-                onClick={() => setOrigen("clinica")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "clinica" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                De la clínica
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrigen("nuevo")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                Paciente nuevo
-              </button>
-            </div>
+            {/* Las dos pestañas solo cuando hay dos caminos. Desde la
+                vista general "De la clínica" no tiene sentido —ahí ya se
+                ven todas las fichas de la clínica, y no hay lista propia
+                a la que sumarlas—, así que queda el alta directa sola. */}
+            {!sinListaPropia && (
+              <div className="flex gap-1 rounded-full bg-hueso p-1">
+                <button
+                  type="button"
+                  onClick={() => setOrigen("clinica")}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "clinica" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  De la clínica
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrigen("nuevo")}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
+                >
+                  Paciente nuevo
+                </button>
+              </div>
+            )}
             <p className="text-xs text-grafito/60">
               {origen === "clinica"
                 ? "Ya está cargado en la clínica pero todavía no en tu lista — sumalo sin darle un turno."
@@ -226,6 +259,29 @@ export function AgregarPacienteModal({ onClose, onSuccess }: AgregarPacienteModa
 
           {origen === "nuevo" && (
           <form onSubmit={guardar} className="flex flex-col gap-4 p-6">
+            {/* PROFESIONAL, ANTES QUE CUALQUIER OTRO DATO (Fase 3.2.6,
+                mockup `pacientes-recepcion.html`: "Profesional ·
+                Obligatorio").
+                `creado_por_user_id` es uno de los tres criterios por los
+                que una ficha aparece en la lista de alguien: sin dueño
+                nace invisible y no la ve nadie hasta que le inventen un
+                turno. El backend lo rechaza con un 409; esto es para que
+                nadie llegue a ver ese error llenando el formulario
+                entero primero.
+                Para un profesional se autoelige él mismo, así que el
+                paso no se siente. Recepción es la única que decide. */}
+            <div className="flex flex-col gap-2">
+              <SelectorDeAgenda
+                valor={agenda}
+                onElegir={setAgenda}
+                etiqueta="Profesional · Obligatorio"
+              />
+              {!agenda && (
+                <p className="text-xs text-grafito/60">
+                  Elegí primero el profesional: la ficha queda en su lista de pacientes.
+                </p>
+              )}
+            </div>
             <Campo label="Nombre">
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
             </Campo>
