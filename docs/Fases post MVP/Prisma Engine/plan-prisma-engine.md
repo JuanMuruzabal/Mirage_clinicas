@@ -216,12 +216,12 @@ Módulos nuevos, todos nacidos con variantes y slots animables.
 
 | Dato | Lo carga en su perfil | Puede aparecer en la página |
 |---|---|---|
-| Foto | sí, **nuevo** en este PR | sí |
+| Foto | el campo existe; la carga queda fuera de PE-6 | sí, si ya tiene foto |
 | Nombre | sí (ya existe) | sí |
 | Descripción | sí (hoy es la "Bio corta" de `/perfil`) | sí |
 | Matrícula | sí (ya existe) | **no**, ni en el editor ni en el endpoint público |
 
-- **Foto de perfil, opcional.** Hoy `FotoURL` existe en el modelo pero ninguna pantalla la carga; este PR agrega la subida en `/perfil`, por el mismo storage y con los mismos límites que las fotos de la página (5 MiB). Es lo que hasta ahora estaba fuera de alcance (TR-046) y con este plan pasa a ser un pedido explícito. **Nadie está obligado a tener foto:** un profesional sin foto que aparece en la página se dibuja con un **ícono por defecto** (una silueta con los colores del tema, dentro de la misma forma que tendría la foto: círculo, tarjeta, etc.). La subida depende de la Fase 4.6 en producción (sin storage real responde 501), pero **Equipo funciona sin fotos**, así que no queda bloqueado por ella. **[SUJETO A REVISIÓN]**
+- **La carga de foto de perfil queda fuera de PE-6.** El campo `FotoURL` ya existe; el módulo usa la URL si hay una y muestra un ícono por defecto si no la hay. La pantalla de perfil no agrega subida de fotos en este par.
 - **Aval de cada profesional.** En `/perfil`, una sección "Aparecer en la página pública" lista las clínicas donde trabaja, con un interruptor por clínica. Se guarda en `clinic_members` (`aval_pagina_publica`, por defecto **apagado**, más `aval_pagina_en`), porque un profesional puede aceptar aparecer en una clínica y no en otra. Es un consentimiento activo: nadie aparece hasta que lo prende. **[SUJETO A REVISIÓN]** (apagado por defecto, confirmado por Kevin el 21/09).
 - **El admin elige entre todos los profesionales.** El módulo se agrega desde el catálogo y tiene dos modos:
   - **Todos:** aparecen automáticamente **todos los profesionales activos cuyo aval está en positivo**, ordenados por nombre. Es una consulta viva, no una lista guardada: quien se suma y da su aval aparece solo, y quien lo retira desaparece solo. **[SUJETO A REVISIÓN]**
@@ -337,7 +337,7 @@ PE-1 ─► PE-8 ─► PE-2 ─► PE-3 ─► PE-4 ─► PE-5
 6. **Validación en Go vía JSON Schema (PE-1):** propuesta JSON Schema embebido en vez de generar código Go.
 7. ~~Aval y avisos~~ **Decidido (21/09):** sin notificación por mail en la primera versión; el admin ve "Falta su aval" y el profesional ve su sección en `/perfil`. Un aviso por mail es un agregado posterior. **[SUJETO A REVISIÓN]**
 8. ~~Modo "Todos" en Equipo~~ **Decidido (21/09):** muestra automáticamente a todos los que tengan el aval en positivo; si el admin quiere revisar cada alta, usa el modo Selección. **[SUJETO A REVISIÓN]**
-9. ~~Foto de perfil (PE-6)~~ **Decidido (21/09):** opcional, con ícono por defecto y advertencia de los profesionales sin foto (PE-6). Al mergear, quitar "subida de foto de perfil" de la lista de fuera de alcance de `CLAUDE.md`. **[SUJETO A REVISIÓN]**
+9. **Foto de perfil (PE-6):** la carga sigue fuera de alcance; Equipo muestra las fotos existentes y usa un ícono por defecto cuando no hay foto.
 10. **Pantallazo en blanco al cargar (esqueleto): ¿es un problema real?** Kevin lo propuso como mejora preventiva; **no está medido**. Propuesta: medir primero y elegir la solución más barata que cubra lo que se mida.
     - **Qué habría que medir:** tiempo hasta el primer byte de `/{slug}` con el servicio despierto y después de un rato sin tráfico, y qué se ve en cada caso (DevTools, pestaña Rendimiento, con la red limitada). Los tres servicios de Render están en plan `free`, que se duerme sin tráfico, y hoy la página se renderiza completa en cada visita (`cache: "no-store"`) con dos saltos: web a API y API a base.
     - **Hay tres momentos distintos en los que se puede ver blanco**, y el esqueleto guardado solo actúa sobre uno: (A) *antes del primer byte*, si el servicio está dormido o la API tarda: el navegador no tiene nada que pintar, y ningún esqueleto generado por ese mismo servidor puede aparecer; (B) *entre el primer byte y la hidratación*: hoy no hay blanco, porque el HTML del servidor ya trae el contenido, y solo lo introduciría un esqueleto que oculte el contenido real; (C) *fuentes*: usan `next/font` autoalojado, con texto visible mientras cargan, así que no es causa.

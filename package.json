@@ -16,6 +16,7 @@
     "typecheck:prisma-engine": "pnpm --filter @dental-mirage/prisma-engine typecheck",
     "test:prisma-engine": "pnpm --filter @dental-mirage/prisma-engine test",
     "engine:generar": "pnpm --filter @dental-mirage/prisma-engine generar",
+    "validar:plantillas": "pnpm --filter @dental-mirage/prisma-engine validar:plantillas",
     "test:web": "pnpm --filter @dental-mirage/web test",
     "test:coverage:web": "pnpm --filter @dental-mirage/web test:coverage",
     "dev:api": "cd apps/api && go run ./cmd/api",

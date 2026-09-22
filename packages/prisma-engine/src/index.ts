@@ -9,6 +9,7 @@ export * from "./efectos/slots";
 export { SlotDeModulo } from "./efectos/modulo";
 export { envolverSlots } from "./efectos/envolver-slots";
 export { EfectoSlot } from "./efectos/slot";
+export * from "./plantillas";
 export * from "./portada";
 export * from "./miniatura";
 export { ALINEACIONES, FONDOS_SECCION, MAX_LARGO_TITULO_PUBLICO, type Alineacion, type FondoSeccion } from "./seccion";

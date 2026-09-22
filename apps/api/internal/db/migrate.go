@@ -197,6 +197,9 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
 		&User{}, &Account{}, &VerificationToken{}, &ProfessionalProfile{},
 		&Clinic{}, &ClinicMember{}, &ClinicMemberRole{}, &ClinicInvitation{},
+		// PE-6: horario de apertura del edificio, separado de la agenda de
+		// cada profesional (`horarios_atencion`).
+		&HorarioClinica{},
 		&Session{}, &AuthRateCounter{}, &AuditEvent{},
 		// F2.3 ("ajustes de calendario", Fase 2) — ver TR-078/TR-084.
 		&HorarioAtencion{}, &BloqueoHorario{},
@@ -667,6 +670,27 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// transacción, pero este índice es la garantía real a nivel base).
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pagina_publica_versiones_numero
 		   ON pagina_publica_versiones (pagina_publica_id, numero)`,
+
+		// PE-6: validaciones estructurales del horario del edificio. Los
+		// intervalos HH:MM y su orden se validan en el endpoint; estos CHECK
+		// impiden días fuera de rango y más de dos franjas, incluso si una
+		// escritura llegara a saltarse la API.
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_clinica ADD CONSTRAINT chk_horarios_clinica_dia
+		     CHECK (dia_semana BETWEEN 0 AND 6);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_clinica ADD CONSTRAINT chk_horarios_clinica_franjas
+		     CHECK (CASE WHEN jsonb_typeof(franjas) = 'array' THEN
+		       jsonb_array_length(franjas) <= 2
+		       AND ((cerrado AND jsonb_array_length(franjas) = 0)
+		         OR (NOT cerrado AND jsonb_array_length(franjas) BETWEEN 1 AND 2))
+		       ELSE false END);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_member_aval_pagina_fecha
+		     CHECK (NOT aval_pagina_publica OR aval_pagina_en IS NOT NULL);
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,

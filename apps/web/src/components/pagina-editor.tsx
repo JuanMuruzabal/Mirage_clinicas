@@ -3,9 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ConflictoRevisionPagina, PaginaPublica } from "@dental-mirage/shared-types";
+import {
+  aplicarPresetEstilo,
+  CATALOGO_PLANTILLAS,
+  CATALOGO_PRESETS_ESTILO,
+  textosEjemploPendientes,
+  type HorariosClinica,
+} from "@dental-mirage/prisma-engine";
 import type { SesionCompleta } from "@/lib/session";
 import {
   actualizarPaginaPublicaAction,
+  guardarHorariosClinicaAction,
   obtenerPaginaPublicaAction,
   ocultarPaginaPublicaAction,
   publicarPaginaPublicaAction,
@@ -22,6 +30,7 @@ import {
 import { ListaModulos } from "@/components/editor-pagina/lista-modulos";
 import { SelectorDeTema } from "@/components/editor-pagina/selector-de-tema";
 import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
+import { GaleriaPlantillas } from "@/components/editor-pagina/galeria-plantillas";
 
 interface PaginaEditorProps {
   sesion: SesionCompleta;
@@ -60,10 +69,20 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const [conflicto, setConflicto] = useState<ConflictoRevisionPagina | null>(null);
   const [panelAbierto, setPanelAbierto] = useState(true);
   const [pestana, setPestana] = useState<Pestana>("modulos");
+  const [galeriaAbierta, setGaleriaAbierta] = useState(() => paginaInicial.modulos.length === 0);
 
   const sinGuardar = useMemo(() => hayCambios(guardado, borrador), [guardado, borrador]);
   const sinPublicar = useMemo(() => hayCambiosSinPublicar(guardado, pagina.ultimaVersionPublicada?.contenido), [guardado, pagina]);
   const contenido = useMemo(() => contenidoDeBorrador(borrador, pagina), [borrador, pagina]);
+  const ejemplosPendientes = useMemo(() => {
+    const unicos = new Map<string, { ruta: string; valor: string; etiqueta: string }>();
+    for (const plantilla of CATALOGO_PLANTILLAS) {
+      for (const ejemplo of textosEjemploPendientes(borrador, plantilla)) {
+        unicos.set(`${ejemplo.ruta}:${ejemplo.valor}`, ejemplo);
+      }
+    }
+    return [...unicos.values()];
+  }, [borrador]);
 
   // Salir con cambios sin guardar pierde el borrador — el navegador avisa.
   useEffect(() => {
@@ -76,6 +95,15 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   function editar(parcial: Partial<Borrador>) {
     setAviso(null);
     setBorrador((actual) => ({ ...actual, ...parcial }));
+  }
+
+  async function guardarHorariosClinica(valor: HorariosClinica) {
+    const result = await guardarHorariosClinicaAction(valor);
+    if (result.ok) {
+      setPagina((actual) => ({ ...actual, horariosClinica: result.valor }));
+      return { ok: true as const, valor: result.valor };
+    }
+    return { ok: false as const, error: result.error };
   }
 
   async function guardar() {
@@ -153,6 +181,10 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   }
 
   async function publicar() {
+    if (ejemplosPendientes.length > 0) {
+      const ejemplos = ejemplosPendientes.map((ejemplo) => `• ${ejemplo.etiqueta}`).join("\n");
+      if (!window.confirm(`Quedan textos de ejemplo sin editar:\n${ejemplos}\n\n¿Querés publicar de todos modos?`)) return;
+    }
     setError(null);
     setPendingPublicar(true);
     const result = await publicarPaginaPublicaAction(sesion.slug);
@@ -198,6 +230,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setGaleriaAbierta(true)}
+            className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          >
+            Plantillas
+          </button>
           <Link
             href={`/${sesion.slug}`}
             target="_blank"
@@ -266,6 +305,16 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
         </p>
       )}
 
+      {ejemplosPendientes.length > 0 && (
+        <aside className="rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 text-sm text-grafito/60" aria-label="Textos de ejemplo sin editar">
+          <p className="font-medium">Textos de ejemplo</p>
+          <ul className="mt-1 list-inside list-disc opacity-70">
+            {ejemplosPendientes.map((ejemplo) => <li key={`${ejemplo.ruta}:${ejemplo.valor}`}>{ejemplo.etiqueta}</li>)}
+          </ul>
+          <p className="mt-1 text-xs">Al editarlos dejan de aparecer acá. Antes de publicar te vamos a avisar si queda alguno.</p>
+        </aside>
+      )}
+
       {/* flex-col en mobile, flex-row desde lg (2026-08-24, mismo pedido
           que el resto del panel: "los modulos se ven contraidos contra
           la pagina") — con `flex` fijo, el panel de edición y la
@@ -331,9 +380,14 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   borrador={borrador}
                   direccionClinica={pagina.direccionClinica}
                   telefono={sesion.telefono}
+                  equipoElegible={pagina.equipoElegible}
+                  horariosClinica={pagina.horariosClinica}
+                  serviciosDisponibles={pagina.serviciosDisponibles}
+                  guardarHorariosClinica={guardarHorariosClinica}
                   onBorrador={editar}
                 />
               ) : (
+                <>
                 <SelectorDeTema
                   tema={borrador.tema}
                   temaVariante={borrador.temaVariante}
@@ -341,11 +395,39 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   temaTokens={borrador.temaTokens}
                   onCambio={editar}
                 />
+                <section aria-label="Presets de estilo" className="flex flex-col gap-2 rounded-card border-[0.5px] border-arena bg-marfil p-4">
+                  <h2 className="text-sm font-semibold text-grafito">Presets de estilo</h2>
+                  {CATALOGO_PRESETS_ESTILO.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => editar(aplicarPresetEstilo(borrador, preset))}
+                      className="rounded-field border-[0.5px] border-arena px-3 py-2 text-left hover:border-salvia"
+                    >
+                      <span className="block text-sm font-medium text-grafito">{preset.nombre}</span>
+                      <span className="block text-xs text-grafito/65">{preset.descripcion}</span>
+                    </button>
+                  ))}
+                </section>
+                </>
               )}
             </div>
           )}
         </aside>
       </div>
+      {galeriaAbierta && (
+        <GaleriaPlantillas
+          slug={sesion.slug}
+          nombreClinica={sesion.nombreClinica}
+          profesionalNombre={nombreCompleto}
+          telefono={sesion.telefono}
+          especialidades={sesion.especialidades.map((e) => e.nombre)}
+          borrador={borrador}
+          pagina={pagina}
+          onAplicar={editar}
+          onCerrar={() => setGaleriaAbierta(false)}
+        />
+      )}
     </div>
   );
 }

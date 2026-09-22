@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "generar": "tsx scripts/generar.ts"
+    "generar": "tsx scripts/generar.ts",
+    "validar:plantillas": "tsx scripts/validar-plantillas.ts"
   },
   "peerDependencies": {
     "framer-motion": "^13.1.0",

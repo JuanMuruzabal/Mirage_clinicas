@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "id": "nutricion-natural-sereno",
+  "nombre": "Nutrición · Natural sereno",
+  "rubro": "nutricion",
+  "estilo": "clinico-sereno",
+  "descripcion": "Una estética serena y natural, pensada para comunicar acompañamiento y bienestar.",
+  "tema": "natural",
+  "temaVariante": "natural-1",
+  "temaTipografia": "editorial-suave",
+  "temaTokens": {
+    "forma": "suave",
+    "densidad": "amplia",
+    "superficie": "plana",
+    "fondo": "textura",
+    "boton": "redondeado",
+    "botonEstilo": "contorno",
+    "menu": "subrayado",
+    "portada": "minima",
+    "fondoAnimado": "ninguno"
+  },
+  "estiloMovimiento": "sereno",
+  "bio": "Un espacio de escucha y aprendizaje para construir hábitos de alimentación que se adapten a tu vida.",
+  "fotoPortadaUrl": "",
+  "redes": {},
+  "mostrarMapa": false,
+  "direccionOverride": "",
+  "nombreSobrePortada": false,
+  "nombreColor": "",
+  "modulos": [
+    {
+      "tipo": "sobre_nosotros",
+      "visible": true,
+      "config": {
+        "variante": "centrado",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "servicios",
+      "visible": true,
+      "config": {
+        "nombres": [],
+        "variante": "lista",
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "equipo",
+      "visible": true,
+      "config": {
+        "modo": "todos",
+        "mostrarNombre": true,
+        "mostrarDescripcion": true,
+        "variante": "foto-descripcion",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "imagen": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "horarios",
+      "visible": true,
+      "config": {
+        "variante": "semanal",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "preguntas_frecuentes",
+      "visible": true,
+      "config": {
+        "preguntas": [
+          {
+            "pregunta": "¿La primera consulta es una evaluación?",
+            "respuesta": "El primer encuentro permite conocer tus objetivos, antecedentes y rutina antes de acordar un plan."
+          },
+          {
+            "pregunta": "¿Necesito llevar estudios?",
+            "respuesta": "Si tenés estudios o indicaciones recientes, podés compartirlos durante la consulta."
+          }
+        ],
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "obras_sociales",
+      "visible": true,
+      "config": {
+        "coberturas": [],
+        "consultaPorOtras": false,
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "llamado_accion",
+      "visible": true,
+      "config": {
+        "texto": "Conversemos sobre tus objetivos y encontremos una forma de acompañarte.",
+        "etiquetaBoton": "Pedir una consulta",
+        "destino": "turno",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "contacto",
+      "visible": true,
+      "config": {
+        "variante": "tarjeta",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    }
+  ],
+  "textosEjemplo": [
+    { "ruta": "bio", "valor": "Un espacio de escucha y aprendizaje para construir hábitos de alimentación que se adapten a tu vida.", "etiqueta": "Presentación de la clínica" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿La primera consulta es una evaluación?", "etiqueta": "Pregunta frecuente" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "El primer encuentro permite conocer tus objetivos, antecedentes y rutina antes de acordar un plan.", "etiqueta": "Respuesta frecuente" },
+    { "ruta": "modulos.llamado_accion.config.texto", "valor": "Conversemos sobre tus objetivos y encontremos una forma de acompañarte.", "etiqueta": "Mensaje de contacto" },
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Pedir una consulta", "etiqueta": "Texto del botón" }
+  ]
+}

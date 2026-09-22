@@ -26,6 +26,8 @@ export interface ContenidoPagina {
   /** Solo los que se muestran, ya en orden. */
   modulos: ModuloBorrador[];
   estadisticas: Record<string, number>;
+  horariosClinica?: ClinicaPublica["horariosClinica"];
+  servicios?: ClinicaPublica["servicios"];
 }
 
 export const CONTENIDO_VACIO: ContenidoPagina = {
@@ -42,6 +44,8 @@ export const CONTENIDO_VACIO: ContenidoPagina = {
   temaTokens: {},
   modulos: [],
   estadisticas: {},
+  horariosClinica: undefined,
+  servicios: undefined,
 };
 
 export function contenidoDeClinicaPublica(clinica: ClinicaPublica): ContenidoPagina {
@@ -59,5 +63,7 @@ export function contenidoDeClinicaPublica(clinica: ClinicaPublica): ContenidoPag
     temaTokens: tokensDeConfig(clinica.temaTokens),
     modulos: modulosParaMostrar(clinica),
     estadisticas: clinica.estadisticas,
+    horariosClinica: clinica.horariosClinica,
+    servicios: clinica.servicios,
   };
 }

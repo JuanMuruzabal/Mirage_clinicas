@@ -14,12 +14,17 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from "@dnd-kit/utilities";
 import type { Borrador } from "@/lib/pagina-publica/borrador";
 import {
+  CATALOGO_PRESETS_SECCION,
   DEFINICIONES_MODULOS,
+  type EquipoElegible,
+  type HorariosClinica,
+  type ServicioVista,
   TOPE_FOTOS_SUELTAS,
   configInicial,
   definicionDeModulo,
   MAX_LARGO_NOMBRE_MODULO,
   conNombrePropio,
+  moduloDePresetSeccion,
   moverModulo,
   nombrePropioDeModulo,
   nuevaClave,
@@ -36,6 +41,13 @@ interface ListaModulosProps {
   borrador: Borrador;
   direccionClinica?: string | null;
   telefono: string;
+  equipoElegible?: EquipoElegible[];
+  horariosClinica?: HorariosClinica;
+  serviciosDisponibles?: ServicioVista[];
+  guardarHorariosClinica?: (valor: HorariosClinica) => Promise<
+    | { ok: true; valor: HorariosClinica }
+    | { ok: false; error: string }
+  >;
   onBorrador: (parcial: Partial<Borrador>) => void;
 }
 
@@ -63,6 +75,13 @@ interface FilaProps {
   borrador: Borrador;
   direccionClinica?: string | null;
   telefono: string;
+  equipoElegible?: EquipoElegible[];
+  horariosClinica?: HorariosClinica;
+  serviciosDisponibles?: ServicioVista[];
+  guardarHorariosClinica?: (valor: HorariosClinica) => Promise<
+    | { ok: true; valor: HorariosClinica }
+    | { ok: false; error: string }
+  >;
   onAbrir: () => void;
   onMover: (desde: number, hasta: number) => void;
   onCambiar: (cambios: Partial<ModuloBorrador>) => void;
@@ -79,6 +98,10 @@ function FilaModulo({
   borrador,
   direccionClinica,
   telefono,
+  equipoElegible,
+  horariosClinica,
+  serviciosDisponibles,
+  guardarHorariosClinica,
   onAbrir,
   onMover,
   onCambiar,
@@ -162,6 +185,10 @@ function FilaModulo({
             borrador={borrador}
             direccionClinica={direccionClinica}
             telefono={telefono}
+            equipoElegible={equipoElegible}
+            horariosClinica={horariosClinica}
+            serviciosDisponibles={serviciosDisponibles}
+            guardarHorariosClinica={guardarHorariosClinica}
             onConfig={(config) => onCambiar({ config })}
             onBorrador={onBorrador}
           />
@@ -200,10 +227,11 @@ function FilaModulo({
 // módulos, que se reordenan arrastrando (dnd-kit, con teclado) o con las
 // flechas — las flechas no son un extra: arrastrar no funciona bien con un
 // lector de pantalla ni en todos los dispositivos táctiles.
-export function ListaModulos({ borrador, direccionClinica, telefono, onBorrador }: ListaModulosProps) {
+export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onBorrador }: ListaModulosProps) {
   const { modulos } = borrador;
   const [abierto, setAbierto] = useState<string | null>(null);
   const [tipoNuevo, setTipoNuevo] = useState("");
+  const [presetNuevo, setPresetNuevo] = useState("");
 
   const sensores = useSensors(
     // Con una distancia mínima, un click simple sobre el asa no arranca un
@@ -213,6 +241,7 @@ export function ListaModulos({ borrador, direccionClinica, telefono, onBorrador 
   );
 
   const agregables = DEFINICIONES_MODULOS.filter((d) => puedeAgregar(modulos, d.tipo));
+  const presetsAgregables = CATALOGO_PRESETS_SECCION.filter((preset) => puedeAgregar(modulos, preset.modulo.tipo));
 
   function alSoltar(e: DragEndEvent) {
     if (!e.over || e.active.id === e.over.id) return;
@@ -228,6 +257,18 @@ export function ListaModulos({ borrador, direccionClinica, telefono, onBorrador 
     onBorrador({ modulos: [...modulos, nuevo] });
     setAbierto(nuevo.clave);
     setTipoNuevo("");
+  }
+
+  function agregarPreset() {
+    const preset = presetsAgregables.find((item) => item.id === presetNuevo) ?? presetsAgregables[0];
+    if (!preset) return;
+    const clave = nuevaClave();
+    const { datosVista, ...base } = moduloDePresetSeccion(preset, clave);
+    void datosVista;
+    const nuevo: ModuloBorrador = { ...base, clave, visible: true };
+    onBorrador({ modulos: [...modulos, nuevo] });
+    setAbierto(nuevo.clave);
+    setPresetNuevo("");
   }
 
   return (
@@ -274,6 +315,10 @@ export function ListaModulos({ borrador, direccionClinica, telefono, onBorrador 
                   borrador={borrador}
                   direccionClinica={direccionClinica}
                   telefono={telefono}
+                  equipoElegible={equipoElegible}
+                  horariosClinica={horariosClinica}
+                  serviciosDisponibles={serviciosDisponibles}
+                  guardarHorariosClinica={guardarHorariosClinica}
                   onAbrir={() => setAbierto(abierto === m.clave ? null : m.clave)}
                   onMover={(desde, hasta) => onBorrador({ modulos: moverModulo(modulos, desde, hasta) })}
                   onCambiar={(cambios) => onBorrador({ modulos: modulos.map((x) => (x.clave === m.clave ? { ...x, ...cambios } : x)) })}
@@ -308,6 +353,17 @@ export function ListaModulos({ borrador, direccionClinica, telefono, onBorrador 
         )}
         <p className={CLASE_AYUDA}>Fotos sueltas: hasta {TOPE_FOTOS_SUELTAS} por página.</p>
       </div>
+      {presetsAgregables.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena p-3">
+          <label className="flex flex-col gap-1.5">
+            <span className={CLASE_ETIQUETA}>Secciones prearmadas</span>
+            <select aria-label="Preset de sección" value={presetNuevo || presetsAgregables[0].id} onChange={(event) => setPresetNuevo(event.target.value)} className={CLASE_CAMPO}>
+              {presetsAgregables.map((preset) => <option key={preset.id} value={preset.id}>{preset.nombre} — {preset.descripcion}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={agregarPreset} className={`${CLASE_BOTON} self-start`}>Agregar sección prearmada</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -261,7 +261,7 @@ export function ClinicaPublicaTemplate({
   const menu = MENU[tema.tokens.menu];
 
   const secciones = c.modulos
-    .map((m, i) => seccionDeModulo(m, i, { nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento }))
+    .map((m, i) => seccionDeModulo(m, i, { slug, nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento }))
     .filter((s): s is SeccionPublica => s !== null);
   const linksDelMenu = secciones.filter((s) => s.etiqueta !== null);
 

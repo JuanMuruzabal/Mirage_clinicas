@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "id": "odontologia-clinico-sereno",
+  "nombre": "Odontología · Clínico sereno",
+  "rubro": "odontologia",
+  "estilo": "clinico-sereno",
+  "descripcion": "Una página clara y confiable, con acentos suaves y secciones ordenadas.",
+  "tema": "clinico",
+  "temaVariante": "clinico-1",
+  "temaTipografia": "geometrica-moderna",
+  "temaTokens": {
+    "forma": "redonda",
+    "densidad": "comoda",
+    "superficie": "elevada",
+    "fondo": "degrade",
+    "boton": "redondeado",
+    "botonEstilo": "relleno",
+    "menu": "pastillas",
+    "portada": "minima",
+    "fondoAnimado": "ninguno"
+  },
+  "estiloMovimiento": "sereno",
+  "bio": "En nuestra clínica cuidamos cada sonrisa con atención cercana, tecnología actual y un plan pensado para cada persona.",
+  "fotoPortadaUrl": "",
+  "redes": {},
+  "mostrarMapa": false,
+  "direccionOverride": "",
+  "nombreSobrePortada": false,
+  "nombreColor": "",
+  "modulos": [
+    {
+      "tipo": "sobre_nosotros",
+      "visible": true,
+      "config": {
+        "variante": "centrado",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "servicios",
+      "visible": true,
+      "config": {
+        "nombres": [],
+        "variante": "tarjetas",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "equipo",
+      "visible": true,
+      "config": {
+        "modo": "todos",
+        "mostrarNombre": true,
+        "mostrarDescripcion": true,
+        "variante": "foto-descripcion",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "imagen": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "horarios",
+      "visible": true,
+      "config": {
+        "variante": "semanal",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "preguntas_frecuentes",
+      "visible": true,
+      "config": {
+        "preguntas": [
+          {
+            "pregunta": "¿Cómo puedo pedir un turno?",
+            "respuesta": "Elegí Pedir un turno y seguí los pasos para encontrar un horario disponible."
+          },
+          {
+            "pregunta": "¿Qué tengo que llevar a la primera consulta?",
+            "respuesta": "Traé cualquier estudio reciente que quieras compartir; el equipo te indicará si hace falta algo más."
+          }
+        ],
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "obras_sociales",
+      "visible": true,
+      "config": {
+        "coberturas": [],
+        "consultaPorOtras": false,
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "llamado_accion",
+      "visible": true,
+      "config": {
+        "texto": "Estamos para acompañarte en el cuidado de tu sonrisa. Consultanos por un turno.",
+        "etiquetaBoton": "Pedir un turno",
+        "destino": "turno",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "contacto",
+      "visible": true,
+      "config": {
+        "variante": "tarjeta",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    }
+  ],
+  "textosEjemplo": [
+    { "ruta": "bio", "valor": "En nuestra clínica cuidamos cada sonrisa con atención cercana, tecnología actual y un plan pensado para cada persona.", "etiqueta": "Presentación de la clínica" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Cómo puedo pedir un turno?", "etiqueta": "Pregunta frecuente" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Elegí Pedir un turno y seguí los pasos para encontrar un horario disponible.", "etiqueta": "Respuesta frecuente" },
+    { "ruta": "modulos.llamado_accion.config.texto", "valor": "Estamos para acompañarte en el cuidado de tu sonrisa. Consultanos por un turno.", "etiqueta": "Mensaje de contacto" },
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Pedir un turno", "etiqueta": "Texto del botón" }
+  ]
+}

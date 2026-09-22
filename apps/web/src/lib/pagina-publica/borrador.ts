@@ -83,7 +83,8 @@ function firmaDeContenido(b: Borrador): string {
   // distinta revision (uno recién releído del servidor) nunca daban la
   // misma firma (bug real, encontrado por el primer test que ejercitó
   // hayCambiosSinPublicar).
-  const { revision: _revision, ...contenido } = b;
+  const contenido = { ...b };
+  Reflect.deleteProperty(contenido, "revision");
   // temaTokens pasa por tokensDeConfig para quedar en el orden canónico de
   // claves: el editor los arma con spreads (`{ ...t, forma }`), y el mismo
   // contenido con las claves en otro orden daría otra firma — un "cambio sin
@@ -130,7 +131,10 @@ function firmaDeContenidoPublicado(c: ContenidoVersionPaginaPublica): string {
 }
 
 /** Lo que dibuja la vista previa: el borrador, tal como lo vería un visitante. */
-export function contenidoDeBorrador(b: Borrador, pagina: Pick<PaginaPublica, "estadisticas" | "direccionClinica">): ContenidoPagina {
+export function contenidoDeBorrador(
+  b: Borrador,
+  pagina: Pick<PaginaPublica, "estadisticas" | "direccionClinica" | "equipoElegible" | "horariosClinica" | "serviciosDisponibles">,
+): ContenidoPagina {
   return {
     bio: b.bio,
     tema: b.tema,
@@ -144,7 +148,23 @@ export function contenidoDeBorrador(b: Borrador, pagina: Pick<PaginaPublica, "es
     nombreSobrePortada: b.nombreSobrePortada,
     nombreColor: b.nombreColor,
     temaTokens: b.temaTokens,
-    modulos: b.modulos.filter((m) => m.visible),
+    modulos: b.modulos.filter((m) => m.visible).map((m) => {
+      if (m.tipo !== "equipo") return m;
+      const elegibles = (pagina.equipoElegible ?? []).filter((p) => p.aval);
+      const ids = Array.isArray(m.config.userIds) ? m.config.userIds.filter((id): id is string => typeof id === "string") : [];
+      const integrantes = m.config.modo === "seleccion"
+        ? ids.flatMap((id) => {
+            const profesional = elegibles.find((p) => p.userId === id);
+            return profesional ? [{ nombre: profesional.nombre, fotoUrl: profesional.fotoUrl ?? null, descripcion: profesional.descripcion ?? null }] : [];
+          })
+        : elegibles
+            .slice()
+            .sort((a, z) => a.nombre.localeCompare(z.nombre, "es"))
+            .map((p) => ({ nombre: p.nombre, fotoUrl: p.fotoUrl ?? null, descripcion: p.descripcion ?? null }));
+      return { ...m, datosVista: { equipo: integrantes } };
+    }),
     estadisticas: pagina.estadisticas,
+    horariosClinica: pagina.horariosClinica ? { ...pagina.horariosClinica, abiertoAhora: false } : undefined,
+    servicios: pagina.serviciosDisponibles,
   };
 }

@@ -88,6 +88,7 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 		r.Use(requireSession(db))
 		r.Get("/me", meHandler(db, deps.AutoVerifyEmail))
 		r.Patch("/me", updateMeHandler(db))
+		r.Put("/me/aval-pagina", actualizarAvalPaginaPublicaHandler(db))
 		registerOnboardingRoutes(r, db, deps.Mail)
 		// "¿Dónde trabajás hoy?" (Fase 3.2.3) — acá, y no en el subgrupo
 		// de abajo: la pantalla existe también para quien todavía no

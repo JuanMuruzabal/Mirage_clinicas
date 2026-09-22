@@ -226,6 +226,13 @@ export interface Me {
   onboardingCompletado: boolean;
   perfil?: PerfilProfesional;
   clinica?: ClinicaSesion;
+  clinicasPaginaPublica?: ClinicaConsentimientoPagina[];
+}
+
+export interface ClinicaConsentimientoPagina {
+  clinicId: string;
+  nombre: string;
+  avalPaginaPublica: boolean;
 }
 
 // --- Payloads de los endpoints de /auth (internal/http/auth.go) ---
@@ -688,6 +695,53 @@ export interface ClinicaPublica {
   // único que distingue "nunca la editaron" (estructura por defecto) de
   // "los ocultaron todos" (solo portada y turno).
   personalizada: boolean;
+  /** Datos vivos para los módulos PE-6; no contienen IDs de personas. */
+  horariosClinica?: HorariosClinicaVista;
+  servicios?: ServicioPaginaPublica[];
+}
+
+export interface FranjaHorarioClinica {
+  desde: string;
+  hasta: string;
+}
+
+export interface DiaHorarioClinica {
+  diaSemana: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  cerrado: boolean;
+  franjas: FranjaHorarioClinica[];
+}
+
+export interface HorariosClinica {
+  dias: DiaHorarioClinica[];
+  nota: string;
+}
+
+export interface HorariosClinicaVista extends HorariosClinica {
+  abiertoAhora: boolean;
+}
+
+export interface ServicioPaginaPublica {
+  nombre: string;
+  duracionMinima: number;
+  duracionMaxima: number;
+}
+
+/** Identidad y aval solo viajan en el endpoint autenticado del editor. */
+export interface ProfesionalElegiblePagina {
+  userId: string;
+  nombre: string;
+  fotoUrl: string | null;
+  descripcion: string | null;
+  aval: boolean;
+}
+
+/** La página pública no expone IDs de filas ni IDs de profesionales. */
+export interface ModuloPublico {
+  tipo: string;
+  orden: number;
+  visible: boolean;
+  config?: Record<string, unknown>;
+  datosVista?: { equipo?: Array<{ nombre: string; fotoUrl: string | null; descripcion: string | null }> };
 }
 
 // --- Sprint 4: edición y deploy de página pública (spec §5) ---
@@ -698,11 +752,13 @@ export interface ClinicaPublica {
 // {mostrar: [...]} — sin una forma común, de ahí Record<string, unknown>
 // en vez de una interfaz por campo (primer campo polimórfico del archivo).
 export interface PaginaPublicaModulo {
-  id: string;
+  /** Solo presente en el editor; el endpoint público no expone IDs internos. */
+  id?: string;
   tipo: string;
   orden: number;
   visible: boolean;
   config?: Record<string, unknown>;
+  datosVista?: ModuloPublico["datosVista"];
 }
 
 // Espejo de paginaPublicaResponse (internal/http/pagina_publica.go).
@@ -733,6 +789,10 @@ export interface PaginaPublica {
   // la efectiva del lado del cliente para previsualizar mientras se tipea.
   direccionClinica?: string | null;
   modulos: PaginaPublicaModulo[];
+  /** Inventarios vivos para que el editor no dependa de datos públicos cacheados. */
+  equipoElegible?: ProfesionalElegiblePagina[];
+  horariosClinica?: HorariosClinica;
+  serviciosDisponibles?: ServicioPaginaPublica[];
   estadisticas: Record<string, number>;
   // Revision/actualizadaPor* (PE-8): candado optimista del borrador — todo
   // PATCH exitoso exige la Revision actual y avanza este número; si no

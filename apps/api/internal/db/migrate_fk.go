@@ -81,6 +81,9 @@ func clavesForaneas() []claveForanea {
 		{"fk_ips_bloqueadas_clinica", "ips_bloqueadas_turno_publico", "clinic_id", "clinics", "", false},
 		{"fk_bloqueos_horario_clinica", "bloqueos_horario", "clinic_id", "clinics", "", false},
 		{"fk_horarios_atencion_clinica", "horarios_atencion", "clinic_id", "clinics", "", false},
+		// HorariosClinica solo contiene la configuración vigente del edificio;
+		// al borrar la clínica no queda historial que preservar.
+		{"fk_horarios_clinica_clinica", "horarios_clinica", "clinic_id", "clinics", "CASCADE", false},
 		{"fk_verificaciones_turno_clinica", "verificaciones_turno_publico", "clinic_id", "clinics", "", false},
 		{"fk_clinic_members_clinica", "clinic_members", "clinic_id", "clinics", "", false},
 		{"fk_clinic_invitations_clinica", "clinic_invitations", "clinic_id", "clinics", "", false},
