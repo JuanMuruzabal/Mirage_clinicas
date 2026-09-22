@@ -2747,6 +2747,32 @@ Por eso el alta pide **"Profesional · Obligatorio"** antes que cualquier otro d
 Del mismo par de preguntas sale la columna **"Profesionales"** de la tabla: `profesionalesPorPaciente` usa los mismos tres criterios leídos al revés —allá "¿esta ficha es mía?", acá "¿de quiénes es?"—. **Si divergen, la columna afirma que un paciente es de alguien que no lo ve en su propia lista**, y eso no se nota mirando una sola pantalla.
 
 
+## TR-163: Tokens de diseño en un jsonb validado por el motor, y los CHECK de tema armados desde el catálogo
+
+- **Contexto:** plan Prisma Engine, PE-2 (tokens de diseño) + PE-3 (variantes por módulo y opciones de sección), entregados juntos el 2026-09-22 en `feature/pe-2-3-tokens-y-variantes`. Numerado TR-163 y no TR-161: el PR #53 (optimización post-Fase 3) ya usa TR-161 y TR-162.
+
+### Las decisiones
+
+1. **Los tokens van en UNA columna jsonb, `paginas_publicas.tema_tokens`, como overrides del tema.** Un token ausente vale el del tema (`tokens` de su paleta) y, si el tema no trae, `TOKENS_POR_DEFECTO` — que es exactamente el aspecto de antes de PE-2. El catálogo (`packages/prisma-engine/src/tokens.ts`) se exporta a JSON Schema con el mismo `engine:generar` que los módulos, y Go valida con `prismaengine.ValidarTokensDeTema`. **Descartado:** una columna por token (siete columnas, siete CHECK y siete listas a mano; sumar una opción volvía a ser una migración).
+2. **La variante de la PORTADA vive en esos mismos tokens (`portada`)**, porque la portada es estructural y no un módulo. Es el único token que rige **sin tema elegido**: es layout, no estilo. Los demás se ignoran sin tema ("sin tema no cambia nada", TR-151).
+3. **Los CHECK de tema/variante/tipografía se arman desde el catálogo embebido** (`checksDelCatalogoDeTemas` en `migrate.go`): `DROP CONSTRAINT IF EXISTS` + `ADD CONSTRAINT` en un solo `ALTER TABLE`, en cada corrida. **Por qué:** el patrón anterior (`ADD ... EXCEPTION WHEN duplicate_object`) crea la constraint una vez y no la vuelve a tocar, así que sumar los temas `editorial` y `oscuro` los habría dejado rechazados por la base (23514) sin que nada avisara hasta el primer guardado real. Era la tercera copia a mano del catálogo.
+4. **Los tokens viajan en la foto de cada versión publicada** (`PaginaPublicaContenidoVersion.TemaTokens`, PE-8). Sin eso, la página pública (que sirve la versión, no el borrador) los perdía en silencio, y "Restaurar" también. Una versión anterior a PE-2 no los trae y se lee como "sin overrides", que es como se veía.
+5. **Las clases de los módulos leen custom properties `--pp-*`**, con los defaults en `.pp-raiz` (`globals.css`) y el tema pisándolos con un style en línea **en el mismo elemento** (así las variables que referencian a otras se resuelven con los valores del tema). Los defaults reproducen el aspecto de antes: sin tema la página se ve igual.
+6. **Tema oscuro: el acento se ACLARA** (mezcla con blanco) en vez de oscurecerse, y lo que va encima del acento (el botón relleno, una sección "contraste") usa el color del fondo. `temas.test.ts` mide AA para cada combinación en los 7 temas: cuerpo sobre fondo y sobre tarjeta, acento sobre su fondo suave, y texto sobre acento.
+7. **Las opciones de sección (fondo, alineación, título público) las aplica la plantilla sobre el `<section>`**, nunca un render: `seccionPublicaDe` (registro del paquete) las lee de la config según lo que el `meta.ts` del módulo admite. Una sección con fondo "disuelve" sus tarjetas (sin superficie, borde ni relleno propios) para no dibujar una caja dentro de otra.
+8. **`schema_version` sigue sin hacer falta:** todo lo que sumó este par es opcional y con un default igual al comportamiento de antes. Queda para el primer PR que cambie de verdad la forma de una config.
+
+### Lo que cambia a propósito
+
+- **En una página CON tema, el botón "Pedir turno" toma el color del tema** (antes quedaba salvia aunque el tema fuera azul). Sin tema no cambia.
+- El link de "Mis turnos" y el aviso de error del botón de turno se adaptan al tema, porque en el tema oscuro no se leían.
+- El fondo "textura" es un patrón de puntos en CSS (`radial-gradient`), no un SVG como decía el plan: un data URI de SVG no puede leer custom properties, así que no tomaría el acento del tema.
+
+### Lo que se sacrifica
+
+- **Sin QA en navegador** en esta entrega: los tests miden contraste, validación y estructura, pero no cómo se ve cada combinación. La vista previa del editor es el lugar para revisarlo.
+
+
 ---
 
 ---
