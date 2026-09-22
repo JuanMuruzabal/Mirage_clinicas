@@ -5,7 +5,9 @@
     "clinico": ["clinico-1", "clinico-2", "clinico-3"],
     "moderno": ["moderno-1", "moderno-2", "moderno-3"],
     "natural": ["natural-1", "natural-2", "natural-3"],
-    "clasico": ["clasico-1", "clasico-2", "clasico-3"]
+    "clasico": ["clasico-1", "clasico-2", "clasico-3"],
+    "editorial": ["editorial-1", "editorial-2", "editorial-3"],
+    "oscuro": ["oscuro-1", "oscuro-2", "oscuro-3"]
   },
   "tipografias": [
     "condensada-institucional",

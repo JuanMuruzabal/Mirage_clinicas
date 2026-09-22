@@ -338,6 +338,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   tema={borrador.tema}
                   temaVariante={borrador.temaVariante}
                   temaTipografia={borrador.temaTipografia}
+                  temaTokens={borrador.temaTokens}
                   onCambio={editar}
                 />
               )}

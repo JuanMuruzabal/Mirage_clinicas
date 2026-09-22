@@ -1,4 +1,4 @@
-import { definicionDeModulo, type ModuloBorrador, type SeccionPublica, type UtilsRender } from "@dental-mirage/prisma-engine";
+import { seccionPublicaDe, type ModuloBorrador, type SeccionPublica, type UtilsRender } from "@dental-mirage/prisma-engine";
 import type { ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar, urlDeMapaEmbebido, urlDeRedSocial } from "@/lib/pagina-publica/enlaces";
 
@@ -32,7 +32,7 @@ const UTILS: UtilsRender = { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar,
  * ignora en vez de romper la página.
  */
 export function seccionDeModulo(modulo: ModuloBorrador, indice: number, contexto: Contexto): SeccionPublica | null {
-  const definicion = definicionDeModulo(modulo.tipo);
-  if (!definicion) return null;
-  return definicion.seccion(modulo, indice, { ...contexto, utils: UTILS });
+  // seccionPublicaDe (PE-3) suma las opciones de sección (fondo, alineación)
+  // que la plantilla aplica sobre el <section>.
+  return seccionPublicaDe(modulo, indice, { ...contexto, utils: UTILS });
 }

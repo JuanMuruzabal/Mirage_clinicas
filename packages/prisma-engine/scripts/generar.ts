@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { ESQUEMAS_MODULOS } from "../src/schemas";
+import { ESQUEMAS_MODULOS, tokensSchema } from "../src/schemas";
 
 const RAIZ_PAQUETE = path.resolve(import.meta.dirname, "..");
 const CATALOGO_MODULOS = path.join(RAIZ_PAQUETE, "catalogo", "modulos");
@@ -53,6 +53,12 @@ function main() {
     escribir(path.join(CATALOGO_MODULOS, `${tipo}.schema.json`), contenido);
     escribir(path.join(DESTINO_GO_MODULOS, `${tipo}.schema.json`), contenido);
   }
+
+  // PE-2: los tokens de diseño de la página se validan igual que la config
+  // de un módulo — mismo generador, mismo JSON Schema, un solo archivo.
+  const tokensJson = JSON.stringify(zodToJsonSchema(tokensSchema, { target: "jsonSchema7", $refStrategy: "none" }), null, 2);
+  escribir(path.join(RAIZ_PAQUETE, "catalogo", "tema_tokens.schema.json"), tokensJson);
+  escribir(path.join(DESTINO_GO, "tema_tokens.schema.json"), tokensJson);
 
   copyFileSync(CATALOGO_TEMAS, path.join(DESTINO_GO, "temas.json"));
 

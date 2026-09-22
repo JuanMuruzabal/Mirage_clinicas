@@ -44,6 +44,12 @@ func TestValidarConfigDeModulo(t *testing.T) {
 		{"estadisticas con id válido", "estadisticas", map[string]any{"mostrar": []any{"pacientes_atendidos"}}, true},
 		{"estadisticas con id inválido", "estadisticas", map[string]any{"mostrar": []any{"turnos_inventados"}}, false},
 		{"texto_libre dentro de los largos", "texto_libre", map[string]any{"titulo": "Hola", "texto": "Texto corto"}, true},
+		// PE-3: variantes y opciones de sección.
+		{"galeria con variante válida y opciones de sección", "galeria", map[string]any{"variante": "mosaico", "fondoSeccion": "acento", "tituloPublico": "Fotos"}, true},
+		{"galeria con variante de otro módulo", "galeria", map[string]any{"variante": "franja"}, false},
+		{"fondo de sección inventado", "contacto", map[string]any{"fondoSeccion": "neon"}, false},
+		{"sobre_nosotros con foto al costado", "sobre_nosotros", map[string]any{"variante": "con-foto", "fotoUrl": "/uploads/x.jpg"}, true},
+		{"sobre_nosotros con foto insegura", "sobre_nosotros", map[string]any{"variante": "con-foto", "fotoUrl": "javascript:alert(1)"}, false},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -82,5 +88,37 @@ func TestTipografiaEsValida(t *testing.T) {
 	}
 	if TipografiaEsValida("inventada") {
 		t.Error("una tipografía inexistente no debería ser válida")
+	}
+}
+
+func TestValidarTokensDeTema(t *testing.T) {
+	if err := ValidarTokensDeTema(map[string]any{}); err != nil {
+		t.Errorf("sin overrides tiene que ser válido: %v", err)
+	}
+	if err := ValidarTokensDeTema(map[string]any{"forma": "recta", "menu": "barra", "portada": "fondo"}); err != nil {
+		t.Errorf("tokens válidos rechazados: %v", err)
+	}
+	if ValidarTokensDeTema(map[string]any{"forma": "triangular"}) == nil {
+		t.Error("aceptó una opción fuera del catálogo")
+	}
+	if ValidarTokensDeTema(map[string]any{"colorLibre": "#ff0000"}) == nil {
+		t.Error("aceptó una clave desconocida (nada de valores libres)")
+	}
+}
+
+func TestIDsDelCatalogo_IncluyenLosTemasNuevos(t *testing.T) {
+	// Los CHECK de la base se arman con esto (internal/db, checksDelCatalogoDeTemas):
+	// si un tema del catálogo no aparece, la base lo rechazaría.
+	temas := map[string]bool{}
+	for _, id := range IDsDeTemas() {
+		temas[id] = true
+	}
+	for _, id := range []string{"calido", "editorial", "oscuro"} {
+		if !temas[id] {
+			t.Errorf("IDsDeTemas no incluye %q", id)
+		}
+	}
+	if !TemaEsValido("oscuro", "oscuro-3") || TemaEsValido("oscuro", "editorial-1") {
+		t.Error("la relación tema↔variante de los temas nuevos no se respeta")
 	}
 }

@@ -10,6 +10,8 @@ export const fotoModulo: DefinicionModulo = {
   repetible: true,
   configInicial: () => ({ fotoUrl: "", subtipo: "banner" }),
   ancho: (config) => (subtipoDeConfig(config) === "retrato" ? "medio" : "completo"),
+  variantes: [],
+  opcionesDeSeccion: { titulo: false, fondo: false, alineacion: false },
   Editor,
   seccion,
 };

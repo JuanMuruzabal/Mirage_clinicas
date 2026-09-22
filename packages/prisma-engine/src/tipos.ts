@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import type { Alineacion, FondoSeccion } from "./seccion";
 
 // Tipos del registro único de módulos (PE-1). apps/web es hoy el único
 // consumidor, así que el paquete no conoce Server Actions ni imports con
@@ -31,6 +32,13 @@ export interface SeccionPublica {
   ancho: "completo" | "medio";
   /** Sin el `<section>` ni el ancho: eso lo pone la plantilla. */
   contenido: ReactNode;
+  /**
+   * Opciones de sección (PE-3) que aplica la PLANTILLA sobre el `<section>`
+   * (fondo propio, alineación). Las completa `seccionPublicaDe` (registro.ts)
+   * desde la config, según lo que el módulo admite — un render no las toca.
+   */
+  fondo?: FondoSeccion;
+  alineacion?: Alineacion;
 }
 
 /**
@@ -100,6 +108,27 @@ export interface ContextoPublico {
 }
 
 /**
+ * Un rectángulo de la miniatura esquemática de una variante (PE-3), en una
+ * grilla de 100 × 60: [x, y, ancho, alto, tipo]. Datos y no un SVG por
+ * variante: el dibujo lo hace un solo componente (miniatura.tsx), así que
+ * todas las miniaturas se ven del mismo modo.
+ */
+export type BloqueMiniatura = [number, number, number, number, "titulo" | "texto" | "foto" | "tarjeta" | "acento"];
+
+export interface VarianteModulo {
+  id: string;
+  nombre: string;
+  bloques: BloqueMiniatura[];
+}
+
+/** Qué opciones comunes de sección (schema-base.ts) ofrece el editor para este módulo. */
+export interface OpcionesDeSeccion {
+  titulo: boolean;
+  fondo: boolean;
+  alineacion: boolean;
+}
+
+/**
  * Un módulo es un paquete autocontenido: metadatos + config inicial + ancho
  * en la grilla + su formulario de editor + su render público. El backend NO
  * conoce este registro (valida contra el JSON Schema generado, ver PE-1 en
@@ -113,6 +142,9 @@ export interface DefinicionModulo {
   repetible: boolean;
   configInicial: () => Record<string, unknown>;
   ancho: (config: Record<string, unknown>) => "completo" | "medio";
+  /** Variantes de layout (PE-3). Vacío = una sola forma, el editor no muestra selector. La primera es el default. */
+  variantes: VarianteModulo[];
+  opcionesDeSeccion: OpcionesDeSeccion;
   Editor: (props: EditorModuloProps) => ReactNode;
   seccion: (modulo: ModuloBorrador, indice: number, contexto: ContextoPublico) => SeccionPublica | null;
 }

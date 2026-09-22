@@ -4,6 +4,7 @@
 // armando en el editor (la previsualización). Un solo tipo para las dos
 // fuentes es lo que mantiene "lo que ves es lo que se publica".
 import type { ClinicaPublica } from "@dental-mirage/shared-types";
+import { tokensDeConfig, type TokensTema } from "@dental-mirage/prisma-engine";
 import { modulosParaMostrar, type ModuloBorrador } from "./modulos";
 
 export interface ContenidoPagina {
@@ -20,6 +21,8 @@ export interface ContenidoPagina {
   nombreSobrePortada: boolean;
   /** Id de un color de portada.ts; "" = el default. */
   nombreColor: string;
+  /** PE-2: overrides de los tokens de diseño (ya filtrados contra el catálogo). */
+  temaTokens: TokensTema;
   /** Solo los que se muestran, ya en orden. */
   modulos: ModuloBorrador[];
   estadisticas: Record<string, number>;
@@ -36,6 +39,7 @@ export const CONTENIDO_VACIO: ContenidoPagina = {
   direccion: null,
   nombreSobrePortada: false,
   nombreColor: "",
+  temaTokens: {},
   modulos: [],
   estadisticas: {},
 };
@@ -52,6 +56,7 @@ export function contenidoDeClinicaPublica(clinica: ClinicaPublica): ContenidoPag
     direccion: clinica.direccion,
     nombreSobrePortada: clinica.nombreSobrePortada,
     nombreColor: clinica.nombreColor,
+    temaTokens: tokensDeConfig(clinica.temaTokens),
     modulos: modulosParaMostrar(clinica),
     estadisticas: clinica.estadisticas,
   };

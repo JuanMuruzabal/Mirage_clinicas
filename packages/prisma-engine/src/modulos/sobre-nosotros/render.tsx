@@ -1,20 +1,26 @@
 import type { ReactNode } from "react";
-import { CLASE_TARJETA, Titulo } from "../../comunes";
+import { BloqueDeTexto } from "../../comunes";
+import { textoDeConfig, tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
+import { VARIANTES } from "./variantes";
 
-function SobreNosotros({ bio }: { bio?: string | null }): ReactNode {
-  const texto = bio?.trim();
+function SobreNosotros({ modulo, contexto }: { modulo: ModuloBorrador; contexto: ContextoPublico }): ReactNode {
+  const texto = contexto.contenido.bio?.trim();
   if (!texto) return null;
+  const fotoUrl = textoDeConfig(modulo.config, "fotoUrl");
+  const foto = fotoUrl && contexto.utils.esUrlDeFotoSegura(fotoUrl) ? { src: fotoUrl, alt: `Foto de ${contexto.nombreClinica}` } : null;
   return (
-    <div className={`${CLASE_TARJETA} text-center`}>
-      <Titulo>Sobre nosotros</Titulo>
-      <p className="mt-2 whitespace-pre-line text-sm text-grafito/80">{texto}</p>
-    </div>
+    <BloqueDeTexto
+      titulo={tituloPublicoDe(modulo.config, "Sobre nosotros")}
+      texto={texto}
+      variante={varianteDeConfig(modulo.config, VARIANTES)}
+      foto={foto}
+    />
   );
 }
 
-export function seccion(_modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
-  const nodo = SobreNosotros({ bio: contexto.contenido.bio });
+export function seccion(modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
+  const nodo = SobreNosotros({ modulo, contexto });
   if (nodo === null) return null;
-  return { id: "sobre-nosotros", etiqueta: "Sobre nosotros", ancho: "completo", contenido: nodo };
+  return { id: "sobre-nosotros", etiqueta: tituloPublicoDe(modulo.config, "Sobre nosotros"), ancho: "completo", contenido: nodo };
 }
