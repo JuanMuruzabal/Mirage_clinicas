@@ -66,6 +66,7 @@ const paginaVacia: PaginaPublica = {
   mostrarMapa: false,
   nombreSobrePortada: false,
   nombreColor: "",
+  temaTokens: {},
   modulos: [],
   estadisticas: {},
   revision: 0,
@@ -88,6 +89,7 @@ const contenidoPublicadoDeVacia = {
   mostrarMapa: false,
   nombreSobrePortada: false,
   nombreColor: "",
+  temaTokens: {},
   modulos: [
     { tipo: "sobre_nosotros", orden: 0, visible: true, config: {} },
     { tipo: "especialidades", orden: 1, visible: true, config: {} },
@@ -668,7 +670,7 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     await user.click(within(panel()).getByRole("button", { name: "Quitar" }));
     const vista = within(screen.getByTestId("vista-previa-marco"));
     expect(vista.queryByRole("img")).not.toBeInTheDocument();
-    expect(vista.getByRole("heading", { level: 1 })).toHaveClass("text-grafito");
+    expect(vista.getByRole("heading", { level: 1 })).toHaveClass("text-(--pp-texto)");
     expect(casilla()).toBeDisabled();
   });
 });

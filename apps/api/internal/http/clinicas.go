@@ -67,6 +67,7 @@ type clinicaPublicaResponse struct {
 	// NombreSobrePortada/NombreColor: ver paginaPublicaResponse.
 	NombreSobrePortada bool             `json:"nombreSobrePortada"`
 	NombreColor        string           `json:"nombreColor"`
+	TemaTokens         map[string]any   `json:"temaTokens"`
 	Modulos            []moduloResponse `json:"modulos"`
 	Estadisticas       map[string]int   `json:"estadisticas"`
 	// Personalizada — la página tiene módulos guardados, aunque hoy estén
@@ -184,6 +185,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			Especialidades:    especialidades,
 			Oculta:            oculta,
 			RedesSociales:     map[string]string{},
+			TemaTokens:        map[string]any{},
 			Estadisticas:      estadisticasDeLaClinica(gdb, clinic.ID),
 		}
 
@@ -219,6 +221,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		resp.MostrarMapa = c.MostrarMapa
 		resp.NombreSobrePortada = c.NombreSobrePortada
 		resp.NombreColor = c.NombreColor
+		resp.TemaTokens = tokensOVacio(c.TemaTokens)
 		resp.Direccion = direccionEfectiva(c.DireccionOverride, clinic)
 		resp.Modulos = modulosVisibles
 		resp.Personalizada = len(c.Modulos) > 0

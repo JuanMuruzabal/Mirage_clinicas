@@ -5,6 +5,25 @@
       "type": "string",
       "maxLength": 60
     },
+    "tituloPublico": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "fondoSeccion": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "acento",
+        "contraste"
+      ]
+    },
+    "alineacion": {
+      "type": "string",
+      "enum": [
+        "centro",
+        "izquierda"
+      ]
+    },
     "fotoUrl": {
       "type": "string",
       "maxLength": 500,

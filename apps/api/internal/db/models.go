@@ -720,6 +720,14 @@ type PaginaPublica struct {
 	// portada y con NombreSobrePortada prendido.
 	NombreSobrePortada bool   `gorm:"column:nombre_sobre_portada;not null;default:false"`
 	NombreColor        string `gorm:"column:nombre_color;type:varchar(20);not null;default:''"`
+	// TemaTokens (PE-2, plan Prisma Engine): los tokens de diseño elegidos
+	// (forma, densidad, superficie, fondo, botón, menú, y la variante de la
+	// portada) como OVERRIDES del tema — un token ausente vale el del tema.
+	// jsonb y no una columna por token: el catálogo vive en
+	// packages/prisma-engine/src/tokens.ts y el handler valida contra su
+	// JSON Schema generado (prismaengine.ValidarTokensDeTema), así que sumar
+	// una opción no pide migración ni CHECK nuevo. NULL = sin overrides.
+	TemaTokens map[string]any `gorm:"column:tema_tokens;type:jsonb;serializer:json"`
 	// Revision/ActualizadaPorUserID (PE-8, plan Prisma Engine): control de
 	// edición simultánea del BORRADOR. Cada PATCH /panel/pagina exitoso
 	// incrementa Revision en 1 y guarda quién lo hizo; el propio PATCH exige
@@ -780,17 +788,22 @@ type PaginaPublicaContenidoModulo struct {
 }
 
 type PaginaPublicaContenidoVersion struct {
-	Bio                *string                        `json:"bio"`
-	Tema               string                         `json:"tema"`
-	TemaVariante       string                         `json:"temaVariante"`
-	TemaTipografia     string                         `json:"temaTipografia"`
-	FotoPortadaURL     *string                        `json:"fotoPortadaUrl"`
-	RedesSociales      map[string]string              `json:"redesSociales"`
-	MostrarMapa        bool                           `json:"mostrarMapa"`
-	DireccionOverride  *string                        `json:"direccionOverride"`
-	NombreSobrePortada bool                           `json:"nombreSobrePortada"`
-	NombreColor        string                         `json:"nombreColor"`
-	Modulos            []PaginaPublicaContenidoModulo `json:"modulos"`
+	Bio                *string           `json:"bio"`
+	Tema               string            `json:"tema"`
+	TemaVariante       string            `json:"temaVariante"`
+	TemaTipografia     string            `json:"temaTipografia"`
+	FotoPortadaURL     *string           `json:"fotoPortadaUrl"`
+	RedesSociales      map[string]string `json:"redesSociales"`
+	MostrarMapa        bool              `json:"mostrarMapa"`
+	DireccionOverride  *string           `json:"direccionOverride"`
+	NombreSobrePortada bool              `json:"nombreSobrePortada"`
+	NombreColor        string            `json:"nombreColor"`
+	// TemaTokens (PE-2): sin esto una versión publicada perdería los tokens
+	// del borrador — la página pública sirve ESTA foto, no el borrador.
+	// Versiones anteriores a PE-2 no lo traen: nil = sin overrides, que es
+	// exactamente cómo se veían.
+	TemaTokens map[string]any                 `json:"temaTokens,omitempty"`
+	Modulos    []PaginaPublicaContenidoModulo `json:"modulos"`
 }
 
 // PaginaPublicaVersion — una foto PUBLICADA del borrador (PE-8): "Publicar"
@@ -842,6 +855,7 @@ func (p PaginaPublica) ContenidoVersion() PaginaPublicaContenidoVersion {
 		DireccionOverride:  p.DireccionOverride,
 		NombreSobrePortada: p.NombreSobrePortada,
 		NombreColor:        p.NombreColor,
+		TemaTokens:         p.TemaTokens,
 		Modulos:            modulos,
 	}
 }

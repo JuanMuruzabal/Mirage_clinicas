@@ -1,23 +1,24 @@
 import type { ReactNode } from "react";
-import { CLASE_TARJETA, Titulo } from "../../comunes";
-import { textoDeConfig } from "../../lectura-config";
+import { BloqueDeTexto } from "../../comunes";
+import { textoDeConfig, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
+import { VARIANTES } from "./variantes";
 
-function TextoLibre({ config }: { config: Record<string, unknown> }): ReactNode {
-  const titulo = textoDeConfig(config, "titulo").trim();
-  const texto = textoDeConfig(config, "texto").trim();
+// "Texto libre" ya tiene su propio `titulo` (que además es el link del menú),
+// así que no ofrece `tituloPublico` — ver opcionesDeSeccion en meta.ts.
+function TextoLibre({ modulo, contexto }: { modulo: ModuloBorrador; contexto: ContextoPublico }): ReactNode {
+  const titulo = textoDeConfig(modulo.config, "titulo").trim();
+  const texto = textoDeConfig(modulo.config, "texto").trim();
   if (!titulo && !texto) return null;
-  return (
-    <div className={`${CLASE_TARJETA} text-center`}>
-      {titulo && <Titulo>{titulo}</Titulo>}
-      {texto && <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line text-sm text-grafito/80`}>{texto}</p>}
-    </div>
-  );
+  const fotoUrl = textoDeConfig(modulo.config, "fotoUrl");
+  const foto =
+    fotoUrl && contexto.utils.esUrlDeFotoSegura(fotoUrl) ? { src: fotoUrl, alt: titulo || `Foto de ${contexto.nombreClinica}` } : null;
+  return <BloqueDeTexto titulo={titulo} texto={texto} variante={varianteDeConfig(modulo.config, VARIANTES)} foto={foto} />;
 }
 
-export function seccion(modulo: ModuloBorrador, indice: number, _contexto: ContextoPublico): SeccionPublica | null {
+export function seccion(modulo: ModuloBorrador, indice: number, contexto: ContextoPublico): SeccionPublica | null {
   const titulo = textoDeConfig(modulo.config, "titulo").trim();
-  const nodo = TextoLibre({ config: modulo.config });
+  const nodo = TextoLibre({ modulo, contexto });
   if (nodo === null) return null;
   return { id: `texto-${indice}`, etiqueta: titulo || null, ancho: "completo", contenido: nodo };
 }

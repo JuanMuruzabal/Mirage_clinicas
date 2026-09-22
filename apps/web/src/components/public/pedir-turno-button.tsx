@@ -118,7 +118,10 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-full bg-salvia-oscuro px-10 py-4 text-base font-semibold text-marfil shadow-soft hover:brightness-95"
+        // Tokens del botón (PE-2, aplicar.ts): forma, relleno/contorno y
+        // colores del tema. Con fallback al de siempre: sin tema estas
+        // variables no existen y el botón queda salvia sobre marfil.
+        className="rounded-[var(--pp-boton-radio,9999px)] border-[length:var(--pp-boton-borde-ancho,0px)] border-[var(--pp-boton-borde,transparent)] bg-[var(--pp-boton-fondo,var(--color-salvia-oscuro))] px-10 py-4 text-base font-semibold text-[var(--pp-boton-texto,var(--color-marfil))] shadow-soft hover:brightness-95"
       >
         Pedir turno
       </button>
@@ -128,7 +131,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
           dejarla completar todo el wizard para recién ahí fallar, y se
           le ofrece el camino normal (sin enlace) como salida. */}
       {estadoEnlace === "invalido" && (
-        <p role="alert" className="mt-3 text-sm text-terracota-oscuro">
+        <p role="alert" className="mt-3 rounded-field bg-terracota-claro px-3 py-2 text-sm text-terracota-oscuro">
           Este link ya no es válido — puede haber vencido o ya haberse usado. Tocá &quot;Pedir turno&quot; para
           reservar por el camino habitual.
         </p>

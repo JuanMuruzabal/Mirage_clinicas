@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Foto } from "../../comunes";
+import { CLASE_FOTO, Foto } from "../../comunes";
 import { subtipoDeConfig, textoDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 
@@ -15,12 +15,9 @@ function FotoSuelta({
   const url = textoDeConfig(config, "fotoUrl");
   if (!url || !esUrlDeFotoSegura(url)) return null;
   const subtipo = subtipoDeConfig(config);
-  const clase =
-    subtipo === "retrato"
-      ? "mx-auto aspect-[3/4] w-full max-w-xs rounded-card object-cover"
-      : subtipo === "franja"
-        ? "aspect-[21/6] w-full rounded-card object-cover"
-        : "aspect-[16/7] w-full rounded-card object-cover";
+  const forma =
+    subtipo === "retrato" ? "mx-auto aspect-[3/4] w-full max-w-xs" : subtipo === "franja" ? "aspect-[21/6] w-full" : "aspect-[16/7] w-full";
+  const clase = `${forma} ${CLASE_FOTO}`;
   return <Foto src={url} alt={`Foto de ${nombreClinica}`} className={clase} />;
 }
 

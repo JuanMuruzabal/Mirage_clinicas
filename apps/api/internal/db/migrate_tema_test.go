@@ -85,3 +85,17 @@ func TestCheck_PaginaAceptaSinTemaElegidoTodavia(t *testing.T) {
 		t.Fatalf("una página sin tema elegido todavía (\"\", default de la Fase 4.1) tiene que poder crearse: %v", err)
 	}
 }
+
+// PE-2: el CHECK se arma desde el catálogo en cada corrida (DROP + ADD), así
+// que un tema sumado al catálogo la base lo acepta sin tocar SQL a mano. Con
+// el patrón viejo (`EXCEPTION WHEN duplicate_object`) este test fallaba: la
+// constraint quedaba con la lista del día en que se creó.
+func TestCheck_AceptaLosTemasNuevosDelCatalogo(t *testing.T) {
+	gdb := testdb.New(t)
+	clinicaID, _ := crearProfesionalDePrueba(t, gdb)
+
+	pagina := db.PaginaPublica{ClinicID: clinicaID, Tema: "oscuro", TemaVariante: "oscuro-1", TemaTipografia: "editorial-suave"}
+	if err := gdb.Create(&pagina).Error; err != nil {
+		t.Fatalf("la base rechazó un tema del catálogo: %v", err)
+	}
+}

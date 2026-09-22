@@ -1,18 +1,54 @@
 import type { ReactNode } from "react";
-import { CLASE_TITULO } from "../../comunes";
+import { CLASE_ALINEAR, CLASE_CHIP, CLASE_JUSTIFICAR_FLEX, CLASE_TARJETA, CLASE_TARJETA_CHICA, CLASE_TEXTO, Titulo } from "../../comunes";
+import { tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
+import { VARIANTES } from "./variantes";
 
-function Especialidades({ especialidades }: { especialidades: string[] }): ReactNode {
+function Marca() {
+  return <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full bg-[var(--pp-acento,var(--color-salvia))]" />;
+}
+
+function Especialidades({ especialidades, config }: { especialidades: string[]; config: Record<string, unknown> }): ReactNode {
   if (especialidades.length === 0) return null;
+  const titulo = <Titulo className="mb-3">{tituloPublicoDe(config, "Especialidades")}</Titulo>;
+  const variante = varianteDeConfig(config, VARIANTES);
+
+  if (variante === "tarjetas") {
+    return (
+      <div className={CLASE_ALINEAR}>
+        {titulo}
+        <ul className="grid grid-cols-2 gap-2">
+          {especialidades.map((esp) => (
+            <li key={esp} className={`${CLASE_TARJETA_CHICA} flex items-center gap-2 text-left ${CLASE_TEXTO}`}>
+              <Marca />
+              {esp}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (variante === "lista") {
+    return (
+      <div className={`${CLASE_TARJETA} ${CLASE_ALINEAR}`}>
+        {titulo}
+        <ul className="flex flex-col text-left">
+          {especialidades.map((esp) => (
+            <li key={esp} className={`flex items-center gap-2 border-b-[0.5px] border-(--pp-borde) py-2 last:border-b-0 ${CLASE_TEXTO}`}>
+              <Marca />
+              {esp}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
   return (
-    <div className="text-center">
-      <h2 className={`mb-3 ${CLASE_TITULO}`}>Especialidades</h2>
-      <div className="flex flex-wrap justify-center gap-2">
+    <div className={CLASE_ALINEAR}>
+      {titulo}
+      <div className={`flex flex-wrap gap-2 ${CLASE_JUSTIFICAR_FLEX}`}>
         {especialidades.map((esp) => (
-          <span
-            key={esp}
-            className="rounded-full border-[0.5px] border-arena bg-[var(--pp-acento-suave,var(--color-marfil))] px-2.5 py-1 text-xs text-[var(--pp-acento-texto,var(--color-grafito))]"
-          >
+          <span key={esp} className={`${CLASE_CHIP} px-2.5 py-1 text-xs`}>
             {esp}
           </span>
         ))}
@@ -21,8 +57,8 @@ function Especialidades({ especialidades }: { especialidades: string[] }): React
   );
 }
 
-export function seccion(_modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
-  const nodo = Especialidades({ especialidades: contexto.especialidades });
+export function seccion(modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
+  const nodo = Especialidades({ especialidades: contexto.especialidades, config: modulo.config });
   if (nodo === null) return null;
-  return { id: "especialidades", etiqueta: "Especialidades", ancho: "medio", contenido: nodo };
+  return { id: "especialidades", etiqueta: tituloPublicoDe(modulo.config, "Especialidades"), ancho: "medio", contenido: nodo };
 }

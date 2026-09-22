@@ -1736,6 +1736,8 @@ export interface ActualizarPaginaPublicaPayload {
   direccionOverride?: string;
   nombreSobrePortada?: boolean;
   nombreColor?: string;
+  // temaTokens (PE-2): `{}` saca todos los overrides (vuelve a los del tema).
+  temaTokens?: Record<string, string>;
   modulos?: PaginaPublicaModuloPayload[];
   // revision (PE-8): OBLIGATORIA — el candado optimista del borrador. El
   // backend responde 409 (GuardarPaginaPublicaResult con kind "conflicto")

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALINEACIONES, FONDOS_SECCION, MAX_LARGO_TITULO_PUBLICO } from "./seccion";
 
 // Campo común a la config de CUALQUIER módulo: el nombre que el admin le
 // puso para reconocerlo en el editor ("Foto de la sala de espera"). Espejo
@@ -16,3 +17,23 @@ export const urlDeFotoSchema = z
   .string()
   .max(500)
   .regex(/^$|^\/uploads\/|^https:\/\/|^http:\/\//, "URL de foto inválida");
+
+// Opciones comunes de SECCIÓN (PE-3): cualquier módulo las acepta en su
+// config (cada schema.ts las suma con el spread, igual que el nombre
+// propio). Qué controles ofrece el editor para cada módulo lo dice su
+// meta.ts (`opcionesDeSeccion`); el esquema las acepta en todos para que una
+// config vieja o copiada de otro módulo no se rechace por una clave de más.
+// Todas opcionales: sin ellas la sección se ve exactamente como antes.
+
+export const camposDeSeccion = {
+  // tituloPublico — el título que ve el VISITANTE (y el link del menú),
+  // separado de `nombre`, que es solo la etiqueta del editor (TR-155).
+  tituloPublico: z.string().max(MAX_LARGO_TITULO_PUBLICO).optional(),
+  fondoSeccion: z.enum(FONDOS_SECCION).optional(),
+  alineacion: z.enum(ALINEACIONES).optional(),
+};
+
+/** La variante de layout de un módulo: opcional, sin ella vale la primera (la de antes de PE-3). */
+export function campoVariante<T extends readonly [string, ...string[]]>(ids: T) {
+  return { variante: z.enum(ids).optional() };
+}

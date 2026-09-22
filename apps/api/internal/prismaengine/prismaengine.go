@@ -20,11 +20,12 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
-//go:embed modulos/*.schema.json temas.json
+//go:embed modulos/*.schema.json temas.json tema_tokens.schema.json
 var archivos embed.FS
 
 // CatalogoTemas — mismo shape que packages/prisma-engine/catalogo/temas.json:
@@ -39,6 +40,7 @@ type CatalogoTemas struct {
 var (
 	esquemasModulo map[string]*jsonschema.Schema
 	catalogoTemas  CatalogoTemas
+	esquemaTokens  *jsonschema.Schema
 )
 
 // init — carga y compila todo una sola vez al arrancar el proceso. Si un
@@ -73,6 +75,15 @@ func init() {
 	}
 	if err := json.Unmarshal(contenidoTemas, &catalogoTemas); err != nil {
 		panic(fmt.Sprintf("prismaengine: temas.json inválido: %v", err))
+	}
+
+	contenidoTokens, err := archivos.ReadFile("tema_tokens.schema.json")
+	if err != nil {
+		panic(fmt.Sprintf("prismaengine: no se pudo leer tema_tokens.schema.json: %v", err))
+	}
+	esquemaTokens, err = jsonschema.CompileString("tema_tokens.schema.json", string(contenidoTokens))
+	if err != nil {
+		panic(fmt.Sprintf("prismaengine: no se pudo compilar tema_tokens.schema.json: %v", err))
 	}
 }
 
@@ -136,4 +147,44 @@ func TipografiaEsValida(tipografia string) bool {
 		}
 	}
 	return false
+}
+
+// ValidarTokensDeTema (PE-2) — los tokens de diseño de la página (forma,
+// densidad, superficie…, más la variante de la portada) contra su esquema
+// generado. Mismo criterio que ValidarConfigDeModulo: el backend no conoce
+// los tokens por nombre, el catálogo vive en packages/prisma-engine/src/tokens.ts.
+func ValidarTokensDeTema(tokens map[string]any) error {
+	if err := esquemaTokens.Validate(tokens); err != nil {
+		return fmt.Errorf("tokens de diseño inválidos: %w", err)
+	}
+	return nil
+}
+
+// IDsDeTemas / IDsDeVariantes / IDsDeTipografias — el catálogo plano, ordenado,
+// para que internal/db arme los CHECK de paginas_publicas desde el mismo
+// temas.json en vez de repetir la lista a mano en SQL (PE-2: la lista a mano
+// era la tercera copia del catálogo, y sumar un tema la dejaba vieja sin que
+// nada fallara hasta el primer PATCH).
+func IDsDeTemas() []string {
+	ids := make([]string, 0, len(catalogoTemas.Temas))
+	for tema := range catalogoTemas.Temas {
+		ids = append(ids, tema)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func IDsDeVariantes() []string {
+	var ids []string
+	for _, variantes := range catalogoTemas.Temas {
+		ids = append(ids, variantes...)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func IDsDeTipografias() []string {
+	ids := append([]string(nil), catalogoTemas.Tipografias...)
+	sort.Strings(ids)
+	return ids
 }

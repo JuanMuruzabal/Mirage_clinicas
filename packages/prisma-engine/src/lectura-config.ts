@@ -18,3 +18,14 @@ export function subtipoDeConfig(config: Record<string, unknown>): SubtipoFoto {
   const v = config.subtipo;
   return v === "retrato" || v === "franja" ? v : "banner";
 }
+
+/** La variante de un módulo (PE-3): una que no está en su lista (o ninguna) vale la primera. */
+export function varianteDeConfig<T extends string>(config: Record<string, unknown>, variantes: readonly T[]): T {
+  const v = config.variante;
+  return typeof v === "string" && (variantes as readonly string[]).includes(v) ? (v as T) : variantes[0];
+}
+
+/** El título que ve el visitante (PE-3): el propio si lo cargaron, si no el de siempre. */
+export function tituloPublicoDe(config: Record<string, unknown>, porDefecto: string): string {
+  return textoDeConfig(config, "tituloPublico").trim() || porDefecto;
+}
