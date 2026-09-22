@@ -264,3 +264,6 @@ Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuar
 - **`main` y `dev` divergieron:** `main` tiene 4 commits que `dev` no (los merges de los PR #17, #25, #26 y un `Update README.md` hecho directo), así que `git merge --ff-only` de `dev` a `main` **falla hoy**. Hay que traer `main` a `dev` primero (o pedirle al usuario cómo quiere resolverlo) — no forzar ni reescribir `main`.
 
 **Fase 2 — proceso de QA por ítem (TR-083 en `docs/Arquitectura y base/tradeoffs.md`):** pedido explícito del cliente en `docs/Fases post MVP/Fase 2/fase2-dental-mirage.md` — implementar los 5 ítems uno por uno, cada uno en su propia rama `feature/fase2-NN-descripcion` (no una sola rama larga para toda la fase). **Nunca hacer commit ni push de un ítem hasta que el cliente apruebe su QA** — a diferencia del resto del proyecto, donde push a `dev` es libre. Una vez aprobado un ítem, commit a su rama y PR a `dev` (no push directo). Este proceso aplica solo mientras dure la Fase 2, no cambia el flujo general de arriba para el resto del trabajo.
+
+## Documentación en Obsidian
+Cada vez que se ejecute /init en este repositorio, revisar también la documentación del proyecto en el vault de Obsidian ubicado en C:\Users\kevin\OneDrive\Documents\Kevin\Proyectos\dental-mirage\ y actualizarla si hay cambios relevantes en el código que no estén reflejados ahí.
