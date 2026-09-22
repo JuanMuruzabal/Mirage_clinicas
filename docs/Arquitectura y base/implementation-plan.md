@@ -783,6 +783,17 @@ Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en me
 | **Escrituras concurrentes** | ✔ Revisadas: 386 altas de turno por segundo a concurrencia 15, sin contención. El `EXCLUDE` no serializa lo que no se pisa |
 | **El intervalo de 2 s** | ⏸ La decisión que queda, y es de producto: el intervalo corto es lo que el cliente pidió en la QA de la 3.2.6. Los números por intervalo están en el documento |
 
+**Tercera parte — el wizard, y una revisión de todo lo anterior (2026-09-23).** Addenda de TR-147 y TR-162; detalle en la tercera parte del documento.
+
+| | Resultado |
+|---|---|
+| **Disponibilidad por rango en el wizard** | ✅ Cuatro de las cinco consultas de `calcularDisponibilidad` no dependían del día y se repetían en tres bucles. Reglas una vez + turnos del rango de una: el "próximo disponible" con 5 profesionales y agendas llenas, **172 → 13,3 ms**. Autoreservar precarga solo reglas, porque mueve turnos |
+| **🔴 El wizard mostraba el turno de otra persona** | ✅ Con solo un DNI y un mail propio, el 409 decía con quién, qué día y a qué hora. Ahora el detalle sale solo si el turno es de la ficha que el mail probó. Reproducido antes del arreglo |
+| **Nombre del profesional por mail en la página pública** | ✅ Los 409 del wizard usaban el helper del panel |
+| **"Verificado" recorría los turnos del sistema entero** | ✅ Acotada a la clínica: 13,2 → 0,33 ms con 20.000 asistidos en otra clínica |
+| **Auditoría de aislamiento** | ✅ Suma los archivos de contadores. Las escrituras por `{id}` —que la auditoría no ve— se revisaron a mano: todas aplican el scope del profesional |
+| **`user_id NOT NULL` en la configuración de agenda** | ⏸ Recomendado, sin hacer: cerraría en la base la clase de "fila sin dueño visible para todos". Hoy no hay ninguna |
+
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.

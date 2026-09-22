@@ -341,3 +341,80 @@ El generador de carga son ~60 líneas de Go que abren N conexiones persistentes 
 
 - **`curl` con `xargs -P` en Git Bash no mide concurrencia.** El costo de levantar procesos domina, el pool de Postgres nunca pasó de 3 conexiones y la latencia salía plana a cualquier concurrencia. Parecía que el sistema escalaba perfecto; lo que no escalaba era el cliente.
 - **Git Bash reescribe rutas**: `/panel/notificaciones` como argumento se convirtió en `C:/Program Files/Git/panel/notificaciones`, y todas las mediciones daban error. Con `MSYS_NO_PATHCONV=1` se arregla.
+
+---
+
+# Tercera parte — el wizard público, y una revisión de todo lo anterior
+
+**Fecha:** 2026-09-23. Dos pedidos juntos: terminar la optimización del wizard (*"muchas clínicas y muchos usuarios pidiendo turno"*), y revisar con ojos nuevos lo hecho en las dos partes anteriores y en la Fase 3 en general — *"por las dudas que se me haya escapado algo"*, con foco en el aislamiento entre profesionales.
+
+## El wizard: el mismo día, consultado treinta veces
+
+`calcularDisponibilidad` hacía **cinco consultas por día**: el horario de atención del profesional, sus horarios reservados generales, los específicos, sus turnos de ese día y —para saber el tiempo post-consulta de cada turno— el catálogo de tipos de la clínica. De las cinco, **cuatro no dependen de la fecha**.
+
+Eso da igual para un día. Pero tres bucles preguntan por muchos:
+
+| Bucle | Días | Veces |
+|---|---|---|
+| `primerDiaConHueco` — el "próximo disponible" de cada tarjeta del wizard | hasta 30 | **una por profesional** |
+| el calendario del mes del wizard | 28 a 31 | una |
+| autoreservar (panel) | hasta el tope de búsqueda | una por turno a mover |
+
+El primero es el caro, y es público y sin sesión: con cinco profesionales y agendas llenas —justo el caso en que hay que recorrer los 30 días— eran **~750 viajes a Postgres en un solo request**, 600 de ellos devolviendo las mismas filas.
+
+**El arreglo** separa lo que no depende del día de lo que sí:
+
+- `cargarReglasDeDisponibilidad` — las cuatro consultas fijas, una vez.
+- `cargarReglasDeRango` — lo mismo, más los turnos de **todo el rango** en una consulta, agrupados por día.
+- `calcularDisponibilidadConReglas` — el cálculo de un día con las reglas ya en la mano.
+
+`calcularDisponibilidad` conserva su firma y delega: los llamadores de un solo día no cambiaron.
+
+Medido con cinco profesionales y la agenda tapada 30 días: **172 ms → 13,3 ms** (−92%).
+
+### Dos trampas que había que esquivar
+
+**El día de Córdoba.** Los turnos del rango se agrupan por el día de `hora_inicio` en Córdoba (`clock.In`). El filtro de siempre era `[medianoche, medianoche+24h)` sobre un `fecha` que los tres bucles arman en Córdoba, así que son equivalentes — pero un turno a las 22:00 de Córdoba ya es el día siguiente en UTC, y agrupar en UTC lo habría puesto en el día equivocado. El test `TestDisponibilidad_RangoPrecargadoDaLoMismoQueDiaPorDia` calcula cada día **por los dos caminos** y exige el mismo resultado; con el agrupado cambiado a UTC falla exactamente en los dos días que toca ese turno.
+
+**Autoreservar mueve turnos dentro del bucle.** Ahí se cachean **solo las reglas** (por profesional); los turnos se siguen consultando en vivo. Con los turnos precargados, el segundo turno que se reubica no vería dónde quedó el primero, y dos podrían ir al mismo hueco.
+
+## Lo que encontró la revisión
+
+### 🔴 El wizard le mostraba a cualquiera el turno de otra persona
+
+Reproducido antes de arreglarlo. Con **solo conocer un DNI**, verificando un mail propio cualquiera y pidiendo otro tipo de consulta a la misma hora, la respuesta era:
+
+> *"ya tenés un turno con María Games de 08:00 a 08:30 del 03/06. Elegí otro horario."*
+
+Con quién se atiende esa persona, qué día y a qué hora — en una página pública.
+
+**La causa es la suma de dos decisiones correctas por separado.** TR-147 hizo que las reglas que protegen al paciente busquen por DNI en **todas** sus fichas, porque si no una ficha duplicada las salteaba. Y en el wizard, un mail que no es el de la ficha no se frena: se crea una ficha duplicada y el pedido sigue. Así que al llegar a esas reglas, quien pregunta puede no ser la persona del DNI, y los mensajes estaban escritos en segunda persona, dando por hecho que sí.
+
+**El arreglo** es de mínima divulgación: el detalle sale **solo si el turno que choca es de la misma ficha que el mail verificado probó**. Si es de otra ficha del mismo DNI, el pedido se bloquea igual —la regla sigue protegiendo al paciente— con un mensaje que no dice con quién ni cuándo. Detalle en el addendum de TR-147.
+
+### 🟠 Y esos mensajes podían nombrar al profesional por su mail
+
+Usaban `nombreDelProfesional`, el helper del panel, que cae al mail cuando el perfil no tiene nombre — contra la regla explícita de no hacerlo nunca en la página pública. Revirtiendo el arreglo, el test lo muestra: *"ya tenés un turno con **privacidad@example.com** de 08:00…"*. Ahora usan `nombrePublicoDelProfesional`, que cae a "Profesional de la clínica".
+
+### 🟠 "Verificado" recorría los turnos de todo el sistema
+
+`pacientesVerificadosQuery` —la que decide las pestañas Verificados/Sin verificar— tenía una subconsulta de turnos asistidos **sin filtro de clínica**. Como un `NOT IN` no se puede convertir en anti-join, Postgres la materializa entera. Con 20.000 turnos asistidos en **otra** clínica, contar los pacientes de una de 300 fichas costaba **13,2 ms; acotada, 0,33 ms**. Es el mismo defecto que el índice de la primera parte —un costo que crece con el sistema y no con quien mira—, y su hermana en memoria, `pacientesVerificadosIDs`, ya filtraba por clínica.
+
+### 🟡 La auditoría de aislamiento no veía los archivos nuevos
+
+`turnos_contadores.go` y `pacientes_contadores.go` no estaban en la lista de `TestAislamiento_NingunaConsultaDelPanelSinAcotar`. Hoy no tienen consultas propias por clínica, pero el día que alguien les agregue una, la auditoría tiene que verla. Sumados.
+
+### Lo que se revisó y está bien
+
+Vale dejarlo escrito para no volver a mirarlo:
+
+- **Todas las escrituras por `{id}` del panel aplican el scope del profesional**, además de la clínica: turnos (tres handlers), bloqueos, excepciones de horario, tipos de consulta, pacientes, conflictos. La auditoría automática solo ve líneas con `clinic_id = ?`, así que un IDOR por `id = ?` solo no lo detectaría — esto se revisó a mano, handler por handler.
+- **Los caminos que asignan turnos exigen membresía activa.** La membresía no se borra nunca (`status='removed'`) y la FK compuesta de `turnos` solo mira que exista; en el wizard los tres caminos —enlace, profesional elegido, titular por defecto— pasan por `profesionalPublicoElegido`, que solo acepta profesionales activos, y en el panel `puedeCargarEnLaAgendaDe` filtra por `status = active`.
+- **`cache()` de `getMe` solo vive en el render**: ninguna Server Action ni route handler usa esos helpers, así que no puede servir un `/me` de antes de un cambio de sesión.
+- **El `NOT IN` de los contadores de pacientes es seguro**: la subconsulta selecciona la clave primaria, que nunca es `NULL`.
+- **Cero filas de agenda sin dueño** en la base, y los caminos de alta responden 409 sin agenda desde la QA de la 3.2.6.
+
+### Recomendado, sin hacer
+
+- **`user_id NOT NULL` en `bloqueos_horario`, `horarios_atencion` y `tipos_consulta`.** Los scopes todavía incluyen `OR user_id IS NULL` (las filas previas a la 3.2.1), así que una fila sin dueño que se colara por un camino nuevo sería visible **y borrable por cualquier profesional**. Hoy no hay ninguna y ningún camino las crea; la restricción en la base cerraría la clase entera. Es una migración y conviene decidirla aparte.
+- **Una auditoría automática para las consultas por `id = ?`** en los archivos del panel, complementaria a la que existe. La revisión manual de esta vez dio limpia; un test la sostendría.

@@ -2266,6 +2266,22 @@ Aparte, y detrás de todo esto: `pacienteEstaVerificado` devuelve `true` por el 
 
 El cliente eligió atacarlo por el lado del producto: **mail obligatorio en las altas manuales** ("+ Agregar turno > paciente nuevo" y "+ Agregar paciente"). Con tutor sigue siendo opcional —un menor puede no tener— porque ahí la identidad la aporta el tutor, cuyo mail y teléfono ya eran obligatorios.
 
+### Addendum (revisión de aislamiento, 2026-09-23): mirar la persona para PROTEGER no es mirarla para CONTAR
+
+Esta decisión tenía una consecuencia que nadie había visto, y que se reprodujo antes de arreglarla: **el wizard público le mostraba a cualquiera el turno de otra persona**.
+
+Con solo conocer un DNI, verificando un mail propio cualquiera y pidiendo otro tipo de consulta a la misma hora, la respuesta era *"ya tenés un turno con María Games de 08:00 a 08:30 del 03/06"*. Con quién se atiende esa persona, qué día y a qué hora, en una página abierta a internet.
+
+La mecánica son dos cosas correctas que se cruzan. Esta TR hizo que las reglas busquen por DNI en **todas** las fichas, y en el wizard un mail que no es el de la ficha **no frena el pedido**: se crea una duplicada y sigue. Así que al llegar a estas reglas, quien pregunta puede no ser la persona del DNI — y los mensajes, escritos en segunda persona, daban por hecho que sí.
+
+**La regla que queda: para proteger, se mira la persona; para contar, solo lo que quien pregunta demostró.** El bloqueo sigue siendo por DNI —sin eso volvería el agujero original de esta TR—, pero el detalle del turno que choca sale **únicamente si es de la misma ficha que el mail verificado probó**. Si choca con otra ficha del mismo DNI, el pedido rebota igual, con un mensaje que no dice con quién ni cuándo: *"este DNI ya tiene un turno en ese horario. Si es tuyo, lo encontrás en «Mis turnos» con el mail con el que lo sacaste"*.
+
+**Lo que se sacrifica:** un paciente real que cambió de mail y pide turno con el nuevo ve el mensaje genérico, aunque el turno sea suyo. Es el precio correcto: el sistema no tiene forma de distinguirlo de alguien que tipea su DNI, y el mensaje le dice dónde encontrar el turno.
+
+**Lo que se sigue revelando, a sabiendas:** que ese DNI tiene un turno en el horario —o del tipo— que la persona eligió. Es lo mínimo para explicar el rechazo. Buscar el turno de otro probando horario por horario es caro y queda a la vista: cada intento que no choca crea un turno real, una ficha duplicada y un conflicto que el profesional ve.
+
+De paso: esos mensajes nombraban al profesional con el helper del panel, que cae al **mail** cuando el perfil no tiene nombre. Ahora usan `nombrePublicoDelProfesional`, que nunca lo hace. Tests en `turno_publico_privacidad_test.go`, con el control de que el paciente real sigue viendo el detalle — sin ese control, "no revela nada" pasaría también si el arreglo hubiera escondido el detalle para todo el mundo.
+
 ---
 
 ## TR-148: Un conflicto de identidad se ve donde se puede resolver, y se resuelve una sola vez
@@ -2820,6 +2836,18 @@ Después del arreglo cada sondeo cuesta entre 8,9 y 21,5 ms, o sea ~1% de un nú
 **No se cambió a propósito:** el intervalo corto es lo que el cliente pidió explícitamente en la QA de la 3.2.6, y tocarlo es cambiar cómo se siente el producto, no cómo está escrito. Una optimización que cambia una decisión de producto no es una optimización, es un cambio de alcance disfrazado. Queda como decisión del cliente con los números al lado.
 
 **Y si algún día hace falta bajar el costo sin perder reacción**, el camino no es un caché en memoria —se pierde en cada deploy y no sirve con varias instancias— sino el patrón de TR-142: un **contador de versión por clínica en Postgres** que cualquier escritura incrementa. El sondeo lee una fila por índice y solo recalcula cuando ese número cambió. Queda escrito en vez de hecho porque toca todos los caminos de escritura.
+
+### Addendum (2026-09-23): el wizard, y lo que no cambia de un día a otro
+
+La misma idea aplicada al lado público. `calcularDisponibilidad` hacía cinco consultas por día y **cuatro no dependían de la fecha** (horario de atención, horarios reservados generales y específicos, catálogo de tipos). Tres bucles la llamaban día por día —el "próximo disponible" del wizard, que además corre una vez por profesional; el calendario del mes; y autoreservar—, así que con cinco profesionales y agendas llenas eran ~750 viajes a Postgres en un request público.
+
+Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los bucles de solo lectura, también los turnos de todo el rango, agrupados por día (`cargarReglasDeRango`). **172 ms → 13,3 ms** en el peor caso medido.
+
+**Autoreservar es la excepción, y a propósito:** cachea solo las reglas. Ese bucle **mueve** turnos, y el segundo que se reubica tiene que ver dónde quedó el primero; con los turnos precargados, dos podrían ir al mismo hueco. Precargar es seguro solo cuando nada de lo precargado cambia mientras se usa.
+
+**La garantía no es que yo haya pensado bien cada caso** sino un test que calcula cada día por los dos caminos y exige el mismo resultado, con un turno a las 22:00 de Córdoba —que en UTC ya es el día siguiente— como trampa. Con el agrupado cambiado a UTC, falla exactamente en los dos días que ese turno toca.
+
+**Y el mismo defecto que el índice de TR-161, en otro lado:** `pacientesVerificadosQuery` —las pestañas Verificados/Sin verificar— tenía una subconsulta de turnos asistidos sin filtro de clínica. Con 20.000 asistidos en OTRA clínica, contar los pacientes de una de 300 fichas costaba 13,2 ms; acotada, 0,33 ms.
 
 
 ---
