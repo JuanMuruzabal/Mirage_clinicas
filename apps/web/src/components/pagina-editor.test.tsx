@@ -211,6 +211,9 @@ describe("PaginaEditor — panel y vista previa", () => {
   it("la previsualización se puede acotar a móvil, tablet o escritorio", async () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    // Una página vacía abre la galería inicial de plantillas, que tiene su
+    // propia vista previa. Cerrar la galería para operar sobre la del editor.
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     const marco = screen.getByTestId("vista-previa-marco");
 
     expect(marco).toHaveStyle({ maxWidth: "100%" });
