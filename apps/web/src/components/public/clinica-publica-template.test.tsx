@@ -205,12 +205,12 @@ describe("ClinicaPublicaTemplate — nombre sobre la portada", () => {
   it("sin foto (o con una URL insegura) la opción no aplica: el nombre queda debajo, legible", () => {
     const { rerender } = render(<ClinicaPublicaTemplate {...props} contenido={contenido({ nombreSobrePortada: true, nombreColor: "blanco" })} />);
     // Blanco sobre el fondo celeste no se leería: tiene que seguir siendo grafito.
-    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-grafito");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-(--pp-texto)");
 
     rerender(
       <ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: "javascript:alert(1)", nombreSobrePortada: true, nombreColor: "blanco" })} />,
     );
-    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-grafito");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-(--pp-texto)");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
@@ -267,5 +267,47 @@ describe("ClinicaPublicaTemplate — tema", () => {
   it("un tema desconocido se trata como sin tema", () => {
     const { container } = render(<ClinicaPublicaTemplate {...props} contenido={contenido({ tema: "no-existe" })} />);
     expect(container.firstElementChild).not.toHaveAttribute("style");
+  });
+});
+
+describe("ClinicaPublicaTemplate — tokens y variantes (PE-2/PE-3)", () => {
+  const portada = "/uploads/portada.jpg";
+
+  it("sin tema, los tokens de estilo elegidos no cambian nada: menú de pastillas y ningún --pp- en línea", () => {
+    const { container } = render(
+      <ClinicaPublicaTemplate {...props} contenido={contenido({ temaTokens: { menu: "barra", forma: "recta" } })} />,
+    );
+    const raiz = container.firstElementChild as HTMLElement;
+    expect(raiz).toHaveClass("pp-raiz");
+    expect(raiz).not.toHaveAttribute("style");
+    expect(screen.getByRole("navigation")).not.toHaveClass("sticky");
+  });
+
+  it("con tema, el token de menú 'barra' deja el menú fijo arriba", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ tema: "oscuro", temaVariante: "oscuro-1", temaTokens: { menu: "barra" } })} />);
+    expect(screen.getByRole("navigation")).toHaveClass("sticky");
+  });
+
+  it("portada 'mínima' no muestra la foto aunque haya una", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: portada, temaTokens: { portada: "minima" } })} />);
+    expect(screen.queryByRole("img", { name: /Portada de/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Clínica Sonrisas" })).toBeInTheDocument();
+  });
+
+  it("portada 'foto de fondo' sin foto se dibuja centrada (nunca un hueco)", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ temaTokens: { portada: "fondo" } })} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("text-(--pp-texto)");
+  });
+
+  it("una sección 'contraste' invierte el texto con custom properties sobre su <section>", () => {
+    const { container } = render(
+      <ClinicaPublicaTemplate
+        {...props}
+        contenido={contenido({ bio: "Somos una clínica", modulos: [modulo("sobre_nosotros", { fondoSeccion: "contraste", alineacion: "izquierda" })] })}
+      />,
+    );
+    const seccion = container.querySelector("section#sobre-nosotros") as HTMLElement;
+    expect(seccion.style.getPropertyValue("--pp-texto")).toBe("var(--pp-contraste-texto)");
+    expect(seccion.style.getPropertyValue("--pp-alinear")).toBe("left");
   });
 });

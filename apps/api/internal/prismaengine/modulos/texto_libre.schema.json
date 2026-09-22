@@ -5,6 +5,38 @@
       "type": "string",
       "maxLength": 60
     },
+    "tituloPublico": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "fondoSeccion": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "acento",
+        "contraste"
+      ]
+    },
+    "alineacion": {
+      "type": "string",
+      "enum": [
+        "centro",
+        "izquierda"
+      ]
+    },
+    "variante": {
+      "type": "string",
+      "enum": [
+        "centrado",
+        "con-foto",
+        "dos-columnas"
+      ]
+    },
+    "fotoUrl": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "^$|^\\/uploads\\/|^https:\\/\\/|^http:\\/\\/"
+    },
     "titulo": {
       "type": "string",
       "maxLength": 80

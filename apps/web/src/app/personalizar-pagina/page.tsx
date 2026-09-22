@@ -40,6 +40,7 @@ export default async function PersonalizarPaginaPage() {
         mostrarMapa: false,
         nombreSobrePortada: false,
         nombreColor: "",
+        temaTokens: {},
         modulos: [],
         estadisticas: {},
         revision: 0,

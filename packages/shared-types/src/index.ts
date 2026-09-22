@@ -677,6 +677,11 @@ export interface ClinicaPublica {
   // foto de portada y su color (id de un set curado; "" = el default).
   nombreSobrePortada: boolean;
   nombreColor: string;
+  // temaTokens (PE-2) — overrides de los tokens de diseño del tema (forma,
+  // densidad, superficie…, y la variante de la portada). Siempre un objeto;
+  // el catálogo y su lectura tolerante viven en @dental-mirage/prisma-engine
+  // (tokens.ts), por eso acá es un Record sin tipar.
+  temaTokens: Record<string, unknown>;
   modulos: PaginaPublicaModulo[];
   estadisticas: Record<string, number>;
   // personalizada — hay módulos guardados aunque estén todos ocultos. Es lo
@@ -723,6 +728,7 @@ export interface PaginaPublica {
   direccionOverride?: string | null;
   nombreSobrePortada: boolean;
   nombreColor: string;
+  temaTokens: Record<string, unknown>;
   // direccionClinica — la de la Clinic, SIN el override: el editor calcula
   // la efectiva del lado del cliente para previsualizar mientras se tipea.
   direccionClinica?: string | null;
@@ -756,6 +762,7 @@ export interface ContenidoVersionPaginaPublica {
   direccionOverride?: string | null;
   nombreSobrePortada: boolean;
   nombreColor: string;
+  temaTokens: Record<string, unknown>;
   modulos: Omit<PaginaPublicaModulo, "id">[];
 }
 

@@ -13,6 +13,7 @@ const borrador = (parcial: Partial<Borrador> = {}): Borrador => ({
   direccionOverride: "",
   nombreSobrePortada: false,
   nombreColor: "",
+  temaTokens: {},
   modulos: [],
   revision: 0,
   ...parcial,
@@ -27,6 +28,7 @@ const contenidoPublicado = (parcial: Partial<ContenidoVersionPaginaPublica> = {}
   mostrarMapa: false,
   nombreSobrePortada: false,
   nombreColor: "",
+  temaTokens: {},
   modulos: [],
   ...parcial,
 });

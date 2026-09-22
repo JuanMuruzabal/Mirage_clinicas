@@ -29,6 +29,7 @@ import {
 } from "@/lib/pagina-publica/modulos";
 import { EditorDePortada } from "./editor-de-portada";
 import { EditorDeModulo } from "./editor-de-modulo";
+import { OpcionesDeModulo } from "./opciones-de-modulo";
 import { CLASE_AYUDA, CLASE_BOTON, CLASE_BOTON_PELIGRO, CLASE_CAMPO, CLASE_ETIQUETA } from "./estilos";
 
 interface ListaModulosProps {
@@ -164,6 +165,7 @@ function FilaModulo({
             onConfig={(config) => onCambiar({ config })}
             onBorrador={onBorrador}
           />
+          <OpcionesDeModulo modulo={modulo} onConfig={(config) => onCambiar({ config })} />
           <div className="flex flex-wrap gap-2 border-t-[0.5px] border-arena pt-3">
             {/* aria-label con el nombre: en la misma pantalla está el "Ocultar" de
                 la PÁGINA entera, y dos botones con el mismo nombre no se

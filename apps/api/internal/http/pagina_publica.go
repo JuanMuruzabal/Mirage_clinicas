@@ -158,6 +158,9 @@ type paginaPublicaResponse struct {
 	// portada y su color (set curado, ver coloresNombreValidos).
 	NombreSobrePortada bool   `json:"nombreSobrePortada"`
 	NombreColor        string `json:"nombreColor"`
+	// TemaTokens (PE-2): overrides de los tokens de diseño del tema. Siempre
+	// un objeto (nunca null), aunque no haya ninguno elegido.
+	TemaTokens map[string]any `json:"temaTokens"`
 	// DireccionClinica — la de la Clinic, SIN el override. El editor
 	// calcula la efectiva (override si hay, si no esta) del lado del
 	// cliente para previsualizar el módulo de contacto mientras se
@@ -200,6 +203,7 @@ type contenidoVersionResponse struct {
 	DireccionOverride  *string                   `json:"direccionOverride,omitempty"`
 	NombreSobrePortada bool                      `json:"nombreSobrePortada"`
 	NombreColor        string                    `json:"nombreColor"`
+	TemaTokens         map[string]any            `json:"temaTokens"`
 	Modulos            []moduloContenidoResponse `json:"modulos"`
 }
 
@@ -223,8 +227,19 @@ func toContenidoVersionResponse(c db.PaginaPublicaContenidoVersion) contenidoVer
 		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
 		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: redes, MostrarMapa: c.MostrarMapa,
 		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
-		Modulos: modulos,
+		TemaTokens: tokensOVacio(c.TemaTokens),
+		Modulos:    modulos,
 	}
+}
+
+// tokensOVacio — los tokens de diseño viajan siempre como objeto: una página
+// (o una versión publicada) anterior a PE-2 no los tiene, y eso significa
+// "ningún override", no "dato ausente".
+func tokensOVacio(t map[string]any) map[string]any {
+	if t == nil {
+		return map[string]any{}
+	}
+	return t
 }
 
 func toVersionResponse(gdb *gorm.DB, v db.PaginaPublicaVersion) versionResponse {
@@ -285,6 +300,7 @@ func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) pa
 		DireccionOverride:  p.DireccionOverride,
 		NombreSobrePortada: p.NombreSobrePortada,
 		NombreColor:        p.NombreColor,
+		TemaTokens:         tokensOVacio(p.TemaTokens),
 		Modulos:            make([]moduloResponse, len(p.Modulos)),
 		Estadisticas:       estadisticas,
 		Revision:           p.Revision,
@@ -382,6 +398,10 @@ type actualizarPaginaPublicaRequest struct {
 	FotoPortadaURL     *string           `json:"fotoPortadaUrl"`
 	NombreSobrePortada *bool             `json:"nombreSobrePortada"`
 	NombreColor        *string           `json:"nombreColor"`
+	// TemaTokens (PE-2) — puntero al mapa por el mismo motivo que Modulos:
+	// nil = no vino (no tocar); `{}` = sacar todos los overrides (volver a
+	// los tokens del tema).
+	TemaTokens *map[string]any `json:"temaTokens"`
 	// Modulos — puntero al slice, no el slice solo: distingue "no vino en
 	// el body" (nil, no tocar los módulos existentes) de "vino una lista
 	// vacía" (reemplazar por CERO módulos, ej. el owner borró todos).
@@ -479,6 +499,12 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "color del nombre inválido")
 			return
 		}
+		if req.TemaTokens != nil {
+			if err := prismaengine.ValidarTokensDeTema(*req.TemaTokens); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 		if req.RedesSociales != nil {
 			if err := validarRedesSociales(req.RedesSociales); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
@@ -571,6 +597,10 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			if req.NombreColor != nil {
 				updates.NombreColor = strings.TrimSpace(*req.NombreColor)
 				campos = append(campos, "NombreColor")
+			}
+			if req.TemaTokens != nil {
+				updates.TemaTokens = tokensOVacio(*req.TemaTokens)
+				campos = append(campos, "TemaTokens")
 			}
 			// "AND revision = ?" hace del UPDATE el candado entero: una sola
 			// sentencia atómica, no un SELECT-luego-UPDATE con ventana para
@@ -950,11 +980,14 @@ func aplicarContenidoAlBorrador(tx *gorm.DB, paginaID uuid.UUID, revisionEsperad
 		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
 		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: c.RedesSociales, MostrarMapa: c.MostrarMapa,
 		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
-		Revision: revisionEsperada + 1, ActualizadaPorUserID: &userID,
+		// Una versión anterior a PE-2 no trae tokens: restaurarla vuelve a
+		// "sin overrides", que es como se veía cuando se publicó.
+		TemaTokens: tokensOVacio(c.TemaTokens),
+		Revision:   revisionEsperada + 1, ActualizadaPorUserID: &userID,
 	}
 	campos := []string{
 		"Bio", "Tema", "TemaVariante", "TemaTipografia", "FotoPortadaURL", "RedesSociales", "MostrarMapa",
-		"DireccionOverride", "NombreSobrePortada", "NombreColor", "Revision", "ActualizadaPorUserID",
+		"DireccionOverride", "NombreSobrePortada", "NombreColor", "TemaTokens", "Revision", "ActualizadaPorUserID",
 	}
 	resultado := tx.Model(&db.PaginaPublica{}).Where("id = ? AND revision = ?", paginaID, revisionEsperada).Select(campos).Updates(updates)
 	if resultado.Error != nil {

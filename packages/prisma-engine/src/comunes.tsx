@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 
 // Clases y componentes chicos que comparten varios módulos. Los del EDITOR
 // son un espejo literal de apps/web/src/components/editor-pagina/estilos.ts
-// (PE-2 va a consolidar esto en tokens de diseño reales; hasta entonces son
-// las mismas clases de Tailwind, copiadas para que el paquete no dependa de
-// apps/web — ver la nota de "Infraestructura del paquete" en el plan).
+// (el panel de edición es Mirage, no la página: no lleva tokens del tema),
+// copiadas para que el paquete no dependa de apps/web — ver la nota de
+// "Infraestructura del paquete" en el plan.
 
 export const CLASE_CAMPO =
   "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia-oscuro disabled:opacity-60";
@@ -21,13 +21,38 @@ export function Contador({ actual, max }: { actual: number; max: number }) {
   );
 }
 
-// Del RENDER público — espejo de las mismas constantes en
-// apps/web/src/components/public/modulos-publicos.tsx.
-export const CLASE_TARJETA = "rounded-card border-[0.5px] border-arena bg-marfil p-6";
-export const CLASE_TITULO = "font-[family-name:var(--font-display)] text-xl font-medium text-grafito";
+// Del RENDER público. Desde PE-2 no llevan colores ni medidas fijas: leen
+// los tokens de diseño como custom properties `--pp-*`, que define la
+// plantilla (ClinicaPublicaTemplate, clase `pp-raiz` + el style del tema —
+// ver apps/web/src/lib/temas-pagina-publica/aplicar.ts). Los valores por
+// defecto de `.pp-raiz` (globals.css) son los de antes de PE-2: sin tema, la
+// página se ve igual que siempre. Fuera de la plantilla estas variables no
+// existen — estos renders no se usan en ningún otro lado.
+const CLASE_TARJETA_BASE =
+  "rounded-(--pp-radio) border-(length:--pp-borde-ancho) border-(--pp-borde) bg-(--pp-superficie) shadow-(--pp-sombra)";
+// --pp-relleno-tarjeta y no --pp-relleno: "sin tarjeta" le saca el relleno
+// lateral a la tarjeta sin tocar el de las secciones con fondo propio.
+export const CLASE_TARJETA = `${CLASE_TARJETA_BASE} p-(--pp-relleno-tarjeta)`;
+/** La tarjeta chica (una estadística, una especialidad): el `!p-4` de antes, ahora según la densidad. */
+export const CLASE_TARJETA_CHICA = `${CLASE_TARJETA_BASE} p-(--pp-relleno-chico)`;
+export const CLASE_TITULO = "font-[family-name:var(--font-display)] text-xl font-medium text-(--pp-texto)";
+/** Cuerpo de texto: el /80 y el /70 de siempre, ahora sobre el color de texto del tema. */
+export const CLASE_TEXTO = "text-sm text-(--pp-texto)/80";
+export const CLASE_TEXTO_TENUE = "text-(--pp-texto)/70";
+/** Una foto dentro de un módulo: toma la forma (radio) del tema. */
+export const CLASE_FOTO = "rounded-(--pp-radio) object-cover";
+/** Chip/pastilla (especialidades, redes): el borde toma el color del tema, siempre a medio píxel. */
+export const CLASE_CHIP =
+  "rounded-full border-[0.5px] border-(--pp-borde) bg-[var(--pp-acento-suave,var(--color-marfil))] text-[var(--pp-acento-texto,var(--color-grafito))]";
+// Alineación de la sección (PE-3): la plantilla pone `--pp-alinear` /
+// `--pp-alinear-flex` en el <section> cuando el admin elige "izquierda"; sin
+// eso valen `center`, que es como se dibujó siempre.
+export const CLASE_ALINEAR = "[text-align:var(--pp-alinear,center)]";
+export const CLASE_ALINEAR_FLEX = "[align-items:var(--pp-alinear-flex,center)]";
+export const CLASE_JUSTIFICAR_FLEX = "[justify-content:var(--pp-alinear-flex,center)]";
 
-export function Titulo({ children }: { children: ReactNode }) {
-  return <h2 className={CLASE_TITULO}>{children}</h2>;
+export function Titulo({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <h2 className={`${className ? `${className} ` : ""}${CLASE_TITULO}`}>{children}</h2>;
 }
 
 // Un <img> plano y no next/image: las fotos vienen de un storage externo
@@ -37,4 +62,57 @@ export function Titulo({ children }: { children: ReactNode }) {
 export function Foto({ src, alt, className }: { src: string; alt: string; className: string }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt={alt} loading="lazy" className={className} />;
+}
+
+export type VarianteDeTexto = "centrado" | "con-foto" | "dos-columnas";
+
+/**
+ * El cuerpo de "Sobre nosotros" y "Texto libre" (PE-3): los dos son un título
+ * + un texto, y comparten las mismas tres variantes. "con-foto" sin una foto
+ * (o con una que no pasa el filtro de URL segura) se dibuja centrado: una
+ * variante nunca deja un hueco donde iba la imagen.
+ */
+export function BloqueDeTexto({
+  titulo,
+  texto,
+  variante,
+  foto,
+}: {
+  titulo: string;
+  texto: string;
+  variante: VarianteDeTexto;
+  foto: { src: string; alt: string } | null;
+}) {
+  const parrafo = texto ? <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p> : null;
+  const encabezado = titulo ? <Titulo>{titulo}</Titulo> : null;
+
+  if (variante === "con-foto" && foto) {
+    return (
+      <div className={`${CLASE_TARJETA} grid grid-cols-1 items-center gap-6 @xl:grid-cols-2`}>
+        <Foto src={foto.src} alt={foto.alt} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />
+        <div className={CLASE_ALINEAR}>
+          {encabezado}
+          {parrafo}
+        </div>
+      </div>
+    );
+  }
+  if (variante === "dos-columnas") {
+    // El texto en columnas va siempre alineado a la izquierda: centrado,
+    // cada columna quedaría con bordes irregulares a los dos lados.
+    return (
+      <div className={`${CLASE_TARJETA} ${CLASE_ALINEAR}`}>
+        {encabezado}
+        {texto && (
+          <p className={`${titulo ? "mt-3 " : ""}whitespace-pre-line text-left @xl:columns-2 @xl:gap-8 ${CLASE_TEXTO}`}>{texto}</p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className={`${CLASE_TARJETA} ${CLASE_ALINEAR}`}>
+      {encabezado}
+      {parrafo}
+    </div>
+  );
 }

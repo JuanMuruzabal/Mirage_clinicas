@@ -1,12 +1,11 @@
 // Catálogo combinado de temas de la página pública (Fase 4.3) — un tema
 // es una Paleta (paletas.ts) + qué 2 Tipografías (tipografias.ts) ofrece
-// para elegir dentro de él. Espejo de los IDs que valida el backend
-// (apps/api/internal/http/temas_pagina_publica.go, temasValidos/
-// tipografiasValidas) — si se agrega/saca un tema acá, hay que
-// actualizar ese archivo Go en el mismo cambio o el PATCH del panel va a
-// rechazar valores que el frontend ofrece (o va a aceptar valores que el
-// frontend ya no muestra).
-export { PALETAS_PAGINA_PUBLICA, derivarColorDeVariante, paletaPorId, variantePorId } from "./paletas";
+// para elegir dentro de él. Los IDs válidos los valida el backend contra
+// packages/prisma-engine/catalogo/temas.json (PE-1; la base también, con
+// CHECKs que se arman desde ese mismo archivo desde PE-2) — si se agrega o
+// saca un tema acá, actualizar ese JSON en el mismo cambio y correr `pnpm
+// engine:generar`. temas.test.ts falla si los dos no coinciden.
+export { MEZCLA, PALETAS_PAGINA_PUBLICA, derivarColorDeVariante, paletaPorId, variantePorId } from "./paletas";
 export type { Paleta, VariantePaleta, TemaColorDerivado } from "./paletas";
 export { TIPOGRAFIAS_PAGINA_PUBLICA, tipografiaPorId } from "./tipografias";
 export type { Tipografia } from "./tipografias";
@@ -21,6 +20,8 @@ export const TIPOGRAFIAS_POR_TEMA: Record<string, [string, string]> = {
   moderno: ["geometrica-moderna", "condensada-institucional"],
   natural: ["redondeada-calida", "editorial-suave"],
   clasico: ["serif-clasica", "editorial-suave"],
+  editorial: ["editorial-suave", "serif-clasica"],
+  oscuro: ["geometrica-moderna", "editorial-suave"],
 };
 
 export function idsDeTemasValidos(): string[] {

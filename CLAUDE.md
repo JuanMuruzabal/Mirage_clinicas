@@ -20,21 +20,22 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 - **Estructura nueva:** `packages/prisma-engine/` y `apps/api/internal/prismaengine/` (los crea PE-1), el script `pnpm engine:generar`, y los cambios de `pnpm-workspace.yaml`, `apps/web/Dockerfile`, `render.yaml` y `.github/workflows/ci.yml` que PE-1 necesita.
 
 **Qué evitar mientras el aviso esté activo:**
+- **Desde el 2026-09-22 los PRs que quedan del plan van de a pares** (PE-2+3, PE-4+5, PE-6+7, PE-9+4.6), un PR por par.
 - **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** — desde PE-1 (parte 1, mergeada) viven en `packages/prisma-engine` (`registro.ts`, `schemas.ts`, `catalogo/temas.json`), no en un `switch` de `editor-de-modulo.tsx`/`modulos-publicos.tsx` ni en un mapa a mano de Go: sumar uno tocando solo esos archivos evita el problema que PE-1 vino a resolver. Si es urgente, coordinalo con Kevin.
-- **No cambies la semántica de `PATCH /panel/pagina`** (hoy guardar = publicar) ni la de `deployada_en`: es de PE-8.
+- **No cambies el modelo borrador/publicar** que dejó PE-8 (ver la Fase 4 más abajo): guardar NO publica, el `GET` público sirve la última versión publicada, y `PATCH /panel/pagina` exige `revision`. Lo que falta de esa vertical (vista previa firmada, deshacer/rehacer, resumen "qué cambió") sigue siendo del plan.
 - **No agregues columnas ni migraciones** sobre `paginas_publicas`, `pagina_publica_modulos`, `clinic_members` ni `professional_profiles` sin revisar el plan: chocan con `schema_version`, con el aval del profesional y con `horarios_clinica`.
 - **La subida de foto de perfil** deja de estar fuera de alcance solo si Kevin y Juan confirman esa decisión (marcada **[SUJETO A REVISIÓN]** en el plan). Hasta entonces sigue fuera.
 - Los arreglos chicos (un bug de una línea, un texto) están bien: avisá igual, y si podés, dejalos en un commit aparte.
-- **Numeración de TR:** Kevin va a usar TR-161 en adelante para las decisiones del plan. Si Juan necesita una TR nueva antes de que eso esté mergeado, que coordine el número para no chocar.
+- **Numeración de TR:** el PR #53 (optimización post-Fase 3, de Juan) usó TR-161 y TR-162, así que el plan sigue desde **TR-163** (PE-2 + PE-3). Antes de numerar una TR nueva, mirá también las de los PRs abiertos (`gh pr diff <n> | grep '^+## TR-'`): dos ramas pueden tomar el mismo número sin que ninguna lo note.
 
 **Estado de los PRs del plan** (⬜ pendiente · 🔄 en curso, con la rama · ✅ mergeado a `dev`):
 
 | PR | Qué | Estado |
 |---|---|---|
 | PE-1 | Núcleo: registro único de módulos y catálogo compartido | ✅ (PR #51/#52) |
-| PE-8 | Borrador, Publicar = Deployar e historial | ⬜ |
-| PE-2 | Tokens de diseño | ⬜ |
-| PE-3 | Variantes por módulo | ⬜ |
+| PE-8 | Borrador, Publicar = Deployar e historial | ✅ (PR #54) |
+| PE-2 | Tokens de diseño | 🔄 `feature/pe-2-3-tokens-y-variantes` (junto con PE-3) |
+| PE-3 | Variantes por módulo | 🔄 `feature/pe-2-3-tokens-y-variantes` (junto con PE-2) |
 | PE-4 | Motor de efectos | ⬜ |
 | PE-5 | Fondos tranquilos y texto avanzado | ⬜ |
 | PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ⬜ |
@@ -43,6 +44,8 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
 
 **PE-1, lo único deliberadamente afuera:** `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo. Es infraestructura para cuando un PR FUTURO cambie la forma de un módulo — se suma en el primer PR que de verdad la necesite (PE-2 en adelante), no antes.
+
+**PE-8, lo que quedó afuera** (pendiente dentro del plan, sin PR asignado): el link de vista previa firmado del borrador, deshacer/rehacer en el editor, y el resumen "qué cambió" antes de Publicar.
 
 ## Qué es esto
 
@@ -260,6 +263,20 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 - **El nombre de un módulo (`config.nombre`) es una etiqueta del editor, no un título público; el nombre de la clínica puede ir sobre la portada con un color de un set curado** (`lib/pagina-publica/portada.ts`, TR-155). El color y su velo van juntos: sumar uno toca `COLORES_NOMBRE`, `coloresNombreValidos` (Go) y el CHECK `chk_pagina_publica_nombre_color`.
 - **Sin storage no hay fotos:** en producción la subida responde 501 hasta la 4.6. `horarios` está aceptado por el backend pero no en el editor (¿de cuál de los N profesionales?).
 - **Server Actions tienen 1 MB de body por default**; `next.config.ts` lo sube a 6 MB por las fotos.
+
+**Borrador y publicación (PE-8, PR #54)** — cambia lo que dicen las filas 4.2/4.4 de arriba:
+- **Guardar ya no publica.** `PATCH /panel/pagina` escribe el BORRADOR; `POST /panel/pagina/publicar` (reemplazó a `PATCH /panel/pagina/deployar`) lo copia como versión numerada a `pagina_publica_versiones` (foto jsonb, autor, fecha; índice único `(pagina_publica_id, numero)`). La primera publicación sigue marcando `deployada_en`.
+- **`GET /clinicas/{slug}` sirve la ÚLTIMA VERSIÓN PUBLICADA, nunca el borrador**; sin ninguna versión responde `enPreparacion: true` (`PaginaEnPreparacion` en `[slug]/page.tsx`). Un test que lee la página pública después de un `PATCH` tiene que publicar antes — 30+ tests lo asumían al revés.
+- **Candado optimista:** `PATCH /panel/pagina` exige `revision` en el body; el `UPDATE ... WHERE revision = ?` es atómico y, si no coincide, responde **409 con quién y cuándo** (`ConflictoRevisionPagina`). Del lado web, `apiActualizarPaginaPublica` devuelve `kind: "ok" | "conflicto" | "error"`, no un `ApiResult` aplanado.
+- **Restaurar una versión** (`POST /panel/pagina/versiones/{numero}/restaurar`) copia su contenido al BORRADOR, con el mismo candado — nunca publica directo. Historial en `GET /panel/pagina/versiones`.
+- En `lib/pagina-publica/borrador.ts` hay dos comparaciones distintas: `hayCambios` (borrador sin guardar) y `hayCambiosSinPublicar` (guardado vs. última versión publicada) . Las dos comparan una firma que saca `revision` desestructurando el objeto: un `Pick`/`Omit` recorta el TIPO, no el valor, y dos borradores iguales con distinta revisión nunca daban la misma firma (bug real).
+
+**Tokens de diseño y variantes (PE-2 + PE-3, TR-163)** — lo que hay que saber antes de tocar la plantilla o un módulo:
+- **Un campo nuevo de la página va en TRES lugares del backend:** `PaginaPublica`, `PaginaPublicaContenidoVersion`/`ContenidoVersion()` (la foto que se publica) y `aplicarContenidoAlBorrador` (restaurar). Si falta en la foto, la página pública lo pierde sin ningún error: sirve la versión, no el borrador. Lo mismo del lado web: `Borrador` y las DOS firmas de `borrador.ts`, con la clave en la misma posición (se comparan como texto).
+- **Los tokens (`paginas_publicas.tema_tokens`, jsonb) son overrides del tema** y se validan contra el JSON Schema que genera `engine:generar` (`tema_tokens.schema.json`). El catálogo es `packages/prisma-engine/src/tokens.ts`. Sin tema se ignoran, salvo `portada` (layout, no estilo).
+- **Una clase de un módulo no lleva colores ni medidas fijas: lee `--pp-*`** (`CLASE_TARJETA`, `CLASE_TEXTO`, `text-(--pp-texto)/80`…). Los defaults viven en `.pp-raiz` (`globals.css`) y son el aspecto de antes de PE-2. El style del tema tiene que ir **en el mismo elemento** que `.pp-raiz`, o las variables que referencian a otras se resuelven con los defaults.
+- **Las opciones de sección (fondo, alineación, título público) las aplica la plantilla sobre el `<section>`**, vía `seccionPublicaDe` del paquete; un `render.tsx` no las mira. Qué ofrece cada módulo lo dice su `meta.ts` (`variantes`, `opcionesDeSeccion`), y los ids de variante viven en `variantes.ts` (sin zod: lo importa el bundle del cliente). `tokens-y-variantes.test.tsx` falla si `meta.ts` y el esquema no ofrecen las mismas variantes.
+- **Los CHECK de tema/variante/tipografía se arman desde el catálogo** en cada migración (`checksDelCatalogoDeTemas`). Sumar un tema es tocar `catalogo/temas.json` + `paletas.ts` y regenerar; no hay SQL a mano.
 
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 

@@ -546,3 +546,33 @@ input[type="password"]::-ms-clear {
   border-color: #ffffff;
 }
 
+
+/* --- Página pública: tokens de diseño (PE-2, plan Prisma Engine) ---
+   Los defaults de las custom properties `--pp-*` que leen la plantilla
+   pública (ClinicaPublicaTemplate) y los módulos de
+   @dental-mirage/prisma-engine. Son EXACTAMENTE el aspecto de antes de PE-2
+   (marfil, grafito, arena, radio de tarjeta, p-6…): una página sin tema no
+   cambia. Con tema, el style en línea que arma estiloDeTema()
+   (lib/temas-pagina-publica/aplicar.ts) pisa los que correspondan — si se
+   cambia un default acá, cambiar también TOKENS_POR_DEFECTO / los mapas de
+   aplicar.ts, que tienen que describir lo mismo.
+   Las que referencian a otras (--pp-relleno-tarjeta, --pp-contraste-fondo)
+   se resuelven en este mismo elemento, donde también vive el style del tema:
+   los hijos heredan el valor ya calculado. */
+.pp-raiz {
+  --pp-texto: var(--color-grafito);
+  --pp-superficie: var(--color-marfil);
+  --pp-borde: var(--color-arena);
+  --pp-borde-ancho: 0.5px;
+  --pp-sombra: 0 0 #0000;
+  --pp-radio: var(--radius-card);
+  --pp-relleno: 1.5rem;
+  --pp-relleno-chico: 1rem;
+  --pp-relleno-tarjeta: var(--pp-relleno);
+  --pp-espacio: 1.5rem;
+  --pp-espacio-pagina: 2.5rem;
+  --pp-fondo-imagen: none;
+  --pp-fondo-tamano: auto;
+  --pp-contraste-fondo: var(--pp-acento-texto, var(--color-salvia-oscuro));
+  --pp-contraste-texto: var(--color-marfil);
+}

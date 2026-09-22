@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PALETAS_PAGINA_PUBLICA, TIPOGRAFIAS_PAGINA_PUBLICA, TIPOGRAFIAS_POR_TEMA } from "./index";
+import { MEZCLA, PALETAS_PAGINA_PUBLICA, TIPOGRAFIAS_PAGINA_PUBLICA, TIPOGRAFIAS_POR_TEMA } from "./index";
+import { TOKENS_POR_DEFECTO } from "@dental-mirage/prisma-engine";
 import { estiloDeTema } from "./aplicar";
 import catalogoDeTemas from "../../../../../packages/prisma-engine/catalogo/temas.json";
 
@@ -31,8 +32,9 @@ function contraste(a: [number, number, number], b: [number, number, number]): nu
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-const GRAFITO = aRgb("#35312b"); // --color-grafito (globals.css)
-const NEGRO: [number, number, number] = [0, 0, 0];
+const GRAFITO = "#35312b"; // --color-grafito (globals.css) — el texto por defecto
+const MARFIL = "#fffdf9"; // --color-marfil — la superficie por defecto, y el texto sobre acento
+const BASE = { negro: [0, 0, 0] as [number, number, number], blanco: [255, 255, 255] as [number, number, number] };
 
 describe("catálogo de temas", () => {
   // PE-1: apps/api valida tema/variante/tipografía contra
@@ -51,8 +53,8 @@ describe("catálogo de temas", () => {
     expect(TIPOGRAFIAS_PAGINA_PUBLICA.map((t) => t.id)).toEqual(idsDelCatalogo.tipografias);
   });
 
-  it("son 5 temas de 3 variantes, y cada uno ofrece 2 tipografías que existen", () => {
-    expect(PALETAS_PAGINA_PUBLICA).toHaveLength(5);
+  it("son 7 temas de 3 variantes, y cada uno ofrece 2 tipografías que existen", () => {
+    expect(PALETAS_PAGINA_PUBLICA).toHaveLength(7);
     const ids = new Set(TIPOGRAFIAS_PAGINA_PUBLICA.map((t) => t.id));
     for (const p of PALETAS_PAGINA_PUBLICA) {
       expect(p.variantes).toHaveLength(3);
@@ -61,31 +63,77 @@ describe("catálogo de temas", () => {
     }
   });
 
+  // Reproduce derivarColorDeVariante (paletas.ts) con sus mismos
+  // porcentajes (MEZCLA): en un tema oscuro el acento se aclara con blanco.
+  // Cada par es un texto real sobre el fondo real donde aparece (PE-2 suma
+  // la superficie de las tarjetas, el botón de turno y la sección "contraste").
   for (const paleta of PALETAS_PAGINA_PUBLICA) {
+    const m = paleta.oscuro ? MEZCLA.oscuro : MEZCLA.claro;
+    const fondo = aRgb(paleta.fondoBase);
+    const superficie = aRgb(paleta.superficie ?? MARFIL);
+    const texto = aRgb(paleta.texto ?? GRAFITO);
+    // Lo que va encima del acento: marfil en un tema claro, el fondo en uno oscuro (aplicar.ts).
+    const sobreAcento = paleta.oscuro ? fondo : aRgb(MARFIL);
+
+    it(`${paleta.id}: el texto del cuerpo cumple AA sobre el fondo y sobre las tarjetas`, () => {
+      expect(contraste(texto, fondo)).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(texto, superficie)).toBeGreaterThanOrEqual(4.5);
+      // Al 70% (el tono más tenue que usan los módulos), sobre el fondo.
+      expect(contraste(mezclar(texto, fondo, 70), fondo)).toBeGreaterThanOrEqual(4.5);
+    });
+
     for (const v of paleta.variantes) {
-      it(`${v.id} (${v.nombre}): el texto de acento sobre su fondo suave cumple AA (4.5:1)`, () => {
-        const acento = aRgb(v.hex);
-        const fondoSuave = mezclar(acento, aRgb(paleta.fondoBase), 25);
-        const texto = mezclar(acento, NEGRO, 65);
+      const acento = aRgb(v.hex);
+      const fondoSuave = mezclar(acento, fondo, m.fondo);
+      const acentoTexto = mezclar(acento, BASE[m.con === "black" ? "negro" : "blanco"], m.texto);
+
+      it(`${v.id} (${v.nombre}): el texto de acento cumple AA sobre su fondo suave y sobre el fondo de la página`, () => {
+        expect(contraste(acentoTexto, fondoSuave)).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(acentoTexto, fondo)).toBeGreaterThanOrEqual(4.5);
+      });
+
+      it(`${v.id} (${v.nombre}): el cuerpo se lee sobre una sección de color suave`, () => {
         expect(contraste(texto, fondoSuave)).toBeGreaterThanOrEqual(4.5);
       });
 
-      it(`${v.id} (${v.nombre}): el texto de acento sobre el fondo de la página cumple AA (4.5:1)`, () => {
-        const texto = mezclar(aRgb(v.hex), NEGRO, 65);
-        expect(contraste(texto, aRgb(paleta.fondoBase))).toBeGreaterThanOrEqual(4.5);
+      it(`${v.id} (${v.nombre}): el botón relleno y la sección "contraste" cumplen AA`, () => {
+        // Los dos son "sobreAcento" sobre el acento oscurecido/aclarado.
+        expect(contraste(sobreAcento, acentoTexto)).toBeGreaterThanOrEqual(4.5);
       });
     }
-
-    it(`${paleta.id}: el cuerpo (grafito) sobre el fondo de la página cumple AA`, () => {
-      expect(contraste(GRAFITO, aRgb(paleta.fondoBase))).toBeGreaterThanOrEqual(4.5);
-    });
   }
 });
 
 describe("estiloDeTema", () => {
-  it("sin tema (o desconocido) no toca nada", () => {
-    expect(estiloDeTema("", "", "")).toEqual({ activo: false, className: "", style: {} });
+  it("sin tema (o desconocido) no toca nada: ni estilo, ni tokens de estilo", () => {
+    const e = estiloDeTema("", "", "", { forma: "recta", menu: "barra" });
+    expect(e.activo).toBe(false);
+    expect(e.className).toBe("");
+    expect(e.style).toEqual({});
+    expect(e.tokens).toEqual(TOKENS_POR_DEFECTO);
     expect(estiloDeTema("inventado", "x", "y").activo).toBe(false);
+  });
+
+  it("sin tema, la variante de portada SÍ rige (es layout, no estilo)", () => {
+    expect(estiloDeTema("", "", "", { portada: "dividida" }).tokens.portada).toBe("dividida");
+  });
+
+  it("un tema de antes de PE-2 sin tokens elegidos define los mismos valores que los defaults de .pp-raiz", () => {
+    // globals.css (.pp-raiz): radio de tarjeta, p-6, borde de medio píxel, sin sombra.
+    const style = estiloDeTema("calido", "calido-1", "").style as Record<string, string>;
+    expect(style["--pp-radio"]).toBe("var(--radius-card)");
+    expect(style["--pp-relleno"]).toBe("1.5rem");
+    expect(style["--pp-borde-ancho"]).toBe("0.5px");
+    expect(style["--pp-sombra"]).toBe("0 0 #0000");
+    expect(style["--pp-superficie"]).toBeUndefined();
+    expect(style["--pp-texto"]).toBeUndefined();
+  });
+
+  it("los tokens elegidos pisan los del tema", () => {
+    const e = estiloDeTema("editorial", "editorial-1", "", { forma: "redonda" });
+    expect(e.tokens.forma).toBe("redonda");
+    expect(e.tokens.menu).toBe("subrayado"); // del tema
+    expect((e.style as Record<string, string>)["--pp-radio"]).toBe("28px");
   });
 
   it("con tema define fondo, acento y tipografía", () => {

@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+
+	"dental-mirage/api/internal/prismaengine"
 )
 
 // lockKeyMigraciones — clave arbitraria y fija para el advisory lock de
@@ -708,36 +710,6 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Los `DROP COLUMN` de dni/tutor_dni que estaban acá se movieron al
 		// bloque de migraciones destructivas (migrate_destructiva.go).
 
-		// Fase 4.3: el catálogo de temas de la página pública ya está
-		// cerrado (temasValidos/tipografiasValidas en
-		// internal/http/temas_pagina_publica.go, espejo de
-		// apps/web/src/lib/temas-pagina-publica/) — la 4.1 dejó estas tres
-		// columnas sin CHECK a propósito, "hasta que el catálogo exista".
-		// "" = sin elegir todavía (default de la 4.1), sigue siendo válido.
-		`DO $$ BEGIN
-		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema
-		     CHECK (tema IN ('', 'calido', 'clinico', 'moderno', 'natural', 'clasico'));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-
-		`DO $$ BEGIN
-		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema_variante
-		     CHECK (tema_variante IN (
-		       '', 'calido-1', 'calido-2', 'calido-3',
-		       'clinico-1', 'clinico-2', 'clinico-3',
-		       'moderno-1', 'moderno-2', 'moderno-3',
-		       'natural-1', 'natural-2', 'natural-3',
-		       'clasico-1', 'clasico-2', 'clasico-3'
-		     ));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-
-		`DO $$ BEGIN
-		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_tema_tipografia
-		     CHECK (tema_tipografia IN (
-		       '', 'condensada-institucional', 'serif-clasica', 'geometrica-moderna',
-		       'redondeada-calida', 'editorial-suave'
-		     ));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-
 		// Color del nombre sobre la portada (Fase 4.4): set curado, espejo de
 		// coloresNombreValidos (internal/http/pagina_publica.go) y de
 		// COLORES_NOMBRE (apps/web/src/lib/pagina-publica/portada.ts).
@@ -778,6 +750,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 			return err
 		}
 	}
+
+	// PE-2: los CHECK de tema/variante/tipografía se arman desde el catálogo
+	// embebido (ver checksDelCatalogoDeTemas), no desde una lista a mano.
+	statements = append(statements, checksDelCatalogoDeTemas()...)
 
 	for _, stmt := range statements {
 		if err := gdb.Exec(stmt).Error; err != nil {
@@ -920,4 +896,39 @@ func renombrarProfesionalIDaClinicID(gdb *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+// checksDelCatalogoDeTemas (PE-2) — los CHECK de paginas_publicas sobre
+// tema/tema_variante/tema_tipografia, armados desde el catálogo que embebe
+// internal/prismaengine (packages/prisma-engine/catalogo/temas.json).
+//
+// Hasta PE-2 eran tres listas escritas a mano con el patrón `ADD CONSTRAINT
+// ... EXCEPTION WHEN duplicate_object THEN NULL`: ese patrón crea la
+// constraint UNA vez y nunca más la toca, así que sumar un tema al catálogo
+// dejaba la base rechazándolo (23514) sin que nada avisara hasta el primer
+// PATCH real. Ahora cada corrida hace DROP + ADD en UN solo ALTER TABLE
+// (atómico: nunca queda un instante sin la constraint) con la lista vigente.
+// Es barato: paginas_publicas tiene una fila por clínica.
+//
+// "" sigue siendo válido en las tres (= sin tema elegido, default de la 4.1).
+// La relación tema↔variante no se puede expresar con un CHECK por columna:
+// la valida el handler (prismaengine.TemaEsValido).
+func checksDelCatalogoDeTemas() []string {
+	return []string{
+		checkEnCatalogo("chk_pagina_publica_tema", "tema", prismaengine.IDsDeTemas()),
+		checkEnCatalogo("chk_pagina_publica_tema_variante", "tema_variante", prismaengine.IDsDeVariantes()),
+		checkEnCatalogo("chk_pagina_publica_tema_tipografia", "tema_tipografia", prismaengine.IDsDeTipografias()),
+	}
+}
+
+func checkEnCatalogo(nombre, columna string, ids []string) string {
+	valores := make([]string, 0, len(ids)+1)
+	valores = append(valores, "''")
+	for _, id := range ids {
+		valores = append(valores, "'"+strings.ReplaceAll(id, "'", "''")+"'")
+	}
+	return fmt.Sprintf(
+		"ALTER TABLE paginas_publicas DROP CONSTRAINT IF EXISTS %s, ADD CONSTRAINT %s CHECK (%s IN (%s))",
+		nombre, nombre, columna, strings.Join(valores, ", "),
+	)
 }

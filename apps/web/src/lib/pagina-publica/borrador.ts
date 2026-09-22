@@ -6,6 +6,7 @@
 import type { ContenidoVersionPaginaPublica, PaginaPublica } from "@dental-mirage/shared-types";
 import type { ActualizarPaginaPublicaPayload } from "@/lib/api";
 import type { ContenidoPagina } from "./contenido";
+import { tokensDeConfig, type TokensTema } from "@dental-mirage/prisma-engine";
 import { borradorDeModulos, modulosAPayload, type ModuloBorrador } from "./modulos";
 
 export interface Borrador {
@@ -19,6 +20,8 @@ export interface Borrador {
   direccionOverride: string;
   nombreSobrePortada: boolean;
   nombreColor: string;
+  /** PE-2: overrides de los tokens de diseño; `{}` = los del tema. */
+  temaTokens: TokensTema;
   modulos: ModuloBorrador[];
   /** PE-8: el candado optimista — lo que el servidor tenía guardado cuando se leyó/guardó este borrador. */
   revision: number;
@@ -36,6 +39,7 @@ export function borradorDePagina(p: PaginaPublica): Borrador {
     direccionOverride: p.direccionOverride ?? "",
     nombreSobrePortada: p.nombreSobrePortada,
     nombreColor: p.nombreColor,
+    temaTokens: tokensDeConfig(p.temaTokens),
     modulos: borradorDeModulos(p.modulos),
     revision: p.revision,
   };
@@ -59,6 +63,7 @@ export function borradorAPayload(b: Borrador): ActualizarPaginaPublicaPayload {
     direccionOverride: b.direccionOverride.trim(),
     nombreSobrePortada: b.nombreSobrePortada,
     nombreColor: b.nombreColor,
+    temaTokens: tokensDeConfig(b.temaTokens) as Record<string, string>,
     modulos: modulosAPayload(b.modulos),
     revision: b.revision,
   };
@@ -79,7 +84,15 @@ function firmaDeContenido(b: Borrador): string {
   // misma firma (bug real, encontrado por el primer test que ejercitó
   // hayCambiosSinPublicar).
   const { revision: _revision, ...contenido } = b;
-  return JSON.stringify({ ...contenido, modulos: contenido.modulos.map((m) => ({ tipo: m.tipo, visible: m.visible, config: m.config })) });
+  // temaTokens pasa por tokensDeConfig para quedar en el orden canónico de
+  // claves: el editor los arma con spreads (`{ ...t, forma }`), y el mismo
+  // contenido con las claves en otro orden daría otra firma — un "cambio sin
+  // guardar" fantasma. La firma de la versión publicada hace lo mismo.
+  return JSON.stringify({
+    ...contenido,
+    temaTokens: tokensDeConfig(contenido.temaTokens),
+    modulos: contenido.modulos.map((m) => ({ tipo: m.tipo, visible: m.visible, config: m.config })),
+  });
 }
 
 export function hayCambios(a: Borrador, b: Borrador): boolean {
@@ -109,6 +122,9 @@ function firmaDeContenidoPublicado(c: ContenidoVersionPaginaPublica): string {
     direccionOverride: c.direccionOverride ?? "",
     nombreSobrePortada: c.nombreSobrePortada,
     nombreColor: c.nombreColor,
+    // Mismo lugar que en Borrador (después de nombreColor): JSON.stringify
+    // respeta el orden de inserción, y las dos firmas se comparan como texto.
+    temaTokens: tokensDeConfig(c.temaTokens),
     modulos: c.modulos.map((m) => ({ tipo: m.tipo, visible: m.visible, config: m.config })),
   });
 }
@@ -127,6 +143,7 @@ export function contenidoDeBorrador(b: Borrador, pagina: Pick<PaginaPublica, "es
     direccion: b.direccionOverride.trim() || pagina.direccionClinica || null,
     nombreSobrePortada: b.nombreSobrePortada,
     nombreColor: b.nombreColor,
+    temaTokens: b.temaTokens,
     modulos: b.modulos.filter((m) => m.visible),
     estadisticas: pagina.estadisticas,
   };

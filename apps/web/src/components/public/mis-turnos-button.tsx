@@ -50,7 +50,9 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="text-sm font-medium text-grafito/70 underline decoration-arena underline-offset-4 hover:text-salvia-oscuro"
+        // El color de texto del tema (PE-2): vive dentro de la plantilla
+        // pública, y en un tema oscuro el grafito de siempre no se leería.
+        className="text-sm font-medium text-[color-mix(in_oklab,var(--pp-texto,var(--color-grafito))_70%,transparent)] underline decoration-[var(--pp-borde,var(--color-arena))] underline-offset-4 hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]"
       >
         Mis turnos
       </button>

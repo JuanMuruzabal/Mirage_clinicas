@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { TipoModulo } from "./tipos";
 import { campoNombrePropio } from "./schema-base";
+import { OPCIONES_TOKENS, type ClaveToken } from "./tokens";
 import { schema as sobreNosotrosSchema } from "./modulos/sobre-nosotros/schema";
 import { schema as textoLibreSchema } from "./modulos/texto-libre/schema";
 import { schema as especialidadesSchema } from "./modulos/especialidades/schema";
@@ -33,3 +34,26 @@ export const ESQUEMAS_MODULOS: Record<TipoModulo | "horarios", z.ZodTypeAny> = {
   contacto: contactoSchema,
   horarios: z.object({ ...campoNombrePropio }),
 };
+
+// z.enum necesita una tupla no vacía; `as const` de arriba ya la garantiza.
+const opcion = <K extends ClaveToken>(clave: K) => z.enum(OPCIONES_TOKENS[clave]).optional();
+
+/**
+ * Tokens de diseño de la página (PE-2, ver tokens.ts). El esquema que `pnpm engine:generar` exporta como `tema_tokens.schema.json`
+ * para que apps/api valide el PATCH sin conocer los tokens por nombre.
+ * `.strict()`: una clave desconocida se rechaza (zod-to-json-schema emite
+ * `additionalProperties: false`), igual que la config de un módulo.
+ */
+export const tokensSchema = z
+  .object({
+    forma: opcion("forma"),
+    densidad: opcion("densidad"),
+    superficie: opcion("superficie"),
+    fondo: opcion("fondo"),
+    boton: opcion("boton"),
+    botonEstilo: opcion("botonEstilo"),
+    menu: opcion("menu"),
+    portada: opcion("portada"),
+  })
+  .strict();
+
