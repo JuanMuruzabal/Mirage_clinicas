@@ -3,95 +3,86 @@
 // (que arma y guarda la lista) y la PLANTILLA (que la renderiza), para que
 // nunca describan dos páginas distintas.
 //
-// "portada" y "turno" no están acá a propósito: son estructurales, van
-// siempre primero y la plantilla los dibuja directo (mismo criterio que el
-// backend, ver tiposModuloValidos en internal/http/pagina_publica.go).
-// "horarios" tampoco está todavía: el backend lo acepta, pero decidir de
-// dónde sale (¿la agenda de cuál de los profesionales?) quedó pendiente —
-// ver "Preguntas abiertas" del documento de definición.
+// PE-1 (docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md): el
+// catálogo de módulos (config inicial, ancho, formulario, render) vive en
+// @dental-mirage/prisma-engine — este archivo queda como fachada para no
+// tocar cada import existente, más las funciones de PÁGINA (mover, filtrar,
+// armar el payload) que no son de un módulo puntual.
+//
+// "portada" y "turno" no están en el registro a propósito: son
+// estructurales, van siempre primero y la plantilla los dibuja directo
+// (mismo criterio que el backend, ver tiposModuloValidos en
+// internal/http/pagina_publica.go). "horarios" tampoco está todavía: el
+// backend lo acepta, pero decidir de dónde sale (¿la agenda de cuál de los
+// profesionales?) se resuelve en PE-6 (horario del edificio).
+import {
+  DEFINICIONES_MODULOS,
+  ESTADISTICAS,
+  MAX_LARGO_BIO,
+  MAX_LARGO_NOMBRE_MODULO,
+  MAX_LARGO_RED,
+  MAX_LARGO_TEXTO_LIBRE,
+  MAX_LARGO_TITULO_TEXTO,
+  REDES_SOCIALES,
+  SUBTIPOS_FOTO,
+  TOPE_FOTOS_GALERIA,
+  TOPE_FOTOS_SUELTAS,
+  definicionDeModulo,
+  listaDeConfig,
+  subtipoDeConfig,
+  textoDeConfig,
+  type CamposDePagina,
+  type ComponentesInyectados,
+  type ContextoPublico,
+  type DefinicionModulo,
+  type EditorModuloProps,
+  type EstadisticaId,
+  type ModuloBorrador,
+  type PropsSubirFoto,
+  type RedSocial,
+  type SeccionPublica,
+  type SubtipoFoto,
+  type TipoModulo,
+  type UtilsRender,
+} from "@dental-mirage/prisma-engine";
 import type { PaginaPublicaModulo } from "@dental-mirage/shared-types";
 import type { PaginaPublicaModuloPayload } from "@/lib/api";
 
-export type TipoModulo = "sobre_nosotros" | "texto_libre" | "especialidades" | "foto" | "galeria" | "estadisticas" | "contacto";
-export type SubtipoFoto = "retrato" | "banner" | "franja";
-export type EstadisticaId = "pacientes_atendidos" | "turnos_realizados";
-export type RedSocial = "instagram" | "facebook" | "whatsapp";
-
-// Espejo de los topes de internal/http/pagina_publica.go — si se cambian
-// allá hay que cambiarlos acá (el backend rechaza lo que se pase, así que
-// un desfase se ve como un error al guardar, no como datos rotos).
-export const TOPE_FOTOS_GALERIA = 8;
-export const TOPE_FOTOS_SUELTAS = 10;
-export const MAX_LARGO_BIO = 2000;
-export const MAX_LARGO_TITULO_TEXTO = 80;
-export const MAX_LARGO_TEXTO_LIBRE = 2000;
-export const MAX_LARGO_RED = 100;
-export const MAX_LARGO_NOMBRE_MODULO = 60;
-
-export const ESTADISTICAS: { id: EstadisticaId; etiqueta: string; descripcion: string }[] = [
-  { id: "pacientes_atendidos", etiqueta: "Pacientes atendidos", descripcion: "Personas con al menos un turno al que asistieron." },
-  { id: "turnos_realizados", etiqueta: "Turnos realizados", descripcion: "Turnos marcados como asistidos." },
-];
-
-export const REDES_SOCIALES: { id: RedSocial; etiqueta: string; placeholder: string }[] = [
-  { id: "instagram", etiqueta: "Instagram", placeholder: "@tuclinica" },
-  { id: "facebook", etiqueta: "Facebook", placeholder: "tuclinica" },
-  { id: "whatsapp", etiqueta: "WhatsApp", placeholder: "+54 9 351 1234567" },
-];
-
-export const SUBTIPOS_FOTO: { id: SubtipoFoto; etiqueta: string; descripcion: string }[] = [
-  { id: "banner", etiqueta: "Banner", descripcion: "Horizontal, del ancho de la sección." },
-  { id: "retrato", etiqueta: "Retrato", descripcion: "Vertical, más angosta." },
-  { id: "franja", etiqueta: "Franja", descripcion: "Muy ancha y baja, de borde a borde." },
-];
-
-export interface DefinicionModulo {
-  tipo: TipoModulo;
-  nombre: string;
-  descripcion: string;
-  /** Se puede tener más de uno en la misma página. */
-  repetible: boolean;
-}
-
-export const DEFINICIONES_MODULOS: DefinicionModulo[] = [
-  { tipo: "sobre_nosotros", nombre: "Sobre nosotros", descripcion: "Un texto institucional sobre la clínica.", repetible: false },
-  { tipo: "texto_libre", nombre: "Texto libre", descripcion: "Una sección de texto con título propio.", repetible: true },
-  { tipo: "especialidades", nombre: "Especialidades", descripcion: "Se arma sola con las de los profesionales.", repetible: false },
-  { tipo: "foto", nombre: "Foto", descripcion: "Una imagen destacada.", repetible: true },
-  { tipo: "galeria", nombre: "Galería", descripcion: "Varias fotos juntas.", repetible: false },
-  { tipo: "estadisticas", nombre: "Estadísticas", descripcion: "Números reales de tu clínica.", repetible: false },
-  { tipo: "contacto", nombre: "Contacto", descripcion: "Dirección, mapa, teléfono y redes.", repetible: false },
-];
-
-export function definicionDeModulo(tipo: string): DefinicionModulo | undefined {
-  return DEFINICIONES_MODULOS.find((d) => d.tipo === tipo);
-}
-
-/**
- * Un módulo tal como lo maneja el editor. `clave` es SOLO del cliente —
- * identifica la fila en React y en el arrastre —, no viaja al backend: el
- * PATCH reemplaza todos los módulos y los ids los pone la base.
- */
-export interface ModuloBorrador {
-  clave: string;
-  tipo: string;
-  visible: boolean;
-  config: Record<string, unknown>;
-}
+export type {
+  CamposDePagina,
+  ComponentesInyectados,
+  ContextoPublico,
+  DefinicionModulo,
+  EditorModuloProps,
+  EstadisticaId,
+  ModuloBorrador,
+  PropsSubirFoto,
+  RedSocial,
+  SeccionPublica,
+  SubtipoFoto,
+  TipoModulo,
+  UtilsRender,
+};
+export {
+  DEFINICIONES_MODULOS,
+  ESTADISTICAS,
+  MAX_LARGO_BIO,
+  MAX_LARGO_NOMBRE_MODULO,
+  MAX_LARGO_RED,
+  MAX_LARGO_TEXTO_LIBRE,
+  MAX_LARGO_TITULO_TEXTO,
+  REDES_SOCIALES,
+  SUBTIPOS_FOTO,
+  TOPE_FOTOS_GALERIA,
+  TOPE_FOTOS_SUELTAS,
+  definicionDeModulo,
+  listaDeConfig,
+  subtipoDeConfig,
+  textoDeConfig,
+};
 
 export function configInicial(tipo: string): Record<string, unknown> {
-  switch (tipo) {
-    case "texto_libre":
-      return { titulo: "", texto: "" };
-    case "foto":
-      return { fotoUrl: "", subtipo: "banner" };
-    case "galeria":
-      return { fotoUrls: [] };
-    case "estadisticas":
-      return { mostrar: ESTADISTICAS.map((e) => e.id) };
-    default:
-      return {};
-  }
+  return definicionDeModulo(tipo)?.configInicial() ?? {};
 }
 
 let contadorDeClaves = 0;
@@ -184,9 +175,7 @@ export function puedeAgregar(modulos: ModuloBorrador[], tipo: string): boolean {
  * grilla tiene dos y estos son los que ocupan una sola.
  */
 export function anchoDeModulo(tipo: string, config: Record<string, unknown>): "completo" | "medio" {
-  if (tipo === "especialidades" || tipo === "estadisticas") return "medio";
-  if (tipo === "foto" && config.subtipo === "retrato") return "medio";
-  return "completo";
+  return definicionDeModulo(tipo)?.ancho(config) ?? "completo";
 }
 
 // --- Nombre propio de un módulo ------------------------------------------
@@ -207,21 +196,4 @@ export function conNombrePropio(config: Record<string, unknown>, nombre: string)
   if (nombre.trim() === "") delete copia.nombre;
   else copia.nombre = nombre;
   return copia;
-}
-
-// --- Lectura tipada de la config (jsonb sin forma común) -----------------
-
-export function textoDeConfig(config: Record<string, unknown>, clave: string): string {
-  const v = config[clave];
-  return typeof v === "string" ? v : "";
-}
-
-export function listaDeConfig(config: Record<string, unknown>, clave: string): string[] {
-  const v = config[clave];
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-}
-
-export function subtipoDeConfig(config: Record<string, unknown>): SubtipoFoto {
-  const v = config.subtipo;
-  return v === "retrato" || v === "franja" ? v : "banner";
 }
