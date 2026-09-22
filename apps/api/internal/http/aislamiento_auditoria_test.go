@@ -47,6 +47,13 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		"horario_atencion.go", "disponibilidad.go", "enlace_turno.go",
 		"seguridad_turno_publico.go", "pagina_publica.go", "especialidades.go",
 		"pacientes_de_la_clinica.go",
+		// Los contadores de las pestañas (ronda de optimización post-Fase
+		// 3). Hoy no tienen ni una consulta propia por clínica —todo pasa
+		// por `filtrosComunesDeTurnos`/`filtrosComunesDePacientes`, que
+		// viven en archivos ya auditados—, así que entrar a la lista no
+		// cuesta nada. Es para mañana: el día que alguien les agregue una
+		// consulta directa, esta auditoría la tiene que ver.
+		"turnos_contadores.go", "pacientes_contadores.go",
 	}
 
 	// Los scopes de visibilidad.go.

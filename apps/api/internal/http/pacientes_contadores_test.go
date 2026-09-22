@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 )
@@ -134,4 +136,57 @@ func contadoresDePacientesDePrueba(t *testing.T, router http.Handler, token, que
 		t.Fatalf("contadores: no se pudo leer la respuesta: %v", err)
 	}
 	return out
+}
+
+// La subconsulta de "verificado" va acotada a la clínica (revisión del
+// 2026-09-23). Recorría los turnos asistidos de TODO el sistema: medido,
+// 40 veces más lenta con 20.000 turnos asistidos en otra clínica. Lo que
+// un test puede afirmar es la regla que la acotación implica: un turno
+// asistido de OTRA clínica no verifica una ficha de esta.
+//
+// El fixture fuerza una referencia cruzada que el flujo normal no crea
+// —justamente para que el test dependa del filtro y no de que los datos
+// vengan prolijos.
+func TestPacientesVerificadosQuery_UnTurnoDeOtraClinicaNoVerifica(t *testing.T) {
+	router, gdb := newTestRouter(t)
+	a := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "verif-a@example.com", Password: "unaClaveLarga123",
+		Nombre: "Clínica", NombreClinica: "Clínica A",
+	})
+	b := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Email: "verif-b@example.com", Password: "unaClaveLarga123",
+		Nombre: "Clínica", NombreClinica: "Clínica B",
+	})
+	clinicA := clinicaDePrueba(t, a.Profesional.ID)
+	clinicB := clinicaDePrueba(t, b.Profesional.ID)
+	userB := userIDDelMail(t, gdb, "verif-b@example.com")
+
+	// Una ficha de A que llegó por la página pública: sin verificar.
+	ficha := db.Paciente{ClinicID: clinicA, Nombre: "Pac", Apellido: "Iente", DNI: "90000001", Origen: "pagina_publica"}
+	if err := gdb.Create(&ficha).Error; err != nil {
+		t.Fatalf("no se pudo crear la ficha: %v", err)
+	}
+
+	// Un turno ASISTIDO en B que apunta a esa ficha de A.
+	inicio := time.Now().Add(-48 * time.Hour)
+	fin := inicio.Add(30 * time.Minute)
+	asistio := "asistio"
+	if err := gdb.Create(&db.Turno{
+		ClinicID: clinicB, AtendidoPorUserID: &userB, PacienteID: &ficha.ID,
+		Estado: "agendado", HoraInicio: &inicio, HoraFin: &fin, Asistencia: &asistio,
+		NombreContacto: "Pac", ApellidoContacto: "Iente", DNIContacto: "90000001",
+		TelefonoContacto: "+5493511234567", EmailContacto: "x@example.com", Origen: "manual",
+	}).Error; err != nil {
+		t.Fatalf("no se pudo crear el turno cruzado: %v", err)
+	}
+
+	var ids []uuid.UUID
+	if err := pacientesVerificadosQuery(gdb, clinicA).Pluck("id", &ids).Error; err != nil {
+		t.Fatalf("pacientesVerificadosQuery: %v", err)
+	}
+	for _, id := range ids {
+		if id == ficha.ID {
+			t.Fatal("un turno asistido de OTRA clínica verificó una ficha de esta")
+		}
+	}
 }
