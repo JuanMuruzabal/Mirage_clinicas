@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import type { ContadoresDePacientes } from "@dental-mirage/shared-types";
 import Link from "next/link";
 import {
-  apiContarPacientes,
+  apiContadoresDePacientes,
   apiListConflictosPaciente,
   apiListPacientesPaginado,
 } from "@/lib/api";
@@ -63,6 +64,12 @@ export default async function PacientesPage({
   // verificado/sin verificar baja al backend con el mismo parámetro y la
   // misma subquery que ya usaba /turnos — filtrar una tanda parcial del
   // lado del cliente mostraría cualquier cosa.
+  // Sin sesión no se pide nada y las pestañas muestran cero.
+  const SIN_CONTADORES_PACIENTES: ContadoresDePacientes = {
+    todos: 0,
+    verificados: 0,
+    sinVerificar: 0,
+  };
   const filtros: ListarPacientesParams = {
     q,
     verificacion:
@@ -72,23 +79,41 @@ export default async function PacientesPage({
           ? "sin_verificar"
           : undefined,
   };
-  const [paginaPacientes, cTodos, cVerificados, cSinVerificar] = token
+  // TODO lo que esta pantalla necesita, de una sola vez (ronda de
+  // optimización post-Fase 3, 2026-09-22). Dos cambios en el mismo lugar:
+  //
+  // 1. Los tres contadores de pestaña son UN pedido en vez de tres. Las
+  //    tres pestañas filtran igual salvo por la verificación, así que el
+  //    backend las cuenta de una pasada (ver `apiContadoresDePacientes`).
+  // 2. Los conflictos y los tipos de consulta ENTRAN acá. Estaban como
+  //    dos `await` sueltos más abajo, uno atrás del otro y atrás de este
+  //    bloque: tres viajes en fila para tres datos que no dependen entre
+  //    sí. Lo único que los ponía en ese orden era el orden en que se
+  //    fueron escribiendo.
+  const [
+    paginaPacientes,
+    contadores,
+    conflictosResult,
+    tiposConsulta,
+  ] = token
     ? await Promise.all([
         apiListPacientesPaginado(token, filtros, PACIENTES_POR_PAGINA, 0),
-        apiContarPacientes(token, { q }),
-        apiContarPacientes(token, { q, verificacion: "verificado" }),
-        apiContarPacientes(token, { q, verificacion: "sin_verificar" }),
+        apiContadoresDePacientes(token, { q }),
+        apiListConflictosPaciente(token),
+        // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
+        // precargada. Ver `lib/tipos-de-la-vista.ts`.
+        tiposConsultaDeLaVista(token, sesion.roles),
       ])
-    : [null, 0, 0, 0];
+    : [null, SIN_CONTADORES_PACIENTES, null, []];
 
   const pacientesFiltrados = paginaPacientes?.ok
     ? paginaPacientes.data.items
     : [];
   const totalPacientes = paginaPacientes?.ok ? paginaPacientes.data.total : 0;
   const conteoPorTab: Record<TabPacientes, number> = {
-    todos: cTodos,
-    verificados: cVerificados,
-    sin_verificar: cSinVerificar,
+    todos: contadores.todos,
+    verificados: contadores.verificados,
+    sin_verificar: contadores.sinVerificar,
   };
   const querySecundaria = q ? `&q=${encodeURIComponent(q)}` : "";
   // hrefBaseSinQ — para BuscadorEnVivo (TR-115): mismo tab vigente, sin
@@ -100,9 +125,6 @@ export default async function PacientesPage({
   // compitiendo por el mismo DNI, detectadas desde el formulario público)
   // — banner arriba de la tabla, igual criterio que el banner de
   // conflicto del calendario (TR-095).
-  const conflictosResult = token
-    ? await apiListConflictosPaciente(token)
-    : null;
   const conflictos = conflictosResult?.ok ? conflictosResult.data : [];
   // Corrección de QA: la pantalla de resolución de conflictos muestra el
   // NOMBRE del tipo de consulta del turno en conflicto (y del que ya
@@ -112,10 +134,6 @@ export default async function PacientesPage({
   // clínica, así que "+ Agregar paciente > De la clínica" no tiene a qué
   // lista sumar (ver AgregarPacienteModal).
   const enVistaGeneral = esRecepcion && vista?.profesional == null;
-
-  // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
-  // precargada. Ver `lib/tipos-de-la-vista.ts`.
-  const tiposConsulta = await tiposConsultaDeLaVista(token, sesion.roles);
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta

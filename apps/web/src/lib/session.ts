@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type {
@@ -57,14 +58,37 @@ export async function clearSessionCookie(): Promise<void> {
 // inválida que queda sin limpiar hasta el próximo login/logout explícito
 // es inofensiva (apiMe la vuelve a rechazar en cada request, sin loop);
 // un 500 en cada visita no lo es.
-export async function getMe(): Promise<Me | null> {
+// MEMOIZADO POR REQUEST con `cache()` de React (ronda de optimización
+// post-Fase 3, 2026-09-22).
+//
+// Una sola carga de /panel pedía `/me` TRES veces —medido contra los
+// contenedores, tres líneas en el log de la API por cada F5—: el header
+// del layout raíz, el layout de /panel y la página. Es siempre la misma
+// pregunta, con el mismo token, dentro del mismo render.
+//
+// Y no era solo el viaje: TODO request autenticado paga dos consultas a
+// Postgres antes de trabajar (`requireSession` + `requireClinic`), así
+// que eran seis consultas para saber tres veces lo mismo.
+//
+// `cache()` memoiza por REQUEST, no entre requests: dos personas distintas,
+// o la misma dos segundos después, no comparten nada. Por eso no hace
+// falta invalidar nada y no puede mostrar una sesión vieja — que es
+// exactamente lo que descartó a un caché con TTL acá (ver
+// `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`).
+//
+// Requisito para que esto valga: llamarlo SOLO durante el render de un
+// Server Component. Fuera de un render, `cache()` no memoiza nada —no
+// rompe, simplemente no sirve— y todos los llamadores de este archivo ya
+// cumplían esa condición desde TR-049, por un motivo distinto (no se
+// pueden tocar cookies durante el render).
+export const getMe = cache(async function getMe(): Promise<Me | null> {
   const token = await getSessionToken();
   if (!token) return null;
 
   const result = await apiMe(token);
   if (!result.ok) return null;
   return result.data;
-}
+});
 
 // requireSession — helper para Server Components que necesitan sesión
 // pero NO necesariamente onboarding completo (ej. el wizard mismo). Sin

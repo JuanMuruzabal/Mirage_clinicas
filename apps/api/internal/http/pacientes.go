@@ -18,6 +18,7 @@ import (
 // autenticadas, acotadas al profesional del token.
 func registerPacienteRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/pacientes", listPacientesHandler(gdb))
+	r.Get("/pacientes/contadores", contadoresDePacientesHandler(gdb))
 	// La búsqueda a nivel CLÍNICA, para enganchar la ficha de un paciente
 	// que ya cargó un colega — ver pacientes_de_la_clinica.go.
 	registerPacientesDeLaClinicaRoutes(r, gdb)
@@ -228,6 +229,27 @@ func alternativosDeContactoPorPaciente(tx *gorm.DB, profesionalID uuid.UUID) (ma
 
 // listPacientesHandler — GET /pacientes?q= (T3.5): tabla de pacientes,
 // buscador por nombre/apellido/DNI igual que Turnos.
+// filtrosComunesDePacientes — el aislamiento entre colegas y la búsqueda,
+// que el listado y los contadores aplican IGUAL. Extraído para que no
+// puedan divergir: una pestaña que dice "12" sobre una tabla de 9 filas
+// es peor que una pestaña sin número.
+//
+// A diferencia de su par de turnos, no devuelve error: ninguno de estos
+// filtros puede venir mal escrito (la búsqueda es texto libre).
+func filtrosComunesDePacientes(
+	r *http.Request, gdb *gorm.DB, clinicID uuid.UUID,
+) *gorm.DB {
+	// Aislamiento entre colegas (Fase 3.2.2): la ficha es de la clínica,
+	// pero un profesional ve las de SUS pacientes — los que tienen algún
+	// turno con él.
+	query := gdb.Where("clinic_id = ?", clinicID).Scopes(soloMisPacientes(r))
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		like := "%" + q + "%"
+		query = query.Where("nombre ILIKE ? OR apellido ILIKE ? OR dni ILIKE ?", like, like, like)
+	}
+	return query
+}
+
 func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -235,14 +257,7 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Aislamiento entre colegas (Fase 3.2.2): la ficha es de la
-		// clínica, pero un profesional ve las de SUS pacientes — los que
-		// tienen algún turno con él.
-		query := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloMisPacientes(r))
-		if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-			like := "%" + q + "%"
-			query = query.Where("nombre ILIKE ? OR apellido ILIKE ? OR dni ILIKE ?", like, like, like)
-		}
+		query := filtrosComunesDePacientes(r, gdb, profesionalID)
 
 		// verificacion — mismo filtro (y misma subquery) que
 		// listTurnosHandler (turnos.go): las pestañas Todos/Verificados/Sin
@@ -253,6 +268,10 @@ func listPacientesHandler(gdb *gorm.DB) http.HandlerFunc {
 		// pacientesVerificadosQuery, y no el mapa en memoria de
 		// pacientesVerificadosIDs, justamente para no caer en el `NOT IN
 		// (NULL)` que describe el comentario de esa función.
+		//
+		// No entra en `filtrosComunesDePacientes` porque es justo lo que
+		// distingue una pestaña de otra — el contador las cuenta todas de
+		// una pasada (ver pacientes_contadores.go).
 		if verificacion := r.URL.Query().Get("verificacion"); verificacion != "" {
 			sub := pacientesVerificadosQuery(gdb, profesionalID)
 			switch verificacion {

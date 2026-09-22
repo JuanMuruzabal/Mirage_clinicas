@@ -759,6 +759,19 @@ Sobre el último: es el único ítem del informe que **no arregla nada** — no 
 
 Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
 
+### 12.5 Ronda de optimización post-Fase 3 (2026-09-22)
+
+Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161.
+
+| | Veredicto |
+|---|---|
+| **Índice `(clinic_id, atendido_por_user_id, hora_inicio)`** | ✅ Aplicado. No estaba en la lista y fue lo de más impacto: el panel resolvía su consulta más común con un **seq scan de `turnos` entero** — O(turnos de todas las clínicas). Medido: 1,163 ms → 0,077 ms; `/panel/resumen` de 56,6 a 31,8 ms con 41.875 filas |
+| **Caché por request (`cache()` de React)** | ✅ Aplicado. `/me` se pedía **3 veces por carga de página**, y cada request autenticado paga 2 consultas antes de trabajar |
+| **Un endpoint de contadores en vez de N requests** | ✅ Aplicado. Las pestañas de Turnos (4) y Pacientes (3) pedían un request cada una para leer un número. Ahora `COUNT(*) FILTER`, una pasada. Trabajo de servidor por carga: −88% en Turnos, −72% en Pacientes |
+| **Goroutines intra-request** | ❌ Revertido. **Incompatible con `internal/testdb`**, que da a cada test una transacción (= una conexión, sin concurrencia). El costo real de quererlo no es el `errgroup`: es rediseñar el harness |
+| **Colas (envío de mails)** | ⏸ Identificado, no implementado. Es el caso correcto —12 envíos sincrónicos dentro del request— pero es lo único que no se puede medir sin Resend. **Condición:** comparar `duracion_ms` de los endpoints que mandan mail contra sus vecinos, en un deploy real |
+| **Memcache / Redis** | ⛔ Sigue bloqueado por la misma condición de §12.3: más de una instancia |
+
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.

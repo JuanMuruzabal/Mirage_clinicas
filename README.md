@@ -497,17 +497,18 @@ complejidad y rendimiento antes de escalar a N profesionales / N clínicas.
 No fue un trabajo de una vez: queda como **línea de trabajo recurrente**,
 con un snapshot fechado por ronda para poder comparar.
 
-Los cuatro documentos, en `docs/Seguridad y optimizacion/`:
+Los documentos, en `docs/Seguridad y optimizacion/`:
 
 | Documento | Qué es |
 |---|---|
 | [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/snapshot-2026-09-09.md>) | **Empezá por acá.** El inventario completo de qué hace seguro y eficiente al sistema hoy — sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué agregó la auditoría. Cierra con lo que **no** está y qué lo activa |
 | [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | El diagnóstico crudo, módulo por módulo, y el registro de cada ronda de arreglos (§13 a §17) |
 | [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría |
+| [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/optimizacion-post-fase3.md>) | La ronda de **optimización del panel multi-tenant** (2026-09-22): qué se midió y cómo, qué se aplicó de caché/goroutines/colas y qué se descartó, con los números y las condiciones de activación de lo que quedó pendiente |
 | [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada snapshot |
 
 Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md`
-**TR-121 a TR-132**. Plan por fases: `implementation-plan.md` §12.
+**TR-121 a TR-132**, y **TR-161**. Plan por fases: `implementation-plan.md` §12.
 
 **Qué cambió en el sistema.** Fases A y B cerradas, y los dos ítems
 accionables de la Fase C:
