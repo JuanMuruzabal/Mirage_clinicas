@@ -54,6 +54,7 @@ export const tokensSchema = z
     botonEstilo: opcion("botonEstilo"),
     menu: opcion("menu"),
     portada: opcion("portada"),
+    movimiento: opcion("movimiento"),
+    fondoAnimado: opcion("fondoAnimado"),
   })
   .strict();
-

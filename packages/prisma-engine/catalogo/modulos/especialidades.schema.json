@@ -31,6 +31,105 @@
         "tarjetas",
         "lista"
       ]
+    },
+    "efectos": {
+      "type": "object",
+      "properties": {
+        "tarjeta": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "inclinacion",
+                "foco-cursor",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "titulo": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "texto": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,

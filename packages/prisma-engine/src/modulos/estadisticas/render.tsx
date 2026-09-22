@@ -4,13 +4,16 @@ import { CLASE_TARJETA_CHICA, CLASE_TEXTO_TENUE, Titulo } from "../../comunes";
 import { listaDeConfig, textoDeConfig, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { VARIANTES } from "./variantes";
+import { envolverSlots } from "../../efectos/envolver-slots";
+import { SLOTS_ESTADISTICAS } from "../../efectos/slots";
 
 const CLASE_NUMERO = "font-[family-name:var(--font-display)] font-medium text-[var(--pp-acento-texto,var(--color-grafito))]";
 
-function Estadisticas({ config, estadisticas }: { config: Record<string, unknown>; estadisticas: Record<string, number> }): ReactNode {
+function Estadisticas({ config, estadisticas, estiloMovimiento }: { config: Record<string, unknown>; estadisticas: Record<string, number>; estiloMovimiento?: ContextoPublico["estiloMovimiento"] }): ReactNode {
   const elegidas = ESTADISTICAS.filter((e) => listaDeConfig(config, "mostrar").includes(e.id));
   if (elegidas.length === 0) return null;
   const tituloPropio = textoDeConfig(config, "tituloPublico").trim();
+  const envolver = envolverSlots(config, estiloMovimiento, SLOTS_ESTADISTICAS);
 
   const cuerpo =
     varianteDeConfig(config, VARIANTES) === "franja" ? (
@@ -18,33 +21,33 @@ function Estadisticas({ config, estadisticas }: { config: Record<string, unknown
       <div className="flex flex-wrap items-center justify-around gap-6 rounded-(--pp-radio) bg-[var(--pp-acento-suave,var(--color-salvia-claro))] p-(--pp-relleno) text-center">
         {elegidas.map((e) => (
           <div key={e.id} className="flex flex-col items-center gap-1">
-            <span className={`${CLASE_NUMERO} text-5xl`}>{estadisticas[e.id] ?? 0}</span>
+            {envolver("numero", <span className={`${CLASE_NUMERO} text-5xl`}>{estadisticas[e.id] ?? 0}</span>)}
             <span className={`text-sm ${CLASE_TEXTO_TENUE}`}>{e.etiqueta}</span>
           </div>
         ))}
       </div>
     ) : (
       <div className="grid grid-cols-2 gap-3">
-        {elegidas.map((e) => (
-          <div key={e.id} className={`${CLASE_TARJETA_CHICA} flex flex-col items-center justify-center gap-1 text-center`}>
-            <span className={`${CLASE_NUMERO} text-3xl`}>{estadisticas[e.id] ?? 0}</span>
+        {elegidas.map((e) =>
+          envolver("tarjeta", <div key={e.id} className={`${CLASE_TARJETA_CHICA} flex flex-col items-center justify-center gap-1 text-center`}>
+            {envolver("numero", <span className={`${CLASE_NUMERO} text-3xl`}>{estadisticas[e.id] ?? 0}</span>)}
             <span className={`text-xs ${CLASE_TEXTO_TENUE}`}>{e.etiqueta}</span>
-          </div>
-        ))}
+          </div>),
+        )}
       </div>
     );
 
   if (!tituloPropio) return cuerpo;
   return (
     <div className="flex flex-col gap-3 text-center">
-      <Titulo>{tituloPropio}</Titulo>
+      {envolver("titulo", <Titulo>{tituloPropio}</Titulo>)}
       {cuerpo}
     </div>
   );
 }
 
 export function seccion(modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
-  const nodo = Estadisticas({ config: modulo.config, estadisticas: contexto.contenido.estadisticas });
+  const nodo = Estadisticas({ config: modulo.config, estadisticas: contexto.contenido.estadisticas, estiloMovimiento: contexto.estiloMovimiento });
   if (nodo === null) return null;
   const franja = varianteDeConfig(modulo.config, VARIANTES) === "franja";
   // Sin título propio no lleva link en el menú (como antes de PE-3).

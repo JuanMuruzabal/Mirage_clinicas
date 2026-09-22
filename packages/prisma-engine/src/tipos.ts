@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { Alineacion, FondoSeccion } from "./seccion";
+import type { DefinicionSlotAnimable, EstiloMovimiento } from "./efectos/catalogo";
 
 // Tipos del registro único de módulos (PE-1). apps/web es hoy el único
 // consumidor, así que el paquete no conoce Server Actions ni imports con
@@ -105,6 +106,7 @@ export interface ContextoPublico {
   especialidades: string[];
   contenido: ContenidoParaModulos;
   utils: UtilsRender;
+  estiloMovimiento?: EstiloMovimiento;
 }
 
 /**
@@ -145,6 +147,8 @@ export interface DefinicionModulo {
   /** Variantes de layout (PE-3). Vacío = una sola forma, el editor no muestra selector. La primera es el default. */
   variantes: VarianteModulo[];
   opcionesDeSeccion: OpcionesDeSeccion;
+  /** Slots hoja que admiten efectos; evita aplicar transforms a contenedores de modales. */
+  slotsAnimables: readonly DefinicionSlotAnimable[];
   Editor: (props: EditorModuloProps) => ReactNode;
   seccion: (modulo: ModuloBorrador, indice: number, contexto: ContextoPublico) => SeccionPublica | null;
 }

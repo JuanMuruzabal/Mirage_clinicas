@@ -1,6 +1,7 @@
 import type { DefinicionModulo } from "../../tipos";
 import { Editor } from "./editor";
 import { seccion } from "./render";
+import { SLOTS_TARJETA } from "../../efectos/slots";
 
 export const especialidadesModulo: DefinicionModulo = {
   tipo: "especialidades",
@@ -15,6 +16,7 @@ export const especialidadesModulo: DefinicionModulo = {
     { id: "lista", nombre: "Lista", bloques: [[30, 6, 40, 6, "titulo"], [10, 20, 80, 4, "texto"], [10, 30, 80, 4, "texto"], [10, 40, 80, 4, "texto"], [10, 50, 60, 4, "texto"]] },
   ],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: true },
+  slotsAnimables: SLOTS_TARJETA,
   Editor,
   seccion,
 };

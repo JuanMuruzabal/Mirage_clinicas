@@ -12,6 +12,7 @@
     "generar": "tsx scripts/generar.ts"
   },
   "peerDependencies": {
+    "framer-motion": "^13.1.0",
     "react": "^19.0.0"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19",
+    "framer-motion": "^13.1.0",
     "@vitejs/plugin-react": "^6.0.5",
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^30.0.1",

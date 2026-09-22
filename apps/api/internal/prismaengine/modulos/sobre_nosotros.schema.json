@@ -32,6 +32,105 @@
         "dos-columnas"
       ]
     },
+    "efectos": {
+      "type": "object",
+      "properties": {
+        "titulo": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "texto": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "imagen": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "inclinacion",
+                "reflejo",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "fotoUrl": {
       "type": "string",
       "maxLength": 500,

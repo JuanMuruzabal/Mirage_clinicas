@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { CLASE_FOTO, Foto } from "../../comunes";
 import { subtipoDeConfig, textoDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
+import { SlotDeModulo } from "../../efectos/modulo";
+import { SLOTS_FOTO } from "../../efectos/slots";
 
 function FotoSuelta({
   config,
@@ -28,5 +30,6 @@ export function seccion(modulo: ModuloBorrador, indice: number, contexto: Contex
     esUrlDeFotoSegura: contexto.utils.esUrlDeFotoSegura,
   });
   if (nodo === null) return null;
-  return { id: `foto-${indice}`, etiqueta: null, ancho: subtipoDeConfig(modulo.config) === "retrato" ? "medio" : "completo", contenido: nodo };
+  return { id: `foto-${indice}`, etiqueta: null, ancho: subtipoDeConfig(modulo.config) === "retrato" ? "medio" : "completo", contenido:
+    <SlotDeModulo config={modulo.config} slot={SLOTS_FOTO[0]} estiloMovimiento={contexto.estiloMovimiento}>{nodo}</SlotDeModulo> };
 }
