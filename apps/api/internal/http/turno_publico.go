@@ -770,13 +770,21 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		hoy := clock.Today()
 		ultimoDiaDelMes := primerDia.AddDate(0, 1, -1).Day()
+		// Las reglas y los turnos del mes entero, de una: mismo motivo que
+		// `primerDiaConHueco` (ver `reglasDeDisponibilidad`). Eran cinco
+		// consultas por cada día del mes.
+		reglas, err := cargarReglasDeRango(gdb, clinic.ID, atiendePublico, primerDia, primerDia.AddDate(0, 1, 0))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
+			return
+		}
 		dias := make([]string, 0)
 		for d := 1; d <= ultimoDiaDelMes; d++ {
 			fecha := time.Date(primerDia.Year(), primerDia.Month(), d, 0, 0, 0, 0, primerDia.Location())
 			if fecha.Before(hoy) {
 				continue
 			}
-			slots, err := calcularDisponibilidad(gdb, clinic.ID, atiendePublico, tipo, fecha, nil)
+			slots, err := calcularDisponibilidadConReglas(gdb, reglas, clinic.ID, atiendePublico, tipo, fecha, nil)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
 				return

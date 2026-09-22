@@ -939,6 +939,14 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		resultados := make([]autoreservarResultadoItem, 0, len(turnos))
 		err := gdb.Transaction(func(tx *gorm.DB) error {
+			// Las reglas de cada agenda, una vez por profesional (ronda de
+			// optimización post-Fase 3). SOLO las reglas: horario de
+			// atención, horarios reservados y tipos no cambian mientras
+			// esto corre. Los TURNOS no se precargan a propósito — este
+			// bucle los MUEVE, y el segundo turno que se reubica tiene que
+			// ver dónde quedó el primero. Con los turnos cacheados, dos
+			// turnos podrían ir al mismo hueco.
+			reglasPorProfesional := map[uuid.UUID]*reglasDeDisponibilidad{}
 			for i := range turnos {
 				t := &turnos[i]
 				item := autoreservarResultadoItem{
@@ -979,7 +987,15 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 						continue
 					}
 					atiendeEste := *t.AtendidoPorUserID
-					slots, err := calcularDisponibilidad(tx, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
+					reglas, ok := reglasPorProfesional[atiendeEste]
+					if !ok {
+						var err error
+						if reglas, err = cargarReglasDeDisponibilidad(tx, profesionalID, atiendeEste); err != nil {
+							return err
+						}
+						reglasPorProfesional[atiendeEste] = reglas
+					}
+					slots, err := calcularDisponibilidadConReglas(tx, reglas, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
 					if err != nil {
 						return err
 					}
