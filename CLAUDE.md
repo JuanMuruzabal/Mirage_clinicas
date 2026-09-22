@@ -20,7 +20,7 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 - **Estructura nueva:** `packages/prisma-engine/` y `apps/api/internal/prismaengine/` (los crea PE-1), el script `pnpm engine:generar`, y los cambios de `pnpm-workspace.yaml`, `apps/web/Dockerfile`, `render.yaml` y `.github/workflows/ci.yml` que PE-1 necesita.
 
 **Qué evitar mientras el aviso esté activo:**
-- **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** (los `switch` de `editor-de-modulo.tsx` y `modulos-publicos.tsx`, y `tiposModuloValidos` en Go): PE-1 los reemplaza por un registro único y habría que reescribirlos. Si es urgente, coordinalo con Kevin.
+- **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** — desde PE-1 (parte 1, mergeada) viven en `packages/prisma-engine` (`registro.ts`, `schemas.ts`, `catalogo/temas.json`), no en un `switch` de `editor-de-modulo.tsx`/`modulos-publicos.tsx` ni en un mapa a mano de Go: sumar uno tocando solo esos archivos evita el problema que PE-1 vino a resolver. Si es urgente, coordinalo con Kevin.
 - **No cambies la semántica de `PATCH /panel/pagina`** (hoy guardar = publicar) ni la de `deployada_en`: es de PE-8.
 - **No agregues columnas ni migraciones** sobre `paginas_publicas`, `pagina_publica_modulos`, `clinic_members` ni `professional_profiles` sin revisar el plan: chocan con `schema_version`, con el aval del profesional y con `horarios_clinica`.
 - **La subida de foto de perfil** deja de estar fuera de alcance solo si Kevin y Juan confirman esa decisión (marcada **[SUJETO A REVISIÓN]** en el plan). Hasta entonces sigue fuera.
@@ -31,7 +31,7 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 
 | PR | Qué | Estado |
 |---|---|---|
-| PE-1 | Núcleo: registro único de módulos y catálogo compartido | ⬜ |
+| PE-1 | Núcleo: registro único de módulos y catálogo compartido | 🔄 (rama `feature/pe-1-nucleo-motor`) |
 | PE-8 | Borrador, Publicar = Deployar e historial | ⬜ |
 | PE-2 | Tokens de diseño | ⬜ |
 | PE-3 | Variantes por módulo | ⬜ |
@@ -64,6 +64,8 @@ Desde la raíz del repo (`package.json` tiene los atajos; detalle completo en `R
 
 - `pnpm run dev:web` / `pnpm run build:web` / `pnpm run lint:web` / `pnpm run typecheck:web`
 - `pnpm run typecheck:shared-types`
+- `pnpm run typecheck:prisma-engine` / `pnpm run test:prisma-engine` — el registro único de módulos de la página pública (`packages/prisma-engine`, plan Prisma Engine PE-1).
+- `pnpm run engine:generar` — exporta el esquema (zod) de cada módulo a JSON Schema y copia esquemas + catálogo de temas a `apps/api/internal/prismaengine/` (`go:embed` no puede leer fuera de su propio módulo). Correrlo después de tocar `packages/prisma-engine/src/modulos/*/schema.ts` o `catalogo/temas.json` — CI lo corre y falla si el resultado difiere de lo commiteado (job `web`).
 - `pnpm run dev:api` (`go run ./cmd/api`) / `pnpm run build:api` (`go build ./...`) / `pnpm run vet:api`
 - `pnpm run migrate:api` — aplica el esquema (AutoMigrate de GORM). Idempotente, se puede correr de nuevo sin romper nada.
 - Lint de Go: `golangci-lint run ./...` dentro de `apps/api` (no tiene atajo en `package.json`). En Windows con `git config core.autocrlf=true` (y sin `.gitattributes` en el repo), el working tree queda en CRLF mientras los blobs de git son LF — `gofmt`/`golangci-lint` corridos en el lugar dan resultados inestables (archivos distintos marcados "mal formateados" de una corrida a otra, puro ruido CRLF-vs-LF). Antes de confiar en un resultado ahí: extraer una copia sin CRLF primero (`cp -r apps/api <tmpdir> && find <tmpdir> -name '*.go' -exec sed -i 's/\r$//' {} \;`) y correr el lint dentro de esa copia.

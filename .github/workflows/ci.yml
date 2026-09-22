@@ -30,6 +30,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # PE-1 (docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md): lo
+      # que engine:generar produce (JSON Schema de cada módulo + catálogo de
+      # temas, copiados a apps/api/internal/prismaengine/) se commitea, no se
+      # arma solo en el build — si alguien edita un schema.ts o
+      # catalogo/temas.json sin correr `pnpm engine:generar`, el backend
+      # quedaría validando contra un catálogo desactualizado sin que nada lo
+      # avise. Solo escribe JSON (no compila Go), así que no hace falta
+      # setup-go acá — eso lo cubre el job `api`.
+      - name: Regenerar el catálogo de Prisma Engine y verificar que no cambió
+        run: |
+          pnpm run engine:generar
+          git diff --exit-code -- packages/prisma-engine/catalogo apps/api/internal/prismaengine || {
+            echo "::error::pnpm engine:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
+            exit 1;
+          }
+
       - name: Lint
         run: pnpm run lint:web
 
@@ -38,6 +54,12 @@ jobs:
 
       - name: Typecheck (shared-types)
         run: pnpm run typecheck:shared-types
+
+      - name: Typecheck (prisma-engine)
+        run: pnpm run typecheck:prisma-engine
+
+      - name: Test (prisma-engine)
+        run: pnpm run test:prisma-engine
 
       - name: Build
         run: pnpm run build:web
