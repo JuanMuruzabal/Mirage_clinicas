@@ -48,6 +48,12 @@ type clinicaPublicaResponse struct {
 	// ruta nunca se bloquea por falta de deploy, solo por `oculta`.
 	Oculta bool `json:"oculta"`
 
+	// EnPreparacion (PE-8, plan Prisma Engine): la clínica nunca publicó su
+	// página — no hay ninguna PaginaPublicaVersion todavía. El resto de los
+	// campos de contenido vienen en su cero-valor cuando esto es true; el
+	// frontend muestra "Página en preparación" en vez de la plantilla.
+	EnPreparacion bool `json:"enPreparacion"`
+
 	// Contenido de la Fase 4.2 — el renderizado dinámico real es la Fase
 	// 4.5, acá el backend ya expone el dato completo.
 	Bio            *string           `json:"bio,omitempty"`
@@ -136,6 +142,11 @@ func especialidadesUnicasDe(perfiles []db.ProfessionalProfile) []string {
 // slug (spec §5, ruta `/clinica-x`). `PaginaPublica` puede no existir
 // todavía (se crea recién en GET/PATCH /panel/pagina, ver
 // pagina_publica.go) — sin fila, el default es "no oculta".
+// getClinicaPublicaHandler (PE-8): sirve la ÚLTIMA VERSIÓN PUBLICADA, nunca
+// el borrador en vivo — un "Guardar" a mitad de una edición no puede
+// cambiar lo que ve un visitante. Sin ninguna versión todavía (nunca se
+// publicó), la respuesta es "en preparación" (decidido por Kevin, 21/09):
+// no hay contenido de qué mostrar, así que no se arma ninguno.
 func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "slug")
@@ -147,14 +158,9 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		var pagina db.PaginaPublica
-		if err := gdb.Preload("Modulos", func(tx *gorm.DB) *gorm.DB {
-			return tx.Where("visible = ?", true).Order("orden")
-		}).Where("clinic_id = ?", clinic.ID).First(&pagina).Error; err != nil {
-			pagina = db.PaginaPublica{}
-		}
-		var totalModulos int64
-		if pagina.ID != uuid.Nil {
-			gdb.Model(&db.PaginaPublicaModulo{}).Where("pagina_publica_id = ?", pagina.ID).Count(&totalModulos)
+		oculta := false
+		if err := gdb.Where("clinic_id = ?", clinic.ID).First(&pagina).Error; err == nil {
+			oculta = pagina.Oculta
 		}
 
 		profile, _ := ownerProfile(gdb, clinic.ID)
@@ -170,45 +176,62 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// (Fase 4.5), no el alcance de este fix.
 		especialidades := especialidadesUnicasDe(profesionalesActivosDeLaClinica(gdb, clinic.ID))
 
-		modulos := make([]moduloResponse, len(pagina.Modulos))
-		for i, m := range pagina.Modulos {
-			modulos[i] = toModuloResponse(m)
+		resp := clinicaPublicaResponse{
+			Slug:              clinic.Slug,
+			NombreClinica:     clinic.Nombre,
+			ProfesionalNombre: nombreCompletoProfesional(profile),
+			Telefono:          telefono,
+			Especialidades:    especialidades,
+			Oculta:            oculta,
+			RedesSociales:     map[string]string{},
+			Estadisticas:      estadisticasDeLaClinica(gdb, clinic.ID),
 		}
-		redes := pagina.RedesSociales
+
+		var version *db.PaginaPublicaVersion
+		if pagina.ID != uuid.Nil {
+			version, _ = ultimaVersionPublicada(gdb, pagina.ID)
+		}
+		if version == nil {
+			resp.EnPreparacion = true
+			resp.Direccion = clinic.Direccion
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+
+		c := version.Contenido
+		modulosVisibles := make([]moduloResponse, 0, len(c.Modulos))
+		for _, m := range c.Modulos {
+			if !m.Visible {
+				continue
+			}
+			modulosVisibles = append(modulosVisibles, moduloResponse{Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: m.Config})
+		}
+		redes := c.RedesSociales
 		if redes == nil {
 			redes = map[string]string{}
 		}
-
-		writeJSON(w, http.StatusOK, clinicaPublicaResponse{
-			Slug:               clinic.Slug,
-			NombreClinica:      clinic.Nombre,
-			ProfesionalNombre:  nombreCompletoProfesional(profile),
-			Telefono:           telefono,
-			Especialidades:     especialidades,
-			Oculta:             pagina.Oculta,
-			Bio:                pagina.Bio,
-			Tema:               pagina.Tema,
-			TemaVariante:       pagina.TemaVariante,
-			TemaTipografia:     pagina.TemaTipografia,
-			FotoPortadaURL:     pagina.FotoPortadaURL,
-			RedesSociales:      redes,
-			MostrarMapa:        pagina.MostrarMapa,
-			NombreSobrePortada: pagina.NombreSobrePortada,
-			NombreColor:        pagina.NombreColor,
-			Direccion:          direccionEfectiva(pagina, clinic),
-			Modulos:            modulos,
-			Estadisticas:       estadisticasDeLaClinica(gdb, clinic.ID),
-			Personalizada:      totalModulos > 0,
-		})
+		resp.Bio = c.Bio
+		resp.Tema = c.Tema
+		resp.TemaVariante = c.TemaVariante
+		resp.TemaTipografia = c.TemaTipografia
+		resp.FotoPortadaURL = c.FotoPortadaURL
+		resp.RedesSociales = redes
+		resp.MostrarMapa = c.MostrarMapa
+		resp.NombreSobrePortada = c.NombreSobrePortada
+		resp.NombreColor = c.NombreColor
+		resp.Direccion = direccionEfectiva(c.DireccionOverride, clinic)
+		resp.Modulos = modulosVisibles
+		resp.Personalizada = len(c.Modulos) > 0
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
 // direccionEfectiva — el override de la página pública gana sobre la
 // dirección de la Clinic (spec: "dirección con mapa" del módulo de
 // contacto), si está seteado.
-func direccionEfectiva(pagina db.PaginaPublica, clinic db.Clinic) *string {
-	if pagina.DireccionOverride != nil && strings.TrimSpace(*pagina.DireccionOverride) != "" {
-		return pagina.DireccionOverride
+func direccionEfectiva(direccionOverride *string, clinic db.Clinic) *string {
+	if direccionOverride != nil && strings.TrimSpace(*direccionOverride) != "" {
+		return direccionOverride
 	}
 	return clinic.Direccion
 }

@@ -16,8 +16,23 @@ import (
 
 // parchearPagina manda un PATCH /panel/pagina y devuelve el recorder — los
 // tests de abajo solo se diferencian en el body y en qué esperan.
+//
+// PE-8: sin Revision explícita en el body, hace un GET primero para
+// completarla con la actual — mismo comportamiento que un cliente real
+// (siempre trabaja sobre el último estado que vio), y así los ~30 tests que
+// ya llamaban a este helper antes de la Revision obligatoria no tienen que
+// llevar la cuenta a mano en cada PATCH sucesivo. Un test que SÍ quiere
+// probar una revisión puntual (desactualizada a propósito, por ejemplo)
+// sigue pudiendo pasarla explícita — acá no se pisa.
 func parchearPagina(t *testing.T, router http.Handler, token string, body actualizarPaginaPublicaRequest) *httptest.ResponseRecorder {
 	t.Helper()
+	if body.Revision == nil {
+		getRec := doJSONAuth(t, router, http.MethodGet, "/panel/pagina", token, nil)
+		var actual paginaPublicaResponse
+		if err := json.Unmarshal(getRec.Body.Bytes(), &actual); err == nil {
+			body.Revision = intPtr(actual.Revision)
+		}
+	}
 	return doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", token, body)
 }
 
@@ -213,6 +228,11 @@ func TestPaginaPublica_LaDireccionDeLaClinicaViajaAlEditor(t *testing.T) {
 // endpoint público no devuelve los módulos ocultos, así que sin
 // `personalizada` una página con todo oculto se vería igual que una que
 // nadie tocó, y el frontend le armaría la estructura por defecto.
+//
+// PE-8: la ruta pública lee la ÚLTIMA VERSIÓN PUBLICADA, no el borrador —
+// cada `parchearPagina` de este test va seguido de un Publicar, o `leer()`
+// seguiría viendo la versión anterior (o "en preparación" en el primer
+// caso, antes de publicar nunca).
 func TestGetClinicaPublica_PersonalizadaDistingueOcultosDeNuncaEditada(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
@@ -227,19 +247,27 @@ func TestGetClinicaPublica_PersonalizadaDistingueOcultosDeNuncaEditada(t *testin
 		_ = json.Unmarshal(rec.Body.Bytes(), &got)
 		return got
 	}
+	publicar := func() {
+		rec := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", reg.Token, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("no se pudo publicar: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	}
 
-	if got := leer(); got.Personalizada || len(got.Modulos) != 0 {
-		t.Fatalf("sin editar: personalizada=%v modulos=%d, esperaba false y 0", got.Personalizada, len(got.Modulos))
+	if got := leer(); !got.EnPreparacion || got.Personalizada || len(got.Modulos) != 0 {
+		t.Fatalf("sin publicar nunca: enPreparacion=%v personalizada=%v modulos=%d, esperaba true/false/0", got.EnPreparacion, got.Personalizada, len(got.Modulos))
 	}
 
 	ocultos := []moduloRequest{{Tipo: "sobre_nosotros", Orden: 0, Visible: false}}
 	parchearPagina(t, router, reg.Token, actualizarPaginaPublicaRequest{Modulos: &ocultos})
+	publicar()
 	if got := leer(); !got.Personalizada || len(got.Modulos) != 0 {
 		t.Fatalf("todo oculto: personalizada=%v modulos=%d, esperaba true y 0", got.Personalizada, len(got.Modulos))
 	}
 
 	visibles := []moduloRequest{{Tipo: "sobre_nosotros", Orden: 0, Visible: true}}
 	parchearPagina(t, router, reg.Token, actualizarPaginaPublicaRequest{Modulos: &visibles})
+	publicar()
 	if got := leer(); !got.Personalizada || len(got.Modulos) != 1 {
 		t.Fatalf("con uno visible: personalizada=%v modulos=%d, esperaba true y 1", got.Personalizada, len(got.Modulos))
 	}

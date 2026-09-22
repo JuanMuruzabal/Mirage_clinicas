@@ -344,14 +344,16 @@ func TestGetClinicaPublica_NoRequiereAutenticacion(t *testing.T) {
 	}
 }
 
-// TestGetClinicaPublica_VisibleAntesDeDeployar — "Ver página" desde el
-// editor (spec §5.2) tiene que poder previsualizar la página ANTES del
-// primer deploy — a diferencia del buscador, esta ruta nunca se bloquea
-// por falta de deploy.
-func TestGetClinicaPublica_VisibleAntesDeDeployar(t *testing.T) {
+// TestGetClinicaPublica_EnPreparacionAntesDelPrimerPublicar (PE-8, plan
+// Prisma Engine): sin ninguna versión publicada todavía, la ruta pública
+// responde 200 con EnPreparacion=true — no 404 (sigue siendo una clínica
+// real, solo que sin contenido publicado) ni el contenido del borrador en
+// vivo (eso lo decidió Kevin el 21/09: "página en preparación" hasta el
+// primer Publicar, ya no un preview del borrador en esta misma ruta).
+func TestGetClinicaPublica_EnPreparacionAntesDelPrimerPublicar(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
-		Nombre: "Todavía No Deployó", Email: "publicaslug4@example.com", Password: "password123456", NombreClinica: "Clínica Sin Deploy Aún",
+		Nombre: "Todavía No Publicó", Email: "publicaslug4@example.com", Password: "password123456", NombreClinica: "Clínica Sin Publicar Aún",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/clinicas/"+reg.Profesional.Slug, nil)
@@ -359,6 +361,14 @@ func TestGetClinicaPublica_VisibleAntesDeDeployar(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	if res.Code != http.StatusOK {
-		t.Errorf("status = %d, esperaba %d — la página tiene que poder previsualizarse antes de deployar", res.Code, http.StatusOK)
+		t.Fatalf("status = %d, esperaba %d", res.Code, http.StatusOK)
+	}
+	var got clinicaPublicaResponse
+	_ = json.Unmarshal(res.Body.Bytes(), &got)
+	if !got.EnPreparacion {
+		t.Error("EnPreparacion = false, esperaba true (todavía no se publicó ninguna versión)")
+	}
+	if got.NombreClinica != "Clínica Sin Publicar Aún" {
+		t.Errorf("NombreClinica = %q, esperaba que igual viaje (no depende de la versión publicada)", got.NombreClinica)
 	}
 }

@@ -3,15 +3,19 @@ import { notFound } from "next/navigation";
 import { apiGetClinicaPublica } from "@/lib/api";
 import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
 import { PaginaEnMantenimiento } from "@/components/public/pagina-en-mantenimiento";
+import { PaginaEnPreparacion } from "@/components/public/pagina-en-preparacion";
 import { contenidoDeClinicaPublica } from "@/lib/pagina-publica/contenido";
 
 // Página pública de una clínica (spec §5, ruta `/clinica-x`). Plantilla
 // fija completa desde T4.3 (spec §5.3: turno, "Sobre nosotros",
 // especialidades) vía ClinicaPublicaTemplate — mismo componente que
-// previsualiza en vivo el editor (T4.1, /personalizar-pagina). `oculta` (T4.4)
-// muestra el modo mantenimiento en vez del contenido; no depende de
-// `deployadaEn` — esta URL se puede previsualizar antes del primer
-// deploy, lo que no aparece antes de deployar es en el buscador (T4.5).
+// previsualiza en vivo el editor (T4.1, /personalizar-pagina).
+//
+// PE-8 (plan Prisma Engine): esta ruta sirve la ÚLTIMA VERSIÓN PUBLICADA,
+// no el borrador en vivo. `enPreparacion` (nunca se publicó nada) muestra
+// "Página en preparación"; `oculta` (T4.4) muestra el modo mantenimiento —
+// las dos son independientes de `deployadaEn`/el buscador (T4.5), que sigue
+// exigiendo el primer Publicar aparte.
 //
 // Sin el header/footer globales de Mirage (pedido explícito del cliente,
 // 2026-08-23 — ver isClinicaPublicaRoute en lib/site-routes.ts): esta
@@ -37,7 +41,9 @@ export default async function ClinicaPublicaPage({ params }: PageProps<"/[slug]"
 
   return (
     <main className="flex flex-1 flex-col">
-      {clinica.oculta ? (
+      {clinica.enPreparacion ? (
+        <PaginaEnPreparacion nombreClinica={clinica.nombreClinica} />
+      ) : clinica.oculta ? (
         <PaginaEnMantenimiento nombreClinica={clinica.nombreClinica} />
       ) : (
         <ClinicaPublicaTemplate

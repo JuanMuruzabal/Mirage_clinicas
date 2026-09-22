@@ -42,6 +42,8 @@ export default async function PersonalizarPaginaPage() {
         nombreColor: "",
         modulos: [],
         estadisticas: {},
+        revision: 0,
+        actualizadaEn: new Date(0).toISOString(),
       };
 
   return (

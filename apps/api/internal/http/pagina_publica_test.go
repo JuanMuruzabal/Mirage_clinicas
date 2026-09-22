@@ -91,13 +91,13 @@ func TestOcultarPaginaPublica_BodyInvalido(t *testing.T) {
 	}
 }
 
-func TestDeployarPaginaPublica_SeteaDeployadaEnLaPrimeraVez(t *testing.T) {
+func TestPublicarPaginaPublica_SeteaDeployadaEnLaPrimeraVezYCreaLaVersion1(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Nombre: "Carla", Email: "pagina3@example.com", Password: "password123456", NombreClinica: "Clínica Carla",
 	})
 
-	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", reg.Token, nil)
+	rec := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", reg.Token, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -106,24 +106,28 @@ func TestDeployarPaginaPublica_SeteaDeployadaEnLaPrimeraVez(t *testing.T) {
 	if got.DeployadaEn == nil {
 		t.Fatal("DeployadaEn = nil, esperaba una fecha")
 	}
+	if got.UltimaVersionPublicada == nil || got.UltimaVersionPublicada.Numero != 1 {
+		t.Fatalf("UltimaVersionPublicada = %+v, esperaba la versión 1", got.UltimaVersionPublicada)
+	}
 }
 
-// TestDeployarPaginaPublica_EsIdempotente — spec §5.2: "Deployar (solo
-// visible la primera vez)" — no hay forma de "des-deployar" en el MVP,
-// llamarlo de nuevo no debe pisar la fecha original ni fallar.
-func TestDeployarPaginaPublica_EsIdempotente(t *testing.T) {
+// TestPublicarPaginaPublica_DeployadaEnNoCambiaPeroLaVersionAvanza — spec
+// §5.2: "Deployar (solo visible la primera vez)" sigue valiendo para
+// DeployadaEn — no hay forma de "des-deployar". Lo que SÍ cambia con PE-8:
+// cada Publicar crea una versión nueva, aunque sea la segunda vez.
+func TestPublicarPaginaPublica_DeployadaEnNoCambiaPeroLaVersionAvanza(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Nombre: "Diego", Email: "pagina4@example.com", Password: "password123456", NombreClinica: "Clínica Diego",
 	})
 
-	primera := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", reg.Token, nil)
+	primera := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", reg.Token, nil)
 	var got1 paginaPublicaResponse
 	_ = json.Unmarshal(primera.Body.Bytes(), &got1)
 
-	segunda := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", reg.Token, nil)
+	segunda := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", reg.Token, nil)
 	if segunda.Code != http.StatusOK {
-		t.Fatalf("segundo deployar: status = %d, esperaba %d. body=%s", segunda.Code, http.StatusOK, segunda.Body.String())
+		t.Fatalf("segundo publicar: status = %d, esperaba %d. body=%s", segunda.Code, http.StatusOK, segunda.Body.String())
 	}
 	var got2 paginaPublicaResponse
 	_ = json.Unmarshal(segunda.Body.Bytes(), &got2)
@@ -134,9 +138,12 @@ func TestDeployarPaginaPublica_EsIdempotente(t *testing.T) {
 	if *got1.DeployadaEn != *got2.DeployadaEn {
 		t.Errorf("DeployadaEn cambió entre llamadas: %q -> %q, esperaba que se mantuviera", *got1.DeployadaEn, *got2.DeployadaEn)
 	}
+	if got2.UltimaVersionPublicada == nil || got2.UltimaVersionPublicada.Numero != 2 {
+		t.Fatalf("UltimaVersionPublicada tras el segundo publicar = %+v, esperaba la versión 2", got2.UltimaVersionPublicada)
+	}
 }
 
-func TestOcultarYDeployarPaginaPublica_RequierenAutenticacion(t *testing.T) {
+func TestOcultarYPublicarPaginaPublica_RequierenAutenticacion(t *testing.T) {
 	router, _ := newTestRouter(t)
 
 	reqOcultar := httptest.NewRequest(http.MethodPatch, "/panel/pagina/ocultar", nil)
@@ -146,11 +153,11 @@ func TestOcultarYDeployarPaginaPublica_RequierenAutenticacion(t *testing.T) {
 		t.Errorf("ocultar: status = %d, esperaba %d", recOcultar.Code, http.StatusUnauthorized)
 	}
 
-	reqDeployar := httptest.NewRequest(http.MethodPatch, "/panel/pagina/deployar", nil)
-	recDeployar := httptest.NewRecorder()
-	router.ServeHTTP(recDeployar, reqDeployar)
-	if recDeployar.Code != http.StatusUnauthorized {
-		t.Errorf("deployar: status = %d, esperaba %d", recDeployar.Code, http.StatusUnauthorized)
+	reqPublicar := httptest.NewRequest(http.MethodPost, "/panel/pagina/publicar", nil)
+	recPublicar := httptest.NewRecorder()
+	router.ServeHTTP(recPublicar, reqPublicar)
+	if recPublicar.Code != http.StatusUnauthorized {
+		t.Errorf("publicar: status = %d, esperaba %d", recPublicar.Code, http.StatusUnauthorized)
 	}
 }
 
@@ -170,6 +177,7 @@ func TestActualizarPaginaPublica_ActualizaVariosCamposYLosDevuelve(t *testing.T)
 		Bio: &bio, Tema: &tema, TemaVariante: &variante,
 		RedesSociales: map[string]string{"instagram": "@clinicafede"},
 		MostrarMapa:   boolPtr(true),
+		Revision:      intPtr(0),
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -245,7 +253,7 @@ func TestActualizarPaginaPublica_ModulosSeReemplazanCompletos(t *testing.T) {
 		{Tipo: "sobre_nosotros", Orden: 0, Visible: true},
 		{Tipo: "contacto", Orden: 1, Visible: true},
 	}
-	rec1 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &primeros})
+	rec1 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &primeros, Revision: intPtr(0)})
 	if rec1.Code != http.StatusOK {
 		t.Fatalf("primer PATCH: status = %d. body=%s", rec1.Code, rec1.Body.String())
 	}
@@ -256,7 +264,7 @@ func TestActualizarPaginaPublica_ModulosSeReemplazanCompletos(t *testing.T) {
 	}
 
 	segundos := []moduloRequest{{Tipo: "horarios", Orden: 0, Visible: true}}
-	rec2 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &segundos})
+	rec2 := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina", reg.Token, actualizarPaginaPublicaRequest{Modulos: &segundos, Revision: intPtr(got1.Revision)})
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("segundo PATCH: status = %d. body=%s", rec2.Code, rec2.Body.String())
 	}
@@ -429,3 +437,7 @@ func crearTurnoConAsistencia(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID, pac
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// intPtr — PE-8: cada PATCH/restaurar exitoso de la página pública exige la
+// Revision actual (candado optimista), acá con frecuencia un literal.
+func intPtr(i int) *int { return &i }

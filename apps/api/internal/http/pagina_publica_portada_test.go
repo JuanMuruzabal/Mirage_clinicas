@@ -36,7 +36,11 @@ func TestActualizarPaginaPublica_NombreSobrePortadaYSuColor(t *testing.T) {
 		t.Fatalf("sobrePortada=%v color=%q, esperaba true y dorado", got.NombreSobrePortada, got.NombreColor)
 	}
 
-	// Lo ve el visitante, no solo el editor.
+	// Lo ve el visitante, no solo el editor — pero PE-8 exige Publicar
+	// primero (la ruta pública lee la última versión, no el borrador).
+	if rec := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", reg.Token, nil); rec.Code != http.StatusOK {
+		t.Fatalf("no se pudo publicar: status=%d body=%s", rec.Code, rec.Body.String())
+	}
 	pub := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug, nil)
 	var publica clinicaPublicaResponse
 	_ = json.Unmarshal(pub.Body.Bytes(), &publica)

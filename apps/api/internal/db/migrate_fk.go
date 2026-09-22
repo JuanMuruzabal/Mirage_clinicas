@@ -155,6 +155,15 @@ func clavesForaneas() []claveForanea {
 		// cargó — lo que se pierde es el dato de quién fue, no el
 		// paciente.
 		{"fk_pacientes_creado_por", "pacientes", "creado_por_user_id", "users", "SET NULL", true},
+
+		// PE-8: versiones publicadas de la página. Igual criterio que
+		// pagina_publica_modulos_pagina de arriba (RESTRICT: una versión es
+		// historial de ESA página, no sobrevive sin ella).
+		{"fk_pagina_publica_versiones_pagina", "pagina_publica_versiones", "pagina_publica_id", "paginas_publicas", "", false},
+		// Quién publicó/restauró — atribución histórica, SET NULL (mismo
+		// criterio que fk_pacientes_creado_por arriba).
+		{"fk_pagina_publica_versiones_publicada_por", "pagina_publica_versiones", "publicada_por_user_id", "users", "SET NULL", true},
+		{"fk_paginas_publicas_actualizada_por", "paginas_publicas", "actualizada_por_user_id", "users", "SET NULL", true},
 	}
 }
 
