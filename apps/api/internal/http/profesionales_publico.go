@@ -332,6 +332,25 @@ func nombresPublicosDeProfesionales(gdb *gorm.DB, tipos []db.TipoConsulta) map[u
 	return nombres
 }
 
+// nombrePublicoDelProfesional — lo mismo que nombresPublicosDeProfesionales
+// para una sola persona: el nombre del perfil, y si no hay, un rótulo
+// genérico. NUNCA el mail. Es el que usan los mensajes de error del
+// wizard, que también se leen en una página abierta a internet — hasta
+// la revisión del 2026-09-23 usaban `nombreDelProfesional`, pensado para
+// el panel, que sí cae al mail.
+func nombrePublicoDelProfesional(tx *gorm.DB, userID *uuid.UUID) string {
+	if userID == nil {
+		return "Profesional de la clínica"
+	}
+	var perfil db.ProfessionalProfile
+	if err := tx.First(&perfil, "user_id = ?", *userID).Error; err == nil {
+		if n := strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido); n != "" {
+			return n
+		}
+	}
+	return "Profesional de la clínica"
+}
+
 // profesionalPublicoElegido — valida el profesional que el wizard mandó y
 // devuelve su fila del tipo de consulta.
 //
