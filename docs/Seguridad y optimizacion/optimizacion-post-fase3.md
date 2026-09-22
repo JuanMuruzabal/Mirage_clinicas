@@ -414,7 +414,12 @@ Vale dejarlo escrito para no volver a mirarlo:
 - **El `NOT IN` de los contadores de pacientes es seguro**: la subconsulta selecciona la clave primaria, que nunca es `NULL`.
 - **Cero filas de agenda sin dueño** en la base, y los caminos de alta responden 409 sin agenda desde la QA de la 3.2.6.
 
-### Recomendado, sin hacer
+### Lo que quedó recomendado, hecho después (mismo día)
 
-- **`user_id NOT NULL` en `bloqueos_horario`, `horarios_atencion` y `tipos_consulta`.** Los scopes todavía incluyen `OR user_id IS NULL` (las filas previas a la 3.2.1), así que una fila sin dueño que se colara por un camino nuevo sería visible **y borrable por cualquier profesional**. Hoy no hay ninguna y ningún camino las crea; la restricción en la base cerraría la clase entera. Es una migración y conviene decidirla aparte.
-- **Una auditoría automática para las consultas por `id = ?`** en los archivos del panel, complementaria a la que existe. La revisión manual de esta vez dio limpia; un test la sostendría.
+La revisión cerraba con dos recomendaciones. Se hicieron las dos:
+
+- **La configuración de agenda siempre tiene dueño, y lo garantiza la base.** Los scopes incluyen `OR user_id IS NULL` (las filas previas a la 3.2.1), así que una fila sin dueño que se colara por un camino nuevo sería visible y borrable por cualquier profesional. Ahora `chk_*_con_duenio` la rechaza en las tres tablas. Va como `CHECK ... NOT VALID` y no como `SET NOT NULL` para que **no pueda tumbar un deploy** si en producción quedara una fila vieja que el backfill no puede asignar — cambio 20 del modelo de datos. Un test arma exactamente ese caso en una base descartable, y falla si se saca el `NOT VALID`.
+
+  De paso, **diez fixtures de test creaban filas sin dueño** —casi todos anteriores a la 3.2.1— y ahora les pone dueño `duenioDePrueba`: el titular, el mismo que les daría el backfill. Uno creaba a propósito un tipo sin dueño para probar que el wizard no lo ofrece; ese caso ya no puede existir, así que pasó a probarlo con el tipo de alguien que se fue de la clínica, que sí puede.
+
+- **`TestAislamiento_LosIDsDeLaURLSeAcotan`**, la auditoría de lo que la otra no ve. Para cada id que llega por la URL exige `clinic_id` en todo el paquete, y además el filtro del profesional en los archivos del panel. Las excepciones —la invitación, que se acota por el mail de quien la recibe; sumar a mi lista una ficha de la clínica; los bloqueos de mail/IP— van atadas al fragmento exacto de la consulta. Verificada rompiendo cada nivel: sin el filtro del profesional en el `DELETE` de un horario reservado, y sin `clinic_id` en la búsqueda de un turno, falla diciendo dónde y por qué.

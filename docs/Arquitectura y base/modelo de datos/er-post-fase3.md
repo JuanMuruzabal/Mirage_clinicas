@@ -324,6 +324,24 @@ De quién es la agenda que recepción está mirando. `NULL` es la vista general 
 
 **Sin foreign key, también igual que `clinic_id`:** una sesión apuntando a alguien que ya no está en el equipo no puede romper nada, porque el middleware valida el foco contra la membresía activa en **cada request** y cae a la vista general si no da. Una FK obligaría además a decidir qué pasa al quitar a un miembro, para un dato que se corrige solo.
 
+### 20 — La configuración de agenda siempre tiene dueño (2026-09-23, revisión de aislamiento)
+
+```sql
+ALTER TABLE tipos_consulta    ADD CONSTRAINT chk_tipo_consulta_con_duenio    CHECK (user_id IS NOT NULL) NOT VALID;
+ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_con_duenio CHECK (user_id IS NOT NULL) NOT VALID;
+ALTER TABLE bloqueos_horario  ADD CONSTRAINT chk_bloqueo_horario_con_duenio  CHECK (user_id IS NOT NULL) NOT VALID;
+-- y después, por tabla y sin frenar la migración si falla:
+ALTER TABLE ... VALIDATE CONSTRAINT ...;
+```
+
+**Por qué hacía falta.** Los scopes de agenda (`soloMiAgenda`, `soloMisTiposDeConsulta`) incluyen `OR user_id IS NULL` por las filas anteriores a la 3.2.1, que valían para todos. Con eso, una fila sin dueño que se colara por un camino nuevo aparecería en la agenda de **todos** los profesionales y **cualquiera** podría editarla o borrarla — el `DELETE` también pasa por esos scopes. Hasta acá lo impedía cada handler por su cuenta (409 sin agenda, QA de la 3.2.6); ahora lo impide la base, aunque el camino nuevo se olvide.
+
+**Un `CHECK` y no `SET NOT NULL`, y `NOT VALID`.** `NOT VALID` hace cumplir la regla a toda fila nueva o modificada pero no revisa las existentes: si en producción quedara una fila vieja que el backfill del cambio 3 no pudo asignar —una clínica sin titular—, la migración entra igual en vez de tumbar el deploy. `SET NOT NULL` fallaría ahí. La validación se intenta después, **una tabla por bloque** (en PL/pgSQL, la que falla deshace las que ya habían pasado en el mismo bloque).
+
+`user_id` sigue siendo `*uuid.UUID` en Go y nullable en el tag de GORM: la columna admite `NULL` para las filas viejas que la restricción sin validar deja pasar. Con la base de desarrollo, las tres quedaron validadas.
+
+Tests: `TestConfiguracionDeAgenda_LaBaseRechazaFilasSinDuenio` (la base rechaza las tres) y `TestMigraciones_ConFilasViejasSinDuenioLaRestriccionEntraSinValidar`, que arma en una base descartable justo el caso que el `NOT VALID` existe para cubrir — y falla si se lo saca.
+
 ## Lo que este modelo todavía no resuelve
 
 - **Presencia en tiempo real** de colaboradores (requisito no funcional del brief). No es una tabla: es una decisión de transporte (WebSocket / SSE / polling) que conviene tomar aparte, y que interactúa con el hecho de que hoy corre **una sola instancia** del backend.

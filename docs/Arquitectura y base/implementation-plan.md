@@ -792,7 +792,8 @@ Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en me
 | **Nombre del profesional por mail en la página pública** | ✅ Los 409 del wizard usaban el helper del panel |
 | **"Verificado" recorría los turnos del sistema entero** | ✅ Acotada a la clínica: 13,2 → 0,33 ms con 20.000 asistidos en otra clínica |
 | **Auditoría de aislamiento** | ✅ Suma los archivos de contadores. Las escrituras por `{id}` —que la auditoría no ve— se revisaron a mano: todas aplican el scope del profesional |
-| **`user_id NOT NULL` en la configuración de agenda** | ⏸ Recomendado, sin hacer: cerraría en la base la clase de "fila sin dueño visible para todos". Hoy no hay ninguna |
+| **La configuración de agenda siempre tiene dueño** | ✅ `CHECK (user_id IS NOT NULL) NOT VALID` en las tres tablas: la base rechaza la fila sin dueño que los scopes mostrarían a todos. `NOT VALID` para que una fila vieja en producción no pueda tumbar el deploy |
+| **Auditoría de los ids de la URL** | ✅ `TestAislamiento_LosIDsDeLaURLSeAcotan`: `clinic_id` en todo el paquete, y el filtro del profesional en el panel. Cubre lo que la auditoría existente no veía |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
