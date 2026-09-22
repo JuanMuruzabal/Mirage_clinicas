@@ -655,10 +655,16 @@ export interface ClinicaPublica {
   telefono?: string | null;
   especialidades: string[];
   oculta: boolean;
+  // enPreparacion (PE-8, plan Prisma Engine): la clínica nunca publicó su
+  // página — no hay ninguna versión todavía. El resto de los campos de
+  // contenido de abajo vienen en su cero-valor cuando esto es true.
+  enPreparacion: boolean;
   // Contenido de la Fase 4.2, que la plantilla pública renderiza desde la
   // 4.5. Espejo de clinicaPublicaResponse (internal/http/clinicas.go).
   // `modulos` viene SOLO con los visibles y ya ordenados; `direccion` es la
   // efectiva (el override de la página si lo hay, si no la de la clínica).
+  // PE-8: este contenido sale de la ÚLTIMA VERSIÓN PUBLICADA, nunca del
+  // borrador en vivo.
   bio?: string | null;
   tema: string;
   temaVariante: string;
@@ -696,12 +702,14 @@ export interface PaginaPublicaModulo {
 
 // Espejo de paginaPublicaResponse (internal/http/pagina_publica.go).
 // `deployadaEn` nulo = todavía no se publicó por primera vez (spec §5.2)
-// — no aparece en el buscador (GET /clinicas) hasta que se deploya, pero
-// la URL propia (`/{slug}`) ya se puede previsualizar antes.
+// — no aparece en el buscador (GET /clinicas) hasta el primer Publicar,
+// que también lo marca.
 //
 // Contenido editable de la Fase 4.2 (docs/Fases post MVP/Fase 4/
-// fase4-personalizar-pagina.md) — sin UI todavía (la UI es la Fase 4.4),
-// el backend ya lee/escribe todo esto vía GET/PATCH /panel/pagina.
+// fase4-personalizar-pagina.md) — la UI es la Fase 4.4, el backend lee/
+// escribe todo esto vía GET/PATCH /panel/pagina. Es el BORRADOR — lo que
+// ve un visitante en `/{slug}` es la última versión PUBLICADA (PE-8, ver
+// ClinicaPublica), no esto.
 export interface PaginaPublica {
   oculta: boolean;
   deployadaEn?: string | null;
@@ -720,6 +728,54 @@ export interface PaginaPublica {
   direccionClinica?: string | null;
   modulos: PaginaPublicaModulo[];
   estadisticas: Record<string, number>;
+  // Revision/actualizadaPor* (PE-8): candado optimista del borrador — todo
+  // PATCH exitoso exige la Revision actual y avanza este número; si no
+  // coincide, el backend responde 409 (ver ConflictoRevisionPagina).
+  revision: number;
+  actualizadaEn: string;
+  actualizadaPorNombre?: string;
+  // ultimaVersionPublicada — lo necesario para que el editor calcule "hay
+  // cambios sin publicar" (comparar contra esto, no contra el borrador
+  // guardado) sin un segundo viaje al servidor. Ausente = nunca se publicó.
+  ultimaVersionPublicada?: VersionPaginaPublica;
+}
+
+// Espejo de contenidoVersionResponse (internal/http/pagina_publica.go) —
+// mismo shape que PaginaPublica menos lo que una versión no guarda (oculta,
+// deployadaEn, estadisticas, revision): esas son del borrador o se calculan
+// siempre en vivo, nunca de una foto vieja. `modulos` acá no tiene `id`
+// (PE-8: una versión no referencia filas de pagina_publica_modulos).
+export interface ContenidoVersionPaginaPublica {
+  bio?: string | null;
+  tema: string;
+  temaVariante: string;
+  temaTipografia: string;
+  fotoPortadaUrl?: string | null;
+  redesSociales: Record<string, string>;
+  mostrarMapa: boolean;
+  direccionOverride?: string | null;
+  nombreSobrePortada: boolean;
+  nombreColor: string;
+  modulos: Omit<PaginaPublicaModulo, "id">[];
+}
+
+// Espejo de versionResponse (internal/http/pagina_publica.go) — una fila
+// del historial (GET /panel/pagina/versiones), más nueva primero.
+export interface VersionPaginaPublica {
+  numero: number;
+  publicadaEn: string;
+  publicadaPorNombre: string;
+  contenido: ContenidoVersionPaginaPublica;
+}
+
+// Espejo de conflictoRevisionBody (internal/http/pagina_publica.go) — el
+// cuerpo de un 409 al guardar o restaurar: "quién y cuándo" para que el
+// editor ofrezca recargar o quedarse con la copia local, sin adivinar.
+export interface ConflictoRevisionPagina {
+  error: string;
+  revisionActual: number;
+  actualizadaEn: string;
+  actualizadaPorNombre?: string;
 }
 
 // Espejo de pacienteResponse (internal/http/pacientes.go).

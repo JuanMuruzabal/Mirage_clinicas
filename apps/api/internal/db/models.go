@@ -734,6 +734,15 @@ type PaginaPublica struct {
 	// portada y con NombreSobrePortada prendido.
 	NombreSobrePortada bool   `gorm:"column:nombre_sobre_portada;not null;default:false"`
 	NombreColor        string `gorm:"column:nombre_color;type:varchar(20);not null;default:''"`
+	// Revision/ActualizadaPorUserID (PE-8, plan Prisma Engine): control de
+	// edición simultánea del BORRADOR. Cada PATCH /panel/pagina exitoso
+	// incrementa Revision en 1 y guarda quién lo hizo; el propio PATCH exige
+	// la revisión que el cliente cree tener y responde 409 si no coincide
+	// (alguien más guardó antes). Nada que ver con versiones PUBLICADAS
+	// (PaginaPublicaVersion, más abajo) — esto es solo el candado optimista
+	// del borrador.
+	Revision             int        `gorm:"not null;default:0"`
+	ActualizadaPorUserID *uuid.UUID `gorm:"column:actualizada_por_user_id;type:uuid"`
 	// constraint:- suprime la FK automática que GORM crearía sola a partir
 	// de esta relación (con su propio nombre, sin pasar por
 	// clavesForaneas()) — la única FK real de esta relación es la entrada
@@ -768,6 +777,88 @@ type PaginaPublicaModulo struct {
 }
 
 func (PaginaPublicaModulo) TableName() string { return "pagina_publica_modulos" }
+
+// PaginaPublicaContenidoModulo/PaginaPublicaContenidoVersion — la foto de
+// un módulo/de la página en el momento de Publicar (PE-8, plan Prisma
+// Engine). Deliberadamente SIN ids de PaginaPublicaModulo: una versión
+// restaurada crea filas nuevas, mismo criterio que ya usa
+// actualizarPaginaPublicaHandler (reemplazo completo por orden, no CRUD por
+// fila). "Las versiones guardan IDs, no datos derivados" (el plan, sobre
+// Equipo en PE-6) — acá no aplica todavía porque ningún módulo actual
+// referencia otra entidad por id.
+type PaginaPublicaContenidoModulo struct {
+	Tipo    string         `json:"tipo"`
+	Orden   int            `json:"orden"`
+	Visible bool           `json:"visible"`
+	Config  map[string]any `json:"config"`
+}
+
+type PaginaPublicaContenidoVersion struct {
+	Bio                *string                        `json:"bio"`
+	Tema               string                         `json:"tema"`
+	TemaVariante       string                         `json:"temaVariante"`
+	TemaTipografia     string                         `json:"temaTipografia"`
+	FotoPortadaURL     *string                        `json:"fotoPortadaUrl"`
+	RedesSociales      map[string]string              `json:"redesSociales"`
+	MostrarMapa        bool                           `json:"mostrarMapa"`
+	DireccionOverride  *string                        `json:"direccionOverride"`
+	NombreSobrePortada bool                           `json:"nombreSobrePortada"`
+	NombreColor        string                         `json:"nombreColor"`
+	Modulos            []PaginaPublicaContenidoModulo `json:"modulos"`
+}
+
+// PaginaPublicaVersion — una foto PUBLICADA del borrador (PE-8): "Publicar"
+// (antes "Deployar") copia el borrador acá adentro, numerado, y la página
+// pública (`GET /clinicas/{slug}`) pasa a servir la ÚLTIMA versión, nunca el
+// borrador en vivo — así un "Guardar" a mitad de una edición no cambia lo
+// que ve un visitante. Sin versión todavía (nunca se publicó) la página
+// pública muestra "en preparación" — ver getClinicaPublicaHandler.
+//
+// Numero es secuencial POR PÁGINA (1, 2, 3…), no un id global — más fácil
+// de mostrar en el historial y de referenciar al restaurar
+// (POST /panel/pagina/versiones/{numero}/restaurar) que un uuid.
+type PaginaPublicaVersion struct {
+	ID              uuid.UUID                     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	PaginaPublicaID uuid.UUID                     `gorm:"column:pagina_publica_id;type:uuid;not null;index"`
+	Numero          int                           `gorm:"not null"`
+	Contenido       PaginaPublicaContenidoVersion `gorm:"type:jsonb;serializer:json"`
+	PublicadaEn     time.Time                     `gorm:"column:publicada_en;not null"`
+	// PublicadaPorUserID: nullable + SET NULL (migrate_fk.go), mismo
+	// criterio que AuditEvent.UserID/Paciente.CreadoPorUserID — es
+	// atribución histórica, no debería bloquear borrar un usuario.
+	PublicadaPorUserID *uuid.UUID `gorm:"column:publicada_por_user_id;type:uuid"`
+	CreatedAt          time.Time
+}
+
+func (PaginaPublicaVersion) TableName() string { return "pagina_publica_versiones" }
+
+// ContenidoVersion — la foto del borrador ACTUAL, lista para guardarse como
+// una PaginaPublicaVersion. Requiere que Modulos venga precargado (mismo
+// Preload que getOrCrearPaginaPublica ya usa, ordenado por Orden) — sin
+// eso, la versión se publicaría sin sus módulos.
+func (p PaginaPublica) ContenidoVersion() PaginaPublicaContenidoVersion {
+	modulos := make([]PaginaPublicaContenidoModulo, len(p.Modulos))
+	for i, m := range p.Modulos {
+		modulos[i] = PaginaPublicaContenidoModulo{Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: m.Config}
+	}
+	redes := p.RedesSociales
+	if redes == nil {
+		redes = map[string]string{}
+	}
+	return PaginaPublicaContenidoVersion{
+		Bio:                p.Bio,
+		Tema:               p.Tema,
+		TemaVariante:       p.TemaVariante,
+		TemaTipografia:     p.TemaTipografia,
+		FotoPortadaURL:     p.FotoPortadaURL,
+		RedesSociales:      redes,
+		MostrarMapa:        p.MostrarMapa,
+		DireccionOverride:  p.DireccionOverride,
+		NombreSobrePortada: p.NombreSobrePortada,
+		NombreColor:        p.NombreColor,
+		Modulos:            modulos,
+	}
+}
 
 // MigracionUnaVez — corrección de performance (auditoría 2026-09-08, Fase
 // B, docs/Seguridad y optimizacion/): registro de las migraciones de datos

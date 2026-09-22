@@ -4,8 +4,11 @@ const {
   redirectMock,
   revalidatePathMock,
   apiOcultarPaginaPublicaMock,
-  apiDeployarPaginaPublicaMock,
+  apiPublicarPaginaPublicaMock,
   apiActualizarPaginaPublicaMock,
+  apiObtenerHistorialPaginaPublicaMock,
+  apiRestaurarVersionPaginaPublicaMock,
+  apiGetPaginaPublicaMock,
   apiSubirFotoPaginaPublicaMock,
   getSessionTokenMock,
 } = vi.hoisted(
@@ -15,8 +18,11 @@ const {
     }),
     revalidatePathMock: vi.fn(),
     apiOcultarPaginaPublicaMock: vi.fn(),
-    apiDeployarPaginaPublicaMock: vi.fn(),
+    apiPublicarPaginaPublicaMock: vi.fn(),
     apiActualizarPaginaPublicaMock: vi.fn(),
+    apiObtenerHistorialPaginaPublicaMock: vi.fn(),
+    apiRestaurarVersionPaginaPublicaMock: vi.fn(),
+    apiGetPaginaPublicaMock: vi.fn(),
     apiSubirFotoPaginaPublicaMock: vi.fn(),
     getSessionTokenMock: vi.fn(),
   }),
@@ -26,14 +32,24 @@ vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/api", () => ({
   apiOcultarPaginaPublica: apiOcultarPaginaPublicaMock,
-  apiDeployarPaginaPublica: apiDeployarPaginaPublicaMock,
+  apiPublicarPaginaPublica: apiPublicarPaginaPublicaMock,
   apiActualizarPaginaPublica: apiActualizarPaginaPublicaMock,
+  apiObtenerHistorialPaginaPublica: apiObtenerHistorialPaginaPublicaMock,
+  apiRestaurarVersionPaginaPublica: apiRestaurarVersionPaginaPublicaMock,
+  apiGetPaginaPublica: apiGetPaginaPublicaMock,
   apiSubirFotoPaginaPublica: apiSubirFotoPaginaPublicaMock,
 }));
 vi.mock("@/lib/session", () => ({ getSessionToken: getSessionTokenMock }));
 
-const { ocultarPaginaPublicaAction, deployarPaginaPublicaAction, actualizarPaginaPublicaAction, subirFotoPaginaPublicaAction } =
-  await import("./pagina-publica");
+const {
+  ocultarPaginaPublicaAction,
+  publicarPaginaPublicaAction,
+  actualizarPaginaPublicaAction,
+  historialPaginaPublicaAction,
+  restaurarVersionPaginaPublicaAction,
+  obtenerPaginaPublicaAction,
+  subirFotoPaginaPublicaAction,
+} = await import("./pagina-publica");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,29 +83,30 @@ describe("ocultarPaginaPublicaAction", () => {
   });
 });
 
-describe("deployarPaginaPublicaAction", () => {
+describe("publicarPaginaPublicaAction", () => {
   it("redirige a /ingresar sin sesión", async () => {
     getSessionTokenMock.mockResolvedValue(undefined);
-    await expect(deployarPaginaPublicaAction()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+    await expect(publicarPaginaPublicaAction("clinica-x")).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("en éxito, revalida /personalizar-pagina y /buscar (T4.5), y devuelve la página", async () => {
+  it("en éxito, revalida /personalizar-pagina, /buscar y /{slug}, y devuelve la página", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiDeployarPaginaPublicaMock.mockResolvedValue({ ok: true, data: { oculta: false, deployadaEn: "2026-08-23T00:00:00Z" } });
+    apiPublicarPaginaPublicaMock.mockResolvedValue({ ok: true, data: { oculta: false, deployadaEn: "2026-08-23T00:00:00Z" } });
 
-    const result = await deployarPaginaPublicaAction();
+    const result = await publicarPaginaPublicaAction("clinica-x");
 
     expect(result).toEqual({ pagina: { oculta: false, deployadaEn: "2026-08-23T00:00:00Z" } });
-    expect(apiDeployarPaginaPublicaMock).toHaveBeenCalledWith("un-jwt");
+    expect(apiPublicarPaginaPublicaMock).toHaveBeenCalledWith("un-jwt");
     expect(revalidatePathMock).toHaveBeenCalledWith("/personalizar-pagina");
     expect(revalidatePathMock).toHaveBeenCalledWith("/buscar");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/clinica-x");
   });
 
   it("en error, devuelve el mensaje sin revalidar", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiDeployarPaginaPublicaMock.mockResolvedValue({ ok: false, status: 500, error: "no se pudo publicar la página" });
+    apiPublicarPaginaPublicaMock.mockResolvedValue({ ok: false, status: 500, error: "no se pudo publicar la página" });
 
-    const result = await deployarPaginaPublicaAction();
+    const result = await publicarPaginaPublicaAction("clinica-x");
 
     expect(result).toEqual({ error: "no se pudo publicar la página" });
     expect(revalidatePathMock).not.toHaveBeenCalled();
@@ -99,27 +116,82 @@ describe("deployarPaginaPublicaAction", () => {
 describe("actualizarPaginaPublicaAction", () => {
   it("redirige a /ingresar sin sesión", async () => {
     getSessionTokenMock.mockResolvedValue(undefined);
-    await expect(actualizarPaginaPublicaAction({ bio: "x" })).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+    await expect(actualizarPaginaPublicaAction({ bio: "x", revision: 0 })).rejects.toThrow("NEXT_REDIRECT:/ingresar");
   });
 
-  it("en éxito devuelve la página; revalida el buscador solo si ya está publicada", async () => {
+  it("en éxito devuelve kind ok con la página, y revalida /personalizar-pagina", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiActualizarPaginaPublicaMock.mockResolvedValue({ ok: true, data: { oculta: false, deployadaEn: null } });
-    await actualizarPaginaPublicaAction({ bio: "x" });
-    expect(apiActualizarPaginaPublicaMock).toHaveBeenCalledWith("un-jwt", { bio: "x" });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/personalizar-pagina");
-    expect(revalidatePathMock).not.toHaveBeenCalledWith("/buscar");
+    apiActualizarPaginaPublicaMock.mockResolvedValue({ kind: "ok", data: { oculta: false, deployadaEn: null, revision: 1 } });
 
-    apiActualizarPaginaPublicaMock.mockResolvedValue({ ok: true, data: { oculta: false, deployadaEn: "2026-09-18T00:00:00Z" } });
-    await actualizarPaginaPublicaAction({ bio: "y" });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/buscar");
+    const result = await actualizarPaginaPublicaAction({ bio: "x", revision: 0 });
+
+    expect(result).toEqual({ kind: "ok", pagina: { oculta: false, deployadaEn: null, revision: 1 } });
+    expect(apiActualizarPaginaPublicaMock).toHaveBeenCalledWith("un-jwt", { bio: "x", revision: 0 });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/personalizar-pagina");
+  });
+
+  it("en conflicto (409) devuelve kind conflicto sin revalidar", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    const conflicto = { error: "x", revisionActual: 3, actualizadaEn: "2026-09-22T00:00:00Z", actualizadaPorNombre: "Ana" };
+    apiActualizarPaginaPublicaMock.mockResolvedValue({ kind: "conflicto", conflicto });
+
+    const result = await actualizarPaginaPublicaAction({ bio: "x", revision: 0 });
+
+    expect(result).toEqual({ kind: "conflicto", conflicto });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("en error devuelve el mensaje del backend sin revalidar", async () => {
     getSessionTokenMock.mockResolvedValue("un-jwt");
-    apiActualizarPaginaPublicaMock.mockResolvedValue({ ok: false, status: 400, error: "tema o variante de color inválidos" });
-    expect(await actualizarPaginaPublicaAction({ tema: "x" })).toEqual({ error: "tema o variante de color inválidos" });
+    apiActualizarPaginaPublicaMock.mockResolvedValue({ kind: "error", status: 400, error: "tema o variante de color inválidos" });
+    expect(await actualizarPaginaPublicaAction({ tema: "x", revision: 0 })).toEqual({
+      kind: "error",
+      error: "tema o variante de color inválidos",
+    });
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("historialPaginaPublicaAction", () => {
+  it("redirige a /ingresar sin sesión", async () => {
+    getSessionTokenMock.mockResolvedValue(undefined);
+    await expect(historialPaginaPublicaAction()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("en éxito devuelve las versiones", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    const versiones = [{ numero: 1, publicadaEn: "2026-09-22T00:00:00Z", publicadaPorNombre: "Ana", contenido: {} }];
+    apiObtenerHistorialPaginaPublicaMock.mockResolvedValue({ ok: true, data: versiones });
+    expect(await historialPaginaPublicaAction()).toEqual({ versiones });
+  });
+});
+
+describe("restaurarVersionPaginaPublicaAction", () => {
+  it("redirige a /ingresar sin sesión", async () => {
+    getSessionTokenMock.mockResolvedValue(undefined);
+    await expect(restaurarVersionPaginaPublicaAction(1, 0)).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("en éxito devuelve kind ok y revalida /personalizar-pagina", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiRestaurarVersionPaginaPublicaMock.mockResolvedValue({ kind: "ok", data: { oculta: false, revision: 4 } });
+    const result = await restaurarVersionPaginaPublicaAction(1, 3);
+    expect(result).toEqual({ kind: "ok", pagina: { oculta: false, revision: 4 } });
+    expect(apiRestaurarVersionPaginaPublicaMock).toHaveBeenCalledWith("un-jwt", 1, 3);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/personalizar-pagina");
+  });
+});
+
+describe("obtenerPaginaPublicaAction", () => {
+  it("redirige a /ingresar sin sesión", async () => {
+    getSessionTokenMock.mockResolvedValue(undefined);
+    await expect(obtenerPaginaPublicaAction()).rejects.toThrow("NEXT_REDIRECT:/ingresar");
+  });
+
+  it("en éxito devuelve la página tal cual", async () => {
+    getSessionTokenMock.mockResolvedValue("un-jwt");
+    apiGetPaginaPublicaMock.mockResolvedValue({ ok: true, data: { oculta: false, revision: 7 } });
+    expect(await obtenerPaginaPublicaAction()).toEqual({ pagina: { oculta: false, revision: 7 } });
   });
 });
 

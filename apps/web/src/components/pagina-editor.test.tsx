@@ -4,18 +4,25 @@ import userEvent from "@testing-library/user-event";
 import type { PaginaPublica } from "@dental-mirage/shared-types";
 import type { SesionCompleta } from "@/lib/session";
 
-const { ocultarPaginaPublicaActionMock, deployarPaginaPublicaActionMock, actualizarPaginaPublicaActionMock, subirFotoPaginaPublicaActionMock } =
-  vi.hoisted(() => ({
-    ocultarPaginaPublicaActionMock: vi.fn(),
-    deployarPaginaPublicaActionMock: vi.fn(),
-    actualizarPaginaPublicaActionMock: vi.fn(),
-    subirFotoPaginaPublicaActionMock: vi.fn(),
-  }));
+const {
+  ocultarPaginaPublicaActionMock,
+  publicarPaginaPublicaActionMock,
+  actualizarPaginaPublicaActionMock,
+  obtenerPaginaPublicaActionMock,
+  subirFotoPaginaPublicaActionMock,
+} = vi.hoisted(() => ({
+  ocultarPaginaPublicaActionMock: vi.fn(),
+  publicarPaginaPublicaActionMock: vi.fn(),
+  actualizarPaginaPublicaActionMock: vi.fn(),
+  obtenerPaginaPublicaActionMock: vi.fn(),
+  subirFotoPaginaPublicaActionMock: vi.fn(),
+}));
 
 vi.mock("@/app/actions/pagina-publica", () => ({
   ocultarPaginaPublicaAction: ocultarPaginaPublicaActionMock,
-  deployarPaginaPublicaAction: deployarPaginaPublicaActionMock,
+  publicarPaginaPublicaAction: publicarPaginaPublicaActionMock,
   actualizarPaginaPublicaAction: actualizarPaginaPublicaActionMock,
+  obtenerPaginaPublicaAction: obtenerPaginaPublicaActionMock,
   subirFotoPaginaPublicaAction: subirFotoPaginaPublicaActionMock,
 }));
 // La previsualización en vivo reusa ClinicaPublicaTemplate → PedirTurnoButton,
@@ -61,9 +68,37 @@ const paginaVacia: PaginaPublica = {
   nombreColor: "",
   modulos: [],
   estadisticas: {},
+  revision: 0,
+  actualizadaEn: "2026-01-01T00:00:00Z",
 };
 
 const panel = () => screen.getByRole("complementary", { name: "Panel de edición" });
+
+// contenidoPublicadoDeVacia — lo que Publicar guardaría para paginaVacia: la
+// estructura POR DEFECTO (sobre_nosotros + especialidades, ver
+// modulosPorDefecto en lib/pagina-publica/modulos.ts), no un array vacío —
+// borradorDeModulos([]) arma esa estructura para una página que nadie
+// personalizó todavía.
+const contenidoPublicadoDeVacia = {
+  bio: null,
+  tema: "",
+  temaVariante: "",
+  temaTipografia: "",
+  redesSociales: {},
+  mostrarMapa: false,
+  nombreSobrePortada: false,
+  nombreColor: "",
+  modulos: [
+    { tipo: "sobre_nosotros", orden: 0, visible: true, config: {} },
+    { tipo: "especialidades", orden: 1, visible: true, config: {} },
+  ],
+};
+const ultimaVersionPublicadaDeVacia = {
+  numero: 1,
+  publicadaEn: "2026-08-23T00:00:00Z",
+  publicadaPorNombre: "María Games",
+  contenido: contenidoPublicadoDeVacia,
+};
 
 describe("PaginaEditor — barra de acciones", () => {
   beforeEach(() => {
@@ -77,22 +112,28 @@ describe("PaginaEditor — barra de acciones", () => {
     expect(link).toHaveAttribute("target", "_blank");
   });
 
-  it("sin deployar todavía, muestra el botón 'Deployar'; al confirmar, pasa a la insignia 'Publicada'", async () => {
-    deployarPaginaPublicaActionMock.mockResolvedValue({ pagina: { ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z" } });
+  it("sin publicar todavía, el botón dice 'Publicar'; al confirmar, aparece la insignia 'Publicada'", async () => {
+    publicarPaginaPublicaActionMock.mockResolvedValue({
+      pagina: { ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z", ultimaVersionPublicada: ultimaVersionPublicadaDeVacia },
+    });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
 
     expect(screen.queryByText("Publicada")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Deployar" }));
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
 
-    expect(deployarPaginaPublicaActionMock).toHaveBeenCalled();
+    expect(publicarPaginaPublicaActionMock).toHaveBeenCalledWith(sesion.slug);
     expect(await screen.findByText("Publicada")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Deployar" })).not.toBeInTheDocument();
   });
 
-  it("ya deployada, no muestra el botón 'Deployar' — solo la insignia (spec §5.2: 'solo visible la primera vez')", () => {
-    render(<PaginaEditor sesion={sesion} paginaInicial={{ ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z" }} />);
-    expect(screen.queryByRole("button", { name: "Deployar" })).not.toBeInTheDocument();
+  it("ya publicada y sin cambios sin publicar, el botón 'Publicar' queda deshabilitado y se ve la insignia", () => {
+    render(
+      <PaginaEditor
+        sesion={sesion}
+        paginaInicial={{ ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z", ultimaVersionPublicada: ultimaVersionPublicadaDeVacia }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Publicar" })).toBeDisabled();
     expect(screen.getByText("Publicada")).toBeInTheDocument();
   });
 
@@ -120,7 +161,7 @@ describe("PaginaEditor — barra de acciones", () => {
 
   it("botones deshabilitados mientras la acción está en curso", async () => {
     let resolver: (value: { pagina: PaginaPublica }) => void = () => {};
-    deployarPaginaPublicaActionMock.mockReturnValue(
+    publicarPaginaPublicaActionMock.mockReturnValue(
       new Promise((resolve) => {
         resolver = resolve;
       }),
@@ -128,10 +169,10 @@ describe("PaginaEditor — barra de acciones", () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
 
-    await user.click(screen.getByRole("button", { name: "Deployar" }));
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
     expect(screen.getByRole("button", { name: "Publicando…" })).toBeDisabled();
 
-    resolver({ pagina: { ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z" } });
+    resolver({ pagina: { ...paginaVacia, deployadaEn: "2026-08-23T00:00:00Z", ultimaVersionPublicada: ultimaVersionPublicadaDeVacia } });
     await waitFor(() => expect(screen.getByText("Publicada")).toBeInTheDocument());
   });
 });
@@ -182,6 +223,7 @@ const paginaGuardada: PaginaPublica = {
     { id: "m1", tipo: "sobre_nosotros", orden: 0, visible: true, config: {} },
     { id: "m2", tipo: "especialidades", orden: 1, visible: true, config: {} },
   ],
+  revision: 5,
 };
 
 describe("PaginaEditor — edición", () => {
@@ -215,7 +257,7 @@ describe("PaginaEditor — edición", () => {
   });
 
   it("guardar manda el contenido completo, en el orden de la lista, y vuelve a 'sin cambios'", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: { ...paginaGuardada, bio: "Hola" } });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: { ...paginaGuardada, bio: "Hola" } });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
@@ -240,8 +282,48 @@ describe("PaginaEditor — edición", () => {
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
   });
 
+  it("PE-8: un 409 al guardar muestra quién y cuándo, y 'Recargar' trae el estado real del servidor", async () => {
+    const conflicto = { error: "x", revisionActual: 9, actualizadaEn: "2026-09-22T10:00:00Z", actualizadaPorNombre: "Juan" };
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "conflicto", conflicto });
+    obtenerPaginaPublicaActionMock.mockResolvedValue({ pagina: { ...paginaGuardada, bio: "Lo de Juan", revision: 9 } });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(within(panel()).getByLabelText(/Texto/), " Más.");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Juan");
+    expect(screen.getByRole("alert")).toHaveTextContent("mientras editabas");
+
+    await user.click(screen.getByRole("button", { name: /Recargar/ }));
+    expect(obtenerPaginaPublicaActionMock).toHaveBeenCalled();
+    expect(await within(panel()).findByLabelText(/Texto/)).toHaveValue("Lo de Juan");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("PE-8: 'Mantener mi copia' descarta el conflicto y deja reintentar con la revisión nueva", async () => {
+    const conflicto = { error: "x", revisionActual: 9, actualizadaEn: "2026-09-22T10:00:00Z", actualizadaPorNombre: "Juan" };
+    actualizarPaginaPublicaActionMock.mockResolvedValueOnce({ kind: "conflicto", conflicto });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(within(panel()).getByLabelText(/Texto/), " Mío.");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await screen.findByRole("alert");
+
+    actualizarPaginaPublicaActionMock.mockResolvedValueOnce({ kind: "ok", pagina: { ...paginaGuardada, bio: "Atendemos desde 1998. Mío.", revision: 10 } });
+    await user.click(screen.getByRole("button", { name: "Mantener mi copia" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(panel()).getByLabelText(/Texto/)).toHaveValue("Atendemos desde 1998. Mío.");
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(actualizarPaginaPublicaActionMock).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 9 }));
+  });
+
   it("si el backend rechaza el guardado, muestra el error y conserva el borrador", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ error: "la bio admite hasta 2000 caracteres" });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "error", error: "la bio admite hasta 2000 caracteres" });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
@@ -281,7 +363,7 @@ describe("PaginaEditor — edición", () => {
   });
 
   it("agrega un módulo, lo reordena con las flechas y lo oculta", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: paginaGuardada });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: paginaGuardada });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
@@ -334,7 +416,7 @@ describe("PaginaEditor — edición", () => {
   });
 
   it("elegir un tema cambia la vista previa, y cada tema ofrece sus propias variantes", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: paginaGuardada });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: paginaGuardada });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
@@ -371,7 +453,7 @@ describe("PaginaEditor — edición", () => {
 
   it("sube la foto de portada, la muestra y la manda al guardar", async () => {
     subirFotoPaginaPublicaActionMock.mockResolvedValue({ url: "http://localhost:8080/uploads/portada.jpg" });
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: paginaGuardada });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: paginaGuardada });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
@@ -413,7 +495,7 @@ describe("PaginaEditor — edición", () => {
   });
 
   it("estadísticas: se eligen de la lista cerrada y viajan en la config del módulo", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: paginaGuardada });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: paginaGuardada });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={{ ...paginaGuardada, estadisticas: { pacientes_atendidos: 12, turnos_realizados: 30 } }} />);
 
@@ -480,7 +562,7 @@ describe("PaginaEditor — nombre propio de cada módulo", () => {
   });
 
   it("el nombre viaja en config.nombre, y borrarlo lo QUITA en vez de guardar una cadena vacía", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: dosFotos });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: dosFotos });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={dosFotos} />);
 
@@ -555,7 +637,7 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
   });
 
   it("el color solo se puede elegir con el nombre sobre la foto, y cambia el color del nombre", async () => {
-    actualizarPaginaPublicaActionMock.mockResolvedValue({ pagina: conPortada });
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: conPortada });
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={conPortada} />);
     await user.click(within(panel()).getByRole("button", { name: /Portada/ }));

@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  apiActualizarPaginaPublica,
   apiBuscarClinicas,
   apiCrearTurnoManual,
-  apiDeployarPaginaPublica,
+  apiPublicarPaginaPublica,
   apiGetPaginaPublica,
   apiGoogleState,
   apiListEspecialidades,
@@ -275,7 +276,7 @@ describe("lib/api", () => {
     expect(init?.body).toBe(JSON.stringify({ oculta: true }));
   });
 
-  it("apiDeployarPaginaPublica manda PATCH sin body", async () => {
+  it("apiPublicarPaginaPublica manda POST sin body", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -283,12 +284,48 @@ describe("lib/api", () => {
     } as Response);
     vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await apiDeployarPaginaPublica("un-token");
+    const result = await apiPublicarPaginaPublica("un-token");
 
     expect(result).toEqual({ ok: true, data: { oculta: false, deployadaEn: "2026-08-23T00:00:00Z" } });
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toContain("/panel/pagina/deployar");
-    expect(init?.method).toBe("PATCH");
+    expect(url).toContain("/panel/pagina/publicar");
+    expect(init?.method).toBe("POST");
+  });
+
+  it("apiActualizarPaginaPublica exige revision y devuelve kind ok en éxito", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ oculta: false, bio: "hola", revision: 3 }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await apiActualizarPaginaPublica("un-token", { bio: "hola", revision: 2 });
+
+    expect(result).toEqual({ kind: "ok", data: { oculta: false, bio: "hola", revision: 3 } });
+    const [, init] = fetchSpy.mock.calls[0];
+    expect(init?.body).toBe(JSON.stringify({ bio: "hola", revision: 2 }));
+  });
+
+  it("apiActualizarPaginaPublica devuelve kind conflicto en un 409", async () => {
+    const cuerpoConflicto = {
+      error: "otra persona guardó cambios",
+      revisionActual: 5,
+      actualizadaEn: "2026-09-22T00:00:00Z",
+      actualizadaPorNombre: "Ana",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: async () => cuerpoConflicto,
+      } as Response),
+    );
+
+    const result = await apiActualizarPaginaPublica("un-token", { bio: "hola", revision: 2 });
+
+    expect(result).toEqual({ kind: "conflicto", conflicto: cuerpoConflicto });
   });
 
   it("maneja una respuesta 204 sin body sin explotar", async () => {

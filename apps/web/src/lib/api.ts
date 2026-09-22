@@ -9,6 +9,7 @@ import type {
   ClinicaPublica,
   ClinicaResultado,
   CodigoInvitacion,
+  ConflictoRevisionPagina,
   Equipo,
   PacienteConocido,
   Presencia,
@@ -33,6 +34,7 @@ import type {
   PacienteDetalle,
   PaginaPublica,
   PanelNotificacionesResponse,
+  VersionPaginaPublica,
   PerfilDeColega,
   PerfilProfesional,
   VistaActual,
@@ -1731,14 +1733,25 @@ export function apiOcultarPaginaPublica(
   });
 }
 
-// Deployar (T4.2, spec §5.2) es de una sola dirección — publica la página
-// por primera vez, sin body. El backend es idempotente: llamarlo de nuevo
-// no pisa la fecha del primer deploy (ver internal/http/pagina_publica.go).
-export function apiDeployarPaginaPublica(
+// Publicar (PE-8, plan Prisma Engine — reemplaza a "Deployar"): copia el
+// borrador actual a una versión nueva, numerada. La primera vez además
+// marca `deployadaEn` (igual que antes) — pero a diferencia de Deployar,
+// NO es idempotente en el sentido de "no hacer nada la segunda vez": cada
+// llamada crea una versión más, aunque `deployadaEn` no vuelva a cambiar.
+export function apiPublicarPaginaPublica(
   token: string,
 ): Promise<ApiResult<PaginaPublica>> {
-  return request<PaginaPublica>("/panel/pagina/deployar", {
-    method: "PATCH",
+  return request<PaginaPublica>("/panel/pagina/publicar", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// Historial (PE-8): todas las versiones publicadas, más nueva primero.
+export function apiObtenerHistorialPaginaPublica(
+  token: string,
+): Promise<ApiResult<VersionPaginaPublica[]>> {
+  return request<VersionPaginaPublica[]>("/panel/pagina/versiones", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -1777,16 +1790,106 @@ export interface ActualizarPaginaPublicaPayload {
   nombreSobrePortada?: boolean;
   nombreColor?: string;
   modulos?: PaginaPublicaModuloPayload[];
+  // revision (PE-8): OBLIGATORIA — el candado optimista del borrador. El
+  // backend responde 409 (GuardarPaginaPublicaResult con kind "conflicto")
+  // si no coincide con la que tiene guardada — alguien más guardó antes.
+  revision: number;
+}
+
+// GuardarPaginaPublicaResult (PE-8) — un guardado o un restaurar pueden
+// terminar en tres estados, no dos: además de éxito/error genérico, un 409
+// con el "quién y cuándo" del conflicto (ver ConflictoRevisionPagina). Un
+// `kind` explícito en vez de superponer variantes de `ok:false` — más fácil
+// de angostar en el editor sin adivinar qué campos trae cada una.
+export type GuardarPaginaPublicaResult =
+  | { kind: "ok"; data: PaginaPublica }
+  | { kind: "conflicto"; conflicto: ConflictoRevisionPagina }
+  | { kind: "error"; status: number; error: string };
+
+function esConflictoRevision(body: unknown): body is ConflictoRevisionPagina {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "revisionActual" in body &&
+    "actualizadaEn" in body
+  );
+}
+
+// fetchPaginaConConflicto — mismo fetch/timeout/manejo de errores que
+// requestRaw, pero sin colapsar un 409 a un string: el editor necesita los
+// campos de ConflictoRevisionPagina para ofrecer "recargar" o "quedarte con
+// tu copia", no solo un mensaje.
+async function fetchPaginaConConflicto(
+  path: string,
+  init: RequestInit,
+): Promise<GuardarPaginaPublicaResult> {
+  let res: Response;
+  const deIP = await cabecerasDeIP();
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...deIP,
+        ...(init.headers ?? {}),
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return {
+        kind: "error",
+        status: 0,
+        error: "El servidor tardó demasiado en responder. Probá de nuevo en un momento.",
+      };
+    }
+    return {
+      kind: "error",
+      status: 0,
+      error: "No se pudo conectar con el servidor. Probá de nuevo en un momento.",
+    };
+  }
+
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    // Respuesta sin body — no es un error en sí mismo.
+  }
+
+  if (res.status === 409 && esConflictoRevision(body)) {
+    return { kind: "conflicto", conflicto: body };
+  }
+  if (!res.ok) {
+    const message = isErrorBody(body) ? body.error : "Ocurrió un error inesperado.";
+    return { kind: "error", status: res.status, error: message };
+  }
+  return { kind: "ok", data: body as PaginaPublica };
 }
 
 export function apiActualizarPaginaPublica(
   token: string,
   payload: ActualizarPaginaPublicaPayload,
-): Promise<ApiResult<PaginaPublica>> {
-  return request<PaginaPublica>("/panel/pagina", {
+): Promise<GuardarPaginaPublicaResult> {
+  return fetchPaginaConConflicto("/panel/pagina", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
+  });
+}
+
+// Restaurar (PE-8): copia el CONTENIDO de una versión publicada al
+// borrador — nunca publica directo. Mismo candado de revisión que Guardar.
+export function apiRestaurarVersionPaginaPublica(
+  token: string,
+  numero: number,
+  revision: number,
+): Promise<GuardarPaginaPublicaResult> {
+  return fetchPaginaConConflicto(`/panel/pagina/versiones/${numero}/restaurar`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ revision }),
   });
 }
 

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "nombre": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "titulo": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "texto": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

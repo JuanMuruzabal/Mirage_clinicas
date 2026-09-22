@@ -1,6 +1,6 @@
 # apps/web — Next.js dentro de un monorepo pnpm (depende de
-# packages/shared-types vía "workspace:*"), así que el build NECESITA
-# contexto de la raíz del repo, no solo apps/web.
+# packages/shared-types y packages/prisma-engine vía "workspace:*"), así que
+# el build NECESITA contexto de la raíz del repo, no solo apps/web.
 #
 # Build context: raíz del monorepo (ver docker-compose.yml,
 # build.context: . / build.dockerfile: apps/web/Dockerfile, y
@@ -35,6 +35,7 @@ WORKDIR /repo
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
+COPY packages/prisma-engine/package.json packages/prisma-engine/package.json
 RUN pnpm install --frozen-lockfile
 
 # --- build: código fuente + `next build` (genera .next/standalone) ---
@@ -43,6 +44,7 @@ WORKDIR /repo
 COPY --from=deps /repo ./
 COPY apps/web apps/web
 COPY packages/shared-types packages/shared-types
+COPY packages/prisma-engine packages/prisma-engine
 # ARG → ENV: ninguno es secreto (viajan al navegador de por sí, ver el
 # comentario grande de arriba) — sin este puente, `next build` los ve
 # como `undefined` aunque Render/docker-compose los pasen bien como

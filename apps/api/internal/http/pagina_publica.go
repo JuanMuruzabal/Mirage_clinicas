@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/prismaengine"
 	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/storage"
 )
@@ -25,43 +27,42 @@ func registerPaginaPublicaRoutes(r chi.Router, gdb *gorm.DB, store storage.Stora
 	r.Get("/panel/pagina", getPaginaPublicaHandler(gdb))
 	r.Patch("/panel/pagina", actualizarPaginaPublicaHandler(gdb))
 	r.Patch("/panel/pagina/ocultar", ocultarPaginaPublicaHandler(gdb))
-	r.Patch("/panel/pagina/deployar", deployarPaginaPublicaHandler(gdb))
+	// PE-8: "Publicar" reemplaza a "Deployar" (PATCH /panel/pagina/deployar
+	// ya no existe) — POST porque deja de ser idempotente: cada llamada crea
+	// una versión nueva, no solo marca una fecha.
+	r.Post("/panel/pagina/publicar", publicarPaginaPublicaHandler(gdb))
+	r.Get("/panel/pagina/versiones", historialPaginaPublicaHandler(gdb))
+	r.Post("/panel/pagina/versiones/{numero}/restaurar", restaurarVersionPaginaPublicaHandler(gdb))
 	r.Post("/panel/pagina/fotos", subirFotoPaginaPublicaHandler(store))
 }
 
-// tiposModuloValidos — catálogo cerrado de módulos que SE PERSISTEN (Fase
-// 4.2, docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md). "portada"
-// y "turno" quedan afuera a propósito: son estructurales y fijos, los
-// renderiza el frontend directo (Fase 4.5), nunca una fila acá.
-var tiposModuloValidos = map[string]bool{
-	"sobre_nosotros": true,
-	"texto_libre":    true,
-	"especialidades": true,
-	"foto":           true,
-	"galeria":        true,
-	"estadisticas":   true,
-	"contacto":       true,
-	"horarios":       true,
-}
-
-var subtiposFotoValidos = map[string]bool{"retrato": true, "banner": true, "franja": true}
-
-// estadisticasValidas — lista cerrada de estadísticas reales que un
-// módulo "estadisticas" puede mostrar (ver estadisticasDeLaClinica más
-// abajo) — nunca un valor cargado a mano.
-var estadisticasValidas = map[string]bool{"pacientes_atendidos": true, "turnos_realizados": true}
-
+// Qué tipo de módulo es válido, y qué forma tiene su config, se resuelve
+// contra el esquema generado (PE-1, internal/prismaengine) — ya no hay un
+// catálogo ni un switch escritos a mano acá. "portada" y "turno" siguen
+// afuera a propósito (no tienen esquema): son estructurales y fijos, los
+// renderiza el frontend directo (Fase 4.5), nunca una fila acá. El tope de
+// la galería (8 fotos) tampoco tiene espejo acá por la misma razón: vive
+// solo en packages/prisma-engine/src/modulos/galeria/schema.ts.
+//
+// topeFotosSueltasPorPagina sigue siendo una constante de Go porque cuenta
+// módulos "foto" ENTRE SÍ en toda la página — algo que un esquema por
+// módulo no puede expresar (no es la config de UN módulo). maxLargoBio/
+// maxLargoRed validan campos de la PÁGINA (bio, redes), tampoco de un
+// módulo.
+//
+// maxLargoTituloTexto/maxLargoTextoLibre/maxLargoNombreModulo ya no validan
+// nada acá (eso lo hace el esquema, con los mismos números — ver
+// packages/prisma-engine/src/constantes.ts y schema-base.ts): siguen
+// definidas SOLO para que los tests de este paquete puedan construir un
+// texto "uno más largo que el límite" sin repetir el número a mano. Si se
+// cambia un largo, cambiarlo en el paquete y acá en el mismo commit.
 const (
-	topeFotosGaleria          = 8
 	topeFotosSueltasPorPagina = 10
 
-	maxLargoBio         = 2000
-	maxLargoTituloTexto = 80
-	maxLargoTextoLibre  = 2000
-	maxLargoRed         = 100
-	// maxLargoNombreModulo: el nombre que el admin le pone a un módulo para
-	// reconocerlo en el editor ("Foto de la sala de espera"). Vive en
-	// config.nombre de cualquier tipo de módulo.
+	maxLargoBio          = 2000
+	maxLargoTituloTexto  = 80
+	maxLargoTextoLibre   = 2000
+	maxLargoRed          = 100
 	maxLargoNombreModulo = 60
 	maxLargoURLFoto      = 500 // el de la columna foto_portada_url
 )
@@ -165,6 +166,89 @@ type paginaPublicaResponse struct {
 	DireccionClinica *string          `json:"direccionClinica,omitempty"`
 	Modulos          []moduloResponse `json:"modulos"`
 	Estadisticas     map[string]int   `json:"estadisticas"`
+	// Revision/ActualizadaPor*/UltimaVersionPublicada (PE-8): el candado
+	// optimista del borrador y lo necesario para que el editor calcule
+	// "hay cambios sin publicar" sin un segundo viaje al servidor.
+	Revision               int              `json:"revision"`
+	ActualizadaEn          string           `json:"actualizadaEn"`
+	ActualizadaPorNombre   *string          `json:"actualizadaPorNombre,omitempty"`
+	UltimaVersionPublicada *versionResponse `json:"ultimaVersionPublicada,omitempty"`
+}
+
+// moduloContenidoResponse — un módulo dentro de una VERSIÓN publicada: sin
+// `id` (una versión no referencia filas de pagina_publica_modulos, ver el
+// comentario de PaginaPublicaContenidoModulo en models.go).
+type moduloContenidoResponse struct {
+	Tipo    string         `json:"tipo"`
+	Orden   int            `json:"orden"`
+	Visible bool           `json:"visible"`
+	Config  map[string]any `json:"config,omitempty"`
+}
+
+// contenidoVersionResponse — mismo shape que paginaPublicaResponse menos lo
+// que una versión no guarda (Oculta, DeployadaEn, Estadisticas, Revision):
+// esas son del borrador o se calculan siempre en vivo, nunca de una foto
+// vieja.
+type contenidoVersionResponse struct {
+	Bio                *string                   `json:"bio,omitempty"`
+	Tema               string                    `json:"tema"`
+	TemaVariante       string                    `json:"temaVariante"`
+	TemaTipografia     string                    `json:"temaTipografia"`
+	FotoPortadaURL     *string                   `json:"fotoPortadaUrl,omitempty"`
+	RedesSociales      map[string]string         `json:"redesSociales"`
+	MostrarMapa        bool                      `json:"mostrarMapa"`
+	DireccionOverride  *string                   `json:"direccionOverride,omitempty"`
+	NombreSobrePortada bool                      `json:"nombreSobrePortada"`
+	NombreColor        string                    `json:"nombreColor"`
+	Modulos            []moduloContenidoResponse `json:"modulos"`
+}
+
+type versionResponse struct {
+	Numero             int                      `json:"numero"`
+	PublicadaEn        string                   `json:"publicadaEn"`
+	PublicadaPorNombre string                   `json:"publicadaPorNombre"`
+	Contenido          contenidoVersionResponse `json:"contenido"`
+}
+
+func toContenidoVersionResponse(c db.PaginaPublicaContenidoVersion) contenidoVersionResponse {
+	modulos := make([]moduloContenidoResponse, len(c.Modulos))
+	for i, m := range c.Modulos {
+		modulos[i] = moduloContenidoResponse{Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: m.Config}
+	}
+	redes := c.RedesSociales
+	if redes == nil {
+		redes = map[string]string{}
+	}
+	return contenidoVersionResponse{
+		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
+		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: redes, MostrarMapa: c.MostrarMapa,
+		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
+		Modulos: modulos,
+	}
+}
+
+func toVersionResponse(gdb *gorm.DB, v db.PaginaPublicaVersion) versionResponse {
+	return versionResponse{
+		Numero:             v.Numero,
+		PublicadaEn:        v.PublicadaEn.UTC().Format(time.RFC3339),
+		PublicadaPorNombre: nombreDelProfesional(gdb, v.PublicadaPorUserID),
+		Contenido:          toContenidoVersionResponse(v.Contenido),
+	}
+}
+
+// ultimaVersionPublicada — la de mayor Numero, o nil si la página nunca se
+// publicó. Se usa tanto en respuestaDePagina (para "hay cambios sin
+// publicar") como en publicarPaginaPublicaHandler (para el próximo Numero).
+func ultimaVersionPublicada(gdb *gorm.DB, paginaID uuid.UUID) (*db.PaginaPublicaVersion, error) {
+	var version db.PaginaPublicaVersion
+	err := gdb.Where("pagina_publica_id = ?", paginaID).Order("numero DESC").First(&version).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
 }
 
 // respuestaDePagina arma la respuesta completa de /panel/pagina — el único
@@ -175,6 +259,15 @@ func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) pag
 	var clinic db.Clinic
 	if err := gdb.Where("id = ?", clinicID).First(&clinic).Error; err == nil {
 		resp.DireccionClinica = clinic.Direccion
+	}
+	resp.ActualizadaEn = p.UpdatedAt.UTC().Format(time.RFC3339)
+	if p.ActualizadaPorUserID != nil {
+		nombre := nombreDelProfesional(gdb, p.ActualizadaPorUserID)
+		resp.ActualizadaPorNombre = &nombre
+	}
+	if ultima, err := ultimaVersionPublicada(gdb, p.ID); err == nil && ultima != nil {
+		v := toVersionResponse(gdb, *ultima)
+		resp.UltimaVersionPublicada = &v
 	}
 	return resp
 }
@@ -194,6 +287,7 @@ func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) pa
 		NombreColor:        p.NombreColor,
 		Modulos:            make([]moduloResponse, len(p.Modulos)),
 		Estadisticas:       estadisticas,
+		Revision:           p.Revision,
 	}
 	if resp.RedesSociales == nil {
 		resp.RedesSociales = map[string]string{}
@@ -292,64 +386,29 @@ type actualizarPaginaPublicaRequest struct {
 	// el body" (nil, no tocar los módulos existentes) de "vino una lista
 	// vacía" (reemplazar por CERO módulos, ej. el owner borró todos).
 	Modulos *[]moduloRequest `json:"modulos"`
+	// Revision (PE-8): la que el cliente cree que tiene el borrador AHORA.
+	// Obligatoria — sin ella no hay forma de detectar que alguien más
+	// guardó antes (edición simultánea, admin delegable). Si no coincide
+	// con la guardada, el handler responde 409 en vez de pisar el cambio
+	// ajeno.
+	Revision *int `json:"revision"`
 }
 
-// validarModulos — cada Tipo tiene que ser del catálogo cerrado, y algunas
-// config traen su propia validación (subtipo de foto, tope de fotos).
+// validarModulos (PE-1) — cada Tipo tiene que tener un esquema generado
+// (internal/prismaengine) y su Config validar contra él: ahí vive lo que
+// antes era un `switch` a mano por tipo (subtipo de foto obligatorio, tope
+// de la galería, estadísticas del catálogo cerrado, largos de texto,
+// nombre propio). Lo único que sigue acá es lo que un esquema POR MÓDULO no
+// puede expresar: el tope de fotos SUELTAS cuenta módulos "foto" entre sí,
+// en toda la lista.
 func validarModulos(modulos []moduloRequest) error {
 	fotosSueltas := 0
 	for _, m := range modulos {
-		if !tiposModuloValidos[m.Tipo] {
-			return fmt.Errorf("tipo de módulo inválido: %q", m.Tipo)
+		if err := prismaengine.ValidarConfigDeModulo(m.Tipo, m.Config); err != nil {
+			return err
 		}
-		if nombre, ok := m.Config["nombre"]; ok {
-			texto, esTexto := nombre.(string)
-			if !esTexto {
-				return errors.New("el nombre de un módulo tiene que ser un texto")
-			}
-			if len([]rune(texto)) > maxLargoNombreModulo {
-				return fmt.Errorf("el nombre de un módulo admite hasta %d caracteres", maxLargoNombreModulo)
-			}
-		}
-		switch m.Tipo {
-		case "texto_libre":
-			titulo, _ := m.Config["titulo"].(string)
-			texto, _ := m.Config["texto"].(string)
-			if len([]rune(titulo)) > maxLargoTituloTexto {
-				return fmt.Errorf("el título de una sección de texto admite hasta %d caracteres", maxLargoTituloTexto)
-			}
-			if len([]rune(texto)) > maxLargoTextoLibre {
-				return fmt.Errorf("una sección de texto admite hasta %d caracteres", maxLargoTextoLibre)
-			}
-		case "foto":
+		if m.Tipo == "foto" {
 			fotosSueltas++
-			subtipo, _ := m.Config["subtipo"].(string)
-			if !subtiposFotoValidos[subtipo] {
-				return fmt.Errorf("subtipo de foto inválido: %q", subtipo)
-			}
-			fotoURL, _ := m.Config["fotoUrl"].(string)
-			if !urlDeFotoValida(fotoURL) {
-				return errors.New("la URL de la foto no es válida")
-			}
-		case "galeria":
-			fotoUrls, _ := m.Config["fotoUrls"].([]any)
-			if len(fotoUrls) > topeFotosGaleria {
-				return fmt.Errorf("la galería admite hasta %d fotos", topeFotosGaleria)
-			}
-			for _, v := range fotoUrls {
-				u, _ := v.(string)
-				if u == "" || !urlDeFotoValida(u) {
-					return errors.New("la URL de una foto de la galería no es válida")
-				}
-			}
-		case "estadisticas":
-			mostrar, _ := m.Config["mostrar"].([]any)
-			for _, v := range mostrar {
-				id, _ := v.(string)
-				if !estadisticasValidas[id] {
-					return fmt.Errorf("estadística inválida: %q", id)
-				}
-			}
 		}
 	}
 	if fotosSueltas > topeFotosSueltasPorPagina {
@@ -434,6 +493,18 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		// Revision (PE-8): obligatoria, ver el comentario del campo en
+		// actualizarPaginaPublicaRequest.
+		if req.Revision == nil {
+			writeError(w, http.StatusBadRequest, "falta la revisión del borrador")
+			return
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "falta el token de autenticación")
+			return
+		}
+
 		pagina, err := getOrCrearPaginaPublica(gdb, clinicID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
@@ -446,8 +517,13 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			// en el repo para un update parcial de campos que incluyen un
 			// jsonb con serializer (RedesSociales), y actualizar por mapa
 			// es terreno sin probar acá para ese caso.
-			updates := db.PaginaPublica{}
-			var campos []string
+			//
+			// Revision/ActualizadaPorUserID SIEMPRE están en campos — a
+			// diferencia del resto, no son opcionales: todo PATCH exitoso
+			// avanza el candado optimista, aunque no haya cambiado ningún
+			// otro campo.
+			updates := db.PaginaPublica{Revision: *req.Revision + 1, ActualizadaPorUserID: &userID}
+			campos := []string{"Revision", "ActualizadaPorUserID"}
 			if req.Bio != nil {
 				updates.Bio = vacioANil(req.Bio)
 				campos = append(campos, "Bio")
@@ -496,10 +572,20 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 				updates.NombreColor = strings.TrimSpace(*req.NombreColor)
 				campos = append(campos, "NombreColor")
 			}
-			if len(campos) > 0 {
-				if err := tx.Model(&db.PaginaPublica{}).Where("id = ?", pagina.ID).Select(campos).Updates(updates).Error; err != nil {
-					return err
-				}
+			// "AND revision = ?" hace del UPDATE el candado entero: una sola
+			// sentencia atómica, no un SELECT-luego-UPDATE con ventana para
+			// que otra request se cuele en el medio. 0 filas afectadas =
+			// alguien más guardó antes (la fila existe, la Revision ya no
+			// coincide) — se corta ACÁ, antes de tocar los módulos, para no
+			// dejar la página a mitad de camino entre dos guardados.
+			resultado := tx.Model(&db.PaginaPublica{}).
+				Where("id = ? AND revision = ?", pagina.ID, *req.Revision).
+				Select(campos).Updates(updates)
+			if resultado.Error != nil {
+				return resultado.Error
+			}
+			if resultado.RowsAffected == 0 {
+				return errRevisionDesactualizada
 			}
 			if req.Modulos != nil {
 				if err := tx.Where("pagina_publica_id = ?", pagina.ID).Delete(&db.PaginaPublicaModulo{}).Error; err != nil {
@@ -526,6 +612,15 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 			return nil
 		})
+		if errors.Is(err, errRevisionDesactualizada) {
+			actual, errLectura := getOrCrearPaginaPublica(gdb, clinicID)
+			if errLectura != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo actualizar la página")
+				return
+			}
+			writeJSON(w, http.StatusConflict, conflictoRevisionResponse(gdb, *actual))
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar la página")
 			return
@@ -538,6 +633,34 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
+}
+
+// errRevisionDesactualizada — sentinela interno: nunca sale del paquete, es
+// solo para distinguir "conflicto de revisión" (409) de un error de verdad
+// (500) al volver del gdb.Transaction de arriba.
+var errRevisionDesactualizada = errors.New("revision desactualizada")
+
+type conflictoRevisionBody struct {
+	Error                string  `json:"error"`
+	RevisionActual       int     `json:"revisionActual"`
+	ActualizadaEn        string  `json:"actualizadaEn"`
+	ActualizadaPorNombre *string `json:"actualizadaPorNombre,omitempty"`
+}
+
+// conflictoRevisionResponse — "quién y cuándo" (plan Prisma Engine, PE-8):
+// lo que el editor necesita para ofrecer "recargar" o "quedarte con tu
+// copia" sin adivinar.
+func conflictoRevisionResponse(gdb *gorm.DB, actual db.PaginaPublica) conflictoRevisionBody {
+	body := conflictoRevisionBody{
+		Error:          "otra persona guardó cambios en esta página mientras editabas",
+		RevisionActual: actual.Revision,
+		ActualizadaEn:  actual.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+	if actual.ActualizadaPorUserID != nil {
+		nombre := nombreDelProfesional(gdb, actual.ActualizadaPorUserID)
+		body.ActualizadaPorNombre = &nombre
+	}
+	return body
 }
 
 // ---------------------------------------------------------------------
@@ -643,16 +766,79 @@ func ocultarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-// deployarPaginaPublicaHandler — PATCH /panel/pagina/deployar: publica la
-// página por primera vez (spec §5.2 — "importante para que el buscador
-// público de clínicas [...] no muestre páginas vacías o incompletas", ver
-// el filtro `deployada_en IS NOT NULL` en buscarClinicasHandler,
-// clinicas.go). Idempotente: no hay forma de "des-deployar" en el MVP, así
-// que llamarlo de nuevo no pisa la fecha original ni es un error — el
-// frontend hace desaparecer el botón apenas ve `deployadaEn` no nulo
-// (spec §5.2: "solo visible la primera vez"), pero el backend no depende
-// de eso para mantener la garantía.
-func deployarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
+// publicarPaginaPublicaHandler — POST /panel/pagina/publicar (PE-8,
+// reemplaza a PATCH /panel/pagina/deployar): copia el BORRADOR actual a una
+// PaginaPublicaVersion nueva, numerada — GET /clinicas/{slug} pasa a servir
+// esa versión, no la fila en vivo (ver clinicas.go). La primera vez además
+// marca `deployada_en` (lo mismo que hacía "Deployar"), que sigue siendo lo
+// único que el buscador público mira — ver el filtro en
+// buscarClinicasHandler, sin cambios acá.
+//
+// Todo en una transacción: calcular el próximo Numero (MAX+1) y crearlo
+// tiene que ser atómico con el resto, o dos "Publicar" casi simultáneos
+// podrían calcular el mismo próximo número antes de que el índice único
+// (idx_pagina_publica_versiones_numero) frene al segundo — con la
+// transacción, el segundo espera y recalcula sobre el número que el primero
+// ya usó.
+func publicarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "falta el token de autenticación")
+			return
+		}
+		pagina, err := getOrCrearPaginaPublica(gdb, clinicID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
+			return
+		}
+
+		err = gdb.Transaction(func(tx *gorm.DB) error {
+			var maxNumero int
+			if err := tx.Model(&db.PaginaPublicaVersion{}).
+				Where("pagina_publica_id = ?", pagina.ID).
+				Select("COALESCE(MAX(numero), 0)").Scan(&maxNumero).Error; err != nil {
+				return err
+			}
+			version := db.PaginaPublicaVersion{
+				PaginaPublicaID:    pagina.ID,
+				Numero:             maxNumero + 1,
+				Contenido:          pagina.ContenidoVersion(),
+				PublicadaEn:        clock.Now(),
+				PublicadaPorUserID: &userID,
+			}
+			if err := tx.Create(&version).Error; err != nil {
+				return err
+			}
+			if pagina.DeployadaEn == nil {
+				ahora := clock.Now()
+				if err := tx.Model(&db.PaginaPublica{}).Where("id = ?", pagina.ID).Update("deployada_en", ahora).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo publicar la página")
+			return
+		}
+
+		pagina, err = getOrCrearPaginaPublica(gdb, clinicID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "página publicada pero no se pudo leerla de vuelta")
+			return
+		}
+		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+	}
+}
+
+// historialPaginaPublicaHandler — GET /panel/pagina/versiones: todas las
+// versiones publicadas, más nueva primero.
+func historialPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
 		if !ok {
@@ -663,14 +849,135 @@ func deployarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
 			return
 		}
-		if pagina.DeployadaEn == nil {
-			ahora := clock.Now()
-			pagina.DeployadaEn = &ahora
-			if err := gdb.Model(&db.PaginaPublica{}).Where("id = ?", pagina.ID).Update("deployada_en", ahora).Error; err != nil {
-				writeError(w, http.StatusInternalServerError, "no se pudo publicar la página")
+		var versiones []db.PaginaPublicaVersion
+		if err := gdb.Where("pagina_publica_id = ?", pagina.ID).Order("numero DESC").Find(&versiones).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el historial")
+			return
+		}
+		resp := make([]versionResponse, len(versiones))
+		for i, v := range versiones {
+			resp[i] = toVersionResponse(gdb, v)
+		}
+		writeJSON(w, http.StatusOK, resp)
+	}
+}
+
+// restaurarVersionPaginaPublicaHandler — POST
+// /panel/pagina/versiones/{numero}/restaurar: copia el CONTENIDO de esa
+// versión al borrador — nunca publica directo (plan Prisma Engine, PE-8:
+// "Restaurar copia una versión al borrador y nunca publica directo"). Cuenta
+// como un guardado más: avanza Revision y pide la revisión actual, mismo
+// candado optimista que el PATCH.
+func restaurarVersionPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		userID, ok := usuarioDeLaSesion(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "falta el token de autenticación")
+			return
+		}
+		numero, err := strconv.Atoi(chi.URLParam(r, "numero"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "número de versión inválido")
+			return
+		}
+		var req struct {
+			Revision *int `json:"revision"`
+		}
+		if err := decodeJSON(w, r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+		if req.Revision == nil {
+			writeError(w, http.StatusBadRequest, "falta la revisión del borrador")
+			return
+		}
+
+		pagina, err := getOrCrearPaginaPublica(gdb, clinicID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
+			return
+		}
+
+		err = gdb.Transaction(func(tx *gorm.DB) error {
+			var version db.PaginaPublicaVersion
+			if err := tx.Where("pagina_publica_id = ? AND numero = ?", pagina.ID, numero).First(&version).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errVersionNoEncontrada
+				}
+				return err
+			}
+			return aplicarContenidoAlBorrador(tx, pagina.ID, *req.Revision, userID, version.Contenido)
+		})
+		if errors.Is(err, errVersionNoEncontrada) {
+			writeError(w, http.StatusNotFound, "esa versión no existe")
+			return
+		}
+		if errors.Is(err, errRevisionDesactualizada) {
+			actual, errLectura := getOrCrearPaginaPublica(gdb, clinicID)
+			if errLectura != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo restaurar la versión")
 				return
 			}
+			writeJSON(w, http.StatusConflict, conflictoRevisionResponse(gdb, *actual))
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo restaurar la versión")
+			return
+		}
+
+		pagina, err = getOrCrearPaginaPublica(gdb, clinicID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "versión restaurada pero no se pudo leer la página de vuelta")
+			return
 		}
 		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
 	}
+}
+
+var errVersionNoEncontrada = errors.New("versión no encontrada")
+
+// aplicarContenidoAlBorrador — reemplazo COMPLETO del borrador por un
+// PaginaPublicaContenidoVersion (restaurar), mismo candado optimista y
+// mismo reemplazo de módulos (DELETE + INSERT) que actualizarPaginaPublicaHandler,
+// factorizado acá porque los dos casos necesitan exactamente esto.
+func aplicarContenidoAlBorrador(tx *gorm.DB, paginaID uuid.UUID, revisionEsperada int, userID uuid.UUID, c db.PaginaPublicaContenidoVersion) error {
+	updates := db.PaginaPublica{
+		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
+		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: c.RedesSociales, MostrarMapa: c.MostrarMapa,
+		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
+		Revision: revisionEsperada + 1, ActualizadaPorUserID: &userID,
+	}
+	campos := []string{
+		"Bio", "Tema", "TemaVariante", "TemaTipografia", "FotoPortadaURL", "RedesSociales", "MostrarMapa",
+		"DireccionOverride", "NombreSobrePortada", "NombreColor", "Revision", "ActualizadaPorUserID",
+	}
+	resultado := tx.Model(&db.PaginaPublica{}).Where("id = ? AND revision = ?", paginaID, revisionEsperada).Select(campos).Updates(updates)
+	if resultado.Error != nil {
+		return resultado.Error
+	}
+	if resultado.RowsAffected == 0 {
+		return errRevisionDesactualizada
+	}
+	if err := tx.Where("pagina_publica_id = ?", paginaID).Delete(&db.PaginaPublicaModulo{}).Error; err != nil {
+		return err
+	}
+	for _, m := range c.Modulos {
+		fila := db.PaginaPublicaModulo{PaginaPublicaID: paginaID, Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: m.Config}
+		if err := tx.Create(&fila).Error; err != nil {
+			return err
+		}
+		// Mismo motivo que en actualizarPaginaPublicaHandler: default:true
+		// en el modelo hace que GORM ignore un false explícito al crear.
+		if !m.Visible {
+			if err := tx.Model(&fila).Update("visible", false).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

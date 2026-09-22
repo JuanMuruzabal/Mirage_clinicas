@@ -194,12 +194,14 @@ func registrarProfesionalDePrueba(t *testing.T, gdb *gorm.DB, router http.Handle
 
 // deployarPaginaDePrueba — el buscador (T4.5) solo lista clínicas
 // deployadas (spec §5.2); la mayoría de los tests de clinicas_test.go
-// necesitan pasar por acá antes de esperar resultados.
+// necesitan pasar por acá antes de esperar resultados. Nombre histórico
+// (queda igual desde antes de PE-8): "Deployar" ahora es "Publicar", POST
+// /panel/pagina/publicar.
 func deployarPaginaDePrueba(t *testing.T, router http.Handler, token string) {
 	t.Helper()
-	rec := doJSONAuth(t, router, http.MethodPatch, "/panel/pagina/deployar", token, nil)
+	rec := doJSONAuth(t, router, http.MethodPost, "/panel/pagina/publicar", token, nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("no se pudo deployar la página de prueba: status=%d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("no se pudo publicar la página de prueba: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
