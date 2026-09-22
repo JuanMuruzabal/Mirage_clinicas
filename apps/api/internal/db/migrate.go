@@ -187,6 +187,9 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Fase 4.1: contenido editable de la página pública — módulos
 		// (widgets) sobre la grilla, ver PaginaPublicaModulo en models.go.
 		&PaginaPublicaModulo{},
+		// PE-8 (plan Prisma Engine): versiones PUBLICADAS de la página, ver
+		// PaginaPublicaVersion en models.go.
+		&PaginaPublicaVersion{},
 		// Esquema nuevo de auth/onboarding (docs/Login/feature-sumarte-login.md) —
 		// convive con Profesional hasta que internal/http/auth.go se
 		// reescriba sobre estos modelos y Profesional se elimine del todo.
@@ -685,6 +688,13 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_nombre_color
 		     CHECK (nombre_color IN ('', 'blanco', 'negro', 'dorado', 'celeste'));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+		// PE-8: el número de versión es secuencial POR PÁGINA — dos
+		// "Publicar" concurrentes no pueden terminar con el mismo número
+		// (publicarPaginaPublicaHandler calcula MAX(numero)+1 dentro de una
+		// transacción, pero este índice es la garantía real a nivel base).
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pagina_publica_versiones_numero
+		   ON pagina_publica_versiones (pagina_publica_id, numero)`,
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
@@ -731,6 +741,21 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	// por esquema, no por cada alta de profesional.
 	if err := SeedEspecialidadesCatalogo(gdb); err != nil {
 		return err
+	}
+
+	// PE-8: backfill de la versión 1 de las páginas ya publicadas antes de
+	// que existiera el historial — ver el comentario grande en
+	// migrate_una_vez.go. Guardado detrás de migracionYaAplicada como
+	// cualquier migración de datos: el barrido de TODAS las páginas
+	// deployadas es caro para repetir en cada arranque.
+	aplicada, err := migracionYaAplicada(gdb, migracionBackfillVersion1PaginasPublicas)
+	if err != nil {
+		return err
+	}
+	if !aplicada {
+		if err := registrarMigracion(gdb, migracionBackfillVersion1PaginasPublicas, backfillVersion1PaginasPublicas); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -85,6 +86,52 @@ func registrarMigracion(gdb *gorm.DB, nombre string, fn func(tx *gorm.DB) error)
 // duplicadas de verdad que violan el índice parcial de abajo
 // (idx_paciente_dni_unico, también `WHERE NOT en_conflicto`) —
 // nunca una ficha en conflicto todavía sin resolver.
+// migracionBackfillVersion1PaginasPublicas — nombre estable, ver el
+// comentario de migracionDedupPacientesDNI arriba.
+const migracionBackfillVersion1PaginasPublicas = "backfill_version_1_paginas_publicas"
+
+// backfillVersion1PaginasPublicas (PE-8, plan Prisma Engine): con el
+// borrador/versión publicada separados, `GET /clinicas/{slug}` deja de leer
+// la fila en vivo y pasa a leer la ÚLTIMA PaginaPublicaVersion — una página
+// que ya se había publicado ANTES de este cambio (deployada_en no nulo) se
+// quedaría sin ninguna versión y un visitante vería "en preparación" en vez
+// del contenido que ya tenía. Este backfill genera esa versión 1 con el
+// contenido actual, para que nada cambie para sus visitantes (decisión de
+// Kevin, 21/09, plan-prisma-engine.md PE-8).
+//
+// Sin autor real posible (deployarPaginaPublicaHandler nunca guardó quién
+// deployó) — se atribuye al owner de la clínica, mismo criterio que
+// db.OwnerDeLaClinica documenta para "resolver el profesional cuando
+// todavía no hay elección explícita".
+func backfillVersion1PaginasPublicas(tx *gorm.DB) error {
+	var paginas []PaginaPublica
+	if err := tx.Preload("Modulos", func(tx *gorm.DB) *gorm.DB { return tx.Order("orden") }).
+		Where("deployada_en IS NOT NULL").Find(&paginas).Error; err != nil {
+		return fmt.Errorf("no se pudieron leer las páginas ya publicadas: %w", err)
+	}
+	for _, p := range paginas {
+		owner, err := OwnerDeLaClinica(tx, p.ClinicID)
+		var autor *uuid.UUID
+		if err == nil {
+			autor = &owner
+		}
+		// err != nil (sin owner activo) no frena el backfill entero: la
+		// versión se crea igual, sin autor — mismo criterio nullable que
+		// PublicadaPorUserID ya admite para este caso.
+		version := PaginaPublicaVersion{
+			PaginaPublicaID:    p.ID,
+			Numero:             1,
+			Contenido:          p.ContenidoVersion(),
+			PublicadaEn:        *p.DeployadaEn,
+			PublicadaPorUserID: autor,
+		}
+		if err := tx.Create(&version).Error; err != nil {
+			return fmt.Errorf("no se pudo crear la versión 1 de la página %s: %w", p.ID, err)
+		}
+	}
+	return nil
+}
+
 func dedupPacientesPorDNI(tx *gorm.DB) error {
 	return tx.Exec(`DO $$
 		DECLARE
