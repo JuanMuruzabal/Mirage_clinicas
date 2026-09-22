@@ -1,0 +1,17 @@
+{
+  "_comentario": "Fuente única de los IDs válidos de tema/variante/tipografía de la página pública (PE-1). El hex/las fuentes de verdad (paletas y fuentes reales) siguen viviendo solo en apps/web/src/lib/temas-pagina-publica/ — este archivo es a propósito solo identificadores, para que apps/api pueda validar un PATCH sin duplicar a mano un catálogo de diseño (antes: temasValidos/tipografiasValidas en apps/api/internal/http/temas_pagina_publica.go). apps/web/src/lib/temas-pagina-publica/temas.test.ts verifica que su catálogo coincide con este archivo — si se agrega o saca un tema/variante/tipografía, actualizar los dos en el mismo cambio y correr `pnpm engine:generar` para que apps/api reciba la copia.",
+  "temas": {
+    "calido": ["calido-1", "calido-2", "calido-3"],
+    "clinico": ["clinico-1", "clinico-2", "clinico-3"],
+    "moderno": ["moderno-1", "moderno-2", "moderno-3"],
+    "natural": ["natural-1", "natural-2", "natural-3"],
+    "clasico": ["clasico-1", "clasico-2", "clasico-3"]
+  },
+  "tipografias": [
+    "condensada-institucional",
+    "serif-clasica",
+    "geometrica-moderna",
+    "redondeada-calida",
+    "editorial-suave"
+  ]
+}

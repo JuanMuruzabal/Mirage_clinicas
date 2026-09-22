@@ -8,10 +8,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "generar": "tsx scripts/generar.ts"
   },
   "peerDependencies": {
     "react": "^19.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -21,7 +25,9 @@
     "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^30.0.1",
     "react": "19.2.8",
+    "tsx": "^4.19.2",
     "typescript": "^5.4.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "zod-to-json-schema": "^3.24.1"
   }
 }

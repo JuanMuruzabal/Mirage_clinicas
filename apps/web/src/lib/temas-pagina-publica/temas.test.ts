@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PALETAS_PAGINA_PUBLICA, TIPOGRAFIAS_PAGINA_PUBLICA, TIPOGRAFIAS_POR_TEMA } from "./index";
 import { estiloDeTema } from "./aplicar";
+import catalogoDeTemas from "../../../../../packages/prisma-engine/catalogo/temas.json";
 
 // El catálogo prometió "verificado en contraste AA" (fase4-personalizar-
 // pagina.md) pero derivaba los colores con color-mix() sin que nadie
@@ -34,6 +35,22 @@ const GRAFITO = aRgb("#35312b"); // --color-grafito (globals.css)
 const NEGRO: [number, number, number] = [0, 0, 0];
 
 describe("catálogo de temas", () => {
+  // PE-1: apps/api valida tema/variante/tipografía contra
+  // packages/prisma-engine/catalogo/temas.json (generado hacia
+  // apps/api/internal/prismaengine/, ver `pnpm engine:generar`), no contra
+  // un mapa escrito a mano — pero ESTE archivo (el diseño real, con
+  // next/font) no puede generarse desde ahí, porque next/font exige
+  // llamadas estáticamente analizables. Este test es la protección contra
+  // el desfase: si alguien agrega/saca un tema/variante/tipografía acá sin
+  // tocar el JSON (o al revés), falla acá, no en un PATCH rechazado en
+  // producción.
+  it("los IDs coinciden con packages/prisma-engine/catalogo/temas.json", () => {
+    const idsDelCatalogo = catalogoDeTemas as { temas: Record<string, string[]>; tipografias: string[] };
+    const temasDeAca = Object.fromEntries(PALETAS_PAGINA_PUBLICA.map((p) => [p.id, p.variantes.map((v) => v.id)]));
+    expect(temasDeAca).toEqual(idsDelCatalogo.temas);
+    expect(TIPOGRAFIAS_PAGINA_PUBLICA.map((t) => t.id)).toEqual(idsDelCatalogo.tipografias);
+  });
+
   it("son 5 temas de 3 variantes, y cada uno ofrece 2 tipografías que existen", () => {
     expect(PALETAS_PAGINA_PUBLICA).toHaveLength(5);
     const ids = new Set(TIPOGRAFIAS_PAGINA_PUBLICA.map((t) => t.id));

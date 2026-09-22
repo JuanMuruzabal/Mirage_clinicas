@@ -14,6 +14,7 @@ import (
 
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/prismaengine"
 	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/storage"
 )
@@ -29,39 +30,33 @@ func registerPaginaPublicaRoutes(r chi.Router, gdb *gorm.DB, store storage.Stora
 	r.Post("/panel/pagina/fotos", subirFotoPaginaPublicaHandler(store))
 }
 
-// tiposModuloValidos — catálogo cerrado de módulos que SE PERSISTEN (Fase
-// 4.2, docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md). "portada"
-// y "turno" quedan afuera a propósito: son estructurales y fijos, los
-// renderiza el frontend directo (Fase 4.5), nunca una fila acá.
-var tiposModuloValidos = map[string]bool{
-	"sobre_nosotros": true,
-	"texto_libre":    true,
-	"especialidades": true,
-	"foto":           true,
-	"galeria":        true,
-	"estadisticas":   true,
-	"contacto":       true,
-	"horarios":       true,
-}
-
-var subtiposFotoValidos = map[string]bool{"retrato": true, "banner": true, "franja": true}
-
-// estadisticasValidas — lista cerrada de estadísticas reales que un
-// módulo "estadisticas" puede mostrar (ver estadisticasDeLaClinica más
-// abajo) — nunca un valor cargado a mano.
-var estadisticasValidas = map[string]bool{"pacientes_atendidos": true, "turnos_realizados": true}
-
+// Qué tipo de módulo es válido, y qué forma tiene su config, se resuelve
+// contra el esquema generado (PE-1, internal/prismaengine) — ya no hay un
+// catálogo ni un switch escritos a mano acá. "portada" y "turno" siguen
+// afuera a propósito (no tienen esquema): son estructurales y fijos, los
+// renderiza el frontend directo (Fase 4.5), nunca una fila acá. El tope de
+// la galería (8 fotos) tampoco tiene espejo acá por la misma razón: vive
+// solo en packages/prisma-engine/src/modulos/galeria/schema.ts.
+//
+// topeFotosSueltasPorPagina sigue siendo una constante de Go porque cuenta
+// módulos "foto" ENTRE SÍ en toda la página — algo que un esquema por
+// módulo no puede expresar (no es la config de UN módulo). maxLargoBio/
+// maxLargoRed validan campos de la PÁGINA (bio, redes), tampoco de un
+// módulo.
+//
+// maxLargoTituloTexto/maxLargoTextoLibre/maxLargoNombreModulo ya no validan
+// nada acá (eso lo hace el esquema, con los mismos números — ver
+// packages/prisma-engine/src/constantes.ts y schema-base.ts): siguen
+// definidas SOLO para que los tests de este paquete puedan construir un
+// texto "uno más largo que el límite" sin repetir el número a mano. Si se
+// cambia un largo, cambiarlo en el paquete y acá en el mismo commit.
 const (
-	topeFotosGaleria          = 8
 	topeFotosSueltasPorPagina = 10
 
-	maxLargoBio         = 2000
-	maxLargoTituloTexto = 80
-	maxLargoTextoLibre  = 2000
-	maxLargoRed         = 100
-	// maxLargoNombreModulo: el nombre que el admin le pone a un módulo para
-	// reconocerlo en el editor ("Foto de la sala de espera"). Vive en
-	// config.nombre de cualquier tipo de módulo.
+	maxLargoBio          = 2000
+	maxLargoTituloTexto  = 80
+	maxLargoTextoLibre   = 2000
+	maxLargoRed          = 100
 	maxLargoNombreModulo = 60
 	maxLargoURLFoto      = 500 // el de la columna foto_portada_url
 )
@@ -294,62 +289,21 @@ type actualizarPaginaPublicaRequest struct {
 	Modulos *[]moduloRequest `json:"modulos"`
 }
 
-// validarModulos — cada Tipo tiene que ser del catálogo cerrado, y algunas
-// config traen su propia validación (subtipo de foto, tope de fotos).
+// validarModulos (PE-1) — cada Tipo tiene que tener un esquema generado
+// (internal/prismaengine) y su Config validar contra él: ahí vive lo que
+// antes era un `switch` a mano por tipo (subtipo de foto obligatorio, tope
+// de la galería, estadísticas del catálogo cerrado, largos de texto,
+// nombre propio). Lo único que sigue acá es lo que un esquema POR MÓDULO no
+// puede expresar: el tope de fotos SUELTAS cuenta módulos "foto" entre sí,
+// en toda la lista.
 func validarModulos(modulos []moduloRequest) error {
 	fotosSueltas := 0
 	for _, m := range modulos {
-		if !tiposModuloValidos[m.Tipo] {
-			return fmt.Errorf("tipo de módulo inválido: %q", m.Tipo)
+		if err := prismaengine.ValidarConfigDeModulo(m.Tipo, m.Config); err != nil {
+			return err
 		}
-		if nombre, ok := m.Config["nombre"]; ok {
-			texto, esTexto := nombre.(string)
-			if !esTexto {
-				return errors.New("el nombre de un módulo tiene que ser un texto")
-			}
-			if len([]rune(texto)) > maxLargoNombreModulo {
-				return fmt.Errorf("el nombre de un módulo admite hasta %d caracteres", maxLargoNombreModulo)
-			}
-		}
-		switch m.Tipo {
-		case "texto_libre":
-			titulo, _ := m.Config["titulo"].(string)
-			texto, _ := m.Config["texto"].(string)
-			if len([]rune(titulo)) > maxLargoTituloTexto {
-				return fmt.Errorf("el título de una sección de texto admite hasta %d caracteres", maxLargoTituloTexto)
-			}
-			if len([]rune(texto)) > maxLargoTextoLibre {
-				return fmt.Errorf("una sección de texto admite hasta %d caracteres", maxLargoTextoLibre)
-			}
-		case "foto":
+		if m.Tipo == "foto" {
 			fotosSueltas++
-			subtipo, _ := m.Config["subtipo"].(string)
-			if !subtiposFotoValidos[subtipo] {
-				return fmt.Errorf("subtipo de foto inválido: %q", subtipo)
-			}
-			fotoURL, _ := m.Config["fotoUrl"].(string)
-			if !urlDeFotoValida(fotoURL) {
-				return errors.New("la URL de la foto no es válida")
-			}
-		case "galeria":
-			fotoUrls, _ := m.Config["fotoUrls"].([]any)
-			if len(fotoUrls) > topeFotosGaleria {
-				return fmt.Errorf("la galería admite hasta %d fotos", topeFotosGaleria)
-			}
-			for _, v := range fotoUrls {
-				u, _ := v.(string)
-				if u == "" || !urlDeFotoValida(u) {
-					return errors.New("la URL de una foto de la galería no es válida")
-				}
-			}
-		case "estadisticas":
-			mostrar, _ := m.Config["mostrar"].([]any)
-			for _, v := range mostrar {
-				id, _ := v.(string)
-				if !estadisticasValidas[id] {
-					return fmt.Errorf("estadística inválida: %q", id)
-				}
-			}
 		}
 	}
 	if fotosSueltas > topeFotosSueltasPorPagina {

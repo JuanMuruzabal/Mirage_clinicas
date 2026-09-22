@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	golang.org/x/crypto v0.57.0
 	golang.org/x/text v0.42.0
 	gorm.io/driver/postgres v1.6.2
