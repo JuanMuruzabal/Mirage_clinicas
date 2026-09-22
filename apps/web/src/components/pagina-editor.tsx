@@ -2,15 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { PaginaPublica } from "@dental-mirage/shared-types";
+import type { ConflictoRevisionPagina, PaginaPublica } from "@dental-mirage/shared-types";
 import type { SesionCompleta } from "@/lib/session";
 import {
   actualizarPaginaPublicaAction,
-  deployarPaginaPublicaAction,
+  obtenerPaginaPublicaAction,
   ocultarPaginaPublicaAction,
+  publicarPaginaPublicaAction,
 } from "@/app/actions/pagina-publica";
 import { formatFechaHora } from "@/lib/turno-format";
-import { borradorAPayload, borradorDePagina, contenidoDeBorrador, hayCambios, type Borrador } from "@/lib/pagina-publica/borrador";
+import {
+  borradorAPayload,
+  borradorDePagina,
+  contenidoDeBorrador,
+  hayCambios,
+  hayCambiosSinPublicar,
+  type Borrador,
+} from "@/lib/pagina-publica/borrador";
 import { ListaModulos } from "@/components/editor-pagina/lista-modulos";
 import { SelectorDeTema } from "@/components/editor-pagina/selector-de-tema";
 import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
@@ -44,13 +52,17 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const [borrador, setBorrador] = useState<Borrador>(guardado);
   const [pendingGuardar, setPendingGuardar] = useState(false);
   const [pendingOcultar, setPendingOcultar] = useState(false);
-  const [pendingDeployar, setPendingDeployar] = useState(false);
+  const [pendingPublicar, setPendingPublicar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // conflicto (PE-8): 409 al guardar/restaurar — "otra persona guardó
+  // antes". null = no hay ningún conflicto pendiente de resolver.
+  const [conflicto, setConflicto] = useState<ConflictoRevisionPagina | null>(null);
   const [panelAbierto, setPanelAbierto] = useState(true);
   const [pestana, setPestana] = useState<Pestana>("modulos");
 
   const sinGuardar = useMemo(() => hayCambios(guardado, borrador), [guardado, borrador]);
+  const sinPublicar = useMemo(() => hayCambiosSinPublicar(guardado, pagina.ultimaVersionPublicada?.contenido), [guardado, pagina]);
   const contenido = useMemo(() => contenidoDeBorrador(borrador, pagina), [borrador, pagina]);
 
   // Salir con cambios sin guardar pierde el borrador — el navegador avisa.
@@ -69,10 +81,15 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   async function guardar() {
     setError(null);
     setAviso(null);
+    setConflicto(null);
     setPendingGuardar(true);
     const result = await actualizarPaginaPublicaAction(borradorAPayload(borrador));
     setPendingGuardar(false);
-    if ("error" in result) {
+    if (result.kind === "conflicto") {
+      setConflicto(result.conflicto);
+      return;
+    }
+    if (result.kind === "error") {
       setError(result.error);
       return;
     }
@@ -91,6 +108,36 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     setBorrador(guardado);
   }
 
+  // recargar (PE-8) — "otra persona guardó antes": trae el estado real del
+  // servidor y descarta el borrador local (edición perdida a propósito, es
+  // la otra mitad de la decisión que le toca a quien está editando).
+  async function recargar() {
+    setError(null);
+    setConflicto(null);
+    setPendingGuardar(true);
+    const result = await obtenerPaginaPublicaAction();
+    setPendingGuardar(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    const guardadoAhora = borradorDePagina(result.pagina);
+    setPagina(result.pagina);
+    setGuardado(guardadoAhora);
+    setBorrador(guardadoAhora);
+    setAviso("Recargado con la última versión guardada.");
+  }
+
+  // mantenerMiCopia (PE-8) — la otra mitad: seguir con lo tipeado acá,
+  // solo se toma la Revision nueva del conflicto (el resto del contenido
+  // ajeno se descarta) y se reintenta guardar con eso.
+  function mantenerMiCopia() {
+    if (!conflicto) return;
+    setConflicto(null);
+    setGuardado((actual) => ({ ...actual, revision: conflicto.revisionActual }));
+    setBorrador((actual) => ({ ...actual, revision: conflicto.revisionActual }));
+  }
+
   async function alternarOcultar() {
     setError(null);
     setPendingOcultar(true);
@@ -105,16 +152,16 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     setPagina((actual) => ({ ...actual, oculta: result.pagina.oculta }));
   }
 
-  async function deployar() {
+  async function publicar() {
     setError(null);
-    setPendingDeployar(true);
-    const result = await deployarPaginaPublicaAction();
-    setPendingDeployar(false);
+    setPendingPublicar(true);
+    const result = await publicarPaginaPublicaAction(sesion.slug);
+    setPendingPublicar(false);
     if ("error" in result) {
       setError(result.error);
       return;
     }
-    setPagina((actual) => ({ ...actual, deployadaEn: result.pagina.deployadaEn }));
+    setPagina((actual) => ({ ...actual, deployadaEn: result.pagina.deployadaEn, ultimaVersionPublicada: result.pagina.ultimaVersionPublicada }));
   }
 
   return (
@@ -123,6 +170,30 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
         <p role="alert" className="rounded-card border-[0.5px] border-terracota bg-terracota-claro px-4 py-3 text-sm text-terracota-oscuro">
           {error}
         </p>
+      )}
+
+      {conflicto && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-card border-[0.5px] border-terracota bg-terracota-claro px-4 py-3 text-sm text-terracota-oscuro">
+          <span>
+            {conflicto.actualizadaPorNombre ?? "Alguien"} guardó cambios el {formatFechaHora(conflicto.actualizadaEn)}, mientras editabas. ¿Qué querés hacer?
+          </span>
+          <span className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={recargar}
+              className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
+            >
+              Recargar (perdés lo que tipeaste)
+            </button>
+            <button
+              type="button"
+              onClick={mantenerMiCopia}
+              className="rounded-full bg-terracota-oscuro px-3 py-1.5 text-xs font-medium text-marfil hover:brightness-95"
+            >
+              Mantener mi copia
+            </button>
+          </span>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-4 shadow-soft">
@@ -155,27 +226,24 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           )}
           {/* role="status": se anuncia sin robar el foco. */}
           <span role="status" className="text-xs text-grafito/70">
-            {sinGuardar ? "Tenés cambios sin guardar." : aviso}
+            {sinGuardar ? "Tenés cambios sin guardar." : aviso ? aviso : sinPublicar ? "Hay cambios sin publicar." : null}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {pagina.deployadaEn ? (
-            <span
-              title={`Publicada el ${formatFechaHora(pagina.deployadaEn)}`}
-              className="rounded-full border-[0.5px] border-salvia bg-salvia-claro px-3 py-1.5 text-xs font-medium text-salvia-oscuro"
-            >
+          <button
+            type="button"
+            onClick={publicar}
+            disabled={pendingPublicar || (!sinPublicar && !!pagina.deployadaEn)}
+            title={pagina.deployadaEn ? `Última publicación: ${formatFechaHora(pagina.deployadaEn)}` : undefined}
+            className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {pendingPublicar ? "Publicando…" : "Publicar"}
+          </button>
+          {pagina.deployadaEn && !sinPublicar && (
+            <span className="rounded-full border-[0.5px] border-salvia bg-salvia-claro px-3 py-1.5 text-xs font-medium text-salvia-oscuro">
               Publicada
             </span>
-          ) : (
-            <button
-              type="button"
-              onClick={deployar}
-              disabled={pendingDeployar}
-              className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {pendingDeployar ? "Publicando…" : "Deployar"}
-            </button>
           )}
           <button
             type="button"
