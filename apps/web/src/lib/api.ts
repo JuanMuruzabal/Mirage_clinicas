@@ -1,6 +1,8 @@
 import "server-only";
 import { headers } from "next/headers";
 import type {
+  ContadoresDePacientes,
+  ContadoresDeTurnos,
   AutoreservarTurnosResponse,
   BloqueoHorario,
   BloqueosSeguridad,
@@ -1293,6 +1295,57 @@ export async function apiContarTurnos(
 ): Promise<number> {
   const res = await apiListTurnosPaginado(token, params, 1, 0);
   return res.ok ? res.data.total : 0;
+}
+
+// Los cuatro contadores de las pestañas de /panel/turnos, en UN pedido
+// (ronda de optimización post-Fase 3, 2026-09-22).
+//
+// Antes eran cuatro `apiContarTurnos` — cuatro requests a la API que
+// pedían una fila cada uno solo para leer el total de `X-Total-Count`.
+// Iban en paralelo, así que no se notaban en el reloj de la persona,
+// pero cada uno paga el viaje HTTP y las dos consultas que todo request
+// autenticado hace antes de trabajar. Las cuatro pestañas filtran igual
+// en todo lo demás: el backend las resuelve con una sola pasada.
+//
+// `estado`/`resuelto` no se mandan: son justamente lo que distingue una
+// pestaña de otra, y el backend las separa solo.
+// Los tres contadores de las pestañas de /panel/pacientes, en UN pedido
+// (ronda de optimización post-Fase 3, 2026-09-22). Mismo caso que
+// `apiContadoresDeTurnos`: tres requests que pedían una fila cada uno
+// para leer un número del header.
+export async function apiContadoresDePacientes(
+  token: string,
+  params: { q?: string } = {},
+): Promise<ContadoresDePacientes> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  const query = qs.toString();
+  const res = await request<ContadoresDePacientes>(
+    `/pacientes/contadores${query ? `?${query}` : ""}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return res.ok ? res.data : { todos: 0, verificados: 0, sinVerificar: 0 };
+}
+
+export async function apiContadoresDeTurnos(
+  token: string,
+  params: ListarTurnosParams,
+): Promise<ContadoresDeTurnos> {
+  // Se arma con el MISMO constructor de query que el listado y se le
+  // sacan las dos que separan una pestaña de otra. Escribir la query a
+  // mano acá sería la forma más fácil de que un filtro nuevo llegue al
+  // listado y no a los contadores.
+  const query = queryDeTurnos(params);
+  query.delete("estado");
+  query.delete("resuelto");
+  const qs = query.toString();
+  const res = await request<ContadoresDeTurnos>(
+    `/turnos/contadores${qs ? `?${qs}` : ""}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  // Sin respuesta, cero: una pestaña sin número se lee mejor que una con
+  // un número inventado.
+  return res.ok ? res.data : { agendado: 0, resuelto: 0, cancelada: 0, todas: 0 };
 }
 
 export interface CrearTurnoManualPayload {

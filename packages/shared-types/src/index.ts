@@ -850,3 +850,28 @@ export interface BloqueosSeguridad {
   ipsBloqueadas: IPBloqueada[];
   auditoria: AuditoriaBloqueo[];
 }
+
+// ContadoresDeTurnos — los cuatro números de las pestañas de
+// /panel/turnos, que el backend resuelve en una sola consulta
+// (`GET /turnos/contadores`, ronda de optimización post-Fase 3).
+//
+// "resuelto" sale del reloj y no de una columna (TR-158): son los turnos
+// `agendado` cuya hora de fin ya pasó. Por eso "agendado" + "resuelto"
+// suman los agendados, y "todas" incluye además los cancelados.
+export interface ContadoresDeTurnos {
+  agendado: number;
+  resuelto: number;
+  cancelada: number;
+  todas: number;
+}
+
+// ContadoresDePacientes — los tres números de las pestañas de
+// /panel/pacientes (`GET /pacientes/contadores`). "Verificado" no es una
+// columna: es tener un turno resuelto y asistido, o una ficha cargada a
+// mano por el profesional.
+export interface ContadoresDePacientes {
+  todos: number;
+  verificados: number;
+  sinVerificar: number;
+}
+

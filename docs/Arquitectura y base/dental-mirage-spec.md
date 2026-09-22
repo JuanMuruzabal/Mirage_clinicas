@@ -235,7 +235,8 @@ Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el si
 
 - **Diagnóstico:** `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — primera radiografía (de ahí el `_1`), módulo por módulo: los 12 paquetes de `apps/api` completos más los archivos más grandes y sensibles de `apps/web`. Incluye el plan de acción en Fases A/B/C y el registro de cada ronda de arreglos.
 - **Guía de estudio:** `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- **Decisiones de arquitectura:** `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132.
+- **Ronda de optimización post-Fase 3 (2026-09-22):** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md` — el panel multi-tenant, medido contra los contenedores con 600 pacientes y 1.800 turnos.
+- **Decisiones de arquitectura:** `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132, y TR-161.
 - **Plan por fases:** `docs/Arquitectura y base/implementation-plan.md` §12.
 
 **Estado al 2026-09-09: Fases A y B cerradas.** Lo que cambió en el sistema, resumido:
@@ -246,6 +247,12 @@ Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el si
 4. **Observabilidad (TR-124).** Logging estructurado JSON con `request_id`/`clinic_id`/`user_id`/`status`/latencia — sin loguear nunca la query string, que en "Mis turnos" lleva DNI y mail del paciente.
 5. **Migraciones (TR-123).** Las de datos se separan de las de esquema y corren una sola vez; `RunMigrations` reintenta ante deadlock, que es un escenario real tanto en CI como en un deploy con la instancia anterior todavía atendiendo tráfico.
 6. **Arranque seguro (TR-125).** El proceso se niega a arrancar fuera de `development` si el secreto de firma resuelto es el valor público del repo — chequeando el valor, no si la variable de entorno existe.
+
+**Estado al 2026-09-22: ronda de optimización sobre el panel multi-tenant (TR-161).** Pedida por el cliente con cuatro herramientas en mente —caché, memcache, goroutines y colas—, terminó dejando tres cosas:
+
+1. **Un índice que faltaba, y era lo de más impacto.** Casi toda consulta del panel pregunta "los turnos de esta agenda, en esta ventana de tiempo", y Postgres la resolvía con un **seq scan de `turnos` entero**. Como esa tabla es de TODAS las clínicas, el costo no crecía con la clínica que mira sino con el sistema: una clínica chica pagaba el volumen de las demás. Medido: 1,163 ms → 0,077 ms.
+2. **Menos viajes, no viajes en paralelo.** `/me` se pedía tres veces por carga de página (se memoiza por request) y las pestañas de Turnos y Pacientes pedían un request por contador (ahora salen de una sola consulta). El trabajo de servidor por carga bajó 88% en Turnos y 72% en Pacientes. Paralelizar las consultas de un handler se probó y se revirtió: es incompatible con el harness de tests, que le da a cada test una transacción.
+3. **Lo que NO se hizo, con su condición escrita.** Redis sigue esperando a que haya más de una instancia; la cola de mails espera a poder medirse contra Resend en un deploy real. Esta ronda no cambió nada que no pudiera medir antes y después.
 
 **Nota sobre `JWT_SECRET`:** en este backend **no hay ningún JWT**. La sesión es un token opaco validado contra la tabla `sessions` (TR-037) y la librería de JWT se eliminó como dependencia muerta. Esa variable de entorno conserva el nombre por herencia —renombrarla rompería deploys ya configurados— y su único uso es firmar con HMAC-SHA256 el parámetro `state` del login con Google. Del lado de Go el identificador sí dice lo que es: `Config.OAuthStateSecret`.
 

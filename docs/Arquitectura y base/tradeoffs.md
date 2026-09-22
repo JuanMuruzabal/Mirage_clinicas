@@ -2747,6 +2747,44 @@ Por eso el alta pide **"Profesional · Obligatorio"** antes que cualquier otro d
 Del mismo par de preguntas sale la columna **"Profesionales"** de la tabla: `profesionalesPorPaciente` usa los mismos tres criterios leídos al revés —allá "¿esta ficha es mía?", acá "¿de quiénes es?"—. **Si divergen, la columna afirma que un paciente es de alguien que no lo ve en su propia lista**, y eso no se nota mirando una sola pantalla.
 
 
+## TR-161: Menos viajes antes que viajes en paralelo — y por qué las goroutines no entran en los handlers
+
+- **Contexto:** ronda de optimización post-Fase 3, 2026-09-22. Pedido del cliente sobre el panel multi-tenant: *"ver en qué partes del código puedo hacer uso de caché, memcache, goroutines y colas para mejorar la latencia"*.
+- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`.
+
+### La decisión de fondo
+
+Ante un handler que hace N consultas independientes hay dos caminos: **hacerlas a la vez** (goroutines) o **hacer menos** (una consulta que responda todo). Este repo toma el segundo, y no por gusto:
+
+**`internal/testdb` le da a cada test una transacción que se revierte.** Una transacción vive en una sola conexión y no admite consultas concurrentes. El `*gorm.DB` que recibe un handler es el pool en producción y una transacción en los tests, así que un handler que paraleliza sus consultas **no se puede testear**.
+
+Se implementó el `errgroup` en `resumenPanelHandler` (ocho consultas independientes, dos etapas), compiló, pasó `vet`, y los tests fallaron con `driver: bad connection`. Se revirtió.
+
+Las alternativas se descartaron una por una: paralelizar igual deja el camino de producción sin testear; paralelizar solo fuera de una transacción deja lo mismo *y* además dos comportamientos; cambiar el harness cuesta el rollback por test, la independencia entre tests y la velocidad de la suite entera, a cambio de unos pocos milisegundos en un handler.
+
+**Lo que se hizo en su lugar** fue cambiar la pregunta: no *"¿cómo hago estas cuatro consultas a la vez?"* sino *"¿por qué son cuatro?"*. Las cuatro pestañas de `/panel/turnos` pedían un request cada una para leer un número; filtran igual en todo salvo `estado`/`resuelto`, así que son un `COUNT(*) FILTER` de una sola pasada. **Juntar el trabajo es más rápido que repartirlo, y además se puede testear.**
+
+**Lo que se sacrifica:** el paralelismo intra-request queda cerrado mientras el harness sea el que es. Si alguna vez se quiere, el costo no es escribir el `errgroup` — es rediseñar `internal/testdb`, y esa decisión es bastante más grande de lo que aparenta desde el handler.
+
+### El caché que sí entra, y el que no
+
+**Sí:** memoización **por request** (`cache()` de React). `/me` se pedía tres veces por carga de página —el header del layout raíz, el layout de `/panel` y la página—, y cada request autenticado paga dos consultas a Postgres antes de trabajar. Es seguro precisamente porque no cruza requests: no hay invalidación que escribir y no puede mostrar una sesión vieja.
+
+**No:** un caché con TTL en el mismo lugar habría hecho justo eso —mostrar una sesión vieja— a cambio de nada, porque el problema nunca fue pedirlo seguido sino pedirlo tres veces en el mismo render.
+
+**Tampoco Redis/memcache**, por la condición que ya escribía la radiografía anterior y que esta medición confirma: lo que un caché de sesión evita son ~2 ms de Postgres, y cambiarlos por un salto de red a un servicio que puede estar caído solo tiene sentido con más de una instancia.
+
+### Y el índice, que no era ninguna de las cuatro
+
+Lo de más impacto de la ronda no estaba en la lista: `turnos` no tenía índice para la forma que tiene casi toda consulta del panel —`clinic_id` + `atendido_por_user_id` + rango de `hora_inicio`— y Postgres resolvía el tablero con un **seq scan de la tabla entera**. Como `turnos` es de todas las clínicas, ese escaneo no crecía con la clínica que mira sino con el sistema.
+
+**La regla que queda:** antes de cachear una consulta, mirar si está usando un índice. Cachear una consulta lenta la hace lenta de a ratos en vez de siempre, y agrega una invalidación que mantener; arreglarla no deja nada atrás.
+
+### Colas: identificadas, no implementadas
+
+Los 12 envíos de mail son sincrónicos dentro del request y son el caso correcto para una cola. No se implementó porque es lo único de la ronda que **no se puede medir sin Resend**, y el resto se cambió después de medirlo. La condición de activación está escrita en el documento; cuando se haga, va en Postgres y no en un canal en memoria — mismo criterio que TR-142.
+
+
 ---
 
 ---
