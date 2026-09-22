@@ -1,6 +1,7 @@
 import type { DefinicionModulo } from "../../tipos";
 import { Editor } from "./editor";
 import { seccion } from "./render";
+import { SLOTS_GALERIA } from "../../efectos/slots";
 
 export const galeriaModulo: DefinicionModulo = {
   tipo: "galeria",
@@ -15,6 +16,7 @@ export const galeriaModulo: DefinicionModulo = {
     { id: "carrusel", nombre: "Carrusel", bloques: [[0, 10, 30, 40, "foto"], [35, 10, 55, 40, "foto"], [95, 10, 5, 40, "foto"]] },
   ],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: false },
+  slotsAnimables: SLOTS_GALERIA,
   Editor,
   seccion,
 };

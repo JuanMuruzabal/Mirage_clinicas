@@ -1,4 +1,4 @@
-import { seccionPublicaDe, type ModuloBorrador, type SeccionPublica, type UtilsRender } from "@dental-mirage/prisma-engine";
+import { seccionPublicaDe, type EstiloMovimiento, type ModuloBorrador, type SeccionPublica, type UtilsRender } from "@dental-mirage/prisma-engine";
 import type { ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar, urlDeMapaEmbebido, urlDeRedSocial } from "@/lib/pagina-publica/enlaces";
 
@@ -20,6 +20,7 @@ interface Contexto {
   telefono?: string | null;
   especialidades: string[];
   contenido: ContenidoPagina;
+  estiloMovimiento?: EstiloMovimiento;
 }
 
 const UTILS: UtilsRender = { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar, urlDeMapaEmbebido, urlDeRedSocial };

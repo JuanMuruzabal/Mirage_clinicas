@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ALINEACIONES, FONDOS_SECCION, MAX_LARGO_TITULO_PUBLICO } from "./seccion";
+import { schemaDeEfectos, type DefinicionSlotAnimable } from "./efectos/catalogo";
 
 // Campo común a la config de CUALQUIER módulo: el nombre que el admin le
 // puso para reconocerlo en el editor ("Foto de la sala de espera"). Espejo
@@ -32,6 +33,11 @@ export const camposDeSeccion = {
   fondoSeccion: z.enum(FONDOS_SECCION).optional(),
   alineacion: z.enum(ALINEACIONES).optional(),
 };
+
+/** Configuración opcional por slot; cada módulo solo acepta los slots y efectos declarados en meta.ts. */
+export function campoEfectos(slots: readonly DefinicionSlotAnimable[]) {
+  return { efectos: schemaDeEfectos(slots) };
+}
 
 /** La variante de layout de un módulo: opcional, sin ella vale la primera (la de antes de PE-3). */
 export function campoVariante<T extends readonly [string, ...string[]]>(ids: T) {

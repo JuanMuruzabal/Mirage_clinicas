@@ -4,6 +4,7 @@ import { Editor } from "./editor";
 import { seccion } from "./render";
 import { VARIANTES } from "./variantes";
 import { varianteDeConfig } from "../../lectura-config";
+import { SLOTS_ESTADISTICAS } from "../../efectos/slots";
 
 export const estadisticasModulo: DefinicionModulo = {
   tipo: "estadisticas",
@@ -17,6 +18,7 @@ export const estadisticasModulo: DefinicionModulo = {
     { id: "franja", nombre: "Franja", bloques: [[0, 15, 100, 30, "tarjeta"], [12, 22, 25, 12, "acento"], [62, 22, 25, 12, "acento"]] },
   ],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: false },
+  slotsAnimables: SLOTS_ESTADISTICAS,
   Editor,
   seccion,
 };

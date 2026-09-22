@@ -3,15 +3,19 @@ import { CLASE_FOTO, Foto, Titulo } from "../../comunes";
 import { listaDeConfig, textoDeConfig, tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { VARIANTES } from "./variantes";
+import { envolverSlots } from "../../efectos/envolver-slots";
+import { SLOTS_GALERIA } from "../../efectos/slots";
 
 function Galeria({
   config,
   nombreClinica,
   esUrlDeFotoSegura,
+  estiloMovimiento,
 }: {
   config: Record<string, unknown>;
   nombreClinica: string;
   esUrlDeFotoSegura: (url: string) => boolean;
+  estiloMovimiento?: ContextoPublico["estiloMovimiento"];
 }): ReactNode {
   const fotos = listaDeConfig(config, "fotoUrls").filter(esUrlDeFotoSegura);
   if (fotos.length === 0) return null;
@@ -19,6 +23,7 @@ function Galeria({
   const tituloPropio = textoDeConfig(config, "tituloPublico").trim();
   const variante = varianteDeConfig(config, VARIANTES);
   const alt = (i: number) => `Foto ${i + 1} de ${nombreClinica}`;
+  const envolver = envolverSlots(config, estiloMovimiento, SLOTS_GALERIA);
 
   let cuerpo: ReactNode;
   if (variante === "mosaico") {
@@ -26,7 +31,7 @@ function Galeria({
     cuerpo = (
       <div className="columns-2 gap-3 @xl:columns-3">
         {fotos.map((url, i) => (
-          <Foto key={`${url}-${i}`} src={url} alt={alt(i)} className={`mb-3 w-full break-inside-avoid ${CLASE_FOTO}`} />
+          <div key={`${url}-${i}`} className="mb-3 break-inside-avoid">{envolver("imagen", <Foto src={url} alt={alt(i)} className={`w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>
     );
@@ -41,7 +46,7 @@ function Galeria({
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
       >
         {fotos.map((url, i) => (
-          <Foto key={`${url}-${i}`} src={url} alt={alt(i)} className={`aspect-[4/3] w-4/5 flex-none snap-center @xl:w-1/2 ${CLASE_FOTO}`} />
+          <div key={`${url}-${i}`} className="w-4/5 flex-none snap-center @xl:w-1/2">{envolver("imagen", <Foto src={url} alt={alt(i)} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>
     );
@@ -49,7 +54,7 @@ function Galeria({
     cuerpo = (
       <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
         {fotos.map((url, i) => (
-          <Foto key={`${url}-${i}`} src={url} alt={alt(i)} className={`aspect-square w-full ${CLASE_FOTO}`} />
+          <div key={`${url}-${i}`}>{envolver("imagen", <Foto src={url} alt={alt(i)} className={`aspect-square w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>
     );
@@ -57,18 +62,20 @@ function Galeria({
   if (!tituloPropio) return cuerpo;
   return (
     <div className="flex flex-col gap-3 text-center">
-      <Titulo>{tituloPropio}</Titulo>
+      {envolver("titulo", <Titulo>{tituloPropio}</Titulo>)}
       {cuerpo}
     </div>
   );
 }
 
 export function seccion(modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {
+  const envolver = envolverSlots(modulo.config, contexto.estiloMovimiento, SLOTS_GALERIA);
   const nodo = Galeria({
     config: modulo.config,
     nombreClinica: contexto.nombreClinica,
     esUrlDeFotoSegura: contexto.utils.esUrlDeFotoSegura,
+    estiloMovimiento: contexto.estiloMovimiento,
   });
   if (nodo === null) return null;
-  return { id: "galeria", etiqueta: tituloPublicoDe(modulo.config, "Galería"), ancho: "completo", contenido: nodo };
+  return { id: "galeria", etiqueta: tituloPublicoDe(modulo.config, "Galería"), ancho: "completo", contenido: envolver("tarjeta", nodo) };
 }

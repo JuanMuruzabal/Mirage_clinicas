@@ -77,19 +77,22 @@ export function BloqueDeTexto({
   texto,
   variante,
   foto,
+  envolverSlot,
 }: {
   titulo: string;
   texto: string;
   variante: VarianteDeTexto;
   foto: { src: string; alt: string } | null;
+  envolverSlot?: (slot: "titulo" | "texto" | "imagen", nodo: ReactNode) => ReactNode;
 }) {
-  const parrafo = texto ? <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p> : null;
-  const encabezado = titulo ? <Titulo>{titulo}</Titulo> : null;
+  const parrafo = texto ? (envolverSlot?.("texto", <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p>) ?? <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p>) : null;
+  const encabezado = titulo ? (envolverSlot?.("titulo", <Titulo>{titulo}</Titulo>) ?? <Titulo>{titulo}</Titulo>) : null;
 
   if (variante === "con-foto" && foto) {
     return (
       <div className={`${CLASE_TARJETA} grid grid-cols-1 items-center gap-6 @xl:grid-cols-2`}>
-        <Foto src={foto.src} alt={foto.alt} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />
+        {envolverSlot?.("imagen", <Foto src={foto.src} alt={foto.alt} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />) ??
+          <Foto src={foto.src} alt={foto.alt} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />}
         <div className={CLASE_ALINEAR}>
           {encabezado}
           {parrafo}
@@ -104,8 +107,8 @@ export function BloqueDeTexto({
       <div className={`${CLASE_TARJETA} ${CLASE_ALINEAR}`}>
         {encabezado}
         {texto && (
-          <p className={`${titulo ? "mt-3 " : ""}whitespace-pre-line text-left @xl:columns-2 @xl:gap-8 ${CLASE_TEXTO}`}>{texto}</p>
-        )}
+          envolverSlot?.("texto", <p className={`${titulo ? "mt-3 " : ""}whitespace-pre-line text-left @xl:columns-2 @xl:gap-8 ${CLASE_TEXTO}`}>{texto}</p>) ??
+            <p className={`${titulo ? "mt-3 " : ""}whitespace-pre-line text-left @xl:columns-2 @xl:gap-8 ${CLASE_TEXTO}`}>{texto}</p>)}
       </div>
     );
   }

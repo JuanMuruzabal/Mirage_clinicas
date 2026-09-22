@@ -50,7 +50,11 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
   // SUS tokens: los overrides del tema anterior se descartan (fueron elegidos
   // para otro tema). La portada se conserva: es layout, no estilo.
   function soloPortada(): TokensTema {
-    return temaTokens.portada ? { portada: temaTokens.portada } : {};
+    return {
+      ...(temaTokens.portada ? { portada: temaTokens.portada } : {}),
+      ...(temaTokens.movimiento ? { movimiento: temaTokens.movimiento } : {}),
+      ...(temaTokens.fondoAnimado ? { fondoAnimado: temaTokens.fondoAnimado } : {}),
+    };
   }
 
   function elegirTema(id: string) {
@@ -98,6 +102,11 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
 
   return (
     <div className="flex flex-col gap-5">
+      <Grupo titulo="Movimiento">
+        {selectorDeToken("movimiento")}
+        {selectorDeToken("fondoAnimado")}
+        <p className={CLASE_AYUDA}>Las animaciones se detienen si el visitante prefiere movimiento reducido.</p>
+      </Grupo>
       <Grupo titulo="Colores">
         <fieldset className="flex flex-col gap-2">
           <legend className={CLASE_ETIQUETA}>Tema</legend>
