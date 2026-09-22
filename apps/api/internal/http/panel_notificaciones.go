@@ -129,17 +129,25 @@ func contarTurnosEnConflictoConBloqueos(
 		acotarAMisTurnos = soloMisTurnos(r)
 	}
 
-	var turnos []db.Turno
-	if err := gdb.Scopes(acotarAMisTurnos).
-		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", clinicID, ahora).
-		Order("hora_inicio").
-		Find(&turnos).Error; err != nil {
-		return 0, nil, nil, err
-	}
-	if len(turnos) == 0 {
-		return 0, nil, nil, nil
-	}
-
+	// LO QUE PUEDE CAUSAR UN CONFLICTO, PRIMERO — y los turnos después,
+	// solo si hay algo contra qué compararlos (ronda de optimización
+	// post-Fase 3, segunda parte, 2026-09-23).
+	//
+	// El orden de estas tres consultas no es un detalle de estilo: este
+	// endpoint lo sondea CADA 2 SEGUNDOS cada persona que tiene el panel
+	// abierto (`NotificacionesConflictoGlobal`). Al revés —los turnos
+	// primero— la API cargaba en memoria TODOS los turnos futuros de la
+	// clínica treinta veces por minuto y por empleado, incluso cuando no
+	// hay un solo horario reservado y la respuesta es cero de entrada.
+	//
+	// Medido, con la respuesta en 0 y sin ningún horario reservado:
+	// 376 turnos futuros → 9,3 ms; 2.976 → 65,8 ms. Es el costo de
+	// hidratar filas para no mirarlas. Con el orden corregido el caso
+	// común —una clínica que no reservó horarios— no toca `turnos`.
+	//
+	// El cortocircuito ya estaba escrito y el comentario del frontend ya
+	// lo daba por hecho (*"sin horarios reservados no mira un solo
+	// turno"*); lo único que fallaba era el orden en que se ejecutaba.
 	hoy := clock.Today()
 	var bloqueos []db.BloqueoHorario
 	if err := gdb.Scopes(acotarAMiAgenda).Where(
@@ -163,6 +171,27 @@ func contarTurnosEnConflictoConBloqueos(
 	}
 
 	if len(bloqueos) == 0 && len(excepciones) == 0 {
+		return 0, nil, nil, nil
+	}
+
+	// Recién acá los turnos: ya sabemos que hay contra qué compararlos.
+	//
+	// SOLO LAS TRES COLUMNAS QUE EL BUCLE MIRA. `db.Turno` tiene 28,
+	// incluidos los datos de contacto del paciente y el motivo (texto
+	// libre): traerlos para no usarlos es ancho de banda y memoria en un
+	// endpoint que se sondea cada 2 segundos por persona. Lo único que
+	// hace falta para decidir si un turno choca es cuándo empieza, cuándo
+	// termina y de quién es la agenda.
+	var turnos []db.Turno
+	if err := gdb.Scopes(acotarAMisTurnos).
+		Model(&db.Turno{}).
+		Select("hora_inicio", "hora_fin", "atendido_por_user_id").
+		Where("clinic_id = ? AND estado = 'agendado' AND hora_fin >= ?", clinicID, ahora).
+		Order("hora_inicio").
+		Find(&turnos).Error; err != nil {
+		return 0, nil, nil, err
+	}
+	if len(turnos) == 0 {
 		return 0, nil, nil, nil
 	}
 
@@ -198,6 +227,41 @@ func contarTurnosEnConflictoConBloqueos(
 		excepcionesPorAgenda[*h.UserID] = append(excepcionesPorAgenda[*h.UserID], h)
 	}
 
+	// LAS REGLAS DE CADA AGENDA, ARMADAS UNA VEZ. Antes esto se rehacía
+	// DENTRO del bucle: tres copias de slice por turno, o sea unas nueve
+	// mil asignaciones con tres mil turnos, treinta veces por minuto y
+	// por empleado. Las agendas de una clínica son unas pocas y los
+	// turnos son muchos: el trabajo va del lado chico.
+	//
+	// Las copias siguen siendo copias —appendear sobre `generalesDeTodos`
+	// escribiría en su array de respaldo y arrastraría lo de una agenda a
+	// la siguiente—, solo que ahora se hacen una vez por agenda.
+	type reglasDeAgenda struct {
+		generales   []db.BloqueoHorario
+		especificas []db.BloqueoHorario
+		excepciones []db.HorarioAtencion
+	}
+	reglasPorAgenda := map[uuid.UUID]reglasDeAgenda{}
+	reglasDe := func(userID *uuid.UUID) reglasDeAgenda {
+		if userID == nil {
+			return reglasDeAgenda{
+				generales:   generalesDeTodos,
+				especificas: especificasDeTodos,
+				excepciones: excepcionesDeTodos,
+			}
+		}
+		if ya, hay := reglasPorAgenda[*userID]; hay {
+			return ya
+		}
+		armadas := reglasDeAgenda{
+			generales:   append(append([]db.BloqueoHorario{}, generalesDeTodos...), generalesPorAgenda[*userID]...),
+			especificas: append(append([]db.BloqueoHorario{}, especificasDeTodos...), especificasPorAgenda[*userID]...),
+			excepciones: append(append([]db.HorarioAtencion{}, excepcionesDeTodos...), excepcionesPorAgenda[*userID]...),
+		}
+		reglasPorAgenda[*userID] = armadas
+		return armadas
+	}
+
 	var count int64
 	var primerDuenio *uuid.UUID
 	var primeraFecha *time.Time
@@ -205,20 +269,9 @@ func contarTurnosEnConflictoConBloqueos(
 		if t.HoraInicio == nil || t.HoraFin == nil {
 			continue
 		}
-		// Copias y no `append` sobre los lotes compartidos: appendear
-		// sobre `generalesDeTodos` puede escribir en su array de respaldo
-		// y arrastrar lo de un turno al siguiente.
-		var generales, especificas []db.BloqueoHorario
-		generales = append(generales, generalesDeTodos...)
-		especificas = append(especificas, especificasDeTodos...)
-		misExcepciones := append([]db.HorarioAtencion{}, excepcionesDeTodos...)
-		if t.AtendidoPorUserID != nil {
-			generales = append(generales, generalesPorAgenda[*t.AtendidoPorUserID]...)
-			especificas = append(especificas, especificasPorAgenda[*t.AtendidoPorUserID]...)
-			misExcepciones = append(misExcepciones, excepcionesPorAgenda[*t.AtendidoPorUserID]...)
-		}
+		reglas := reglasDe(t.AtendidoPorUserID)
 
-		if turnoChocaConSuAgenda(*t.HoraInicio, *t.HoraFin, generales, especificas, misExcepciones) {
+		if turnoChocaConSuAgenda(*t.HoraInicio, *t.HoraFin, reglas.generales, reglas.especificas, reglas.excepciones) {
 			count++
 			// El PRIMERO en el tiempo: los turnos vienen ordenados por
 			// `hora_inicio`, así que el primero que choca es el más

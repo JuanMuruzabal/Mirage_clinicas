@@ -242,3 +242,102 @@ docker compose logs api | tail -n +$((N0+1)) | grep -oE 'duracion_ms=[0-9]+'
 ```
 
 Las dos preguntas que más rindieron no fueron "¿qué endpoint es lento?" sino **"¿cuántas veces se pide lo mismo?"** y **"¿por qué son tantas consultas?"**. Ninguna de las dos se ve leyendo un handler: se ven mirando el log de una carga de página entera.
+
+---
+
+# Segunda parte — concurrencia: varias clínicas, varios empleados a la vez
+
+**Fecha:** 2026-09-23. La primera parte midió **una** persona usando el panel. Esta pregunta es distinta y no se responde con los mismos números: *"¿qué pasa con varias clínicas trabajando concurrentemente con varios empleados?"*
+
+## El cambio de pregunta
+
+Con una persona, lo que importa es cuánto tarda una carga de página. Con N personas, lo que importa es **cuánto cuesta cada una por minuto sin hacer nada**, porque eso es lo que se multiplica. Y el panel, en reposo, no está quieto: sondea.
+
+| Qué se sondea | Cada | Por empleado |
+|---|---|---|
+| `/panel/notificaciones` (el aviso de conflictos) | **2 s** | **30 req/min** |
+| `/turnos/pendientes-asistencia` (el cartel de asistencia) | 30 s | 2 req/min |
+| `/equipo/presencia` | 60 s | 1 req/min |
+
+El primero es el 91% del tráfico en reposo. Todo lo demás de esta sección sale de mirarlo.
+
+## El hallazgo: el cortocircuito estaba después del trabajo
+
+`contarTurnosEnConflictoConBloqueos` hacía, en este orden:
+
+1. Cargar **todos los turnos futuros** de la clínica (filas completas, no un conteo).
+2. Cargar los horarios reservados y las excepciones.
+3. Si no hay ni horarios reservados ni excepciones → **devolver 0**.
+
+El paso 3 existía, y el comentario del frontend ya lo daba por hecho (*"sin horarios reservados no mira un solo turno"*). Pero corría **después** del paso 1, así que no cortaba nada: una clínica que nunca reservó un horario igual hidrataba en memoria todos sus turnos futuros, treinta veces por minuto y por empleado, para devolver un cero que ya se sabía.
+
+Medido, con la respuesta en `0` y sin un solo horario reservado:
+
+| turnos futuros | antes |
+|---|---|
+| 376 | 9,3 ms |
+| 2.976 | **65,8 ms** |
+
+Invertir el orden —las reglas primero, los turnos solo si hay contra qué compararlos— deja ese caso en **8,9 ms y plano**: deja de depender de cuántos turnos haya.
+
+Para el caso en que **sí** hay horarios reservados, donde los turnos hacen falta de verdad, dos cosas más:
+
+- **Traer solo las tres columnas que el bucle mira.** `db.Turno` tiene 28, incluidos los datos de contacto y el motivo (texto libre). Para decidir si un turno choca alcanzan `hora_inicio`, `hora_fin` y `atendido_por_user_id`.
+- **Armar las reglas de cada agenda una vez, no por turno.** El bucle copiaba tres slices en cada iteración: unas nueve mil asignaciones con tres mil turnos. Las agendas de una clínica son pocas y los turnos son muchos — el trabajo va del lado chico.
+
+Con horarios reservados presentes y 2.976 turnos: **59,0 ms → 21,5 ms**, con la respuesta idéntica (35 conflictos, mismo profesional, misma fecha).
+
+## Lo que eso significa en capacidad
+
+Medido con un generador de carga en Go (N conexiones concurrentes reales):
+
+| concurrencia | antes | después |
+|---|---|---|
+| 1 | 45,6 ms · 21,7 req/s | **20,3 ms · 48,8 req/s** |
+| 10 | 322,5 ms · 31,0 req/s | **96,7 ms · 98,5 req/s** |
+| 25 | 667,8 ms · 37,8 req/s | **220,5 ms · 110,2 req/s** |
+| 50 | 1.340,8 ms · 39,3 req/s | **426,4 ms · 118,0 req/s** |
+
+El techo del endpoint pasa de **~39 req/s a ~110 req/s**: casi **3× la capacidad** en el endpoint que genera nueve de cada diez requests del panel en reposo. En empleados simultáneos —a 0,5 req/s cada uno— es pasar de unos 78 a unos 220 antes de que este endpoint sature.
+
+## Dónde está el límite ahora, y dónde NO está
+
+Con 50 conexiones concurrentes sostenidas:
+
+- **La API quema 530% de CPU** (5,3 de 8 núcleos). Postgres, 150%.
+- **De 21 conexiones abiertas, 18-19 están ociosas** y solo 1-3 activas en cualquier momento.
+
+O sea: **el cuello es el proceso Go, no la base.** Importa decirlo porque la reacción intuitiva sería subir el pool de conexiones, y eso no cambiaría nada — las conexiones ya sobran. Lo que hay que bajar es el trabajo por request, que es lo que se hizo.
+
+Sigue valiendo lo de §12.3: dimensionar el pool es una conversación para cuando haya **más de una instancia**, y ahí el número a cuidar es la suma de los pools contra el límite de Postgres, no el de uno.
+
+## Lo que se revisó y está bien
+
+Anotado para no volver a mirarlo:
+
+- **Índices en las tablas calientes.** `bloqueos_horario`, `horarios_atencion`, `tipos_consulta`, `conflictos_paciente`, `pacientes_en_mi_lista` y `clinic_members` tienen todas su índice por `clinic_id` (o uno compuesto que empieza por ahí). El único que faltaba era el de `turnos`, y es el de la primera parte.
+- **`sessions` figura con 99,4% de escaneos secuenciales**, y no es un problema: tiene su índice único sobre `token_hash`, y con 73 filas el planificador acierta al ignorarlo. Se corrige solo cuando la tabla crezca. Buen recordatorio de que `pg_stat_user_tables` se lee junto con el tamaño de la tabla, nunca sola.
+- **Los otros dos sondeos aguantan de sobra**: `/turnos/pendientes-asistencia` 353 req/s y `/equipo/presencia` 255 req/s a concurrencia 50 — este último a pesar de que **escribe** en cada GET (el latido de presencia, TR-142).
+- **Las escrituras no se pelean.** Varias personas dando de alta turnos a la vez en la misma clínica: **386 altas/s** a concurrencia 15, mediana 22 ms, cero errores. El `EXCLUDE` de no-solapamiento no serializa nada mientras los turnos no se pisen de verdad, que es exactamente lo que tiene que hacer.
+- **Los endpoints de lectura del panel**, a concurrencia 25: `/me` 796 req/s, `/turnos/contadores` 655, `/panel/resumen` 280, `/pacientes` 277, `/turnos` 238. Ninguno cerca de ser el límite.
+
+## Lo que queda, y es una decisión de producto
+
+**El intervalo de 2 segundos.** Después de este arreglo el sondeo cuesta entre 8,9 ms (sin horarios reservados) y 21,5 ms (con ellos): 30 sondeos por minuto son ~0,3 a 0,65 segundos de CPU por empleado por minuto, alrededor del 1% de un núcleo cada uno. Con 50 empleados simultáneos es medio núcleo dedicado a preguntar, casi siempre en vano, si algo cambió. Antes del arreglo esos mismos 50 empleados pedían más de un núcleo y medio.
+
+No se tocó, **a propósito**: el intervalo corto es lo que el cliente pidió en la QA de la 3.2.6 (el aviso tiene que reaccionar, no desaparecer), y cambiarlo es cambiar cómo se siente el producto, no cómo está escrito. Queda como decisión, con el número al lado:
+
+| intervalo | por empleado | 50 empleados |
+|---|---|---|
+| 2 s (hoy) | 30 req/min | ~0,5 núcleo |
+| 5 s | 12 req/min | ~0,2 núcleo |
+| 10 s | 6 req/min | ~0,1 núcleo |
+
+**Y si algún día hace falta bajarlo sin perder reacción**, el camino que encaja con este repo no es un caché en memoria —se pierde en cada deploy y no sirve con varias instancias— sino el patrón que ya usa la presencia: **un contador de versión por clínica en Postgres**, que cualquier escritura de turno o de horario incrementa. El sondeo lee una fila por índice (microsegundos) y solo recalcula cuando ese número cambió. Es bastante más que cambiar una constante, y por eso queda escrito acá en vez de hecho a las apuradas.
+
+## Cómo se midió esta parte
+
+El generador de carga son ~60 líneas de Go que abren N conexiones persistentes contra una ruta y reportan mediana, p95 y req/s. Dos advertencias que costaron tiempo:
+
+- **`curl` con `xargs -P` en Git Bash no mide concurrencia.** El costo de levantar procesos domina, el pool de Postgres nunca pasó de 3 conexiones y la latencia salía plana a cualquier concurrencia. Parecía que el sistema escalaba perfecto; lo que no escalaba era el cliente.
+- **Git Bash reescribe rutas**: `/panel/notificaciones` como argumento se convirtió en `C:/Program Files/Git/panel/notificaciones`, y todas las mediciones daban error. Con `MSYS_NO_PATHCONV=1` se arregla.

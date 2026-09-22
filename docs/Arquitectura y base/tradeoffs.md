@@ -2785,6 +2785,43 @@ Lo de más impacto de la ronda no estaba en la lista: `turnos` no tenía índice
 Los 12 envíos de mail son sincrónicos dentro del request y son el caso correcto para una cola. No se implementó porque es lo único de la ronda que **no se puede medir sin Resend**, y el resto se cambió después de medirlo. La condición de activación está escrita en el documento; cuando se haga, va en Postgres y no en un canal en memoria — mismo criterio que TR-142.
 
 
+## TR-162: Un endpoint sondeado se mide distinto — costo × frecuencia × gente
+
+- **Contexto:** segunda parte de la ronda de optimización post-Fase 3, 2026-09-23. Pregunta del cliente: *"¿hay algo más que se pueda optimizar, suponiendo que en varias clínicas trabajan concurrentemente con varios empleados?"*
+- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`, segunda parte.
+
+### La decisión
+
+**Lo que se optimiza en un endpoint sondeado no es su latencia, es su costo multiplicado por la frecuencia y por la cantidad de gente.** Con una persona, `/panel/notificaciones` a 65 ms es aceptable. Sondeado cada 2 segundos por veinte personas, son 600 ejecuciones por minuto y el endpoint pasa a ser el 91% del tráfico del panel en reposo.
+
+Ese cambio de unidad es lo que destapó el bug: `contarTurnosEnConflictoConBloqueos` cargaba **todos los turnos futuros de la clínica** y recién después preguntaba si había horarios reservados contra qué compararlos. El cortocircuito existía —el comentario del frontend ya lo daba por hecho— pero corría después del trabajo que debía evitar. Una clínica sin un solo horario reservado hidrataba miles de filas para devolver un cero que ya se sabía.
+
+**La regla que queda:** en un endpoint que se sondea, primero lo que puede cortar, y traé solo las columnas que vas a mirar. Y el bucle que recorre lo muchos no arma estructuras que dependen de lo pocos: las agendas de una clínica son pocas y los turnos son muchos, así que las reglas de cada agenda se arman una vez, no por turno.
+
+**Lo que se sacrifica:** nada de comportamiento — la respuesta es idéntica, y hay un test que la fija en las dos ramas (con y sin horarios reservados). El costo es que el orden de las consultas pasa a ser significativo y hay que explicarlo, porque leído como código suelto parece intercambiable.
+
+### El cuello no estaba donde la intuición dice
+
+Medido con 50 conexiones concurrentes reales: la API quema **530% de CPU** (5,3 de 8 núcleos) mientras Postgres usa 150% y **18 de 21 conexiones están ociosas**.
+
+Esto descarta explícitamente dos reflejos:
+
+- **Subir el pool de conexiones no habría hecho nada.** Las conexiones ya sobran; lo que falta es CPU en el proceso Go. Dimensionar el pool sigue siendo una conversación para cuando haya más de una instancia (§12.3), y ahí el número a cuidar es la suma de los pools contra el límite de Postgres.
+- **`pg_stat_user_tables` no se lee sola.** `sessions` aparece con 99,4% de escaneos secuenciales y está perfecta: tiene su índice único sobre `token_hash`, y con 73 filas el planificador acierta al ignorarlo. Se corrige solo cuando la tabla crezca. Un índice "faltante" que el planificador descarta a propósito no es lo mismo que uno que no existe — el de `turnos` (TR-161) era lo segundo.
+
+### Lo que se revisó y no hizo falta tocar
+
+Las escrituras concurrentes: **386 altas de turno por segundo a concurrencia 15**, mediana 22 ms, cero errores. El `EXCLUDE` de no-solapamiento no serializa mientras los turnos no se pisen de verdad, que es exactamente su trabajo. Los otros dos sondeos (`/turnos/pendientes-asistencia`, `/equipo/presencia`) aguantan 250-350 req/s, el segundo a pesar de escribir en cada GET.
+
+### El intervalo de 2 segundos: se deja, y se explica
+
+Después del arreglo cada sondeo cuesta entre 8,9 y 21,5 ms, o sea ~1% de un núcleo por empleado. Bajar el intervalo a 5 o 10 segundos reduciría eso a la mitad o a un tercio.
+
+**No se cambió a propósito:** el intervalo corto es lo que el cliente pidió explícitamente en la QA de la 3.2.6, y tocarlo es cambiar cómo se siente el producto, no cómo está escrito. Una optimización que cambia una decisión de producto no es una optimización, es un cambio de alcance disfrazado. Queda como decisión del cliente con los números al lado.
+
+**Y si algún día hace falta bajar el costo sin perder reacción**, el camino no es un caché en memoria —se pierde en cada deploy y no sirve con varias instancias— sino el patrón de TR-142: un **contador de versión por clínica en Postgres** que cualquier escritura incrementa. El sondeo lee una fila por índice y solo recalcula cuando ese número cambió. Queda escrito en vez de hecho porque toca todos los caminos de escritura.
+
+
 ---
 
 ---

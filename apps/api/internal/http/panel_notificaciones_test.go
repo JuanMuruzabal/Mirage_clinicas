@@ -165,3 +165,72 @@ func TestPanelNotificaciones_NoCuentaTurnoYaResuelto(t *testing.T) {
 		t.Errorf("ConflictosCalendario = %d, esperaba 0 (el turno ya está resuelto)", got.ConflictosCalendario)
 	}
 }
+
+// El camino rápido: SIN horarios reservados ni excepciones, la respuesta
+// es cero sin importar cuántos turnos haya — y desde la ronda de
+// optimización post-Fase 3 (2026-09-23) además sin leerlos.
+//
+// Este endpoint lo sondea cada 2 segundos cada persona con el panel
+// abierto. El cortocircuito ya existía pero corría DESPUÉS de cargar
+// todos los turnos futuros de la clínica, así que no cortaba nada:
+// medido, 376 turnos futuros costaban 9,3 ms y 2.976 costaban 65,8 ms
+// para devolver el mismo cero.
+//
+// Lo que este test fija es el resultado, que es lo que un test puede
+// afirmar: varios turnos, ningún bloqueo, cero conflictos. Si alguien
+// vuelve a poner la consulta de turnos adelante, esto sigue en verde —
+// pero el orden queda explicado en el comentario del handler, y el
+// número de arriba dice cuánto cuesta equivocarse.
+func TestPanelNotificaciones_SinBloqueosNiExcepcionesEsCeroConMuchosTurnos(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "notif-rapido@example.com")
+
+	// Varios turnos futuros, en días y horas distintas para que ninguno
+	// se pise con otro.
+	base := clock.Today().AddDate(0, 0, 2)
+	for i := range 12 {
+		crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID,
+			base.AddDate(0, 0, i).Add(9*time.Hour))
+	}
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/notificaciones", reg.Token, nil)
+	var got panelNotificacionesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.ConflictosCalendario != 0 {
+		t.Errorf("ConflictosCalendario = %d, esperaba 0: no hay un solo horario reservado contra qué chocar",
+			got.ConflictosCalendario)
+	}
+}
+
+// Y el control del test de arriba: con UN horario reservado encima de
+// uno de esos turnos, el conflicto aparece. Sin este par, "da cero"
+// pasaría también con el contador roto para todo el mundo.
+func TestPanelNotificaciones_ConUnBloqueoElConflictoAparece(t *testing.T) {
+	gdb := testdb.New(t)
+	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
+	reg, tipoConsultaID := profesionalConTipoConsulta(t, gdb, router, "notif-control@example.com")
+	clinicID, err := uuid.Parse(reg.Profesional.ID)
+	if err != nil {
+		t.Fatalf("profesionalID inválido: %v", err)
+	}
+
+	base := clock.Today().AddDate(0, 0, 2)
+	for i := range 12 {
+		crearTurnoAgendadoDePrueba(t, gdb, reg.Profesional.ID, tipoConsultaID,
+			base.AddDate(0, 0, i).Add(9*time.Hour))
+	}
+	// Encima del primero: 09:00 cae dentro de 08:00-10:00.
+	crearBloqueoEspecificoDePrueba(t, gdb, clinicID, base, "08:00", "10:00")
+
+	rec := doJSONAuth(t, router, http.MethodGet, "/panel/notificaciones", reg.Token, nil)
+	var got panelNotificacionesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("respuesta no es JSON válido: %v", err)
+	}
+	if got.ConflictosCalendario != 1 {
+		t.Errorf("ConflictosCalendario = %d, esperaba 1", got.ConflictosCalendario)
+	}
+}

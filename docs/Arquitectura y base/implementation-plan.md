@@ -772,6 +772,17 @@ Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en me
 | **Colas (envío de mails)** | ⏸ Identificado, no implementado. Es el caso correcto —12 envíos sincrónicos dentro del request— pero es lo único que no se puede medir sin Resend. **Condición:** comparar `duracion_ms` de los endpoints que mandan mail contra sus vecinos, en un deploy real |
 | **Memcache / Redis** | ⛔ Sigue bloqueado por la misma condición de §12.3: más de una instancia |
 
+**Segunda parte — concurrencia (2026-09-23, TR-162).** Pregunta distinta: *"varias clínicas trabajando a la vez con varios empleados"*. Con una persona importa cuánto tarda una página; con N importa **cuánto cuesta cada una por minuto sin hacer nada**, y el panel en reposo sondea `/panel/notificaciones` **cada 2 segundos** (30 req/min por empleado, el 91% del tráfico en reposo).
+
+| | Resultado |
+|---|---|
+| **El cortocircuito estaba después del trabajo** | ✅ `contarTurnosEnConflictoConBloqueos` cargaba todos los turnos futuros ANTES de preguntar si había horarios reservados. Sin ninguno, 2.976 turnos costaban 65,8 ms para devolver cero: ahora 8,9 ms y plano |
+| **Menos columnas y menos copias** | ✅ Tres columnas en vez de 28, y las reglas de cada agenda armadas una vez en vez de una por turno. Con horarios reservados: 59,0 → 21,5 ms |
+| **Capacidad del endpoint** | ✅ De ~39 a ~110 req/s — de ~78 a ~220 empleados simultáneos antes de saturar |
+| **El pool de conexiones** | ✔ Revisado, **no es el cuello**: con 50 conexiones concurrentes la API quema 530% de CPU y 18 de 21 conexiones están ociosas |
+| **Escrituras concurrentes** | ✔ Revisadas: 386 altas de turno por segundo a concurrencia 15, sin contención. El `EXCLUDE` no serializa lo que no se pisa |
+| **El intervalo de 2 s** | ⏸ La decisión que queda, y es de producto: el intervalo corto es lo que el cliente pidió en la QA de la 3.2.6. Los números por intervalo están en el documento |
+
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.
