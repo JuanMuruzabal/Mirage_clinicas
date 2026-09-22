@@ -843,9 +843,14 @@ func TestListTiposConsultaPublico_Exitoso(t *testing.T) {
 // pidió el cliente: "si no hay un tipo de turno asociado al menos a un
 // profesional no ponerlo en el wizard".
 //
-// Un tipo sin dueño —las filas anteriores a la 3.2.1— o de alguien que ya
-// no está en el equipo llevaría al paciente a una pantalla sin nadie a
-// quien elegir: un callejón sin salida.
+// Un tipo de alguien que ya no está en el equipo llevaría al paciente a
+// una pantalla sin nadie a quien elegir: un callejón sin salida.
+//
+// Hasta el 2026-09-23 el caso de este test era un tipo SIN DUEÑO (las
+// filas anteriores a la 3.2.1). Desde `chk_tipo_consulta_con_duenio` la
+// base ya no deja crearlo — ver TestConfiguracionDeAgenda_LaBaseRechazaFilasSinDuenio—,
+// así que el que queda posible es este: el dueño existe pero se fue de
+// la clínica (la membresía no se borra, pasa a `removed`).
 func TestListTiposConsultaPublico_NoOfreceLoQueNadieAtiende(t *testing.T) {
 	router, gdb, _ := newTestRouterWithMail(t)
 	reg, _ := profesionalConTipoConsulta(t, gdb, router, "publicotipos-huerfano@example.com")
@@ -854,9 +859,13 @@ func TestListTiposConsultaPublico_NoOfreceLoQueNadieAtiende(t *testing.T) {
 	if err != nil {
 		t.Fatalf("id de clínica inválido: %v", err)
 	}
-	huerfano := db.TipoConsulta{ClinicID: clinicID, Nombre: "Tipo sin dueño", Color: "#E7D9BE", DuracionMinutos: 30}
-	if err := gdb.Create(&huerfano).Error; err != nil {
-		t.Fatalf("no se pudo crear el tipo huérfano: %v", err)
+	sumarColaboradorDePrueba(t, gdb, router, clinicID, "publicotipos-exmiembro@example.com", db.RoleProfesional)
+	exMiembro := userIDDelMail(t, gdb, "publicotipos-exmiembro@example.com")
+	tipoDe(t, gdb, clinicID, exMiembro, "Tipo de quien se fue", 30)
+	if err := gdb.Model(&db.ClinicMember{}).
+		Where("clinic_id = ? AND user_id = ?", clinicID, exMiembro).
+		Update("status", "removed").Error; err != nil {
+		t.Fatalf("no se pudo dar de baja al colaborador: %v", err)
 	}
 
 	rec := doJSON(t, router, http.MethodGet, "/clinicas/"+reg.Profesional.Slug+"/tipos-consulta", nil)
@@ -868,7 +877,7 @@ func TestListTiposConsultaPublico_NoOfreceLoQueNadieAtiende(t *testing.T) {
 		t.Fatalf("respuesta no es JSON válido: %v", err)
 	}
 	for _, tipo := range got {
-		if tipo.Nombre == "Tipo sin dueño" {
+		if tipo.Nombre == "Tipo de quien se fue" {
 			t.Error("el wizard ofrece un tipo que no atiende nadie")
 		}
 	}

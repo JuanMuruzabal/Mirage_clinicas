@@ -53,7 +53,7 @@ func TestAutoreservar_MueveAlProximoHuecoLibreAunqueSeaOtroDia(t *testing.T) {
 	// rodar al día siguiente.
 	motivo := "Reunión"
 	bloqueo := db.BloqueoHorario{
-		ClinicID: clinicID, Especifico: true, Fecha: &fecha,
+		ClinicID: clinicID, UserID: duenioDePrueba(t, gdb, clinicID), Especifico: true, Fecha: &fecha,
 		HoraDesde: "08:00", HoraHasta: "09:00", TipoRegla: "bloquear_horario", Motivo: &motivo,
 	}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
@@ -105,7 +105,7 @@ func TestAutoreservar_PrioridadPorHoraOriginalAscendente(t *testing.T) {
 
 	motivo := "Reunión"
 	bloqueo := db.BloqueoHorario{
-		ClinicID: clinicID, Especifico: true, Fecha: &fecha,
+		ClinicID: clinicID, UserID: duenioDePrueba(t, gdb, clinicID), Especifico: true, Fecha: &fecha,
 		HoraDesde: "08:00", HoraHasta: "09:00", TipoRegla: "bloquear_horario", Motivo: &motivo,
 	}
 	if err := gdb.Create(&bloqueo).Error; err != nil {
@@ -156,7 +156,7 @@ func TestAutoreservar_SinNingunHuecoLibreEnLaVentanaDeBusqueda(t *testing.T) {
 	// Inserta directo en la base un horario general "no trabajo" (sin
 	// pasar por PUT /horario-atencion, que no lo permite) — ningún día
 	// tiene nada disponible, en ninguna ventana de búsqueda.
-	general := db.HorarioAtencion{ClinicID: clinicID, Alcance: db.HorarioAtencionAlcanceGeneral}
+	general := db.HorarioAtencion{ClinicID: clinicID, UserID: duenioDePrueba(t, gdb, clinicID), Alcance: db.HorarioAtencionAlcanceGeneral}
 	if err := gdb.Create(&general).Error; err != nil {
 		t.Fatalf("no se pudo crear el horario de atención de prueba: %v", err)
 	}

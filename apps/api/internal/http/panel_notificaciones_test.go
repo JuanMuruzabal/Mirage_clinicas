@@ -73,10 +73,27 @@ func TestPanelNotificaciones_ContConflictoDePacientesPendiente(t *testing.T) {
 
 // crearBloqueoEspecificoDePrueba — bloqueo de horario para un día
 // concreto, mismo patrón directo por GORM que TestResumenPanel_HorariosReservados.
+// duenioDePrueba — el titular de la clínica, que es quien recibe una
+// fila de agenda sin dueño en el backfill de producción (`migrate.go`).
+// Desde la restricción `chk_*_con_duenio` (revisión de aislamiento,
+// 2026-09-23) la base rechaza esas filas sin `user_id`, así que los
+// fixtures que antes las creaban sin dueño —casi todos anteriores a la
+// 3.2.1, cuando la agenda era de la clínica— se lo ponen explícito: el
+// mismo dueño que les habría dado el backfill.
+func duenioDePrueba(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID) *uuid.UUID {
+	t.Helper()
+	owner, err := db.OwnerDeLaClinica(gdb, clinicID)
+	if err != nil {
+		t.Fatalf("no se pudo resolver el titular de la clínica: %v", err)
+	}
+	return &owner
+}
+
 func crearBloqueoEspecificoDePrueba(t *testing.T, gdb *gorm.DB, clinicID uuid.UUID, fecha time.Time, horaDesde, horaHasta string) db.BloqueoHorario {
 	t.Helper()
 	b := db.BloqueoHorario{
 		ClinicID:   clinicID,
+		UserID:     duenioDePrueba(t, gdb, clinicID),
 		Especifico: true,
 		Fecha:      &fecha,
 		HoraDesde:  horaDesde,
