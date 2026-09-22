@@ -31,7 +31,7 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 
 | PR | Qué | Estado |
 |---|---|---|
-| PE-1 | Núcleo: registro único de módulos y catálogo compartido | 🔄 (rama `feature/pe-1-nucleo-motor`) |
+| PE-1 | Núcleo: registro único de módulos y catálogo compartido | ✅ (PR #51/#52) |
 | PE-8 | Borrador, Publicar = Deployar e historial | ⬜ |
 | PE-2 | Tokens de diseño | ⬜ |
 | PE-3 | Variantes por módulo | ⬜ |
@@ -41,6 +41,8 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 | PE-7 | Plantillas y presets | ⬜ |
 | PE-9 | SEO, compartir y rendimiento | ⬜ |
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
+
+**PE-1, lo único deliberadamente afuera:** `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo. Es infraestructura para cuando un PR FUTURO cambie la forma de un módulo — se suma en el primer PR que de verdad la necesite (PE-2 en adelante), no antes.
 
 ## Qué es esto
 
