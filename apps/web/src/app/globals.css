@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* @dental-mirage/prisma-engine (PE-1) vive fuera de apps/web — sin este
+ * @source explícito, Tailwind 4 no ve las clases de sus editor.tsx/render.tsx
+ * y las purga del build de producción (en dev funciona por casualidad, con
+ * más CSS generado de lo que el JIT necesita). */
+@source "../../../../packages/prisma-engine/src";
+
 /*
  * Sistema de diseño — PRISMA ("Sistema Cascarón")
  * Ver docs/Arquitectura y base/tradeoffs.md TR-010. Paleta y tipografía ya resueltas por
