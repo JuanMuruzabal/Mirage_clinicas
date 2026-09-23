@@ -302,6 +302,8 @@ Depende solo de PE-1 (registro y esquemas). El esqueleto es opcional y no bloque
 
 ### PE-9 · SEO, compartir y rendimiento · M · `[V]`
 
+> **Implementado (2026-09-23, `feature/pe-9-seo-rendimiento`, TR-165).** Todo lo de la lista, con dos precisiones: la imagen para compartir no lleva la foto de portada (next/og no lee WebP), y el presupuesto de Lighthouse se mide sobre páginas de demostración armadas con plantillas (`PRISMA_DEMO_PLANTILLAS=1`), no sobre una clínica real. Al medir apareció que la página pública precargaba las fuentes de todos los temas; se corrigió en este mismo PR. La Fase 4.6 (R2) quedó afuera: depende de una cuenta externa.
+
 - Pestaña "Buscadores y redes": título y descripción (defaults de nombre, especialidades y ciudad).
 - **Imagen para compartir** con `next/og`, en los colores y tipografía del tema. Es lo que aparece al pasar el link por WhatsApp.
 - **JSON-LD** schema.org (`Dentist` / `MedicalClinic` / `Physiotherapy`) con dirección, teléfono y `openingHours` desde `horarios_clinica`.

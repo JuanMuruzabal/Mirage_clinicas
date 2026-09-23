@@ -39,9 +39,9 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 | PE-3 | Variantes por módulo | ✅ (PR #55, junto con PE-2) |
 | PE-4 | Motor de efectos | ✅ (PR #57, junto con PE-5) |
 | PE-5 | Fondos tranquilos y texto avanzado | ✅ (PR #57, junto con PE-4) |
-| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-7) |
-| PE-7 | Plantillas y presets | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-6) |
-| PE-9 | SEO, compartir y rendimiento | ⬜ |
+| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ✅ (PR #58, junto con PE-7) |
+| PE-7 | Plantillas y presets | ✅ (PR #58, junto con PE-6) |
+| PE-9 | SEO, compartir y rendimiento | 🔄 `feature/pe-9-seo-rendimiento` (sin la 4.6) |
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
 
 **PE-1, lo único deliberadamente afuera:** `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo. Es infraestructura para cuando un PR FUTURO cambie la forma de un módulo — se suma en el primer PR que de verdad la necesite (PE-2 en adelante), no antes.
@@ -71,6 +71,8 @@ Desde la raíz del repo (`package.json` tiene los atajos; detalle completo en `R
 - `pnpm run dev:web` / `pnpm run build:web` / `pnpm run lint:web` / `pnpm run typecheck:web`
 - `pnpm run typecheck:shared-types`
 - `pnpm run typecheck:prisma-engine` / `pnpm run test:prisma-engine` — el registro único de módulos de la página pública (`packages/prisma-engine`, plan Prisma Engine PE-1).
+- `pnpm run validar:plantillas` — valida `packages/prisma-engine/plantillas/*.json` y los presets (PE-7) contra los esquemas de los módulos; CI lo corre.
+- `PRISMA_DEMO_PLANTILLAS=1 pnpm dlx @lhci/cli@0.15.1 autorun` (desde la raíz, con `pnpm run build:web` hecho) — el presupuesto de rendimiento de PE-9 contra las páginas de demostración; lo mismo que corre el job `lighthouse` de CI.
 - `pnpm run engine:generar` — exporta el esquema (zod) de cada módulo a JSON Schema y copia esquemas + catálogo de temas a `apps/api/internal/prismaengine/` (`go:embed` no puede leer fuera de su propio módulo). Correrlo después de tocar `packages/prisma-engine/src/modulos/*/schema.ts` o `catalogo/temas.json` — CI lo corre y falla si el resultado difiere de lo commiteado (job `web`).
 - `pnpm run dev:api` (`go run ./cmd/api`) / `pnpm run build:api` (`go build ./...`) / `pnpm run vet:api`
 - `pnpm run migrate:api` — aplica el esquema (AutoMigrate de GORM). Idempotente, se puede correr de nuevo sin romper nada.
@@ -285,9 +287,16 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 - El HTML del servidor siempre muestra el contenido. Las entradas empiezan después de hidratar y el fallback de un chunk animado conserva el nodo original. No agregues efectos a la sección fija del turno ni a un contenedor que pueda cambiar el bloque de los modales.
 - Si cambias el catálogo o los esquemas de módulos, corre `pnpm run engine:generar` y versiona sus JSON de Go junto con el cambio.
 
+**SEO, compartir y rendimiento (PE-9, TR-165)**:
+- `seo_titulo`/`seo_descripcion` vacíos = el default de `lib/pagina-publica/seo.ts` (nombre, especialidades, ciudad). El default no se guarda. Van en la foto de la versión como cualquier campo nuevo de la página: los tres lugares del backend y las dos firmas de `borrador.ts`.
+- La URL absoluta del sitio sale de `urlDelSitio()` (`lib/sitio.ts`: `SITE_URL` → `RENDER_EXTERNAL_URL` → localhost), leída en runtime. Una ruta que la use tiene que ser dinámica: en el build de Docker no existe.
+- Una foto subida se guarda como variantes `<token>.w480|960|1600.webp` (`internal/imagenes`) y la URL es la de la más grande; el `srcset` sale del nombre (`srcsetDeFoto`). Si cambiás los anchos, cambialos en Go (`imagenes.Anchos`) y en el paquete (`ANCHOS_DE_FOTO`) juntos, y el regex de `app/uploads/[...path]/route.ts`.
+- En Go **windows/386** no hay codificador WebP (build tag): la subida guarda el original. CI y Render son linux/amd64; para probar el camino real en Windows, `GOARCH=amd64 go test ./internal/imagenes/`.
+- **Una fuente nueva de la página pública va con `preload: false`** (`tipografias.ts`): con el default, cada página precargaba las de todos los temas y el primer render se demoraba segundos en 4G. Lo detectó el presupuesto de Lighthouse (`lighthouserc.json`, job `lighthouse`), que corre sobre páginas de demostración (`PRISMA_DEMO_PLANTILLAS=1`, `lib/pagina-publica/demostracion.ts`).
+
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
-**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) ya están en `dev`; el par activo PE-4+5 suma efectos, fondos tranquilos y texto avanzado. Siguen PE-6+7 y PE-9, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
+**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) efectos y fondos (PE-4+5), y módulos del rubro + plantillas (PE-6+7) ya están en `dev`. PE-9 (SEO, compartir y rendimiento) está en `feature/pe-9-seo-rendimiento`; queda la Fase 4.6 (storage R2), más los pendientes sueltos de PE-8 y el `schema_version` de PE-1, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
 
 ## Flujo de ramas
 
