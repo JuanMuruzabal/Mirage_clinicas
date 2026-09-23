@@ -21,6 +21,8 @@ const borradorBase: Borrador = {
   nombreSobrePortada: true,
   nombreColor: "",
   temaTokens: { movimiento: "quieto" },
+  seoTitulo: "",
+  seoDescripcion: "",
   modulos: [
     {
       clave: "sobre-1",

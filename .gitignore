@@ -24,6 +24,8 @@ apps/api/*.test
 apps/api/api
 apps/api/migrate
 apps/api/coverage.out
+# Reportes de Lighthouse CI (PE-9, lighthouserc.json)
+.lighthouseci/
 apps/api/uploads/
 
 # --- Env: nunca credenciales reales, solo los .env.example quedan

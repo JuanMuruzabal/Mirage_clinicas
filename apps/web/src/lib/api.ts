@@ -6,6 +6,7 @@ import type {
   AutoreservarTurnosResponse,
   BloqueoHorario,
   BloqueosSeguridad,
+  ClinicaDelSitemap,
   ClinicaPublica,
   ClinicaResultado,
   CodigoInvitacion,
@@ -289,6 +290,12 @@ export function apiGetClinicaPublica(
   slug: string,
 ): Promise<ApiResult<ClinicaPublica>> {
   return request<ClinicaPublica>(`/clinicas/${slug}`);
+}
+
+// Las páginas que van al sitemap.xml (PE-9): publicadas y no ocultas, con la
+// fecha de su última publicación. Sin autenticación, como el buscador.
+export function apiSitemapClinicas(): Promise<ApiResult<ClinicaDelSitemap[]>> {
+  return request<ClinicaDelSitemap[]>("/sitemap/clinicas");
 }
 
 // TipoConsultaPublico — lo que el wizard necesita para el primer paso.
@@ -1814,6 +1821,9 @@ export interface ActualizarPaginaPublicaPayload {
   nombreColor?: string;
   // temaTokens (PE-2): `{}` saca todos los overrides (vuelve a los del tema).
   temaTokens?: Record<string, string>;
+  // seoTitulo/seoDescripcion (PE-9): "" vuelve al default.
+  seoTitulo?: string;
+  seoDescripcion?: string;
   modulos?: PaginaPublicaModuloPayload[];
   // revision (PE-8): OBLIGATORIA — el candado optimista del borrador. El
   // backend responde 409 (GuardarPaginaPublicaResult con kind "conflicto")

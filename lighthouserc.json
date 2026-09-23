@@ -1,0 +1,32 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "pnpm --filter @dental-mirage/web exec next start -p 3100",
+      "startServerReadyPattern": "Ready",
+      "url": [
+        "http://localhost:3100/demo-odontologia-calido-dinamico",
+        "http://localhost:3100/demo-odontologia-clinico-sereno",
+        "http://localhost:3100/demo-nutricion-natural-sereno"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "onlyCategories": ["performance", "accessibility", "seo", "best-practices"],
+        "chromeFlags": "--no-sandbox"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.75, "aggregationMethod": "median-run" }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 4500, "aggregationMethod": "median-run" }],
+        "total-blocking-time": ["error", { "maxNumericValue": 500, "aggregationMethod": "median-run" }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }],
+        "categories:seo": ["error", { "minScore": 0.9, "aggregationMethod": "median-run" }],
+        "categories:accessibility": ["warn", { "minScore": 0.9, "aggregationMethod": "median-run" }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci"
+    }
+  }
+}

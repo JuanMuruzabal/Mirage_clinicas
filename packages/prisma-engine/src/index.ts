@@ -2,6 +2,7 @@ export * from "./tipos";
 export * from "./constantes";
 export * from "./lectura-config";
 export * from "./comunes";
+export * from "./imagenes";
 export * from "./registro";
 export * from "./tokens";
 export * from "./efectos/catalogo";

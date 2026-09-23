@@ -41,6 +41,8 @@ export default async function PersonalizarPaginaPage() {
         nombreSobrePortada: false,
         nombreColor: "",
         temaTokens: {},
+        seoTitulo: "",
+        seoDescripcion: "",
         modulos: [],
         estadisticas: {},
         revision: 0,

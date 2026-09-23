@@ -175,6 +175,14 @@ services:
       # sobre actualizarlo a mano si cambia el nombre del servicio.
       - key: API_URL
         value: https://dental-mirage-api.onrender.com
+      # URL pública del sitio (PE-9): la usan las URLs absolutas que un
+      # buscador o WhatsApp no resuelven solos — canonical, og:image,
+      # sitemap.xml, robots.txt y el JSON-LD (apps/web/src/lib/sitio.ts). Sin
+      # ella se usaría la de onrender.com que Render inyecta sola
+      # (RENDER_EXTERNAL_URL), y Google indexaría ese dominio en vez del
+      # propio. Mismo dominio que APP_BASE_URL del servicio api.
+      - key: SITE_URL
+        value: https://miragesoftware.online
       # El MISMO valor que generó el servicio api (ver el comentario
       # allá). Render lo resuelve al aplicar el blueprint: no hay que
       # copiarlo a mano ni se puede desincronizar.

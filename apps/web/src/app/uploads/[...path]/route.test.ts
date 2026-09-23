@@ -45,6 +45,14 @@ describe("GET /uploads/{archivo}", () => {
     }
   });
 
+  it("acepta las variantes de tamaño que genera el backend desde PE-9", async () => {
+    apiFetchUploadMock.mockResolvedValue(new Response("x", { status: 200 }));
+    const res = await pedir("abc_DEF-123.w960.webp");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/webp");
+    expect(apiFetchUploadMock).toHaveBeenCalledWith("abc_DEF-123.w960.webp");
+  });
+
   it("solo acepta el nombre que genera el backend: nada de rutas, traversal ni otras extensiones", async () => {
     for (const path of [
       ["..", "etc"],
@@ -58,6 +66,10 @@ describe("GET /uploads/{archivo}", () => {
       [".png"],
       ["a b.png"],
       ["a.png.exe"],
+      ["a.w96.webp"],
+      ["a.w96000.webp"],
+      ["a.wx.webp"],
+      ["a.w960.w480.webp"],
       [`${"a".repeat(129)}.png`],
       [],
     ]) {

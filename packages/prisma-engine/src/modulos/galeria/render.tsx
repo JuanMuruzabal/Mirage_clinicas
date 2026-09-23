@@ -6,6 +6,13 @@ import { VARIANTES } from "./variantes";
 import { envolverSlots } from "../../efectos/envolver-slots";
 import { SLOTS_GALERIA } from "../../efectos/slots";
 
+// `sizes` de cada variante (PE-9): cuánto ocupa una foto en pantalla, para
+// que el navegador baje la variante justa. Mosaico y grilla van en 2
+// columnas (3 desde @xl) dentro de un contenedor de 48rem como mucho; el
+// carrusel muestra 4/5 del ancho (1/2 desde @xl).
+const TAMANOS_GRILLA = "(min-width: 48rem) 16rem, 50vw";
+const TAMANOS_CARRUSEL = "(min-width: 48rem) 24rem, 80vw";
+
 function Galeria({
   config,
   nombreClinica,

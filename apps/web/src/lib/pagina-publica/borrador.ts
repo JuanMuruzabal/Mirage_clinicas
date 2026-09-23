@@ -8,6 +8,7 @@ import type { ActualizarPaginaPublicaPayload } from "@/lib/api";
 import type { ContenidoPagina } from "./contenido";
 import { tokensDeConfig, type TokensTema } from "@dental-mirage/prisma-engine";
 import { borradorDeModulos, modulosAPayload, type ModuloBorrador } from "./modulos";
+import { textoSeo } from "./seo";
 
 export interface Borrador {
   bio: string;
@@ -22,6 +23,9 @@ export interface Borrador {
   nombreColor: string;
   /** PE-2: overrides de los tokens de diseño; `{}` = los del tema. */
   temaTokens: TokensTema;
+  /** PE-9: título y descripción para buscadores; "" = el default de seo.ts. */
+  seoTitulo: string;
+  seoDescripcion: string;
   modulos: ModuloBorrador[];
   /** PE-8: el candado optimista — lo que el servidor tenía guardado cuando se leyó/guardó este borrador. */
   revision: number;
@@ -40,6 +44,8 @@ export function borradorDePagina(p: PaginaPublica): Borrador {
     nombreSobrePortada: p.nombreSobrePortada,
     nombreColor: p.nombreColor,
     temaTokens: tokensDeConfig(p.temaTokens),
+    seoTitulo: p.seoTitulo ?? "",
+    seoDescripcion: p.seoDescripcion ?? "",
     modulos: borradorDeModulos(p.modulos),
     revision: p.revision,
   };
@@ -64,6 +70,8 @@ export function borradorAPayload(b: Borrador): ActualizarPaginaPublicaPayload {
     nombreSobrePortada: b.nombreSobrePortada,
     nombreColor: b.nombreColor,
     temaTokens: tokensDeConfig(b.temaTokens) as Record<string, string>,
+    seoTitulo: b.seoTitulo.trim(),
+    seoDescripcion: b.seoDescripcion.trim(),
     modulos: modulosAPayload(b.modulos),
     revision: b.revision,
   };
@@ -92,6 +100,8 @@ function firmaDeContenido(b: Borrador): string {
   return JSON.stringify({
     ...contenido,
     temaTokens: tokensDeConfig(contenido.temaTokens),
+    seoTitulo: textoSeo(contenido.seoTitulo),
+    seoDescripcion: textoSeo(contenido.seoDescripcion),
     modulos: contenido.modulos.map((m) => ({ tipo: m.tipo, visible: m.visible, config: m.config })),
   });
 }
@@ -126,6 +136,11 @@ function firmaDeContenidoPublicado(c: ContenidoVersionPaginaPublica): string {
     // Mismo lugar que en Borrador (después de nombreColor): JSON.stringify
     // respeta el orden de inserción, y las dos firmas se comparan como texto.
     temaTokens: tokensDeConfig(c.temaTokens),
+    // PE-9: mismo lugar que en Borrador (después de temaTokens). Se comparan
+    // como el backend los guarda (espacios colapsados): si no, un espacio de
+    // más en el borrador sería un "cambio sin publicar" que nunca se va.
+    seoTitulo: c.seoTitulo ?? "",
+    seoDescripcion: c.seoDescripcion ?? "",
     modulos: c.modulos.map((m) => ({ tipo: m.tipo, visible: m.visible, config: m.config })),
   });
 }
