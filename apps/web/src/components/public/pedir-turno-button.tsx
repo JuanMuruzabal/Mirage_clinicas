@@ -28,8 +28,9 @@ const SELECTOR_FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]
 export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: PedirTurnoButtonProps) {
   const searchParams = useSearchParams();
   const enlaceToken = searchParams.get("enlace") ?? undefined;
+  const tipoConsultaInicial = searchParams.get("tipo") ?? undefined;
 
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(() => !!tipoConsultaInicial);
   // estadoEnlace — Fase 2, ítem 5 ("compartir calendario"): con
   // `?enlace=` en la URL, el modal se abre solo apenas la página carga
   // (el profesional ya mandó el link, no hace falta que la persona
@@ -153,6 +154,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
               slug={slug}
               nombreClinica={nombreClinica}
               telefonoClinica={telefonoClinica}
+              tipoConsultaInicial={tipoConsultaInicial}
               onClose={() => setAbierto(false)}
               enlaceToken={estadoEnlace === "valido" ? enlaceToken : undefined}
               enlaceInfo={estadoEnlace === "valido" ? infoEnlace : null}

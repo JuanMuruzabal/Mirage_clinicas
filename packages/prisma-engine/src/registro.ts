@@ -5,6 +5,13 @@ import { fotoModulo } from "./modulos/foto/meta";
 import { galeriaModulo } from "./modulos/galeria/meta";
 import { estadisticasModulo } from "./modulos/estadisticas/meta";
 import { contactoModulo } from "./modulos/contacto/meta";
+import { preguntasFrecuentesModulo } from "./modulos/preguntas-frecuentes/meta";
+import { obrasSocialesModulo } from "./modulos/obras-sociales/meta";
+import { llamadoAccionModulo } from "./modulos/llamado-accion/meta";
+import { videoModulo } from "./modulos/video/meta";
+import { equipoModulo } from "./modulos/equipo/meta";
+import { horariosModulo } from "./modulos/horarios/meta";
+import { serviciosModulo } from "./modulos/servicios/meta";
 import { ALINEACIONES, FONDOS_SECCION } from "./seccion";
 import type { ContextoPublico, DefinicionModulo, ModuloBorrador, SeccionPublica, TipoModulo } from "./tipos";
 
@@ -23,6 +30,13 @@ export const REGISTRO_MODULOS: Record<TipoModulo, DefinicionModulo> = {
   galeria: galeriaModulo,
   estadisticas: estadisticasModulo,
   contacto: contactoModulo,
+  equipo: equipoModulo,
+  horarios: horariosModulo,
+  servicios: serviciosModulo,
+  preguntas_frecuentes: preguntasFrecuentesModulo,
+  obras_sociales: obrasSocialesModulo,
+  llamado_accion: llamadoAccionModulo,
+  video: videoModulo,
 };
 
 export const DEFINICIONES_MODULOS: DefinicionModulo[] = Object.values(REGISTRO_MODULOS);

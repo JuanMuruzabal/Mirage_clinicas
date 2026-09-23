@@ -9,7 +9,9 @@ import type { DefinicionSlotAnimable, EstiloMovimiento } from "./efectos/catalog
 // y `UtilsRender` más abajo — para que el paquete se pueda transpilar y
 // testear solo, sin depender de apps/web.
 
-export type TipoModulo = "sobre_nosotros" | "texto_libre" | "especialidades" | "foto" | "galeria" | "estadisticas" | "contacto";
+export type TipoModulo =
+  | "sobre_nosotros" | "texto_libre" | "especialidades" | "foto" | "galeria" | "estadisticas" | "contacto"
+  | "equipo" | "horarios" | "servicios" | "preguntas_frecuentes" | "obras_sociales" | "llamado_accion" | "video";
 export type SubtipoFoto = "retrato" | "banner" | "franja";
 export type EstadisticaId = "pacientes_atendidos" | "turnos_realizados";
 export type RedSocial = "instagram" | "facebook" | "whatsapp";
@@ -23,6 +25,52 @@ export interface ModuloBorrador {
   tipo: string;
   visible: boolean;
   config: Record<string, unknown>;
+  /** Datos vivos que completan la vista previa pública; nunca se envían en el PATCH. */
+  datosVista?: DatosModuloVista;
+}
+
+/** Datos derivados por el servidor para dibujar Equipo, sin IDs ni matrícula. */
+export interface EquipoIntegranteVista {
+  nombre: string;
+  fotoUrl: string | null;
+  descripcion: string | null;
+}
+
+/** Solo para el editor autenticado, para configurar y ordenar Equipo. */
+export interface EquipoElegible extends EquipoIntegranteVista {
+  userId: string;
+  aval: boolean;
+}
+
+export interface FranjaClinica {
+  desde: string;
+  hasta: string;
+}
+
+export interface DiaClinica {
+  diaSemana: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  cerrado: boolean;
+  franjas: FranjaClinica[];
+}
+
+export interface HorariosClinica {
+  dias: DiaClinica[];
+  nota: string;
+}
+
+export interface HorariosClinicaVista extends HorariosClinica {
+  abiertoAhora: boolean;
+}
+
+/** Agregación por nombre: duración puede variar según profesional. */
+export interface ServicioVista {
+  nombre: string;
+  duracionMinima: number;
+  duracionMaxima: number;
+}
+
+export interface DatosModuloVista {
+  equipo?: EquipoIntegranteVista[];
 }
 
 export interface SeccionPublica {
@@ -77,6 +125,13 @@ export interface EditorModuloProps {
   direccionClinica?: string | null;
   /** El teléfono viene del perfil; acá solo se muestra cuál va a aparecer. */
   telefono: string;
+  equipoElegible?: EquipoElegible[];
+  horariosClinica?: HorariosClinica;
+  serviciosDisponibles?: ServicioVista[];
+  guardarHorariosClinica?: (valor: HorariosClinica) => Promise<
+    | { ok: true; valor: HorariosClinica }
+    | { ok: false; error: string }
+  >;
   onConfig: (config: Record<string, unknown>) => void;
   onPagina: (parcial: Partial<CamposDePagina>) => void;
   componentes: ComponentesInyectados;
@@ -89,6 +144,8 @@ export interface ContenidoParaModulos {
   mostrarMapa: boolean;
   redesSociales: Record<string, string>;
   estadisticas: Record<string, number>;
+  horariosClinica?: HorariosClinicaVista;
+  servicios?: ServicioVista[];
 }
 
 /** Construcción de URLs/hrefs seguros — vive en apps/web (enlaces.ts, TR-154) y se inyecta acá. */
@@ -98,6 +155,8 @@ export interface UtilsRender {
   urlDeComoLlegar: (direccion: string) => string;
   urlDeMapaEmbebido: (direccion: string) => string;
   urlDeRedSocial: (red: string, valor: string) => string | null;
+  hrefPedirTurnoConTipo?: (nombre: string) => string;
+  estadoHorario?: (horarios: HorariosClinicaVista) => ReactNode;
 }
 
 export interface ContextoPublico {

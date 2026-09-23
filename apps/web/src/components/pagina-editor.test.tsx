@@ -202,8 +202,10 @@ describe("PaginaEditor — panel y vista previa", () => {
     expect(await screen.findByRole("tab", { name: "Módulos" })).toBeInTheDocument();
   });
 
-  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", () => {
+  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", async () => {
+    const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     expect(screen.getByText("Previsualización en vivo")).toBeInTheDocument();
     expect(screen.getAllByText("Clínica Sonrisas").length).toBeGreaterThan(0);
   });
@@ -211,6 +213,9 @@ describe("PaginaEditor — panel y vista previa", () => {
   it("la previsualización se puede acotar a móvil, tablet o escritorio", async () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    // Una página vacía abre la galería inicial de plantillas, que tiene su
+    // propia vista previa. Cerrar la galería para operar sobre la del editor.
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     const marco = screen.getByTestId("vista-previa-marco");
 
     expect(marco).toHaveStyle({ maxWidth: "100%" });

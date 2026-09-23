@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "id": "odontologia-calido-dinamico",
+  "nombre": "Odontología · Cálido dinámico",
+  "rubro": "odontologia",
+  "estilo": "calido-dinamico",
+  "descripcion": "Una propuesta cercana y actual, con acentos cálidos y movimiento discreto.",
+  "tema": "calido",
+  "temaVariante": "calido-2",
+  "temaTipografia": "redondeada-calida",
+  "temaTokens": {
+    "forma": "redonda",
+    "densidad": "amplia",
+    "superficie": "elevada",
+    "fondo": "degrade",
+    "boton": "pastilla",
+    "botonEstilo": "relleno",
+    "menu": "subrayado",
+    "portada": "minima",
+    "fondoAnimado": "degrade-respira"
+  },
+  "estiloMovimiento": "dinamico",
+  "bio": "Un espacio para sentirte en confianza: te escuchamos, explicamos cada paso y cuidamos tu salud bucal con calidez.",
+  "fotoPortadaUrl": "",
+  "redes": {},
+  "mostrarMapa": false,
+  "direccionOverride": "",
+  "nombreSobrePortada": false,
+  "nombreColor": "",
+  "modulos": [
+    {
+      "tipo": "sobre_nosotros",
+      "visible": true,
+      "config": {
+        "variante": "dos-columnas",
+        "fondoSeccion": "normal",
+        "alineacion": "izquierda",
+        "efectos": {
+          "titulo": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "servicios",
+      "visible": true,
+      "config": {
+        "nombres": [],
+        "variante": "lista",
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "titulo": { "id": "subrayado", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "equipo",
+      "visible": true,
+      "config": {
+        "modo": "todos",
+        "mostrarNombre": true,
+        "mostrarDescripcion": true,
+        "variante": "carrusel-nombre",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "inclinacion", "intensidad": "sutil" },
+          "imagen": { "id": "reflejo", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "horarios",
+      "visible": true,
+      "config": {
+        "variante": "compacto",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "preguntas_frecuentes",
+      "visible": true,
+      "config": {
+        "preguntas": [
+          {
+            "pregunta": "¿Puedo consultar antes de reservar?",
+            "respuesta": "Sí. Escribinos por los medios de contacto de esta página y te orientamos."
+          },
+          {
+            "pregunta": "¿Atienden a niñas y niños?",
+            "respuesta": "Contanos la edad y el motivo de la consulta para ayudarte a encontrar la atención adecuada."
+          }
+        ],
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "obras_sociales",
+      "visible": true,
+      "config": {
+        "coberturas": [],
+        "consultaPorOtras": false,
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "llamado_accion",
+      "visible": true,
+      "config": {
+        "texto": "Tu próxima consulta puede empezar con una charla. Estamos para ayudarte a dar el primer paso.",
+        "etiquetaBoton": "Quiero consultar",
+        "destino": "turno",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "texto": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "contacto",
+      "visible": true,
+      "config": {
+        "variante": "dividido",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    }
+  ],
+  "textosEjemplo": [
+    { "ruta": "bio", "valor": "Un espacio para sentirte en confianza: te escuchamos, explicamos cada paso y cuidamos tu salud bucal con calidez.", "etiqueta": "Presentación de la clínica" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Puedo consultar antes de reservar?", "etiqueta": "Pregunta frecuente" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Sí. Escribinos por los medios de contacto de esta página y te orientamos.", "etiqueta": "Respuesta frecuente" },
+    { "ruta": "modulos.llamado_accion.config.texto", "valor": "Tu próxima consulta puede empezar con una charla. Estamos para ayudarte a dar el primer paso.", "etiqueta": "Mensaje de contacto" },
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Quiero consultar", "etiqueta": "Texto del botón" }
+  ]
+}

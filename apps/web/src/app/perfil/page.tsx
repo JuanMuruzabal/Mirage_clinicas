@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { requireOnboardingComplete } from "@/lib/session";
-import { apiListEspecialidades } from "@/lib/api";
+import { apiListEspecialidades, apiMe } from "@/lib/api";
+import { getSessionToken } from "@/lib/session";
 import { LogoutButton } from "@/components/logout-button";
 import { PerfilForm } from "./perfil-form";
+import { AvalPaginaPublica } from "./aval-pagina-publica";
 
 export const metadata: Metadata = { title: "Tu perfil — PRISMA" };
 
@@ -16,11 +18,15 @@ export default async function PerfilPage() {
   const sesion = await requireOnboardingComplete();
   const catalogoResult = await apiListEspecialidades();
   const catalogo = catalogoResult.ok ? catalogoResult.data : [];
+  const token = await getSessionToken();
+  const meResult = token ? await apiMe(token) : null;
+  const clinicasPaginaPublica = meResult?.ok ? meResult.data.clinicasPaginaPublica ?? [] : [];
 
   return (
     <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Tu perfil</h1>
       <PerfilForm sesion={sesion} catalogo={catalogo} />
+      {clinicasPaginaPublica.length > 0 && <AvalPaginaPublica clinicas={clinicasPaginaPublica} />}
       <div className="w-full max-w-lg border-t-[0.5px] border-arena pt-6">
         <LogoutButton />
       </div>

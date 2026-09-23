@@ -46,6 +46,9 @@ jobs:
             exit 1;
           }
 
+      - name: Validar plantillas y presets de Prisma Engine
+        run: pnpm run validar:plantillas
+
       - name: Lint
         run: pnpm run lint:web
 

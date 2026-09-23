@@ -5,9 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 )
 
@@ -17,13 +19,20 @@ import (
 // frontend (lib/session.ts) usa justamente eso para saber a qué paso
 // del wizard redirigir.
 type meResponse struct {
-	ID                   string             `json:"id"`
-	Email                string             `json:"email"`
-	EmailVerificado      bool               `json:"emailVerificado"`
-	OnboardingStep       string             `json:"onboardingStep"`
-	OnboardingCompletado bool               `json:"onboardingCompletado"`
-	Perfil               *perfilResponse    `json:"perfil,omitempty"`
-	Clinica              *clinicaMeResponse `json:"clinica,omitempty"`
+	ID                    string                           `json:"id"`
+	Email                 string                           `json:"email"`
+	EmailVerificado       bool                             `json:"emailVerificado"`
+	OnboardingStep        string                           `json:"onboardingStep"`
+	OnboardingCompletado  bool                             `json:"onboardingCompletado"`
+	Perfil                *perfilResponse                  `json:"perfil,omitempty"`
+	Clinica               *clinicaMeResponse               `json:"clinica,omitempty"`
+	ClinicasPaginaPublica []clinicaPaginaPublicaMeResponse `json:"clinicasPaginaPublica"`
+}
+
+type clinicaPaginaPublicaMeResponse struct {
+	ClinicID          string `json:"clinicId"`
+	Nombre            string `json:"nombre"`
+	AvalPaginaPublica bool   `json:"avalPaginaPublica"`
 }
 
 type clinicaMeResponse struct {
@@ -89,10 +98,17 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 			}
 		}
 
+		clinicasPaginaPublica, err := clinicasPaginaPublicaDeUsuario(gdb, user.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron obtener las clínicas del perfil público")
+			return
+		}
+
 		resp := meResponse{
 			ID: user.ID.String(), Email: user.Email,
-			EmailVerificado: user.EmailVerifiedAt != nil,
-			OnboardingStep:  user.OnboardingStep,
+			EmailVerificado:       user.EmailVerifiedAt != nil,
+			OnboardingStep:        user.OnboardingStep,
+			ClinicasPaginaPublica: clinicasPaginaPublica,
 		}
 
 		var profile db.ProfessionalProfile
@@ -146,6 +162,101 @@ func meHandler(gdb *gorm.DB, autoVerifyEmail bool) http.HandlerFunc {
 			(resp.Perfil != nil && resp.Clinica != nil)
 
 		writeJSON(w, http.StatusOK, resp)
+	}
+}
+
+func clinicasPaginaPublicaDeUsuario(gdb *gorm.DB, userID uuid.UUID) ([]clinicaPaginaPublicaMeResponse, error) {
+	var miembros []db.ClinicMember
+	if err := gdb.Scopes(db.ConRol(db.RoleProfesional)).
+		Where("user_id = ? AND status = ?", userID, db.ClinicMemberStatusActive).
+		Order("created_at, clinic_id").Find(&miembros).Error; err != nil {
+		return nil, err
+	}
+	if len(miembros) == 0 {
+		return []clinicaPaginaPublicaMeResponse{}, nil
+	}
+	ids := make([]uuid.UUID, 0, len(miembros))
+	for _, miembro := range miembros {
+		ids = append(ids, miembro.ClinicID)
+	}
+	var clinicas []db.Clinic
+	if err := gdb.Where("id IN ?", ids).Find(&clinicas).Error; err != nil {
+		return nil, err
+	}
+	porClinica := make(map[uuid.UUID]db.Clinic, len(clinicas))
+	for _, clinica := range clinicas {
+		porClinica[clinica.ID] = clinica
+	}
+	out := make([]clinicaPaginaPublicaMeResponse, 0, len(miembros))
+	for _, miembro := range miembros {
+		clinica, existe := porClinica[miembro.ClinicID]
+		if !existe {
+			continue
+		}
+		out = append(out, clinicaPaginaPublicaMeResponse{
+			ClinicID: clinica.ID.String(), Nombre: clinica.Nombre,
+			AvalPaginaPublica: miembro.AvalPaginaPublica,
+		})
+	}
+	return out, nil
+}
+
+type actualizarAvalPaginaPublicaRequest struct {
+	ClinicID          string `json:"clinicId"`
+	AvalPaginaPublica bool   `json:"avalPaginaPublica"`
+}
+
+type actualizarAvalPaginaPublicaResponse struct {
+	ClinicID          string     `json:"clinicId"`
+	AvalPaginaPublica bool       `json:"avalPaginaPublica"`
+	AvalPaginaEn      *time.Time `json:"avalPaginaEn,omitempty"`
+}
+
+// actualizarAvalPaginaPublicaHandler solo permite que un profesional
+// cambie su propio consentimiento en una membresía activa; el clinicId del
+// request nunca se usa sin el filtro por user_id de la sesión.
+func actualizarAvalPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := userIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		var req actualizarAvalPaginaPublicaRequest
+		if err := decodeJSON(w, r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "cuerpo de la request inválido")
+			return
+		}
+		clinicID, err := uuid.Parse(strings.TrimSpace(req.ClinicID))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "id de clínica inválido")
+			return
+		}
+		var miembro db.ClinicMember
+		if err := gdb.Scopes(db.ConRol(db.RoleProfesional)).
+			Where("clinic_id = ? AND user_id = ? AND status = ?",
+				clinicID, userID, db.ClinicMemberStatusActive).
+			First(&miembro).Error; err != nil {
+			writeError(w, http.StatusNotFound, "no se encontró una membresía profesional activa en esa clínica")
+			return
+		}
+
+		var avalEn *time.Time
+		if req.AvalPaginaPublica {
+			avalEn = miembro.AvalPaginaEn
+			if !miembro.AvalPaginaPublica || avalEn == nil {
+				now := clock.Now()
+				avalEn = &now
+			}
+		}
+		updates := db.ClinicMember{AvalPaginaPublica: req.AvalPaginaPublica, AvalPaginaEn: avalEn}
+		if err := gdb.Model(&miembro).Select("AvalPaginaPublica", "AvalPaginaEn").Updates(updates).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el aval de la página pública")
+			return
+		}
+		writeJSON(w, http.StatusOK, actualizarAvalPaginaPublicaResponse{
+			ClinicID: clinicID.String(), AvalPaginaPublica: req.AvalPaginaPublica,
+			AvalPaginaEn: avalEn,
+		})
 	}
 }
 

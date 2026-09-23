@@ -37,10 +37,10 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 | PE-8 | Borrador, Publicar = Deployar e historial | ✅ (PR #54) |
 | PE-2 | Tokens de diseño | ✅ (PR #55, junto con PE-3) |
 | PE-3 | Variantes por módulo | ✅ (PR #55, junto con PE-2) |
-| PE-4 | Motor de efectos | 🔄 `feature/pe-4-5-efectos-fondos` (junto con PE-5) |
-| PE-5 | Fondos tranquilos y texto avanzado | 🔄 `feature/pe-4-5-efectos-fondos` (junto con PE-4) |
-| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ⬜ |
-| PE-7 | Plantillas y presets | ⬜ |
+| PE-4 | Motor de efectos | ✅ (PR #57, junto con PE-5) |
+| PE-5 | Fondos tranquilos y texto avanzado | ✅ (PR #57, junto con PE-4) |
+| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-7) |
+| PE-7 | Plantillas y presets | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-6) |
 | PE-9 | SEO, compartir y rendimiento | ⬜ |
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
 

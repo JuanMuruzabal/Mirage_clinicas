@@ -1,0 +1,134 @@
+{
+  "type": "object",
+  "properties": {
+    "nombre": {
+      "type": "string",
+      "maxLength": 60
+    },
+    "tituloPublico": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "fondoSeccion": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "acento",
+        "contraste"
+      ]
+    },
+    "alineacion": {
+      "type": "string",
+      "enum": [
+        "centro",
+        "izquierda"
+      ]
+    },
+    "efectos": {
+      "type": "object",
+      "properties": {
+        "tarjeta": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "inclinacion",
+                "foco-cursor",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "titulo": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "texto": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "brillo-texto",
+                "degrade-texto",
+                "frases-rotativas",
+                "palabras",
+                "subrayado",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^$|^https:\\/\\/(?:(?:www\\.)?youtube\\.com\\/(?:watch\\?v=[A-Za-z0-9_-]{11}(?:&[A-Za-z0-9_~%-]+=[A-Za-z0-9_~%.-]*)*|embed\\/[A-Za-z0-9_-]{11})|youtu\\.be\\/[A-Za-z0-9_-]{11}|(?:www\\.)?youtube-nocookie\\.com\\/embed\\/[A-Za-z0-9_-]{11}|(?:www\\.)?vimeo\\.com\\/[0-9]{1,12}|player\\.vimeo\\.com\\/video\\/[0-9]{1,12})(?:\\?[A-Za-z0-9_~%=&.-]*)?(?:#[A-Za-z0-9_~%=&.-]*)?$"
+    }
+  },
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

@@ -8,8 +8,23 @@ import { DEFINICIONES_MODULOS, REGISTRO_MODULOS, definicionDeModulo } from "./re
 // primero, no en un componente que lo consume a ciegas.
 
 describe("REGISTRO_MODULOS", () => {
-  it("trae los 7 módulos existentes, cada uno con su propio tipo", () => {
-    for (const tipo of ["sobre_nosotros", "texto_libre", "especialidades", "foto", "galeria", "estadisticas", "contacto"] as const) {
+  it("trae los 14 módulos existentes, cada uno con su propio tipo", () => {
+    for (const tipo of [
+      "sobre_nosotros",
+      "texto_libre",
+      "especialidades",
+      "foto",
+      "galeria",
+      "estadisticas",
+      "contacto",
+      "equipo",
+      "horarios",
+      "servicios",
+      "preguntas_frecuentes",
+      "obras_sociales",
+      "llamado_accion",
+      "video",
+    ] as const) {
       expect(REGISTRO_MODULOS[tipo].tipo).toBe(tipo);
     }
   });
@@ -32,13 +47,19 @@ describe("REGISTRO_MODULOS", () => {
       "galeria",
       "estadisticas",
       "contacto",
+      "equipo",
+      "horarios",
+      "servicios",
+      "preguntas_frecuentes",
+      "obras_sociales",
+      "llamado_accion",
+      "video",
     ]);
   });
 });
 
 describe("definicionDeModulo", () => {
-  it("un tipo desconocido (o estructural, como 'portada'/'horarios') no está en el registro", () => {
-    expect(definicionDeModulo("horarios")).toBeUndefined();
+  it("un tipo desconocido (o estructural, como 'portada') no está en el registro", () => {
     expect(definicionDeModulo("portada")).toBeUndefined();
     expect(definicionDeModulo("turno")).toBeUndefined();
   });

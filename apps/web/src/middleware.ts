@@ -44,10 +44,9 @@ function buildCsp(nonce: string): string {
     "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
     // https://www.google.com/maps: el mapa embebido del módulo "Contacto" de
     // la página pública (Fase 4.5, urlDeMapaEmbebido). Con path a propósito:
-    // habilita el embed de Maps y no cualquier cosa de google.com. Es una
-    // ampliación real — al ver la página, el visitante carga contenido de
-    // Google — y solo se usa si la clínica marca "Mostrar mapa".
-    "frame-src https://accounts.google.com https://challenges.cloudflare.com https://www.google.com/maps",
+    // habilita el embed de Maps y no cualquier cosa de google.com. Los dos
+    // orígenes de video quedan restringidos a sus rutas de embed.
+    "frame-src https://accounts.google.com https://challenges.cloudflare.com https://www.google.com/maps https://www.youtube-nocookie.com/embed/ https://player.vimeo.com/video/",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

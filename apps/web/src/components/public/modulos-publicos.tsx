@@ -1,6 +1,7 @@
 import { seccionPublicaDe, type EstiloMovimiento, type ModuloBorrador, type SeccionPublica, type UtilsRender } from "@dental-mirage/prisma-engine";
 import type { ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar, urlDeMapaEmbebido, urlDeRedSocial } from "@/lib/pagina-publica/enlaces";
+import { EstadoHorarioActual } from "./estado-horario-actual";
 
 export type { SeccionPublica };
 
@@ -16,6 +17,7 @@ export type { SeccionPublica };
 // `utils` para que el paquete no dependa de apps/web.
 
 interface Contexto {
+  slug: string;
   nombreClinica: string;
   telefono?: string | null;
   especialidades: string[];
@@ -23,17 +25,28 @@ interface Contexto {
   estiloMovimiento?: EstiloMovimiento;
 }
 
-const UTILS: UtilsRender = { esUrlDeFotoSegura, hrefDeTelefono, urlDeComoLlegar, urlDeMapaEmbebido, urlDeRedSocial };
+const UTILS: UtilsRender = {
+  esUrlDeFotoSegura,
+  hrefDeTelefono,
+  urlDeComoLlegar,
+  urlDeMapaEmbebido,
+  urlDeRedSocial,
+  estadoHorario: (horarios) => <EstadoHorarioActual horarios={horarios} />,
+};
 
 /**
- * Arma la sección pública de UN módulo, o `null` si no hay nada que
- * mostrar. `indice` es la posición dentro de la lista (para dar ancla propia
- * a los módulos que pueden repetirse). Un tipo que este frontend no conoce
- * (p. ej. "horarios", que el backend acepta pero todavía no se dibuja) se
- * ignora en vez de romper la página.
+ * Arma la sección pública de un módulo, o `null` cuando no tiene contenido.
+ * `indice` define el ancla de las instancias repetibles. Los tipos no
+ * registrados se ignoran para que una configuración nueva no rompa la página.
  */
 export function seccionDeModulo(modulo: ModuloBorrador, indice: number, contexto: Contexto): SeccionPublica | null {
   // seccionPublicaDe (PE-3) suma las opciones de sección (fondo, alineación)
   // que la plantilla aplica sobre el <section>.
-  return seccionPublicaDe(modulo, indice, { ...contexto, utils: UTILS });
+  return seccionPublicaDe(modulo, indice, {
+    ...contexto,
+    utils: {
+      ...UTILS,
+      hrefPedirTurnoConTipo: (nombre) => `/${contexto.slug}?tipo=${encodeURIComponent(nombre)}#turno`,
+    },
+  });
 }

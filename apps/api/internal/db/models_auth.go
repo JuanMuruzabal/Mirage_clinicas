@@ -186,9 +186,13 @@ type Clinic struct {
 	Ciudad    *string   `gorm:"type:varchar(120)"`
 	Provincia *string   `gorm:"type:varchar(120)"`
 	Telefono  *string   `gorm:"type:varchar(50)"`
-	OwnerID   uuid.UUID `gorm:"column:owner_id;type:uuid;not null;index"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// HorarioClinicaNota acompaña al horario del edificio (PE-6). Se guarda
+	// en la clínica porque es una nota única para toda la semana, no una
+	// propiedad de cada franja ni del horario individual de un profesional.
+	HorarioClinicaNota string    `gorm:"column:horario_clinica_nota;type:varchar(160);not null;default:''"`
+	OwnerID            uuid.UUID `gorm:"column:owner_id;type:uuid;not null;index"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (Clinic) TableName() string { return "clinics" }
@@ -226,6 +230,11 @@ type ClinicMember struct {
 	Status    string     `gorm:"type:varchar(20);not null;default:'active';check:status IN ('active','invited','removed')"`
 	JoinedAt  *time.Time `gorm:"column:joined_at"`
 	CreatedAt time.Time
+	// AvalPaginaPublica es el consentimiento afirmativo y propio de esta
+	// persona para esta clínica. Apagado por defecto: aparecer en una página
+	// pública nunca se hereda de la membresía ni del rol.
+	AvalPaginaPublica bool       `gorm:"column:aval_pagina_publica;not null;default:false"`
+	AvalPaginaEn      *time.Time `gorm:"column:aval_pagina_en"`
 
 	// Roles — la columna `role` (una sola, con check constraint) vivió acá
 	// hasta la Fase 3.2.1. El brief del multi-tenant pide tratarlos como

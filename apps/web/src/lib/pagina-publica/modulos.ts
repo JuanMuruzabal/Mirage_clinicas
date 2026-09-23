@@ -9,13 +9,10 @@
 // tocar cada import existente, más las funciones de PÁGINA (mover, filtrar,
 // armar el payload) que no son de un módulo puntual.
 //
-// "portada" y "turno" no están en el registro a propósito: son
-// estructurales, van siempre primero y la plantilla los dibuja directo
-// (mismo criterio que el backend, ver tiposModuloValidos en
-// internal/http/pagina_publica.go). "horarios" tampoco está todavía: el
-// backend lo acepta, pero decidir de dónde sale (¿la agenda de cuál de los
-// profesionales?) se resuelve en PE-6 (horario del edificio).
+// "portada" y "turno" son estructurales, van siempre primero y la plantilla los dibuja directo.
+// Todos los módulos editables se resuelven en el registro único de Prisma Engine.
 import {
+  CATALOGO_PRESETS_SECCION,
   DEFINICIONES_MODULOS,
   ESTADISTICAS,
   MAX_LARGO_BIO,
@@ -29,6 +26,7 @@ import {
   TOPE_FOTOS_SUELTAS,
   definicionDeModulo,
   listaDeConfig,
+  moduloDePresetSeccion,
   subtipoDeConfig,
   textoDeConfig,
   type CamposDePagina,
@@ -36,11 +34,14 @@ import {
   type ContextoPublico,
   type DefinicionModulo,
   type EditorModuloProps,
+  type EquipoElegible,
   type EstadisticaId,
+  type HorariosClinica,
   type ModuloBorrador,
   type PropsSubirFoto,
   type RedSocial,
   type SeccionPublica,
+  type ServicioVista,
   type SubtipoFoto,
   type TipoModulo,
   type UtilsRender,
@@ -54,17 +55,21 @@ export type {
   ContextoPublico,
   DefinicionModulo,
   EditorModuloProps,
+  EquipoElegible,
   EstadisticaId,
+  HorariosClinica,
   ModuloBorrador,
   PropsSubirFoto,
   RedSocial,
   SeccionPublica,
+  ServicioVista,
   SubtipoFoto,
   TipoModulo,
   UtilsRender,
 };
 export {
   DEFINICIONES_MODULOS,
+  CATALOGO_PRESETS_SECCION,
   ESTADISTICAS,
   MAX_LARGO_BIO,
   MAX_LARGO_NOMBRE_MODULO,
@@ -77,6 +82,7 @@ export {
   TOPE_FOTOS_SUELTAS,
   definicionDeModulo,
   listaDeConfig,
+  moduloDePresetSeccion,
   subtipoDeConfig,
   textoDeConfig,
 };
@@ -116,7 +122,7 @@ export function borradorDeModulos(modulos: PaginaPublicaModulo[]): ModuloBorrado
   if (modulos.length === 0) return modulosPorDefecto();
   return [...modulos]
     .sort((a, b) => a.orden - b.orden)
-    .map((m) => ({ clave: m.id, tipo: m.tipo, visible: m.visible, config: m.config ?? {} }));
+    .map((m) => ({ clave: m.id ?? `${m.tipo}-${m.orden}`, tipo: m.tipo, visible: m.visible, config: m.config ?? {}, datosVista: m.datosVista }));
 }
 
 /**

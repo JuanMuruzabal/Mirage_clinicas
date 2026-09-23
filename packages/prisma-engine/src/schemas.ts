@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { TipoModulo } from "./tipos";
-import { campoNombrePropio } from "./schema-base";
 import { OPCIONES_TOKENS, type ClaveToken } from "./tokens";
 import { schema as sobreNosotrosSchema } from "./modulos/sobre-nosotros/schema";
 import { schema as textoLibreSchema } from "./modulos/texto-libre/schema";
@@ -9,6 +8,13 @@ import { schema as fotoSchema } from "./modulos/foto/schema";
 import { schema as galeriaSchema } from "./modulos/galeria/schema";
 import { schema as estadisticasSchema } from "./modulos/estadisticas/schema";
 import { schema as contactoSchema } from "./modulos/contacto/schema";
+import { schema as preguntasFrecuentesSchema } from "./modulos/preguntas-frecuentes/schema";
+import { schema as obrasSocialesSchema } from "./modulos/obras-sociales/schema";
+import { schema as llamadoAccionSchema } from "./modulos/llamado-accion/schema";
+import { schema as videoSchema } from "./modulos/video/schema";
+import { schema as equipoSchema } from "./modulos/equipo/schema";
+import { schema as horariosSchema } from "./modulos/horarios/schema";
+import { schema as serviciosSchema } from "./modulos/servicios/schema";
 
 /**
  * El esquema (zod) de la config de cada módulo — lo que `pnpm engine:generar`
@@ -16,15 +22,10 @@ import { schema as contactoSchema } from "./modulos/contacto/schema";
  * por nombre (PE-1). Separado de `registro.ts` (que es de UI: Editor/
  * seccion) a propósito: el generador no necesita importar React.
  *
- * "horarios" no tiene carpeta en modulos/ (no hay Editor/render todavía —
- * PE-6 decide de dónde sale el horario del edificio) pero el backend ya lo
- * acepta como tipo de módulo persistible (ver el comentario de
- * tiposModuloValidos, hoy movido a apps/api/internal/prismaengine). Sin esta
- * entrada, el primer `engine:generar` de este PR le habría sacado el
- * esquema y roto ese contrato — se agrega acá, sin UI, hasta que PE-6 lo
- * mude a su propia carpeta.
+ * La configuración de cada módulo vive en su schema local; Equipo, Horarios y Servicios
+ * mantienen sus datos vivos fuera de la config y los hidratan las APIs del editor/público.
  */
-export const ESQUEMAS_MODULOS: Record<TipoModulo | "horarios", z.ZodTypeAny> = {
+export const ESQUEMAS_MODULOS: Record<TipoModulo, z.ZodTypeAny> = {
   sobre_nosotros: sobreNosotrosSchema,
   texto_libre: textoLibreSchema,
   especialidades: especialidadesSchema,
@@ -32,7 +33,13 @@ export const ESQUEMAS_MODULOS: Record<TipoModulo | "horarios", z.ZodTypeAny> = {
   galeria: galeriaSchema,
   estadisticas: estadisticasSchema,
   contacto: contactoSchema,
-  horarios: z.object({ ...campoNombrePropio }),
+  horarios: horariosSchema,
+  equipo: equipoSchema,
+  servicios: serviciosSchema,
+  preguntas_frecuentes: preguntasFrecuentesSchema,
+  obras_sociales: obrasSocialesSchema,
+  llamado_accion: llamadoAccionSchema,
+  video: videoSchema,
 };
 
 // z.enum necesita una tupla no vacía; `as const` de arriba ya la garantiza.

@@ -17,6 +17,7 @@ import type {
   Disponibilidad,
   Especialidad,
   HorarioAtencion,
+  HorariosClinica as HorariosClinicaPayload,
   GooglePayload,
   GoogleResponse,
   GoogleStateResponse,
@@ -769,6 +770,28 @@ export function apiLogout(token: string): Promise<ApiResult<{ ok: boolean }>> {
 
 export function apiMe(token: string): Promise<ApiResult<Me>> {
   return request<Me>("/me", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function apiActualizarAvalPaginaPublica(
+  token: string,
+  payload: { clinicId: string; avalPaginaPublica: boolean },
+): Promise<ApiResult<{ clinicId: string; avalPaginaPublica: boolean }>> {
+  return request<{ clinicId: string; avalPaginaPublica: boolean }>("/me/aval-pagina", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiGuardarHorariosClinica(
+  token: string,
+  horarios: HorariosClinicaPayload,
+): Promise<ApiResult<HorariosClinicaPayload>> {
+  return request<HorariosClinicaPayload>("/horario-clinica", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(horarios),
+  });
 }
 
 export function apiUpdateMe(

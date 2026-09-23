@@ -109,8 +109,8 @@ describe("puedeAgregar", () => {
     expect(puedeAgregar([...casiLlena, borrador("foto")], "foto")).toBe(false);
   });
 
-  it("un tipo desconocido (o 'horarios', todavía sin editor) no se puede agregar", () => {
-    expect(puedeAgregar([], "horarios")).toBe(false);
+  it("un tipo no registrado (o estructural, como 'portada') no se puede agregar", () => {
+    expect(puedeAgregar([], "modulo_no_registrado")).toBe(false);
     expect(puedeAgregar([], "portada")).toBe(false);
   });
 });
