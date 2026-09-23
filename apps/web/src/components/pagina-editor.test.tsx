@@ -202,8 +202,10 @@ describe("PaginaEditor — panel y vista previa", () => {
     expect(await screen.findByRole("tab", { name: "Módulos" })).toBeInTheDocument();
   });
 
-  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", () => {
+  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", async () => {
+    const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     expect(screen.getByText("Previsualización en vivo")).toBeInTheDocument();
     expect(screen.getAllByText("Clínica Sonrisas").length).toBeGreaterThan(0);
   });
