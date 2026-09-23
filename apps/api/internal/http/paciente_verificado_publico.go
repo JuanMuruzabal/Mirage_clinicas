@@ -123,9 +123,23 @@ func pacienteTieneTurnoActivo(tx *gorm.DB, paciente db.Paciente) (bool, error) {
 // incluidas las que sí son "sin verificar") — acá se evalúa contra una
 // subquery real, que si no encuentra ningún paciente verificado
 // simplemente da 0 filas, el comportamiento correcto.
+//
+// La subconsulta de turnos asistidos va acotada a la clínica (revisión
+// del 2026-09-23). No lo estaba: recorría los turnos asistidos de TODO el
+// sistema, y como un `NOT IN` no se puede convertir en un anti-join,
+// Postgres la materializaba entera en cada evaluación. Medido con 20.000
+// turnos asistidos en OTRA clínica: contar los pacientes de una clínica
+// de 300 fichas costaba 13,2 ms; acotada, 0,33 ms. Es el mismo defecto
+// que el índice de `turnos` de la ronda anterior —un costo que crece con
+// el sistema y no con quien mira— y su hermana en memoria,
+// `pacientesVerificadosIDs`, ya filtraba por clínica.
+//
+// Además es la regla correcta entre clínicas: un turno de otra clínica no
+// tiene por qué verificar una ficha de esta.
 func pacientesVerificadosQuery(gdb *gorm.DB, profesionalID uuid.UUID) *gorm.DB {
 	turnosAsistidos := gdb.Model(&db.Turno{}).Select("paciente_id").
-		Where("paciente_id IS NOT NULL AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio'")
+		Where("clinic_id = ? AND paciente_id IS NOT NULL AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio'",
+			profesionalID)
 	return gdb.Model(&db.Paciente{}).Select("id").
 		Where("clinic_id = ? AND (origen = 'manual' OR id IN (?))", profesionalID, turnosAsistidos)
 }

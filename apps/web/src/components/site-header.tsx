@@ -1,5 +1,4 @@
-import { getSessionToken } from "@/lib/session";
-import { apiMe } from "@/lib/api";
+import { getMe } from "@/lib/session";
 import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome";
 
 // Header global. Antes de completar el onboarding (spec §3) no hay sesión
@@ -21,10 +20,13 @@ import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome"
 // Component no puede leer) si muestra el botón de configuración, el
 // botón único "Mi clínica", o Ingresar/Sumate — ver ese archivo.
 export async function SiteHeader() {
-  const token = await getSessionToken();
-  const me = token ? await apiMe(token) : null;
-  const emailVerificado = me?.ok === true && me.data.emailVerificado;
-  const onboardingCompletado = me?.ok === true && me.data.onboardingCompletado;
+  // Por `getMe()` y no por `apiMe()` directo: es la misma pregunta que
+  // hacen el layout de /panel y la página, y así las tres comparten una
+  // sola respuesta dentro del mismo render (ver `lib/session.ts`).
+  // Pedirla por afuera del memo era lo que dejaba el tercer `/me`.
+  const me = await getMe();
+  const emailVerificado = me?.emailVerificado === true;
+  const onboardingCompletado = me?.onboardingCompletado === true;
   const estado: EstadoHeaderSesion = onboardingCompletado
     ? "completo"
     : emailVerificado

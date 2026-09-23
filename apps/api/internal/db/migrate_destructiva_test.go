@@ -269,7 +269,7 @@ func TestDestructiva_LimpiezaLegacyTambienArreglaLosTurnosRotos(t *testing.T) {
 	if err := gdb.Create(&pacienteReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el paciente: %v", err)
 	}
-	tipoReal := db.TipoConsulta{ClinicID: clinicaReal.ID, Nombre: "General", Color: "#6E8F72"}
+	tipoReal := db.TipoConsulta{ClinicID: clinicaReal.ID, UserID: &ownerReal.ID, Nombre: "General", Color: "#6E8F72"}
 	if err := gdb.Create(&tipoReal).Error; err != nil {
 		t.Fatalf("no se pudo crear el tipo: %v", err)
 	}

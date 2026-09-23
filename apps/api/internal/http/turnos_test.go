@@ -292,7 +292,7 @@ func TestListTurnos_FiltraPorTipoConsulta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profesionalID inválido: %v", err)
 	}
-	tipoUrgencia := db.TipoConsulta{ClinicID: profesionalID, Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
+	tipoUrgencia := db.TipoConsulta{ClinicID: profesionalID, UserID: duenioDePrueba(t, gdb, profesionalID), Nombre: "Urgencia", Color: "#D6563A", DuracionMinutos: 30}
 	if err := gdb.Create(&tipoUrgencia).Error; err != nil {
 		t.Fatalf("no se pudo crear el segundo tipo de consulta: %v", err)
 	}
@@ -1082,6 +1082,7 @@ func TestResumenPanel_HorariosReservados(t *testing.T) {
 	motivo := "Limpieza"
 	especifico := db.BloqueoHorario{
 		ClinicID:   clinicID,
+		UserID:     duenioDePrueba(t, gdb, clinicID),
 		Especifico: true,
 		Fecha:      &fechaEspecifica,
 		HoraDesde:  "08:00",
@@ -1102,6 +1103,7 @@ func TestResumenPanel_HorariosReservados(t *testing.T) {
 	alcance := "mes"
 	general := db.BloqueoHorario{
 		ClinicID:   clinicID,
+		UserID:     duenioDePrueba(t, gdb, clinicID),
 		Especifico: false,
 		Alcance:    &alcance,
 		DiaSemana:  &diaSemana,
@@ -1186,6 +1188,7 @@ func TestResumenPanel_EtiquetaGeneralSegunAlcance(t *testing.T) {
 		alcance := c.alcance
 		bloqueo := db.BloqueoHorario{
 			ClinicID:   clinicID,
+			UserID:     duenioDePrueba(t, gdb, clinicID),
 			Especifico: false,
 			Alcance:    &alcance,
 			DiaSemana:  &diaSemana,

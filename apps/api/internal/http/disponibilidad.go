@@ -272,8 +272,127 @@ func bloqueosDelDia(fecha time.Time, generales, especificas []db.BloqueoHorario)
 //
 // `user_id IS NULL` entra igual que en soloMiAgenda: son las filas
 // anteriores a la 3.2.1, que la migración le asigna al owner.
+// reglasDeDisponibilidad — TODO lo que no cambia de un día a otro.
+//
+// Ronda de optimización post-Fase 3, tercera parte (2026-09-23). De las
+// cinco consultas que hacía `calcularDisponibilidad`, CUATRO no dependían
+// de la fecha: el horario de atención del profesional, sus horarios
+// reservados generales, los específicos y el catálogo de tipos de
+// consulta de la clínica (que solo se usa para saber cuánto tiempo
+// post-consulta ocupa cada turno ya agendado).
+//
+// Eso da igual cuando se pregunta por un día. Pero hay tres bucles que
+// preguntan por TREINTA:
+//
+//   - `primerDiaConHueco` (el indicador "próximo disponible" del wizard
+//     público), que además corre UNA VEZ POR PROFESIONAL;
+//   - el calendario mensual del wizard;
+//   - el del panel.
+//
+// Con cinco profesionales y una ventana de 30 días eran unos 750 viajes a
+// Postgres en un solo request público, y 600 de ellos devolvían
+// exactamente las mismas filas.
+//
+// `turnosPorDia`, cuando no es nil, es la otra mitad: los turnos del
+// rango completo traídos de una y agrupados por día, en vez de una
+// consulta por día. Los bucles lo precargan con `cargarReglasDeRango`;
+// quien pregunta por un solo día lo deja en nil y se consulta al vuelo.
+type reglasDeDisponibilidad struct {
+	horariosAtencion []db.HorarioAtencion
+	generales        []db.BloqueoHorario
+	especificas      []db.BloqueoHorario
+	tiposPorID       map[uuid.UUID]db.TipoConsulta
+	turnosPorDia     map[string][]db.Turno
+}
+
+// cargarReglasDeDisponibilidad — las cuatro consultas que no dependen del
+// día, una sola vez.
+func cargarReglasDeDisponibilidad(
+	gdb *gorm.DB, clinicID, profesionalID uuid.UUID,
+) (*reglasDeDisponibilidad, error) {
+	reglas := &reglasDeDisponibilidad{}
+
+	if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", clinicID, profesionalID).
+		Find(&reglas.horariosAtencion).Error; err != nil {
+		return nil, err
+	}
+	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
+		clinicID, false, profesionalID).Find(&reglas.generales).Error; err != nil {
+		return nil, err
+	}
+	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
+		clinicID, true, profesionalID).Find(&reglas.especificas).Error; err != nil {
+		return nil, err
+	}
+
+	var todosTipos []db.TipoConsulta
+	if err := gdb.Where("clinic_id = ?", clinicID).Find(&todosTipos).Error; err != nil {
+		return nil, err
+	}
+	reglas.tiposPorID = make(map[uuid.UUID]db.TipoConsulta, len(todosTipos))
+	for _, t := range todosTipos {
+		reglas.tiposPorID[t.ID] = t
+	}
+	return reglas, nil
+}
+
+// cargarReglasDeRango — igual, más los turnos de TODO el rango agrupados
+// por día. Para los bucles que recorren una ventana de fechas.
+//
+// `hasta` es exclusivo, igual que el filtro por día de siempre. La clave
+// del mapa es el día en Córdoba (`clock.In`), que es lo correcto acá
+// porque `hora_inicio` es un instante (timestamptz) y no una columna
+// DATE — la advertencia sobre `clock.In` aplica a las segundas, no a
+// estas.
+func cargarReglasDeRango(
+	gdb *gorm.DB, clinicID, profesionalID uuid.UUID, desde, hasta time.Time,
+) (*reglasDeDisponibilidad, error) {
+	reglas, err := cargarReglasDeDisponibilidad(gdb, clinicID, profesionalID)
+	if err != nil {
+		return nil, err
+	}
+
+	var turnos []db.Turno
+	if err := gdb.Where(
+		"clinic_id = ? AND atendido_por_user_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+		clinicID, profesionalID, "agendado", desde, hasta,
+	).Find(&turnos).Error; err != nil {
+		return nil, err
+	}
+
+	reglas.turnosPorDia = map[string][]db.Turno{}
+	for _, t := range turnos {
+		if t.HoraInicio == nil {
+			continue
+		}
+		dia := clock.In(*t.HoraInicio).Format("2006-01-02")
+		reglas.turnosPorDia[dia] = append(reglas.turnosPorDia[dia], t)
+	}
+	return reglas, nil
+}
+
+// calcularDisponibilidad — un día suelto: carga las reglas y delega. Es
+// la firma que usan los llamadores que preguntan por una sola fecha.
 func calcularDisponibilidad(
 	gdb *gorm.DB,
+	clinicID uuid.UUID,
+	profesionalID uuid.UUID,
+	tipo db.TipoConsulta,
+	fecha time.Time,
+	excluirTurnoID *uuid.UUID,
+) ([]string, error) {
+	reglas, err := cargarReglasDeDisponibilidad(gdb, clinicID, profesionalID)
+	if err != nil {
+		return nil, err
+	}
+	return calcularDisponibilidadConReglas(gdb, reglas, clinicID, profesionalID, tipo, fecha, excluirTurnoID)
+}
+
+// calcularDisponibilidadConReglas — el cálculo de un día con las reglas
+// ya en la mano.
+func calcularDisponibilidadConReglas(
+	gdb *gorm.DB,
+	reglas *reglasDeDisponibilidad,
 	clinicID uuid.UUID,
 	profesionalID uuid.UUID,
 	tipo db.TipoConsulta,
@@ -283,12 +402,7 @@ func calcularDisponibilidad(
 	// Horario de atención EFECTIVO ese día (corrección de QA, 2026-09-01:
 	// "puede que un profesional tenga horarios de atención variable") —
 	// ver horarioAtencionEfectivo más arriba para la prioridad exacta.
-	var horariosAtencion []db.HorarioAtencion
-	if err := gdb.Where("clinic_id = ? AND (user_id = ? OR user_id IS NULL)", clinicID, profesionalID).
-		Find(&horariosAtencion).Error; err != nil {
-		return nil, err
-	}
-	efectivo := horarioAtencionEfectivo(horariosAtencion, fecha)
+	efectivo := horarioAtencionEfectivo(reglas.horariosAtencion, fecha)
 
 	var horaDesde, horaHasta string
 	switch {
@@ -303,16 +417,7 @@ func calcularDisponibilidad(
 		horaDesde, horaHasta = *efectivo.HoraDesde, *efectivo.HoraHasta
 	}
 
-	var generales, especificas []db.BloqueoHorario
-	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
-		clinicID, false, profesionalID).Find(&generales).Error; err != nil {
-		return nil, err
-	}
-	if err := gdb.Where("clinic_id = ? AND especifico = ? AND (user_id = ? OR user_id IS NULL)",
-		clinicID, true, profesionalID).Find(&especificas).Error; err != nil {
-		return nil, err
-	}
-	bloqueosAplicables := bloqueosDelDia(fecha, generales, especificas)
+	bloqueosAplicables := bloqueosDelDia(fecha, reglas.generales, reglas.especificas)
 
 	var ocupados []intervaloMinutos
 	for _, b := range bloqueosAplicables {
@@ -322,27 +427,30 @@ func calcularDisponibilidad(
 	// Turnos ya agendados ESE día (excepto el que se está reprogramando,
 	// si corresponde) — cada uno ocupa su propia duración + SU tiempo
 	// post-consulta (no el del tipo que se está por reservar).
-	inicioDia := fecha
-	finDia := fecha.AddDate(0, 0, 1)
-	turnosQuery := gdb.Where(
-		"clinic_id = ? AND atendido_por_user_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
-		clinicID, profesionalID, "agendado", inicioDia, finDia,
-	)
-	if excluirTurnoID != nil {
-		turnosQuery = turnosQuery.Where("id <> ?", *excluirTurnoID)
-	}
 	var turnos []db.Turno
-	if err := turnosQuery.Find(&turnos).Error; err != nil {
-		return nil, err
-	}
-
-	var todosTipos []db.TipoConsulta
-	if err := gdb.Where("clinic_id = ?", clinicID).Find(&todosTipos).Error; err != nil {
-		return nil, err
-	}
-	tiposPorID := make(map[uuid.UUID]db.TipoConsulta, len(todosTipos))
-	for _, t := range todosTipos {
-		tiposPorID[t.ID] = t
+	if reglas.turnosPorDia != nil {
+		// Precargados por `cargarReglasDeRango`. El turno que se está
+		// reprogramando se saca acá en vez de en el WHERE: es el mismo
+		// filtro, sobre un puñado de filas que ya están en memoria.
+		for _, t := range reglas.turnosPorDia[fecha.Format("2006-01-02")] {
+			if excluirTurnoID != nil && t.ID == *excluirTurnoID {
+				continue
+			}
+			turnos = append(turnos, t)
+		}
+	} else {
+		inicioDia := fecha
+		finDia := fecha.AddDate(0, 0, 1)
+		turnosQuery := gdb.Where(
+			"clinic_id = ? AND atendido_por_user_id = ? AND estado = ? AND hora_inicio >= ? AND hora_inicio < ?",
+			clinicID, profesionalID, "agendado", inicioDia, finDia,
+		)
+		if excluirTurnoID != nil {
+			turnosQuery = turnosQuery.Where("id <> ?", *excluirTurnoID)
+		}
+		if err := turnosQuery.Find(&turnos).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	for _, t := range turnos {
@@ -351,7 +459,7 @@ func calcularDisponibilidad(
 		}
 		postBuffer := 0
 		if t.TipoConsultaID != nil {
-			if tc, ok := tiposPorID[*t.TipoConsultaID]; ok {
+			if tc, ok := reglas.tiposPorID[*t.TipoConsultaID]; ok {
 				postBuffer = tc.TiempoPostConsultaMinutos
 			}
 		}

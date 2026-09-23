@@ -90,6 +90,38 @@ func (e *errPacienteOcupadoPublico) Error() string {
 		" del " + clock.In(e.desde).Format("02/01") + ". Elegí otro horario."
 }
 
+// errDNIOcupadoEnEseHorario / errDNIConEseTipoActivo — las versiones
+// SIN DETALLE de los dos errores de arriba (revisión de aislamiento,
+// 2026-09-23).
+//
+// Las reglas que protegen al paciente buscan por DNI en TODAS sus fichas
+// (TR-147): si no, una ficha duplicada las salteaba. Pero en el wizard,
+// alguien que tipea un DNI con un mail que no es el de la ficha no se
+// frena — se le crea una ficha duplicada y el pedido sigue. Así que al
+// llegar a estas reglas, quien pregunta puede NO ser la persona del DNI.
+//
+// Con los mensajes detallados, cualquiera que conociera un DNI podía
+// enterarse de con qué profesional se atiende esa persona, qué día y a
+// qué hora — reproducido, verificando un mail propio cualquiera. Ahora
+// el detalle solo sale cuando el turno que choca es de la MISMA ficha que
+// el mail verificado probó; si es de otra ficha del mismo DNI, el pedido
+// se bloquea igual (la regla sigue protegiendo al paciente) pero sin
+// decir nada que la persona no haya demostrado poder saber.
+//
+// Lo que sí se sigue revelando es que ese DNI tiene un turno en el
+// horario —o del tipo— que la persona eligió: es lo mínimo que hace falta
+// para explicar por qué no se puede. Probar horario por horario para
+// ubicar el turno de otro es caro y queda a la vista: cada intento que NO
+// choca crea un turno real, una ficha duplicada y un conflicto que el
+// profesional ve.
+var errDNIOcupadoEnEseHorario = errors.New("este DNI ya tiene un turno en ese horario. " +
+	"Si es tuyo, lo encontrás en «Mis turnos» con el mail con el que lo sacaste; " +
+	"si no, contactate con la clínica")
+
+var errDNIConEseTipoActivo = errors.New("este DNI ya tiene un turno activo de este tipo de consulta. " +
+	"Si es tuyo, lo encontrás en «Mis turnos» con el mail con el que lo sacaste; " +
+	"si no, contactate con la clínica")
+
 type errYaTenesEseTipoEnLaClinica struct {
 	tipo        string
 	profesional string
@@ -770,13 +802,21 @@ func listDisponibilidadMesPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		hoy := clock.Today()
 		ultimoDiaDelMes := primerDia.AddDate(0, 1, -1).Day()
+		// Las reglas y los turnos del mes entero, de una: mismo motivo que
+		// `primerDiaConHueco` (ver `reglasDeDisponibilidad`). Eran cinco
+		// consultas por cada día del mes.
+		reglas, err := cargarReglasDeRango(gdb, clinic.ID, atiendePublico, primerDia, primerDia.AddDate(0, 1, 0))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
+			return
+		}
 		dias := make([]string, 0)
 		for d := 1; d <= ultimoDiaDelMes; d++ {
 			fecha := time.Date(primerDia.Year(), primerDia.Month(), d, 0, 0, 0, 0, primerDia.Location())
 			if fecha.Before(hoy) {
 				continue
 			}
-			slots, err := calcularDisponibilidad(gdb, clinic.ID, atiendePublico, tipo, fecha, nil)
+			slots, err := calcularDisponibilidadConReglas(gdb, reglas, clinic.ID, atiendePublico, tipo, fecha, nil)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo calcular la disponibilidad del mes")
 				return
@@ -1510,20 +1550,38 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// transacción que el insert, por el mismo motivo que en el
 			// panel: afuera quedaría la ventana entre el chequeo y el
 			// Create.
+			//
+			// EL DETALLE, SOLO A QUIEN PROBÓ SER ESA PERSONA (revisión del
+			// 2026-09-23): ver `errDNIOcupadoEnEseHorario`. El nombre, además,
+			// sale de `nombrePublicoDelProfesional` y no del que devuelven
+			// estas funciones, que en el panel puede caer al mail.
+			esDeSuFicha := func(choca *db.Turno) bool {
+				return choca.PacienteID != nil && *choca.PacienteID == paciente.ID
+			}
 			if turno.HoraInicio != nil && turno.HoraFin != nil && turno.AtendidoPorUserID != nil {
-				if choca, quien := turnoSuperpuestoDeOtroProfesional(
+				if choca, _ := turnoSuperpuestoDeOtroProfesional(
 					tx, clinic.ID, paciente.ID, *turno.AtendidoPorUserID,
 					*turno.HoraInicio, *turno.HoraFin, nil,
 				); choca != nil {
+					if !esDeSuFicha(choca) {
+						return errDNIOcupadoEnEseHorario
+					}
 					return &errPacienteOcupadoPublico{
-						profesional: quien, desde: *choca.HoraInicio, hasta: *choca.HoraFin,
+						profesional: nombrePublicoDelProfesional(tx, choca.AtendidoPorUserID),
+						desde:       *choca.HoraInicio, hasta: *choca.HoraFin,
 					}
 				}
 			}
-			if choca, quien, nombreTipo := turnoActivoDelMismoTipoEnLaClinica(
+			if choca, _, nombreTipo := turnoActivoDelMismoTipoEnLaClinica(
 				tx, clinic.ID, paciente.ID, tipo.ID, nil,
 			); choca != nil {
-				e := &errYaTenesEseTipoEnLaClinica{tipo: nombreTipo, profesional: quien}
+				if !esDeSuFicha(choca) {
+					return errDNIConEseTipoActivo
+				}
+				e := &errYaTenesEseTipoEnLaClinica{
+					tipo:        nombreTipo,
+					profesional: nombrePublicoDelProfesional(tx, choca.AtendidoPorUserID),
+				}
 				if choca.HoraInicio != nil {
 					e.desde = *choca.HoraInicio
 				}
@@ -1599,6 +1657,12 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			var errMismoTipo *errYaTenesEseTipoEnLaClinica
 			if errors.As(err, &errMismoTipo) {
 				writeError(w, http.StatusConflict, errMismoTipo.Error())
+				return
+			}
+			// Las versiones sin detalle de las dos de arriba: 409 igual,
+			// porque la regla que protege al paciente sigue aplicando.
+			if errors.Is(err, errDNIOcupadoEnEseHorario) || errors.Is(err, errDNIConEseTipoActivo) {
+				writeError(w, http.StatusConflict, err.Error())
 				return
 			}
 			if errors.Is(err, errDemasiadosTurnosSinVerificarDelMismoTipo) {

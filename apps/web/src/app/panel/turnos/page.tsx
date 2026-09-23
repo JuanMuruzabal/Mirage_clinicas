@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import type { ContadoresDeTurnos } from "@dental-mirage/shared-types";
 import Link from "next/link";
 import {
-  apiContarTurnos,
   apiListTiposConsulta,
+  apiContadoresDeTurnos,
   apiListTurnosPaginado,
 } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
@@ -113,65 +114,41 @@ export default async function TurnosPage({
   // 4"...) — corrección de estética 2026-09-06, fotos de referencia del
   // cliente.
   //
-  // Hasta la Fase B de la auditoría esos 4 conteos salían de pedir las 4
-  // LISTAS ENTERAS y hacer `.length`: cada visita a esta pantalla
-  // serializaba todos los turnos de la clínica cinco veces (las 4
-  // pestañas + la activa). Ahora la pestaña activa pide solo la primera
-  // tanda (TURNOS_POR_PAGINA, el resto llega con "Cargar más") y las
-  // otras tres piden únicamente el total (apiContarTurnos: 1 fila +
-  // X-Total-Count). El conteo de la activa ya viene en su propia
-  // respuesta paginada, así que no se pide dos veces.
-  const [tiposResult, paginaTurnos, cAgendado, cResuelto, cCancelada, cTodas] =
-    token
-      ? await Promise.all([
-          apiListTiposConsulta(token),
-          apiListTurnosPaginado(token, filtros, TURNOS_POR_PAGINA, 0),
-          apiContarTurnos(
-            token,
-            filtrosDeTab(
-              "agendado",
-              q,
-              desde,
-              hasta,
-              tipoConsultaId,
-              verificacion,
-            ),
-          ),
-          apiContarTurnos(
-            token,
-            filtrosDeTab(
-              "resuelto",
-              q,
-              desde,
-              hasta,
-              tipoConsultaId,
-              verificacion,
-            ),
-          ),
-          apiContarTurnos(
-            token,
-            filtrosDeTab(
-              "cancelada",
-              q,
-              desde,
-              hasta,
-              tipoConsultaId,
-              verificacion,
-            ),
-          ),
-          apiContarTurnos(
-            token,
-            filtrosDeTab(
-              "todas",
-              q,
-              desde,
-              hasta,
-              tipoConsultaId,
-              verificacion,
-            ),
-          ),
-        ])
-      : [null, null, 0, 0, 0, 0];
+  // Esta pantalla bajó de pedidos dos veces, y conviene leer las dos
+  // juntas porque son la misma idea aplicada a distinta escala:
+  //
+  // 1. Hasta la Fase B de la auditoría los 4 conteos salían de pedir las
+  //    4 LISTAS ENTERAS y hacer `.length` — cada visita serializaba todos
+  //    los turnos de la clínica cinco veces. Pasaron a pedir solo el
+  //    total (1 fila + X-Total-Count).
+  // 2. Ronda de optimización post-Fase 3 (2026-09-22): esos cuatro
+  //    pedidos son ahora UNO. Pedir un número sigue costando el viaje
+  //    entero —HTTP más las dos consultas que todo request autenticado
+  //    paga antes de trabajar—, y las cuatro pestañas filtran igual en
+  //    todo salvo estado/resuelto, así que el backend las resuelve de una
+  //    pasada. Ver `apiContadoresDeTurnos`.
+  //
+  // El conteo de la pestaña activa igual viene en su respuesta paginada;
+  // se usa el de los contadores para que las cuatro hablen del mismo
+  // instante ("resuelto" sale del reloj, TR-158).
+  // Sin sesión no se pide nada y las pestañas muestran cero.
+  const SIN_CONTADORES: ContadoresDeTurnos = {
+    agendado: 0,
+    resuelto: 0,
+    cancelada: 0,
+    todas: 0,
+  };
+  const [tiposResult, paginaTurnos, contadores] = token
+    ? await Promise.all([
+        apiListTiposConsulta(token),
+        apiListTurnosPaginado(token, filtros, TURNOS_POR_PAGINA, 0),
+        // UN pedido para las cuatro pestañas (antes, cuatro). Los filtros
+        // de pantalla son los mismos para todas; lo único que cambia
+        // entre pestañas —estado/resuelto— lo resuelve el backend en una
+        // sola pasada. Ver `apiContadoresDeTurnos`.
+        apiContadoresDeTurnos(token, filtros),
+      ])
+    : [null, null, SIN_CONTADORES];
 
   // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
   // precargada, en todas sus vistas. Ver `lib/tipos-de-la-vista.ts`.
@@ -182,10 +159,10 @@ export default async function TurnosPage({
   const turnos = paginaTurnos?.ok ? paginaTurnos.data.items : [];
   const totalTurnos = paginaTurnos?.ok ? paginaTurnos.data.total : 0;
   const conteoPorTab: Record<Tab, number> = {
-    agendado: cAgendado,
-    resuelto: cResuelto,
-    cancelada: cCancelada,
-    todas: cTodas,
+    agendado: contadores.agendado,
+    resuelto: contadores.resuelto,
+    cancelada: contadores.cancelada,
+    todas: contadores.todas,
   };
   // Chips de filtros activos (fotos de referencia: "Esta semana ✕",
   // "Consulta general ✕") — cada uno navega a la misma URL sin ESE

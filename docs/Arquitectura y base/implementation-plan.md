@@ -714,7 +714,7 @@ Documentos, en `docs/Seguridad y optimizacion/`:
 | `radiografia-tecnica_1.md` | **El diagnóstico** — primera radiografía (`_1`), módulo por módulo. Qué está bien, qué está mal, el plan de acción en 3 fases, y el registro de cada ronda de arreglos (§13 paginación, §14 deadlock, §15 revisión de la Fase A). |
 | `como-se-arreglo-cada-cosa.md` | **La guía de estudio** — el porqué de cada decisión, las alternativas descartadas, y los bugs que introdujo el propio trabajo de la auditoría. |
 
-Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**.
+Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**, y **TR-161** y **TR-162** para la ronda post-Fase 3 (§12.5).
 
 ### 12.1 Fase A — riesgos inmediatos (cerrada)
 
@@ -758,6 +758,42 @@ Sobre el último: es el único ítem del informe que **no arregla nada** — no 
 ### 12.4 Snapshot periódico
 
 Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
+
+### 12.5 Ronda de optimización post-Fase 3 (2026-09-22)
+
+Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161 y TR-162, con sus addenda; la fuga de privacidad del wizard, como addendum de TR-147.
+
+| | Veredicto |
+|---|---|
+| **Índice `(clinic_id, atendido_por_user_id, hora_inicio)`** | ✅ Aplicado. No estaba en la lista y fue lo de más impacto: el panel resolvía su consulta más común con un **seq scan de `turnos` entero** — O(turnos de todas las clínicas). Medido: 1,163 ms → 0,077 ms; `/panel/resumen` de 56,6 a 31,8 ms con 41.875 filas |
+| **Caché por request (`cache()` de React)** | ✅ Aplicado. `/me` se pedía **3 veces por carga de página**, y cada request autenticado paga 2 consultas antes de trabajar |
+| **Un endpoint de contadores en vez de N requests** | ✅ Aplicado. Las pestañas de Turnos (4) y Pacientes (3) pedían un request cada una para leer un número. Ahora `COUNT(*) FILTER`, una pasada. Trabajo de servidor por carga: −88% en Turnos, −72% en Pacientes |
+| **Goroutines intra-request** | ❌ Revertido. **Incompatible con `internal/testdb`**, que da a cada test una transacción (= una conexión, sin concurrencia). El costo real de quererlo no es el `errgroup`: es rediseñar el harness |
+| **Colas (envío de mails)** | ⏸ Identificado, no implementado. Es el caso correcto —12 envíos sincrónicos dentro del request— pero es lo único que no se puede medir sin Resend. **Condición:** comparar `duracion_ms` de los endpoints que mandan mail contra sus vecinos, en un deploy real |
+| **Memcache / Redis** | ⛔ Sigue bloqueado por la misma condición de §12.3: más de una instancia |
+
+**Segunda parte — concurrencia (2026-09-23, TR-162).** Pregunta distinta: *"varias clínicas trabajando a la vez con varios empleados"*. Con una persona importa cuánto tarda una página; con N importa **cuánto cuesta cada una por minuto sin hacer nada**, y el panel en reposo sondea `/panel/notificaciones` **cada 2 segundos** (30 req/min por empleado, el 91% del tráfico en reposo).
+
+| | Resultado |
+|---|---|
+| **El cortocircuito estaba después del trabajo** | ✅ `contarTurnosEnConflictoConBloqueos` cargaba todos los turnos futuros ANTES de preguntar si había horarios reservados. Sin ninguno, 2.976 turnos costaban 65,8 ms para devolver cero: ahora 8,9 ms y plano |
+| **Menos columnas y menos copias** | ✅ Tres columnas en vez de 28, y las reglas de cada agenda armadas una vez en vez de una por turno. Con horarios reservados: 59,0 → 21,5 ms |
+| **Capacidad del endpoint** | ✅ De ~39 a ~110 req/s — de ~78 a ~220 empleados simultáneos antes de saturar |
+| **El pool de conexiones** | ✔ Revisado, **no es el cuello**: con 50 conexiones concurrentes la API quema 530% de CPU y 18 de 21 conexiones están ociosas |
+| **Escrituras concurrentes** | ✔ Revisadas: 386 altas de turno por segundo a concurrencia 15, sin contención. El `EXCLUDE` no serializa lo que no se pisa |
+| **El intervalo de 2 s** | ⏸ La decisión que queda, y es de producto: el intervalo corto es lo que el cliente pidió en la QA de la 3.2.6. Los números por intervalo están en el documento |
+
+**Tercera parte — el wizard, y una revisión de todo lo anterior (2026-09-23).** Addenda de TR-147 y TR-162; detalle en la tercera parte del documento.
+
+| | Resultado |
+|---|---|
+| **Disponibilidad por rango en el wizard** | ✅ Cuatro de las cinco consultas de `calcularDisponibilidad` no dependían del día y se repetían en tres bucles. Reglas una vez + turnos del rango de una: el "próximo disponible" con 5 profesionales y agendas llenas, **172 → 13,3 ms**. Autoreservar precarga solo reglas, porque mueve turnos |
+| **🔴 El wizard mostraba el turno de otra persona** | ✅ Con solo un DNI y un mail propio, el 409 decía con quién, qué día y a qué hora. Ahora el detalle sale solo si el turno es de la ficha que el mail probó. Reproducido antes del arreglo |
+| **Nombre del profesional por mail en la página pública** | ✅ Los 409 del wizard usaban el helper del panel |
+| **"Verificado" recorría los turnos del sistema entero** | ✅ Acotada a la clínica: 13,2 → 0,33 ms con 20.000 asistidos en otra clínica |
+| **Auditoría de aislamiento** | ✅ Suma los archivos de contadores. Las escrituras por `{id}` —que la auditoría no ve— se revisaron a mano: todas aplican el scope del profesional |
+| **La configuración de agenda siempre tiene dueño** | ✅ `CHECK (user_id IS NOT NULL) NOT VALID` en las tres tablas: la base rechaza la fila sin dueño que los scopes mostrarían a todos. `NOT VALID` para que una fila vieja en producción no pueda tumbar el deploy |
+| **Auditoría de los ids de la URL** | ✅ `TestAislamiento_LosIDsDeLaURLSeAcotan`: `clinic_id` en todo el paquete, y el filtro del profesional en el panel. Cubre lo que la auditoría existente no veía |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 

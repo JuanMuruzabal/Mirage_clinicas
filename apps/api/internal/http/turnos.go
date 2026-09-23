@@ -22,6 +22,7 @@ import (
 // token, nunca a un clinic_id que venga del body/query.
 func registerTurnoRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/turnos", listTurnosHandler(gdb))
+	r.Get("/turnos/contadores", contadoresDeTurnosHandler(gdb))
 	r.Post("/turnos", crearTurnoManualHandler(gdb))
 	r.Patch("/turnos/{id}/cancelar", cancelarTurnoHandler(gdb))
 	r.Post("/turnos/cancelar-sin-verificar", cancelarTurnosSinVerificarHandler(gdb))
@@ -268,6 +269,98 @@ func toTurnoResponse(t db.Turno) turnoResponse {
 // paciente vinculado cuenta como "sin_verificar".
 // Sin filtros, devuelve todos los turnos del profesional (usado por T2.2
 // para calcular el resumen si hiciera falta).
+// filtrosComunesDeTurnos — todo lo que /turnos y /turnos/contadores
+// filtran IGUAL: el aislamiento entre colegas y los filtros que la
+// persona eligió en pantalla (búsqueda, rango de fechas, tipo de
+// consulta, verificación del paciente).
+//
+// Está extraído para que no puedan divergir. Las pestañas de /panel/turnos
+// muestran un número al lado de cada nombre y la lista debajo: si el
+// contador filtrara distinto que el listado, la pestaña diría "12" y
+// abajo se verían 9 — el mismo tipo de bug que la 3.2.7d ya tuvo cuando
+// dos pantallas respondían distinto sobre la misma ficha.
+//
+// Lo que NO entra acá es `estado`/`resuelto`: es justamente lo que
+// distingue a una pestaña de otra.
+func filtrosComunesDeTurnos(
+	w http.ResponseWriter, r *http.Request, gdb *gorm.DB, clinicID uuid.UUID,
+) (*gorm.DB, bool) {
+	// Aislamiento entre colegas (Fase 3.2.2): un profesional ve su
+	// agenda; recepción, admin y owner ven la de toda la clínica.
+	query := gdb.Where("clinic_id = ?", clinicID).Scopes(soloMisTurnos(r))
+
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		like := "%" + q + "%"
+		query = query.Where(
+			"nombre_contacto ILIKE ? OR apellido_contacto ILIKE ? OR dni_contacto ILIKE ? OR email_contacto ILIKE ?",
+			like, like, like, like,
+		)
+	}
+	if desde := r.URL.Query().Get("desde"); desde != "" {
+		t, err := time.Parse(time.RFC3339, desde)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "el parámetro 'desde' debe ser una fecha válida")
+			return nil, false
+		}
+		query = query.Where("hora_inicio >= ?", t)
+	}
+	if hasta := r.URL.Query().Get("hasta"); hasta != "" {
+		t, err := time.Parse(time.RFC3339, hasta)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "el parámetro 'hasta' debe ser una fecha válida")
+			return nil, false
+		}
+		query = query.Where("hora_inicio <= ?", t)
+	}
+	if tipoConsultaID := r.URL.Query().Get("tipoConsultaId"); tipoConsultaID != "" {
+		id, err := uuid.Parse(tipoConsultaID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "el parámetro 'tipoConsultaId' debe ser un id válido")
+			return nil, false
+		}
+		query = query.Where("tipo_consulta_id = ?", id)
+	}
+	// verificacion (corrección de seguridad, Fase 2.4.1) — "sin_verificar"
+	// es el filtro que le da al profesional visibilidad sobre turnos de
+	// pacientes que todavía no demostraron ser reales (ver
+	// pacientesVerificadosQuery), para poder revisarlos/limpiarlos de un
+	// vistazo en vez de abrir ficha por ficha.
+	if verificacion := r.URL.Query().Get("verificacion"); verificacion != "" {
+		sub := pacientesVerificadosQuery(gdb, clinicID)
+		switch verificacion {
+		case "verificado":
+			query = query.Where("paciente_id IN (?)", sub)
+		case "sin_verificar":
+			query = query.Where("paciente_id IS NULL OR paciente_id NOT IN (?)", sub)
+		default:
+			writeError(w, http.StatusBadRequest, "el parámetro 'verificacion' debe ser 'verificado' o 'sin_verificar'")
+			return nil, false
+		}
+	}
+	return query, true
+}
+
+// filtroDePestaña — `estado` y `resuelto`, lo único que separa una
+// pestaña de /panel/turnos de las otras.
+func filtroDePestaña(w http.ResponseWriter, r *http.Request, query *gorm.DB) (*gorm.DB, bool) {
+	if estado := r.URL.Query().Get("estado"); estado != "" {
+		query = query.Where("estado = ?", estado)
+	}
+	if resuelto := r.URL.Query().Get("resuelto"); resuelto != "" {
+		ahora := clock.Now()
+		switch resuelto {
+		case "true":
+			query = query.Where("hora_fin < ?", ahora)
+		case "false":
+			query = query.Where("hora_fin IS NULL OR hora_fin >= ?", ahora)
+		default:
+			writeError(w, http.StatusBadRequest, "el parámetro 'resuelto' debe ser true o false")
+			return nil, false
+		}
+	}
+	return query, true
+}
+
 func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profesionalID, ok := profesionalIDFromRequest(w, r)
@@ -275,71 +368,13 @@ func listTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		// Aislamiento entre colegas (Fase 3.2.2): un profesional ve su
-		// agenda; recepción, admin y owner ven la de toda la clínica.
-		query := gdb.Where("clinic_id = ?", profesionalID).Scopes(soloMisTurnos(r))
-		if estado := r.URL.Query().Get("estado"); estado != "" {
-			query = query.Where("estado = ?", estado)
+		query, ok := filtrosComunesDeTurnos(w, r, gdb, profesionalID)
+		if !ok {
+			return
 		}
-		if resuelto := r.URL.Query().Get("resuelto"); resuelto != "" {
-			ahora := clock.Now()
-			switch resuelto {
-			case "true":
-				query = query.Where("hora_fin < ?", ahora)
-			case "false":
-				query = query.Where("hora_fin IS NULL OR hora_fin >= ?", ahora)
-			default:
-				writeError(w, http.StatusBadRequest, "el parámetro 'resuelto' debe ser true o false")
-				return
-			}
-		}
-		if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-			like := "%" + q + "%"
-			query = query.Where(
-				"nombre_contacto ILIKE ? OR apellido_contacto ILIKE ? OR dni_contacto ILIKE ? OR email_contacto ILIKE ?",
-				like, like, like, like,
-			)
-		}
-		if desde := r.URL.Query().Get("desde"); desde != "" {
-			t, err := time.Parse(time.RFC3339, desde)
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "el parámetro 'desde' debe ser una fecha válida")
-				return
-			}
-			query = query.Where("hora_inicio >= ?", t)
-		}
-		if hasta := r.URL.Query().Get("hasta"); hasta != "" {
-			t, err := time.Parse(time.RFC3339, hasta)
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "el parámetro 'hasta' debe ser una fecha válida")
-				return
-			}
-			query = query.Where("hora_inicio <= ?", t)
-		}
-		if tipoConsultaID := r.URL.Query().Get("tipoConsultaId"); tipoConsultaID != "" {
-			id, err := uuid.Parse(tipoConsultaID)
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "el parámetro 'tipoConsultaId' debe ser un id válido")
-				return
-			}
-			query = query.Where("tipo_consulta_id = ?", id)
-		}
-		// verificacion (corrección de seguridad, Fase 2.4.1) — "sin_verificar"
-		// es el filtro que le da al profesional visibilidad sobre turnos de
-		// pacientes que todavía no demostraron ser reales (ver
-		// pacientesVerificadosQuery), para poder revisarlos/limpiarlos de un
-		// vistazo en vez de abrir ficha por ficha.
-		if verificacion := r.URL.Query().Get("verificacion"); verificacion != "" {
-			sub := pacientesVerificadosQuery(gdb, profesionalID)
-			switch verificacion {
-			case "verificado":
-				query = query.Where("paciente_id IN (?)", sub)
-			case "sin_verificar":
-				query = query.Where("paciente_id IS NULL OR paciente_id NOT IN (?)", sub)
-			default:
-				writeError(w, http.StatusBadRequest, "el parámetro 'verificacion' debe ser 'verificado' o 'sin_verificar'")
-				return
-			}
+		query, ok = filtroDePestaña(w, r, query)
+		if !ok {
+			return
 		}
 
 		// Paginación opt-in (ver paginacion.go): sin `limit` esto se
@@ -904,6 +939,14 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		resultados := make([]autoreservarResultadoItem, 0, len(turnos))
 		err := gdb.Transaction(func(tx *gorm.DB) error {
+			// Las reglas de cada agenda, una vez por profesional (ronda de
+			// optimización post-Fase 3). SOLO las reglas: horario de
+			// atención, horarios reservados y tipos no cambian mientras
+			// esto corre. Los TURNOS no se precargan a propósito — este
+			// bucle los MUEVE, y el segundo turno que se reubica tiene que
+			// ver dónde quedó el primero. Con los turnos cacheados, dos
+			// turnos podrían ir al mismo hueco.
+			reglasPorProfesional := map[uuid.UUID]*reglasDeDisponibilidad{}
 			for i := range turnos {
 				t := &turnos[i]
 				item := autoreservarResultadoItem{
@@ -944,7 +987,15 @@ func autoreservarTurnosHandler(gdb *gorm.DB) http.HandlerFunc {
 						continue
 					}
 					atiendeEste := *t.AtendidoPorUserID
-					slots, err := calcularDisponibilidad(tx, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
+					reglas, ok := reglasPorProfesional[atiendeEste]
+					if !ok {
+						var err error
+						if reglas, err = cargarReglasDeDisponibilidad(tx, profesionalID, atiendeEste); err != nil {
+							return err
+						}
+						reglasPorProfesional[atiendeEste] = reglas
+					}
+					slots, err := calcularDisponibilidadConReglas(tx, reglas, profesionalID, atiendeEste, tipo, fechaCandidata, &t.ID)
 					if err != nil {
 						return err
 					}

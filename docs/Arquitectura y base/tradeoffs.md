@@ -2266,6 +2266,22 @@ Aparte, y detrás de todo esto: `pacienteEstaVerificado` devuelve `true` por el 
 
 El cliente eligió atacarlo por el lado del producto: **mail obligatorio en las altas manuales** ("+ Agregar turno > paciente nuevo" y "+ Agregar paciente"). Con tutor sigue siendo opcional —un menor puede no tener— porque ahí la identidad la aporta el tutor, cuyo mail y teléfono ya eran obligatorios.
 
+### Addendum (revisión de aislamiento, 2026-09-23): mirar la persona para PROTEGER no es mirarla para CONTAR
+
+Esta decisión tenía una consecuencia que nadie había visto, y que se reprodujo antes de arreglarla: **el wizard público le mostraba a cualquiera el turno de otra persona**.
+
+Con solo conocer un DNI, verificando un mail propio cualquiera y pidiendo otro tipo de consulta a la misma hora, la respuesta era *"ya tenés un turno con María Games de 08:00 a 08:30 del 03/06"*. Con quién se atiende esa persona, qué día y a qué hora, en una página abierta a internet.
+
+La mecánica son dos cosas correctas que se cruzan. Esta TR hizo que las reglas busquen por DNI en **todas** las fichas, y en el wizard un mail que no es el de la ficha **no frena el pedido**: se crea una duplicada y sigue. Así que al llegar a estas reglas, quien pregunta puede no ser la persona del DNI — y los mensajes, escritos en segunda persona, daban por hecho que sí.
+
+**La regla que queda: para proteger, se mira la persona; para contar, solo lo que quien pregunta demostró.** El bloqueo sigue siendo por DNI —sin eso volvería el agujero original de esta TR—, pero el detalle del turno que choca sale **únicamente si es de la misma ficha que el mail verificado probó**. Si choca con otra ficha del mismo DNI, el pedido rebota igual, con un mensaje que no dice con quién ni cuándo: *"este DNI ya tiene un turno en ese horario. Si es tuyo, lo encontrás en «Mis turnos» con el mail con el que lo sacaste"*.
+
+**Lo que se sacrifica:** un paciente real que cambió de mail y pide turno con el nuevo ve el mensaje genérico, aunque el turno sea suyo. Es el precio correcto: el sistema no tiene forma de distinguirlo de alguien que tipea su DNI, y el mensaje le dice dónde encontrar el turno.
+
+**Lo que se sigue revelando, a sabiendas:** que ese DNI tiene un turno en el horario —o del tipo— que la persona eligió. Es lo mínimo para explicar el rechazo. Buscar el turno de otro probando horario por horario es caro y queda a la vista: cada intento que no choca crea un turno real, una ficha duplicada y un conflicto que el profesional ve.
+
+De paso: esos mensajes nombraban al profesional con el helper del panel, que cae al **mail** cuando el perfil no tiene nombre. Ahora usan `nombrePublicoDelProfesional`, que nunca lo hace. Tests en `turno_publico_privacidad_test.go`, con el control de que el paciente real sigue viendo el detalle — sin ese control, "no revela nada" pasaría también si el arreglo hubiera escondido el detalle para todo el mundo.
+
 ---
 
 ## TR-148: Un conflicto de identidad se ve donde se puede resolver, y se resuelve una sola vez
@@ -2745,6 +2761,93 @@ Tres decisiones dentro:
 Por eso el alta pide **"Profesional · Obligatorio"** antes que cualquier otro dato y el backend lo exige con un 409. Para un profesional se autoelige él mismo y el paso no se siente.
 
 Del mismo par de preguntas sale la columna **"Profesionales"** de la tabla: `profesionalesPorPaciente` usa los mismos tres criterios leídos al revés —allá "¿esta ficha es mía?", acá "¿de quiénes es?"—. **Si divergen, la columna afirma que un paciente es de alguien que no lo ve en su propia lista**, y eso no se nota mirando una sola pantalla.
+
+
+## TR-161: Menos viajes antes que viajes en paralelo — y por qué las goroutines no entran en los handlers
+
+- **Contexto:** ronda de optimización post-Fase 3, 2026-09-22. Pedido del cliente sobre el panel multi-tenant: *"ver en qué partes del código puedo hacer uso de caché, memcache, goroutines y colas para mejorar la latencia"*.
+- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`.
+
+### La decisión de fondo
+
+Ante un handler que hace N consultas independientes hay dos caminos: **hacerlas a la vez** (goroutines) o **hacer menos** (una consulta que responda todo). Este repo toma el segundo, y no por gusto:
+
+**`internal/testdb` le da a cada test una transacción que se revierte.** Una transacción vive en una sola conexión y no admite consultas concurrentes. El `*gorm.DB` que recibe un handler es el pool en producción y una transacción en los tests, así que un handler que paraleliza sus consultas **no se puede testear**.
+
+Se implementó el `errgroup` en `resumenPanelHandler` (ocho consultas independientes, dos etapas), compiló, pasó `vet`, y los tests fallaron con `driver: bad connection`. Se revirtió.
+
+Las alternativas se descartaron una por una: paralelizar igual deja el camino de producción sin testear; paralelizar solo fuera de una transacción deja lo mismo *y* además dos comportamientos; cambiar el harness cuesta el rollback por test, la independencia entre tests y la velocidad de la suite entera, a cambio de unos pocos milisegundos en un handler.
+
+**Lo que se hizo en su lugar** fue cambiar la pregunta: no *"¿cómo hago estas cuatro consultas a la vez?"* sino *"¿por qué son cuatro?"*. Las cuatro pestañas de `/panel/turnos` pedían un request cada una para leer un número; filtran igual en todo salvo `estado`/`resuelto`, así que son un `COUNT(*) FILTER` de una sola pasada. **Juntar el trabajo es más rápido que repartirlo, y además se puede testear.**
+
+**Lo que se sacrifica:** el paralelismo intra-request queda cerrado mientras el harness sea el que es. Si alguna vez se quiere, el costo no es escribir el `errgroup` — es rediseñar `internal/testdb`, y esa decisión es bastante más grande de lo que aparenta desde el handler.
+
+### El caché que sí entra, y el que no
+
+**Sí:** memoización **por request** (`cache()` de React). `/me` se pedía tres veces por carga de página —el header del layout raíz, el layout de `/panel` y la página—, y cada request autenticado paga dos consultas a Postgres antes de trabajar. Es seguro precisamente porque no cruza requests: no hay invalidación que escribir y no puede mostrar una sesión vieja.
+
+**No:** un caché con TTL en el mismo lugar habría hecho justo eso —mostrar una sesión vieja— a cambio de nada, porque el problema nunca fue pedirlo seguido sino pedirlo tres veces en el mismo render.
+
+**Tampoco Redis/memcache**, por la condición que ya escribía la radiografía anterior y que esta medición confirma: lo que un caché de sesión evita son ~2 ms de Postgres, y cambiarlos por un salto de red a un servicio que puede estar caído solo tiene sentido con más de una instancia.
+
+### Y el índice, que no era ninguna de las cuatro
+
+Lo de más impacto de la ronda no estaba en la lista: `turnos` no tenía índice para la forma que tiene casi toda consulta del panel —`clinic_id` + `atendido_por_user_id` + rango de `hora_inicio`— y Postgres resolvía el tablero con un **seq scan de la tabla entera**. Como `turnos` es de todas las clínicas, ese escaneo no crecía con la clínica que mira sino con el sistema.
+
+**La regla que queda:** antes de cachear una consulta, mirar si está usando un índice. Cachear una consulta lenta la hace lenta de a ratos en vez de siempre, y agrega una invalidación que mantener; arreglarla no deja nada atrás.
+
+### Colas: identificadas, no implementadas
+
+Los 12 envíos de mail son sincrónicos dentro del request y son el caso correcto para una cola. No se implementó porque es lo único de la ronda que **no se puede medir sin Resend**, y el resto se cambió después de medirlo. La condición de activación está escrita en el documento; cuando se haga, va en Postgres y no en un canal en memoria — mismo criterio que TR-142.
+
+
+## TR-162: Un endpoint sondeado se mide distinto — costo × frecuencia × gente
+
+- **Contexto:** segunda parte de la ronda de optimización post-Fase 3, 2026-09-23. Pregunta del cliente: *"¿hay algo más que se pueda optimizar, suponiendo que en varias clínicas trabajan concurrentemente con varios empleados?"*
+- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`, segunda parte.
+
+### La decisión
+
+**Lo que se optimiza en un endpoint sondeado no es su latencia, es su costo multiplicado por la frecuencia y por la cantidad de gente.** Con una persona, `/panel/notificaciones` a 65 ms es aceptable. Sondeado cada 2 segundos por veinte personas, son 600 ejecuciones por minuto y el endpoint pasa a ser el 91% del tráfico del panel en reposo.
+
+Ese cambio de unidad es lo que destapó el bug: `contarTurnosEnConflictoConBloqueos` cargaba **todos los turnos futuros de la clínica** y recién después preguntaba si había horarios reservados contra qué compararlos. El cortocircuito existía —el comentario del frontend ya lo daba por hecho— pero corría después del trabajo que debía evitar. Una clínica sin un solo horario reservado hidrataba miles de filas para devolver un cero que ya se sabía.
+
+**La regla que queda:** en un endpoint que se sondea, primero lo que puede cortar, y traé solo las columnas que vas a mirar. Y el bucle que recorre lo muchos no arma estructuras que dependen de lo pocos: las agendas de una clínica son pocas y los turnos son muchos, así que las reglas de cada agenda se arman una vez, no por turno.
+
+**Lo que se sacrifica:** nada de comportamiento — la respuesta es idéntica, y hay un test que la fija en las dos ramas (con y sin horarios reservados). El costo es que el orden de las consultas pasa a ser significativo y hay que explicarlo, porque leído como código suelto parece intercambiable.
+
+### El cuello no estaba donde la intuición dice
+
+Medido con 50 conexiones concurrentes reales: la API quema **530% de CPU** (5,3 de 8 núcleos) mientras Postgres usa 150% y **18 de 21 conexiones están ociosas**.
+
+Esto descarta explícitamente dos reflejos:
+
+- **Subir el pool de conexiones no habría hecho nada.** Las conexiones ya sobran; lo que falta es CPU en el proceso Go. Dimensionar el pool sigue siendo una conversación para cuando haya más de una instancia (§12.3), y ahí el número a cuidar es la suma de los pools contra el límite de Postgres.
+- **`pg_stat_user_tables` no se lee sola.** `sessions` aparece con 99,4% de escaneos secuenciales y está perfecta: tiene su índice único sobre `token_hash`, y con 73 filas el planificador acierta al ignorarlo. Se corrige solo cuando la tabla crezca. Un índice "faltante" que el planificador descarta a propósito no es lo mismo que uno que no existe — el de `turnos` (TR-161) era lo segundo.
+
+### Lo que se revisó y no hizo falta tocar
+
+Las escrituras concurrentes: **386 altas de turno por segundo a concurrencia 15**, mediana 22 ms, cero errores. El `EXCLUDE` de no-solapamiento no serializa mientras los turnos no se pisen de verdad, que es exactamente su trabajo. Los otros dos sondeos (`/turnos/pendientes-asistencia`, `/equipo/presencia`) aguantan 250-350 req/s, el segundo a pesar de escribir en cada GET.
+
+### El intervalo de 2 segundos: se deja, y se explica
+
+Después del arreglo cada sondeo cuesta entre 8,9 y 21,5 ms, o sea ~1% de un núcleo por empleado. Bajar el intervalo a 5 o 10 segundos reduciría eso a la mitad o a un tercio.
+
+**No se cambió a propósito:** el intervalo corto es lo que el cliente pidió explícitamente en la QA de la 3.2.6, y tocarlo es cambiar cómo se siente el producto, no cómo está escrito. Una optimización que cambia una decisión de producto no es una optimización, es un cambio de alcance disfrazado. Queda como decisión del cliente con los números al lado.
+
+**Y si algún día hace falta bajar el costo sin perder reacción**, el camino no es un caché en memoria —se pierde en cada deploy y no sirve con varias instancias— sino el patrón de TR-142: un **contador de versión por clínica en Postgres** que cualquier escritura incrementa. El sondeo lee una fila por índice y solo recalcula cuando ese número cambió. Queda escrito en vez de hecho porque toca todos los caminos de escritura.
+
+### Addendum (2026-09-23): el wizard, y lo que no cambia de un día a otro
+
+La misma idea aplicada al lado público. `calcularDisponibilidad` hacía cinco consultas por día y **cuatro no dependían de la fecha** (horario de atención, horarios reservados generales y específicos, catálogo de tipos). Tres bucles la llamaban día por día —el "próximo disponible" del wizard, que además corre una vez por profesional; el calendario del mes; y autoreservar—, así que con cinco profesionales y agendas llenas eran ~750 viajes a Postgres en un request público.
+
+Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los bucles de solo lectura, también los turnos de todo el rango, agrupados por día (`cargarReglasDeRango`). **172 ms → 13,3 ms** en el peor caso medido.
+
+**Autoreservar es la excepción, y a propósito:** cachea solo las reglas. Ese bucle **mueve** turnos, y el segundo que se reubica tiene que ver dónde quedó el primero; con los turnos precargados, dos podrían ir al mismo hueco. Precargar es seguro solo cuando nada de lo precargado cambia mientras se usa.
+
+**La garantía no es que yo haya pensado bien cada caso** sino un test que calcula cada día por los dos caminos y exige el mismo resultado, con un turno a las 22:00 de Córdoba —que en UTC ya es el día siguiente— como trampa. Con el agrupado cambiado a UTC, falla exactamente en los dos días que ese turno toca.
+
+**Y el mismo defecto que el índice de TR-161, en otro lado:** `pacientesVerificadosQuery` —las pestañas Verificados/Sin verificar— tenía una subconsulta de turnos asistidos sin filtro de clínica. Con 20.000 asistidos en OTRA clínica, contar los pacientes de una de 300 fichas costaba 13,2 ms; acotada, 0,33 ms.
 
 
 ## TR-163: Tokens de diseño en un jsonb validado por el motor, y los CHECK de tema armados desde el catálogo

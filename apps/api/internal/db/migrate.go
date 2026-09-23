@@ -403,6 +403,63 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 			JOIN clinic_member_roles r ON r.clinic_member_id = m.id AND r.rol = 'owner'
 			WHERE m.clinic_id = e.clinic_id AND e.user_id IS NULL`,
 
+		// LA CONFIGURACIÓN DE AGENDA TIENE DUEÑO, Y LO GARANTIZA LA BASE
+		// (revisión de aislamiento, 2026-09-23).
+		//
+		// Los scopes de agenda (`soloMiAgenda`, `soloMisTiposDeConsulta`)
+		// incluyen `OR user_id IS NULL`: son las filas anteriores a la
+		// 3.2.1, que valían para todos. Eso vuelve peligrosa a cualquier
+		// fila sin dueño que se cuele por un camino nuevo — un horario
+		// reservado sin `user_id` aparecería en la agenda de TODOS los
+		// profesionales, y cualquiera de ellos podría editarlo o borrarlo,
+		// porque el DELETE también pasa por `soloMiAgenda`. Hoy ningún
+		// camino las crea (los tres responden 409 sin agenda desde la QA
+		// de la 3.2.6) y no hay ninguna en la base; esto cierra la clase
+		// entera en vez de confiar en que siga así.
+		//
+		// Un CHECK y no `SET NOT NULL`, y `NOT VALID`, a propósito:
+		// `NOT VALID` hace cumplir la regla a TODA fila nueva o modificada
+		// pero no revisa las existentes, así que no puede tumbar un deploy
+		// aunque en producción quedara una fila vieja que el backfill de
+		// arriba no pudo asignar (una clínica sin titular, por ejemplo).
+		// `SET NOT NULL` fallaría ahí, y con él la migración entera.
+		//
+		// Después se intenta validar: si no queda ninguna fila sin dueño
+		// —lo esperable, con el backfill corriendo en cada deploy—, la
+		// restricción pasa a cubrir también las viejas. Si queda alguna,
+		// sigue sin validar y la migración sigue de largo: la garantía
+		// para lo nuevo ya está puesta.
+		`DO $$ BEGIN
+		   ALTER TABLE tipos_consulta ADD CONSTRAINT chk_tipo_consulta_con_duenio
+		     CHECK (user_id IS NOT NULL) NOT VALID;
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_con_duenio
+		     CHECK (user_id IS NOT NULL) NOT VALID;
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_con_duenio
+		     CHECK (user_id IS NOT NULL) NOT VALID;
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		//
+		// Un bloque por tabla: dentro de un mismo bloque, la validación
+		// que falla deshace también las que ya habían pasado.
+		`DO $$ BEGIN
+		   ALTER TABLE tipos_consulta VALIDATE CONSTRAINT chk_tipo_consulta_con_duenio;
+		 EXCEPTION WHEN check_violation THEN
+		   RAISE NOTICE 'quedan tipos de consulta sin dueño: la restricción cubre solo los nuevos';
+		 END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE horarios_atencion VALIDATE CONSTRAINT chk_horario_atencion_con_duenio;
+		 EXCEPTION WHEN check_violation THEN
+		   RAISE NOTICE 'quedan horarios de atención sin dueño: la restricción cubre solo los nuevos';
+		 END $$`,
+		`DO $$ BEGIN
+		   ALTER TABLE bloqueos_horario VALIDATE CONSTRAINT chk_bloqueo_horario_con_duenio;
+		 EXCEPTION WHEN check_violation THEN
+		   RAISE NOTICE 'quedan horarios reservados sin dueño: la restricción cubre solo los nuevos';
+		 END $$`,
+
 		// Todo turno `agendado` tiene que decir quién lo atiende, y no es
 		// una formalidad: el exclusion constraint de más abajo compara
 		// `atendido_por_user_id WITH =`, y en SQL dos NULL nunca son

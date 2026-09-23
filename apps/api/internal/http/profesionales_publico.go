@@ -203,9 +203,21 @@ const diasQueSeMiranParaLaProximidad = 30
 // tiene al menos un horario libre para ese tipo de consulta.
 func primerDiaConHueco(gdb *gorm.DB, clinicID, profesionalID uuid.UUID, tipo db.TipoConsulta) string {
 	hoy := clock.Today()
+	// Las reglas de la agenda y los turnos de TODA la ventana, de una
+	// (ronda de optimización post-Fase 3, 2026-09-23). Antes cada día de
+	// los 30 pedía de nuevo el horario de atención, los horarios
+	// reservados, el catálogo de tipos y sus turnos: 150 consultas por
+	// profesional en el peor caso —una agenda llena, que es justo cuando
+	// hay que recorrer la ventana entera—, y este endpoint corre una vez
+	// por cada profesional que atiende el tipo. Es público y sin sesión.
+	reglas, err := cargarReglasDeRango(gdb, clinicID, profesionalID,
+		hoy, hoy.AddDate(0, 0, diasQueSeMiranParaLaProximidad))
+	if err != nil {
+		return ""
+	}
 	for d := 0; d < diasQueSeMiranParaLaProximidad; d++ {
 		fecha := hoy.AddDate(0, 0, d)
-		slots, err := calcularDisponibilidad(gdb, clinicID, profesionalID, tipo, fecha, nil)
+		slots, err := calcularDisponibilidadConReglas(gdb, reglas, clinicID, profesionalID, tipo, fecha, nil)
 		if err != nil {
 			return ""
 		}
@@ -318,6 +330,25 @@ func nombresPublicosDeProfesionales(gdb *gorm.DB, tipos []db.TipoConsulta) map[u
 		}
 	}
 	return nombres
+}
+
+// nombrePublicoDelProfesional — lo mismo que nombresPublicosDeProfesionales
+// para una sola persona: el nombre del perfil, y si no hay, un rótulo
+// genérico. NUNCA el mail. Es el que usan los mensajes de error del
+// wizard, que también se leen en una página abierta a internet — hasta
+// la revisión del 2026-09-23 usaban `nombreDelProfesional`, pensado para
+// el panel, que sí cae al mail.
+func nombrePublicoDelProfesional(tx *gorm.DB, userID *uuid.UUID) string {
+	if userID == nil {
+		return "Profesional de la clínica"
+	}
+	var perfil db.ProfessionalProfile
+	if err := tx.First(&perfil, "user_id = ?", *userID).Error; err == nil {
+		if n := strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido); n != "" {
+			return n
+		}
+	}
+	return "Profesional de la clínica"
 }
 
 // profesionalPublicoElegido — valida el profesional que el wizard mandó y

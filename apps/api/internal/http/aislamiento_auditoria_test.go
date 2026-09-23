@@ -9,6 +9,27 @@ import (
 	"testing"
 )
 
+// archivosDelPanel — los archivos que sirven al PANEL. El wizard público
+// y las pantallas de clínica/equipo no entran: ahí no hay "profesional
+// actual". Compartida por las dos auditorías de aislamiento (la de las
+// consultas por clínica y la de los ids que llegan por la URL): si un
+// archivo nuevo del panel entra acá, entra a las dos.
+var archivosDelPanel = []string{
+	"turnos.go", "turnos_pendientes_asistencia.go", "pacientes.go",
+	"pacientes_conflicto_panel.go", "panel_notificaciones.go",
+	"tipos_consulta.go", "tipos_consulta_colegas.go", "bloqueos_horario.go",
+	"horario_atencion.go", "disponibilidad.go", "enlace_turno.go",
+	"seguridad_turno_publico.go", "pagina_publica.go", "especialidades.go",
+	"pacientes_de_la_clinica.go",
+	// Los contadores de las pestañas (ronda de optimización post-Fase
+	// 3). Hoy no tienen ni una consulta propia por clínica —todo pasa
+	// por `filtrosComunesDeTurnos`/`filtrosComunesDePacientes`, que
+	// viven en archivos ya auditados—, así que entrar a la lista no
+	// cuesta nada. Es para mañana: el día que alguien les agregue una
+	// consulta directa, esta auditoría la tiene que ver.
+	"turnos_contadores.go", "pacientes_contadores.go",
+}
+
 // TestAislamiento_NingunaConsultaDelPanelSinAcotar — la regla de
 // aislamiento, verificada sobre el CÓDIGO y no sobre la memoria de quien
 // escribe (Fase 3.2.5, 2026-09-14).
@@ -38,16 +59,7 @@ import (
 // el que es de la clínica y no de una persona. Las dos cosas son
 // decisiones legítimas; lo que no lo es es no elegir.
 func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
-	// Los archivos que sirven al PANEL. El wizard público y las pantallas
-	// de clínica/equipo no entran: ahí no hay "profesional actual".
-	archivos := []string{
-		"turnos.go", "turnos_pendientes_asistencia.go", "pacientes.go",
-		"pacientes_conflicto_panel.go", "panel_notificaciones.go",
-		"tipos_consulta.go", "tipos_consulta_colegas.go", "bloqueos_horario.go",
-		"horario_atencion.go", "disponibilidad.go", "enlace_turno.go",
-		"seguridad_turno_publico.go", "pagina_publica.go", "especialidades.go",
-		"pacientes_de_la_clinica.go",
-	}
+	archivos := archivosDelPanel
 
 	// Los scopes de visibilidad.go.
 	scopes := []string{

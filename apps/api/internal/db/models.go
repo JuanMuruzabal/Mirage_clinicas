@@ -559,7 +559,21 @@ type Turno struct {
 	// clinic_id solo y filtra el resto en memoria porque cada clínica
 	// tiene pocas filas, pero eso deja de ser gratis si UNA clínica
 	// puntual acumula muchos años de turnos.
-	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1"`
+	//
+	// idx_turno_agenda_en_el_tiempo (clinic_id, atendido_por_user_id,
+	// hora_inicio) — ronda de optimización post-Fase 3 (2026-09-22). Es la
+	// forma que tiene CASI TODA consulta del panel: "los turnos de esta
+	// agenda, en esta ventana de tiempo". Sin él, Postgres resolvía el
+	// tablero con un **seq scan de `turnos` entero** —medido— y eso es
+	// O(turnos de TODAS las clínicas), no de la que mira. Medido con
+	// 41.875 filas: `/panel/resumen` baja de 56,6 ms a 31,8 ms.
+	//
+	// El orden de las columnas es el que importa: las dos de igualdad
+	// primero y el rango al final, que es lo único que un índice B-tree
+	// puede recorrer ordenado. `estado` NO entra — queda como filtro sobre
+	// las pocas filas que el índice ya devolvió, y meterlo engordaría cada
+	// entrada para discriminar entre dos valores.
+	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;index;index:idx_turno_prof_email,priority:1;index:idx_turno_prof_dni,priority:1;index:idx_turno_prof_ip,priority:1;index:idx_turno_agenda_en_el_tiempo,priority:1"`
 	// AtendidoPorUserID — Fase 3.2.1 (TR-137): QUIÉN atiende este turno.
 	// Convive con ClinicID, que es a qué clínica pertenece — el turno vive
 	// en la clínica, lo gestiona un profesional.
@@ -576,7 +590,7 @@ type Turno struct {
 	// aunque sean de clínicas distintas (una persona no puede estar en dos
 	// lugares a la vez). Sobre la clínica, esa regla rechazaba que dos
 	// odontólogos atendieran a la misma hora en sillones distintos.
-	AtendidoPorUserID *uuid.UUID `gorm:"column:atendido_por_user_id;type:uuid;index"`
+	AtendidoPorUserID *uuid.UUID `gorm:"column:atendido_por_user_id;type:uuid;index;index:idx_turno_agenda_en_el_tiempo,priority:2"`
 	PacienteID        *uuid.UUID `gorm:"column:paciente_id;type:uuid;index"`
 	TipoConsultaID    *uuid.UUID `gorm:"column:tipo_consulta_id;type:uuid"`
 	// Estado: 'agendado' | 'cancelada' (spec §4.4, TR-104).
@@ -585,7 +599,7 @@ type Turno struct {
 	// `agendado`). La columna generada `rango_horario` (tstzrange) y el
 	// exclusion constraint que la usa se agregan en RunMigrations vía SQL
 	// crudo — GORM no puede expresarlos.
-	HoraInicio *time.Time `gorm:"column:hora_inicio"`
+	HoraInicio *time.Time `gorm:"column:hora_inicio;index:idx_turno_agenda_en_el_tiempo,priority:3"`
 	HoraFin    *time.Time `gorm:"column:hora_fin"`
 
 	// Datos de contacto del formulario público (spec §4.4) — se guardan acá
