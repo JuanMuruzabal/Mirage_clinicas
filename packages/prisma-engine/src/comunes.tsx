@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { srcsetDeFoto, TAMANOS_FOTO_POR_DEFECTO } from "./imagenes";
 
 // Clases y componentes chicos que comparten varios módulos. Los del EDITOR
 // son un espejo literal de apps/web/src/components/editor-pagina/estilos.ts
@@ -57,11 +58,24 @@ export function Titulo({ children, className = "" }: { children: ReactNode; clas
 
 // Un <img> plano y no next/image: las fotos vienen de un storage externo
 // (disco en dev, R2 en producción) y next/image exigiría declarar cada host
-// en next.config — un acoplamiento que no aporta nada acá, las fotos ya se
-// suben acotadas (5 MB, jpeg/png/webp) por el backend.
-export function Foto({ src, alt, className }: { src: string; alt: string; className: string }) {
+// en next.config — un acoplamiento que no aporta nada acá. Las variantes de
+// tamaño las genera el backend al subir (PE-9, ver imagenes.ts): el `srcset`
+// sale del nombre del archivo. `sizes` es cuánto ocupa la foto en pantalla;
+// sin él, el navegador supone el ancho entero de la ventana.
+export function Foto({
+  src,
+  alt,
+  className,
+  sizes = TAMANOS_FOTO_POR_DEFECTO,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+  sizes?: string;
+}) {
+  const srcSet = srcsetDeFoto(src);
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} loading="lazy" className={className} />;
+  return <img src={src} srcSet={srcSet} sizes={srcSet ? sizes : undefined} alt={alt} loading="lazy" decoding="async" className={className} />;
 }
 
 export type VarianteDeTexto = "centrado" | "con-foto" | "dos-columnas";

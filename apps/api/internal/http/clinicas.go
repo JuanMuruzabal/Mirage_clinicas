@@ -27,6 +27,9 @@ type clinicaResultado struct {
 func registerClinicaRoutes(r chi.Router, gdb *gorm.DB) {
 	r.Get("/clinicas", buscarClinicasHandler(gdb))
 	r.Get("/clinicas/{slug}", getClinicaPublicaHandler(gdb))
+	// PE-9: la lista que arma el sitemap.xml de la web. Fuera de /clinicas a
+	// propósito: /clinicas/{slug} ya toma cualquier segmento como un slug.
+	r.Get("/sitemap/clinicas", sitemapClinicasHandler(gdb))
 }
 
 // clinicaPublicaResponse — GET /clinicas/{slug}: a diferencia de
@@ -65,13 +68,24 @@ type clinicaPublicaResponse struct {
 	MostrarMapa    bool              `json:"mostrarMapa"`
 	Direccion      *string           `json:"direccion,omitempty"`
 	// NombreSobrePortada/NombreColor: ver paginaPublicaResponse.
-	NombreSobrePortada bool                         `json:"nombreSobrePortada"`
-	NombreColor        string                       `json:"nombreColor"`
-	TemaTokens         map[string]any               `json:"temaTokens"`
-	Modulos            []moduloResponse             `json:"modulos"`
-	Estadisticas       map[string]int               `json:"estadisticas"`
-	HorariosClinica    horariosClinicaResponse      `json:"horariosClinica"`
-	Servicios          []servicioDisponibleResponse `json:"servicios"`
+	NombreSobrePortada bool           `json:"nombreSobrePortada"`
+	NombreColor        string         `json:"nombreColor"`
+	TemaTokens         map[string]any `json:"temaTokens"`
+	// SeoTitulo/SeoDescripcion (PE-9): los de la versión publicada; "" = el
+	// default que arma la web.
+	SeoTitulo      string `json:"seoTitulo"`
+	SeoDescripcion string `json:"seoDescripcion"`
+	// Ciudad/Provincia/TelefonoClinica (PE-9): los datos de la clínica que
+	// van a los datos estructurados (JSON-LD) y al título por defecto. Son
+	// los que se piden al crearla justamente para la página y el buscador;
+	// TelefonoClinica es el de la clínica, no el del owner (`Telefono`).
+	Ciudad          *string                      `json:"ciudad,omitempty"`
+	Provincia       *string                      `json:"provincia,omitempty"`
+	TelefonoClinica *string                      `json:"telefonoClinica,omitempty"`
+	Modulos         []moduloResponse             `json:"modulos"`
+	Estadisticas    map[string]int               `json:"estadisticas"`
+	HorariosClinica horariosClinicaResponse      `json:"horariosClinica"`
+	Servicios       []servicioDisponibleResponse `json:"servicios"`
 	// Personalizada — la página tiene módulos guardados, aunque hoy estén
 	// todos ocultos. Sin esto el frontend no puede distinguir "nunca la
 	// editaron" (Modulos vacío → se arma la estructura por defecto) de
@@ -189,6 +203,9 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			RedesSociales:     map[string]string{},
 			TemaTokens:        map[string]any{},
 			Estadisticas:      estadisticasDeLaClinica(gdb, clinic.ID),
+			Ciudad:            clinic.Ciudad,
+			Provincia:         clinic.Provincia,
+			TelefonoClinica:   clinic.Telefono,
 		}
 		horarios, err := horariosClinicaPublicos(gdb, clinic.ID)
 		if err != nil {
@@ -248,6 +265,8 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		resp.NombreSobrePortada = c.NombreSobrePortada
 		resp.NombreColor = c.NombreColor
 		resp.TemaTokens = tokensOVacio(c.TemaTokens)
+		resp.SeoTitulo = c.SeoTitulo
+		resp.SeoDescripcion = c.SeoDescripcion
 		resp.Direccion = direccionEfectiva(c.DireccionOverride, clinic)
 		resp.Modulos = modulosVisibles
 		resp.Personalizada = len(c.Modulos) > 0

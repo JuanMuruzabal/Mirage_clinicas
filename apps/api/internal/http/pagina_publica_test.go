@@ -3,6 +3,8 @@ package http
 import (
 	"bytes"
 	"encoding/json"
+	"image"
+	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/imagenes"
 )
 
 func TestGetPaginaPublica_SeCreaSolaLaPrimeraVezConValoresPorDefecto(t *testing.T) {
@@ -320,13 +323,28 @@ func subirFotoDePrueba(t *testing.T, router http.Handler, token string, contentT
 	return rec
 }
 
+// pngDePrueba — una imagen de verdad: desde PE-9 el handler la decodifica
+// para generar las variantes, así que unos bytes cualquiera ya no pasan.
+func pngDePrueba(t *testing.T, ancho, alto int) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewNRGBA(image.Rect(0, 0, ancho, alto))); err != nil {
+		t.Fatalf("no se pudo armar el PNG: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestSubirFotoPaginaPublica_Exito — PE-9: la URL que vuelve es la de la
+// variante WebP más grande que no agranda la foto (1200 px de ancho → la de
+// 960), y el patrón "<token>.w<ancho>.webp" es el contrato con el `srcset`
+// de la plantilla.
 func TestSubirFotoPaginaPublica_Exito(t *testing.T) {
 	router, gdb := newTestRouterWithStorage(t)
 	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
 		Nombre: "Lucas", Email: "pagina-foto1@example.com", Password: "password123456", NombreClinica: "Clínica Lucas",
 	})
 
-	rec := subirFotoDePrueba(t, router, reg.Token, "image/png", []byte("contenido de prueba"))
+	rec := subirFotoDePrueba(t, router, reg.Token, "image/png", pngDePrueba(t, 1200, 600))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -334,8 +352,29 @@ func TestSubirFotoPaginaPublica_Exito(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("respuesta no es JSON válido: %v", err)
 	}
-	if !strings.Contains(got.URL, "http://localhost:8080/uploads/") {
+	if !strings.HasPrefix(got.URL, "http://localhost:8080/uploads/") {
 		t.Errorf("URL = %q, esperaba que empezara con http://localhost:8080/uploads/", got.URL)
+	}
+	sufijo := ".w960.webp"
+	if !imagenes.HayCodificadorWebP {
+		sufijo = ".png" // Go windows/386: el original, sin variantes
+	}
+	if !strings.HasSuffix(got.URL, sufijo) {
+		t.Errorf("URL = %q, esperaba que terminara en %s", got.URL, sufijo)
+	}
+}
+
+// Un archivo que dice ser una imagen y no lo es: antes de PE-9 se guardaba
+// igual (solo se miraba el Content-Type); ahora hay que decodificarlo.
+func TestSubirFotoPaginaPublica_RechazaLoQueNoEsImagen(t *testing.T) {
+	router, gdb := newTestRouterWithStorage(t)
+	reg := registrarProfesionalDePrueba(t, gdb, router, altaDePruebaInput{
+		Nombre: "Lucía", Email: "pagina-foto4@example.com", Password: "password123456", NombreClinica: "Clínica Lucía",
+	})
+
+	rec := subirFotoDePrueba(t, router, reg.Token, "image/png", []byte("no soy un png"))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 }
 

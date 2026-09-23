@@ -164,6 +164,53 @@ jobs:
       - name: Test with coverage
         run: pnpm --filter @dental-mirage/web test:coverage
 
+  # PE-9 (plan Prisma Engine): presupuesto de rendimiento. Con los efectos y
+  # fondos de PE-4/PE-5 es fácil hacer una página linda y lenta sin que nadie
+  # lo note, así que se mide la PLANTILLA en cada PR: Lighthouse (emulación
+  # de celular) sobre tres páginas de demostración, armadas con plantillas
+  # del catálogo sin API ni base (lib/pagina-publica/demostracion.ts, que
+  # solo existe con PRISMA_DEMO_PLANTILLAS=1). Umbrales en lighthouserc.json,
+  # sobre la corrida MEDIANA de tres para que un runner lento no lo tumbe;
+  # calibrados el 2026-09-23 contra las plantillas actuales (performance
+  # 0,82–0,86, LCP 3,9–4,2 s simulado). El reporte queda como artefacto.
+  #
+  # No está en `needs` del deploy a propósito: un runner de GitHub puede
+  # medir peor un día sin que el código haya cambiado, y eso no tiene que
+  # frenar un arreglo urgente. Falla en el PR, que es donde se decide.
+  lighthouse:
+    name: "Presupuesto de rendimiento (Lighthouse)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build:web
+
+      - name: Lighthouse sobre las páginas de demostración
+        run: pnpm dlx @lhci/cli@0.15.1 autorun
+        env:
+          PRISMA_DEMO_PLANTILLAS: "1"
+
+      - name: Guardar el reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse
+          path: .lighthouseci
+          if-no-files-found: ignore
+
   # Deploy (Sprint 5, T5.5) — repuesto (2026-08-24, blueprint ya aplicado
   # en Render y RENDER_DEPLOY_HOOK_API/WEB ya cargados como secrets del
   # repo, ver TR-022 en docs/Arquitectura y base/tradeoffs.md). Un solo entorno (TR-021):

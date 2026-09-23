@@ -15,11 +15,12 @@ import { apiFetchUpload } from "@/lib/api";
 // Solo hace falta con el storage local (dev). Con R2 en producción la URL
 // ya es un https absoluto y este handler no interviene.
 
-// Un archivo subido se llama <token base64url>.<extensión> (ver
-// subirFotoPaginaPublicaHandler en el backend). Se acepta EXACTAMENTE esa
-// forma y nada más: es lo que impide que esta ruta sea un proxy abierto a
-// cualquier archivo o ruta de la API (`..`, `%2F`, subdirectorios).
-const NOMBRE_DE_ARCHIVO = /^[A-Za-z0-9_-]{1,128}\.(jpg|png|webp)$/;
+// Un archivo subido se llama <token base64url>.<extensión>, o desde PE-9
+// <token>.w<ancho>.webp (las variantes de tamaño, ver internal/imagenes en
+// el backend). Se acepta EXACTAMENTE esa forma y nada más: es lo que impide
+// que esta ruta sea un proxy abierto a cualquier archivo o ruta de la API
+// (`..`, `%2F`, subdirectorios).
+const NOMBRE_DE_ARCHIVO = /^[A-Za-z0-9_-]{1,128}(\.w\d{3,4})?\.(jpg|png|webp)$/;
 
 const CONTENT_TYPE: Record<string, string> = {
   jpg: "image/jpeg",

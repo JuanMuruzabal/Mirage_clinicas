@@ -689,6 +689,16 @@ export interface ClinicaPublica {
   // el catálogo y su lectura tolerante viven en @dental-mirage/prisma-engine
   // (tokens.ts), por eso acá es un Record sin tipar.
   temaTokens: Record<string, unknown>;
+  // seoTitulo/seoDescripcion (PE-9) — los de la versión publicada; "" (o
+  // ausentes) = el default que arma lib/pagina-publica/seo.ts.
+  seoTitulo?: string;
+  seoDescripcion?: string;
+  // ciudad/provincia/telefonoClinica (PE-9) — datos de la CLÍNICA para el
+  // título por defecto y el JSON-LD. `telefono` (arriba) es el del owner, el
+  // del link de WhatsApp; `telefonoClinica` es el que se cargó al crearla.
+  ciudad?: string | null;
+  provincia?: string | null;
+  telefonoClinica?: string | null;
   modulos: PaginaPublicaModulo[];
   estadisticas: Record<string, number>;
   // personalizada — hay módulos guardados aunque estén todos ocultos. Es lo
@@ -785,9 +795,16 @@ export interface PaginaPublica {
   nombreSobrePortada: boolean;
   nombreColor: string;
   temaTokens: Record<string, unknown>;
+  /** PE-9: título y descripción para buscadores; "" = el default. */
+  seoTitulo?: string;
+  seoDescripcion?: string;
   // direccionClinica — la de la Clinic, SIN el override: el editor calcula
   // la efectiva del lado del cliente para previsualizar mientras se tipea.
   direccionClinica?: string | null;
+  // ciudadClinica/especialidadesClinica (PE-9) — con qué se arman el título
+  // y la descripción por defecto para buscadores (lib/pagina-publica/seo.ts).
+  ciudadClinica?: string | null;
+  especialidadesClinica?: string[];
   modulos: PaginaPublicaModulo[];
   /** Inventarios vivos para que el editor no dependa de datos públicos cacheados. */
   equipoElegible?: ProfesionalElegiblePagina[];
@@ -823,7 +840,17 @@ export interface ContenidoVersionPaginaPublica {
   nombreSobrePortada: boolean;
   nombreColor: string;
   temaTokens: Record<string, unknown>;
+  // PE-9 — ausentes en una versión publicada antes de PE-9 (= el default).
+  seoTitulo?: string;
+  seoDescripcion?: string;
   modulos: Omit<PaginaPublicaModulo, "id">[];
+}
+
+// Espejo de clinicaDelSitemap (internal/http/sitemap.go, PE-9) — una página
+// publicada y visible, con la fecha de su última publicación.
+export interface ClinicaDelSitemap {
+  slug: string;
+  actualizadaEn: string;
 }
 
 // Espejo de versionResponse (internal/http/pagina_publica.go) — una fila

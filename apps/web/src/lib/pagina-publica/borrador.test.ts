@@ -14,6 +14,8 @@ const borrador = (parcial: Partial<Borrador> = {}): Borrador => ({
   nombreSobrePortada: false,
   nombreColor: "",
   temaTokens: {},
+  seoTitulo: "",
+  seoDescripcion: "",
   modulos: [],
   revision: 0,
   ...parcial,
@@ -62,6 +64,14 @@ describe("hayCambiosSinPublicar", () => {
     const guardado = borrador({ bio: "" });
     const publicado = contenidoPublicado({ bio: null });
     expect(hayCambiosSinPublicar(guardado, publicado)).toBe(false);
+  });
+
+  // PE-9: una versión anterior a PE-9 no trae SEO (= el default, ""), y el
+  // backend guarda los textos con los espacios colapsados.
+  it("el SEO participa: ausente en la versión es vacío, y los espacios de más no cuentan", () => {
+    expect(hayCambiosSinPublicar(borrador(), contenidoPublicado())).toBe(false);
+    expect(hayCambiosSinPublicar(borrador({ seoTitulo: " Hola   mundo " }), contenidoPublicado({ seoTitulo: "Hola mundo" }))).toBe(false);
+    expect(hayCambiosSinPublicar(borrador({ seoDescripcion: "Nueva" }), contenidoPublicado())).toBe(true);
   });
 
   it("un módulo distinto al publicado sí cuenta como cambio sin publicar", () => {
