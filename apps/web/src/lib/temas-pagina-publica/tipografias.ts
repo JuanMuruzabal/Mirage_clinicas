@@ -15,17 +15,26 @@
 // contenedor — no del <html>.
 import { Fraunces, Source_Sans_3, Space_Grotesk, Inter, Fredoka, Nunito_Sans, Libre_Baskerville, Karla } from "next/font/google";
 
-const frauncesDisplay = Fraunces({ variable: "--font-tema-serif-clasica-display", subsets: ["latin"], weight: ["600", "700"] });
-const sourceSansBody = Source_Sans_3({ variable: "--font-tema-serif-clasica-body", subsets: ["latin"], weight: ["400", "500"] });
+// `preload: false` en todas (PE-9, medido con Lighthouse): con el default,
+// cada página que importa este archivo PRECARGABA las ocho fuentes de los
+// cinco pares — 12 archivos y ~330 KB con la de Mirage, con prioridad alta,
+// aunque la página use un solo par. En una conexión de celular competían con
+// el CSS que bloquea el primer render y lo demoraban segundos. Sin preload,
+// el navegador baja solo las que la página usa de verdad (las pide el
+// @font-face al pintar el texto, con `font-display: swap`: el texto se ve
+// desde el principio con la fuente de respaldo).
 
-const spaceGroteskDisplay = Space_Grotesk({ variable: "--font-tema-geometrica-moderna-display", subsets: ["latin"], weight: ["600", "700"] });
-const interBody = Inter({ variable: "--font-tema-geometrica-moderna-body", subsets: ["latin"], weight: ["400", "500"] });
+const frauncesDisplay = Fraunces({ variable: "--font-tema-serif-clasica-display", subsets: ["latin"], weight: ["600", "700"], preload: false });
+const sourceSansBody = Source_Sans_3({ variable: "--font-tema-serif-clasica-body", subsets: ["latin"], weight: ["400", "500"], preload: false });
 
-const fredokaDisplay = Fredoka({ variable: "--font-tema-redondeada-calida-display", subsets: ["latin"], weight: ["600", "700"] });
-const nunitoSansBody = Nunito_Sans({ variable: "--font-tema-redondeada-calida-body", subsets: ["latin"], weight: ["400", "600"] });
+const spaceGroteskDisplay = Space_Grotesk({ variable: "--font-tema-geometrica-moderna-display", subsets: ["latin"], weight: ["600", "700"], preload: false });
+const interBody = Inter({ variable: "--font-tema-geometrica-moderna-body", subsets: ["latin"], weight: ["400", "500"], preload: false });
 
-const libreBaskervilleDisplay = Libre_Baskerville({ variable: "--font-tema-editorial-suave-display", subsets: ["latin"], weight: ["400", "700"] });
-const karlaBody = Karla({ variable: "--font-tema-editorial-suave-body", subsets: ["latin"], weight: ["400", "500"] });
+const fredokaDisplay = Fredoka({ variable: "--font-tema-redondeada-calida-display", subsets: ["latin"], weight: ["600", "700"], preload: false });
+const nunitoSansBody = Nunito_Sans({ variable: "--font-tema-redondeada-calida-body", subsets: ["latin"], weight: ["400", "600"], preload: false });
+
+const libreBaskervilleDisplay = Libre_Baskerville({ variable: "--font-tema-editorial-suave-display", subsets: ["latin"], weight: ["400", "700"], preload: false });
+const karlaBody = Karla({ variable: "--font-tema-editorial-suave-body", subsets: ["latin"], weight: ["400", "500"], preload: false });
 
 export interface Tipografia {
   id: string;
