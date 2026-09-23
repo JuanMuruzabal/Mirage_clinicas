@@ -6,7 +6,7 @@ import { esUrlDeFotoSegura } from "@/lib/pagina-publica/enlaces";
 import { modulosPorDefecto } from "@/lib/pagina-publica/modulos";
 import { colorDeNombre, type ColorNombre } from "@/lib/pagina-publica/portada";
 import { estiloDeTema } from "@/lib/temas-pagina-publica/aplicar";
-import { EfectoSlot } from "@dental-mirage/prisma-engine";
+import { EfectoSlot, srcsetDeFoto, TAMANOS_FOTO_POR_DEFECTO } from "@dental-mirage/prisma-engine";
 import { PedirTurnoButton } from "./pedir-turno-button";
 import { MisTurnosButton } from "./mis-turnos-button";
 import { seccionDeModulo, type SeccionPublica } from "./modulos-publicos";
@@ -110,6 +110,18 @@ function ProfesionalNombre({ nombre }: { nombre: string }) {
 }
 
 /**
+ * La foto de portada (PE-9): con las variantes del backend en `srcset` y SIN
+ * `loading="lazy"`, a diferencia de las fotos de los módulos — es lo primero
+ * que se ve y casi siempre el elemento más grande de la pantalla (el LCP),
+ * así que se pide con prioridad en vez de esperar al layout.
+ */
+function ImagenPortada({ src, alt, className, sizes = TAMANOS_FOTO_POR_DEFECTO }: { src: string; alt: string; className: string; sizes?: string }) {
+  const srcSet = srcsetDeFoto(src);
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} srcSet={srcSet} sizes={srcSet ? sizes : undefined} alt={alt} fetchPriority="high" decoding="async" className={className} />;
+}
+
+/**
  * La portada según su variante (PE-3). Las que necesitan foto ("dividida",
  * "fondo") se dibujan centradas si no hay: una variante nunca deja un hueco.
  * "dividida" lleva su propio `@container`: la portada no tiene modales
@@ -129,8 +141,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     return (
       <div className="@container mx-auto w-full max-w-3xl">
         <div className="grid grid-cols-1 items-center gap-6 @xl:grid-cols-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto} alt={`Portada de ${nombreClinica}`} className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
+          <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} sizes="(min-width: 48rem) 24rem, 100vw" className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
           <div className="flex flex-col items-center gap-3 text-center @xl:items-start @xl:text-left">
             <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} />
           </div>
@@ -144,8 +155,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     // variante centrada (portada.ts), más cargados porque cubren todo.
     return (
       <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-(--pp-radio)">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={foto} alt={`Portada de ${nombreClinica}`} className="absolute inset-0 h-full w-full object-cover" />
+        <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} className="absolute inset-0 h-full w-full object-cover" />
         <div
           aria-hidden="true"
           className={`absolute inset-0 ${
@@ -170,8 +180,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 text-center">
       {foto && (
         <div className="relative mb-3 w-full overflow-hidden rounded-(--pp-radio)">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto} alt={`Portada de ${nombreClinica}`} className="aspect-[16/7] w-full object-cover" />
+          <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} className="aspect-[16/7] w-full object-cover" />
           {nombreSobreFoto && (
             <>
               {/* El velo es lo que hace legible el nombre sobre CUALQUIER

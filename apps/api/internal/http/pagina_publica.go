@@ -1,9 +1,11 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 
 	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
+	"dental-mirage/api/internal/imagenes"
 	"dental-mirage/api/internal/prismaengine"
 	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/storage"
@@ -66,7 +69,17 @@ const (
 	maxLargoRed          = 100
 	maxLargoNombreModulo = 60
 	maxLargoURLFoto      = 500 // el de la columna foto_portada_url
+	// Los de las columnas seo_titulo/seo_descripcion (PE-9).
+	maxLargoSeoTitulo      = 70
+	maxLargoSeoDescripcion = 160
 )
+
+// textoSeo — un título o una descripción para buscadores es UNA línea: los
+// saltos y los espacios repetidos se colapsan (Google los muestra igual, y
+// en una etiqueta <meta> un salto de línea no significa nada).
+func textoSeo(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
 
 // redesSocialesValidas — lista cerrada, igual criterio que las
 // estadísticas: la página muestra estas tres y nada más.
@@ -163,17 +176,27 @@ type paginaPublicaResponse struct {
 	// TemaTokens (PE-2): overrides de los tokens de diseño del tema. Siempre
 	// un objeto (nunca null), aunque no haya ninguno elegido.
 	TemaTokens map[string]any `json:"temaTokens"`
+	// SeoTitulo/SeoDescripcion (PE-9): "" = el default de la web.
+	SeoTitulo      string `json:"seoTitulo"`
+	SeoDescripcion string `json:"seoDescripcion"`
 	// DireccionClinica — la de la Clinic, SIN el override. El editor
 	// calcula la efectiva (override si hay, si no esta) del lado del
 	// cliente para previsualizar el módulo de contacto mientras se
 	// tipea; si viniera ya resuelta, borrar el override en el editor
 	// dejaría la previsualización sin saber a qué volver.
-	DireccionClinica     *string                      `json:"direccionClinica,omitempty"`
-	Modulos              []moduloResponse             `json:"modulos"`
-	Estadisticas         map[string]int               `json:"estadisticas"`
-	EquipoElegible       []equipoElegibleResponse     `json:"equipoElegible"`
-	HorariosClinica      horariosClinicaResponse      `json:"horariosClinica"`
-	ServiciosDisponibles []servicioDisponibleResponse `json:"serviciosDisponibles"`
+	DireccionClinica *string `json:"direccionClinica,omitempty"`
+	// CiudadClinica/EspecialidadesClinica (PE-9): con qué arma la web el
+	// título y la descripción por defecto para buscadores — el editor los
+	// muestra como sugerencia con los MISMOS datos que la página pública
+	// (las especialidades son la unión de todos los profesionales activos,
+	// no las de quien edita).
+	CiudadClinica         *string                      `json:"ciudadClinica,omitempty"`
+	EspecialidadesClinica []string                     `json:"especialidadesClinica"`
+	Modulos               []moduloResponse             `json:"modulos"`
+	Estadisticas          map[string]int               `json:"estadisticas"`
+	EquipoElegible        []equipoElegibleResponse     `json:"equipoElegible"`
+	HorariosClinica       horariosClinicaResponse      `json:"horariosClinica"`
+	ServiciosDisponibles  []servicioDisponibleResponse `json:"serviciosDisponibles"`
 	// Revision/ActualizadaPor*/UltimaVersionPublicada (PE-8): el candado
 	// optimista del borrador y lo necesario para que el editor calcule
 	// "hay cambios sin publicar" sin un segundo viaje al servidor.
@@ -209,6 +232,8 @@ type contenidoVersionResponse struct {
 	NombreSobrePortada bool                      `json:"nombreSobrePortada"`
 	NombreColor        string                    `json:"nombreColor"`
 	TemaTokens         map[string]any            `json:"temaTokens"`
+	SeoTitulo          string                    `json:"seoTitulo"`
+	SeoDescripcion     string                    `json:"seoDescripcion"`
 	Modulos            []moduloContenidoResponse `json:"modulos"`
 }
 
@@ -233,7 +258,8 @@ func toContenidoVersionResponse(c db.PaginaPublicaContenidoVersion) contenidoVer
 		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: redes, MostrarMapa: c.MostrarMapa,
 		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
 		TemaTokens: tokensOVacio(c.TemaTokens),
-		Modulos:    modulos,
+		SeoTitulo:  c.SeoTitulo, SeoDescripcion: c.SeoDescripcion,
+		Modulos: modulos,
 	}
 }
 
@@ -292,7 +318,9 @@ func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) (pa
 	var clinic db.Clinic
 	if err := gdb.Where("id = ?", clinicID).First(&clinic).Error; err == nil {
 		resp.DireccionClinica = clinic.Direccion
+		resp.CiudadClinica = clinic.Ciudad
 	}
+	resp.EspecialidadesClinica = especialidadesUnicasDe(profesionalesActivosDeLaClinica(gdb, clinicID))
 	resp.ActualizadaEn = p.UpdatedAt.UTC().Format(time.RFC3339)
 	if p.ActualizadaPorUserID != nil {
 		nombre := nombreDelProfesional(gdb, p.ActualizadaPorUserID)
@@ -319,6 +347,8 @@ func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) pa
 		NombreSobrePortada: p.NombreSobrePortada,
 		NombreColor:        p.NombreColor,
 		TemaTokens:         tokensOVacio(p.TemaTokens),
+		SeoTitulo:          p.SeoTitulo,
+		SeoDescripcion:     p.SeoDescripcion,
 		Modulos:            make([]moduloResponse, len(p.Modulos)),
 		Estadisticas:       estadisticas,
 		Revision:           p.Revision,
@@ -425,6 +455,9 @@ type actualizarPaginaPublicaRequest struct {
 	// nil = no vino (no tocar); `{}` = sacar todos los overrides (volver a
 	// los tokens del tema).
 	TemaTokens *map[string]any `json:"temaTokens"`
+	// SeoTitulo/SeoDescripcion (PE-9): "" vuelve al default de la web.
+	SeoTitulo      *string `json:"seoTitulo"`
+	SeoDescripcion *string `json:"seoDescripcion"`
 	// Modulos — puntero al slice, no el slice solo: distingue "no vino en
 	// el body" (nil, no tocar los módulos existentes) de "vino una lista
 	// vacía" (reemplazar por CERO módulos, ej. el owner borró todos).
@@ -525,6 +558,21 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		if req.TemaTokens != nil {
 			if err := prismaengine.ValidarTokensDeTema(*req.TemaTokens); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		seoTitulo, seoDescripcion := "", ""
+		if req.SeoTitulo != nil {
+			seoTitulo = textoSeo(*req.SeoTitulo)
+			if len([]rune(seoTitulo)) > maxLargoSeoTitulo {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("el título para buscadores admite hasta %d caracteres", maxLargoSeoTitulo))
+				return
+			}
+		}
+		if req.SeoDescripcion != nil {
+			seoDescripcion = textoSeo(*req.SeoDescripcion)
+			if len([]rune(seoDescripcion)) > maxLargoSeoDescripcion {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("la descripción para buscadores admite hasta %d caracteres", maxLargoSeoDescripcion))
 				return
 			}
 		}
@@ -632,6 +680,14 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			if req.TemaTokens != nil {
 				updates.TemaTokens = tokensOVacio(*req.TemaTokens)
 				campos = append(campos, "TemaTokens")
+			}
+			if req.SeoTitulo != nil {
+				updates.SeoTitulo = seoTitulo
+				campos = append(campos, "SeoTitulo")
+			}
+			if req.SeoDescripcion != nil {
+				updates.SeoDescripcion = seoDescripcion
+				campos = append(campos, "SeoDescripcion")
 			}
 			// "AND revision = ?" hace del UPDATE el candado entero: una sola
 			// sentencia atómica, no un SELECT-luego-UPDATE con ventana para
@@ -777,16 +833,54 @@ func subirFotoPaginaPublicaHandler(store storage.Storage) http.HandlerFunc {
 			return
 		}
 
+		datos, err := io.ReadAll(archivo)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "no se pudo leer el archivo")
+			return
+		}
+
 		rawToken, _, err := security.NewToken()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el nombre del archivo")
 			return
 		}
-		nombreArchivo := rawToken + extension
 
-		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		// PE-9: se guardan las variantes WebP (imagenes.Anchos), no el
+		// original, y la URL que vuelve es la de la MÁS GRANDE: la plantilla
+		// reconoce el patrón "<token>.w<ancho>.webp" y arma el `srcset` con
+		// las otras. El original no se guarda: nadie lo sirve, y re-codificar
+		// descarta sus metadatos EXIF (GPS incluido), que no tienen por qué
+		// quedar publicados.
+		variantes, err := imagenes.GenerarVariantes(datos)
+		switch {
+		case errors.Is(err, imagenes.ErrImagenInvalida):
+			writeError(w, http.StatusBadRequest, "no pudimos leer la imagen — probá con otro archivo JPEG, PNG o WebP")
+			return
+		case errors.Is(err, imagenes.ErrImagenDemasiadoGrande):
+			writeError(w, http.StatusBadRequest, "la imagen tiene demasiados píxeles — achicala antes de subirla")
+			return
+		case errors.Is(err, imagenes.ErrSinCodificadorWebP):
+			// Solo Go windows/386 (ver internal/imagenes): el comportamiento
+			// de antes de PE-9, el original tal cual y sin variantes.
+			variantes = nil
+		case err != nil:
+			writeError(w, http.StatusInternalServerError, "no se pudo procesar la imagen")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		url, err := store.Save(ctx, nombreArchivo, archivo)
+		var url string
+		if variantes == nil {
+			url, err = store.Save(ctx, rawToken+extension, bytes.NewReader(datos))
+		} else {
+			for _, v := range variantes {
+				url, err = store.Save(ctx, imagenes.NombreDeVariante(rawToken, v.Ancho), bytes.NewReader(v.Datos))
+				if err != nil {
+					break
+				}
+			}
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo guardar el archivo")
 			return
@@ -1034,11 +1128,14 @@ func aplicarContenidoAlBorrador(tx *gorm.DB, paginaID uuid.UUID, revisionEsperad
 		// Una versión anterior a PE-2 no trae tokens: restaurarla vuelve a
 		// "sin overrides", que es como se veía cuando se publicó.
 		TemaTokens: tokensOVacio(c.TemaTokens),
-		Revision:   revisionEsperada + 1, ActualizadaPorUserID: &userID,
+		// Una versión anterior a PE-9 no trae SEO: "" = el default.
+		SeoTitulo: c.SeoTitulo, SeoDescripcion: c.SeoDescripcion,
+		Revision: revisionEsperada + 1, ActualizadaPorUserID: &userID,
 	}
 	campos := []string{
 		"Bio", "Tema", "TemaVariante", "TemaTipografia", "FotoPortadaURL", "RedesSociales", "MostrarMapa",
-		"DireccionOverride", "NombreSobrePortada", "NombreColor", "TemaTokens", "Revision", "ActualizadaPorUserID",
+		"DireccionOverride", "NombreSobrePortada", "NombreColor", "TemaTokens", "SeoTitulo", "SeoDescripcion",
+		"Revision", "ActualizadaPorUserID",
 	}
 	resultado := tx.Model(&db.PaginaPublica{}).Where("id = ? AND revision = ?", paginaID, revisionEsperada).Select(campos).Updates(updates)
 	if resultado.Error != nil {

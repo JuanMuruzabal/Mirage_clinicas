@@ -31,13 +31,15 @@ import { ListaModulos } from "@/components/editor-pagina/lista-modulos";
 import { SelectorDeTema } from "@/components/editor-pagina/selector-de-tema";
 import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
 import { GaleriaPlantillas } from "@/components/editor-pagina/galeria-plantillas";
+import { BuscadoresYRedes } from "@/components/editor-pagina/buscadores-y-redes";
+import { descripcionSeoPorDefecto, tituloSeoPorDefecto } from "@/lib/pagina-publica/seo";
 
 interface PaginaEditorProps {
   sesion: SesionCompleta;
   paginaInicial: PaginaPublica;
 }
 
-type Pestana = "modulos" | "diseno";
+type Pestana = "modulos" | "diseno" | "buscadores";
 
 // PaginaEditor (T4.1/T4.2, spec §5; contenido real desde la Fase 4.4) —
 // layout del editor: barra de acciones arriba (Ver página/Guardar
@@ -74,6 +76,17 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const sinGuardar = useMemo(() => hayCambios(guardado, borrador), [guardado, borrador]);
   const sinPublicar = useMemo(() => hayCambiosSinPublicar(guardado, pagina.ultimaVersionPublicada?.contenido), [guardado, pagina]);
   const contenido = useMemo(() => contenidoDeBorrador(borrador, pagina), [borrador, pagina]);
+  // PE-9: el título y la descripción que usa la página pública si el admin
+  // deja los campos vacíos — con los mismos datos que usa ella.
+  const seoPorDefecto = useMemo(() => {
+    const datos = {
+      nombreClinica: sesion.nombreClinica,
+      especialidades: pagina.especialidadesClinica ?? sesion.especialidades.map((e) => e.nombre),
+      ciudad: pagina.ciudadClinica,
+      bio: borrador.bio,
+    };
+    return { titulo: tituloSeoPorDefecto(datos), descripcion: descripcionSeoPorDefecto(datos) };
+  }, [sesion, pagina.especialidadesClinica, pagina.ciudadClinica, borrador.bio]);
   const ejemplosPendientes = useMemo(() => {
     const unicos = new Map<string, { ruta: string; valor: string; etiqueta: string }>();
     for (const plantilla of CATALOGO_PLANTILLAS) {
@@ -358,6 +371,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   [
                     ["modulos", "Módulos"],
                     ["diseno", "Diseño"],
+                    ["buscadores", "Buscadores"],
                   ] as const
                 ).map(([id, etiqueta]) => (
                   <button
@@ -375,7 +389,16 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                 ))}
               </div>
 
-              {pestana === "modulos" ? (
+              {pestana === "buscadores" ? (
+                <BuscadoresYRedes
+                  slug={sesion.slug}
+                  seoTitulo={borrador.seoTitulo}
+                  seoDescripcion={borrador.seoDescripcion}
+                  tituloPorDefecto={seoPorDefecto.titulo}
+                  descripcionPorDefecto={seoPorDefecto.descripcion}
+                  onCambio={editar}
+                />
+              ) : pestana === "modulos" ? (
                 <ListaModulos
                   borrador={borrador}
                   direccionClinica={pagina.direccionClinica}

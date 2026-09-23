@@ -764,6 +764,14 @@ type PaginaPublica struct {
 	// JSON Schema generado (prismaengine.ValidarTokensDeTema), así que sumar
 	// una opción no pide migración ni CHECK nuevo. NULL = sin overrides.
 	TemaTokens map[string]any `gorm:"column:tema_tokens;type:jsonb;serializer:json"`
+	// SeoTitulo/SeoDescripcion (PE-9, plan Prisma Engine): el título y la
+	// descripción que ven Google y la tarjeta de WhatsApp al compartir el
+	// link. "" = el default que arma la web con el nombre, las
+	// especialidades y la ciudad — el default NO se guarda, para que cambiar
+	// el nombre de la clínica o sumar una especialidad se refleje solo. Los
+	// largos son los que un buscador muestra antes de cortar con "…".
+	SeoTitulo      string `gorm:"column:seo_titulo;type:varchar(70);not null;default:''"`
+	SeoDescripcion string `gorm:"column:seo_descripcion;type:varchar(160);not null;default:''"`
 	// Revision/ActualizadaPorUserID (PE-8, plan Prisma Engine): control de
 	// edición simultánea del BORRADOR. Cada PATCH /panel/pagina exitoso
 	// incrementa Revision en 1 y guarda quién lo hizo; el propio PATCH exige
@@ -838,8 +846,14 @@ type PaginaPublicaContenidoVersion struct {
 	// del borrador — la página pública sirve ESTA foto, no el borrador.
 	// Versiones anteriores a PE-2 no lo traen: nil = sin overrides, que es
 	// exactamente cómo se veían.
-	TemaTokens map[string]any                 `json:"temaTokens,omitempty"`
-	Modulos    []PaginaPublicaContenidoModulo `json:"modulos"`
+	TemaTokens map[string]any `json:"temaTokens,omitempty"`
+	// SeoTitulo/SeoDescripcion (PE-9): son contenido publicable, así que
+	// viajan en la foto — la página pública (y lo que indexa Google) sale de
+	// la versión, no del borrador. Versiones anteriores a PE-9 no los traen:
+	// "" = el default, que es exactamente lo que mostraban.
+	SeoTitulo      string                         `json:"seoTitulo,omitempty"`
+	SeoDescripcion string                         `json:"seoDescripcion,omitempty"`
+	Modulos        []PaginaPublicaContenidoModulo `json:"modulos"`
 }
 
 // PaginaPublicaVersion — una foto PUBLICADA del borrador (PE-8): "Publicar"
@@ -892,6 +906,8 @@ func (p PaginaPublica) ContenidoVersion() PaginaPublicaContenidoVersion {
 		NombreSobrePortada: p.NombreSobrePortada,
 		NombreColor:        p.NombreColor,
 		TemaTokens:         p.TemaTokens,
+		SeoTitulo:          p.SeoTitulo,
+		SeoDescripcion:     p.SeoDescripcion,
 		Modulos:            modulos,
 	}
 }
