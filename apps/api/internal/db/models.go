@@ -697,6 +697,28 @@ type Turno struct {
 
 func (Turno) TableName() string { return "turnos" }
 
+// HorarioClinica describe cuándo abre el edificio de la clínica. Es
+// independiente de HorarioAtencion, que rige la agenda de cada profesional.
+// Una fila representa un día de la semana; Franjas admite hasta dos tramos.
+type HorarioClinica struct {
+	ClinicID  uuid.UUID              `gorm:"column:clinic_id;type:uuid;primaryKey"`
+	DiaSemana int                    `gorm:"column:dia_semana;primaryKey;autoIncrement:false"`
+	Cerrado   bool                   `gorm:"not null;default:false"`
+	Franjas   []HorarioClinicaFranja `gorm:"column:franjas;type:jsonb;serializer:json;not null;default:'[]'"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (HorarioClinica) TableName() string { return "horarios_clinica" }
+
+// HorarioClinicaFranja es un intervalo de hora local en formato HH:MM.
+// Los límites (máximo de dos intervalos, horarios válidos y no solapados)
+// se validan en la API antes de persistirlo.
+type HorarioClinicaFranja struct {
+	Desde string `json:"desde"`
+	Hasta string `json:"hasta"`
+}
+
 // PaginaPublica es 1:1 con Profesional (spec §5). Oculta controla el modo
 // mantenimiento (spec §5.2); DeployadaEn nil significa que la clínica
 // nunca hizo el primer deploy y por lo tanto nunca aparece en el buscador

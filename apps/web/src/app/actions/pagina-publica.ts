@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ConflictoRevisionPagina, PaginaPublica, VersionPaginaPublica } from "@dental-mirage/shared-types";
+import type { HorariosClinica } from "@dental-mirage/prisma-engine";
 import {
   apiActualizarPaginaPublica,
+  apiGuardarHorariosClinica,
   apiGetPaginaPublica,
   apiObtenerHistorialPaginaPublica,
   apiOcultarPaginaPublica,
@@ -17,6 +19,22 @@ import { getSessionToken } from "@/lib/session";
 
 export interface PaginaPublicaActionResult {
   error: string;
+}
+
+export async function guardarHorariosClinicaAction(valor: HorariosClinica): Promise<
+  | { ok: true; valor: HorariosClinica }
+  | { ok: false; error: string }
+> {
+  if (!valor || !Array.isArray(valor.dias) || typeof valor.nota !== "string") {
+    return { ok: false, error: "Revisá los horarios e intentá de nuevo." };
+  }
+  const token = await getSessionToken();
+  if (!token) redirect("/ingresar");
+  const result = await apiGuardarHorariosClinica(token, valor);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidatePath("/personalizar-pagina");
+  revalidatePath("/buscar");
+  return { ok: true, valor: result.data };
 }
 
 // obtenerPaginaPublicaAction (PE-8) — recarga el estado real del servidor

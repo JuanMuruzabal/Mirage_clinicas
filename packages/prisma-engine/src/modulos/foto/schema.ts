@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { campoNombrePropio, camposDeSeccion, urlDeFotoSchema } from "../../schema-base";
+import { campoNombrePropio, camposDeSeccion, campoEfectos, urlDeFotoSchema } from "../../schema-base";
+import { SLOTS_FOTO } from "../../efectos/slots";
 
 // `subtipo` es obligatorio (mismo criterio que subtiposFotoValidos en
 // pagina_publica.go: un config sin subtipo, o con uno inválido, se rechaza
@@ -7,6 +8,7 @@ import { campoNombrePropio, camposDeSeccion, urlDeFotoSchema } from "../../schem
 export const schema = z.object({
   ...campoNombrePropio,
   ...camposDeSeccion,
+  ...campoEfectos(SLOTS_FOTO),
   fotoUrl: urlDeFotoSchema.optional(),
   subtipo: z.enum(["retrato", "banner", "franja"]),
 });

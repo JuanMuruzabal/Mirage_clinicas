@@ -1,6 +1,6 @@
 "use client";
 
-import { CLASE_AYUDA, definicionDeModulo, type CamposDePagina, type ModuloBorrador } from "@dental-mirage/prisma-engine";
+import { CLASE_AYUDA, definicionDeModulo, type CamposDePagina, type EquipoElegible, type HorariosClinica, type ServicioVista, type ModuloBorrador } from "@dental-mirage/prisma-engine";
 import type { Borrador } from "@/lib/pagina-publica/borrador";
 import { SubirFoto } from "./subir-foto";
 
@@ -11,6 +11,13 @@ interface EditorDeModuloProps {
   direccionClinica?: string | null;
   /** El teléfono viene del perfil; acá solo se muestra cuál va a aparecer. */
   telefono: string;
+  equipoElegible?: EquipoElegible[];
+  horariosClinica?: HorariosClinica;
+  serviciosDisponibles?: ServicioVista[];
+  guardarHorariosClinica?: (valor: HorariosClinica) => Promise<
+    | { ok: true; valor: HorariosClinica }
+    | { ok: false; error: string }
+  >;
   onConfig: (config: Record<string, unknown>) => void;
   onBorrador: (parcial: Partial<Borrador>) => void;
 }
@@ -25,7 +32,7 @@ function camposDePagina(b: Borrador): CamposDePagina {
 // de arriba. Los campos que son de la PÁGINA y no del módulo (la bio, las
 // redes, el mapa) se editan desde el módulo que los muestra — ver
 // CamposDePagina en el paquete.
-export function EditorDeModulo({ modulo, borrador, direccionClinica, telefono, onConfig, onBorrador }: EditorDeModuloProps) {
+export function EditorDeModulo({ modulo, borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onConfig, onBorrador }: EditorDeModuloProps) {
   const definicion = definicionDeModulo(modulo.tipo);
   if (!definicion) return <p className={CLASE_AYUDA}>Este módulo todavía no se puede editar acá.</p>;
 
@@ -35,6 +42,10 @@ export function EditorDeModulo({ modulo, borrador, direccionClinica, telefono, o
       pagina={camposDePagina(borrador)}
       direccionClinica={direccionClinica}
       telefono={telefono}
+      equipoElegible={equipoElegible}
+      horariosClinica={horariosClinica}
+      serviciosDisponibles={serviciosDisponibles}
+      guardarHorariosClinica={guardarHorariosClinica}
       onConfig={onConfig}
       onPagina={onBorrador}
       componentes={{ SubirFoto }}

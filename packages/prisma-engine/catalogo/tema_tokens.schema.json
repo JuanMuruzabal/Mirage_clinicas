@@ -65,6 +65,26 @@
         "fondo",
         "minima"
       ]
+    },
+    "movimiento": {
+      "type": "string",
+      "enum": [
+        "quieto",
+        "sereno",
+        "dinamico"
+      ]
+    },
+    "fondoAnimado": {
+      "type": "string",
+      "enum": [
+        "ninguno",
+        "degrade-respira",
+        "malla-suave",
+        "aurora-suave",
+        "puntos-pulso",
+        "particulas-lentas",
+        "ondas-suaves"
+      ]
     }
   },
   "additionalProperties": false,

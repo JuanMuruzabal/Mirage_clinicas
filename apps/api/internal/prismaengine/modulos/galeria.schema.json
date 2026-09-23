@@ -32,6 +32,70 @@
         "carrusel"
       ]
     },
+    "efectos": {
+      "type": "object",
+      "properties": {
+        "tarjeta": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "inclinacion",
+                "foco-cursor",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        },
+        "imagen": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "aparicion-suave",
+                "deslizar-suave",
+                "revelado-scroll",
+                "inclinacion",
+                "reflejo",
+                "ninguno"
+              ]
+            },
+            "intensidad": {
+              "type": "string",
+              "enum": [
+                "sutil",
+                "media",
+                "marcada"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "intensidad"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "fotoUrls": {
       "type": "array",
       "items": {

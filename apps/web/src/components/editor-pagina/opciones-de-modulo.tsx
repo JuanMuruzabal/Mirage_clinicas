@@ -2,6 +2,7 @@
 
 import {
   MAX_LARGO_TITULO_PUBLICO,
+  CATALOGO_EFECTOS,
   definicionDeModulo,
   textoDeConfig,
   varianteDeConfig,
@@ -42,12 +43,28 @@ export function OpcionesDeModulo({ modulo, onConfig }: OpcionesDeModuloProps) {
   const definicion = definicionDeModulo(modulo.tipo);
   if (!definicion) return null;
   const { variantes, opcionesDeSeccion: opciones } = definicion;
-  if (variantes.length < 2 && !opciones.titulo && !opciones.fondo && !opciones.alineacion) return null;
+  if (variantes.length < 2 && !opciones.titulo && !opciones.fondo && !opciones.alineacion && definicion.slotsAnimables.length === 0) return null;
 
   const ids = variantes.map((v) => v.id);
   const variante = ids.length > 0 ? varianteDeConfig(modulo.config, ids) : "";
   const fondo = (textoDeConfig(modulo.config, "fondoSeccion") || "normal") as FondoSeccion;
   const izquierda = textoDeConfig(modulo.config, "alineacion") === "izquierda";
+  const efectos = modulo.config.efectos && typeof modulo.config.efectos === "object" ? modulo.config.efectos as Record<string, unknown> : {};
+
+  function elegirEfecto(slot: string, id: string) {
+    const siguiente = { ...efectos };
+    if (!id) delete siguiente[slot];
+    else siguiente[slot] = { id, intensidad: "sutil" };
+    const config = { ...modulo.config };
+    if (Object.keys(siguiente).length) config.efectos = siguiente;
+    else delete config.efectos;
+    onConfig(config);
+  }
+
+  function elegirIntensidad(slot: string, intensidad: string) {
+    const actual = efectos[slot] && typeof efectos[slot] === "object" ? efectos[slot] as Record<string, unknown> : {};
+    onConfig({ ...modulo.config, efectos: { ...efectos, [slot]: { ...actual, intensidad } } });
+  }
 
   return (
     <div className="flex flex-col gap-4 border-t-[0.5px] border-arena pt-3">
@@ -115,6 +132,39 @@ export function OpcionesDeModulo({ modulo, onConfig }: OpcionesDeModuloProps) {
           />
           Alinear el texto a la izquierda
         </label>
+      )}
+
+      {definicion.slotsAnimables.length > 0 && (
+        <fieldset className="flex flex-col gap-3">
+          <legend className={CLASE_ETIQUETA}>Efectos por elemento</legend>
+          {definicion.slotsAnimables.map((slot) => {
+            const actual = efectos[slot.id] && typeof efectos[slot.id] === "object" ? efectos[slot.id] as Record<string, unknown> : {};
+            const elegido = typeof actual.id === "string" ? actual.id : "";
+            const intensidad = actual.intensidad === "media" || actual.intensidad === "marcada" ? actual.intensidad : "sutil";
+            const disponibles = slot.efectos.map((id) => CATALOGO_EFECTOS.find((efecto) => efecto.id === id)).filter((efecto) => efecto?.habilitado);
+            return (
+              <div key={slot.id} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className={CLASE_AYUDA}>{slot.etiqueta}</span>
+                  <select aria-label={`Efecto para ${slot.etiqueta}`} value={elegido} onChange={(e) => elegirEfecto(slot.id, e.target.value)} className={CLASE_CAMPO}>
+                    <option value="">Automático</option>
+                    <option value="ninguno">Sin efecto</option>
+                    {disponibles.map((efecto) => <option key={efecto!.id} value={efecto!.id}>{efecto!.nombre}</option>)}
+                  </select>
+                </label>
+                {elegido && elegido !== "ninguno" && (
+                  <label className="flex flex-col gap-1">
+                    <span className={CLASE_AYUDA}>Intensidad</span>
+                    <select aria-label={`Intensidad para ${slot.etiqueta}`} value={intensidad} onChange={(e) => elegirIntensidad(slot.id, e.target.value)} className={CLASE_CAMPO}>
+                      <option value="sutil">Sutil</option><option value="media">Media</option><option value="marcada">Marcada</option>
+                    </select>
+                  </label>
+                )}
+              </div>
+            );
+          })}
+          <span className={CLASE_AYUDA}>Automático sigue el estilo global. Los efectos respetan el movimiento reducido del dispositivo.</span>
+        </fieldset>
       )}
     </div>
   );

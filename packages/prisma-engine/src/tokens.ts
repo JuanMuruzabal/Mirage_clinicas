@@ -22,6 +22,8 @@ export const OPCIONES_TOKENS = {
   botonEstilo: ["relleno", "contorno"],
   menu: ["pastillas", "subrayado", "barra"],
   portada: ["centrada", "dividida", "fondo", "minima"],
+  movimiento: ["quieto", "sereno", "dinamico"],
+  fondoAnimado: ["ninguno", "degrade-respira", "malla-suave", "aurora-suave", "puntos-pulso", "particulas-lentas", "ondas-suaves"],
 } as const;
 
 export type ClaveToken = keyof typeof OPCIONES_TOKENS;
@@ -38,6 +40,8 @@ export const TOKENS_POR_DEFECTO: TokensResueltos = {
   botonEstilo: "relleno",
   menu: "pastillas",
   portada: "centrada",
+  movimiento: "quieto",
+  fondoAnimado: "ninguno",
 };
 
 /**
@@ -78,5 +82,21 @@ export const ETIQUETAS_TOKENS: { [K in ClaveToken]: { titulo: string; opciones: 
   portada: {
     titulo: "Portada",
     opciones: { centrada: "Centrada", dividida: "Dividida", fondo: "Foto de fondo", minima: "Mínima" },
+  },
+  movimiento: {
+    titulo: "Estilo de movimiento",
+    opciones: { quieto: "Quieto", sereno: "Sereno", dinamico: "Dinámico" },
+  },
+  fondoAnimado: {
+    titulo: "Fondo animado",
+    opciones: {
+      ninguno: "Sin movimiento",
+      "degrade-respira": "Degradé que respira",
+      "malla-suave": "Malla suave",
+      "aurora-suave": "Aurora desaturada",
+      "puntos-pulso": "Puntos con pulso",
+      "particulas-lentas": "Partículas lentas",
+      "ondas-suaves": "Ondas suaves",
+    },
   },
 };

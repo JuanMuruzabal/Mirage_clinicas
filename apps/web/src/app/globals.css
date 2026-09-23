@@ -576,3 +576,123 @@ input[type="password"]::-ms-clear {
   --pp-contraste-fondo: var(--pp-acento-texto, var(--color-salvia-oscuro));
   --pp-contraste-texto: var(--color-marfil);
 }
+
+/* Prisma Engine PE-4/5: movimientos discretos basados en tokens del tema.
+   El contenido HTML sigue visible antes de hidratar; ningún estado inicial
+   lo oculta. Todas las animaciones duran varios segundos y se apagan con
+   prefers-reduced-motion. */
+[data-pp-efecto="brillo-texto"] > *,
+[data-pp-efecto="degrade-texto"] > * {
+  color: var(--pp-texto);
+  background-image: linear-gradient(100deg, var(--pp-texto) 30%, var(--pp-acento-texto, var(--pp-texto)) 45%, var(--pp-texto) 60%);
+  background-clip: text;
+  background-size: 220% 100%;
+  animation: pp-texto-brillo 12s ease-in-out infinite alternate;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  [data-pp-efecto="brillo-texto"] > *, [data-pp-efecto="degrade-texto"] > * { color: transparent; -webkit-text-fill-color: transparent; }
+}
+
+[data-pp-efecto="brillo-texto"] > * { --pp-brillo-centro: 45%; }
+[data-pp-efecto="degrade-texto"] > * { --pp-brillo-centro: 52%; animation-duration: 20s; }
+
+@keyframes pp-texto-brillo {
+  from { background-position: 100% 50%; }
+  to { background-position: 0% 50%; }
+}
+
+[data-pp-efecto="subrayado"] > * {
+  text-decoration: underline;
+  text-decoration-color: var(--pp-acento, currentColor);
+  text-decoration-thickness: 2px;
+  text-underline-offset: .18em;
+  text-decoration-skip-ink: auto;
+}
+
+[data-pp-efecto="borde-estrella"] > * {
+  position: relative;
+  isolation: isolate;
+  transition: box-shadow 700ms ease, transform 700ms ease;
+}
+[data-pp-efecto="borde-estrella"]:hover > *,
+[data-pp-efecto="borde-estrella"]:focus-within > * {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pp-acento, currentColor) 42%, transparent);
+}
+[data-pp-efecto="magnetico"] > * {
+  transform: translate(var(--pp-magnet-x, 0px), var(--pp-magnet-y, 0px));
+  transition: transform 500ms cubic-bezier(.2,.7,.2,1);
+}
+[data-pp-efecto="inclinacion"] > * {
+  transform: perspective(900px) rotateX(0) rotateY(0);
+  transition: transform 650ms ease;
+}
+[data-pp-efecto="inclinacion"]:hover > * { transform: perspective(900px) rotateX(var(--pp-efecto-inclinacion-x)) rotateY(var(--pp-efecto-inclinacion-y)); }
+[data-pp-efecto="reflejo"] { overflow: hidden; }
+[data-pp-efecto="reflejo"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, color-mix(in srgb, white 18%, transparent) 50%, transparent 65%);
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+[data-pp-efecto="reflejo"]:hover::after { opacity: var(--pp-efecto-reflejo, .2); }
+[data-pp-efecto="foco-cursor"] { position: relative; }
+[data-pp-efecto="foco-cursor"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(220px circle at var(--pp-cursor-x, 50%) var(--pp-cursor-y, 50%), color-mix(in srgb, var(--pp-acento, white) 12%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+[data-pp-efecto="foco-cursor"]:hover::after { opacity: 1; }
+[data-pp-efecto="chispas"][data-pp-pulso="true"] > * { animation: pp-chispa 500ms ease-out 1; }
+@keyframes pp-chispa { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--pp-acento, currentColor) 18%, transparent); } }
+
+.pp-fondo-vivo {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: inherit;
+  background-color: var(--pp-fondo, #e7f2f7);
+  background-image: var(--pp-fondo-imagen);
+  background-size: var(--pp-fondo-tamano);
+}
+.pp-fondo-vivo__contenido { position: relative; z-index: 1; }
+.pp-fondo-vivo .pp-fondo-vivo__base { background-color: transparent; background-image: none; }
+.pp-fondo-vivo__capa {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease;
+  background-color: transparent;
+  background-image: radial-gradient(ellipse at 18% 20%, color-mix(in srgb, var(--pp-acento, #86a89b) 20%, transparent), transparent 58%), radial-gradient(ellipse at 78% 74%, color-mix(in srgb, var(--pp-acento-suave, #dcebe3) 35%, transparent), transparent 55%);
+}
+.pp-fondo-vivo[data-pp-activo="true"] .pp-fondo-vivo__capa { opacity: .65; }
+.pp-fondo-vivo[data-pp-fondo="degrade-respira"] .pp-fondo-vivo__capa { animation: pp-fondo-respira 30s ease-in-out infinite alternate; }
+.pp-fondo-vivo[data-pp-fondo="malla-suave"] .pp-fondo-vivo__capa { background-size: 180% 180%; animation: pp-fondo-malla 36s ease-in-out infinite alternate; }
+.pp-fondo-vivo[data-pp-fondo="aurora-suave"] .pp-fondo-vivo__capa { background-image: radial-gradient(ellipse at 25% 10%, color-mix(in srgb, var(--pp-acento, #86a89b) 22%, transparent), transparent 68%), radial-gradient(ellipse at 82% 35%, color-mix(in srgb, var(--pp-acento-suave, #dcebe3) 28%, transparent), transparent 70%); animation: pp-fondo-malla 42s ease-in-out infinite alternate; }
+.pp-fondo-vivo[data-pp-fondo="puntos-pulso"] .pp-fondo-vivo__capa { background-image: radial-gradient(color-mix(in srgb, var(--pp-acento, #86a89b) 22%, transparent) 1px, transparent 1.6px); background-size: 22px 22px; animation: pp-puntos 18s ease-in-out infinite alternate; }
+.pp-fondo-vivo[data-pp-fondo="particulas-lentas"] .pp-fondo-vivo__capa { background-image: radial-gradient(circle at 15% 80%, color-mix(in srgb, var(--pp-acento, #86a89b) 28%, transparent) 2px, transparent 3px), radial-gradient(circle at 75% 50%, color-mix(in srgb, var(--pp-acento, #86a89b) 20%, transparent) 2px, transparent 3px), radial-gradient(circle at 42% 25%, color-mix(in srgb, var(--pp-acento, #86a89b) 18%, transparent) 1.5px, transparent 2.5px); animation: pp-particulas 48s linear infinite alternate; }
+.pp-fondo-vivo[data-pp-fondo="ondas-suaves"] .pp-fondo-vivo__capa { inset: auto 0 0; height: 32%; background-image: radial-gradient(ellipse at 50% 110%, color-mix(in srgb, var(--pp-acento, #86a89b) 20%, transparent), transparent 72%); animation: pp-fondo-respira 28s ease-in-out infinite alternate; }
+.pp-fondo-vivo[data-pp-activo="false"] .pp-fondo-vivo__capa { opacity: 0; animation-play-state: paused; }
+.pp-fondo-vivo[data-pp-activo="true"][data-pp-intensidad="sutil"] .pp-fondo-vivo__capa { opacity: .4; }
+.pp-fondo-vivo[data-pp-activo="true"][data-pp-intensidad="marcada"] .pp-fondo-vivo__capa { opacity: .72; }
+
+@keyframes pp-fondo-respira { from { background-position: 0% 30%; } to { background-position: 100% 70%; } }
+@keyframes pp-fondo-malla { from { background-position: 0% 20%; } to { background-position: 100% 80%; } }
+@keyframes pp-puntos { from { opacity: .16; } to { opacity: .32; } }
+@keyframes pp-particulas { from { background-position: 0 0; } to { background-position: 20px -24px; } }
+
+.pp-palabra { display: inline-block; animation: pp-palabra 720ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--pp-palabra-orden) * 45ms); }
+@keyframes pp-palabra { from { opacity: .94; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pp-efecto], .pp-fondo-vivo__capa { animation: none !important; transition: none !important; transform: none !important; scroll-behavior: auto !important; }
+  .pp-fondo-vivo__capa { opacity: .32 !important; }
+}

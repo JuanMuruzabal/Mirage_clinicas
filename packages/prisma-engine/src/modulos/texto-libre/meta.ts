@@ -1,6 +1,7 @@
 import type { DefinicionModulo } from "../../tipos";
 import { Editor } from "./editor";
 import { seccion } from "./render";
+import { SLOTS_TEXTO, SLOTS_IMAGEN } from "../../efectos/slots";
 
 export const textoLibre: DefinicionModulo = {
   tipo: "texto_libre",
@@ -15,6 +16,7 @@ export const textoLibre: DefinicionModulo = {
     { id: "dos-columnas", nombre: "Dos columnas", bloques: [[30, 6, 40, 6, "titulo"], [5, 20, 42, 4, "texto"], [5, 28, 42, 4, "texto"], [5, 36, 42, 4, "texto"], [53, 20, 42, 4, "texto"], [53, 28, 42, 4, "texto"], [53, 36, 30, 4, "texto"]] },
   ],
   opcionesDeSeccion: { titulo: false, fondo: true, alineacion: true },
+  slotsAnimables: [...SLOTS_TEXTO, ...SLOTS_IMAGEN],
   Editor,
   seccion,
 };

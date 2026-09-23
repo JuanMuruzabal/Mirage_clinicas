@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "id": "kinesiologia-natural-sereno",
+  "nombre": "Kinesiología · Natural sereno",
+  "rubro": "kinesiologia",
+  "estilo": "clinico-sereno",
+  "descripcion": "Una página equilibrada que transmite calma y acompaña el proceso de recuperación.",
+  "tema": "natural",
+  "temaVariante": "natural-2",
+  "temaTipografia": "geometrica-moderna",
+  "temaTokens": {
+    "forma": "suave",
+    "densidad": "comoda",
+    "superficie": "borde",
+    "fondo": "textura",
+    "boton": "redondeado",
+    "botonEstilo": "relleno",
+    "menu": "subrayado",
+    "portada": "minima",
+    "fondoAnimado": "ninguno"
+  },
+  "estiloMovimiento": "sereno",
+  "bio": "Acompañamos tu movimiento con una evaluación individual y objetivos claros para cada etapa de tu recuperación.",
+  "fotoPortadaUrl": "",
+  "redes": {},
+  "mostrarMapa": false,
+  "direccionOverride": "",
+  "nombreSobrePortada": false,
+  "nombreColor": "",
+  "modulos": [
+    {
+      "tipo": "sobre_nosotros",
+      "visible": true,
+      "config": {
+        "variante": "dos-columnas",
+        "fondoSeccion": "normal",
+        "alineacion": "izquierda",
+        "efectos": {
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "servicios",
+      "visible": true,
+      "config": {
+        "nombres": [],
+        "variante": "lista",
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "titulo": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "equipo",
+      "visible": true,
+      "config": {
+        "modo": "todos",
+        "mostrarNombre": true,
+        "mostrarDescripcion": true,
+        "variante": "foto-descripcion",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "imagen": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "horarios",
+      "visible": true,
+      "config": {
+        "variante": "abierto-ahora",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "preguntas_frecuentes",
+      "visible": true,
+      "config": {
+        "preguntas": [
+          {
+            "pregunta": "¿Necesito una derivación?",
+            "respuesta": "Los requisitos pueden variar según tu cobertura. Consultanos y te contamos qué traer."
+          },
+          {
+            "pregunta": "¿Qué ropa conviene usar?",
+            "respuesta": "Elegí ropa cómoda que te permita moverte con libertad durante la evaluación."
+          }
+        ],
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "llamado_accion",
+      "visible": true,
+      "config": {
+        "texto": "Contanos qué necesitás y te ayudamos a coordinar una primera evaluación.",
+        "etiquetaBoton": "Consultar disponibilidad",
+        "destino": "turno",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "contacto",
+      "visible": true,
+      "config": {
+        "variante": "dividido",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    }
+  ],
+  "textosEjemplo": [
+    { "ruta": "bio", "valor": "Acompañamos tu movimiento con una evaluación individual y objetivos claros para cada etapa de tu recuperación.", "etiqueta": "Presentación de la clínica" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Necesito una derivación?", "etiqueta": "Pregunta frecuente" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Los requisitos pueden variar según tu cobertura. Consultanos y te contamos qué traer.", "etiqueta": "Respuesta frecuente" },
+    { "ruta": "modulos.llamado_accion.config.texto", "valor": "Contanos qué necesitás y te ayudamos a coordinar una primera evaluación.", "etiqueta": "Mensaje de contacto" },
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Consultar disponibilidad", "etiqueta": "Texto del botón" }
+  ]
+}

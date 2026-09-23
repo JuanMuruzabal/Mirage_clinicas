@@ -1,0 +1,3 @@
+export const MAX_PREGUNTAS_FRECUENTES = 10;
+export const MAX_LARGO_PREGUNTA = 160;
+export const MAX_LARGO_RESPUESTA = 1500;

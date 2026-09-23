@@ -3,6 +3,8 @@ import { BloqueDeTexto } from "../../comunes";
 import { textoDeConfig, tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { VARIANTES } from "./variantes";
+import { envolverSlots } from "../../efectos/envolver-slots";
+import { SLOTS_TEXTO, SLOTS_IMAGEN } from "../../efectos/slots";
 
 function SobreNosotros({ modulo, contexto }: { modulo: ModuloBorrador; contexto: ContextoPublico }): ReactNode {
   const texto = contexto.contenido.bio?.trim();
@@ -15,6 +17,7 @@ function SobreNosotros({ modulo, contexto }: { modulo: ModuloBorrador; contexto:
       texto={texto}
       variante={varianteDeConfig(modulo.config, VARIANTES)}
       foto={foto}
+      envolverSlot={envolverSlots(modulo.config, contexto.estiloMovimiento, [...SLOTS_TEXTO, ...SLOTS_IMAGEN])}
     />
   );
 }

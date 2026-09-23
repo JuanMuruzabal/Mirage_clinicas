@@ -117,6 +117,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.11(vitest@4.1.11)
+      framer-motion:
+        specifier: ^13.1.0
+        version: 13.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1

@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Estado del aviso: ACTIVO.** Se mantiene hasta que **todas las filas de la tabla de abajo estén en ✅**, o hasta que Kevin lo cancele explícitamente. Quien mergee un PE actualiza la tabla en ese mismo PR; quien mergee el último borra esta sección entera y el puntero de la Fase 4.
 
-Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalización de la página pública: `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Todavía no está implementado**, y lo que ese plan marca **[SUJETO A REVISIÓN]** puede cambiar si Juan opina distinto. Este aviso existe para que nadie construya sobre algo que el plan va a reemplazar, o lo pise, antes de que Kevin lo termine.
+Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalización de la página pública: `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **La implementación está en curso, pero el plan todavía no está completo**; PE-1 y PE-8 ya se mergearon, y los siguientes PRs y su estado figuran en la tabla de abajo. Lo que el plan marca **[SUJETO A REVISIÓN]** puede cambiar si Juan opina distinto. Este aviso existe para que nadie construya sobre algo que el plan va a reemplazar, o lo pise, antes de que Kevin lo termine.
 
-**Instrucción para Claude Code (obligatoria).** Antes de editar, borrar o mover cualquier archivo o área de la lista "Áreas cubiertas", **frená y avisale al usuario** con algo como: *"Ojo: esto toca una zona del plan Prisma Engine de Kevin (PE-N). Puede chocar con su trabajo, o quedar obsoleto cuando entre PE-1. ¿Seguimos igual, o lo hablás antes con Kevin?"* — y esperá la respuesta. **No es un bloqueo**: si el usuario confirma, seguí, pero dejá dicho en el PR qué área del plan tocaste. Antes de empezar, corré `git fetch --prune`, `git branch -r --list "origin/*pe-*"` y `gh pr list --state open --search "Prisma Engine"` para ver si ya hay ramas o PRs del plan abiertos sobre esos archivos.
+**Instrucción para agentes de código (obligatoria).** Antes de editar, borrar o mover cualquier archivo o área de la lista "Áreas cubiertas", **frená y avisale al usuario** con algo como: *"Ojo: esto toca una zona del plan Prisma Engine de Kevin (PE-N). Puede chocar con su trabajo o quedar obsoleto cuando entre una etapa pendiente del plan. ¿Seguimos igual, o lo hablás antes con Kevin?"* — y esperá la respuesta. **No es un bloqueo**: si el usuario confirma, seguí, pero dejá dicho en el PR qué área del plan tocaste. Antes de empezar, corré `git fetch --prune`, `git branch -r --list "origin/*pe-*"` y `gh pr list --state open --search "Prisma Engine"` para ver si ya hay ramas o PRs del plan abiertos sobre esos archivos.
 
 **No hace falta avisar** si la rama actual es `feature/pe-*` o `docs/prisma-engine*` (es trabajo del propio plan), ni si el usuario dice explícitamente que está trabajando sobre el plan.
 
@@ -22,6 +22,7 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 **Qué evitar mientras el aviso esté activo:**
 - **Desde el 2026-09-22 los PRs que quedan del plan van de a pares** (PE-2+3, PE-4+5, PE-6+7, PE-9+4.6), un PR por par.
 - **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** — desde PE-1 (parte 1, mergeada) viven en `packages/prisma-engine` (`registro.ts`, `schemas.ts`, `catalogo/temas.json`), no en un `switch` de `editor-de-modulo.tsx`/`modulos-publicos.tsx` ni en un mapa a mano de Go: sumar uno tocando solo esos archivos evita el problema que PE-1 vino a resolver. Si es urgente, coordinalo con Kevin.
+- **Los efectos también tienen un catálogo único** (`packages/prisma-engine/src/efectos/catalogo.ts`) y slots declarados por módulo en `meta.ts`; sus esquemas generados se validan en Go. No agregues un efecto solo en CSS, en un selector del editor o en un `switch`.
 - **No cambies el modelo borrador/publicar** que dejó PE-8 (ver la Fase 4 más abajo): guardar NO publica, el `GET` público sirve la última versión publicada, y `PATCH /panel/pagina` exige `revision`. Lo que falta de esa vertical (vista previa firmada, deshacer/rehacer, resumen "qué cambió") sigue siendo del plan.
 - **No agregues columnas ni migraciones** sobre `paginas_publicas`, `pagina_publica_modulos`, `clinic_members` ni `professional_profiles` sin revisar el plan: chocan con `schema_version`, con el aval del profesional y con `horarios_clinica`.
 - **La subida de foto de perfil** deja de estar fuera de alcance solo si Kevin y Juan confirman esa decisión (marcada **[SUJETO A REVISIÓN]** en el plan). Hasta entonces sigue fuera.
@@ -34,12 +35,12 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 |---|---|---|
 | PE-1 | Núcleo: registro único de módulos y catálogo compartido | ✅ (PR #51/#52) |
 | PE-8 | Borrador, Publicar = Deployar e historial | ✅ (PR #54) |
-| PE-2 | Tokens de diseño | 🔄 `feature/pe-2-3-tokens-y-variantes` (junto con PE-3) |
-| PE-3 | Variantes por módulo | 🔄 `feature/pe-2-3-tokens-y-variantes` (junto con PE-2) |
-| PE-4 | Motor de efectos | ⬜ |
-| PE-5 | Fondos tranquilos y texto avanzado | ⬜ |
-| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ⬜ |
-| PE-7 | Plantillas y presets | ⬜ |
+| PE-2 | Tokens de diseño | ✅ (PR #55, junto con PE-3) |
+| PE-3 | Variantes por módulo | ✅ (PR #55, junto con PE-2) |
+| PE-4 | Motor de efectos | ✅ (PR #57, junto con PE-5) |
+| PE-5 | Fondos tranquilos y texto avanzado | ✅ (PR #57, junto con PE-4) |
+| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-7) |
+| PE-7 | Plantillas y presets | 🔄 `feature/pe-6-7-modulos-plantillas` (junto con PE-6) |
 | PE-9 | SEO, compartir y rendimiento | ⬜ |
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
 
@@ -278,9 +279,15 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 - **Las opciones de sección (fondo, alineación, título público) las aplica la plantilla sobre el `<section>`**, vía `seccionPublicaDe` del paquete; un `render.tsx` no las mira. Qué ofrece cada módulo lo dice su `meta.ts` (`variantes`, `opcionesDeSeccion`), y los ids de variante viven en `variantes.ts` (sin zod: lo importa el bundle del cliente). `tokens-y-variantes.test.tsx` falla si `meta.ts` y el esquema no ofrecen las mismas variantes.
 - **Los CHECK de tema/variante/tipografía se arman desde el catálogo** en cada migración (`checksDelCatalogoDeTemas`). Sumar un tema es tocar `catalogo/temas.json` + `paletas.ts` y regenerar; no hay SQL a mano.
 
+**Efectos, movimiento y fondos (PE-4 + PE-5, TR-164)**:
+- El movimiento global (`temaTokens.movimiento`) arranca en `quieto`; `sereno` y `dinámico` seleccionan entradas suaves por defecto. Cada módulo define sus slots hoja en `meta.ts`, y guarda overrides en `config.efectos`; el editor y el backend derivan sus opciones/esquemas del catálogo común.
+- `temaTokens.fondoAnimado` elige el fondo de la página. Los fondos usan colores del tema, CSS 2D y tiempos lentos; se pausan fuera de pantalla o con la pestaña oculta. `prefers-reduced-motion` los deja estáticos.
+- El HTML del servidor siempre muestra el contenido. Las entradas empiezan después de hidratar y el fallback de un chunk animado conserva el nodo original. No agregues efectos a la sección fija del turno ni a un contenedor que pueda cambiar el bloque de los modales.
+- Si cambias el catálogo o los esquemas de módulos, corre `pnpm run engine:generar` y versiona sus JSON de Go junto con el cambio.
+
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
-**Continuación: Prisma Engine (plan aprobado, sin implementar).** Kevin definió el 2026-09-21 cómo sigue esta vertical — registro único de módulos, tokens de diseño, variantes, efectos, módulos del rubro (Equipo, Horarios del edificio, Servicios), plantillas, borrador/Publicar con historial y SEO — en `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
+**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) ya están en `dev`; el par activo PE-4+5 suma efectos, fondos tranquilos y texto avanzado. Siguen PE-6+7 y PE-9, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
 
 ## Flujo de ramas
 

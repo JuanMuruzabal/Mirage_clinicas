@@ -2876,6 +2876,25 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - **Sin QA en navegador** en esta entrega: los tests miden contraste, validación y estructura, pero no cómo se ve cada combinación. La vista previa del editor es el lugar para revisarlo.
 
 
+## TR-164: Efectos curados por slot, con movimiento apagado por defecto
+
+- **Contexto:** plan Prisma Engine, PE-4 + PE-5, implementados juntos en `feature/pe-4-5-efectos-fondos`.
+
+### Las decisiones
+
+1. **El catálogo es código versionado dentro de `packages/prisma-engine`.** Cada efecto declara objetivo, disparador e intensidades curadas. Los módulos declaran sus slots en `meta.ts`; el mismo catálogo arma los selectores del editor y los esquemas Zod/JSON Schema que valida Go. Un efecto no puede elegirse para un objetivo o slot incompatible.
+2. **El estilo global de movimiento y el fondo animado son overrides en `tema_tokens`.** `quieto` es el default para conservar el aspecto y el movimiento de páginas existentes; `sereno` y `dinámico` aplican entradas por defecto a los slots compatibles. El editor puede elegir o quitar el efecto de cada slot. Todo viaja en el borrador y en la versión publicada con los mecanismos existentes de PE-8; no se suma una columna ni una migración.
+3. **El contenido del servidor se ve antes de hidratar.** Los efectos de entrada comienzan después de que el navegador observa el slot; no se usa `opacity: 0` como estado inicial y los fallbacks de carga devuelven el mismo contenido. Si JavaScript falla, el texto y los controles siguen utilizables.
+4. **Movimiento reducido apaga animaciones y deja una variante estática.** Fondos animados usan CSS 2D, usan colores del tema, se detienen fuera de pantalla y cuando la pestaña queda oculta. No hay WebGL ni destellos; las duraciones son de varios segundos.
+5. **Los módulos nuevos no cargan código de efectos si no lo usan.** El renderer importa dinámicamente la implementación por mecanismo (entradas, texto, interacción o fondo), solo al encontrar un efecto seleccionado; el catálogo y los metadatos sí quedan disponibles para validar y dibujar el editor.
+6. **El área de turno no ofrece un slot de sección completa.** Los transforms se limitan a los elementos animables declarados en los módulos para no cambiar el bloque contenedor de los modales `position: fixed`.
+
+### Lo que se sacrifica
+
+- Las páginas existentes quedan en movimiento `quieto` hasta que el administrador lo cambie. Los efectos no son parámetros libres: solo se configuran con el catálogo cerrado y sus tres intensidades.
+- La verificación final de esta entrega todavía debe completar QA visual en navegador; `typecheck:prisma-engine` y `typecheck:web` pasan, y no se ejecutó la suite de tests.
+
+
 ---
 
 ---

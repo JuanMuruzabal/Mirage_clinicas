@@ -26,6 +26,7 @@ import (
 func registerPaginaPublicaRoutes(r chi.Router, gdb *gorm.DB, store storage.Storage) {
 	r.Get("/panel/pagina", getPaginaPublicaHandler(gdb))
 	r.Patch("/panel/pagina", actualizarPaginaPublicaHandler(gdb))
+	registerHorariosClinicaRoutes(r, gdb)
 	r.Patch("/panel/pagina/ocultar", ocultarPaginaPublicaHandler(gdb))
 	// PE-8: "Publicar" reemplaza a "Deployar" (PATCH /panel/pagina/deployar
 	// ya no existe) — POST porque deja de ser idempotente: cada llamada crea
@@ -132,11 +133,12 @@ func vacioANil(s *string) *string {
 }
 
 type moduloResponse struct {
-	ID      string         `json:"id"`
-	Tipo    string         `json:"tipo"`
-	Orden   int            `json:"orden"`
-	Visible bool           `json:"visible"`
-	Config  map[string]any `json:"config,omitempty"`
+	ID         string         `json:"id,omitempty"`
+	Tipo       string         `json:"tipo"`
+	Orden      int            `json:"orden"`
+	Visible    bool           `json:"visible"`
+	Config     map[string]any `json:"config,omitempty"`
+	DatosVista map[string]any `json:"datosVista,omitempty"`
 }
 
 func toModuloResponse(m db.PaginaPublicaModulo) moduloResponse {
@@ -166,9 +168,12 @@ type paginaPublicaResponse struct {
 	// cliente para previsualizar el módulo de contacto mientras se
 	// tipea; si viniera ya resuelta, borrar el override en el editor
 	// dejaría la previsualización sin saber a qué volver.
-	DireccionClinica *string          `json:"direccionClinica,omitempty"`
-	Modulos          []moduloResponse `json:"modulos"`
-	Estadisticas     map[string]int   `json:"estadisticas"`
+	DireccionClinica     *string                      `json:"direccionClinica,omitempty"`
+	Modulos              []moduloResponse             `json:"modulos"`
+	Estadisticas         map[string]int               `json:"estadisticas"`
+	EquipoElegible       []equipoElegibleResponse     `json:"equipoElegible"`
+	HorariosClinica      horariosClinicaResponse      `json:"horariosClinica"`
+	ServiciosDisponibles []servicioDisponibleResponse `json:"serviciosDisponibles"`
 	// Revision/ActualizadaPor*/UltimaVersionPublicada (PE-8): el candado
 	// optimista del borrador y lo necesario para que el editor calcule
 	// "hay cambios sin publicar" sin un segundo viaje al servidor.
@@ -269,8 +274,21 @@ func ultimaVersionPublicada(gdb *gorm.DB, paginaID uuid.UUID) (*db.PaginaPublica
 // respuestaDePagina arma la respuesta completa de /panel/pagina — el único
 // lugar que junta la página con sus estadísticas y con la dirección de la
 // clínica, para que los cuatro handlers respondan igual.
-func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) paginaPublicaResponse {
+func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) (paginaPublicaResponse, error) {
 	resp := toPaginaPublicaResponse(p, estadisticasDeLaClinica(gdb, clinicID))
+	var err error
+	resp.EquipoElegible, err = equipoElegibleDeLaClinica(gdb, clinicID)
+	if err != nil {
+		return paginaPublicaResponse{}, err
+	}
+	resp.ServiciosDisponibles, err = serviciosDisponiblesDeLaClinica(gdb, clinicID)
+	if err != nil {
+		return paginaPublicaResponse{}, err
+	}
+	resp.HorariosClinica, err = leerHorariosClinica(gdb, clinicID)
+	if err != nil {
+		return paginaPublicaResponse{}, err
+	}
 	var clinic db.Clinic
 	if err := gdb.Where("id = ?", clinicID).First(&clinic).Error; err == nil {
 		resp.DireccionClinica = clinic.Direccion
@@ -284,7 +302,7 @@ func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) pag
 		v := toVersionResponse(gdb, *ultima)
 		resp.UltimaVersionPublicada = &v
 	}
-	return resp
+	return resp, nil
 }
 
 func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) paginaPublicaResponse {
@@ -372,7 +390,12 @@ func getPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener la página")
 			return
 		}
-		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+		resp, err := respuestaDePagina(gdb, clinicID, *pagina)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener la configuración de los módulos")
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -514,6 +537,14 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		if req.Modulos != nil {
 			if err := validarModulos(*req.Modulos); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if err := validarServiciosSeleccionados(*req.Modulos); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if err := validarSeleccionDeEquipo(gdb, clinicID, *req.Modulos); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -661,7 +692,12 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "página actualizada pero no se pudo leerla de vuelta")
 			return
 		}
-		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+		resp, err := respuestaDePagina(gdb, clinicID, *pagina)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "página actualizada pero no se pudo leer la configuración de los módulos")
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -792,7 +828,12 @@ func ocultarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar la página")
 			return
 		}
-		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+		resp, err := respuestaDePagina(gdb, clinicID, *pagina)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "página actualizada pero no se pudo leer la configuración de los módulos")
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -862,7 +903,12 @@ func publicarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "página publicada pero no se pudo leerla de vuelta")
 			return
 		}
-		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+		resp, err := respuestaDePagina(gdb, clinicID, *pagina)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "página publicada pero no se pudo leer la configuración de los módulos")
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -965,7 +1011,12 @@ func restaurarVersionPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "versión restaurada pero no se pudo leer la página de vuelta")
 			return
 		}
-		writeJSON(w, http.StatusOK, respuestaDePagina(gdb, clinicID, *pagina))
+		resp, err := respuestaDePagina(gdb, clinicID, *pagina)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "versión restaurada pero no se pudo leer la configuración de los módulos")
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 

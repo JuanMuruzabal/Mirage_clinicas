@@ -75,6 +75,12 @@ const paginaVacia: PaginaPublica = {
 
 const panel = () => screen.getByRole("complementary", { name: "Panel de edición" });
 
+function campoTextoDelModulo(): HTMLTextAreaElement {
+  const control = within(panel()).getAllByRole("textbox").find((element) => element.tagName === "TEXTAREA");
+  if (!(control instanceof HTMLTextAreaElement)) throw new Error("No se encontró el campo de texto del módulo");
+  return control;
+}
+
 // contenidoPublicadoDeVacia — lo que Publicar guardaría para paginaVacia: la
 // estructura POR DEFECTO (sobre_nosotros + especialidades, ver
 // modulosPorDefecto en lib/pagina-publica/modulos.ts), no un array vacío —
@@ -196,8 +202,10 @@ describe("PaginaEditor — panel y vista previa", () => {
     expect(await screen.findByRole("tab", { name: "Módulos" })).toBeInTheDocument();
   });
 
-  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", () => {
+  it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", async () => {
+    const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     expect(screen.getByText("Previsualización en vivo")).toBeInTheDocument();
     expect(screen.getAllByText("Clínica Sonrisas").length).toBeGreaterThan(0);
   });
@@ -205,6 +213,9 @@ describe("PaginaEditor — panel y vista previa", () => {
   it("la previsualización se puede acotar a móvil, tablet o escritorio", async () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    // Una página vacía abre la galería inicial de plantillas, que tiene su
+    // propia vista previa. Cerrar la galería para operar sobre la del editor.
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     const marco = screen.getByTestId("vista-previa-marco");
 
     expect(marco).toHaveStyle({ maxWidth: "100%" });
@@ -250,7 +261,7 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={{ ...paginaGuardada, bio: null }} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), "Cuidamos tu sonrisa.");
+    await user.type(campoTextoDelModulo(), "Cuidamos tu sonrisa.");
 
     // Aparece en la vista previa (la página real) y no solo en el campo.
     expect(screen.getByRole("heading", { name: "Sobre nosotros" })).toBeInTheDocument();
@@ -264,7 +275,7 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    const texto = within(panel()).getByLabelText(/Texto/);
+    const texto = campoTextoDelModulo();
     await user.clear(texto);
     await user.type(texto, "Hola");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -292,7 +303,7 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), " Más.");
+    await user.type(campoTextoDelModulo(), " Más.");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Juan");
@@ -300,7 +311,7 @@ describe("PaginaEditor — edición", () => {
 
     await user.click(screen.getByRole("button", { name: /Recargar/ }));
     expect(obtenerPaginaPublicaActionMock).toHaveBeenCalled();
-    expect(await within(panel()).findByLabelText(/Texto/)).toHaveValue("Lo de Juan");
+    await waitFor(() => expect(campoTextoDelModulo()).toHaveValue("Lo de Juan"));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -311,14 +322,14 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), " Mío.");
+    await user.type(campoTextoDelModulo(), " Mío.");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await screen.findByRole("alert");
 
     actualizarPaginaPublicaActionMock.mockResolvedValueOnce({ kind: "ok", pagina: { ...paginaGuardada, bio: "Atendemos desde 1998. Mío.", revision: 10 } });
     await user.click(screen.getByRole("button", { name: "Mantener mi copia" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(within(panel()).getByLabelText(/Texto/)).toHaveValue("Atendemos desde 1998. Mío.");
+    expect(campoTextoDelModulo()).toHaveValue("Atendemos desde 1998. Mío.");
 
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     expect(actualizarPaginaPublicaActionMock).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 9 }));
@@ -330,12 +341,12 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), " Más.");
+    await user.type(campoTextoDelModulo(), " Más.");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("la bio admite hasta 2000 caracteres");
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
-    expect(within(panel()).getByLabelText(/Texto/)).toHaveValue("Atendemos desde 1998. Más.");
+    expect(campoTextoDelModulo()).toHaveValue("Atendemos desde 1998. Más.");
   });
 
   it("'Descartar' vuelve al último estado guardado", async () => {
@@ -343,10 +354,10 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), " Más.");
+    await user.type(campoTextoDelModulo(), " Más.");
     await user.click(screen.getByRole("button", { name: "Descartar" }));
 
-    expect(within(panel()).getByLabelText(/Texto/)).toHaveValue("Atendemos desde 1998.");
+    expect(campoTextoDelModulo()).toHaveValue("Atendemos desde 1998.");
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
   });
 
@@ -356,11 +367,11 @@ describe("PaginaEditor — edición", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
     await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
-    await user.type(within(panel()).getByLabelText(/Texto/), " Más.");
+    await user.type(campoTextoDelModulo(), " Más.");
     await user.click(screen.getByRole("button", { name: "Ocultar" }));
 
     await screen.findByRole("button", { name: "Mostrar" });
-    expect(within(panel()).getByLabelText(/Texto/)).toHaveValue("Atendemos desde 1998. Más.");
+    expect(campoTextoDelModulo()).toHaveValue("Atendemos desde 1998. Más.");
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
   });
 
@@ -408,8 +419,8 @@ describe("PaginaEditor — edición", () => {
 
     await user.selectOptions(within(panel()).getByLabelText("Agregar un módulo"), "texto_libre");
     await user.click(within(panel()).getByRole("button", { name: "Agregar" }));
-    await user.type(within(panel()).getByLabelText(/Título/), "Financiación");
-    await user.type(within(panel()).getByLabelText(/^Texto/), "Hasta 6 cuotas.");
+    await user.type(within(panel()).getByPlaceholderText("Ej.: Nuestra filosofía"), "Financiación");
+    await user.type(campoTextoDelModulo(), "Hasta 6 cuotas.");
 
     // Acotado a la vista previa: el mismo texto también está en el <textarea>.
     const vista = within(screen.getByTestId("vista-previa-marco"));

@@ -65,11 +65,13 @@ type clinicaPublicaResponse struct {
 	MostrarMapa    bool              `json:"mostrarMapa"`
 	Direccion      *string           `json:"direccion,omitempty"`
 	// NombreSobrePortada/NombreColor: ver paginaPublicaResponse.
-	NombreSobrePortada bool             `json:"nombreSobrePortada"`
-	NombreColor        string           `json:"nombreColor"`
-	TemaTokens         map[string]any   `json:"temaTokens"`
-	Modulos            []moduloResponse `json:"modulos"`
-	Estadisticas       map[string]int   `json:"estadisticas"`
+	NombreSobrePortada bool                         `json:"nombreSobrePortada"`
+	NombreColor        string                       `json:"nombreColor"`
+	TemaTokens         map[string]any               `json:"temaTokens"`
+	Modulos            []moduloResponse             `json:"modulos"`
+	Estadisticas       map[string]int               `json:"estadisticas"`
+	HorariosClinica    horariosClinicaResponse      `json:"horariosClinica"`
+	Servicios          []servicioDisponibleResponse `json:"servicios"`
 	// Personalizada — la página tiene módulos guardados, aunque hoy estén
 	// todos ocultos. Sin esto el frontend no puede distinguir "nunca la
 	// editaron" (Modulos vacío → se arma la estructura por defecto) de
@@ -188,6 +190,18 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			TemaTokens:        map[string]any{},
 			Estadisticas:      estadisticasDeLaClinica(gdb, clinic.ID),
 		}
+		horarios, err := horariosClinicaPublicos(gdb, clinic.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el horario de la clínica")
+			return
+		}
+		resp.HorariosClinica = horarios
+		servicios, err := serviciosDisponiblesDeLaClinica(gdb, clinic.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron obtener los servicios de la clínica")
+			return
+		}
+		resp.Servicios = servicios
 
 		var version *db.PaginaPublicaVersion
 		if pagina.ID != uuid.Nil {
@@ -206,7 +220,19 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			if !m.Visible {
 				continue
 			}
-			modulosVisibles = append(modulosVisibles, moduloResponse{Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: m.Config})
+			config := configPublicaDeModulo(m.Tipo, m.Config)
+			var datosVista map[string]any
+			if m.Tipo == "equipo" {
+				equipo, err := equipoPublicoDeModulo(gdb, clinic.ID, m.Config)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "no se pudo obtener el equipo público")
+					return
+				}
+				datosVista = map[string]any{"equipo": equipo}
+			}
+			modulosVisibles = append(modulosVisibles, moduloResponse{
+				Tipo: m.Tipo, Orden: m.Orden, Visible: m.Visible, Config: config, DatosVista: datosVista,
+			})
 		}
 		redes := c.RedesSociales
 		if redes == nil {

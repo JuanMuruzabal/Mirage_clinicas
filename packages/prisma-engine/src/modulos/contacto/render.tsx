@@ -12,6 +12,8 @@ import {
 import { tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { VARIANTES } from "./variantes";
+import { envolverSlots } from "../../efectos/envolver-slots";
+import { SLOTS_CONTACTO } from "../../efectos/slots";
 
 const CLASE_LINK = "font-medium text-[var(--pp-acento-texto,var(--color-salvia-oscuro))] underline underline-offset-2";
 
@@ -23,6 +25,7 @@ function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
     (r): r is typeof r & { href: string } => r.href !== null,
   );
   if (!direccion && !hrefTel && redes.length === 0) return null;
+  const envolver = envolverSlots(modulo.config, contexto.estiloMovimiento, SLOTS_CONTACTO);
 
   const mapa =
     direccion && contenido.mostrarMapa ? (
@@ -39,36 +42,36 @@ function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
 
   const datos = (
     <>
-      <Titulo>{tituloPublicoDe(modulo.config, "Contacto")}</Titulo>
+      {envolver("titulo", <Titulo>{tituloPublicoDe(modulo.config, "Contacto")}</Titulo>)}
       {direccion && (
         <div className={`flex flex-col gap-2 ${CLASE_ALINEAR_FLEX}`}>
-          <p className={CLASE_TEXTO}>{direccion}</p>
+          {envolver("texto", <p className={CLASE_TEXTO}>{direccion}</p>)}
           {!dividido && mapa}
-          <a href={utils.urlDeComoLlegar(direccion)} target="_blank" rel="noopener noreferrer" className={`text-xs ${CLASE_LINK}`}>
+          {envolver("boton", <a href={utils.urlDeComoLlegar(direccion)} target="_blank" rel="noopener noreferrer" className={`text-xs ${CLASE_LINK}`}>
             Cómo llegar
-          </a>
+          </a>)}
         </div>
       )}
       {hrefTel && (
-        <p className={CLASE_TEXTO}>
+        envolver("texto", <p className={CLASE_TEXTO}>
           Teléfono:{" "}
           <a href={hrefTel} className={CLASE_LINK}>
             {telefono}
           </a>
-        </p>
+        </p>)
       )}
       {redes.length > 0 && (
         <ul className={`flex flex-wrap gap-2 ${CLASE_JUSTIFICAR_FLEX}`}>
           {redes.map((r) => (
             <li key={r.id}>
-              <a
+              {envolver("boton", <a
                 href={r.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${CLASE_CHIP} px-3 py-1.5 text-xs font-medium hover:border-[var(--pp-acento,var(--color-salvia))]`}
               >
                 {r.etiqueta}
-              </a>
+              </a>)}
             </li>
           ))}
         </ul>
@@ -77,14 +80,14 @@ function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
   );
 
   if (dividido) {
-    return (
+    return envolver("tarjeta", (
       <div className={`${CLASE_TARJETA} grid grid-cols-1 items-center gap-6 @xl:grid-cols-2`}>
         {mapa}
         <div className={`flex flex-col gap-4 ${CLASE_ALINEAR}`}>{datos}</div>
       </div>
-    );
+    ));
   }
-  return <div className={`${CLASE_TARJETA} flex flex-col gap-4 ${CLASE_ALINEAR}`}>{datos}</div>;
+  return envolver("tarjeta", <div className={`${CLASE_TARJETA} flex flex-col gap-4 ${CLASE_ALINEAR}`}>{datos}</div>);
 }
 
 export function seccion(modulo: ModuloBorrador, _indice: number, contexto: ContextoPublico): SeccionPublica | null {

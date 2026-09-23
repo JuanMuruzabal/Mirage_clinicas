@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "id": "nutricion-calido-dinamico",
+  "nombre": "Nutrición · Cálido dinámico",
+  "rubro": "nutricion",
+  "estilo": "calido-dinamico",
+  "descripcion": "Una página luminosa y cercana, con ritmo moderno y mensajes fáciles de recorrer.",
+  "tema": "calido",
+  "temaVariante": "calido-3",
+  "temaTipografia": "redondeada-calida",
+  "temaTokens": {
+    "forma": "redonda",
+    "densidad": "comoda",
+    "superficie": "elevada",
+    "fondo": "degrade",
+    "boton": "pastilla",
+    "botonEstilo": "relleno",
+    "menu": "pastillas",
+    "portada": "minima",
+    "fondoAnimado": "degrade-respira"
+  },
+  "estiloMovimiento": "dinamico",
+  "bio": "Te acompañamos a descubrir una alimentación flexible y posible, con herramientas que podés llevar a tu día a día.",
+  "fotoPortadaUrl": "",
+  "redes": {},
+  "mostrarMapa": false,
+  "direccionOverride": "",
+  "nombreSobrePortada": false,
+  "nombreColor": "",
+  "modulos": [
+    {
+      "tipo": "sobre_nosotros",
+      "visible": true,
+      "config": {
+        "variante": "dos-columnas",
+        "fondoSeccion": "normal",
+        "alineacion": "izquierda",
+        "efectos": {
+          "titulo": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "servicios",
+      "visible": true,
+      "config": {
+        "nombres": [],
+        "variante": "tarjetas",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "inclinacion", "intensidad": "sutil" },
+          "titulo": { "id": "subrayado", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "equipo",
+      "visible": true,
+      "config": {
+        "modo": "todos",
+        "mostrarNombre": true,
+        "mostrarDescripcion": true,
+        "variante": "foto-descripcion",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "inclinacion", "intensidad": "sutil" },
+          "imagen": { "id": "reflejo", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "horarios",
+      "visible": true,
+      "config": {
+        "variante": "compacto",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "preguntas_frecuentes",
+      "visible": true,
+      "config": {
+        "preguntas": [
+          {
+            "pregunta": "¿El plan de alimentación es personalizado?",
+            "respuesta": "Sí. Se conversa en conjunto y se ajusta a tus preferencias, rutina y objetivos."
+          },
+          {
+            "pregunta": "¿Puedo hacer consultas virtuales?",
+            "respuesta": "Consultá con el equipo qué modalidades están disponibles para tu atención."
+          }
+        ],
+        "fondoSeccion": "acento",
+        "alineacion": "izquierda",
+        "efectos": {
+          "tarjeta": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "texto": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "obras_sociales",
+      "visible": true,
+      "config": {
+        "coberturas": [],
+        "consultaPorOtras": false,
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "aparicion-suave", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "llamado_accion",
+      "visible": true,
+      "config": {
+        "texto": "Empezá con una consulta y conversemos sobre lo que querés mejorar.",
+        "etiquetaBoton": "Coordinar una consulta",
+        "destino": "turno",
+        "fondoSeccion": "acento",
+        "alineacion": "centro",
+        "efectos": {
+          "texto": { "id": "deslizar-suave", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    },
+    {
+      "tipo": "contacto",
+      "visible": true,
+      "config": {
+        "variante": "dividido",
+        "fondoSeccion": "normal",
+        "alineacion": "centro",
+        "efectos": {
+          "tarjeta": { "id": "inclinacion", "intensidad": "sutil" },
+          "boton": { "id": "borde-estrella", "intensidad": "sutil" }
+        }
+      }
+    }
+  ],
+  "textosEjemplo": [
+    { "ruta": "bio", "valor": "Te acompañamos a descubrir una alimentación flexible y posible, con herramientas que podés llevar a tu día a día.", "etiqueta": "Presentación de la clínica" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿El plan de alimentación es personalizado?", "etiqueta": "Pregunta frecuente" },
+    { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Sí. Se conversa en conjunto y se ajusta a tus preferencias, rutina y objetivos.", "etiqueta": "Respuesta frecuente" },
+    { "ruta": "modulos.llamado_accion.config.texto", "valor": "Empezá con una consulta y conversemos sobre lo que querés mejorar.", "etiqueta": "Mensaje de contacto" },
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Coordinar una consulta", "etiqueta": "Texto del botón" }
+  ]
+}

@@ -6,6 +6,7 @@ import { esUrlDeFotoSegura } from "@/lib/pagina-publica/enlaces";
 import { modulosPorDefecto } from "@/lib/pagina-publica/modulos";
 import { colorDeNombre, type ColorNombre } from "@/lib/pagina-publica/portada";
 import { estiloDeTema } from "@/lib/temas-pagina-publica/aplicar";
+import { EfectoSlot } from "@dental-mirage/prisma-engine";
 import { PedirTurnoButton } from "./pedir-turno-button";
 import { MisTurnosButton } from "./mis-turnos-button";
 import { seccionDeModulo, type SeccionPublica } from "./modulos-publicos";
@@ -260,7 +261,7 @@ export function ClinicaPublicaTemplate({
   const menu = MENU[tema.tokens.menu];
 
   const secciones = c.modulos
-    .map((m, i) => seccionDeModulo(m, i, { nombreClinica, telefono, especialidades, contenido: c }))
+    .map((m, i) => seccionDeModulo(m, i, { slug, nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento }))
     .filter((s): s is SeccionPublica => s !== null);
   const linksDelMenu = secciones.filter((s) => s.etiqueta !== null);
 
@@ -268,8 +269,9 @@ export function ClinicaPublicaTemplate({
     // pp-raiz: los defaults de los tokens de diseño (globals.css, PE-2). El
     // style del tema los pisa en este MISMO elemento — ver el comentario de
     // `.pp-raiz` sobre por qué tiene que ser el mismo.
-    <div className={`pp-raiz ${tema.className}`} style={tema.style}>
-      <div className="flex flex-col gap-(--pp-espacio-pagina) bg-[var(--pp-fondo,#e7f2f7)] [background-image:var(--pp-fondo-imagen)] [background-size:var(--pp-fondo-tamano)] px-6 py-16">
+    <div className={`pp-raiz ${tema.className}`} style={tema.style} data-pp-movimiento={tema.tokens.movimiento}>
+      <EfectoSlot id={tema.tokens.fondoAnimado === "ninguno" ? undefined : tema.tokens.fondoAnimado} intensidad="media">
+      <div className="pp-fondo-vivo__base flex flex-col gap-(--pp-espacio-pagina) bg-[var(--pp-fondo,#e7f2f7)] [background-image:var(--pp-fondo-imagen)] [background-size:var(--pp-fondo-tamano)] px-6 py-16">
         <Portada
           variante={tema.tokens.portada}
           foto={portada}
@@ -330,6 +332,7 @@ export function ClinicaPublicaTemplate({
           </div>
         )}
       </div>
+      </EfectoSlot>
     </div>
   );
 }

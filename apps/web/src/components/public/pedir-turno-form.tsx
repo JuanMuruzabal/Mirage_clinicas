@@ -33,6 +33,7 @@ interface PedirTurnoFormProps {
   slug: string;
   nombreClinica: string;
   telefonoClinica?: string | null;
+  tipoConsultaInicial?: string;
   /**
    * Qué trae el link, cuando el wizard se abrió con uno (Fase 3.2.7b).
    *
@@ -275,7 +276,7 @@ function borrarEstadoGuardado(slug: string) {
 // del doc separa país y número local — antes era un solo input de texto
 // libre). El turno sigue naciendo `agendado`, con horario fijo, de punta
 // a punta.
-export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, enlaceToken, enlaceInfo }: PedirTurnoFormProps) {
+export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsultaInicial, onClose, enlaceToken, enlaceInfo }: PedirTurnoFormProps) {
   // estadoInicial — se lee UNA sola vez (useState solo evalúa el
   // inicializador en el primer render), ver el comentario grande de
   // leerEstadoGuardado/PEDIR_TURNO_VENTANA_RESUMEN_MS arriba.
@@ -341,7 +342,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
   const [pacienteNoEncontrado, setPacienteNoEncontrado] = useState(false);
 
   const [tipos, setTipos] = useState<TipoConsultaPublico[]>([]);
-  const [tipoNombre, setTipoNombre] = useState(() => estadoInicial?.tipoNombre ?? "");
+  const [tipoNombre, setTipoNombre] = useState(() => estadoInicial?.tipoNombre ?? tipoConsultaInicial ?? "");
   // Quiénes atienden el tipo elegido (Fase 3.2.7). La lista se vuelve a
   // pedir cada vez que cambia el tipo: no todos atienden todo.
   const [profesionales, setProfesionales] = useState<ProfesionalPublico[]>([]);
@@ -480,12 +481,15 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, onClose, 
       // de un tipo guardado en localStorage que el profesional borró
       // mientras tanto — si ya no está en la lista fresca, se descarta en
       // vez de dejar el <select> apuntando a algo que no existe.
-      setTipoNombre((actual) => (actual && lista.some((t) => t.nombre === actual) ? actual : (lista[0]?.nombre ?? "")));
+      setTipoNombre((actual) => {
+        if (tipoConsultaInicial && lista.some((t) => t.nombre === tipoConsultaInicial)) return tipoConsultaInicial;
+        return actual && lista.some((t) => t.nombre === actual) ? actual : (lista[0]?.nombre ?? "");
+      });
     });
     return () => {
       activo = false;
     };
-  }, [slug, enlaceToken]);
+  }, [slug, enlaceToken, tipoConsultaInicial]);
 
   // Quiénes atienden el tipo elegido (Fase 3.2.7) — se vuelve a pedir con
   // cada cambio de tipo, porque no todos atienden todo.
