@@ -41,7 +41,7 @@ Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalizació
 | PE-5 | Fondos tranquilos y texto avanzado | ✅ (PR #57, junto con PE-4) |
 | PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ✅ (PR #58, junto con PE-7) |
 | PE-7 | Plantillas y presets | ✅ (PR #58, junto con PE-6) |
-| PE-9 | SEO, compartir y rendimiento | 🔄 `feature/pe-9-seo-rendimiento` (sin la 4.6) |
+| PE-9 | SEO, compartir y rendimiento | ✅ (PR #59, sin la 4.6) |
 | Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
 
 **PE-1, lo único deliberadamente afuera:** `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo. Es infraestructura para cuando un PR FUTURO cambie la forma de un módulo — se suma en el primer PR que de verdad la necesite (PE-2 en adelante), no antes.
@@ -296,7 +296,7 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
-**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) efectos y fondos (PE-4+5), y módulos del rubro + plantillas (PE-6+7) ya están en `dev`. PE-9 (SEO, compartir y rendimiento) está en `feature/pe-9-seo-rendimiento`; queda la Fase 4.6 (storage R2), más los pendientes sueltos de PE-8 y el `schema_version` de PE-1, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
+**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) efectos y fondos (PE-4+5), y módulos del rubro + plantillas (PE-6+7) ya están en `dev`. PE-9 (SEO, compartir y rendimiento, PR #59) también; queda la Fase 4.6 (storage R2), más los pendientes sueltos de PE-8 y el `schema_version` de PE-1, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
 
 ## Flujo de ramas
 
