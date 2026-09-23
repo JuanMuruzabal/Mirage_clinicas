@@ -1,6 +1,12 @@
-# Optimización post-Fase 3 — caché, goroutines y colas en el panel
+# Optimización post-Fase 3 — caché, goroutines y colas
 
-**Fecha:** 2026-09-22 · **Alcance:** `/panel` (tablero, turnos, pacientes, calendario), backend y BFF.
+**Fechas:** 2026-09-22 y 23 · **Alcance:** el panel (tablero, turnos, pacientes, calendario), el wizard público, backend y BFF · **Decisiones:** TR-161 y TR-162, con sus addenda; la fuga de privacidad, como addendum de TR-147.
+
+Tres partes, en el orden en que se pidieron:
+
+1. **El panel multi-tenant** — caché, memcache, goroutines y colas, uno por uno (abajo, hasta "Cómo volver a medir").
+2. **Concurrencia** — varias clínicas y varios empleados a la vez: lo que cuesta cada persona por minuto sin hacer nada.
+3. **El wizard público, y una revisión de todo lo anterior** — incluida una fuga de privacidad que no se veía en pantalla, y dos endurecimientos de aislamiento que quedaron hechos.
 
 Ronda pedida como tal: *"quiero ver en qué partes del código puedo hacer uso de caché, memcache, goroutines y colas para mejorar la latencia"*. Este documento responde esa pregunta con mediciones, dice qué se aplicó y —igual de importante— qué **no**, y bajo qué condición valdría la pena.
 

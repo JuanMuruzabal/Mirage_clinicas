@@ -714,7 +714,7 @@ Documentos, en `docs/Seguridad y optimizacion/`:
 | `radiografia-tecnica_1.md` | **El diagnóstico** — primera radiografía (`_1`), módulo por módulo. Qué está bien, qué está mal, el plan de acción en 3 fases, y el registro de cada ronda de arreglos (§13 paginación, §14 deadlock, §15 revisión de la Fase A). |
 | `como-se-arreglo-cada-cosa.md` | **La guía de estudio** — el porqué de cada decisión, las alternativas descartadas, y los bugs que introdujo el propio trabajo de la auditoría. |
 
-Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**.
+Decisiones de arquitectura de esta línea de trabajo: `docs/Arquitectura y base/tradeoffs.md` **TR-121 a TR-132**, y **TR-161** y **TR-162** para la ronda post-Fase 3 (§12.5).
 
 ### 12.1 Fase A — riesgos inmediatos (cerrada)
 
@@ -761,7 +761,7 @@ Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y o
 
 ### 12.5 Ronda de optimización post-Fase 3 (2026-09-22)
 
-Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161.
+Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161 y TR-162, con sus addenda; la fuga de privacidad del wizard, como addendum de TR-147.
 
 | | Veredicto |
 |---|---|

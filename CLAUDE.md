@@ -130,8 +130,8 @@ Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas pe
 
 - `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — el diagnóstico (primera radiografía, de ahí el `_1`), el plan de acción en Fases A/B/C, y el registro de cada ronda de arreglos.
 - `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- `docs/Seguridad y optimizacion/optimizacion-post-fase3.md` — la ronda de optimización del panel multi-tenant (2026-09-22): qué se midió, qué se aplicó y qué se descartó de caché/memcache/goroutines/colas, con los números.
-- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132. Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
+- `docs/Seguridad y optimizacion/optimizacion-post-fase3.md` — la ronda de optimización y revisión post-Fase 3 (2026-09-22/23), en tres partes: el panel multi-tenant, la concurrencia (varias clínicas y empleados a la vez) y el wizard público con una revisión de aislamiento. Qué se midió y cómo, qué se aplicó de caché/memcache/goroutines/colas y qué se descartó, con los números.
+- Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132, y TR-161 y TR-162 para la ronda post-Fase 3 (la fuga de privacidad del wizard que encontró esa revisión va como addendum de TR-147, que es su causa). Plan por fases: `implementation-plan.md` §12. Resumen: `dental-mirage-spec.md` §12.
 
 **Fases A y B cerradas (2026-09-09).** Lo que hay que tener presente al escribir código nuevo:
 
