@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VerTextoBoton } from "./ver-texto-boton";
 
@@ -82,5 +82,30 @@ describe("VerTextoBoton", () => {
     render(<VerTextoBoton titulo="Email" texto="alguien@example.com" />);
     expect(screen.getByRole("button", { name: "Ver email" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /→/ })).not.toBeInTheDocument();
+  });
+
+  // Contactos principales (2026-09-23): "en los botones 'ver mails' o
+  // 'ver teléfonos' debería también tener un indicador visual de cuál es
+  // el principal".
+  it("con `principal`, muestra la lista y marca solo al principal", async () => {
+    const user = userEvent.setup();
+    render(<VerTextoBoton titulo="Mails" texto={"a@example.com\nb@example.com\nb@example.com"} principal="b@example.com" />);
+
+    await user.click(screen.getByRole("button", { name: "Ver mails" }));
+    const items = within(screen.getByRole("dialog")).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    expect(within(items[0]).queryByText("Principal")).not.toBeInTheDocument();
+    expect(within(items[1]).getByText("Principal")).toBeInTheDocument();
+    // Un dato repetido lleva una sola marca.
+    expect(within(items[2]).queryByText("Principal")).not.toBeInTheDocument();
+  });
+
+  it("sin `principal` el texto sale tal cual, sin marca", async () => {
+    const user = userEvent.setup();
+    render(<VerTextoBoton titulo="Mails" texto={"a@example.com\nb@example.com"} principal={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Ver mails" }));
+    expect(screen.queryByText("Principal")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).queryByRole("list")).not.toBeInTheDocument();
   });
 });

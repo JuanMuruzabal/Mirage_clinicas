@@ -1647,6 +1647,19 @@ export interface EditarPacientePayload {
   dni: string;
   telefono: string;
   email?: string;
+  // Contactos principales (2026-09-23): la lista COMPLETA de alternativos,
+  // no un agregado — ausente es "no tocar", `[]` es "borrar todos".
+  // Promover uno es mandarlo como principal y el viejo en la lista.
+  emailsAlternativos?: string[];
+  telefonosAlternativos?: string[];
+  // Los tutores que se editan, cada uno por su id (tienen que ser de
+  // ESTA ficha). Un tutor tiene un solo mail: es su identidad (TR-116).
+  tutores?: {
+    id: string;
+    email: string;
+    telefono: string;
+    telefonosAlternativos: string[];
+  }[];
 }
 
 // Corrige DNI/teléfono/email de la ficha del paciente (2026-08-23, "por si

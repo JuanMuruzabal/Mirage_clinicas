@@ -22,6 +22,24 @@ import (
 // ficha VERIFICADA (con un turno resuelto/asistido) y una segunda ficha
 // `EnConflicto=true` con el mismo DNI pero otro mail, más el turno que
 // disparó el conflicto y la fila de ConflictoPaciente sin resolver.
+// principalesDeLaFicha relee el mail y el teléfono principales de una
+// ficha ("" si no tiene).
+func principalesDeLaFicha(t *testing.T, gdb *gorm.DB, id uuid.UUID) (string, string) {
+	t.Helper()
+	var p db.Paciente
+	if err := gdb.First(&p, "id = ?", id).Error; err != nil {
+		t.Fatalf("no se pudo releer la ficha: %v", err)
+	}
+	email, telefono := "", ""
+	if p.Email != nil {
+		email = *p.Email
+	}
+	if p.Telefono != nil {
+		telefono = *p.Telefono
+	}
+	return email, telefono
+}
+
 func crearConflictoPacienteDePrueba(t *testing.T, gdb *gorm.DB, profesionalID, tipoConsultaID, dni, mailVerificado, mailEnConflicto string) (db.Paciente, db.Paciente, db.Turno, db.ConflictoPaciente) {
 	t.Helper()
 	pid, err := uuid.Parse(profesionalID)
@@ -225,9 +243,8 @@ func TestResolverConflictoPaciente_EsVerificadoConTipoYaActivoNoMigraCancela(t *
 
 	// El mail sí se migra igual — la persona SÍ es la misma, lo único
 	// que no se migra es el turno duplicado.
-	var alt db.PacienteEmailAlternativo
-	if err := gdb.Where("paciente_id = ? AND email = ?", verificado.ID, "otro@example.com").First(&alt).Error; err != nil {
-		t.Errorf("esperaba un PacienteEmailAlternativo aunque el turno no se haya migrado: %v", err)
+	if email, _ := principalesDeLaFicha(t, gdb, verificado.ID); email != "otro@example.com" {
+		t.Errorf("el mail nuevo debería ser el principal aunque el turno no se haya migrado, principal=%q", email)
 	}
 
 	var count int64
@@ -247,6 +264,10 @@ func TestResolverConflictoPaciente_EsVerificadoConTipoYaActivoNoMigraCancela(t *
 // entera queda abortada y
 // cualquier query posterior sobre ella también falla (25P02). Tiene que
 // resolverse igual (200), sin duplicar la fila alternativa.
+//
+// Desde 2026-09-23 el dato nuevo pasa a ser el PRINCIPAL: si ya estaba
+// entre los alternativos, sale de ahí — un mismo dato nunca está en los
+// dos lados a la vez.
 func TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoFalla(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
@@ -275,14 +296,18 @@ func TestResolverConflictoPaciente_EsVerificadoConMailYTelefonoYaAlternativosNoF
 		t.Errorf("turno.PacienteID = %v, esperaba %q (el verificado)", turnoActualizado.PacienteID, verificado.ID)
 	}
 
+	email, telefono := principalesDeLaFicha(t, gdb, verificado.ID)
+	if email != *enConflicto.Email || telefono != *enConflicto.Telefono {
+		t.Errorf("principales = %q / %q, esperaba los de la ficha en conflicto %q / %q", email, telefono, *enConflicto.Email, *enConflicto.Telefono)
+	}
 	var cantidadEmails, cantidadTelefonos int64
 	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ? AND email = ?", verificado.ID, *enConflicto.Email).Count(&cantidadEmails)
-	if cantidadEmails != 1 {
-		t.Errorf("cantidad de PacienteEmailAlternativo = %d, esperaba 1 (sin duplicar)", cantidadEmails)
+	if cantidadEmails != 0 {
+		t.Errorf("el mail promovido sigue en los alternativos (count=%d)", cantidadEmails)
 	}
 	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ? AND telefono = ?", verificado.ID, *enConflicto.Telefono).Count(&cantidadTelefonos)
-	if cantidadTelefonos != 1 {
-		t.Errorf("cantidad de PacienteTelefonoAlternativo = %d, esperaba 1 (sin duplicar)", cantidadTelefonos)
+	if cantidadTelefonos != 0 {
+		t.Errorf("el teléfono promovido sigue en los alternativos (count=%d)", cantidadTelefonos)
 	}
 }
 
@@ -393,11 +418,10 @@ func TestResolverConflictoPaciente_MismoDatoDeContactoParaDosPacientesDistintosN
 		t.Fatalf("resolver conflicto 2 (mismo mail/teléfono que el 1, paciente DISTINTO): status = %d, esperaba %d. body=%s", rec2.Code, http.StatusOK, rec2.Body.String())
 	}
 
-	var cantidadMail1, cantidadMail2 int64
-	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ? AND email = ?", verificado1.ID, mailRepetido).Count(&cantidadMail1)
-	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ? AND email = ?", verificado2.ID, mailRepetido).Count(&cantidadMail2)
-	if cantidadMail1 != 1 || cantidadMail2 != 1 {
-		t.Errorf("cada paciente debería tener su propio PacienteEmailAlternativo con el mismo mail, got %d y %d", cantidadMail1, cantidadMail2)
+	mail1, _ := principalesDeLaFicha(t, gdb, verificado1.ID)
+	mail2, _ := principalesDeLaFicha(t, gdb, verificado2.ID)
+	if mail1 != mailRepetido || mail2 != mailRepetido {
+		t.Errorf("cada paciente debería tener el mismo mail como principal, got %q y %q", mail1, mail2)
 	}
 
 	var cantidadTel1, cantidadTel2 int64
@@ -569,8 +593,10 @@ func TestListConflictosPaciente_RequiereAutenticacion(t *testing.T) {
 }
 
 // TestResolverConflictoPaciente_EsVerificado — "el mail es de la persona
-// verificada": el turno se reasigna a la ficha verificada, su mail queda
-// disponible como alternativo, y la ficha en conflicto desaparece.
+// verificada": el turno se reasigna a la ficha verificada, el mail y el
+// teléfono nuevos pasan a ser los PRINCIPALES (pedido del cliente,
+// 2026-09-23) y los de antes bajan a alternativos, y la ficha en conflicto
+// desaparece.
 func TestResolverConflictoPaciente_EsVerificado(t *testing.T) {
 	gdb := testdb.New(t)
 	router := NewRouter(gdb, "un-secret", []string{"http://localhost:3000"})
@@ -596,9 +622,17 @@ func TestResolverConflictoPaciente_EsVerificado(t *testing.T) {
 		t.Errorf("la ficha en conflicto debería haberse borrado, count=%d", count)
 	}
 
-	var alternativo db.PacienteEmailAlternativo
-	if err := gdb.Where("paciente_id = ? AND email = ?", verificado.ID, "otro@example.com").First(&alternativo).Error; err != nil {
-		t.Errorf("esperaba un PacienteEmailAlternativo con el mail de la ficha en conflicto: %v", err)
+	email, telefono := principalesDeLaFicha(t, gdb, verificado.ID)
+	if email != "otro@example.com" || telefono != *enConflicto.Telefono {
+		t.Errorf("principales = %q / %q, esperaba los de la ficha en conflicto %q / %q", email, telefono, "otro@example.com", *enConflicto.Telefono)
+	}
+	// Los de antes no se pierden: bajan a la lista de alternativos, y la
+	// ficha sigue reconociendo a la persona por cualquiera de los dos.
+	var mailViejo, telViejo int64
+	gdb.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ? AND email = ?", verificado.ID, "bruno@example.com").Count(&mailViejo)
+	gdb.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ? AND telefono = ?", verificado.ID, *verificado.Telefono).Count(&telViejo)
+	if mailViejo != 1 || telViejo != 1 {
+		t.Errorf("el mail y el teléfono de antes deberían quedar como alternativos, got mail=%d tel=%d", mailViejo, telViejo)
 	}
 
 	var conflictoActualizado db.ConflictoPaciente

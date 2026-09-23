@@ -37,8 +37,14 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
   // primero, seguido de los alternativos migrados por una resolución de
   // conflicto anterior. Con más de uno, se agrupan detrás del botón; con
   // uno solo, se muestra igual que siempre.
-  const todosLosMails = [paciente.email, ...emailsAlternativos].filter((m): m is string => Boolean(m));
-  const todosLosTelefonos = [paciente.telefono, ...telefonosAlternativos].filter((t): t is string => Boolean(t));
+  //
+  // Contactos principales (2026-09-23): "Editar datos" ahora SÍ cambia la
+  // lista, y la respuesta del PATCH la trae — manda la del estado, y los
+  // props quedan como respaldo para un paciente que no los traiga.
+  const mailsAlt = paciente.emailsAlternativos ?? emailsAlternativos;
+  const telefonosAlt = paciente.telefonosAlternativos ?? telefonosAlternativos;
+  const todosLosMails = [paciente.email, ...mailsAlt].filter((m): m is string => Boolean(m));
+  const todosLosTelefonos = [paciente.telefono, ...telefonosAlt].filter((t): t is string => Boolean(t));
 
   return (
     <>
@@ -56,7 +62,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
           label="Teléfono"
           valor={
             todosLosTelefonos.length > 1 ? (
-              <VerTextoBoton titulo="Teléfonos" texto={todosLosTelefonos.join("\n")} />
+              <VerTextoBoton titulo="Teléfonos" texto={todosLosTelefonos.join("\n")} principal={paciente.telefono} />
             ) : (
               todosLosTelefonos[0] || "—"
             )
@@ -82,7 +88,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
           label="Email"
           valor={
             todosLosMails.length > 1 ? (
-              <VerTextoBoton titulo="Mails" texto={todosLosMails.join("\n")} />
+              <VerTextoBoton titulo="Mails" texto={todosLosMails.join("\n")} principal={paciente.email} />
             ) : textoEsLargo(todosLosMails[0]) ? (
               <VerTextoBoton titulo="Email" texto={todosLosMails[0]!} />
             ) : (
@@ -129,7 +135,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
             const apellidoTutor = restoTutor.join(" ");
             return (
               <div
-                key={`${tutor.email}-${i}`}
+                key={tutor.id || `${tutor.email}-${i}`}
                 className={`flex items-start gap-3 py-3 ${i > 0 ? "border-t-[0.5px] border-arena" : ""}`}
               >
                 <AvatarIniciales nombre={nombreTutor} apellido={apellidoTutor} />
@@ -152,6 +158,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
                         <VerTextoBoton
                           titulo="Teléfonos del tutor"
                           texto={[tutor.telefono, ...tutor.telefonosAlternativos].filter(Boolean).join("\n")}
+                          principal={tutor.telefono}
                         />
                       ) : (
                         tutor.telefono || "—"

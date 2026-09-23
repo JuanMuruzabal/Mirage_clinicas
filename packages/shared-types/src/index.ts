@@ -876,6 +876,10 @@ export interface ConflictoRevisionPagina {
 // TutorInfo — un tutor conocido/confirmado de un paciente (Fase 2.4.2,
 // ver PacienteTutor en apps/api/internal/db/models.go).
 export interface TutorInfo {
+  // id — para editar a ESTE tutor desde la ficha (contactos principales,
+  // 2026-09-23): el mail, que es su identidad, ahora se puede corregir,
+  // así que no sirve para señalarlo.
+  id: string;
   relacion: string;
   nombre: string;
   telefono: string;

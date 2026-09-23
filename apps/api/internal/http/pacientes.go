@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -89,6 +90,10 @@ type profesionalDePacienteResponse struct {
 // 2026-09-06, pedido textual del cliente: "no es tan útil y agrega
 // complejidad") — eliminado del todo de PacienteTutor.
 type tutorResponse struct {
+	// ID — para poder editar a ESTE tutor desde la ficha (contactos
+	// principales, 2026-09-23). Hace falta porque el mail, que es su
+	// identidad, ahora se puede corregir: no sirve para señalarlo.
+	ID       string `json:"id"`
 	Relacion string `json:"relacion"`
 	Nombre   string `json:"nombre"`
 	Telefono string `json:"telefono"`
@@ -103,7 +108,8 @@ type tutorResponse struct {
 }
 
 func toTutorResponse(t db.PacienteTutor, telefonosAlt []string) tutorResponse {
-	return tutorResponse{Relacion: t.Relacion, Nombre: t.Nombre, Telefono: t.Telefono, Email: t.Email, TelefonosAlternativos: telefonosAlt}
+	return tutorResponse{
+		ID: t.ID.String(), Relacion: t.Relacion, Nombre: t.Nombre, Telefono: t.Telefono, Email: t.Email, TelefonosAlternativos: telefonosAlt}
 }
 
 func toPacienteResponse(p db.Paciente, verificado bool, tutores []db.PacienteTutor, emailsAlt, telefonosAlt []string, tutorTelAlt map[uuid.UUID][]string) pacienteResponse {
@@ -411,24 +417,10 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		var emailsAlt []db.PacienteEmailAlternativo
-		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at").Find(&emailsAlt).Error; err != nil {
+		emailsOut, telsOut, err := alternativosDeContactoDePaciente(gdb, pacienteID)
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
 			return
-		}
-		emailsOut := make([]string, len(emailsAlt))
-		for i, e := range emailsAlt {
-			emailsOut[i] = e.Email
-		}
-
-		var telsAlt []db.PacienteTelefonoAlternativo
-		if err := gdb.Where("paciente_id = ?", pacienteID).Order("created_at").Find(&telsAlt).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
-			return
-		}
-		telsOut := make([]string, len(telsAlt))
-		for i, t := range telsAlt {
-			telsOut[i] = t.Telefono
 		}
 
 		tutores, err := tutoresDePaciente(gdb, pacienteID)
@@ -449,10 +441,83 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
+// alternativosDeContactoDePaciente — los mails y teléfonos alternativos
+// de UNA ficha, en el orden en que se sumaron. Lo usan el GET y el PATCH
+// de la ficha, que tienen que devolver exactamente lo mismo.
+func alternativosDeContactoDePaciente(tx *gorm.DB, pacienteID uuid.UUID) ([]string, []string, error) {
+	var emails []string
+	if err := tx.Model(&db.PacienteEmailAlternativo{}).Where("paciente_id = ?", pacienteID).
+		Order("created_at").Pluck("email", &emails).Error; err != nil {
+		return nil, nil, err
+	}
+	var telefonos []string
+	if err := tx.Model(&db.PacienteTelefonoAlternativo{}).Where("paciente_id = ?", pacienteID).
+		Order("created_at").Pluck("telefono", &telefonos).Error; err != nil {
+		return nil, nil, err
+	}
+	return emails, telefonos, nil
+}
+
+// normalizarAlternativos — la lista de alternativos tal como se va a
+// guardar: sin vacíos, sin repetidos y sin el principal, que no es
+// "otro" mail o teléfono. Devuelve un mensaje si alguno tiene formato
+// inválido. Los mails van en minúscula, igual que el principal.
+func normalizarAlternativos(valores []string, principal string, sonMails bool) ([]string, string) {
+	vistos := map[string]bool{principal: true}
+	out := make([]string, 0, len(valores))
+	for _, v := range valores {
+		v = strings.TrimSpace(v)
+		if sonMails {
+			v = strings.ToLower(v)
+		}
+		if v == "" || vistos[v] {
+			continue
+		}
+		if sonMails {
+			if _, err := mail.ParseAddress(v); err != nil {
+				return nil, "el mail " + v + " no tiene un formato válido"
+			}
+		} else if !telefonoRegex.MatchString(v) {
+			return nil, "el teléfono " + v + " no tiene un formato válido"
+		}
+		vistos[v] = true
+		out = append(out, v)
+	}
+	return out, ""
+}
+
 type editarPacienteRequest struct {
 	DNI      string `json:"dni"`
 	Telefono string `json:"telefono"`
 	Email    string `json:"email"`
+	// Contactos principales y alternativos (2026-09-23). Punteros a
+	// slice, mismo criterio que `Modulos *[]moduloRequest`: `nil` es "no
+	// vino, no tocar" y `[]` es "borrar todos". Así este endpoint sigue
+	// sirviéndole a quien manda solo DNI, teléfono y mail.
+	//
+	// Son la lista COMPLETA de alternativos, no un agregado: la pantalla
+	// arma el estado final —editar, quitar, promover a principal— y se
+	// guarda de una vez, en una transacción. Promover es mandar el viejo
+	// principal en la lista y el alternativo como principal.
+	EmailsAlternativos    *[]string `json:"emailsAlternativos"`
+	TelefonosAlternativos *[]string `json:"telefonosAlternativos"`
+	// Tutores — los que se editan, cada uno por su id. Los que no vienen
+	// no se tocan. Cada id tiene que ser un tutor de ESTA ficha.
+	Tutores *[]editarTutorRequest `json:"tutores"`
+}
+
+// editarTutorRequest — el mail y los teléfonos de un tutor.
+//
+// Un tutor tiene UN mail y no una lista, a propósito: el mail es su
+// identidad (`idx_paciente_tutor` es único por paciente y mail) y un mail
+// nuevo en el wizard es un tutor nuevo — mamá y papá son dos tutores, no
+// uno con dos mails (TR-116). Lo que sí acumula son teléfonos
+// (`PacienteTutorTelefonoAlternativo`).
+type editarTutorRequest struct {
+	ID                    string   `json:"id"`
+	Email                 string   `json:"email"`
+	Telefono              string   `json:"telefono"`
+	TelefonosAlternativos []string `json:"telefonosAlternativos"`
 }
 
 // editarPacienteHandler — PATCH /pacientes/{id} (pedido explícito del
@@ -487,16 +552,6 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "el DNI debe tener 7 u 8 dígitos, sin puntos")
 			return
 		}
-		if !telefonoRegex.MatchString(req.Telefono) {
-			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
-			return
-		}
-		if req.Email != "" {
-			if _, err := mail.ParseAddress(req.Email); err != nil {
-				writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
-				return
-			}
-		}
 
 		var paciente db.Paciente
 		// 404 y no 403 si la ficha es de un colega: que exista no es
@@ -507,25 +562,183 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		paciente.DNI = req.DNI
-		paciente.Telefono = &req.Telefono
-		if req.Email != "" {
-			paciente.Email = &req.Email
-		} else {
-			paciente.Email = nil
+		// MAIL Y TELÉFONO OBLIGATORIOS SALVO QUE TENGA TUTOR — la misma
+		// regla que el alta (TR-147). Una ficha manual sin mail es
+		// irreconocible para siempre (`pacienteEstaVerificado` la da por
+		// verificada y `pacienteRespondeAlMail` no tiene contra qué
+		// comparar), así que vaciarlo desde acá recreaba el problema que
+		// TR-147 cerró en el alta. Con tutor, la identidad la aporta el
+		// tutor y el paciente puede no tener ni mail ni teléfono propios.
+		//
+		// Hasta el 2026-09-23 este endpoint exigía el teléfono SIEMPRE:
+		// editar a un paciente con tutor y sin teléfono propio fallaba.
+		var cantidadTutores int64
+		if err := gdb.Model(&db.PacienteTutor{}).Where("paciente_id = ?", paciente.ID).
+			Count(&cantidadTutores).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			return
 		}
+		conTutor := cantidadTutores > 0
 
-		if err := gdb.Save(&paciente).Error; err != nil {
-			// Extra 2.3.5 (E5.1): el DNI ahora es único por clínica — corregir
-			// la ficha de un paciente hacia un DNI que ya usa otro paciente
-			// tiene que dar un error legible en el modal, nunca un 500 crudo
-			// (mismo criterio que writeTurnoAgendadoError con el solapamiento
-			// de horario en turnos.go).
-			if isUniqueViolation(err) {
-				writeError(w, http.StatusConflict, "ya existe otro paciente con ese DNI")
+		if req.Telefono == "" && !conTutor {
+			writeError(w, http.StatusBadRequest, "el teléfono es obligatorio")
+			return
+		}
+		if req.Telefono != "" && !telefonoRegex.MatchString(req.Telefono) {
+			writeError(w, http.StatusBadRequest, "el teléfono no tiene un formato válido")
+			return
+		}
+		if req.Email == "" && !conTutor {
+			writeError(w, http.StatusBadRequest, "el mail es obligatorio")
+			return
+		}
+		if req.Email != "" {
+			if _, err := mail.ParseAddress(req.Email); err != nil {
+				writeError(w, http.StatusBadRequest, "el email no tiene un formato válido")
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+		}
+
+		// Los alternativos, normalizados: sin vacíos, sin repetidos y sin el
+		// principal (que no es "otro" teléfono). Cada uno con el mismo
+		// formato que el principal.
+		var emailsAlt, telefonosAlt []string
+		if req.EmailsAlternativos != nil {
+			var msg string
+			if emailsAlt, msg = normalizarAlternativos(*req.EmailsAlternativos, req.Email, true); msg != "" {
+				writeError(w, http.StatusBadRequest, msg)
+				return
+			}
+			if len(emailsAlt) > 0 && req.Email == "" {
+				writeError(w, http.StatusBadRequest, "si tiene más de un mail, uno tiene que ser el principal")
+				return
+			}
+		}
+		if req.TelefonosAlternativos != nil {
+			var msg string
+			if telefonosAlt, msg = normalizarAlternativos(*req.TelefonosAlternativos, req.Telefono, false); msg != "" {
+				writeError(w, http.StatusBadRequest, msg)
+				return
+			}
+			if len(telefonosAlt) > 0 && req.Telefono == "" {
+				writeError(w, http.StatusBadRequest, "si tiene más de un teléfono, uno tiene que ser el principal")
+				return
+			}
+		}
+
+		// Los tutores: mail y teléfono obligatorios, igual que en el alta.
+		type tutorAEditar struct {
+			id           uuid.UUID
+			email        string
+			telefono     string
+			telefonosAlt []string
+		}
+		var tutoresAEditar []tutorAEditar
+		if req.Tutores != nil {
+			for _, t := range *req.Tutores {
+				id, err := uuid.Parse(strings.TrimSpace(t.ID))
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "id de tutor inválido")
+					return
+				}
+				email := strings.TrimSpace(strings.ToLower(t.Email))
+				if _, err := mail.ParseAddress(email); err != nil || email == "" {
+					writeError(w, http.StatusBadRequest, "el mail del tutor no tiene un formato válido")
+					return
+				}
+				telefono := strings.TrimSpace(t.Telefono)
+				if !telefonoRegex.MatchString(telefono) {
+					writeError(w, http.StatusBadRequest, "el teléfono del tutor no tiene un formato válido")
+					return
+				}
+				alts, msg := normalizarAlternativos(t.TelefonosAlternativos, telefono, false)
+				if msg != "" {
+					writeError(w, http.StatusBadRequest, msg)
+					return
+				}
+				tutoresAEditar = append(tutoresAEditar, tutorAEditar{id, email, telefono, alts})
+			}
+		}
+
+		paciente.DNI = req.DNI
+		paciente.Telefono = nil
+		if req.Telefono != "" {
+			paciente.Telefono = &req.Telefono
+		}
+		paciente.Email = nil
+		if req.Email != "" {
+			paciente.Email = &req.Email
+		}
+
+		// Todo en UNA transacción: el estado final que armó la pantalla se
+		// guarda entero o no se guarda. Un guardado a medias dejaría, por
+		// ejemplo, el alternativo promovido duplicado con el principal.
+		errTutorAjeno := errors.New("tutor ajeno")
+		err = gdb.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&paciente).Error; err != nil {
+				return err
+			}
+			if req.EmailsAlternativos != nil {
+				if err := tx.Where("paciente_id = ?", paciente.ID).Delete(&db.PacienteEmailAlternativo{}).Error; err != nil {
+					return err
+				}
+				for _, e := range emailsAlt {
+					if err := tx.Create(&db.PacienteEmailAlternativo{PacienteID: paciente.ID, Email: e}).Error; err != nil {
+						return err
+					}
+				}
+			}
+			if req.TelefonosAlternativos != nil {
+				if err := tx.Where("paciente_id = ?", paciente.ID).Delete(&db.PacienteTelefonoAlternativo{}).Error; err != nil {
+					return err
+				}
+				for _, t := range telefonosAlt {
+					if err := tx.Create(&db.PacienteTelefonoAlternativo{PacienteID: paciente.ID, Telefono: t}).Error; err != nil {
+						return err
+					}
+				}
+			}
+			for _, t := range tutoresAEditar {
+				// El tutor tiene que ser de ESTA ficha — que ya pasó por
+				// soloMisPacientes. Un id de tutor de otra ficha no existe
+				// para este request.
+				res := tx.Model(&db.PacienteTutor{}).
+					Where("id = ? AND paciente_id = ?", t.id, paciente.ID).
+					Updates(map[string]any{"email": t.email, "telefono": t.telefono})
+				if res.Error != nil {
+					return res.Error
+				}
+				if res.RowsAffected == 0 {
+					return errTutorAjeno
+				}
+				if err := tx.Where("paciente_tutor_id = ?", t.id).Delete(&db.PacienteTutorTelefonoAlternativo{}).Error; err != nil {
+					return err
+				}
+				for _, tel := range t.telefonosAlt {
+					if err := tx.Create(&db.PacienteTutorTelefonoAlternativo{PacienteTutorID: t.id, Telefono: tel}).Error; err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, errTutorAjeno):
+				writeError(w, http.StatusNotFound, "tutor no encontrado")
+			case isUniqueViolation(err):
+				// Dos restricciones únicas pueden saltar acá: el DNI por
+				// clínica (Extra 2.3.5, E5.1) y el mail de tutor por
+				// paciente. Mismo criterio que writeTurnoAgendadoError: un
+				// error legible en el modal, nunca un 500 crudo.
+				if strings.Contains(err.Error(), "idx_paciente_tutor") {
+					writeError(w, http.StatusConflict, "otro tutor de este paciente ya usa ese mail")
+					return
+				}
+				writeError(w, http.StatusConflict, "ya existe otro paciente con ese DNI")
+			default:
+				writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			}
 			return
 		}
 
@@ -534,9 +747,14 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
 			return
 		}
-		// tutoresDePaciente — "Editar datos" nunca toca el tutor, pero la
-		// respuesta tiene que seguir mostrando los que ya tenía (si los
-		// tiene) en vez de perderlos de la vista hasta el próximo refresh.
+		// La ficha completa, como la devuelve el GET: hasta el 2026-09-23 esta
+		// respuesta mandaba los alternativos del paciente en nil, y la
+		// pantalla los perdía de vista hasta refrescar.
+		emailsOut, telsOut, err := alternativosDeContactoDePaciente(gdb, paciente.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
+			return
+		}
 		tutores, err := tutoresDePaciente(gdb, paciente.ID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
@@ -547,7 +765,7 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo actualizar el paciente")
 			return
 		}
-		writeJSON(w, http.StatusOK, toPacienteResponse(paciente, verificado, tutores, nil, nil, tutorTelAlt))
+		writeJSON(w, http.StatusOK, toPacienteResponse(paciente, verificado, tutores, emailsOut, telsOut, tutorTelAlt))
 	}
 }
 

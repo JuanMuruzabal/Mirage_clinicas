@@ -2915,6 +2915,26 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - El presupuesto no ve la latencia real (Render dormido, API, Postgres): mide lo que cuesta dibujar la plantilla. La pregunta 10 del plan (el pantallazo en blanco) sigue abierta y necesita medirse contra el deploy.
 - Los umbrales se calibraron contra las plantillas actuales en una sola máquina; si CI resulta más lento de forma sostenida, se ajustan con los números del artefacto, no a ojo.
 
+## TR-166: Un mail y un teléfono PRINCIPALES por paciente, y los alternativos se editan en la ficha
+
+- **Contexto:** pedido del cliente del 2026-09-23, en `feature/contactos-principales-paciente`. *"Como está hoy implementado no contempla múltiples mails y teléfonos que se van agregando. Los pacientes tendrán un mail principal y un teléfono principal; si tiene más de uno, debe aparecer una lista por debajo, donde se puedan editar, borrar y pasar como principal. Lo mismo con cada tutor. Si el paciente saca turno con otro mail y se genera un conflicto, al resolverlo, el nuevo mail o teléfono pasan a ser los principales."*
+- **Punto de partida:** el modelo ya tenía la forma pedida — `pacientes.email`/`telefono` más `paciente_emails_alternativos`/`paciente_telefonos_alternativos`, y `paciente_tutor_telefonos_alternativos` por tutor—, pero los alternativos solo se escribían desde el flujo de conflictos: "Editar datos" tocaba DNI, teléfono y mail principal, y la lista era de solo lectura. No hizo falta ninguna migración.
+
+### Las decisiones
+
+1. **`PATCH /pacientes/{id}` recibe el estado FINAL, no operaciones.** `emailsAlternativos`, `telefonosAlternativos` y `tutores` son punteros a slice (mismo criterio que `Modulos *[]moduloRequest`): ausente es "no tocar", `[]` es "borrar todos". La pantalla arma el resultado —editar, quitar, promover— y se guarda de una vez en UNA transacción. "Hacer principal" no es un endpoint: es mandar el elegido como principal y el viejo principal en la lista. Un CRUD por dato habría dejado estados intermedios (dos principales, o ninguno) visibles entre llamada y llamada.
+2. **El backend normaliza la lista:** recorta, pasa los mails a minúsculas, descarta vacíos, repetidos y el propio principal (no es "otro" mail), y valida cada uno con el formato del principal. Con alternativos y sin principal responde 400: *"si tiene más de un mail, uno tiene que ser el principal"*.
+3. **Mail y teléfono obligatorios salvo que la ficha tenga tutor** — la regla del alta (TR-147), que la edición no respetaba en ningún sentido: exigía el teléfono SIEMPRE (editar a un paciente con tutor y sin teléfono propio fallaba) y el mail NUNCA (vaciarlo recreaba la ficha manual irreconocible que TR-147 cerró en el alta). Por eso el campo dejó de decir "(opcional)".
+4. **Un tutor tiene UN mail, y lo que acumula son teléfonos.** El mail es la identidad del tutor (`idx_paciente_tutor`, único por paciente y mail): un mail nuevo en el wizard es OTRO tutor —mamá y papá son dos tutores, no uno con dos mails (TR-116)—. Así que el mail del tutor se corrige en su campo pero no tiene lista; sus teléfonos sí (principal + lista, igual que el paciente). Cada tutor viaja con su **id** (sumado a la respuesta): como el mail se puede corregir, ya no sirve para señalarlo. Un id que no es tutor de ESA ficha da 404 y revierte todo; dos tutores con el mismo mail, 409.
+5. **Al resolver un conflicto como "es la persona verificada", el mail y el teléfono NUEVOS pasan a ser los principales** (`promoverEmailAPrincipal`/`promoverTelefonoAPrincipal` en `pacientes_conflicto_panel.go`). Hasta esta fecha se sumaban como alternativos y el principal seguía siendo el viejo. Resolver así es el profesional confirmando que el dato nuevo es de esa persona, y el más reciente es el que está usando. Los de antes no se pierden: bajan a alternativos, y la ficha sigue reconociendo a la persona por cualquiera (`pacienteRespondeAlMail` mira las dos cosas). Si el dato nuevo ya estaba entre los alternativos, sale de ahí: un mismo dato nunca está en los dos lados. Vale para los dos caminos que llegan a `resolverConflictoComoVerdadero`: el botón del panel y marcar "asistió" sobre el turno disputado. Solo se promueve el principal de la ficha que pierde; sus propios alternativos se siguen sumando como alternativos.
+6. **"Ver mails" / "Ver teléfonos" marcan cuál es el principal.** `VerTextoBoton` recibe `principal` y, con él, muestra la lista con una pastilla "Principal" en la primera coincidencia; sin el prop, el texto sale tal cual (sus otros usos no cambian).
+
+### Lo que se sacrifica
+
+- No hay "agregar" un mail o teléfono a mano desde la ficha: la lista solo existe cuando ya hay más de uno, como pidió el cliente. Los alternativos siguen naciendo del flujo público y de los conflictos.
+- Promover al resolver cambia el dato con el que el sistema contacta a la persona sin preguntar. Se aceptó porque es exactamente lo pedido y porque el anterior queda a un clic ("Hacer principal") en la misma ficha.
+- La validación de formato vive en los dos lados (la del modal es para el feedback inmediato); la del backend es la que manda.
+
 
 ---
 

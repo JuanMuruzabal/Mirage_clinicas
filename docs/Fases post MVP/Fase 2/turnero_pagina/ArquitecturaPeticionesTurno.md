@@ -115,10 +115,12 @@ por el Caso A o por el Caso B:
 
 **`esVerificado: true`** ("el mail es de la persona verificada" / "son la
 misma persona, sacó 2 turnos por error con 2 mails"):
-- El mail y el teléfono de la ficha en conflicto se migran a la ficha que
-  prevalece como alternativos (`PacienteEmailAlternativo`/
-  `PacienteTelefonoAlternativo`) — desde ahí el paciente puede volver a pedir
-  turno con cualquiera de los dos mails.
+- El mail y el teléfono de la ficha en conflicto pasan a ser los
+  **principales** de la ficha que prevalece, y los que tenía bajan a
+  alternativos (`PacienteEmailAlternativo`/`PacienteTelefonoAlternativo`)
+  — desde ahí el paciente puede volver a pedir turno con cualquiera de los
+  dos mails. Hasta el 2026-09-23 el dato nuevo entraba como alternativo y
+  el principal seguía siendo el viejo (TR-166).
 - **Todos** los turnos de la ficha en conflicto se resuelven contra la que
   prevalece (no solo el que originó el conflicto — pudo acumular más de uno
   mientras nadie lo resolvía), con dos criterios distintos según su estado:
@@ -165,7 +167,7 @@ terminar borrando a la ficha que ya estaba verificada de antes:
 - **Se marca "asistió"** → se resuelve el conflicto exactamente como
   `esVerificado: true` en 1.3 (`resolverConflictoComoVerdadero`, extraída y
   compartida con el botón manual del panel: migración estándar,
-  mail/teléfono a alternativos, resto de los turnos migrados o cancelados
+  mail/teléfono nuevos como principales (TR-166), resto de los turnos migrados o cancelados
   por `migrarOCancelarTurnosDePerdedor`) — la ficha en conflicto demostró
   ser real, se fusiona con la verificada. El turno disputado en sí es un
   caso especial: aunque ya está RESUELTO (pasó su hora, por eso se pudo
@@ -874,7 +876,7 @@ cierre de la Parte 3, sección 3.8).
    conflicto debe aparecer YA MISMO en `/panel/pacientes` (no esperar a
    nada), `Resuelto = false`.
 7. Sobre el conflicto pendiente del caso 4 o 6, resolver como "es la misma
-   persona" → confirmar migración de mail/teléfono a alternativos, el turno
+   persona" → confirmar que el mail/teléfono nuevos quedaron como principales y los viejos como alternativos (TR-166), el turno
    vigente cancelado o migrado según si choca con un turno vigente del mismo
    tipo, y — si la ficha que pierde tiene además un turno **ya resuelto** —
    ese turno debe **eliminarse directamente** (`SELECT` por su id debería dar

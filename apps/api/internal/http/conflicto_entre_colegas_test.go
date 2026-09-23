@@ -186,13 +186,11 @@ func TestConflicto_ResolverUnoCierraLosDeLaMismaFicha(t *testing.T) {
 	}
 
 	// Y el mail que traía la ficha duplicada quedó en la que prevalece —
-	// es lo que corta el ciclo: el próximo pedido con ese mail la
-	// reconoce en vez de abrir otro conflicto.
-	var alternativos int64
-	gdb.Model(&db.PacienteEmailAlternativo{}).
-		Where("paciente_id = ? AND email = ?", verificado.ID, "otro@example.com").Count(&alternativos)
-	if alternativos != 1 {
-		t.Errorf("el mail de la ficha duplicada no quedó en la ficha real (count=%d)", alternativos)
+	// como PRINCIPAL desde 2026-09-23 — que es lo que corta el ciclo: el
+	// próximo pedido con ese mail la reconoce en vez de abrir otro
+	// conflicto.
+	if email, _ := principalesDeLaFicha(t, gdb, verificado.ID); email != "otro@example.com" {
+		t.Errorf("el mail de la ficha duplicada no quedó como principal de la ficha real (principal=%q)", email)
 	}
 }
 

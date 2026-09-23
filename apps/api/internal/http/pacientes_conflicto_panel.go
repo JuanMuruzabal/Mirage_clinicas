@@ -206,14 +206,28 @@ type resolverConflictoPacienteRequest struct {
 // conflicto anterior, la cadena completa se preserva. (Hasta 2026-09-12 solo
 // se migraba el principal: el resto quedaba huérfano al borrarse la ficha, y
 // desde las foreign keys de TR-131 directamente rebotaba el borrado.)
+//
+// EL MAIL Y EL TELÉFONO NUEVOS PASAN A SER LOS PRINCIPALES (pedido del
+// cliente, 2026-09-23): *"si el paciente saca turno con otro mail y se
+// genera un conflicto, al resolverlo, el nuevo mail o teléfono pasan a ser
+// los principales"*. Hasta esa fecha se sumaban como alternativos y el
+// principal seguía siendo el viejo. Resolver "es la persona verificada" es
+// el profesional confirmando que el dato nuevo es de esa persona, y el
+// dato más reciente es el que ella está usando ahora. Los principales de
+// antes no se pierden: bajan a la lista de alternativos, y la ficha sigue
+// reconociendo a la persona por cualquiera de los dos
+// (`pacienteRespondeAlMail` mira principal y alternativos).
+//
+// Solo para el principal de `pierde`: sus propios alternativos siguen
+// sumándose como alternativos, igual que antes.
 func migrarAlternativosDeContacto(tx *gorm.DB, prevalece *db.Paciente, pierde db.Paciente) error {
-	if pierde.Email != nil {
-		if err := agregarEmailAlternativoSiNuevo(tx, prevalece, *pierde.Email); err != nil {
+	if pierde.Email != nil && *pierde.Email != "" {
+		if err := promoverEmailAPrincipal(tx, prevalece, *pierde.Email); err != nil {
 			return err
 		}
 	}
 	if pierde.Telefono != nil && *pierde.Telefono != "" {
-		if err := agregarTelefonoAlternativoSiNuevo(tx, prevalece, *pierde.Telefono); err != nil {
+		if err := promoverTelefonoAPrincipal(tx, prevalece, *pierde.Telefono); err != nil {
 			return err
 		}
 	}
@@ -235,6 +249,54 @@ func migrarAlternativosDeContacto(tx *gorm.DB, prevalece *db.Paciente, pierde db
 			return err
 		}
 	}
+	return nil
+}
+
+// promoverEmailAPrincipal — `nuevo` pasa a ser el mail principal de la
+// ficha, y el que era principal baja a los alternativos. Si `nuevo` ya
+// estaba entre los alternativos, sale de ahí (no puede estar en los dos
+// lados). Sin principal previo, simplemente lo ocupa.
+func promoverEmailAPrincipal(tx *gorm.DB, ficha *db.Paciente, nuevo string) error {
+	if ficha.Email != nil && *ficha.Email == nuevo {
+		return nil
+	}
+	if err := tx.Where("paciente_id = ? AND email = ?", ficha.ID, nuevo).
+		Delete(&db.PacienteEmailAlternativo{}).Error; err != nil {
+		return err
+	}
+	if ficha.Email != nil && *ficha.Email != "" {
+		viejo := db.PacienteEmailAlternativo{PacienteID: ficha.ID, Email: *ficha.Email}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&viejo).Error; err != nil {
+			return err
+		}
+	}
+	if err := tx.Model(ficha).Update("email", nuevo).Error; err != nil {
+		return err
+	}
+	ficha.Email = &nuevo
+	return nil
+}
+
+// promoverTelefonoAPrincipal — el mismo criterio que
+// promoverEmailAPrincipal, para el teléfono.
+func promoverTelefonoAPrincipal(tx *gorm.DB, ficha *db.Paciente, nuevo string) error {
+	if ficha.Telefono != nil && *ficha.Telefono == nuevo {
+		return nil
+	}
+	if err := tx.Where("paciente_id = ? AND telefono = ?", ficha.ID, nuevo).
+		Delete(&db.PacienteTelefonoAlternativo{}).Error; err != nil {
+		return err
+	}
+	if ficha.Telefono != nil && *ficha.Telefono != "" {
+		viejo := db.PacienteTelefonoAlternativo{PacienteID: ficha.ID, Telefono: *ficha.Telefono}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&viejo).Error; err != nil {
+			return err
+		}
+	}
+	if err := tx.Model(ficha).Update("telefono", nuevo).Error; err != nil {
+		return err
+	}
+	ficha.Telefono = &nuevo
 	return nil
 }
 

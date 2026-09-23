@@ -128,8 +128,8 @@ describe("ResolverConflictoPacienteModal", () => {
   // los tenga — la diferencia entre escenarios vive en el texto de
   // `motivo`, no en un layout especial acá.
   it("muestra los tutores de cada ficha cuando los tienen", () => {
-    const tutorViejo = { relacion: "familiar", nombre: "María Pérez", telefono: "+5493511111111", email: "mama@example.com" };
-    const tutorNuevo = { relacion: "otro", nombre: "Impostor", telefono: "+5493513333333", email: "impostor@example.com" };
+    const tutorViejo = { id: "tutor-tutorViejo", relacion: "familiar", nombre: "María Pérez", telefono: "+5493511111111", email: "mama@example.com" };
+    const tutorNuevo = { id: "tutor-tutorNuevo", relacion: "otro", nombre: "Impostor", telefono: "+5493513333333", email: "impostor@example.com" };
     const conflictoConTutores: ConflictoPaciente = {
       ...conflicto,
       motivo: "un nuevo tutor (Impostor) pide turno para este paciente — ya hay otro tutor confirmado con este DNI",
