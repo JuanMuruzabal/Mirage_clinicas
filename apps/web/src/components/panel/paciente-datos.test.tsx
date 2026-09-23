@@ -117,8 +117,8 @@ describe("PacienteDatos", () => {
   // propia tarjeta dentro de "Datos de tutores" (antes era un único set
   // de campos con un solo tutor).
   describe("Datos de tutores (ronda de correcciones, 2026-09-06)", () => {
-    const tutor1 = { relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
-    const tutor2 = { relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
+    const tutor1 = { id: "tutor-tutor1", relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
+    const tutor2 = { id: "tutor-tutor2", relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
 
     it("sin tutores, no muestra la sección", () => {
       render(<PacienteDatos pacienteInicial={paciente} />);
@@ -187,5 +187,33 @@ describe("PacienteDatos", () => {
 
     expect(screen.queryByRole("dialog", { name: "Editar datos del paciente" })).not.toBeInTheDocument();
     expect(screen.getByText("30222333")).toBeInTheDocument();
+  });
+
+  // Contactos principales (2026-09-23).
+  it("'Ver mails' marca cuál es el principal", async () => {
+    const user = userEvent.setup();
+    render(<PacienteDatos pacienteInicial={paciente} emailsAlternativos={["bruno.alt@example.com"]} />);
+
+    await user.click(screen.getByRole("button", { name: "Ver mails" }));
+    const items = within(await screen.findByRole("dialog", { name: "Mails" })).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("bruno@example.com");
+    expect(within(items[0]).getByText("Principal")).toBeInTheDocument();
+    expect(within(items[1]).queryByText("Principal")).not.toBeInTheDocument();
+  });
+
+  it("después de guardar, los alternativos salen de la respuesta, no de los props viejos", async () => {
+    // Promovió el alternativo: el principal y la lista cambiaron de lugar.
+    editarPacienteActionMock.mockResolvedValue({
+      paciente: { ...paciente, email: "bruno.alt@example.com", emailsAlternativos: ["bruno@example.com"] },
+    });
+    const user = userEvent.setup();
+    render(<PacienteDatos pacienteInicial={paciente} emailsAlternativos={["bruno.alt@example.com"]} />);
+
+    await user.click(screen.getByRole("button", { name: "Editar datos" }));
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await user.click(screen.getByRole("button", { name: "Ver mails" }));
+    const items = within(await screen.findByRole("dialog", { name: "Mails" })).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual(["bruno.alt@example.comPrincipal", "bruno@example.com"]);
   });
 });

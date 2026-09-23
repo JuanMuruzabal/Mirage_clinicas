@@ -164,8 +164,8 @@ describe("PacientesTable", () => {
   // pasa a un botón "Ver tutores" que lleva a la ficha (donde se ven
   // todos), en vez de un solo nombre que escondería a los demás.
   describe("columna Tutor (ronda de correcciones, 2026-09-06)", () => {
-    const tutor1 = { relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
-    const tutor2 = { relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
+    const tutor1 = { id: "tutor-tutor1", relacion: "familiar", nombre: "Julián Ortiz", telefono: "+5493511111111", email: "julian@example.com" };
+    const tutor2 = { id: "tutor-tutor2", relacion: "otro", nombre: "Abuela Rosa", telefono: "+5493512222222", email: "rosa@example.com" };
 
     it("sin tutores, muestra —", () => {
       render(<PacientesTable pacientes={[paciente]} />);

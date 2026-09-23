@@ -368,9 +368,11 @@ func TestEditarPaciente_DNIYaUsadoPorOtroPacienteFalla(t *testing.T) {
 	crearYObtenerPacienteID("Julián", "30222333", 0)
 	idBruno := crearYObtenerPacienteID("Bruno", "30111222", time.Hour)
 
-	// Bruno pasa a tener el mismo DNI que Julián — debe rechazarse.
+	// Bruno pasa a tener el mismo DNI que Julián — debe rechazarse. Con
+	// mail: sin tutor es obligatorio desde el 2026-09-23 (TR-147), y este
+	// test es sobre el DNI.
 	recEditar := doJSONAuth(t, router, http.MethodPatch, "/pacientes/"+idBruno, reg.Token, editarPacienteRequest{
-		DNI: "30222333", Telefono: "+5493511111111",
+		DNI: "30222333", Telefono: "+5493511111111", Email: "paciente-de-prueba@example.com",
 	})
 	if recEditar.Code != http.StatusConflict {
 		t.Fatalf("status = %d, esperaba %d. body=%s", recEditar.Code, http.StatusConflict, recEditar.Body.String())

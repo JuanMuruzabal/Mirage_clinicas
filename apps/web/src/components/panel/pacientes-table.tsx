@@ -153,7 +153,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                         estuvo en una celda mono) — el valor plano sigue
                         en mono, el botón queda en la fuente normal. */}
                     {telefonos.length > 1 ? (
-                      <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} />
+                      <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} principal={p.telefono} />
                     ) : (
                       <span className="font-[family-name:var(--font-mono)]">{telefonos[0] || "—"}</span>
                     )}
@@ -170,7 +170,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                         Sin flecha (segunda ronda, 2026-09-06) — mismo
                         motivo que Teléfonos, el botón abre un modal. */}
                     {mails.length > 1 ? (
-                      <VerTextoBoton titulo="Mails" texto={mails.join("\n")} />
+                      <VerTextoBoton titulo="Mails" texto={mails.join("\n")} principal={p.email} />
                     ) : textoEsLargo(mails[0]) ? (
                       <VerTextoBoton titulo="Email" texto={mails[0]!} />
                     ) : (
@@ -284,7 +284,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
                         <dd className="min-w-0 text-grafito">
                           {telefonos.length > 1 ? (
-                            <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} />
+                            <VerTextoBoton titulo="Teléfonos" texto={telefonos.join("\n")} principal={p.telefono} />
                           ) : (
                             telefonos[0] || "—"
                           )}
@@ -292,7 +292,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
                         <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
                         <dd className="min-w-0 break-all text-grafito">
                           {mails.length > 1 ? (
-                            <VerTextoBoton titulo="Mails" texto={mails.join("\n")} />
+                            <VerTextoBoton titulo="Mails" texto={mails.join("\n")} principal={p.email} />
                           ) : textoEsLargo(mails[0]) ? (
                             <VerTextoBoton titulo="Email" texto={mails[0]!} />
                           ) : (

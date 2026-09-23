@@ -13,6 +13,11 @@ interface VerTextoBotonProps {
   // semi-transparente de las tarjetas del dashboard (F2.3 extra ítem 1).
   variante?: "boton" | "link";
   className?: string;
+  // principal (contactos principales, 2026-09-23) — con una lista de mails
+  // o teléfonos (uno por línea en `texto`), cuál es el principal: el
+  // modal los muestra como lista y lo marca. Sin este prop, el texto se
+  // muestra tal cual, como siempre.
+  principal?: string | null;
 }
 
 // VerTextoBoton (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md §11.5,
@@ -29,8 +34,12 @@ interface VerTextoBotonProps {
 // `flecha` que existía acá se eliminó del todo: SIEMPRE es un `<button>`
 // que abre un modal, nunca navega, así que la flecha no correspondía en
 // ninguno de sus usos.
-export function VerTextoBoton({ titulo, texto, variante = "boton", className = "" }: VerTextoBotonProps) {
+export function VerTextoBoton({ titulo, texto, variante = "boton", className = "", principal }: VerTextoBotonProps) {
   const [abierto, setAbierto] = useState(false);
+  const items = principal ? texto.split("\n") : null;
+  // Solo la PRIMERA coincidencia: si el dato estuviera repetido, una sola
+  // marca de principal.
+  const indicePrincipal = items ? items.indexOf(principal!) : -1;
 
   return (
     <>
@@ -72,7 +81,20 @@ export function VerTextoBoton({ titulo, texto, variante = "boton", className = "
                   ×
                 </button>
               </div>
-              <p className="whitespace-pre-wrap p-6 text-sm text-grafito">{texto}</p>
+              {items ? (
+                <ul className="flex flex-col gap-2 p-6 text-sm text-grafito">
+                  {items.map((item, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-2 break-all">
+                      <span className="font-[family-name:var(--font-mono)]">{item}</span>
+                      {i === indicePrincipal && (
+                        <span className="rounded-full bg-salvia-claro px-2.5 py-0.5 text-xs font-medium text-salvia-oscuro">Principal</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="whitespace-pre-wrap p-6 text-sm text-grafito">{texto}</p>
+              )}
             </div>
           </div>
         </ModalPortal>
