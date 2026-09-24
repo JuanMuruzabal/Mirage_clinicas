@@ -13,7 +13,7 @@ Este documento cierra el **qué** (alcance, modelo de contenido, modelo de datos
 - **La plantilla pública (`ClinicaPublicaTemplate`) es fija:** turno + "Sobre nosotros" (placeholder literal, sin contenido) + especialidades. Mismo componente para la previsualización del editor y la página real — ese acoplamiento conviene mantenerlo.
 - **Bug heredado que esta fase debería arrastrar consigo:** la página pública y el buscador (`clinicas.go`, `getClinicaPublicaHandler`/`buscarClinicasHandler`) resuelven el profesional a mostrar con `ownerProfile()` — **solo el owner**. Desde la Fase 3.2 una clínica puede tener N profesionales, y ninguno de los dos endpoints se actualizó. Hoy una clínica con 3 odontólogos muestra la página pública como si hubiera uno. Con "bio general de la clínica" (ver más abajo) el texto deja de depender de esto, pero **especialidades** debería ser la unión de todos los profesionales activos, no solo las del owner — si no, el bug queda igual de vivo, solo que mejor disimulado.
 - **`ProfessionalProfile` ya tiene `Bio *string` y `FotoURL *string`** (`models_auth.go:148-149`) — existen en el esquema desde el módulo de auth pero **no están wireados a ningún handler ni pantalla**. Son del profesional individual, no de la clínica — no sirven directo para la "bio general" que se pidió, pero confirman que el patrón (bio + foto) ya se pensó una vez.
-- **Storage de fotos: interfaz lista, dev funciona, prod no existe.** `internal/storage` tiene la interfaz (`Storage.Save`) y `LocalStorage` (disco, dev) — pero **no hay implementación R2/S3**, y `render.yaml` solo reserva las env vars (TR-046, `sync: false`, nunca cargadas). Tampoco hay un endpoint HTTP que reciba un upload todavía — hay que construirlo de cero.
+- **Storage de fotos: interfaz lista, dev funciona, prod no existe.** `internal/storage` tiene la interfaz (`Storage.Save`) y `LocalStorage` (disco, dev) — pero **no hay implementación R2/S3**, y `render.yaml` solo reserva las env vars (TR-046, `sync: false`, nunca cargadas). Tampoco hay un endpoint HTTP que reciba un upload todavía — hay que construirlo de cero. *(Resuelto: el endpoint entró en la 4.2 y R2 en la 4.6, TR-167.)*
 - **La paleta de colores es un sistema cerrado ("Sistema Cascarón", TR-010/TR-013), no un color picker libre en ningún lugar del producto hoy.** Los tokens (`salvia`, `terracota`, `grafito`, etc.) están pensados como pares fondo-claro/texto-oscuro con contraste AA verificado a mano — un color arbitrario elegido por el profesional puede romper contraste o chocar con el resto de la identidad Mirage.
 - **`Clinic` ya tiene `Direccion`, `Ciudad`, `Provincia`, `Telefono`** — la dirección para el mapa no hay que inventarla, hay que decidir si se reutiliza tal cual o se permite un override en la página pública.
 
@@ -115,6 +115,8 @@ pagina_publica_modulos
 ---
 
 ## Fotos: el bloqueo real antes de salir a producción
+
+> **Resuelto (2026-09-24):** se siguió el camino (b) y R2 entró después, en la Fase 4.6 (TR-167). Para activarlo en producción, ver "Activar el storage de fotos" en el `README.md`.
 
 El profesional puede subir fotos en dev (disco local) hoy mismo si se construye el endpoint — pero **en producción no hay dónde guardarlas** hasta que exista la implementación R2 (TR-046, pendiente desde antes de esta fase). Dos caminos, a decidir antes de implementar:
 

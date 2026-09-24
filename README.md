@@ -350,17 +350,15 @@ backend avisa con un WARN al arrancar pero no se cae.
 > (o superior) en el dashboard de Render **antes del primer profesional
 > real registrado**, no antes.
 
-### Storage de fotos (pendiente — perfil de profesional y página pública)
+### Storage de fotos (Cloudflare R2)
 
-Todavía no existe la feature de subir fotos (ni de perfil ni de la página
-pública) — `render.yaml` ya reserva los env vars de Cloudflare R2
-(`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
-`R2_PUBLIC_URL`, `sync: false`) para no tener que volver a tocar el
-blueprint cuando se construya. A diferencia de `Marcuzzi_Madryn` (una
-sola aplicación, un dueño), acá va a haber **N profesionales**, cada uno
-con sus propias fotos — la convención de key pensada para eso, namespaced
-por profesional en vez de un bucket plano: `paginas/{profesionalId}/{filename}`
-y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/Arquitectura y base/tradeoffs.md`.
+Las fotos de la página pública viven en un bucket **privado** de
+Cloudflare R2 (Fase 4.6, TR-167 en `docs/Arquitectura y base/tradeoffs.md`).
+El navegador nunca le habla al bucket: la web sirve `/uploads/*` desde su
+propio origen pidiéndole el archivo a la API, que lo lee de R2. En local
+se usa el disco (`STORAGE_DIR`). Sin las variables de R2 cargadas en
+Render, la subida responde 501 a propósito: el disco del contenedor se
+pierde en cada deploy. Ver "Activar el storage de fotos" más abajo.
 
 ### Antes de desplegar por primera vez
 
@@ -378,6 +376,11 @@ y `perfiles/{profesionalId}/{filename}`. Ver TR-020 en `docs/Arquitectura y base
      dependencia puntual queda deshabilitada (mails solo se loguean, sin
      botón de Google, sin CAPTCHA) — nunca un 500, ver
      `docs/Login/feature-sumarte-login-resumen.md`.
+   - `dental-mirage-api`: `STORAGE_R2_BUCKET`/`STORAGE_R2_ENDPOINT`/
+     `STORAGE_R2_ACCESS_KEY`/`STORAGE_R2_SECRET_KEY` (fotos de la página
+     pública — ver "Activar el storage de fotos" más abajo). Sin ellas la
+     subida de fotos responde 501; con el bucket cargado y alguna de las
+     otras vacía, la API **no arranca** (el log dice cuál falta).
    - `dental-mirage-web`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/
      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (mismo Google Client ID de arriba,
      y la site key pública de Turnstile) — sin esto, el botón de Google y
@@ -432,6 +435,33 @@ de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
    apaga automáticamente — ningún otro cambio de código ni de config.
 6. Verificar: registrar una cuenta de prueba real y confirmar que el mail
    de verificación llega (revisar spam la primera vez).
+
+### Activar el storage de fotos (Cloudflare R2)
+
+El código ya está completo (`internal/storage.R2Storage`, TR-167). Para
+activarlo:
+
+1. En el dashboard de Cloudflare, **R2 Object Storage → Create bucket**.
+   Dejarlo **privado**: sin acceso público, sin dominio propio y sin la
+   URL `r2.dev`. Las fotos se sirven a través de la API.
+2. **R2 → Manage API tokens → Create API token**, con permiso *Object
+   Read & Write* y acotado a ese bucket. Cloudflare muestra una sola vez
+   el *Access Key ID* y el *Secret Access Key*, junto con el endpoint S3
+   de la cuenta (`https://<account_id>.r2.cloudflarestorage.com`).
+3. En Render, `dental-mirage-api` → *Environment*, cargar:
+   - `STORAGE_R2_BUCKET`: el nombre del bucket del paso 1.
+   - `STORAGE_R2_ENDPOINT`: el endpoint del paso 2, sin el nombre del
+     bucket al final.
+   - `STORAGE_R2_ACCESS_KEY` / `STORAGE_R2_SECRET_KEY`: las claves del
+     paso 2.
+   - `STORAGE_R2_REGION` no hace falta (vacía = `auto`).
+4. Guardar → Render redeploya `dental-mirage-api` solo.
+5. Verificar: subir una foto desde `/personalizar-pagina`, ver que el
+   objeto aparece en el bucket y que la foto se sigue viendo después de
+   un "Manual Deploy" de la API.
+
+Las fotos subidas en producción antes de activar R2 se perdieron con el
+disco del contenedor: hay que volver a subirlas.
 
 ## Flujo de ramas
 

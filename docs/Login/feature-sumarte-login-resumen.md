@@ -34,7 +34,7 @@ Documentadas en detalle en `apps/api/.env.example` y `apps/web/.env.example`. Re
 | `GOOGLE_REDIRECT_URI` | No (default `postmessage`) | — |
 | `TURNSTILE_SECRET_KEY` | No | CAPTCHA deshabilitado (nil-safe) |
 | `HIBP_ENABLED` | No (default `false`) | Sin chequeo contra HaveIBeenPwned |
-| `STORAGE_DIR` / `STORAGE_R2_*` / `STORAGE_PUBLIC_URL` | No | Storage local de disco; R2 prod no implementado (ver §4) |
+| `STORAGE_DIR` / `STORAGE_R2_*` / `STORAGE_PUBLIC_URL` | No | En localhost, disco; fuera de localhost sin R2, la subida de fotos responde 501. R2 existe desde la Fase 4.6 (TR-167) para las fotos de la página pública; la foto de perfil sigue sin subida (ver §4) |
 
 **Frontend (`apps/web/.env.local`):**
 

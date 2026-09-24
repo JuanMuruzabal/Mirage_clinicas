@@ -1,6 +1,6 @@
 # Prisma Engine: plan para llevar la personalización de página al siguiente nivel
 
-**Estado:** propuesta v2.2, sin implementar · **Fecha:** 2026-09-21 · **Alcance:** solo la vertical de personalización de la página pública (`/personalizar-pagina` + `ClinicaPublicaTemplate` + `GET/PATCH /panel/pagina`). Nada del panel de gestión, turnero ni ficha clínica.
+**Estado:** propuesta v2.2, implementada (PE-1 a PE-9 y la Fase 4.6, 2026-09-24; ver TR-161 a TR-167) · **Fecha:** 2026-09-21 · **Alcance:** solo la vertical de personalización de la página pública (`/personalizar-pagina` + `ClinicaPublicaTemplate` + `GET/PATCH /panel/pagina`). Nada del panel de gestión, turnero ni ficha clínica.
 
 **Nombre:** en la documentación, el conjunto de catálogo de módulos + temas + efectos + plantillas + editor + renderizado se llama **Prisma Engine**. En el código vive en un solo lugar (ver PE-1).
 
@@ -326,6 +326,7 @@ PE-1 ─► PE-8 ─► PE-2 ─► PE-3 ─► PE-4 ─► PE-5
 - **Corte de demo `[D]`:** PE-1 a PE-8 (PE-5 al menos un fondo; PE-6 al menos Equipo, Horarios y Servicios).
 - **`[V]`:** solo PE-9.
 - **Dependencia externa:** Fase 4.6 (storage R2). Sin ella no se suben fotos en producción, pero Equipo **no depende de ella**: sin foto se dibuja el ícono por defecto.
+  > **Implementada (2026-09-24, `feature/pe-4.6-storage-r2`, TR-167).** Bucket privado de R2; las fotos se siguen sirviendo por `/uploads` (la web le pide a la API, la API lee del bucket). Para encenderla en producción falta crear el bucket y el token en Cloudflare y cargar `STORAGE_R2_BUCKET`, `STORAGE_R2_ENDPOINT`, `STORAGE_R2_ACCESS_KEY` y `STORAGE_R2_SECRET_KEY` en el servicio `dental-mirage-api` de Render.
 
 ---
 
