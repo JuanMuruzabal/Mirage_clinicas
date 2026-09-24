@@ -12,14 +12,18 @@ import { apiFetchUpload } from "@/lib/api";
 // CLAUDE.md): el servidor de Next le pide el archivo a la API por la red
 // interna (API_URL) y lo devuelve.
 //
-// Solo hace falta con el storage local (dev). Con R2 en producción la URL
-// ya es un https absoluto y este handler no interviene.
+// Sirve igual con el disco local (dev) y con Cloudflare R2 (prod, Fase 4.6,
+// TR-167): la API lee el archivo de donde esté y la URL guardada es siempre
+// la misma, relativa. El bucket de R2 es privado; el navegador solo ve esta
+// ruta.
 
 // Un archivo subido se llama <token base64url>.<extensión>, o desde PE-9
 // <token>.w<ancho>.webp (las variantes de tamaño, ver internal/imagenes en
 // el backend). Se acepta EXACTAMENTE esa forma y nada más: es lo que impide
 // que esta ruta sea un proxy abierto a cualquier archivo o ruta de la API
-// (`..`, `%2F`, subdirectorios).
+// (`..`, `%2F`, subdirectorios). La API valida el mismo patrón
+// (storage.NombreValido en apps/api/internal/storage): si cambia uno, cambia
+// el otro.
 const NOMBRE_DE_ARCHIVO = /^[A-Za-z0-9_-]{1,128}(\.w\d{3,4})?\.(jpg|png|webp)$/;
 
 const CONTENT_TYPE: Record<string, string> = {

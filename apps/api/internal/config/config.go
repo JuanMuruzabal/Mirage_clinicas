@@ -119,8 +119,9 @@ type Config struct {
 	// para no depender de red saliente en cada test/registro local.
 	HaveIBeenPwnedEnabled bool
 
-	// Storage de foto de perfil (dev: disco local; prod: R2/S3 — mismo
-	// patrón dev/prod del resto de dependencias externas).
+	// Storage de las fotos de la página pública (dev: disco local; prod:
+	// Cloudflare R2, Fase 4.6 — ver buildStorage en cmd/api/main.go).
+	// StorageR2Region vacía = "auto", la que espera R2.
 	StorageDir        string
 	StorageR2Bucket   string
 	StorageR2Region   string
