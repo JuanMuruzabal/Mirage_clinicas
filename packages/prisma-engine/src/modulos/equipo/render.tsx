@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CLASE_ALINEAR, CLASE_FOTO, CLASE_TARJETA, CLASE_TARJETA_CHICA, CLASE_TEXTO, CLASE_TEXTO_TENUE, Foto, Titulo } from "../../comunes";
+import { CLASE_ALINEAR, CLASE_FOTO, CLASE_JUSTIFICAR_FLEX, CLASE_JUSTIFICAR_FLEX_SEGURO, CLASE_TARJETA, CLASE_TARJETA_CHICA, CLASE_TEXTO, CLASE_TEXTO_TENUE, Foto, Titulo } from "../../comunes";
 import { listaDeConfig, textoDeConfig, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, EquipoIntegranteVista, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { envolverSlots } from "../../efectos/envolver-slots";
@@ -37,7 +37,7 @@ function TarjetaVolteable({ persona, contexto, mostrarNombre, mostrarDescripcion
   const descripcion = persona.descripcion?.trim();
   return (
     <details className="group [perspective:1000px]">
-      <summary aria-label={`Ver información de ${nombre}`} className="block cursor-pointer list-none rounded-(--pp-radio) text-left [&::-webkit-details-marker]:hidden">
+      <summary aria-label={`Ver información de ${nombre}`} className={`block cursor-pointer list-none rounded-(--pp-radio) ${CLASE_ALINEAR} [&::-webkit-details-marker]:hidden`}>
         <div className={`relative min-h-52 ${CLASE_TARJETA} [transform-style:preserve-3d] transition-transform duration-500 group-open:[transform:rotateY(180deg)] motion-reduce:transition-none`}>
           <div className="[backface-visibility:hidden]">
             {envolver("imagen", <Retrato persona={persona} nombre={nombre} variante="tarjeta-volteable" contexto={contexto} />)}
@@ -97,11 +97,14 @@ function Equipo({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Contex
   const envolver = envolverSlots(modulo.config, contexto.estiloMovimiento, SLOTS_EQUIPO);
   const personas = equipo.map((persona, indice) => tarjetaDePersona(persona, indice, variante, modulo.config, contexto, envolver));
   const fila = variante === "avatares" || variante === "carrusel-sin-nombre" || variante === "carrusel-nombre";
-  // Grilla por ancho del CONTENEDOR (@lg/@2xl), no de la ventana: con
-  // `sm:`/`lg:` la vista previa "Móvil" del editor mostraba tres columnas.
+  // Grilla de columnas de ancho acotado que se acomodan al CONTENEDOR (no a
+  // la ventana: con `sm:`/`lg:` la vista previa "Móvil" mostraba tres
+  // columnas). Con menos personas que columnas, las vacías se colapsan
+  // (auto-fit) y el grupo se alinea como la sección (PP-7, H25): antes
+  // quedaba siempre a la izquierda bajo un título centrado.
   const claseLista = fila
-    ? "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--pp-acento)"
-    : "grid grid-cols-1 gap-4 @lg:grid-cols-2 @2xl:grid-cols-3";
+    ? `flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 ${CLASE_JUSTIFICAR_FLEX_SEGURO} focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--pp-acento)`
+    : `grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),20rem))] gap-4 ${CLASE_JUSTIFICAR_FLEX}`;
 
   return (
     <div className={`flex flex-col gap-4 ${CLASE_ALINEAR}`}>

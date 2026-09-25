@@ -1,5 +1,6 @@
 import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ETIQUETA, Contador } from "../../comunes";
 import { textoDeConfig } from "../../lectura-config";
+import { telefonoLegible } from "../../telefono";
 import type { EditorModuloProps } from "../../tipos";
 import { DESTINOS_LLAMADO } from "./schema";
 
@@ -50,8 +51,8 @@ export function Editor({ modulo, telefono, onConfig }: EditorModuloProps) {
       </label>
       <p className={CLASE_AYUDA}>
         {destino === "turno" && "El botón lleva a la sección para pedir turno."}
-        {destino === "whatsapp" && `El botón abre WhatsApp${telefono ? ` al ${telefono}` : "; cargá un teléfono de clínica para habilitarlo"}.`}
-        {destino === "telefono" && `El botón inicia una llamada${telefono ? ` al ${telefono}` : "; cargá un teléfono de clínica para habilitarlo"}.`}
+        {destino === "whatsapp" && `El botón abre WhatsApp${telefono ? ` al ${telefonoLegible(telefono)}` : "; cargá un teléfono de clínica para habilitarlo"}.`}
+        {destino === "telefono" && `El botón inicia una llamada${telefono ? ` al ${telefonoLegible(telefono)}` : "; cargá un teléfono de clínica para habilitarlo"}.`}
       </p>
     </div>
   );

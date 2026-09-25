@@ -71,7 +71,6 @@ const PESTANAS = [
 // Ocultar y Deployar son acciones aparte, con su propio endpoint: no
 // guardan el borrador, y guardar el borrador tampoco publica nada.
 export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorProps) {
-  const nombreCompleto = `${sesion.nombre} ${sesion.apellido}`.trim();
   const [pagina, setPagina] = useState(paginaInicial);
   const [guardado, setGuardado] = useState<Borrador>(() => borradorDePagina(paginaInicial));
   const [borrador, setBorrador] = useState<Borrador>(guardado);
@@ -487,7 +486,6 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
         <VistaPrevia
           slug={sesion.slug}
           nombreClinica={sesion.nombreClinica}
-          profesionalNombre={nombreCompleto}
           telefono={sesion.telefono}
           especialidades={sesion.especialidades.map((e) => e.nombre)}
           contenido={contenido}
@@ -587,7 +585,6 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
         <GaleriaPlantillas
           slug={sesion.slug}
           nombreClinica={sesion.nombreClinica}
-          profesionalNombre={nombreCompleto}
           telefono={sesion.telefono}
           especialidades={sesion.especialidades.map((e) => e.nombre)}
           borrador={borrador}

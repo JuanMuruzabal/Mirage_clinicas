@@ -16,7 +16,6 @@ export type ModoPlantilla = "diseno" | "reemplazar";
 interface GaleriaPlantillasProps {
   slug: string;
   nombreClinica: string;
-  profesionalNombre: string;
   telefono?: string | null;
   especialidades: string[];
   borrador: Borrador;
@@ -29,7 +28,6 @@ interface GaleriaPlantillasProps {
 export function GaleriaPlantillas({
   slug,
   nombreClinica,
-  profesionalNombre,
   telefono,
   especialidades,
   borrador,
@@ -95,7 +93,6 @@ export function GaleriaPlantillas({
           <VistaPrevia
             slug={slug}
             nombreClinica={nombreClinica}
-            profesionalNombre={profesionalNombre}
             telefono={telefono}
             especialidades={especialidades}
             contenido={contenido}

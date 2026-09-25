@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // ErrNoExiste — Open no encontró el archivo. El handler lo traduce a 404.
@@ -33,6 +34,26 @@ type Storage interface {
 	// Open devuelve el contenido y su tamaño en bytes (-1 si no se conoce).
 	// Quien llama cierra el ReadCloser. ErrNoExiste si no está.
 	Open(ctx context.Context, filename string) (io.ReadCloser, int64, error)
+}
+
+// Archivo — lo que devuelve List: el nombre y cuándo se escribió.
+type Archivo struct {
+	Nombre     string
+	Modificado time.Time
+}
+
+// Limpiable — un Storage que además se puede recorrer y del que se puede
+// borrar (PP-7, H22): lo usa la limpieza diaria de fotos huérfanas
+// (internal/limpieza). Aparte de Storage para no obligar a cada fake de
+// test a implementarlo; las dos implementaciones reales lo cumplen.
+type Limpiable interface {
+	Storage
+	// List devuelve SOLO los archivos con forma de foto subida
+	// (NombreValido): cualquier otra cosa en el directorio o el bucket no es
+	// de esta app y no se toca.
+	List(ctx context.Context) ([]Archivo, error)
+	// Delete borra un archivo. Que ya no exista no es un error.
+	Delete(ctx context.Context, nombre string) error
 }
 
 // nombreDeArchivo — la ÚNICA forma que tiene un archivo subido:
@@ -114,3 +135,36 @@ func (s *LocalStorage) Open(_ context.Context, filename string) (io.ReadCloser, 
 	}
 	return f, info.Size(), nil
 }
+
+func (s *LocalStorage) List(_ context.Context) ([]Archivo, error) {
+	entradas, err := os.ReadDir(s.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("no se pudo listar el storage local: %w", err)
+	}
+	var archivos []Archivo
+	for _, e := range entradas {
+		if e.IsDir() || !NombreValido(e.Name()) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		archivos = append(archivos, Archivo{Nombre: e.Name(), Modificado: info.ModTime()})
+	}
+	return archivos, nil
+}
+
+func (s *LocalStorage) Delete(_ context.Context, nombre string) error {
+	err := os.Remove(filepath.Join(s.Dir, filepath.Base(nombre)))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("no se pudo borrar el archivo: %w", err)
+	}
+	return nil
+}
+
+// Las dos implementaciones reales se pueden limpiar (PP-7, H22).
+var (
+	_ Limpiable = (*LocalStorage)(nil)
+	_ Limpiable = (*R2Storage)(nil)
+)

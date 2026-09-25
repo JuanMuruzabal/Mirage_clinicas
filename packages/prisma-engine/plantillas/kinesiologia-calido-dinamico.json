@@ -16,7 +16,7 @@
     "boton": "pastilla",
     "botonEstilo": "relleno",
     "menu": "barra",
-    "portada": "minima",
+    "portada": "centrada",
     "fondoAnimado": "degrade-respira"
   },
   "estiloMovimiento": "dinamico",
@@ -111,8 +111,8 @@
       "visible": true,
       "config": {
         "texto": "Cada proceso empieza con una conversación. Escribinos y coordinamos el próximo paso.",
-        "etiquetaBoton": "Empezar mi consulta",
-        "destino": "turno",
+        "etiquetaBoton": "Escribinos por WhatsApp",
+        "destino": "whatsapp",
         "fondoSeccion": "acento",
         "alineacion": "centro",
         "efectos": {
@@ -140,6 +140,6 @@
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Cuánto dura una sesión?", "etiqueta": "Pregunta frecuente" },
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "La duración depende del tratamiento y de la evaluación. El profesional te orientará en el primer encuentro.", "etiqueta": "Respuesta frecuente" },
     { "ruta": "modulos.llamado_accion.config.texto", "valor": "Cada proceso empieza con una conversación. Escribinos y coordinamos el próximo paso.", "etiqueta": "Mensaje de contacto" },
-    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Empezar mi consulta", "etiqueta": "Texto del botón" }
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Escribinos por WhatsApp", "etiqueta": "Texto del botón" }
   ]
 }

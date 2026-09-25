@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { IntensidadEfecto } from "./catalogo";
 
@@ -12,8 +13,20 @@ const desplazamiento: Record<IntensidadEfecto, number> = { sutil: 3, media: 6, m
 // el hook cambia a `true`, se anima explícitamente hacia el final (con
 // duración cero). El CSS de `prefers-reduced-motion` en globals.css cubre
 // además el HTML del servidor y el instante antes de hidratar.
+//
+// La preferencia se mira recién DESPUÉS de hidratar (PP-7): en el cliente
+// `useReducedMotion()` ya puede valer `true` en el render de hidratación, y
+// ese render dibujaba el estado final mientras el HTML del servidor —que no
+// conoce la preferencia— traía el inicial. React lo marca como desajuste de
+// hidratación (28 por página en las de demostración) y no lo corrige. Con
+// `hidratado`, el primer render del cliente es igual al del servidor y el
+// siguiente anima al final con duración cero, que es el camino de arriba.
+const sinSuscripcion = () => () => {};
+
 export default function EfectoEntrada({ id, intensidad, children }: { id: string; intensidad: IntensidadEfecto; children: React.ReactNode }) {
-  const reducido = useReducedMotion();
+  const hidratado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
+  const preferencia = useReducedMotion();
+  const reducido = hidratado && preferencia;
   const mover = id === "deslizar-suave" || id === "revelado-scroll";
   const inicial = mover
     ? { opacity: 0.94, y: desplazamiento[intensidad] }

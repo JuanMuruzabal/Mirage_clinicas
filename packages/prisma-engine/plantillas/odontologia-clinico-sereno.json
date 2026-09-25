@@ -16,7 +16,7 @@
     "boton": "redondeado",
     "botonEstilo": "relleno",
     "menu": "pastillas",
-    "portada": "minima",
+    "portada": "centrada",
     "fondoAnimado": "ninguno"
   },
   "estiloMovimiento": "sereno",
@@ -124,8 +124,8 @@
       "visible": true,
       "config": {
         "texto": "Estamos para acompañarte en el cuidado de tu sonrisa. Consultanos por un turno.",
-        "etiquetaBoton": "Pedir un turno",
-        "destino": "turno",
+        "etiquetaBoton": "Escribinos por WhatsApp",
+        "destino": "whatsapp",
         "fondoSeccion": "acento",
         "alineacion": "centro",
         "efectos": {
@@ -153,6 +153,6 @@
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Cómo puedo pedir un turno?", "etiqueta": "Pregunta frecuente" },
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Elegí Pedir un turno y seguí los pasos para encontrar un horario disponible.", "etiqueta": "Respuesta frecuente" },
     { "ruta": "modulos.llamado_accion.config.texto", "valor": "Estamos para acompañarte en el cuidado de tu sonrisa. Consultanos por un turno.", "etiqueta": "Mensaje de contacto" },
-    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Pedir un turno", "etiqueta": "Texto del botón" }
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Escribinos por WhatsApp", "etiqueta": "Texto del botón" }
   ]
 }

@@ -78,6 +78,14 @@ export const CLASE_CHIP =
 export const CLASE_ALINEAR = "[text-align:var(--pp-alinear,center)]";
 export const CLASE_ALINEAR_FLEX = "[align-items:var(--pp-alinear-flex,center)]";
 export const CLASE_JUSTIFICAR_FLEX = "[justify-content:var(--pp-alinear-flex,center)]";
+// Para una fila con scroll horizontal: `safe` hace que, si desborda, arranque
+// desde el principio en vez de centrar y dejar las primeras cosas fuera de
+// alcance (PP-7).
+export const CLASE_JUSTIFICAR_FLEX_SEGURO = "[justify-content:safe_var(--pp-alinear-flex,center)]";
+// Un párrafo largo no pasa de ~65 caracteres por línea aunque la sección sea
+// ancha (PP-7, H25: el contenido llega a ~1100 px en escritorio). Se ubica
+// como la sección: centrado, o a la izquierda con `--pp-margen-texto: 0`.
+export const CLASE_PARRAFO_LARGO = "max-w-[65ch] [margin-inline:var(--pp-margen-texto,auto)]";
 
 export function Titulo({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <h2 className={`${className ? `${className} ` : ""}${CLASE_TITULO}`}>{children}</h2>;
@@ -126,7 +134,7 @@ export function BloqueDeTexto({
   foto: { src: string; alt: string } | null;
   envolverSlot?: (slot: "titulo" | "texto" | "imagen", nodo: ReactNode) => ReactNode;
 }) {
-  const parrafo = texto ? (envolverSlot?.("texto", <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p>) ?? <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO}`}>{texto}</p>) : null;
+  const parrafo = texto ? (envolverSlot?.("texto", <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO} ${CLASE_PARRAFO_LARGO}`}>{texto}</p>) ?? <p className={`${titulo ? "mt-2 " : ""}whitespace-pre-line ${CLASE_TEXTO} ${CLASE_PARRAFO_LARGO}`}>{texto}</p>) : null;
   const encabezado = titulo ? (envolverSlot?.("titulo", <Titulo>{titulo}</Titulo>) ?? <Titulo>{titulo}</Titulo>) : null;
 
   if (variante === "con-foto" && foto) {

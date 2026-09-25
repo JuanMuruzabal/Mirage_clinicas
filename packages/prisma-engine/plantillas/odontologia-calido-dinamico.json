@@ -16,7 +16,7 @@
     "boton": "pastilla",
     "botonEstilo": "relleno",
     "menu": "subrayado",
-    "portada": "minima",
+    "portada": "centrada",
     "fondoAnimado": "degrade-respira"
   },
   "estiloMovimiento": "dinamico",
@@ -124,8 +124,8 @@
       "visible": true,
       "config": {
         "texto": "Tu próxima consulta puede empezar con una charla. Estamos para ayudarte a dar el primer paso.",
-        "etiquetaBoton": "Quiero consultar",
-        "destino": "turno",
+        "etiquetaBoton": "Escribinos por WhatsApp",
+        "destino": "whatsapp",
         "fondoSeccion": "acento",
         "alineacion": "centro",
         "efectos": {
@@ -153,6 +153,6 @@
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿Puedo consultar antes de reservar?", "etiqueta": "Pregunta frecuente" },
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "Sí. Escribinos por los medios de contacto de esta página y te orientamos.", "etiqueta": "Respuesta frecuente" },
     { "ruta": "modulos.llamado_accion.config.texto", "valor": "Tu próxima consulta puede empezar con una charla. Estamos para ayudarte a dar el primer paso.", "etiqueta": "Mensaje de contacto" },
-    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Quiero consultar", "etiqueta": "Texto del botón" }
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Escribinos por WhatsApp", "etiqueta": "Texto del botón" }
   ]
 }

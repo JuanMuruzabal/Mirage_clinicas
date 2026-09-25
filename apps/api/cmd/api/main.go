@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/googleauth"
 	apihttp "dental-mirage/api/internal/http"
+	"dental-mirage/api/internal/limpieza"
 	dmmail "dental-mirage/api/internal/mail"
 	"dental-mirage/api/internal/ratelimit"
 	"dental-mirage/api/internal/security"
@@ -113,6 +115,9 @@ func main() {
 	router := apihttp.NewRouterWithDeps(gormDB, deps, cfg.CORSAllowedOrigins)
 
 	go runPurgeLoop(gormDB)
+	if limpiable, ok := store.(storage.Limpiable); ok {
+		go runLimpiezaDeFotos(gormDB, limpiable)
+	}
 
 	// http.Server explícito, no http.ListenAndServe directo — corrección
 	// de seguridad (misma auditoría de arriba): sin ReadHeaderTimeout, una
@@ -179,6 +184,36 @@ func runPurgeLoop(gormDB *gorm.DB) {
 	for range ticker.C {
 		purgeOnce(gormDB)
 	}
+}
+
+// runLimpiezaDeFotos (PP-7, H22) — una vez por día borra las fotos que no
+// usa ningún borrador ni ninguna versión publicada y tienen más de 24 h
+// (internal/limpieza). La primera corrida espera unos minutos: un deploy
+// no tiene por qué arrancar borrando. Con varias instancias, un advisory
+// lock de Postgres hace que limpie una sola. Best-effort como la purga de
+// auth: un error se loguea y se reintenta al día siguiente.
+func runLimpiezaDeFotos(gormDB *gorm.DB, store storage.Limpiable) {
+	time.Sleep(10 * time.Minute)
+	limpiarFotosUnaVez(gormDB, store)
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		limpiarFotosUnaVez(gormDB, store)
+	}
+}
+
+func limpiarFotosUnaVez(gormDB *gorm.DB, store storage.Limpiable) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	res, err := limpieza.FotosHuerfanas(ctx, gormDB, store, time.Now())
+	if err != nil {
+		slog.Error("limpieza de fotos huérfanas", "error", err, "borradas_antes_del_error", res.Borradas)
+		return
+	}
+	if res.SinCandado {
+		return
+	}
+	slog.Info("limpieza de fotos huérfanas", "revisadas", res.Revisadas, "borradas", res.Borradas)
 }
 
 func purgeOnce(gormDB *gorm.DB) {

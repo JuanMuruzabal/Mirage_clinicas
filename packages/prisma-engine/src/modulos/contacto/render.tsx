@@ -10,6 +10,7 @@ import {
   Titulo,
 } from "../../comunes";
 import { tituloPublicoDe, varianteDeConfig } from "../../lectura-config";
+import { telefonoLegible } from "../../telefono";
 import type { ContextoPublico, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { VARIANTES } from "./variantes";
 import { envolverSlots } from "../../efectos/envolver-slots";
@@ -59,7 +60,7 @@ function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
         envolver("texto", <p className={CLASE_TEXTO}>
           Teléfono:{" "}
           <a href={hrefTel} className={CLASE_LINK}>
-            {telefono}
+            {telefonoLegible(telefono ?? "")}
           </a>
         </p>)
       )}

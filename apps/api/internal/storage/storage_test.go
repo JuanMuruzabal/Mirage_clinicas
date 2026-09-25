@@ -153,3 +153,40 @@ func TestContentTypeDe(t *testing.T) {
 		}
 	}
 }
+
+// List y Delete del disco local (PP-7, H22): List ignora lo que no tiene
+// forma de foto subida, y borrar algo que ya no está no es un error.
+func TestLocalStorage_ListYDelete(t *testing.T) {
+	dir := t.TempDir()
+	s, err := storage.NewLocalStorage(dir, "/uploads")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := s.Save(ctx, "tok.w480.webp", strings.NewReader("x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "LEEME.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "sub.jpg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	archivos, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(archivos) != 1 || archivos[0].Nombre != "tok.w480.webp" || archivos[0].Modificado.IsZero() {
+		t.Fatalf("List = %+v, esperaba solo tok.w480.webp con su fecha", archivos)
+	}
+	if err := s.Delete(ctx, "tok.w480.webp"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "tok.w480.webp")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("Delete no borró el archivo: %v", err)
+	}
+	if err := s.Delete(ctx, "tok.w480.webp"); err != nil {
+		t.Errorf("borrar algo que ya no está no es un error: %v", err)
+	}
+}

@@ -13,4 +13,5 @@ export { EfectoSlot } from "./efectos/slot";
 export * from "./plantillas";
 export * from "./portada";
 export * from "./miniatura";
+export * from "./telefono";
 export { ALINEACIONES, FONDOS_SECCION, MAX_LARGO_TITULO_PUBLICO, type Alineacion, type FondoSeccion } from "./seccion";

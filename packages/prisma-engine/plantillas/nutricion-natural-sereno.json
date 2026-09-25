@@ -16,7 +16,7 @@
     "boton": "redondeado",
     "botonEstilo": "contorno",
     "menu": "subrayado",
-    "portada": "minima",
+    "portada": "centrada",
     "fondoAnimado": "ninguno"
   },
   "estiloMovimiento": "sereno",
@@ -124,8 +124,8 @@
       "visible": true,
       "config": {
         "texto": "Conversemos sobre tus objetivos y encontremos una forma de acompañarte.",
-        "etiquetaBoton": "Pedir una consulta",
-        "destino": "turno",
+        "etiquetaBoton": "Escribinos por WhatsApp",
+        "destino": "whatsapp",
         "fondoSeccion": "acento",
         "alineacion": "centro",
         "efectos": {
@@ -153,6 +153,6 @@
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].pregunta", "valor": "¿La primera consulta es una evaluación?", "etiqueta": "Pregunta frecuente" },
     { "ruta": "modulos.preguntas_frecuentes.config.preguntas[0].respuesta", "valor": "El primer encuentro permite conocer tus objetivos, antecedentes y rutina antes de acordar un plan.", "etiqueta": "Respuesta frecuente" },
     { "ruta": "modulos.llamado_accion.config.texto", "valor": "Conversemos sobre tus objetivos y encontremos una forma de acompañarte.", "etiqueta": "Mensaje de contacto" },
-    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Pedir una consulta", "etiqueta": "Texto del botón" }
+    { "ruta": "modulos.llamado_accion.config.etiquetaBoton", "valor": "Escribinos por WhatsApp", "etiqueta": "Texto del botón" }
   ]
 }
