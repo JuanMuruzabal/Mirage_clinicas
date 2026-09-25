@@ -205,6 +205,12 @@ export interface DefinicionModulo {
   ancho: (config: Record<string, unknown>) => "completo" | "medio";
   /** Variantes de layout (PE-3). Vacío = una sola forma, el editor no muestra selector. La primera es el default. */
   variantes: VarianteModulo[];
+  /**
+   * El dibujo del módulo en el catálogo de "Agregar sección" (PP-6, H20) para
+   * los que no tienen variantes — los que sí, usan la de su primera variante.
+   * Mismos bloques que una variante (ver miniatura.tsx).
+   */
+  miniatura?: BloqueMiniatura[];
   opcionesDeSeccion: OpcionesDeSeccion;
   /** Slots hoja que admiten efectos; evita aplicar transforms a contenedores de modales. */
   slotsAnimables: readonly DefinicionSlotAnimable[];

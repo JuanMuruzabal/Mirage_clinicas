@@ -42,6 +42,8 @@ import { descripcionSeoPorDefecto, tituloSeoPorDefecto } from "@/lib/pagina-publ
 interface PaginaEditorProps {
   sesion: SesionCompleta;
   paginaInicial: PaginaPublica;
+  /** La URL pública del sitio (urlDelSitio, del lado del servidor): la vista de Google muestra el dominio real (PP-6, H23). */
+  urlSitio?: string;
 }
 
 type Pestana = "modulos" | "diseno" | "buscadores";
@@ -49,7 +51,8 @@ type Pestana = "modulos" | "diseno" | "buscadores";
 const PESTANAS = [
   ["modulos", "Módulos"],
   ["diseno", "Diseño"],
-  ["buscadores", "Buscadores"],
+  // "Google y redes" (PP-6, H23): "Buscadores" no decía qué había adentro.
+  ["buscadores", "Google y redes"],
 ] as const satisfies readonly (readonly [Pestana, string])[];
 
 // PaginaEditor (T4.1/T4.2, spec §5; contenido real desde la Fase 4.4) —
@@ -67,7 +70,7 @@ const PESTANAS = [
 // cambios" lo manda de una vez (el PATCH reemplaza el contenido completo).
 // Ocultar y Deployar son acciones aparte, con su propio endpoint: no
 // guardan el borrador, y guardar el borrador tampoco publica nada.
-export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
+export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorProps) {
   const nombreCompleto = `${sesion.nombre} ${sesion.apellido}`.trim();
   const [pagina, setPagina] = useState(paginaInicial);
   const [guardado, setGuardado] = useState<Borrador>(() => borradorDePagina(paginaInicial));
@@ -89,6 +92,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   // CSS, no un matchMedia, así que el HTML del servidor ya sale bien.
   const [vistaMovil, setVistaMovil] = useState<"editar" | "vista">("editar");
   const area = useRef<HTMLDivElement>(null);
+  // El módulo abierto en la lista (PP-6, H21): acá y no en ListaModulos
+  // porque tocar una sección de la vista previa también lo abre.
+  const [abierto, setAbierto] = useState<string | null>(null);
+  // Pedido de llevar la lista hasta la fila de un módulo: lo dispara tocar su
+  // sección en la vista previa, y se atiende después del render (la fila
+  // puede no existir todavía, o estar oculta en un celular).
+  const [irAFila, setIrAFila] = useState<{ clave: string } | null>(null);
   const [galeriaAbierta, setGaleriaAbierta] = useState(() => paginaInicial.modulos.length === 0);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [confirmarPublicar, setConfirmarPublicar] = useState(false);
@@ -129,6 +139,25 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     window.addEventListener("beforeunload", avisar);
     return () => window.removeEventListener("beforeunload", avisar);
   }, [sinGuardar]);
+
+  // Tocar una sección en la vista previa abre su módulo (PP-6, H21): la
+  // pestaña Módulos, el panel expandido y, en un celular, la vista de edición.
+  function elegirSeccion(clave: string) {
+    setAbierto(clave);
+    setPestana("modulos");
+    setPanelAbierto(true);
+    setVistaMovil("editar");
+    setIrAFila({ clave });
+  }
+
+  useEffect(() => {
+    if (!irAFila) return;
+    const fila = document.querySelector<HTMLElement>(`[data-fila="${CSS.escape(irAFila.clave)}"]`);
+    // El foco va al botón que abre/cierra el módulo: quien usa teclado o
+    // lector de pantalla queda donde se editó, no en la vista previa.
+    fila?.querySelector<HTMLElement>("button[aria-expanded]")?.focus({ preventScroll: true });
+    fila?.scrollIntoView?.({ block: "nearest" });
+  }, [irAFila]);
 
   function cambiarVistaMovil(v: "editar" | "vista") {
     setVistaMovil(v);
@@ -406,7 +435,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                 : "border-arena bg-marfil text-grafito hover:border-salvia hover:text-salvia-oscuro"
             }`}
           >
-            {pendingOcultar ? "Guardando…" : pagina.oculta ? "Mostrar" : "Ocultar"}
+            {pendingOcultar ? (pagina.oculta ? "Mostrando…" : "Ocultando…") : pagina.oculta ? "Mostrar" : "Ocultar"}
           </button>
           <MenuMas
             className="lg:hidden"
@@ -417,7 +446,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
               ...(sinGuardar ? [{ id: "descartar", etiqueta: "Descartar cambios", onElegir: descartar, disabled: pendingGuardar, peligro: true }] : []),
               {
                 id: "ocultar",
-                etiqueta: pendingOcultar ? "Guardando…" : pagina.oculta ? "Mostrar la página" : "Ocultar la página",
+                etiqueta: pendingOcultar ? (pagina.oculta ? "Mostrando…" : "Ocultando…") : pagina.oculta ? "Mostrar la página" : "Ocultar la página",
                 onElegir: () => void alternarOcultar(),
                 disabled: pendingOcultar,
                 peligro: !pagina.oculta,
@@ -448,8 +477,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           la pagina") — con `flex` fijo, el panel de edición y la
           previsualización competían por el mismo ancho angosto en mobile;
           apilados, cada uno usa el 100% del ancho disponible. */}
-      <div ref={area} className="flex scroll-mt-[calc(var(--header-height)+1rem)] flex-col gap-5 lg:flex-row">
-        <div className={`${vistaMovil === "vista" ? "flex" : "hidden"} min-w-0 flex-1 flex-col lg:flex`}>
+      {/* Desde lg, dos columnas pegadas bajo el header, cada una con su
+          propio scroll (PP-6, H21): llevar la vista previa hasta una
+          sección no puede mover la ventana, o el panel se va de la pantalla. */}
+      <div ref={area} className="flex scroll-mt-[calc(var(--header-height)+1rem)] flex-col gap-5 lg:flex-row lg:items-start">
+        <div
+          className={`${vistaMovil === "vista" ? "flex" : "hidden"} min-w-0 flex-1 flex-col lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--header-height)-2rem)] lg:min-h-[28rem]`}
+        >
         <VistaPrevia
           slug={sesion.slug}
           nombreClinica={sesion.nombreClinica}
@@ -457,6 +491,8 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           telefono={sesion.telefono}
           especialidades={sesion.especialidades.map((e) => e.nombre)}
           contenido={contenido}
+          onElegirSeccion={elegirSeccion}
+          moduloAbierto={abierto}
         />
         </div>
 
@@ -465,7 +501,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             izquierda. */}
         <aside
           aria-label="Panel de edición"
-          className={`${vistaMovil === "editar" ? "flex" : "hidden"} flex-shrink-0 flex-col rounded-card lg:flex border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
+          className={`${vistaMovil === "editar" ? "flex" : "hidden"} flex-shrink-0 flex-col rounded-card lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
             panelAbierto ? "w-full lg:w-[26rem]" : "w-full lg:w-12"
           }`}
         >
@@ -485,7 +521,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
           {/* Retraído se oculta solo desde lg: debajo el botón de retraer no
               existe, y el panel siempre tiene que verse. */}
-            <div className={`${panelAbierto ? "flex" : "flex lg:hidden"} flex-col gap-4 overflow-auto p-4`}>
+            <div className={`${panelAbierto ? "flex" : "flex lg:hidden"} min-h-0 flex-col gap-4 overflow-auto p-4`}>
               <Pestanas
                 etiqueta="Qué editar"
                 pestanas={PESTANAS}
@@ -495,6 +531,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
               {pestana === "buscadores" ? (
                 <BuscadoresYRedes
                   slug={sesion.slug}
+                  urlSitio={urlSitio}
                   seoTitulo={borrador.seoTitulo}
                   seoDescripcion={borrador.seoDescripcion}
                   tituloPorDefecto={seoPorDefecto.titulo}
@@ -512,16 +549,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   guardarHorariosClinica={guardarHorariosClinica}
                   onBorrador={editar}
                   onBorradorDeshacible={editarDeshacible}
+                  abierto={abierto}
+                  onAbrir={setAbierto}
                 />
               ) : (
                 <>
-                <SelectorDeTema
-                  tema={borrador.tema}
-                  temaVariante={borrador.temaVariante}
-                  temaTipografia={borrador.temaTipografia}
-                  temaTokens={borrador.temaTokens}
-                  onCambio={editar}
-                />
+                {/* Presets primero (PP-6, H18): un punto de partida completo antes
+                    que cada perilla por separado. */}
                 <section aria-label="Presets de estilo" className="flex flex-col gap-2 rounded-card border-[0.5px] border-arena bg-marfil p-4">
                   <h2 className="text-sm font-semibold text-grafito">Presets de estilo</h2>
                   {CATALOGO_PRESETS_ESTILO.map((preset) => (
@@ -536,6 +570,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                     </button>
                   ))}
                 </section>
+                <SelectorDeTema
+                  tema={borrador.tema}
+                  temaVariante={borrador.temaVariante}
+                  temaTipografia={borrador.temaTipografia}
+                  temaTokens={borrador.temaTokens}
+                  onCambio={editar}
+                />
                 </>
               )}
               </Pestanas>

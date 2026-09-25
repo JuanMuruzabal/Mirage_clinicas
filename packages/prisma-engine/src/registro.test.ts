@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFINICIONES_MODULOS, REGISTRO_MODULOS, definicionDeModulo } from "./registro";
+import { miniaturaDeModulo } from "./miniatura";
 
 // El registro es el corazón de PE-1: el criterio de aceptación del plan es
 // que sumar un módulo cueste tocar solo su carpeta. Estos tests fijan el
@@ -94,5 +95,21 @@ describe("ancho por módulo", () => {
     expect(REGISTRO_MODULOS.foto.ancho({ subtipo: "retrato" })).toBe("medio");
     expect(REGISTRO_MODULOS.foto.ancho({ subtipo: "banner" })).toBe("completo");
     expect(REGISTRO_MODULOS.foto.ancho({})).toBe("completo");
+  });
+});
+
+describe("miniatura del catálogo (PP-6, H20)", () => {
+  it("todo módulo tiene un dibujo para «Agregar sección»: su primera variante o su `miniatura`", () => {
+    for (const d of DEFINICIONES_MODULOS) {
+      const m = miniaturaDeModulo(d);
+      expect(m.bloques.length, d.tipo).toBeGreaterThan(0);
+      if (d.variantes.length === 0) expect(d.miniatura, `${d.tipo} no tiene variantes: necesita miniatura`).toBeDefined();
+    }
+  });
+
+  it("con una variante pedida (la de una sección prearmada) dibuja esa", () => {
+    const galeria = definicionDeModulo("galeria")!;
+    expect(miniaturaDeModulo(galeria, "carrusel").id).toBe("carrusel");
+    expect(miniaturaDeModulo(galeria, "no-existe").id).toBe(galeria.variantes[0].id);
   });
 });

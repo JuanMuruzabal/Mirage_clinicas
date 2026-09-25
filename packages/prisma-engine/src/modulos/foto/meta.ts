@@ -12,6 +12,7 @@ export const fotoModulo: DefinicionModulo = {
   configInicial: () => ({ fotoUrl: "", subtipo: "banner" }),
   ancho: (config) => (subtipoDeConfig(config) === "retrato" ? "medio" : "completo"),
   variantes: [],
+  miniatura: [[5, 8, 90, 44, "foto"]],
   opcionesDeSeccion: { titulo: false, fondo: false, alineacion: false },
   slotsAnimables: SLOTS_FOTO,
   Editor,

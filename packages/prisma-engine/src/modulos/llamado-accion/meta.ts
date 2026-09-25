@@ -11,6 +11,7 @@ export const llamadoAccionModulo: DefinicionModulo = {
   configInicial: () => ({ texto: "", etiquetaBoton: "Pedí un turno", destino: "turno" }),
   ancho: () => "completo",
   variantes: [],
+  miniatura: [[20, 12, 60, 7, "titulo"], [25, 24, 50, 4, "texto"], [35, 36, 30, 10, "acento"]],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: true },
   slotsAnimables: SLOTS_LLAMADO,
   Editor,

@@ -11,6 +11,7 @@ export const preguntasFrecuentesModulo: DefinicionModulo = {
   configInicial: () => ({ preguntas: [] }),
   ancho: () => "completo",
   variantes: [],
+  miniatura: [[25, 6, 50, 6, "titulo"], [10, 18, 80, 8, "tarjeta"], [10, 30, 80, 8, "tarjeta"], [10, 42, 80, 8, "tarjeta"]],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: true },
   slotsAnimables: SLOTS_PREGUNTAS,
   Editor,

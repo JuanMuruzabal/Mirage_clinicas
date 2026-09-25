@@ -6,6 +6,8 @@ import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ETIQUETA } from "./estilos";
 
 interface BuscadoresYRedesProps {
   slug: string;
+  /** La URL del sitio (urlDelSitio): la vista de Google muestra "dominio › slug", como Google. Sin ella, solo el slug. */
+  urlSitio?: string;
   seoTitulo: string;
   seoDescripcion: string;
   /** Lo que se usa si el campo queda vacío (lib/pagina-publica/seo.ts). */
@@ -14,19 +16,29 @@ interface BuscadoresYRedesProps {
   onCambio: (parcial: Partial<Borrador>) => void;
 }
 
-// Pestaña "Buscadores y redes" (PE-9): cómo aparece la página en Google y en
+function dominioDe(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+}
+
+// Pestaña "Google y redes" (PE-9; "Buscadores y redes" hasta PP-6): cómo aparece la página en Google y en
 // la vista previa de un link compartido. Dos campos opcionales — vacíos, la
 // página usa un título y una descripción armados con el nombre, las
 // especialidades y la ciudad, que se muestran de sugerencia. Como el resto
 // del editor, se guarda con el borrador y llega al público al Publicar.
-export function BuscadoresYRedes({ slug, seoTitulo, seoDescripcion, tituloPorDefecto, descripcionPorDefecto, onCambio }: BuscadoresYRedesProps) {
+export function BuscadoresYRedes({ slug, urlSitio, seoTitulo, seoDescripcion, tituloPorDefecto, descripcionPorDefecto, onCambio }: BuscadoresYRedesProps) {
   const titulo = seoTitulo.trim() || tituloPorDefecto;
   const descripcion = seoDescripcion.trim() || descripcionPorDefecto;
+  const dominio = dominioDe(urlSitio);
 
   return (
-    <section aria-label="Buscadores y redes" className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-4">
+    <section aria-label="Google y redes" className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-4">
       <div>
-        <h2 className="text-sm font-semibold text-grafito">Buscadores y redes</h2>
+        <h2 className="text-sm font-semibold text-grafito">Google y redes</h2>
         <p className={`mt-1 ${CLASE_AYUDA}`}>
           Así aparece tu página en Google y cuando alguien comparte el link por WhatsApp. Si dejás un campo vacío, usamos el que ves de ejemplo.
         </p>
@@ -70,7 +82,7 @@ export function BuscadoresYRedes({ slug, seoTitulo, seoDescripcion, tituloPorDef
           formato final, pero los largos y el texto son estos. */}
       <figure aria-label="Vista previa en Google" className="flex flex-col gap-0.5 rounded-field border border-linea bg-hueso p-3">
         <figcaption className={CLASE_ETIQUETA}>Vista previa en Google</figcaption>
-        <span className="mt-1 truncate text-xs text-grafito/75">/{slug}</span>
+        <span className="mt-1 truncate text-xs text-grafito/75">{dominio ? `${dominio} › ${slug}` : `/${slug}`}</span>
         <span className="text-base leading-snug text-[#1a0dab]">{recortar(titulo, 60)}</span>
         <span className="text-xs text-grafito/75">{descripcion}</span>
       </figure>
