@@ -15,6 +15,7 @@ const borradorBase: Borrador = {
   temaVariante: "clinico-2",
   temaTipografia: "geometrica-moderna",
   fotoPortadaUrl: "/uploads/portada-propia.jpg",
+  fotoPortadaAlt: "",
   redes: { instagram: "@clinica" },
   mostrarMapa: true,
   direccionOverride: "Calle 123",

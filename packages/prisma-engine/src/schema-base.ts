@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ALINEACIONES, FONDOS_SECCION, MAX_LARGO_TITULO_PUBLICO } from "./seccion";
 import { schemaDeEfectos, type DefinicionSlotAnimable } from "./efectos/catalogo";
+import { MAX_LARGO_ALT_FOTO } from "./constantes";
 
 // Campo común a la config de CUALQUIER módulo: el nombre que el admin le
 // puso para reconocerlo en el editor ("Foto de la sala de espera"). Espejo
@@ -18,6 +19,10 @@ export const urlDeFotoSchema = z
   .string()
   .max(500)
   .regex(/^$|^\/uploads\/|^https:\/\/|^http:\/\//, "URL de foto inválida");
+
+// La descripción de una foto para quien no la ve (PP-4, H13). Vacía = el alt
+// genérico de siempre ("Foto de <clínica>").
+export const altDeFotoSchema = z.string().max(MAX_LARGO_ALT_FOTO);
 
 // Opciones comunes de SECCIÓN (PE-3): cualquier módulo las acepta en su
 // config (cada schema.ts las suma con el spread, igual que el nombre

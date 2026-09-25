@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import { renderToString } from "react-dom/server";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Confirmacion, Dialogo } from "./dialogo";
@@ -80,5 +81,19 @@ describe("Confirmacion", () => {
     await user.keyboard("{Enter}");
     expect(onConfirmar).not.toHaveBeenCalled();
     expect(onCancelar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Dialogo en el servidor", () => {
+  it("abierto desde el primer render, no rompe el SSR (PP-4): no dibuja nada hasta hidratar", () => {
+    // Antes: createPortal(…, document.body) en el servidor → 500 en
+    // /personalizar-pagina cuando la galería de plantillas se abría sola.
+    expect(renderToString(<Dialogo titulo="Plantillas" onCerrar={() => {}}>contenido</Dialogo>)).toBe("");
+  });
+
+  it("montado en el cliente, se dibuja y toma el foco", () => {
+    render(<Dialogo titulo="Plantillas" onCerrar={() => {}}>contenido</Dialogo>);
+    expect(screen.getByRole("dialog", { name: "Plantillas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cerrar" })).toHaveFocus();
   });
 });

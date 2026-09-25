@@ -158,6 +158,12 @@ describe("ClinicaPublicaTemplate — módulos", () => {
 describe("ClinicaPublicaTemplate — nombre sobre la portada", () => {
   const portada = "https://cdn.example.com/portada.jpg";
 
+  it("la foto lleva la descripción que cargó el admin (PP-4, H13)", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: portada, fotoPortadaAlt: "La fachada, con el cartel verde" })} />);
+    expect(screen.getByRole("img", { name: "La fachada, con el cartel verde" })).toHaveAttribute("src", portada);
+    expect(screen.queryByAltText("Portada de Clínica Sonrisas")).not.toBeInTheDocument();
+  });
+
   it("por default el nombre va debajo de la foto, con el logo", () => {
     render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: portada })} />);
     const foto = screen.getByAltText("Portada de Clínica Sonrisas");

@@ -3,6 +3,8 @@
 import { useId, useRef, useState, type MouseEvent } from "react";
 import type { ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
+import { CLASE_TACTIL } from "./estilos";
+import { GrupoDeOpciones } from "./grupo-de-opciones";
 
 const DISPOSITIVOS = [
   { id: "movil", etiqueta: "Móvil", ancho: 390 },
@@ -69,29 +71,24 @@ export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, 
   return (
     <div className="min-h-[640px] flex-1 overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-[0.5px] border-arena bg-marfil px-4 py-2">
-        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Previsualización en vivo</p>
+        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/75">Previsualización en vivo</p>
         <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setReproduccion((r) => r + 1)} className="rounded-full border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-salvia">
           Reproducir efectos
         </button>
-        <div role="radiogroup" aria-label="Tamaño de la previsualización" className="flex gap-1">
-          {DISPOSITIVOS.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              role="radio"
-              aria-checked={dispositivo === d.id}
-              onClick={() => setDispositivo(d.id)}
-              className={`rounded-full border-[0.5px] px-3 py-1 text-xs font-medium ${
-                dispositivo === d.id
-                  ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro"
-                  : "border-arena bg-marfil text-grafito hover:border-salvia"
-              }`}
-            >
-              {d.etiqueta}
-            </button>
-          ))}
-        </div>
+        <GrupoDeOpciones
+          etiqueta="Tamaño de la previsualización"
+          etiquetaOculta
+          valor={dispositivo}
+          onCambio={(id) => setDispositivo(id as IdDispositivo)}
+          opciones={DISPOSITIVOS.map((d) => ({ valor: d.id, contenido: d.etiqueta }))}
+          className="flex gap-1"
+          claseOpcion={(elegida) =>
+            `rounded-full border-[0.5px] px-3 py-1 text-xs font-medium ${CLASE_TACTIL} ${
+              elegida ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro" : "border-arena bg-marfil text-grafito hover:border-salvia"
+            }`
+          }
+        />
         </div>
       </div>
       {/* Sin fondo propio acá — ClinicaPublicaTemplate trae el suyo. El

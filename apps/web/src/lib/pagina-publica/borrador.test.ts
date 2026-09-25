@@ -8,6 +8,7 @@ const borrador = (parcial: Partial<Borrador> = {}): Borrador => ({
   temaVariante: "",
   temaTipografia: "",
   fotoPortadaUrl: "",
+  fotoPortadaAlt: "",
   redes: {},
   mostrarMapa: false,
   direccionOverride: "",

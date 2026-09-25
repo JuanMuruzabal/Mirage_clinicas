@@ -743,6 +743,11 @@ type PaginaPublica struct {
 	TemaVariante   string  `gorm:"column:tema_variante;type:varchar(30);not null;default:''"`
 	TemaTipografia string  `gorm:"column:tema_tipografia;type:varchar(30);not null;default:''"`
 	FotoPortadaURL *string `gorm:"column:foto_portada_url;type:varchar(500)"`
+	// FotoPortadaAlt (PP-4, plan de pulido): la descripción de la foto de
+	// portada para quien no la ve. "" = el alt genérico de la web ("Portada
+	// de <clínica>"), que no se guarda — igual que SeoTitulo. Las fotos de los
+	// módulos llevan la suya en su config (fotoAlt / fotoAlts).
+	FotoPortadaAlt string `gorm:"column:foto_portada_alt;type:varchar(150);not null;default:''"`
 	// RedesSociales: mismo patrón que ProfessionalProfile.Idiomas (jsonb +
 	// serializer:json) — { instagram?, facebook?, whatsapp? ... }.
 	RedesSociales     map[string]string `gorm:"column:redes_sociales;type:jsonb;serializer:json"`
@@ -832,11 +837,14 @@ type PaginaPublicaContenidoModulo struct {
 }
 
 type PaginaPublicaContenidoVersion struct {
-	Bio                *string           `json:"bio"`
-	Tema               string            `json:"tema"`
-	TemaVariante       string            `json:"temaVariante"`
-	TemaTipografia     string            `json:"temaTipografia"`
-	FotoPortadaURL     *string           `json:"fotoPortadaUrl"`
+	Bio            *string `json:"bio"`
+	Tema           string  `json:"tema"`
+	TemaVariante   string  `json:"temaVariante"`
+	TemaTipografia string  `json:"temaTipografia"`
+	FotoPortadaURL *string `json:"fotoPortadaUrl"`
+	// FotoPortadaAlt (PP-4): versiones anteriores no lo traen — "" = el alt
+	// genérico, que es lo que mostraban.
+	FotoPortadaAlt     string            `json:"fotoPortadaAlt,omitempty"`
 	RedesSociales      map[string]string `json:"redesSociales"`
 	MostrarMapa        bool              `json:"mostrarMapa"`
 	DireccionOverride  *string           `json:"direccionOverride"`
@@ -900,6 +908,7 @@ func (p PaginaPublica) ContenidoVersion() PaginaPublicaContenidoVersion {
 		TemaVariante:       p.TemaVariante,
 		TemaTipografia:     p.TemaTipografia,
 		FotoPortadaURL:     p.FotoPortadaURL,
+		FotoPortadaAlt:     p.FotoPortadaAlt,
 		RedesSociales:      redes,
 		MostrarMapa:        p.MostrarMapa,
 		DireccionOverride:  p.DireccionOverride,

@@ -72,7 +72,7 @@ export function GaleriaPlantillas({
                 onClick={() => setSeleccionada(plantilla)}
                 className={`rounded-card border-[0.5px] p-3 text-left transition-colors ${seleccionada.id === plantilla.id ? "border-salvia-oscuro bg-salvia-claro" : "border-arena bg-marfil hover:border-salvia"}`}
               >
-                <span className="block text-xs uppercase tracking-widest text-grafito/70">{plantilla.rubro} · {plantilla.estilo.replaceAll("-", " ")}</span>
+                <span className="block text-xs uppercase tracking-widest text-grafito/75">{plantilla.rubro} · {plantilla.estilo.replaceAll("-", " ")}</span>
                 <span className="mt-1 block text-sm font-semibold text-grafito">{plantilla.nombre}</span>
                 <span className="mt-1 block text-xs text-grafito/80">{plantilla.descripcion}</span>
               </button>

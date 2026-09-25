@@ -64,6 +64,10 @@
       "maxLength": 500,
       "pattern": "^$|^\\/uploads\\/|^https:\\/\\/|^http:\\/\\/"
     },
+    "fotoAlt": {
+      "type": "string",
+      "maxLength": 150
+    },
     "subtipo": {
       "type": "string",
       "enum": [

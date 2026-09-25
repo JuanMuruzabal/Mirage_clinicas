@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const ENFOCABLES =
@@ -29,9 +29,20 @@ const ANCHOS = { chico: "max-w-md", medio: "max-w-2xl", ancho: "max-w-7xl" } as 
  *
  * Portal a `document.body`, como ModalPortal del panel: un ancestro con
  * `overflow` o `container-type` recortaría al diálogo (TR-030, TR-151).
+ *
+ * A diferencia de ModalPortal, este diálogo SÍ puede estar abierto en el
+ * primer render: la galería de plantillas se abre sola en una página que
+ * nunca se personalizó. En el servidor no hay `document`, y el portal
+ * tiraba un ReferenceError que dejaba /personalizar-pagina en 500 (PP-4,
+ * visto en el log de `next dev`, que después se recuperaba en el cliente).
+ * Por eso no se dibuja nada hasta hidratar, y el foco espera a eso.
  */
+const sinSuscripcion = () => () => {};
+
 export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chico", etiquetaCerrar }: DialogoProps) {
   const id = useId();
+  // false en el servidor y al hidratar; true desde el render siguiente.
+  const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
   const caja = useRef<HTMLDivElement>(null);
   const cerrar = useRef(onCerrar);
   useEffect(() => {
@@ -39,6 +50,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
   });
 
   useEffect(() => {
+    if (!montado) return;
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const nodo = caja.current;
     // El primer control, o la caja misma si no hay ninguno.
@@ -71,8 +83,9 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
       document.removeEventListener("keydown", teclado);
       anterior?.focus();
     };
-  }, []);
+  }, [montado]);
 
+  if (!montado) return null;
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-grafito/50 p-3 py-6 backdrop-blur-sm sm:p-6"
@@ -89,7 +102,10 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
         tabIndex={-1}
         className={`w-full ${ANCHOS[ancho]} rounded-card border-[0.5px] border-arena bg-hueso shadow-soft outline-none`}
       >
-        <header className="flex items-start justify-between gap-4 border-b-[0.5px] border-arena p-4 sm:p-6">
+        {/* Un <div> y no un <header>: fuera de un article/section, <header> es
+            un landmark "banner", y con el diálogo abierto el documento tenía
+            dos (el del sitio y este) — axe, PP-4. */}
+        <div className="flex items-start justify-between gap-4 border-b-[0.5px] border-arena p-4 sm:p-6">
           <div>
             <h2 id={`${id}-titulo`} className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">
               {titulo}
@@ -108,7 +124,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
           >
             Cerrar
           </button>
-        </header>
+        </div>
         {children}
       </div>
     </div>,

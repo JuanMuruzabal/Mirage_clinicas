@@ -1827,6 +1827,8 @@ export interface ActualizarPaginaPublicaPayload {
   temaVariante?: string;
   temaTipografia?: string;
   fotoPortadaUrl?: string;
+  // fotoPortadaAlt (PP-4): "" vuelve al alt genérico.
+  fotoPortadaAlt?: string;
   redesSociales?: Record<string, string>;
   mostrarMapa?: boolean;
   direccionOverride?: string;

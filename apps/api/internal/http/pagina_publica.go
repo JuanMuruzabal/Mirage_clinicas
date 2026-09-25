@@ -69,6 +69,9 @@ const (
 	maxLargoRed          = 100
 	maxLargoNombreModulo = 60
 	maxLargoURLFoto      = 500 // el de la columna foto_portada_url
+	// El de la columna foto_portada_alt (PP-4); espejo de MAX_LARGO_ALT_FOTO
+	// del paquete, que valida el de las fotos de los módulos.
+	maxLargoAltFoto = 150
 	// Los de las columnas seo_titulo/seo_descripcion (PE-9).
 	maxLargoSeoTitulo      = 70
 	maxLargoSeoDescripcion = 160
@@ -159,13 +162,15 @@ func toModuloResponse(m db.PaginaPublicaModulo) moduloResponse {
 }
 
 type paginaPublicaResponse struct {
-	Oculta            bool              `json:"oculta"`
-	DeployadaEn       *string           `json:"deployadaEn,omitempty"`
-	Bio               *string           `json:"bio,omitempty"`
-	Tema              string            `json:"tema"`
-	TemaVariante      string            `json:"temaVariante"`
-	TemaTipografia    string            `json:"temaTipografia"`
-	FotoPortadaURL    *string           `json:"fotoPortadaUrl,omitempty"`
+	Oculta         bool    `json:"oculta"`
+	DeployadaEn    *string `json:"deployadaEn,omitempty"`
+	Bio            *string `json:"bio,omitempty"`
+	Tema           string  `json:"tema"`
+	TemaVariante   string  `json:"temaVariante"`
+	TemaTipografia string  `json:"temaTipografia"`
+	FotoPortadaURL *string `json:"fotoPortadaUrl,omitempty"`
+	// FotoPortadaAlt (PP-4): "" = el alt genérico de la web.
+	FotoPortadaAlt    string            `json:"fotoPortadaAlt"`
 	RedesSociales     map[string]string `json:"redesSociales"`
 	MostrarMapa       bool              `json:"mostrarMapa"`
 	DireccionOverride *string           `json:"direccionOverride,omitempty"`
@@ -226,6 +231,7 @@ type contenidoVersionResponse struct {
 	TemaVariante       string                    `json:"temaVariante"`
 	TemaTipografia     string                    `json:"temaTipografia"`
 	FotoPortadaURL     *string                   `json:"fotoPortadaUrl,omitempty"`
+	FotoPortadaAlt     string                    `json:"fotoPortadaAlt"`
 	RedesSociales      map[string]string         `json:"redesSociales"`
 	MostrarMapa        bool                      `json:"mostrarMapa"`
 	DireccionOverride  *string                   `json:"direccionOverride,omitempty"`
@@ -255,7 +261,7 @@ func toContenidoVersionResponse(c db.PaginaPublicaContenidoVersion) contenidoVer
 	}
 	return contenidoVersionResponse{
 		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
-		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: redes, MostrarMapa: c.MostrarMapa,
+		FotoPortadaURL: c.FotoPortadaURL, FotoPortadaAlt: c.FotoPortadaAlt, RedesSociales: redes, MostrarMapa: c.MostrarMapa,
 		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
 		TemaTokens: tokensOVacio(c.TemaTokens),
 		SeoTitulo:  c.SeoTitulo, SeoDescripcion: c.SeoDescripcion,
@@ -341,6 +347,7 @@ func toPaginaPublicaResponse(p db.PaginaPublica, estadisticas map[string]int) pa
 		TemaVariante:       p.TemaVariante,
 		TemaTipografia:     p.TemaTipografia,
 		FotoPortadaURL:     p.FotoPortadaURL,
+		FotoPortadaAlt:     p.FotoPortadaAlt,
 		RedesSociales:      p.RedesSociales,
 		MostrarMapa:        p.MostrarMapa,
 		DireccionOverride:  p.DireccionOverride,
@@ -441,16 +448,18 @@ type moduloRequest struct {
 }
 
 type actualizarPaginaPublicaRequest struct {
-	Bio                *string           `json:"bio"`
-	Tema               *string           `json:"tema"`
-	TemaVariante       *string           `json:"temaVariante"`
-	TemaTipografia     *string           `json:"temaTipografia"`
-	RedesSociales      map[string]string `json:"redesSociales"`
-	MostrarMapa        *bool             `json:"mostrarMapa"`
-	DireccionOverride  *string           `json:"direccionOverride"`
-	FotoPortadaURL     *string           `json:"fotoPortadaUrl"`
-	NombreSobrePortada *bool             `json:"nombreSobrePortada"`
-	NombreColor        *string           `json:"nombreColor"`
+	Bio               *string           `json:"bio"`
+	Tema              *string           `json:"tema"`
+	TemaVariante      *string           `json:"temaVariante"`
+	TemaTipografia    *string           `json:"temaTipografia"`
+	RedesSociales     map[string]string `json:"redesSociales"`
+	MostrarMapa       *bool             `json:"mostrarMapa"`
+	DireccionOverride *string           `json:"direccionOverride"`
+	FotoPortadaURL    *string           `json:"fotoPortadaUrl"`
+	// FotoPortadaAlt (PP-4): "" vuelve al alt genérico.
+	FotoPortadaAlt     *string `json:"fotoPortadaAlt"`
+	NombreSobrePortada *bool   `json:"nombreSobrePortada"`
+	NombreColor        *string `json:"nombreColor"`
 	// TemaTokens (PE-2) — puntero al mapa por el mismo motivo que Modulos:
 	// nil = no vino (no tocar); `{}` = sacar todos los overrides (volver a
 	// los tokens del tema).
@@ -550,6 +559,15 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		if req.FotoPortadaURL != nil && !urlDeFotoValida(strings.TrimSpace(*req.FotoPortadaURL)) {
 			writeError(w, http.StatusBadRequest, "la URL de la foto de portada no es válida")
 			return
+		}
+		fotoPortadaAlt := ""
+		if req.FotoPortadaAlt != nil {
+			// Una línea, como un título: un alt con saltos se lee igual.
+			fotoPortadaAlt = textoSeo(*req.FotoPortadaAlt)
+			if len([]rune(fotoPortadaAlt)) > maxLargoAltFoto {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("la descripción de la foto de portada admite hasta %d caracteres", maxLargoAltFoto))
+				return
+			}
 		}
 		if req.NombreColor != nil && !coloresNombreValidos[strings.TrimSpace(*req.NombreColor)] {
 			writeError(w, http.StatusBadRequest, "color del nombre inválido")
@@ -668,6 +686,10 @@ func actualizarPaginaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			if req.FotoPortadaURL != nil {
 				updates.FotoPortadaURL = vacioANil(req.FotoPortadaURL)
 				campos = append(campos, "FotoPortadaURL")
+			}
+			if req.FotoPortadaAlt != nil {
+				updates.FotoPortadaAlt = fotoPortadaAlt
+				campos = append(campos, "FotoPortadaAlt")
 			}
 			if req.NombreSobrePortada != nil {
 				updates.NombreSobrePortada = *req.NombreSobrePortada
@@ -1123,7 +1145,7 @@ var errVersionNoEncontrada = errors.New("versión no encontrada")
 func aplicarContenidoAlBorrador(tx *gorm.DB, paginaID uuid.UUID, revisionEsperada int, userID uuid.UUID, c db.PaginaPublicaContenidoVersion) error {
 	updates := db.PaginaPublica{
 		Bio: c.Bio, Tema: c.Tema, TemaVariante: c.TemaVariante, TemaTipografia: c.TemaTipografia,
-		FotoPortadaURL: c.FotoPortadaURL, RedesSociales: c.RedesSociales, MostrarMapa: c.MostrarMapa,
+		FotoPortadaURL: c.FotoPortadaURL, FotoPortadaAlt: c.FotoPortadaAlt, RedesSociales: c.RedesSociales, MostrarMapa: c.MostrarMapa,
 		DireccionOverride: c.DireccionOverride, NombreSobrePortada: c.NombreSobrePortada, NombreColor: c.NombreColor,
 		// Una versión anterior a PE-2 no trae tokens: restaurarla vuelve a
 		// "sin overrides", que es como se veía cuando se publicó.
@@ -1133,7 +1155,7 @@ func aplicarContenidoAlBorrador(tx *gorm.DB, paginaID uuid.UUID, revisionEsperad
 		Revision: revisionEsperada + 1, ActualizadaPorUserID: &userID,
 	}
 	campos := []string{
-		"Bio", "Tema", "TemaVariante", "TemaTipografia", "FotoPortadaURL", "RedesSociales", "MostrarMapa",
+		"Bio", "Tema", "TemaVariante", "TemaTipografia", "FotoPortadaURL", "FotoPortadaAlt", "RedesSociales", "MostrarMapa",
 		"DireccionOverride", "NombreSobrePortada", "NombreColor", "TemaTokens", "SeoTitulo", "SeoDescripcion",
 		"Revision", "ActualizadaPorUserID",
 	}

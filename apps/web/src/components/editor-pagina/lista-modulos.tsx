@@ -35,7 +35,7 @@ import {
 import { EditorDePortada } from "./editor-de-portada";
 import { EditorDeModulo } from "./editor-de-modulo";
 import { OpcionesDeModulo } from "./opciones-de-modulo";
-import { CLASE_AYUDA, CLASE_BOTON, CLASE_BOTON_PELIGRO, CLASE_CAMPO, CLASE_ETIQUETA } from "./estilos";
+import { CLASE_AYUDA, CLASE_BOTON, CLASE_BOTON_PELIGRO, CLASE_CAMPO, CLASE_ETIQUETA, CLASE_TACTIL } from "./estilos";
 
 interface ListaModulosProps {
   borrador: Borrador;
@@ -131,7 +131,7 @@ function FilaModulo({
           {...attributes}
           {...listeners}
           aria-label={`Arrastrar ${nombre}`}
-          className="cursor-grab touch-none rounded px-1.5 py-1 text-grafito/50 hover:text-grafito active:cursor-grabbing"
+          className={`cursor-grab touch-none rounded px-1.5 py-1 text-grafito/75 hover:text-grafito active:cursor-grabbing ${CLASE_TACTIL}`}
         >
           <span aria-hidden="true">⠿</span>
         </button>
@@ -143,11 +143,11 @@ function FilaModulo({
           {/* Con nombre propio se pierde a la vista qué ES el módulo: el tipo
               queda como una etiqueta chica al lado. */}
           {nombrePropioDeModulo(modulo.config) && (
-            <span className="shrink-0 rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/60">
+            <span className="shrink-0 rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">
               {nombreDelTipo(modulo)}
             </span>
           )}
-          {!modulo.visible && <span className="rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/60">Oculto</span>}
+          {!modulo.visible && <span className="rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">Oculto</span>}
         </button>
         <button
           type="button"

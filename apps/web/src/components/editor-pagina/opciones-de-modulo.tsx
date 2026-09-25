@@ -11,7 +11,8 @@ import {
 } from "@dental-mirage/prisma-engine";
 import { SelectorDeVariante } from "./selector-de-variante";
 import { SubirFoto } from "./subir-foto";
-import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ETIQUETA } from "./estilos";
+import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ETIQUETA, CLASE_PASTILLA, claseDeEleccion } from "./estilos";
+import { GrupoDeOpciones } from "./grupo-de-opciones";
 
 interface OpcionesDeModuloProps {
   modulo: ModuloBorrador;
@@ -24,9 +25,6 @@ const FONDOS: { id: FondoSeccion; nombre: string }[] = [
   { id: "contraste", nombre: "Contraste" },
 ];
 
-const CLASE_PASTILLA = "rounded-full border-[0.5px] px-3 py-1.5 text-xs";
-const CLASE_ELEGIDA = "border-salvia-oscuro bg-salvia-claro";
-const CLASE_NO_ELEGIDA = "border-arena bg-marfil hover:border-salvia";
 
 /** Escribe una clave de la config; un valor vacío (o el default) la saca, así la config no acumula claves sin efecto. */
 function conClave(config: Record<string, unknown>, clave: string, valor: string, porDefecto = ""): Record<string, unknown> {
@@ -104,23 +102,14 @@ export function OpcionesDeModulo({ modulo, onConfig }: OpcionesDeModuloProps) {
       )}
 
       {opciones.fondo && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className={CLASE_ETIQUETA}>Fondo de la sección</legend>
-          <div role="radiogroup" aria-label="Fondo de la sección" className="flex flex-wrap gap-2">
-            {FONDOS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="radio"
-                aria-checked={f.id === fondo}
-                onClick={() => onConfig(conClave(modulo.config, "fondoSeccion", f.id, "normal"))}
-                className={`${CLASE_PASTILLA} ${f.id === fondo ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-              >
-                {f.nombre}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <GrupoDeOpciones
+          etiqueta="Fondo de la sección"
+          valor={fondo}
+          onCambio={(id) => onConfig(conClave(modulo.config, "fondoSeccion", id, "normal"))}
+          opciones={FONDOS.map((f) => ({ valor: f.id, contenido: f.nombre }))}
+          className="flex flex-wrap gap-2"
+          claseOpcion={(elegida) => `${CLASE_PASTILLA} ${claseDeEleccion(elegida)}`}
+        />
       )}
 
       {opciones.alineacion && (

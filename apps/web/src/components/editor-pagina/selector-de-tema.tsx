@@ -3,7 +3,8 @@
 import type { ReactNode } from "react";
 import { ETIQUETAS_TOKENS, OPCIONES_TOKENS, resolverTokens, type ClaveToken, type TokensTema } from "@dental-mirage/prisma-engine";
 import { PALETAS_PAGINA_PUBLICA, TIPOGRAFIAS_POR_TEMA, paletaPorId, tipografiaPorId } from "@/lib/temas-pagina-publica";
-import { CLASE_AYUDA, CLASE_BOTON, CLASE_ETIQUETA } from "./estilos";
+import { CLASE_AYUDA, CLASE_BOTON, CLASE_PASTILLA, CLASE_TARJETA_OPCION, claseDeEleccion } from "./estilos";
+import { GrupoDeOpciones } from "./grupo-de-opciones";
 
 export interface EleccionDeTema {
   tema: string;
@@ -16,10 +17,8 @@ interface SelectorDeTemaProps extends EleccionDeTema {
   onCambio: (eleccion: Partial<EleccionDeTema>) => void;
 }
 
-const CLASE_OPCION = "rounded-card border-[0.5px] p-3 text-left text-sm transition-colors";
-const CLASE_ELEGIDA = "border-salvia-oscuro bg-salvia-claro";
-const CLASE_NO_ELEGIDA = "border-arena bg-marfil hover:border-salvia";
-const CLASE_PASTILLA = "rounded-full border-[0.5px] px-3 py-1.5 text-xs";
+const clasePastilla = (elegida: boolean) => `${CLASE_PASTILLA} ${claseDeEleccion(elegida)}`;
+const claseTarjeta = (elegida: boolean) => `${CLASE_TARJETA_OPCION} ${claseDeEleccion(elegida)}`;
 
 // Los tokens de estilo que se editan acá, por grupo (PE-2). `portada` no: es
 // de layout y se elige en la fila "Portada" de la pestaña Módulos.
@@ -80,23 +79,15 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
   function selectorDeToken(clave: ClaveToken) {
     const { titulo, opciones } = ETIQUETAS_TOKENS[clave];
     return (
-      <fieldset key={clave} className="flex flex-col gap-2">
-        <legend className={CLASE_ETIQUETA}>{titulo}</legend>
-        <div role="radiogroup" aria-label={titulo} className="flex flex-wrap gap-2">
-          {OPCIONES_TOKENS[clave].map((valor) => (
-            <button
-              key={valor}
-              type="button"
-              role="radio"
-              aria-checked={vigentes[clave] === valor}
-              onClick={() => elegirToken(clave, valor)}
-              className={`${CLASE_PASTILLA} ${vigentes[clave] === valor ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-            >
-              {(opciones as Record<string, string>)[valor]}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <GrupoDeOpciones
+        key={clave}
+        etiqueta={titulo}
+        valor={vigentes[clave] ?? ""}
+        onCambio={(valor) => elegirToken(clave, valor)}
+        opciones={OPCIONES_TOKENS[clave].map((valor) => ({ valor, contenido: (opciones as Record<string, string>)[valor] }))}
+        className="flex flex-wrap gap-2"
+        claseOpcion={clasePastilla}
+      />
     );
   }
 
@@ -108,89 +99,88 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
         <p className={CLASE_AYUDA}>Las animaciones se detienen si el visitante prefiere movimiento reducido.</p>
       </Grupo>
       <Grupo titulo="Colores">
-        <fieldset className="flex flex-col gap-2">
-          <legend className={CLASE_ETIQUETA}>Tema</legend>
-          <div role="radiogroup" aria-label="Tema de la página" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!paleta}
-              onClick={() => elegirTema("")}
-              className={`${CLASE_OPCION} ${!paleta ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-            >
-              <span className="block font-medium text-grafito">Original</span>
-              <span className={CLASE_AYUDA}>El celeste de siempre.</span>
-            </button>
-            {PALETAS_PAGINA_PUBLICA.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={p.id === tema}
-                onClick={() => elegirTema(p.id)}
-                className={`${CLASE_OPCION} ${p.id === tema ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium text-grafito">{p.nombre}</span>
-                  <span aria-hidden="true" className="ml-auto flex gap-1">
-                    <span className="h-3 w-3 rounded-full border-[0.5px] border-grafito/20" style={{ background: p.fondoBase }} />
-                    {p.variantes.map((v) => (
-                      <span key={v.id} className="h-3 w-3 rounded-full border-[0.5px] border-grafito/20" style={{ background: v.hex }} />
-                    ))}
+        <GrupoDeOpciones
+          etiqueta="Tema"
+          valor={paleta ? paleta.id : ""}
+          onCambio={elegirTema}
+          className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+          claseOpcion={claseTarjeta}
+          opciones={[
+            {
+              valor: "",
+              contenido: (
+                <>
+                  <span className="block font-medium text-grafito">Original</span>
+                  <span className={CLASE_AYUDA}>El celeste de siempre.</span>
+                </>
+              ),
+            },
+            ...PALETAS_PAGINA_PUBLICA.map((p) => ({
+              valor: p.id,
+              contenido: (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium text-grafito">{p.nombre}</span>
+                    <span aria-hidden="true" className="ml-auto flex gap-1">
+                      <span className="h-3 w-3 rounded-full border-[0.5px] border-grafito/20" style={{ background: p.fondoBase }} />
+                      {p.variantes.map((v) => (
+                        <span key={v.id} className="h-3 w-3 rounded-full border-[0.5px] border-grafito/20" style={{ background: v.hex }} />
+                      ))}
+                    </span>
                   </span>
-                </span>
-                <span className={`${CLASE_AYUDA} mt-1 block`}>{p.descripcion}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+                  <span className={`${CLASE_AYUDA} mt-1 block`}>{p.descripcion}</span>
+                </>
+              ),
+            })),
+          ]}
+        />
 
         {paleta && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className={CLASE_ETIQUETA}>Color</legend>
-            <div role="radiogroup" aria-label="Variante de color" className="flex flex-wrap gap-2">
-              {paleta.variantes.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={v.id === temaVariante}
-                  aria-label={v.nombre}
-                  title={v.nombre}
-                  onClick={() => onCambio({ temaVariante: v.id })}
-                  className={`flex items-center gap-2 ${CLASE_PASTILLA} ${v.id === temaVariante ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-                >
+          <GrupoDeOpciones
+            etiqueta="Color"
+            valor={temaVariante}
+            onCambio={(id) => onCambio({ temaVariante: id })}
+            className="flex flex-wrap gap-2"
+            claseOpcion={(elegida) => `flex items-center gap-2 ${clasePastilla(elegida)}`}
+            opciones={paleta.variantes.map((v) => ({
+              valor: v.id,
+              contenido: (
+                <>
                   <span aria-hidden="true" className="h-4 w-4 rounded-full border-[0.5px] border-grafito/20" style={{ background: v.hex }} />
                   {v.nombre}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+                </>
+              ),
+            }))}
+          />
         )}
       </Grupo>
 
       {paleta && (
         <>
           <Grupo titulo="Tipografía">
-            <div role="radiogroup" aria-label="Tipografía" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {tipografiasDelTema.map((id) => {
+            <GrupoDeOpciones
+              etiqueta="Tipografía"
+              etiquetaOculta
+              valor={temaTipografia}
+              onCambio={(id) => onCambio({ temaTipografia: id })}
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+              claseOpcion={claseTarjeta}
+              opciones={tipografiasDelTema.flatMap((id) => {
                 const t = tipografiaPorId(id);
-                if (!t) return null;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="radio"
-                    aria-checked={id === temaTipografia}
-                    onClick={() => onCambio({ temaTipografia: id })}
-                    className={`${CLASE_OPCION} ${id === temaTipografia ? CLASE_ELEGIDA : CLASE_NO_ELEGIDA}`}
-                  >
-                    <span className="block font-medium text-grafito">{t.nombre}</span>
-                    <span className={CLASE_AYUDA}>{t.descripcion}</span>
-                  </button>
-                );
+                if (!t) return [];
+                return [
+                  {
+                    valor: id,
+                    contenido: (
+                      <>
+                        <span className="block font-medium text-grafito">{t.nombre}</span>
+                        <span className={CLASE_AYUDA}>{t.descripcion}</span>
+                      </>
+                    ),
+                  },
+                ];
               })}
-            </div>
+            />
           </Grupo>
 
           <Grupo titulo="Forma y espacio">

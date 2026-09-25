@@ -20,7 +20,7 @@ function FotoSuelta({
   const forma =
     subtipo === "retrato" ? "mx-auto aspect-[3/4] w-full max-w-xs" : subtipo === "franja" ? "aspect-[21/6] w-full" : "aspect-[16/7] w-full";
   const clase = `${forma} ${CLASE_FOTO}`;
-  return <Foto src={url} alt={`Foto de ${nombreClinica}`} className={clase} />;
+  return <Foto src={url} alt={textoDeConfig(config, "fotoAlt").trim() || `Foto de ${nombreClinica}`} className={clase} />;
 }
 
 export function seccion(modulo: ModuloBorrador, indice: number, contexto: ContextoPublico): SeccionPublica | null {

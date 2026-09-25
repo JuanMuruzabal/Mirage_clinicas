@@ -91,6 +91,8 @@ function opcionesDeSeccion(s: SeccionPublica): { className: string; style?: CSSP
 interface PropsPortada {
   variante: TokensResueltos["portada"];
   foto: string | null;
+  /** El alt de la foto: el que cargó el admin o, vacío, "Portada de <clínica>" (PP-4, H13). */
+  altFoto: string;
   nombreClinica: string;
   profesionalNombre: string;
   /** Solo rige en la variante centrada (el nombre sobre la foto, TR-155). */
@@ -142,7 +144,7 @@ function ImagenPortada({ src, alt, className, sizes = TAMANOS_FOTO_POR_DEFECTO }
  * la vista previa del editor la parte en dos según su ancho, no el de la
  * ventana.
  */
-function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobreFoto, colorNombre, Tag }: PropsPortada): ReactNode {
+function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, nombreSobreFoto, colorNombre, Tag }: PropsPortada): ReactNode {
 
   if (variante === "minima") {
     return (
@@ -155,7 +157,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     return (
       <div className="@container mx-auto w-full max-w-3xl">
         <div className="grid grid-cols-1 items-center gap-6 @xl:grid-cols-2">
-          <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} sizes="(min-width: 48rem) 24rem, 100vw" className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
+          <ImagenPortada src={foto} alt={altFoto} sizes="(min-width: 48rem) 24rem, 100vw" className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
           <div className="flex flex-col items-center gap-3 text-center @xl:items-start @xl:text-left">
             <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
           </div>
@@ -169,7 +171,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     // variante centrada (portada.ts), más cargados porque cubren todo.
     return (
       <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-(--pp-radio)">
-        <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} className="absolute inset-0 h-full w-full object-cover" />
+        <ImagenPortada src={foto} alt={altFoto} className="absolute inset-0 h-full w-full object-cover" />
         <div
           aria-hidden="true"
           className={`absolute inset-0 ${
@@ -194,7 +196,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
     <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 text-center">
       {foto && (
         <div className="relative mb-3 w-full overflow-hidden rounded-(--pp-radio)">
-          <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} className="aspect-[16/7] w-full object-cover" />
+          <ImagenPortada src={foto} alt={altFoto} className="aspect-[16/7] w-full object-cover" />
           {nombreSobreFoto && (
             <>
               {/* El velo es lo que hace legible el nombre sobre CUALQUIER
@@ -304,6 +306,7 @@ export function ClinicaPublicaTemplate({
         <Portada
           variante={tema.tokens.portada}
           foto={portada}
+          altFoto={c.fotoPortadaAlt?.trim() || `Portada de ${nombreClinica}`}
           nombreClinica={nombreClinica}
           profesionalNombre={profesionalNombre}
           nombreSobreFoto={nombreSobreFoto}
