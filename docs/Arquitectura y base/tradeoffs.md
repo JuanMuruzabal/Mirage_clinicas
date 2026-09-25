@@ -3015,6 +3015,27 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-171: Accesibilidad del editor — radios y pestañas de WAI-ARIA, contraste medido, 44 px táctiles y el alt de las fotos
+
+- **Contexto:** PP-4 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). (H9) Los grupos de opciones del editor eran botones sueltos con `role="radio"`: cada opción era una parada de Tab (~40 en Diseño) y el nombre del grupo se leía dos veces (`legend` + `aria-label`). (H12) Las pestañas tenían `role="tab"` sin `tabpanel`, `aria-controls` ni flechas. (H11) Etiquetas y ayudas a `grafito/60` daban 3,5–3,7:1. (H14) El asa, ↑↓ y las pastillas medían ~28 px en pantallas táctiles. (H13) El alt de las fotos era genérico ("Foto 3 de …") y no se podía cambiar.
+
+### Las decisiones
+
+1. **Un solo `GrupoDeOpciones`** (`components/editor-pagina/grupo-de-opciones.tsx`) para todos los grupos que había hechos a mano (tema, color, tokens, tipografía, fondo de sección, variantes, color del nombre, tamaño de la vista previa): roving tabindex (el grupo es UNA parada, la opción elegida), flechas que recorren en ciclo y **eligen**, Home/End. El nombre va una sola vez, visible, por `aria-labelledby`. Elegir con flechas cambia el borrador al instante, como un radio nativo: no se agregó un "confirmar", porque el borrador ya se descarta o se deshace. El "Formato" de la foto suelta ya usaba `<input type="radio">` nativos y quedó así.
+2. **`Pestanas`** (`components/editor-pagina/pestanas.tsx`), con activación automática: la pestaña activa apunta con `aria-controls` a un `tabpanel` que la nombra, flechas y Home/End. Solo existe el panel activo, así que las pestañas inactivas no llevan `aria-controls` (apuntaría a un id que no está: axe lo marca).
+3. **Contraste: el tono secundario del editor es `grafito/75`** (`TONO_SECUNDARIO` en `estilos.ts`, espejado en `comunes.tsx` del paquete), el más claro que da 4,5:1 sobre marfil, hueso **y** salvia-claro (la opción elegida). `contraste.test.ts` calcula el contraste sobre los hex reales de `globals.css` y falla si algún archivo del editor usa un grafito más claro — jsdom no calcula colores, así que sin ese test la regresión volvería sin que nada avise. "Guardar horario" ya estaba en `salvia-oscuro` desde PP-2.
+4. **44 px solo en pantallas táctiles**: `CLASE_TACTIL` = `pointer-coarse:min-h-11 pointer-coarse:min-w-11` (variante nativa de Tailwind 4.3) en `CLASE_BOTON`, `CLASE_BOTON_PELIGRO`, las pastillas, el asa y las pestañas. Con mouse el editor sigue compacto.
+5. **"Descripción de la foto", opcional, en portada, foto suelta y galería** (`DescripcionDeFoto` en `comunes.tsx`, 150 caracteres). Vacía = el alt genérico de siempre, que no se guarda (mismo criterio que el SEO, TR-165). En los módulos va en la config: `fotoAlt` en la foto suelta y **`fotoAlts`, una lista paralela a `fotoUrls`**, en la galería — no una lista de objetos, porque eso cambiaría la forma de `fotoUrls` y pediría el `schema_version` + `migrar()` que PE-1 dejó para "el primer PR que cambie la forma de un módulo". La portada es una columna nueva, `paginas_publicas.foto_portada_alt`, con el recorrido completo de un campo de la página (los tres lugares del backend y las dos firmas de `borrador.ts`). Subir otra foto, quitarla o reemplazar el borrador con una plantilla **vacían la descripción**: describía la foto anterior.
+6. **De paso, dos defectos que se vieron en el navegador real** (Chrome headless + axe sobre `/personalizar-pagina` con la API levantada): el `<header>` de `Dialogo` era un segundo landmark `banner` con el diálogo abierto (pasó a `<div>`), y `Dialogo` hacía `createPortal(…, document.body)` en el SSR — una página nunca personalizada abre la galería de plantillas en el primer render, así que **`/personalizar-pagina` respondía 500** (en `next dev` se recuperaba en el cliente y no se notaba). Ahora no dibuja nada hasta hidratar (`useSyncExternalStore`), y el efecto del foco espera a estar montado.
+
+### Lo que se sacrifica
+
+- `fotoAlts` paralela depende de que el editor mantenga las dos listas alineadas (lo hace `conFotos` en el editor de la galería, con test). Una config escrita a mano que las desalinee no rompe nada: cada foto toma la descripción de su posición, y si no hay, la genérica.
+- Las fotos de "Sobre nosotros"/"Texto libre" con variante "con foto" siguen con el alt genérico: no estaban en el hallazgo H13 y no se sumaron.
+- El modal del wizard público (`pantalla-dia-hora.tsx`) tiene su propio radiogroup hecho a mano; queda fuera del alcance del editor.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
