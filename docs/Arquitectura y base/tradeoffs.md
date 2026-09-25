@@ -3080,6 +3080,31 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-174: Lo que quedaba del plan de pulido, decidido con Juan — ancho, portada, footer, teléfono y la limpieza de fotos huérfanas
+
+- **Contexto:** PP-7 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). H22 (fotos huérfanas) no tenía PR asignado, y H25–H27 pedían decisiones de diseño. Juan las tomó en la misma sesión; cada punto de abajo es su respuesta, con la alternativa que descartó entre paréntesis.
+
+### Las decisiones
+
+1. **H25 — ancho y alineación.** El contenido llega a **~1100 px** en escritorio (`max-w-[70rem]`, antes 768; descartado: dejar 768, o un control de ancho por página). Los párrafos largos (Sobre nosotros, Texto libre) siguen a ~65ch con `CLASE_PARRAFO_LARGO`, que se centra o se pega a la izquierda según la sección con `--pp-margen-texto`. **Equipo y Horarios respetan la alineación de su sección** como el resto (descartado: todo a la izquierda en escritorio, o sacar la opción): Equipo pasa a una grilla de columnas de ancho acotado (`auto-fit`) que se ubica como la sección, y su tarjeta que gira deja de tener `text-left` fijo; Horarios alinea sus hijos con `CLASE_ALINEAR_FLEX`, así la tabla y la píldora de "abierto ahora" ya no se estiran de borde a borde bajo un título centrado. La fila con scroll de Equipo usa `safe center`: si desborda, arranca desde el principio.
+2. **H27 — la portada nombra solo a la clínica**, nunca a un profesional (descartado: elegible en el editor, todos los nombres, o el titular como hasta ahora). El equipo va en el módulo Equipo. La plantilla ya no recibe `profesionalNombre`; la API lo sigue devolviendo para el buscador.
+3. **H26 — teléfono, llamado a la acción, portada sin foto y footer.**
+   - El teléfono se **lee** en formato local, "351 000-0000" (`telefonoLegible` en el paquete; descartado: con 0 y 15, o internacional). Los links de llamar y de WhatsApp siguen con el número completo. El largo del código de área sale de una lista de los de 2 y 3 dígitos; un número que no es argentino de 10 dígitos se muestra como vino.
+   - "Llamado a la acción" **nace apuntando a WhatsApp** ("Escribinos por WhatsApp"); el turno sigue como opción. Las **seis plantillas** pasan también a WhatsApp, **sin respaldo**: sin teléfono cargado el bloque no se muestra hasta que se cargue uno (descartado: caer al turno). El preset "Llamado a pedir turno" queda en turno: ahí es explícito.
+   - **Sin foto, la portada es una banda** con los colores de la sección "Contraste" del tema (el contraste del texto ya lo garantiza cada tema). "Mínima" sigue siendo solo texto, y por eso las seis plantillas y los dos presets de estilo pasan de "mínima" a **"centrada"**: con "mínima" la banda no se habría visto en ninguna página armada desde una plantilla, que es donde se vio H26.
+   - **Footer simple** (`PieDePagina`): nombre, dirección, teléfono, redes, © año y "Hecho con PRISMA" con link a la home (descartado: sin link, o hacia el buscador). No se configura: lo que la clínica no cargó no aparece. Dentro del editor es un `<div>`, no un segundo landmark `contentinfo`.
+4. **H22 — limpieza diaria de fotos huérfanas** (`internal/limpieza`): se borran las fotos que no usa **ningún borrador ni ninguna versión publicada** —restaurar una versión vieja tiene que traer sus fotos— y tienen **más de 24 h** (descartado: limitar el historial a 20 versiones, o no borrar nada). Primero se lista el storage y después se leen las referencias (portada, config de los módulos, la foto jsonb de cada versión y `professional_profiles.foto_url`), así una foto que se sube en el medio o no está en la lista o ya está referenciada; la gracia de 24 h cubre la que se subió y todavía no se guardó. Las variantes `.wNNN` se conservan o se borran junto con su foto. Corre dentro del proceso de la API (primera vez a los 10 minutos de arrancar, después cada 24 h), con un `pg_try_advisory_xact_lock` para que con varias instancias limpie una sola. El storage suma `List`/`Delete` en una interfaz aparte, `storage.Limpiable`, que cumplen el disco local y R2; `List` ignora lo que no tiene forma de foto subida.
+5. **CI — un reintento de `next build`** en los jobs `web` y `lighthouse` y en el `Dockerfile` de la web: Turbopack falla a veces al procesar las fuentes de Google (`next/font/google queries have exactly one entry`) sin que el código tenga nada (#61, #62 y #67, siempre verde al relanzar). Un error real falla dos veces.
+6. **De paso, un desajuste de hidratación que venía de PP-1** (decidido con Juan arreglarlo acá): con movimiento reducido, `useReducedMotion()` ya valía `true` en el render de hidratación y `EfectoEntrada` dibujaba el estado final mientras el HTML del servidor traía el inicial — 28 errores de consola por página de demostración, que React no corrige. Ahora la preferencia se mira recién después de hidratar (`useSyncExternalStore`), y el render siguiente anima al final con duración cero. Verificado: cero errores y ningún efecto sin terminar, con y sin movimiento reducido.
+
+### Lo que se sacrifica
+
+- Una clínica sin teléfono que aplique una plantilla no ve el bloque de contacto hasta cargar uno (decisión explícita).
+- Una foto que solo aparecía en un borrador descartado desaparece al día siguiente; si alguien la quisiera, la tiene que volver a subir.
+- La lista de códigos de área de 3 dígitos se mantiene a mano; si falta uno, ese número se parte como de 4 (se lee raro, el link anda).
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
