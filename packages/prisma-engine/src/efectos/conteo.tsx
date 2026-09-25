@@ -22,11 +22,14 @@ export default function ConteoAnimado({ intensidad, children }: { id: string; in
   useEffect(() => {
     const nodo = ref.current;
     if (!nodo || !Number.isFinite(numero) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // El frame vive afuera del callback: un `return` adentro del callback del
+    // observer se ignora, y el conteo seguía escribiendo estado después de
+    // desmontar.
+    let frame = 0;
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting || document.visibilityState !== "visible") return;
       const inicio = performance.now();
       const duracion = intensidad === "marcada" ? 1300 : intensidad === "media" ? 1000 : 750;
-      let frame = 0;
       const avanzar = (ahora: number) => {
         const progreso = Math.min(1, (ahora - inicio) / duracion);
         const suave = 1 - (1 - progreso) ** 3;
@@ -35,10 +38,13 @@ export default function ConteoAnimado({ intensidad, children }: { id: string; in
       };
       frame = requestAnimationFrame(avanzar);
       observer.disconnect();
-      return () => cancelAnimationFrame(frame);
     }, { threshold: 0.2 });
     observer.observe(nodo);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+
   }, [intensidad, numero]);
   const mostrado = actual === null ? children : reemplazarTexto(children, new Intl.NumberFormat("es-AR").format(actual));
   return <span ref={ref} data-pp-efecto="conteo">{mostrado}</span>;

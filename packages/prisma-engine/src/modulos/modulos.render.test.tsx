@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { REGISTRO_MODULOS } from "../registro";
 import type { ContextoPublico, ModuloBorrador } from "../tipos";
 
@@ -84,4 +85,18 @@ describe("estadisticas: seccion", () => {
     const s = REGISTRO_MODULOS.estadisticas.seccion(modulo("estadisticas", { mostrar: ["pacientes_atendidos"] }), 0, ctx);
     expect(s).not.toBeNull();
   });
+
+  // PP-1, H24: una clínica nueva no publica "0 pacientes atendidos".
+  it("una estadística en cero no se muestra, y si todas lo están no hay sección", () => {
+    const todas = { mostrar: ["pacientes_atendidos", "turnos_realizados"] };
+    const enCero = contexto({ contenido: { ...contexto().contenido, estadisticas: { pacientes_atendidos: 0, turnos_realizados: 0 } } });
+    expect(REGISTRO_MODULOS.estadisticas.seccion(modulo("estadisticas", todas), 0, enCero)).toBeNull();
+
+    const una = contexto({ contenido: { ...contexto().contenido, estadisticas: { pacientes_atendidos: 0, turnos_realizados: 1234 } } });
+    render(<>{REGISTRO_MODULOS.estadisticas.seccion(modulo("estadisticas", todas), 0, una)!.contenido}</>);
+    expect(screen.queryByText("Pacientes atendidos")).toBeNull();
+    // Formato argentino desde el primer render, sin esperar a la animación.
+    expect(screen.queryByText("1.234")).not.toBeNull();
+  });
+
 });

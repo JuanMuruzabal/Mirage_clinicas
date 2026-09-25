@@ -692,7 +692,29 @@ input[type="password"]::-ms-clear {
 .pp-palabra { display: inline-block; animation: pp-palabra 720ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--pp-palabra-orden) * 45ms); }
 @keyframes pp-palabra { from { opacity: .94; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Un efecto sobre un ítem de lista va DENTRO del <li> (PP-1, H7, ver
+   envolverSlots): el envoltorio hereda el layout del ítem para que el
+   contenido se acomode igual que si fuera hijo directo del <li>. */
+li > [data-pp-efecto] {
+  display: inherit;
+  flex-direction: inherit;
+  flex-wrap: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  gap: inherit;
+  width: 100%;
+  height: 100%;
+}
+
+/* Movimiento reducido (PP-1, H1): el contenido queda en su estado FINAL.
+   Cubre al envoltorio del efecto Y a sus hijos (varios efectos animan el
+   `> *`, y `.pp-palabra` es un hijo), y pisa también opacidad y blur: el
+   estado inicial de una entrada es opacidad .94 + blur(1px), y sin esto
+   quedaba así para siempre. `!important` porque Motion escribe en `style`. */
 @media (prefers-reduced-motion: reduce) {
-  [data-pp-efecto], .pp-fondo-vivo__capa { animation: none !important; transition: none !important; transform: none !important; scroll-behavior: auto !important; }
+  [data-pp-efecto], .pp-palabra, .pp-fondo-vivo__capa { animation: none !important; transition: none !important; transform: none !important; scroll-behavior: auto !important; }
+  [data-pp-efecto] > * { animation: none !important; transition: none !important; }
+  [data-pp-efecto="magnetico"] > *, [data-pp-efecto="inclinacion"] > * { transform: none !important; }
+  [data-pp-efecto], .pp-palabra { opacity: 1 !important; filter: none !important; }
   .pp-fondo-vivo__capa { opacity: .32 !important; }
 }

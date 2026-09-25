@@ -97,12 +97,20 @@ function Equipo({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Contex
   const envolver = envolverSlots(modulo.config, contexto.estiloMovimiento, SLOTS_EQUIPO);
   const personas = equipo.map((persona, indice) => tarjetaDePersona(persona, indice, variante, modulo.config, contexto, envolver));
   const fila = variante === "avatares" || variante === "carrusel-sin-nombre" || variante === "carrusel-nombre";
-  const claseLista = fila ? "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2" : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3";
+  // Grilla por ancho del CONTENEDOR (@lg/@2xl), no de la ventana: con
+  // `sm:`/`lg:` la vista previa "Móvil" del editor mostraba tres columnas.
+  const claseLista = fila
+    ? "flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--pp-acento)"
+    : "grid grid-cols-1 gap-4 @lg:grid-cols-2 @2xl:grid-cols-3";
 
   return (
     <div className={`flex flex-col gap-4 ${CLASE_ALINEAR}`}>
       {envolver("titulo", titulo)}
-      <ul className={claseLista}>{personas}</ul>
+      {/* Una fila con scroll horizontal tiene que poder recorrerse con el
+          teclado (PP-1, H8): foco propio y un nombre, como el carrusel de
+          la galería. */}
+      <ul className={claseLista} {...(fila ? { tabIndex: 0, "aria-label": "Equipo: deslizá para ver a todos" } : {})}>{personas}</ul>
+
     </div>
   );
 }
