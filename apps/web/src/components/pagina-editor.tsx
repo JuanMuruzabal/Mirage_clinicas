@@ -119,20 +119,24 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     return { ok: false as const, error: result.error };
   }
 
-  async function guardar() {
+  // guardar devuelve si salió bien: "Guardar y publicar" (PP-2, H3) solo
+  // publica si el guardado de antes llegó. Recibe el borrador a mandar
+  // porque "Mantener mi copia" lo llama con la revisión nueva en el mismo
+  // evento, antes de que el estado se actualice.
+  async function guardar(aGuardar: Borrador = borrador): Promise<boolean> {
     setError(null);
     setAviso(null);
     setConflicto(null);
     setPendingGuardar(true);
-    const result = await actualizarPaginaPublicaAction(borradorAPayload(borrador));
+    const result = await actualizarPaginaPublicaAction(borradorAPayload(aGuardar));
     setPendingGuardar(false);
     if (result.kind === "conflicto") {
       setConflicto(result.conflicto);
-      return;
+      return false;
     }
     if (result.kind === "error") {
       setError(result.error);
-      return;
+      return false;
     }
     // Lo que devuelve el servidor es lo que quedó de verdad (recortó
     // espacios, sacó redes vacías...): el borrador pasa a ser eso.
@@ -141,6 +145,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     setGuardado(guardadoAhora);
     setBorrador(guardadoAhora);
     setAviso("Cambios guardados.");
+    return true;
   }
 
   function descartar() {
@@ -171,12 +176,15 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
   // mantenerMiCopia (PE-8) — la otra mitad: seguir con lo tipeado acá,
   // solo se toma la Revision nueva del conflicto (el resto del contenido
-  // ajeno se descarta) y se reintenta guardar con eso.
-  function mantenerMiCopia() {
+  // ajeno se descarta) y se reintenta guardar con eso — de verdad, en el
+  // mismo click (PP-2, H6): antes solo cambiaba la revisión y había que
+  // volver a tocar "Guardar cambios" sin que nada lo dijera.
+  async function mantenerMiCopia() {
     if (!conflicto) return;
-    setConflicto(null);
+    const conRevisionNueva = { ...borrador, revision: conflicto.revisionActual };
     setGuardado((actual) => ({ ...actual, revision: conflicto.revisionActual }));
-    setBorrador((actual) => ({ ...actual, revision: conflicto.revisionActual }));
+    setBorrador(conRevisionNueva);
+    await guardar(conRevisionNueva);
   }
 
   async function alternarOcultar() {
@@ -199,6 +207,10 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
       if (!window.confirm(`Quedan textos de ejemplo sin editar:\n${ejemplos}\n\n¿Querés publicar de todos modos?`)) return;
     }
     setError(null);
+    // Publicar copia la versión GUARDADA, no la que se ve en pantalla. Con
+    // cambios sin guardar, el botón es "Guardar y publicar" (PP-2, H3): si
+    // el guardado falla o choca con otra persona, no se publica nada.
+    if (sinGuardar && !(await guardar())) return;
     setPendingPublicar(true);
     const result = await publicarPaginaPublicaAction(sesion.slug);
     setPendingPublicar(false);
@@ -260,7 +272,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           </Link>
           <button
             type="button"
-            onClick={guardar}
+            onClick={() => void guardar()}
             disabled={!sinGuardar || pendingGuardar}
             className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -286,13 +298,15 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           <button
             type="button"
             onClick={publicar}
-            disabled={pendingPublicar || (!sinPublicar && !!pagina.deployadaEn)}
+            disabled={pendingPublicar || pendingGuardar || (!sinGuardar && !sinPublicar && !!pagina.deployadaEn)}
             title={pagina.deployadaEn ? `Última publicación: ${formatFechaHora(pagina.deployadaEn)}` : undefined}
             className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pendingPublicar ? "Publicando…" : "Publicar"}
+            {pendingPublicar ? "Publicando…" : sinGuardar ? "Guardar y publicar" : "Publicar"}
           </button>
-          {pagina.deployadaEn && !sinPublicar && (
+          {/* "Publicada" solo si lo que se ve es lo que está publicado. */}
+          {pagina.deployadaEn && !sinPublicar && !sinGuardar && (
+
             <span className="rounded-full border-[0.5px] border-salvia bg-salvia-claro px-3 py-1.5 text-xs font-medium text-salvia-oscuro">
               Publicada
             </span>
