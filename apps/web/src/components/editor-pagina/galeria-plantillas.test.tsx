@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CATALOGO_PLANTILLAS } from "@dental-mirage/prisma-engine";
+import { CATALOGO_PLANTILLAS, type PlantillaPagina } from "@dental-mirage/prisma-engine";
 import type { PaginaPublica } from "@dental-mirage/shared-types";
 import type { Borrador } from "@/lib/pagina-publica/borrador";
 
 vi.mock("./vista-previa", () => ({ VistaPrevia: () => null }));
 
-import { GaleriaPlantillas } from "./galeria-plantillas";
+import { GaleriaPlantillas, type ModoPlantilla } from "./galeria-plantillas";
 
 const borradorBase: Borrador = {
   bio: "Texto propio de la clínica.",
@@ -43,7 +43,7 @@ const pagina = {
 } as Pick<PaginaPublica, "estadisticas" | "direccionClinica" | "equipoElegible" | "horariosClinica" | "serviciosDisponibles">;
 
 function renderGaleria(borrador = borradorBase) {
-  const onAplicar = vi.fn<(valor: Borrador) => void>();
+  const onAplicar = vi.fn<(valor: Borrador, modo: ModoPlantilla, plantilla: PlantillaPagina) => void>();
   const onCerrar = vi.fn<() => void>();
   const user = userEvent.setup();
 
@@ -83,14 +83,16 @@ describe("GaleriaPlantillas", () => {
   });
 
   it("aplica solo el diseño y conserva los textos y fotos existentes", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirm = vi.spyOn(window, "confirm");
     const { user, onAplicar, onCerrar } = renderGaleria();
     const plantilla = CATALOGO_PLANTILLAS.find((item) => item.id === "odontologia-calido-dinamico")!;
     await user.click(screen.getByRole("button", { name: /Odontología · Cálido dinámico/ }));
     await user.click(screen.getByRole("button", { name: "Aplicar solo el diseño" }));
 
     expect(onAplicar).toHaveBeenCalledTimes(1);
-    const aplicado = onAplicar.mock.calls[0][0];
+    const [aplicado, modo, elegida] = onAplicar.mock.calls[0];
+    expect(modo).toBe("diseno");
+    expect(elegida.id).toBe(plantilla.id);
     expect(aplicado.tema).toBe(plantilla.tema);
     expect(aplicado.temaTokens.movimiento).toBe(plantilla.estiloMovimiento);
     expect(aplicado.bio).toBe(borradorBase.bio);
@@ -103,32 +105,33 @@ describe("GaleriaPlantillas", () => {
     expect(onCerrar).toHaveBeenCalledTimes(1);
   });
 
-  it("respeta la cancelación del reemplazo y deja abierto el diálogo", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    const { user, onAplicar, onCerrar } = renderGaleria();
-    await user.click(screen.getByRole("button", { name: "Reemplazar todo el borrador" }));
-
-    expect(confirm).toHaveBeenCalledWith(
-      "Esto reemplaza todo el contenido del borrador. La página publicada no cambia hasta que guardes y publiques. ¿Querés continuar?",
-    );
-    expect(onAplicar).not.toHaveBeenCalled();
-    expect(onCerrar).not.toHaveBeenCalled();
-  });
-
-  it("confirma y reemplaza todo el borrador con la plantilla elegida", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  // PP-3 (H10/H19): reemplazar ya no pregunta con window.confirm — el editor
+  // ofrece "Deshacer" después (ver pagina-editor.test.tsx).
+  it("reemplaza todo el borrador sin window.confirm, avisando el modo", async () => {
+    const confirm = vi.spyOn(window, "confirm");
     const { user, onAplicar, onCerrar } = renderGaleria();
     const plantilla = CATALOGO_PLANTILLAS.find((item) => item.id === "kinesiologia-calido-dinamico")!;
     await user.click(screen.getByRole("button", { name: /Kinesiología · Cálido dinámico/ }));
     await user.click(screen.getByRole("button", { name: "Reemplazar todo el borrador" }));
 
-    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).not.toHaveBeenCalled();
     expect(onAplicar).toHaveBeenCalledTimes(1);
-    const aplicado = onAplicar.mock.calls[0][0];
+    const [aplicado, modo] = onAplicar.mock.calls[0];
+    expect(modo).toBe("reemplazar");
     expect(aplicado.tema).toBe(plantilla.tema);
     expect(aplicado.bio).toBe(plantilla.bio);
     expect(aplicado.fotoPortadaUrl).toBe("");
     expect(aplicado.modulos.map((modulo) => modulo.tipo)).toEqual(plantilla.modulos.map((modulo) => modulo.tipo));
     expect(onCerrar).toHaveBeenCalledTimes(1);
+  });
+
+  it("es un diálogo modal que se cierra con Escape", async () => {
+    const { user, onAplicar, onCerrar } = renderGaleria();
+    expect(screen.getByRole("dialog", { name: "Plantillas por especialidad" })).toHaveAttribute("aria-modal", "true");
+
+    await user.keyboard("{Escape}");
+
+    expect(onCerrar).toHaveBeenCalledTimes(1);
+    expect(onAplicar).not.toHaveBeenCalled();
   });
 });

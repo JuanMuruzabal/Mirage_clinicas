@@ -70,9 +70,9 @@ Criterio (el mismo del plan Prisma Engine, ver la memoria de trabajo del 2026-09
 
 | PR | Rama | Qué cubre | Estado |
 |---|---|---|---|
-| PP-1 | `fix/pp-1-pagina-publica` | Página pública: H1, H7, H8, H14 (público), H16, H24 — TR-168 | PR #62 |
-| PP-2 | `fix/pp-2-flujo-de-publicacion` | Flujo del editor: H3, H5, H6, H4 — TR-169 | implementado |
-| PP-3 | `feature/pp-3-historial-y-dialogos` | H2 (historial + restaurar), H10 y H19 con un diálogo propio, deshacer "Quitar" | pendiente |
+| PP-1 | `fix/pp-1-pagina-publica` | Página pública: H1, H7, H8, H14 (público), H16, H24 — TR-168 | PR #62, mergeado |
+| PP-2 | `fix/pp-2-flujo-de-publicacion` | Flujo del editor: H3, H5, H6, H4 — TR-169 | PR #63, mergeado |
+| PP-3 | `feature/pp-3-historial-y-dialogos` | H2 (historial + restaurar), H10 y H19 con un diálogo propio, deshacer "Quitar" — TR-170 | implementado |
 | PP-4 | `fix/pp-4-accesibilidad-editor` | H9, H11, H12, H14 (editor), H13 | pendiente |
 | PP-5 | `feature/pp-5-editor-mobile` | H15, H17 y el orden de pantallas en celular | pendiente |
 | PP-6 | `feature/pp-6-editor-simple` | H18, H20, H21, H23 | pendiente |
@@ -100,7 +100,7 @@ Va primero porque es lo único que ya afecta a pacientes reales.
 
 - **H2** — panel "Historial" con las versiones publicadas (número, autor, fecha) y "Restaurar en el borrador" (nunca publica directo, respeta el candado de revisión).
 - **H10/H19** — un `Dialogo` propio (foco atrapado, Escape, devuelve el foco, `aria-modal`) reemplaza a `window.confirm` y lo usa también la galería de plantillas.
-- **H19** — "Quitar" un módulo deja un aviso con **Deshacer** durante unos segundos, en vez de confirmar (menos fricción, mismo resguardo).
+- **H19** — "Quitar" un módulo y aplicar una plantilla dejan un aviso con **Deshacer**, en vez de confirmar (menos fricción, mismo resguardo). El aviso dura hasta el próximo cambio, no unos segundos (WCAG 2.2.1).
 
 ### PP-4 — accesibilidad del editor
 
@@ -132,3 +132,4 @@ Va primero porque es lo único que ya afecta a pacientes reales.
 - **2026-09-25** — PP-1 implementado (TR-168). Verificado en Chrome sobre las 4 plantillas de demostración: axe sin violaciones (antes `list`, `listitem` y `scrollable-region-focusable`), ningún objetivo táctil de menos de 24 px (antes 3 a 9 por plantilla), 0 de 36 efectos fuera de su estado final con movimiento reducido (antes 36 de 36). De paso: la grilla de Equipo y la de Servicios usaban breakpoints de ventana (`sm:`/`lg:`), así que la vista previa "Móvil" del editor mostraba varias columnas; pasaron a container queries. Y el conteo animado no cancelaba su `requestAnimationFrame` al desmontar.
 - **2026-09-25** — PP-1 abierto como PR #62; CI en verde (el job `web` falló una vez al bajar las fuentes de Google en el build —mismo error en el PR #61— y pasó al relanzarlo).
 - **2026-09-25** — PP-2 implementado (TR-169). Rama cortada desde PP-1 porque las dos tocan `ClinicaPublicaTemplate`. H4 decidido: el horario queda en vivo, con aviso. Verificado solo con tests (el editor necesita API): la vista previa no abre el wizard, no emite `h1` ni repite ids; "Guardar y publicar" guarda antes de publicar y no publica si el guardado falla.
+- **2026-09-25** — #61, #62 y #63 mergeados a `dev`. PP-3 implementado (TR-170): `Dialogo` compartido, historial con restaurar, Deshacer al quitar un módulo o aplicar una plantilla, y ningún `window.confirm` en el editor. Verificado con tests (el editor necesita API).

@@ -17,7 +17,9 @@ import {
   obtenerPaginaPublicaAction,
   ocultarPaginaPublicaAction,
   publicarPaginaPublicaAction,
+  restaurarVersionPaginaPublicaAction,
 } from "@/app/actions/pagina-publica";
+import { Confirmacion } from "@/components/dialogo";
 import { formatFechaHora } from "@/lib/turno-format";
 import {
   borradorAPayload,
@@ -31,6 +33,7 @@ import { ListaModulos } from "@/components/editor-pagina/lista-modulos";
 import { SelectorDeTema } from "@/components/editor-pagina/selector-de-tema";
 import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
 import { GaleriaPlantillas } from "@/components/editor-pagina/galeria-plantillas";
+import { HistorialVersiones } from "@/components/editor-pagina/historial-versiones";
 import { BuscadoresYRedes } from "@/components/editor-pagina/buscadores-y-redes";
 import { descripcionSeoPorDefecto, tituloSeoPorDefecto } from "@/lib/pagina-publica/seo";
 
@@ -72,6 +75,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const [panelAbierto, setPanelAbierto] = useState(true);
   const [pestana, setPestana] = useState<Pestana>("modulos");
   const [galeriaAbierta, setGaleriaAbierta] = useState(() => paginaInicial.modulos.length === 0);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
+  const [confirmarPublicar, setConfirmarPublicar] = useState(false);
+  // deshacer (PP-3, H19): la última acción que cambió mucho de golpe (quitar
+  // un módulo, aplicar una plantilla) y el borrador de antes. Vive hasta el
+  // próximo cambio: sin temporizador, para que nadie pierda la opción por
+  // leer despacio (WCAG 2.2.1).
+  const [deshacer, setDeshacer] = useState<{ mensaje: string; anterior: Borrador } | null>(null);
 
   const sinGuardar = useMemo(() => hayCambios(guardado, borrador), [guardado, borrador]);
   const sinPublicar = useMemo(() => hayCambiosSinPublicar(guardado, pagina.ultimaVersionPublicada?.contenido), [guardado, pagina]);
@@ -107,7 +117,22 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
   function editar(parcial: Partial<Borrador>) {
     setAviso(null);
+    setDeshacer(null);
     setBorrador((actual) => ({ ...actual, ...parcial }));
+  }
+
+  // Un cambio que se puede deshacer: en vez de confirmar antes, avisa
+  // después con "Deshacer" (PP-3, H10/H19).
+  function editarDeshacible(parcial: Partial<Borrador>, mensaje: string) {
+    setAviso(null);
+    setDeshacer({ mensaje, anterior: borrador });
+    setBorrador((actual) => ({ ...actual, ...parcial }));
+  }
+
+  function deshacerUltimo() {
+    if (!deshacer) return;
+    setBorrador(deshacer.anterior);
+    setDeshacer(null);
   }
 
   async function guardarHorariosClinica(valor: HorariosClinica) {
@@ -144,6 +169,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     setPagina(result.pagina);
     setGuardado(guardadoAhora);
     setBorrador(guardadoAhora);
+    setDeshacer(null);
     setAviso("Cambios guardados.");
     return true;
   }
@@ -151,7 +177,33 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   function descartar() {
     setError(null);
     setAviso(null);
+    setDeshacer(null);
     setBorrador(guardado);
+  }
+
+  // restaurar (PP-3, H2) — copia una versión publicada al borrador, con el
+  // candado de revisión. Devuelve el error a mostrar DENTRO del historial, o
+  // null para cerrarlo: un 409 cierra el historial y abre el mismo aviso de
+  // conflicto que Guardar (con el diálogo abierto, ese aviso quedaría tapado).
+  async function restaurar(numero: number): Promise<string | null> {
+    setError(null);
+    setAviso(null);
+    setConflicto(null);
+    const result = await restaurarVersionPaginaPublicaAction(numero, guardado.revision);
+    if (result.kind === "conflicto") {
+      setConflicto(result.conflicto);
+      return null;
+    }
+    if (result.kind === "error") {
+      return result.error;
+    }
+    const guardadoAhora = borradorDePagina(result.pagina);
+    setPagina(result.pagina);
+    setGuardado(guardadoAhora);
+    setBorrador(guardadoAhora);
+    setDeshacer(null);
+    setAviso(`Versión ${numero} restaurada en el borrador. Publicá para que se vea.`);
+    return null;
   }
 
   // recargar (PE-8) — "otra persona guardó antes": trae el estado real del
@@ -201,11 +253,14 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     setPagina((actual) => ({ ...actual, oculta: result.pagina.oculta }));
   }
 
-  async function publicar() {
-    if (ejemplosPendientes.length > 0) {
-      const ejemplos = ejemplosPendientes.map((ejemplo) => `• ${ejemplo.etiqueta}`).join("\n");
-      if (!window.confirm(`Quedan textos de ejemplo sin editar:\n${ejemplos}\n\n¿Querés publicar de todos modos?`)) return;
+  async function publicar(confirmado = false) {
+    // Textos de ejemplo sin editar: se pregunta con un diálogo propio, no con
+    // window.confirm (PP-3, H10).
+    if (ejemplosPendientes.length > 0 && !confirmado) {
+      setConfirmarPublicar(true);
+      return;
     }
+    setConfirmarPublicar(false);
     setError(null);
     // Publicar copia la versión GUARDADA, no la que se ve en pantalla. Con
     // cambios sin guardar, el botón es "Guardar y publicar" (PP-2, H3): si
@@ -262,6 +317,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           >
             Plantillas
           </button>
+          <button
+            type="button"
+            onClick={() => setHistorialAbierto(true)}
+            className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          >
+            Historial
+          </button>
           <Link
             href={`/${sesion.slug}`}
             target="_blank"
@@ -297,7 +359,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={publicar}
+            onClick={() => void publicar()}
             disabled={pendingPublicar || pendingGuardar || (!sinGuardar && !sinPublicar && !!pagina.deployadaEn)}
             title={pagina.deployadaEn ? `Última publicación: ${formatFechaHora(pagina.deployadaEn)}` : undefined}
             className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
@@ -422,6 +484,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                   serviciosDisponibles={pagina.serviciosDisponibles}
                   guardarHorariosClinica={guardarHorariosClinica}
                   onBorrador={editar}
+                  onBorradorDeshacible={editarDeshacible}
                 />
               ) : (
                 <>
@@ -461,10 +524,50 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           especialidades={sesion.especialidades.map((e) => e.nombre)}
           borrador={borrador}
           pagina={pagina}
-          onAplicar={editar}
+          onAplicar={(nuevo, modo, plantilla) =>
+            editarDeshacible(nuevo, modo === "diseno" ? `Aplicaste el diseño de “${plantilla.nombre}”.` : `Reemplazaste el borrador con “${plantilla.nombre}”.`)
+          }
           onCerrar={() => setGaleriaAbierta(false)}
         />
       )}
+      {historialAbierto && (
+        <HistorialVersiones sinGuardar={sinGuardar} onRestaurar={restaurar} onCerrar={() => setHistorialAbierto(false)} />
+      )}
+      {confirmarPublicar && (
+        <Confirmacion
+          titulo="Quedan textos de ejemplo"
+          mensaje={
+            <>
+              <p>Estos textos son de la plantilla y todavía no los cambiaste:</p>
+              <ul className="list-inside list-disc text-grafito/80">
+                {ejemplosPendientes.map((ejemplo) => (
+                  <li key={`${ejemplo.ruta}:${ejemplo.valor}`}>{ejemplo.etiqueta}</li>
+                ))}
+              </ul>
+              <p>¿Querés publicar igual?</p>
+            </>
+          }
+          confirmar="Publicar igual"
+          onConfirmar={() => void publicar(true)}
+          onCancelar={() => setConfirmarPublicar(false)}
+        />
+      )}
+      {/* El aviso de "Deshacer" (PP-3, H19). role="status": se anuncia sin
+          robar el foco; el botón queda al alcance del teclado. */}
+      <div role="status" className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+        {deshacer && (
+          <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-full bg-grafito px-4 py-2 text-sm text-marfil shadow-soft">
+            <span>{deshacer.mensaje}</span>
+            <button type="button" onClick={deshacerUltimo} className="min-h-11 rounded-full px-3 font-semibold underline underline-offset-2 hover:bg-marfil/10">
+              Deshacer
+            </button>
+            <button type="button" onClick={() => setDeshacer(null)} aria-label="Cerrar aviso" className="min-h-11 min-w-11 rounded-full hover:bg-marfil/10">
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
