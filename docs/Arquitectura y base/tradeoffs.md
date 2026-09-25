@@ -3036,6 +3036,26 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-172: El editor en un celular — una cosa a la vez, Guardar y Publicar a la vista, y la vista previa al ancho real
+
+- **Contexto:** PP-5 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). (H15) Debajo de `lg` el editor apilaba la vista previa (mínimo 640 px de alto) arriba y el panel abajo: editar era hacer scroll de ida y vuelta para ver el efecto. El botón "→" de retraer el panel no tenía sentido a ese ancho, la barra de ~7 acciones se partía en filas y la página tenía `px-8`. (H17) La vista previa "Móvil" (390 px) no entraba en un celular real y hacía scroll horizontal dentro del editor.
+
+### Las decisiones
+
+1. **Debajo de `lg`, Editar o Vista previa, de a una y a todo el ancho**, con una barra fija abajo (dos botones con `aria-pressed`, no un tablist: desde `lg` las dos vistas están a la vez, y un tablist que a veces controla algo y a veces no confunde). Arranca en Editar. Cambiar lleva el scroll al principio de lo que se muestra. **Es CSS (`hidden`/`lg:flex`), no un `matchMedia`**: el HTML del servidor ya sale bien, sin parpadeo ni desajuste de hidratación.
+2. **La barra de acciones en un celular: Guardar, Publicar y "Más"** (`MenuMas`: Plantillas, Historial, Ver página, Descartar cambios si hay algo sin guardar, Ocultar/Mostrar la página). "Más" es un **desplegable** (botón con `aria-expanded` + lista de botones), no un `role="menu"`: un menú de ARIA promete flechas y búsqueda por letra, y para cinco acciones un Tab común alcanza. Escape y tocar afuera lo cierran; al elegir, el foco vuelve a "Más" antes de la acción, para que un diálogo que se abra desde ahí tenga adónde devolverlo.
+3. **La vista previa en un celular es siempre el ancho real**: el selector 390/768/escritorio solo se ve desde `lg`, y el ancho elegido viaja en una variable (`--ancho-vista`) que solo aplica desde `lg`. Sin el `min-h-[640px]` debajo de `lg`.
+4. **Sin el botón de retraer debajo de `lg`**, y el panel retraído se oculta solo desde `lg` (`lg:hidden`) en vez de desmontarse: como el botón de retraer ya no existe debajo de `lg`, un panel retraído en escritorio quedaría vacío y sin forma de abrirse al achicar la ventana.
+5. **`px-4` en mobile** (`sm:px-8` desde ahí). El aviso de "Deshacer" sube por encima de la barra fija, y la página deja lugar abajo para que la barra no tape el final.
+6. **De paso, un desajuste de hidratación que ya estaba** (visto en la consola del navegador real, no en los tests): `DndContext` de dnd-kit numera sus ids de accesibilidad con un contador global que en el servidor sigue subiendo entre requests (`DndDescribedBy-2` en el HTML, `-0` al hidratar). Recibe un `id` de `useId`.
+
+### Lo que se sacrifica
+
+- En un celular no se ve el efecto de un cambio sin tocar "Vista previa". Es a propósito: la alternativa —una vista previa chica fija arriba— deja las dos cosas demasiado chicas para usarlas.
+- "Descartar" en un celular está dentro de "Más", un toque más lejos que antes.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

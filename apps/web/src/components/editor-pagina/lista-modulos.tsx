@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -239,6 +239,16 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
   const [tipoNuevo, setTipoNuevo] = useState("");
   const [presetNuevo, setPresetNuevo] = useState("");
 
+  // id estable para dnd-kit (PP-5): sin él numera sus ids de accesibilidad
+
+  // con un contador GLOBAL, que en el servidor sigue subiendo entre requests
+
+  // ("DndDescribedBy-2" en el HTML, "-0" al hidratar) — desajuste de
+
+  // hidratación visto en la consola del navegador real.
+
+  const idDnd = useId();
+
   const sensores = useSensors(
     // Con una distancia mínima, un click simple sobre el asa no arranca un
     // arrastre sin querer.
@@ -307,7 +317,7 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
 
       <div className="flex flex-col gap-2">
         <span className={CLASE_ETIQUETA}>Módulos</span>
-        <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alSoltar}>
+        <DndContext id={idDnd} sensors={sensores} collisionDetection={closestCenter} onDragEnd={alSoltar}>
           <SortableContext items={modulos.map((m) => m.clave)} strategy={verticalListSortingStrategy}>
             <ul className="flex flex-col gap-2">
               {modulos.map((m, i) => (

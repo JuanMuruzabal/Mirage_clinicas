@@ -50,7 +50,7 @@ export default async function PersonalizarPaginaPage() {
       };
 
   return (
-    <main className="flex flex-1 flex-col gap-6 bg-hueso px-8 py-10 pt-[calc(var(--header-height)+2.5rem)]">
+    <main className="flex flex-1 flex-col gap-6 bg-hueso px-4 py-10 sm:px-8 pt-[calc(var(--header-height)+2.5rem)]">
       <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Tu página</h1>
       <PaginaEditor sesion={sesion} paginaInicial={pagina} />
     </main>

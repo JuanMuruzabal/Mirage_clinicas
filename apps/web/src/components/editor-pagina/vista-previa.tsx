@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type MouseEvent } from "react";
+import { useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import type { ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import { ClinicaPublicaTemplate } from "@/components/public/clinica-publica-template";
 import { CLASE_TACTIL } from "./estilos";
@@ -69,13 +69,18 @@ export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, 
   }
 
   return (
-    <div className="min-h-[640px] flex-1 overflow-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
+    <div className="flex-1 overflow-auto rounded-card lg:min-h-[640px] border-[0.5px] border-arena bg-marfil shadow-soft">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-[0.5px] border-arena bg-marfil px-4 py-2">
         <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/75">Previsualización en vivo</p>
         <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setReproduccion((r) => r + 1)} className="rounded-full border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-salvia">
           Reproducir efectos
         </button>
+        {/* El selector de ancho solo desde lg (PP-5, H17): en un celular
+            "Móvil" (390 px) no entraba y hacía scroll horizontal, y "Tablet"
+            o "Escritorio" no tienen sentido. Ahí la vista previa es siempre
+            el ancho real del dispositivo. */}
+        <div className="hidden lg:block">
         <GrupoDeOpciones
           etiqueta="Tamaño de la previsualización"
           etiquetaOculta
@@ -90,6 +95,7 @@ export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, 
           }
         />
         </div>
+        </div>
       </div>
       {/* Sin fondo propio acá — ClinicaPublicaTemplate trae el suyo. El
           wrapper con ancho fijo es lo único que cambia entre dispositivos. */}
@@ -97,7 +103,8 @@ export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, 
       <p role="status" className={aviso ? "border-b-[0.5px] border-arena bg-hueso px-4 py-2 text-xs text-grafito/80" : "sr-only"}>
         {aviso ? "En la vista previa los botones y enlaces no hacen nada. Probalos desde “Ver página”." : ""}
       </p>
-      <div ref={marco} onClickCapture={alTocar} data-testid="vista-previa-marco" className="mx-auto transition-[max-width] duration-300" style={{ maxWidth: ancho ?? "100%" }}>
+      <div ref={marco} onClickCapture={alTocar} data-testid="vista-previa-marco" className="mx-auto transition-[max-width] duration-300 lg:max-w-(--ancho-vista)"
+        style={{ "--ancho-vista": ancho ? `${ancho}px` : "100%" } as CSSProperties}>
         <ClinicaPublicaTemplate
           vistaPrevia={{ prefijoIds }}
 
