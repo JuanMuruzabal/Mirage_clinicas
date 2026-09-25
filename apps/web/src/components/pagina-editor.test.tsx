@@ -200,12 +200,16 @@ describe("PaginaEditor — panel y vista previa", () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
 
-    expect(screen.getByRole("tab", { name: "Módulos" })).toBeInTheDocument();
+    // Retraído se oculta con CSS y solo desde lg (PP-5): debajo, el panel
+    // siempre se ve. jsdom no evalúa media queries, así que se mira la clase.
+    const contenido = () => screen.getByRole("tablist", { name: "Qué editar" }).parentElement!;
+    expect(contenido()).not.toHaveClass("lg:hidden");
     await user.click(screen.getByRole("button", { name: "Retraer panel de edición" }));
-    expect(screen.queryByRole("tab", { name: "Módulos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expandir panel de edición" })).toHaveAttribute("aria-expanded", "false");
+    expect(contenido()).toHaveClass("lg:hidden");
 
     await user.click(screen.getByRole("button", { name: "Expandir panel de edición" }));
-    expect(await screen.findByRole("tab", { name: "Módulos" })).toBeInTheDocument();
+    expect(contenido()).not.toHaveClass("lg:hidden");
   });
 
   it("la previsualización muestra el nombre de la clínica (mismo componente que la página real)", async () => {
@@ -224,11 +228,55 @@ describe("PaginaEditor — panel y vista previa", () => {
     await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
     const marco = screen.getByTestId("vista-previa-marco");
 
-    expect(marco).toHaveStyle({ maxWidth: "100%" });
+    // El ancho va en una variable que solo aplica desde lg (PP-5, H17): en
+    // un celular la vista previa es siempre el ancho real.
+    const ancho = () => marco.style.getPropertyValue("--ancho-vista");
+    expect(marco).toHaveClass("lg:max-w-(--ancho-vista)");
+    expect(ancho()).toBe("100%");
     await user.click(screen.getByRole("radio", { name: "Móvil" }));
-    expect(marco).toHaveStyle({ maxWidth: "390px" });
+    expect(ancho()).toBe("390px");
     await user.click(screen.getByRole("radio", { name: "Tablet" }));
-    expect(marco).toHaveStyle({ maxWidth: "768px" });
+    expect(ancho()).toBe("768px");
+  });
+
+  it("en un celular se ve una cosa a la vez: Editar o Vista previa (PP-5)", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
+    const grupo = screen.getByRole("group", { name: "Qué mostrar" });
+    const editar = within(grupo).getByRole("button", { name: "Editar" });
+    const vista = within(grupo).getByRole("button", { name: "Vista previa" });
+    const panel = screen.getByRole("complementary", { name: "Panel de edición" });
+    const previa = screen.getByTestId("vista-previa-marco").closest(".min-w-0")!;
+
+    expect(editar).toHaveAttribute("aria-pressed", "true");
+    expect(panel).not.toHaveClass("hidden");
+    expect(previa).toHaveClass("hidden");
+
+    await user.click(vista);
+    expect(vista).toHaveAttribute("aria-pressed", "true");
+    expect(panel).toHaveClass("hidden");
+    expect(previa).not.toHaveClass("hidden");
+    // Desde lg las dos se ven igual.
+    expect(panel).toHaveClass("lg:flex");
+    expect(previa).toHaveClass("lg:flex");
+  });
+
+  it("en un celular Plantillas, Historial y Ocultar están en el menú Más (PP-5)", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaVacia} />);
+    await user.click(screen.getByRole("button", { name: "Cerrar galería de plantillas" }));
+    const mas = screen.getByRole("button", { name: "Más" });
+    expect(mas).toHaveAttribute("aria-expanded", "false");
+    await user.click(mas);
+    expect(mas).toHaveAttribute("aria-expanded", "true");
+    const lista = document.getElementById(mas.getAttribute("aria-controls")!)!;
+    expect(within(lista).getByRole("link", { name: "Ver página" })).toHaveAttribute("href", `/${sesion.slug}`);
+    expect(within(lista).getByRole("button", { name: "Ocultar la página" })).toBeInTheDocument();
+
+    await user.click(within(lista).getByRole("button", { name: "Plantillas" }));
+    expect(mas).toHaveAttribute("aria-expanded", "false");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });
 

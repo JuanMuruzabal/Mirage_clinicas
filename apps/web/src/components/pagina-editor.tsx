@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ConflictoRevisionPagina, PaginaPublica } from "@dental-mirage/shared-types";
 import {
@@ -36,6 +36,7 @@ import { GaleriaPlantillas } from "@/components/editor-pagina/galeria-plantillas
 import { HistorialVersiones } from "@/components/editor-pagina/historial-versiones";
 import { BuscadoresYRedes } from "@/components/editor-pagina/buscadores-y-redes";
 import { Pestanas } from "@/components/editor-pagina/pestanas";
+import { MenuMas } from "@/components/editor-pagina/menu-mas";
 import { descripcionSeoPorDefecto, tituloSeoPorDefecto } from "@/lib/pagina-publica/seo";
 
 interface PaginaEditorProps {
@@ -81,6 +82,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   const [conflicto, setConflicto] = useState<ConflictoRevisionPagina | null>(null);
   const [panelAbierto, setPanelAbierto] = useState(true);
   const [pestana, setPestana] = useState<Pestana>("modulos");
+  // vistaMovil (PP-5, H15) — debajo de `lg` se ve UNA cosa a la vez, a todo
+  // el ancho: el panel de edición o la vista previa. Antes se apilaban (la
+  // vista previa de 640 px arriba y el panel abajo) y editar era hacer scroll
+  // de ida y vuelta. Desde `lg` las dos se ven juntas y esto no rige: es
+  // CSS, no un matchMedia, así que el HTML del servidor ya sale bien.
+  const [vistaMovil, setVistaMovil] = useState<"editar" | "vista">("editar");
+  const area = useRef<HTMLDivElement>(null);
   const [galeriaAbierta, setGaleriaAbierta] = useState(() => paginaInicial.modulos.length === 0);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [confirmarPublicar, setConfirmarPublicar] = useState(false);
@@ -121,6 +129,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
     window.addEventListener("beforeunload", avisar);
     return () => window.removeEventListener("beforeunload", avisar);
   }, [sinGuardar]);
+
+  function cambiarVistaMovil(v: "editar" | "vista") {
+    setVistaMovil(v);
+    // Al cambiar, arranca desde arriba de lo que se muestra — no a la altura
+    // en que quedó el scroll de la otra.
+    area.current?.scrollIntoView?.({ block: "start" });
+  }
 
   function editar(parcial: Partial<Borrador>) {
     setAviso(null);
@@ -284,7 +299,8 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    // pb-24 debajo de lg: la barra fija de Editar/Vista previa no tapa el final.
+    <div className="flex flex-col gap-4 pb-24 lg:pb-0">
       {error && (
         <p role="alert" className="rounded-card border-[0.5px] border-terracota bg-terracota-claro px-4 py-3 text-sm text-terracota-oscuro">
           {error}
@@ -320,14 +336,14 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           <button
             type="button"
             onClick={() => setGaleriaAbierta(true)}
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
           >
             Plantillas
           </button>
           <button
             type="button"
             onClick={() => setHistorialAbierto(true)}
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
           >
             Historial
           </button>
@@ -335,7 +351,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             href={`/${sesion.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
           >
             Ver página
           </Link>
@@ -343,7 +359,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             type="button"
             onClick={() => void guardar()}
             disabled={!sinGuardar || pendingGuardar}
-            className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
           >
             {pendingGuardar ? "Guardando…" : "Guardar cambios"}
           </button>
@@ -352,13 +368,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
               type="button"
               onClick={descartar}
               disabled={pendingGuardar}
-              className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro disabled:opacity-50"
+              className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro disabled:opacity-50 lg:inline-block"
             >
               Descartar
             </button>
           )}
           {/* role="status": se anuncia sin robar el foco. */}
-          <span role="status" className="text-xs text-grafito/75">
+          <span role="status" className="basis-full text-xs text-grafito/75 lg:basis-auto">
             {sinGuardar ? "Tenés cambios sin guardar." : aviso ? aviso : sinPublicar ? "Hay cambios sin publicar." : null}
           </span>
         </div>
@@ -369,7 +385,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             onClick={() => void publicar()}
             disabled={pendingPublicar || pendingGuardar || (!sinGuardar && !sinPublicar && !!pagina.deployadaEn)}
             title={pagina.deployadaEn ? `Última publicación: ${formatFechaHora(pagina.deployadaEn)}` : undefined}
-            className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
           >
             {pendingPublicar ? "Publicando…" : sinGuardar ? "Guardar y publicar" : "Publicar"}
           </button>
@@ -384,7 +400,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             type="button"
             onClick={alternarOcultar}
             disabled={pendingOcultar}
-            className={`rounded-full border-[0.5px] px-4 py-2 text-sm font-medium disabled:opacity-60 ${
+            className={`hidden rounded-full border-[0.5px] px-4 py-2 text-sm font-medium disabled:opacity-60 lg:inline-block ${
               pagina.oculta
                 ? "border-terracota bg-marfil text-terracota-oscuro hover:bg-terracota-claro"
                 : "border-arena bg-marfil text-grafito hover:border-salvia hover:text-salvia-oscuro"
@@ -392,6 +408,22 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           >
             {pendingOcultar ? "Guardando…" : pagina.oculta ? "Mostrar" : "Ocultar"}
           </button>
+          <MenuMas
+            className="lg:hidden"
+            acciones={[
+              { id: "plantillas", etiqueta: "Plantillas", onElegir: () => setGaleriaAbierta(true) },
+              { id: "historial", etiqueta: "Historial", onElegir: () => setHistorialAbierto(true) },
+              { id: "ver", etiqueta: "Ver página", href: `/${sesion.slug}` },
+              ...(sinGuardar ? [{ id: "descartar", etiqueta: "Descartar cambios", onElegir: descartar, disabled: pendingGuardar, peligro: true }] : []),
+              {
+                id: "ocultar",
+                etiqueta: pendingOcultar ? "Guardando…" : pagina.oculta ? "Mostrar la página" : "Ocultar la página",
+                onElegir: () => void alternarOcultar(),
+                disabled: pendingOcultar,
+                peligro: !pagina.oculta,
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -416,7 +448,8 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           la pagina") — con `flex` fijo, el panel de edición y la
           previsualización competían por el mismo ancho angosto en mobile;
           apilados, cada uno usa el 100% del ancho disponible. */}
-      <div className="flex flex-col gap-5 lg:flex-row">
+      <div ref={area} className="flex scroll-mt-[calc(var(--header-height)+1rem)] flex-col gap-5 lg:flex-row">
+        <div className={`${vistaMovil === "vista" ? "flex" : "hidden"} min-w-0 flex-1 flex-col lg:flex`}>
         <VistaPrevia
           slug={sesion.slug}
           nombreClinica={sesion.nombreClinica}
@@ -425,13 +458,14 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
           especialidades={sesion.especialidades.map((e) => e.nombre)}
           contenido={contenido}
         />
+        </div>
 
         {/* Panel de edición desplegable (spec §5.1) — mismo patrón de
             retracción que PanelSidebar, a la derecha en vez de a la
             izquierda. */}
         <aside
           aria-label="Panel de edición"
-          className={`flex flex-shrink-0 flex-col rounded-card border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
+          className={`${vistaMovil === "editar" ? "flex" : "hidden"} flex-shrink-0 flex-col rounded-card lg:flex border-[0.5px] border-arena bg-marfil shadow-soft transition-[width] duration-300 ${
             panelAbierto ? "w-full lg:w-[26rem]" : "w-full lg:w-12"
           }`}
         >
@@ -440,15 +474,18 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             onClick={() => setPanelAbierto((a) => !a)}
             aria-label={panelAbierto ? "Retraer panel de edición" : "Expandir panel de edición"}
             aria-expanded={panelAbierto}
-            className="flex items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/75 hover:text-grafito"
+            // Solo desde lg (PP-5): en un celular el panel ocupa todo el ancho y
+            // retraerlo no deja nada al lado — era un "→" sin sentido.
+            className="hidden items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/75 hover:text-grafito lg:flex"
           >
             <span aria-hidden="true" className={`inline-block transition-transform duration-300 ${panelAbierto ? "" : "rotate-180"}`}>
               →
             </span>
           </button>
 
-          {panelAbierto && (
-            <div className="flex flex-col gap-4 overflow-auto p-4">
+          {/* Retraído se oculta solo desde lg: debajo el botón de retraer no
+              existe, y el panel siempre tiene que verse. */}
+            <div className={`${panelAbierto ? "flex" : "flex lg:hidden"} flex-col gap-4 overflow-auto p-4`}>
               <Pestanas
                 etiqueta="Qué editar"
                 pestanas={PESTANAS}
@@ -503,7 +540,6 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
               )}
               </Pestanas>
             </div>
-          )}
         </aside>
       </div>
       {galeriaAbierta && (
@@ -545,7 +581,8 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
       )}
       {/* El aviso de "Deshacer" (PP-3, H19). role="status": se anuncia sin
           robar el foco; el botón queda al alcance del teclado. */}
-      <div role="status" className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+      {/* bottom-20 debajo de lg: por encima de la barra de Editar/Vista previa. */}
+      <div role="status" className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 lg:bottom-4">
         {deshacer && (
           <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-full bg-grafito px-4 py-2 text-sm text-marfil shadow-soft">
             <span>{deshacer.mensaje}</span>
@@ -559,6 +596,34 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
         )}
       </div>
 
+      {/* Editar / Vista previa (PP-5, H15) — solo debajo de lg. Dos botones
+          con aria-pressed y no pestañas: desde lg las dos vistas están a la
+          vez, y un tablist que a veces controla algo y a veces no confunde
+          más de lo que ayuda. */}
+      <div
+        role="group"
+        aria-label="Qué mostrar"
+        className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t-[0.5px] border-arena bg-marfil p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
+      >
+        {(
+          [
+            ["editar", "Editar"],
+            ["vista", "Vista previa"],
+          ] as const
+        ).map(([id, nombre]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={vistaMovil === id}
+            onClick={() => cambiarVistaMovil(id)}
+            className={`min-h-11 flex-1 rounded-full text-sm font-semibold ${
+              vistaMovil === id ? "bg-salvia-oscuro text-marfil" : "border-[0.5px] border-arena bg-marfil text-grafito"
+            }`}
+          >
+            {nombre}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
