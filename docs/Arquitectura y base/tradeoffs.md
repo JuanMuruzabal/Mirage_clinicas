@@ -2997,6 +2997,22 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - En la vista previa no se puede probar el wizard de turno: hay que ir a "Ver página". Es el precio de que no se pueda crear un turno real desde el editor.
 - "Guardar y publicar" hace dos llamadas; si el guardado sale bien y la publicación falla, los cambios quedan guardados sin publicar, y el botón vuelve a decir "Publicar" para reintentar.
 
+## TR-170: Deshacer en vez de confirmar, un diálogo propio y el historial de publicaciones en el editor
+
+- **Contexto:** PP-3 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). (H2) PE-8 dejó el historial de versiones y "restaurar" en el backend y en las Server Actions, pero ningún componente las llamaba. (H10) Publicar con textos de ejemplo y "Reemplazar todo el borrador" preguntaban con `window.confirm`, y la galería de plantillas era un `<div>` sin Escape ni foco atrapado. (H19) "Quitar" un módulo borraba su configuración y sus fotos al instante, y "Aplicar solo el diseño" no preguntaba nada.
+
+### Las decisiones
+
+1. **Deshacer después, en vez de confirmar antes, para lo que solo toca el borrador.** Quitar un módulo, aplicar el diseño de una plantilla y reemplazar el borrador ya no preguntan: dejan un aviso con "Deshacer" que guarda el borrador anterior. Un confirm se contesta sin leer; el error real es aplicar algo y darse cuenta al verlo en la vista previa. El aviso vive **hasta el próximo cambio**, sin temporizador (WCAG 2.2.1), y se descarta al guardar, descartar o restaurar.
+2. **Confirmar, con un diálogo propio, solo lo que no se deshace en el borrador:** publicar con textos de ejemplo pendientes (sale al público) y restaurar una versión encima de cambios sin guardar (el backend pisa el borrador). La segunda se confirma EN LA FILA del historial: un diálogo sobre otro complica el foco sin ganar nada.
+3. **Un `Dialogo` compartido** (`components/dialogo.tsx`): portal a `body` (como `ModalPortal`, TR-030), foco adentro al abrir, Tab/Shift+Tab atrapados, Escape y el fondo cierran, y el foco vuelve a lo que lo abrió. `Confirmacion` arranca con el foco en "Cancelar", para que un Enter por reflejo no confirme. Los modales del panel no se migraron: cada uno tiene su propio manejo probado y no era el alcance.
+4. **El historial es un diálogo desde la barra de acciones** ("Historial"): versiones de la más nueva a la más vieja, con autor y fecha, y "Restaurar la versión N". Restaurar nunca publica. Un 409 cierra el historial y abre el aviso de conflicto de siempre (con el diálogo abierto quedaría tapado); un error se muestra dentro del historial.
+
+### Lo que se sacrifica
+
+- Deshacer guarda UN paso: quitar dos módulos seguidos solo deja deshacer el segundo. Un historial de deshacer completo es PE-8 "deshacer/rehacer", que sigue fuera de alcance.
+- No hay vista previa de una versión antes de restaurarla: se restaura en el borrador y se mira ahí (y "Descartar" o restaurar otra vuelven atrás).
+
 ---
 
 ---
