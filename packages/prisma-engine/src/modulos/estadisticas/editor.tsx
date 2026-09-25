@@ -23,7 +23,8 @@ export function Editor({ modulo, onConfig }: EditorModuloProps) {
           </span>
         </label>
       ))}
-      <span className={CLASE_AYUDA}>Son números reales del sistema: no se cargan a mano.</span>
+      <span className={CLASE_AYUDA}>Son números reales del sistema: no se cargan a mano. Un número en cero no se muestra en la página.</span>
+
     </fieldset>
   );
 }

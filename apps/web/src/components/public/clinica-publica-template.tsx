@@ -34,11 +34,12 @@ const MENU: Record<TokensResueltos["menu"], { nav: string; link: string }> = {
   },
   subrayado: {
     nav: "mx-auto flex w-full max-w-xl flex-wrap justify-center gap-x-5 gap-y-2",
-    link: "border-b-2 border-transparent pb-0.5 text-sm font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-salvia))]",
+    link: "inline-flex min-h-6 items-center border-b-2 border-transparent pb-0.5 text-sm font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-salvia))]",
   },
   barra: {
     nav: "sticky top-0 z-30 -mx-6 flex flex-wrap justify-center gap-x-5 gap-y-2 border-b-[0.5px] border-(--pp-borde) bg-(--pp-superficie) px-6 py-3",
-    link: "text-sm font-medium text-(--pp-texto) hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]",
+    link: "inline-flex min-h-6 items-center text-sm font-medium text-(--pp-texto) hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]",
+
   },
 };
 
@@ -268,6 +269,10 @@ export function ClinicaPublicaTemplate({
   const nombreSobreFoto = portada !== null && c.nombreSobrePortada;
   const colorNombre = colorDeNombre(c.nombreColor);
   const menu = MENU[tema.tokens.menu];
+  // Con la barra sticky, un link del menú dejaba el título de la sección
+  // DEBAJO de la barra (PP-1, H16): el margen de scroll tiene que cubrir su
+  // alto, que puede ser de dos filas en un celular.
+  const margenDeScroll = tema.tokens.menu === "barra" ? "scroll-mt-28" : "scroll-mt-6";
 
   const secciones = c.modulos
     .map((m, i) => seccionDeModulo(m, i, { slug, nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento }))
@@ -304,7 +309,7 @@ export function ClinicaPublicaTemplate({
         {/* Fase 2.4.1 (corrección de QA sobre F4.1.6): esta sección ya no
             embebe el wizard directo — es solo el botón que lo abre por
             encima de la página (ver PedirTurnoButton). */}
-        <section id="turno" className="mx-auto flex w-full max-w-xl scroll-mt-6 flex-col items-center gap-4 text-center">
+        <section id="turno" className={`mx-auto flex w-full max-w-xl ${margenDeScroll} flex-col items-center gap-4 text-center`}>
           <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-(--pp-texto)">Pedí tu turno</h2>
           <p className="text-sm text-(--pp-texto)/70">Elegí el horario que más te convenga en simples pasos.</p>
           {/* Suspense (Fase 2, ítem 5): PedirTurnoButton lee `?enlace=` con
@@ -331,7 +336,8 @@ export function ClinicaPublicaTemplate({
                     key={s.id}
                     id={s.id}
                     style={opciones.style}
-                    className={`scroll-mt-6 ${s.ancho === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}
+                    className={`${margenDeScroll} ${s.ancho
+ === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}
                   >
                     {s.contenido}
                   </section>
