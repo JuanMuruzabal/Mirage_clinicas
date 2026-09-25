@@ -2936,6 +2936,22 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - La validación de formato vive en los dos lados (la del modal es para el feedback inmediato); la del backend es la que manda.
 
 
+## TR-168: Los efectos no cambian lo que la página ES: estado final con movimiento reducido y el `<li>` sigue en su lista
+
+- **Contexto:** PP-1 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). El relevamiento miró las páginas de demostración en Chrome con emulación mobile y axe-core, y encontró dos regresiones de PE-4/PE-5 que ningún test veía: (H1) con `prefers-reduced-motion: reduce` todo el contenido con efecto de entrada quedaba en opacidad 0,94 + `blur(1px)` **para siempre** (medido: 36 de 36 efectos en la plantilla de kinesiología), y (H7) axe marcaba `list`/`listitem` en las cuatro plantillas auditadas porque el `<div>` del efecto quedaba entre el `<ul>` y cada `<li>`.
+
+### Las decisiones
+
+1. **Con movimiento reducido el efecto va al estado FINAL, por dos caminos.** El HTML del servidor sale con el estado inicial de Motion (en el servidor no hay preferencia que leer), y en la hidratación `initial={false}` no borra esos estilos ni `whileInView` corre. Por eso: (a) `EfectoEntrada` anima explícitamente hacia el final con duración cero cuando `useReducedMotion()` da `true`; (b) el bloque `prefers-reduced-motion` de `globals.css` fija `opacity: 1` y `filter: none` con `!important` (Motion escribe en `style`) y apaga también las animaciones de los HIJOS (`[data-pp-efecto] > *`, `.pp-palabra`), que antes seguían corriendo. El `transform: none` de los hijos se limita a `magnetico` e `inclinacion`: aplicarlo a cualquier hijo rompería contenidos que usan `transform` para posicionarse.
+2. **Un efecto sobre un `<li>` va ADENTRO del `<li>`, y se resuelve en `envolverSlots`**, no en cada `render.tsx`: tres módulos tenían el problema (Equipo, Horarios compacto, Obras sociales) y un módulo nuevo lo repetiría. El envoltorio hereda el layout del ítem (`li > [data-pp-efecto]` con `display`/`flex-*`/`gap: inherit`, `globals.css`), así que filas como las de Horarios (`flex justify-between`) se ven igual.
+3. **Una estadística en cero no se publica**, y si todas lo están el módulo no se dibuja (el mismo criterio que un módulo sin contenido). El editor lo avisa debajo de las casillas.
+
+### Lo que se sacrifica
+
+- Con movimiento reducido no hay NINGUNA transición en los efectos, ni siquiera un fundido corto: WCAG permite fundidos, pero distinguir cuáles lo son habría vuelto a abrir la puerta al estado intermedio.
+- El test de movimiento reducido (`movimiento-reducido.test.tsx`) cubre el render del cliente, no la hidratación del HTML del servidor, que en jsdom no se reproduce: esa mitad la cubre el CSS, y se verificó en Chrome (0 de 36 efectos fuera de su estado final después del cambio).
+- Ocultar los ceros esconde también un dato real ("todavía no atendimos a nadie"); se acepta porque en una página de presentación ese dato solo resta.
+
 ---
 
 ---
