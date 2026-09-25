@@ -8,7 +8,10 @@ export const llamadoAccionModulo: DefinicionModulo = {
   nombre: "Llamado a la acción",
   descripcion: "Una banda con un mensaje breve y un botón de contacto.",
   repetible: false,
-  configInicial: () => ({ texto: "", etiquetaBoton: "Pedí un turno", destino: "turno" }),
+  // WhatsApp por defecto (PP-7, H26): con "Pedí un turno" el módulo repetía
+  // el botón de turno que la página ya tiene arriba. El turno sigue siendo
+  // una opción del editor.
+  configInicial: () => ({ texto: "", etiquetaBoton: "Escribinos por WhatsApp", destino: "whatsapp" }),
   ancho: () => "completo",
   variantes: [],
   miniatura: [[20, 12, 60, 7, "titulo"], [25, 24, 50, 4, "texto"], [35, 36, 30, 10, "acento"]],

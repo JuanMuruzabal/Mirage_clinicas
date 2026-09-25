@@ -65,7 +65,11 @@ jobs:
         run: pnpm run test:prisma-engine
 
       - name: Build
-        run: pnpm run build:web
+        # Un reintento (PP-7): `next build` (Turbopack) falla a veces al
+        # procesar las fuentes de Google ("next/font/google queries have
+        # exactly one entry"), sin que el código tenga nada — pasó en #61, #62
+        # y #67 y siempre anduvo al relanzar. Si falla de verdad, falla dos veces.
+        run: pnpm run build:web || { echo "::warning::next build falló; reintentando una vez (fuentes de Google)"; pnpm run build:web; }
 
   api:
     name: api (vet + lint + build)
@@ -196,7 +200,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm run build:web
+        # Un reintento (PP-7): `next build` (Turbopack) falla a veces al
+        # procesar las fuentes de Google ("next/font/google queries have
+        # exactly one entry"), sin que el código tenga nada — pasó en #61, #62
+        # y #67 y siempre anduvo al relanzar. Si falla de verdad, falla dos veces.
+        run: pnpm run build:web || { echo "::warning::next build falló; reintentando una vez (fuentes de Google)"; pnpm run build:web; }
 
       - name: Lighthouse sobre las páginas de demostración
         run: pnpm dlx @lhci/cli@0.15.1 autorun

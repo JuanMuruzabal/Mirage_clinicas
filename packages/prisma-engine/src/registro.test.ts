@@ -113,3 +113,9 @@ describe("miniatura del catálogo (PP-6, H20)", () => {
     expect(miniaturaDeModulo(galeria, "no-existe").id).toBe(galeria.variantes[0].id);
   });
 });
+
+describe("llamado a la acción (PP-7, H26)", () => {
+  it("nace apuntando a WhatsApp, no a un turno que la página ya ofrece arriba", () => {
+    expect(REGISTRO_MODULOS.llamado_accion.configInicial()).toMatchObject({ destino: "whatsapp", etiquetaBoton: "Escribinos por WhatsApp" });
+  });
+});

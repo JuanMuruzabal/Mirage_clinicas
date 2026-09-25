@@ -596,11 +596,13 @@ describe("PaginaEditor — edición", () => {
         paginaInicial={{ ...paginaGuardada, modulos: [{ id: "m1", tipo: "contacto", orden: 0, visible: true, config: {} }] }}
       />,
     );
-    expect(screen.getByText("Av. Colón 100")).toBeInTheDocument();
+    // Acotado a la sección de Contacto de la vista previa: el footer repite la dirección (PP-7).
+    const contacto = () => within(screen.getByTestId("vista-previa-marco").querySelector<HTMLElement>('[id$="contacto"]')!);
+    expect(contacto().getByText("Av. Colón 100")).toBeInTheDocument();
 
     await user.click(within(panel()).getByRole("button", { name: "Contacto" }));
     await user.type(within(panel()).getByLabelText(/Dirección/), "Bv. San Juan 200");
-    expect(screen.getByText("Bv. San Juan 200")).toBeInTheDocument();
+    expect(contacto().getByText("Bv. San Juan 200")).toBeInTheDocument();
     expect(screen.queryByText("Av. Colón 100")).not.toBeInTheDocument();
   });
 });
@@ -706,7 +708,8 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     render(<PaginaEditor sesion={sesion} paginaInicial={conPortada} />);
     await user.click(within(panel()).getByRole("button", { name: /Portada/ }));
 
-    const vista = () => within(screen.getByTestId("vista-previa-marco"));
+    // Acotado a la portada: el footer también lleva el nombre de la clínica (PP-7).
+    const vista = () => within(screen.getByTestId("vista-previa-marco").querySelector<HTMLElement>('[data-modulo="portada"]')!);
     const foto = vista().getByAltText("Portada de Clínica Sonrisas");
     expect(foto.parentElement).not.toContainElement(vista().getByText("Clínica Sonrisas"));
 
@@ -729,7 +732,7 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     await user.click(within(panel()).getByRole("radio", { name: "Dorado" }));
     expect(within(panel()).getByRole("radio", { name: "Dorado" })).toBeChecked();
 
-    expect(within(screen.getByTestId("vista-previa-marco")).getByText("Clínica Sonrisas")).toHaveStyle({ color: "#f2d27a" });
+    expect(within(screen.getByTestId("vista-previa-marco").querySelector<HTMLElement>('[data-modulo="portada"]')!).getByText("Clínica Sonrisas")).toHaveStyle({ color: "#f2d27a" });
 
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     expect(actualizarPaginaPublicaActionMock).toHaveBeenCalledWith(
@@ -744,7 +747,7 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     expect(within(panel()).getByRole("radio", { name: "Negro" })).toBeChecked();
 
     await user.click(within(panel()).getByRole("button", { name: "Quitar" }));
-    const vista = within(screen.getByTestId("vista-previa-marco"));
+    const vista = within(screen.getByTestId("vista-previa-marco").querySelector<HTMLElement>('[data-modulo="portada"]')!);
     expect(vista.queryByRole("img")).not.toBeInTheDocument();
     expect(vista.getByText("Clínica Sonrisas")).toHaveClass("text-(--pp-texto)");
     expect(casilla()).toBeDisabled();

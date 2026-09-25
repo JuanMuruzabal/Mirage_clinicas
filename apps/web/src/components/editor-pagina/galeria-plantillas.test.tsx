@@ -52,7 +52,6 @@ function renderGaleria(borrador = borradorBase) {
     <GaleriaPlantillas
       slug="clinica-ejemplo"
       nombreClinica="Clínica Ejemplo"
-      profesionalNombre="María"
       especialidades={["Odontología"]}
       borrador={borrador}
       pagina={pagina}

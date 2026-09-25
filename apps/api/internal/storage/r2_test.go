@@ -3,9 +3,11 @@ package storage_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -44,7 +46,23 @@ func (f *s3Falso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.objetos[r.URL.Path] = datos
 		f.ultimoPut = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
+	case http.MethodDelete:
+		delete(f.objetos, r.URL.Path)
+		w.WriteHeader(http.StatusNoContent)
 	case http.MethodGet:
+		// ListObjectsV2 (PP-7): GET /<bucket>?list-type=2, en una sola página.
+		if r.URL.Query().Get("list-type") == "2" {
+			prefijo := r.URL.Path + "/"
+			var claves strings.Builder
+			for ruta := range f.objetos {
+				if strings.HasPrefix(ruta, prefijo) {
+					fmt.Fprintf(&claves, "<Contents><Key>%s</Key><LastModified>2026-09-01T12:00:00.000Z</LastModified><Size>1</Size></Contents>", strings.TrimPrefix(ruta, prefijo))
+				}
+			}
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><Name>fotos</Name><IsTruncated>false</IsTruncated>%s</ListBucketResult>`, claves.String())
+			return
+		}
 		datos, ok := f.objetos[r.URL.Path]
 		if !ok {
 			w.Header().Set("Content-Type", "application/xml")
@@ -163,5 +181,45 @@ func TestNewR2Storage_ConfiguracionIncompletaFallaDiciendoQueFalta(t *testing.T)
 	}
 	if strings.Contains(err.Error(), "STORAGE_R2_BUCKET") {
 		t.Errorf("el error %q nombra una variable que sí está", err)
+	}
+}
+
+// List y Delete (PP-7, H22): la limpieza diaria de fotos huérfanas recorre
+// el bucket y borra lo que nadie usa. List ignora lo que no tiene forma de
+// foto subida: el bucket podría tener otra cosa y no es de esta app.
+func TestR2Storage_ListYDelete(t *testing.T) {
+	s, falso := nuevoR2DePrueba(t)
+	ctx := context.Background()
+	for _, nombre := range []string{"tok.w480.webp", "otro.jpg"} {
+		if _, err := s.Save(ctx, nombre, strings.NewReader("x")); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+	}
+	falso.objetos["/fotos/respaldo.sql"] = []byte("no es una foto")
+
+	archivos, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	var nombres []string
+	for _, a := range archivos {
+		nombres = append(nombres, a.Nombre)
+		if a.Modificado.IsZero() {
+			t.Errorf("%s sin fecha de modificación", a.Nombre)
+		}
+	}
+	sort.Strings(nombres)
+	if strings.Join(nombres, ",") != "otro.jpg,tok.w480.webp" {
+		t.Errorf("List = %v, esperaba otro.jpg y tok.w480.webp", nombres)
+	}
+
+	if err := s.Delete(ctx, "otro.jpg"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, ok := falso.objetos["/fotos/otro.jpg"]; ok {
+		t.Error("Delete no borró el objeto")
+	}
+	if err := s.Delete(ctx, "ya-no-esta.jpg"); err != nil {
+		t.Errorf("borrar algo que no existe no es un error: %v", err)
 	}
 }

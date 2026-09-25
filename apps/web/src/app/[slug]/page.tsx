@@ -86,7 +86,6 @@ export default async function ClinicaPublicaPage({ params }: PageProps<"/[slug]"
         <ClinicaPublicaTemplate
           slug={clinica.slug}
           nombreClinica={clinica.nombreClinica}
-          profesionalNombre={clinica.profesionalNombre}
           telefono={clinica.telefono}
           especialidades={clinica.especialidades}
           contenido={contenidoDeClinicaPublica(clinica)}

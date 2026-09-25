@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CLASE_ALINEAR, CLASE_TARJETA, CLASE_TEXTO, CLASE_TEXTO_TENUE, Titulo } from "../../comunes";
+import { CLASE_ALINEAR, CLASE_ALINEAR_FLEX, CLASE_TARJETA, CLASE_TEXTO, CLASE_TEXTO_TENUE, Titulo } from "../../comunes";
 import { textoDeConfig, varianteDeConfig } from "../../lectura-config";
 import type { ContextoPublico, DiaClinica, HorariosClinicaVista, ModuloBorrador, SeccionPublica } from "../../tipos";
 import { envolverSlots } from "../../efectos/envolver-slots";
@@ -25,8 +25,8 @@ function EstadoActual({ horarios }: { horarios: HorariosClinicaVista }) {
 
 function TablaSemanal({ horarios, envolver }: { horarios: HorariosClinicaVista; envolver: (slot: string, nodo: ReactNode) => ReactNode }) {
   return (
-    <div className="overflow-x-auto">
-      <table className={`w-full border-collapse text-left ${CLASE_TEXTO}`}>
+    <div className="max-w-full overflow-x-auto">
+      <table className={`border-collapse text-left ${CLASE_TEXTO}`}>
         <tbody>
           {ORDEN_DIAS.map((diaSemana) => {
             const dia = horarios.dias.find((item) => item.diaSemana === diaSemana);
@@ -45,7 +45,7 @@ function TablaSemanal({ horarios, envolver }: { horarios: HorariosClinicaVista; 
 
 function ListaCompacta({ horarios, envolver }: { horarios: HorariosClinicaVista; envolver: (slot: string, nodo: ReactNode) => ReactNode }) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex w-full max-w-md flex-col gap-2">
       {ORDEN_DIAS.map((diaSemana) => {
         const dia = horarios.dias.find((item) => item.diaSemana === diaSemana);
         return envolver("tarjeta", <li key={diaSemana} className="flex items-baseline justify-between gap-4 border-b border-(--pp-borde) py-2 last:border-b-0">
@@ -73,7 +73,10 @@ function Horarios({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
     : null;
   const nota = horarios.nota.trim() ? envolver("texto", <p className={CLASE_TEXTO_TENUE}>{horarios.nota}</p>) : null;
   const contenido = (
-    <div className={`flex flex-col gap-4 ${CLASE_ALINEAR}`}>
+    // CLASE_ALINEAR_FLEX (PP-7, H25): la tabla, la lista y la píldora de
+    // "abierto ahora" se ubican como la sección — antes se estiraban al
+    // ancho completo y la tabla quedaba a la izquierda bajo un título centrado.
+    <div className={`flex flex-col gap-4 ${CLASE_ALINEAR} ${CLASE_ALINEAR_FLEX}`}>
       {titulo}
       {estado}
       {cuerpo}

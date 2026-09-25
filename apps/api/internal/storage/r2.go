@@ -124,6 +124,36 @@ func (s *R2Storage) Open(ctx context.Context, filename string) (io.ReadCloser, i
 	return out.Body, largo, nil
 }
 
+// List recorre el bucket entero, de a páginas de 1000 (el máximo de S3).
+func (s *R2Storage) List(ctx context.Context) ([]Archivo, error) {
+	var archivos []Archivo
+	pag := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{Bucket: aws.String(s.bucket)})
+	for pag.HasMorePages() {
+		out, err := pag.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("no se pudo listar el bucket de R2: %w", err)
+		}
+		for _, o := range out.Contents {
+			nombre := aws.ToString(o.Key)
+			if !NombreValido(nombre) {
+				continue
+			}
+			archivos = append(archivos, Archivo{Nombre: nombre, Modificado: aws.ToTime(o.LastModified)})
+		}
+	}
+	return archivos, nil
+}
+
+// Delete — S3 responde 204 aunque la clave no exista, así que "ya no
+// estaba" no llega como error.
+func (s *R2Storage) Delete(ctx context.Context, nombre string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(nombreSeguro(nombre))})
+	if err != nil && !esNoEncontrado(err) {
+		return fmt.Errorf("no se pudo borrar el archivo de R2: %w", err)
+	}
+	return nil
+}
+
 // nombreSeguro — mismo criterio que LocalStorage (filepath.Base): lo que
 // venga antes de la última barra se descarta, para que un nombre nunca
 // arme una clave en otra "carpeta" del bucket.

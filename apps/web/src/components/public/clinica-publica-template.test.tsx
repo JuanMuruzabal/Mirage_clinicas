@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ClinicaPublicaTemplate } from "./clinica-publica-template";
 import { CONTENIDO_VACIO, type ContenidoPagina } from "@/lib/pagina-publica/contenido";
 import type { ModuloBorrador } from "@/lib/pagina-publica/modulos";
@@ -14,7 +14,6 @@ vi.mock("next/navigation", () => ({
 const props = {
   slug: "clinica-sonrisas",
   nombreClinica: "Clínica Sonrisas",
-  profesionalNombre: "María Games",
   telefono: "+5493511234567",
   especialidades: ["Odontología general", "Ortodoncia"],
 };
@@ -30,8 +29,9 @@ function contenido(parcial: Partial<ContenidoPagina>): ContenidoPagina {
 describe("ClinicaPublicaTemplate — sin contenido (página que nadie personalizó)", () => {
   it("muestra lo fijo y la estructura por defecto: turno y especialidades", () => {
     render(<ClinicaPublicaTemplate {...props} />);
-    expect(screen.getByText("Clínica Sonrisas")).toBeInTheDocument();
-    expect(screen.getByText("María Games")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Clínica Sonrisas" })).toBeInTheDocument();
+    // La portada nombra solo a la clínica (PP-7, H27).
+    expect(screen.queryByText("María Games")).not.toBeInTheDocument();
     // "Pedí tu turno" aparece dos veces (el ancla del menú + el título de la
     // sección) — getByRole("heading") apunta al título, no al ancla.
     expect(screen.getByRole("heading", { name: "Pedí tu turno" })).toBeInTheDocument();
@@ -232,11 +232,14 @@ describe("ClinicaPublicaTemplate — contacto", () => {
         contenido={conContacto({ redesSociales: { instagram: "@clinicasonrisas", whatsapp: "+54 9 351 1234567" } })}
       />,
     );
-    expect(screen.getByText("Av. Colón 100, Córdoba")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "+5493511234567" })).toHaveAttribute("href", "tel:+5493511234567");
-    expect(screen.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/clinicasonrisas");
-    expect(screen.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", "https://wa.me/5493511234567");
-    expect(screen.getByRole("link", { name: "Cómo llegar" })).toHaveAttribute("href", expect.stringContaining("google.com/maps"));
+    // Acotado a la sección: el footer repite dirección y teléfono (PP-7).
+    const seccion = within(document.getElementById("contacto")!);
+    expect(seccion.getByText("Av. Colón 100, Córdoba")).toBeInTheDocument();
+    // Se lee en formato local; el link sigue con el número completo (PP-7, H26).
+    expect(seccion.getByRole("link", { name: "351 123-4567" })).toHaveAttribute("href", "tel:+5493511234567");
+    expect(seccion.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/clinicasonrisas");
+    expect(seccion.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", "https://wa.me/5493511234567");
+    expect(seccion.getByRole("link", { name: "Cómo llegar" })).toHaveAttribute("href", expect.stringContaining("google.com/maps"));
   });
 
   it("el mapa embebido solo aparece si se pidió", () => {
@@ -334,5 +337,45 @@ describe("ClinicaPublicaTemplate — secciones elegibles solo en el editor (PP-6
     );
     expect(container.querySelector('[data-modulo="portada"]')).not.toBeNull();
     expect(container.querySelector(`[data-modulo="${c.modulos[0].clave}"]`)).toHaveClass("outline-salvia-oscuro");
+  });
+});
+
+describe("ClinicaPublicaTemplate — PP-7 (decisiones con Juan)", () => {
+  it("H26: el footer cierra la página con los datos de la clínica y «Hecho con PRISMA»", () => {
+    render(
+      <ClinicaPublicaTemplate
+        {...props}
+        telefono="+5493511234567"
+        contenido={contenido({ direccion: "Av. Colón 100", redesSociales: { instagram: "@clinicasonrisas" } })}
+      />,
+    );
+    const pie = screen.getByRole("contentinfo");
+    expect(within(pie).getByText("Av. Colón 100")).toBeInTheDocument();
+    expect(within(pie).getByRole("link", { name: "351 123-4567" })).toHaveAttribute("href", "tel:+5493511234567");
+    expect(within(pie).getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/clinicasonrisas");
+    expect(within(pie).getByRole("link", { name: "Hecho con PRISMA" })).toHaveAttribute("href", "/");
+  });
+
+  it("H26: dentro del editor el footer no es un segundo landmark contentinfo", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({})} vistaPrevia={{ prefijoIds: "vp-" }} />);
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Hecho con PRISMA" })).toBeInTheDocument();
+  });
+
+  it("H26: sin foto, la portada es una banda con el color de contraste del tema", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: null })} />);
+    const nombre = screen.getByRole("heading", { level: 1, name: "Clínica Sonrisas" });
+    expect(nombre.parentElement).toHaveClass("bg-(--pp-contraste-fondo)");
+  });
+
+  it("H26: la portada «mínima» sigue siendo solo texto", () => {
+    render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: null, temaTokens: { portada: "minima" } })} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Clínica Sonrisas" }).parentElement).not.toHaveClass("bg-(--pp-contraste-fondo)");
+  });
+
+  it("H25: portada y secciones llegan a ~1100 px", () => {
+    const { container } = render(<ClinicaPublicaTemplate {...props} contenido={contenido({ fotoPortadaUrl: null, modulos: [modulo("especialidades")] })} />);
+    expect(container.querySelectorAll('[class*="max-w-[70rem]"]').length).toBeGreaterThanOrEqual(3);
+    expect(container.querySelector(".max-w-3xl")).toBeNull();
   });
 });

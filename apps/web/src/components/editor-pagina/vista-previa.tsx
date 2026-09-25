@@ -17,7 +17,6 @@ type IdDispositivo = (typeof DISPOSITIVOS)[number]["id"];
 interface VistaPreviaProps {
   slug: string;
   nombreClinica: string;
-  profesionalNombre: string;
   telefono?: string | null;
   especialidades: string[];
   contenido: ContenidoPagina;
@@ -46,7 +45,7 @@ interface VistaPreviaProps {
 // lo demás avisa que en la vista previa no funciona. Se deja pasar solo lo
 // que no sale de la página ni crea nada (los <details> de las preguntas
 // frecuentes y "Ver nombre" de Equipo).
-export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, especialidades, contenido, onElegirSeccion, moduloAbierto }: VistaPreviaProps) {
+export function VistaPrevia({ slug, nombreClinica, telefono, especialidades, contenido, onElegirSeccion, moduloAbierto }: VistaPreviaProps) {
   const [dispositivo, setDispositivo] = useState<IdDispositivo>("escritorio");
   const [reproduccion, setReproduccion] = useState(0);
   const [aviso, setAviso] = useState(false);
@@ -147,7 +146,6 @@ export function VistaPrevia({ slug, nombreClinica, profesionalNombre, telefono, 
           key={reproduccion}
           slug={slug}
           nombreClinica={nombreClinica}
-          profesionalNombre={profesionalNombre}
           telefono={telefono}
           especialidades={especialidades}
           contenido={contenido}

@@ -20,13 +20,16 @@ function destinoSeguro(modulo: ModuloBorrador, contexto: ContextoPublico): { hre
   return { href: "#turno", externo: false };
 }
 
+// Sin etiqueta propia, el botón dice lo que hace.
+const ETIQUETA_POR_DESTINO: Record<string, string> = { turno: "Pedí un turno", whatsapp: "Escribinos por WhatsApp", telefono: "Llamanos" };
+
 function LlamadoAccion({ modulo, contexto }: { modulo: ModuloBorrador; contexto: ContextoPublico }): ReactNode {
   const texto = textoDeConfig(modulo.config, "texto").trim();
   const accion = destinoSeguro(modulo, contexto);
   if (!texto || !accion) return null;
 
   const titulo = tituloPublicoDe(modulo.config, "Contactanos");
-  const etiquetaBoton = textoDeConfig(modulo.config, "etiquetaBoton").trim() || "Pedí un turno";
+  const etiquetaBoton = textoDeConfig(modulo.config, "etiquetaBoton").trim() || ETIQUETA_POR_DESTINO[String(modulo.config.destino)] || "Pedí un turno";
   const envolver = envolverSlots(modulo.config, contexto.estiloMovimiento, SLOTS_LLAMADO);
   return envolver("tarjeta", (
     <div className={`${CLASE_TARJETA} flex flex-col items-center gap-4 text-center ${CLASE_ALINEAR}`}>

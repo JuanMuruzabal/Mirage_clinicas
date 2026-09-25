@@ -10,11 +10,11 @@ import { EfectoSlot, srcsetDeFoto, TAMANOS_FOTO_POR_DEFECTO } from "@dental-mira
 import { PedirTurnoButton } from "./pedir-turno-button";
 import { MisTurnosButton } from "./mis-turnos-button";
 import { seccionDeModulo, type SeccionPublica } from "./modulos-publicos";
+import { PieDePagina } from "./pie-de-pagina";
 
 interface ClinicaPublicaTemplateProps {
   slug: string;
   nombreClinica: string;
-  profesionalNombre: string;
   telefono?: string | null;
   especialidades: string[];
   /**
@@ -74,6 +74,9 @@ function opcionesDeSeccion(s: SeccionPublica): { className: string; style?: CSSP
   if (s.alineacion === "izquierda") {
     vars["--pp-alinear"] = "left";
     vars["--pp-alinear-flex"] = "flex-start";
+    // Los párrafos largos, acotados a ~65ch (CLASE_PARRAFO_LARGO), pegados
+    // a la izquierda en vez de centrados (PP-7).
+    vars["--pp-margen-texto"] = "0";
   }
   if (s.fondo === "acento" || s.fondo === "contraste") {
     className =
@@ -104,7 +107,6 @@ interface PropsPortada {
   /** El alt de la foto: el que cargó el admin o, vacío, "Portada de <clínica>" (PP-4, H13). */
   altFoto: string;
   nombreClinica: string;
-  profesionalNombre: string;
   /** Solo rige en la variante centrada (el nombre sobre la foto, TR-155). */
   nombreSobreFoto: boolean;
   colorNombre: ColorNombre;
@@ -116,23 +118,20 @@ const CLASE_NOMBRE = "font-[family-name:var(--font-display)] text-4xl font-mediu
 /** El elemento del nombre de la clínica: `h1` en la página, `p` dentro del editor. */
 type TagNombre = "h1" | "p";
 
-function NombreYProfesional({ nombreClinica, profesionalNombre, Tag }: { nombreClinica: string; profesionalNombre: string; Tag: TagNombre }) {
+// La portada nombra a la CLÍNICA y a nadie más (PP-7, H27, decisión de
+// Juan): con N profesionales, el nombre del titular debajo decía que la
+// página era de una sola persona. El equipo se muestra en el módulo Equipo.
+function NombreDeLaClinica({ nombreClinica, Tag }: { nombreClinica: string; Tag: TagNombre }) {
   return (
     <>
       <QuadrantMark className="text-3xl text-[var(--pp-acento,var(--color-salvia))]" />
       <Tag className={CLASE_NOMBRE}>{nombreClinica}</Tag>
-      <ProfesionalNombre nombre={profesionalNombre} />
     </>
   );
 }
 
-function ProfesionalNombre({ nombre }: { nombre: string }) {
-  // grafito/80, no /60 (el tono que se usa sobre marfil/hueso en el resto
-  // del producto) — sobre este fondo celeste, /60 da ~3.6:1, por debajo del
-  // 4.5:1 de AA para texto normal (verificado a mano); /80 da ~6.25:1.
-  // Desde PE-2 es el texto del tema al 80%.
-  return <p className="text-sm text-(--pp-texto)/80">{nombre}</p>;
-}
+/** El ancho del contenido en escritorio (PP-7, H25): ~1100 px; antes 768. */
+const ANCHO_CONTENIDO = "max-w-[70rem]";
 
 /**
  * La foto de portada (PE-9): con las variantes del backend en `srcset` y SIN
@@ -154,22 +153,22 @@ function ImagenPortada({ src, alt, className, sizes = TAMANOS_FOTO_POR_DEFECTO }
  * la vista previa del editor la parte en dos según su ancho, no el de la
  * ventana.
  */
-function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, nombreSobreFoto, colorNombre, Tag }: PropsPortada): ReactNode {
+function Portada({ variante, foto, altFoto, nombreClinica, nombreSobreFoto, colorNombre, Tag }: PropsPortada): ReactNode {
 
   if (variante === "minima") {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 text-center">
-        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
+      <div className={`mx-auto flex w-full ${ANCHO_CONTENIDO} flex-col items-center gap-3 text-center`}>
+        <NombreDeLaClinica nombreClinica={nombreClinica} Tag={Tag} />
       </div>
     );
   }
   if (variante === "dividida" && foto) {
     return (
-      <div className="@container mx-auto w-full max-w-3xl">
+      <div className={`@container mx-auto w-full ${ANCHO_CONTENIDO}`}>
         <div className="grid grid-cols-1 items-center gap-6 @xl:grid-cols-2">
           <ImagenPortada src={foto} alt={altFoto} sizes="(min-width: 48rem) 24rem, 100vw" className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
           <div className="flex flex-col items-center gap-3 text-center @xl:items-start @xl:text-left">
-            <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
+            <NombreDeLaClinica nombreClinica={nombreClinica} Tag={Tag} />
           </div>
         </div>
       </div>
@@ -180,7 +179,7 @@ function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, no
     // y el color son los mismos que el "nombre sobre la foto" de la
     // variante centrada (portada.ts), más cargados porque cubren todo.
     return (
-      <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-(--pp-radio)">
+      <div className={`relative mx-auto w-full ${ANCHO_CONTENIDO} overflow-hidden rounded-(--pp-radio)`}>
         <ImagenPortada src={foto} alt={altFoto} className="absolute inset-0 h-full w-full object-cover" />
         <div
           aria-hidden="true"
@@ -195,15 +194,29 @@ function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, no
           style={{ color: colorNombre.hex }}
         >
           <Tag className="break-words font-[family-name:var(--font-display)] text-4xl font-medium">{nombreClinica}</Tag>
-          <p className="text-sm opacity-90">{profesionalNombre}</p>
         </div>
       </div>
     );
   }
-  // "centrada" — la de siempre (Fase 4.4/4.5), y la que usan "dividida" y
-  // "fondo" cuando no hay foto.
+  // Sin foto (en "centrada", y en "dividida" y "fondo", que la necesitan),
+  // la portada es una BANDA con el color de contraste del tema y el nombre
+  // grande encima (PP-7, H26): antes era solo el nombre en texto sobre el
+  // fondo. Son los mismos colores que la sección con fondo "Contraste", así
+  // que el contraste del texto ya lo garantiza cada tema. "Mínima" queda
+  // como está: es la que pide ser solo texto.
+  if (!foto) {
+    return (
+      <div
+        className={`mx-auto flex w-full ${ANCHO_CONTENIDO} flex-col items-center gap-3 rounded-(--pp-radio) bg-(--pp-contraste-fondo) px-6 py-14 text-center`}
+        style={{ "--pp-texto": "var(--pp-contraste-texto)", "--pp-acento": "var(--pp-contraste-texto)" } as CSSProperties}
+      >
+        <NombreDeLaClinica nombreClinica={nombreClinica} Tag={Tag} />
+      </div>
+    );
+  }
+  // "centrada" con foto — la de siempre (Fase 4.4/4.5).
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 text-center">
+    <div className={`mx-auto flex w-full ${ANCHO_CONTENIDO} flex-col items-center gap-3 text-center`}>
       {foto && (
         <div className="relative mb-3 w-full overflow-hidden rounded-(--pp-radio)">
           <ImagenPortada src={foto} alt={altFoto} className="aspect-[16/7] w-full object-cover" />
@@ -233,11 +246,7 @@ function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, no
           )}
         </div>
       )}
-      {nombreSobreFoto ? (
-        <ProfesionalNombre nombre={profesionalNombre} />
-      ) : (
-        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
-      )}
+      {!nombreSobreFoto && <NombreDeLaClinica nombreClinica={nombreClinica} Tag={Tag} />}
     </div>
   );
 }
@@ -280,7 +289,6 @@ function Portada({ variante, foto, altFoto, nombreClinica, profesionalNombre, no
 export function ClinicaPublicaTemplate({
   slug,
   nombreClinica,
-  profesionalNombre,
   telefono,
   especialidades,
   contenido,
@@ -333,7 +341,6 @@ export function ClinicaPublicaTemplate({
           foto={portada}
           altFoto={c.fotoPortadaAlt?.trim() || `Portada de ${nombreClinica}`}
           nombreClinica={nombreClinica}
-          profesionalNombre={profesionalNombre}
           nombreSobreFoto={nombreSobreFoto}
           colorNombre={colorNombre}
           Tag={vistaPrevia ? "p" : "h1"}
@@ -372,7 +379,7 @@ export function ClinicaPublicaTemplate({
         </section>
 
         {secciones.length > 0 && (
-          <div className="@container mx-auto w-full max-w-3xl">
+          <div className={`@container mx-auto w-full ${ANCHO_CONTENIDO}`}>
             <div className="grid grid-cols-1 gap-(--pp-espacio) @2xl:grid-cols-2">
               {secciones.map((s) => {
                 const opciones = opcionesDeSeccion(s);
@@ -381,10 +388,8 @@ export function ClinicaPublicaTemplate({
                     key={s.id}
                     id={`${prefijo}${s.id}`}
                     data-modulo={elegibles ? s.clave : undefined}
-
                     style={opciones.style}
-                    className={`${margenDeScroll} ${marcaDeSeccion(s.clave)} ${s.ancho
- === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}
+                    className={`${margenDeScroll} ${marcaDeSeccion(s.clave)} ${s.ancho === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}
                   >
                     {s.contenido}
                   </section>
@@ -393,6 +398,14 @@ export function ClinicaPublicaTemplate({
             </div>
           </div>
         )}
+
+        <PieDePagina
+          nombreClinica={nombreClinica}
+          direccion={c.direccion}
+          telefono={telefono}
+          redesSociales={c.redesSociales}
+          vistaPrevia={!!vistaPrevia}
+        />
       </div>
       </EfectoSlot>
     </div>
