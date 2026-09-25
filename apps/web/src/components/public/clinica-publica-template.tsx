@@ -22,6 +22,14 @@ interface ClinicaPublicaTemplateProps {
    * Sin esto se dibuja la estructura de una página que nadie personalizó.
    */
   contenido?: ContenidoPagina;
+  /**
+   * La plantilla dibujada DENTRO del editor (vista previa, galería de
+   * plantillas), no como página (PP-2, H5). Con esto los ids de las
+   * secciones llevan un prefijo —dos vistas previas en el mismo documento
+   * no repiten `#turno`— y el nombre de la clínica no es un `h1`: el de la
+   * pantalla es "Tu página". Lo que se puede tocar lo neutraliza VistaPrevia.
+   */
+  vistaPrevia?: { prefijoIds: string };
 }
 
 // El menú según el token `menu` (PE-2). "pastillas" es el de siempre.
@@ -88,15 +96,19 @@ interface PropsPortada {
   /** Solo rige en la variante centrada (el nombre sobre la foto, TR-155). */
   nombreSobreFoto: boolean;
   colorNombre: ColorNombre;
+  Tag: TagNombre;
 }
 
 const CLASE_NOMBRE = "font-[family-name:var(--font-display)] text-4xl font-medium text-(--pp-texto)";
 
-function NombreYProfesional({ nombreClinica, profesionalNombre }: { nombreClinica: string; profesionalNombre: string }) {
+/** El elemento del nombre de la clínica: `h1` en la página, `p` dentro del editor. */
+type TagNombre = "h1" | "p";
+
+function NombreYProfesional({ nombreClinica, profesionalNombre, Tag }: { nombreClinica: string; profesionalNombre: string; Tag: TagNombre }) {
   return (
     <>
       <QuadrantMark className="text-3xl text-[var(--pp-acento,var(--color-salvia))]" />
-      <h1 className={CLASE_NOMBRE}>{nombreClinica}</h1>
+      <Tag className={CLASE_NOMBRE}>{nombreClinica}</Tag>
       <ProfesionalNombre nombre={profesionalNombre} />
     </>
   );
@@ -130,11 +142,12 @@ function ImagenPortada({ src, alt, className, sizes = TAMANOS_FOTO_POR_DEFECTO }
  * la vista previa del editor la parte en dos según su ancho, no el de la
  * ventana.
  */
-function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobreFoto, colorNombre }: PropsPortada): ReactNode {
+function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobreFoto, colorNombre, Tag }: PropsPortada): ReactNode {
+
   if (variante === "minima") {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 text-center">
-        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} />
+        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
       </div>
     );
   }
@@ -144,7 +157,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
         <div className="grid grid-cols-1 items-center gap-6 @xl:grid-cols-2">
           <ImagenPortada src={foto} alt={`Portada de ${nombreClinica}`} sizes="(min-width: 48rem) 24rem, 100vw" className="aspect-[4/3] w-full rounded-(--pp-radio) object-cover" />
           <div className="flex flex-col items-center gap-3 text-center @xl:items-start @xl:text-left">
-            <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} />
+            <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
           </div>
         </div>
       </div>
@@ -169,7 +182,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
           className="relative flex min-h-[20rem] flex-col items-center justify-end gap-2 px-6 pb-8 text-center"
           style={{ color: colorNombre.hex }}
         >
-          <h1 className="break-words font-[family-name:var(--font-display)] text-4xl font-medium">{nombreClinica}</h1>
+          <Tag className="break-words font-[family-name:var(--font-display)] text-4xl font-medium">{nombreClinica}</Tag>
           <p className="text-sm opacity-90">{profesionalNombre}</p>
         </div>
       </div>
@@ -195,7 +208,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
                     : "bg-gradient-to-t from-black/70 via-black/25 to-transparent"
                 }`}
               />
-              <h1
+              <Tag
                 className="absolute inset-x-0 bottom-0 break-words px-6 pb-5 text-center font-[family-name:var(--font-display)] text-3xl font-medium"
                 style={{
                   color: colorNombre.hex,
@@ -203,7 +216,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
                 }}
               >
                 {nombreClinica}
-              </h1>
+              </Tag>
             </>
           )}
         </div>
@@ -211,7 +224,7 @@ function Portada({ variante, foto, nombreClinica, profesionalNombre, nombreSobre
       {nombreSobreFoto ? (
         <ProfesionalNombre nombre={profesionalNombre} />
       ) : (
-        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} />
+        <NombreYProfesional nombreClinica={nombreClinica} profesionalNombre={profesionalNombre} Tag={Tag} />
       )}
     </div>
   );
@@ -259,7 +272,9 @@ export function ClinicaPublicaTemplate({
   telefono,
   especialidades,
   contenido,
+  vistaPrevia,
 }: ClinicaPublicaTemplateProps) {
+  const prefijo = vistaPrevia?.prefijoIds ?? "";
   const c = contenido ?? { ...CONTENIDO_VACIO, modulos: modulosPorDefecto() };
   const tema = estiloDeTema(c.tema, c.temaVariante, c.temaTipografia, c.temaTokens);
   const portada = c.fotoPortadaUrl && esUrlDeFotoSegura(c.fotoPortadaUrl) ? c.fotoPortadaUrl : null;
@@ -293,14 +308,15 @@ export function ClinicaPublicaTemplate({
           profesionalNombre={profesionalNombre}
           nombreSobreFoto={nombreSobreFoto}
           colorNombre={colorNombre}
+          Tag={vistaPrevia ? "p" : "h1"}
         />
 
         <nav aria-label="Ir a una sección de esta página" className={menu.nav}>
-          <a href="#turno" className={menu.link}>
+          <a href={`#${prefijo}turno`} className={menu.link}>
             Pedí tu turno
           </a>
           {linksDelMenu.map((s) => (
-            <a key={s.id} href={`#${s.id}`} className={menu.link}>
+            <a key={s.id} href={`#${prefijo}${s.id}`} className={menu.link}>
               {s.etiqueta}
             </a>
           ))}
@@ -309,7 +325,7 @@ export function ClinicaPublicaTemplate({
         {/* Fase 2.4.1 (corrección de QA sobre F4.1.6): esta sección ya no
             embebe el wizard directo — es solo el botón que lo abre por
             encima de la página (ver PedirTurnoButton). */}
-        <section id="turno" className={`mx-auto flex w-full max-w-xl ${margenDeScroll} flex-col items-center gap-4 text-center`}>
+        <section id={`${prefijo}turno`} className={`mx-auto flex w-full max-w-xl ${margenDeScroll} flex-col items-center gap-4 text-center`}>
           <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-(--pp-texto)">Pedí tu turno</h2>
           <p className="text-sm text-(--pp-texto)/70">Elegí el horario que más te convenga en simples pasos.</p>
           {/* Suspense (Fase 2, ítem 5): PedirTurnoButton lee `?enlace=` con
@@ -334,7 +350,8 @@ export function ClinicaPublicaTemplate({
                 return (
                   <section
                     key={s.id}
-                    id={s.id}
+                    id={`${prefijo}${s.id}`}
+
                     style={opciones.style}
                     className={`${margenDeScroll} ${s.ancho
  === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}

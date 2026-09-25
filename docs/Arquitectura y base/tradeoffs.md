@@ -2980,6 +2980,23 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - El test de movimiento reducido (`movimiento-reducido.test.tsx`) cubre el render del cliente, no la hidratación del HTML del servidor, que en jsdom no se reproduce: esa mitad la cubre el CSS, y se verificó en Chrome (0 de 36 efectos fuera de su estado final después del cambio).
 - Ocultar los ceros esconde también un dato real ("todavía no atendimos a nadie"); se acepta porque en una página de presentación ese dato solo resta.
 
+## TR-169: Publicar publica lo que se ve, la vista previa no es la página, y el horario se aplica al instante
+
+- **Contexto:** PP-2 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). Tres problemas del flujo del editor, leídos en el código: (H3) "Publicar" estaba habilitado con cambios sin guardar y publicaba la versión GUARDADA, no la que se veía, con la insignia "Publicada" encima; (H5) la vista previa era la página real —"Pedir turno" abría el wizard de verdad y un link a la página pública sacaba del editor—, y con la galería de plantillas abierta convivían dos páginas en el documento (ids `#turno` repetidos, dos `h1`); (H6) "Mantener mi copia" ante un conflicto de revisión no reintentaba el guardado. Y una pregunta de producto: (H4) el horario del módulo Horarios se guarda con su propio botón y sale al público al instante.
+
+### Las decisiones
+
+1. **Con cambios sin guardar, el botón es "Guardar y publicar"**: guarda y, solo si el guardado sale bien (sin error ni conflicto de revisión), publica. No se deshabilitó Publicar hasta guardar: eran dos clics para lo mismo, y el orden correcto lo puede hacer el botón. La insignia "Publicada" exige que no haya cambios sin guardar NI sin publicar.
+2. **"Mantener mi copia" guarda en el mismo click**, con la revisión que trajo el conflicto. `guardar()` recibe el borrador a mandar porque el estado de React todavía no se actualizó en ese evento.
+3. **La vista previa intercepta los clics en captura** (`VistaPrevia`, `onClickCapture`), antes de que lleguen al `onClick` de los botones de la plantilla: una ancla de la propia página hace scroll dentro de la vista previa; cualquier otro link o botón avisa (`role="status"`) que ahí no funciona. Pasan solo los `<summary>`. Se hizo en el contenedor y no con un prop por componente para que un módulo nuevo quede cubierto sin acordarse.
+4. **La plantilla recibe `vistaPrevia: { prefijoIds }`**: los ids de las secciones y el `href` del menú llevan un prefijo por instancia (`useId`), y el nombre de la clínica se dibuja como `<p>` en lugar de `<h1>`. La página real no cambia.
+5. **El horario se aplica al instante (decidido por Kevin, 2026-09-25).** Es un dato del consultorio, no del diseño de la página (v2.2 del plan Prisma Engine: "Horarios = el edificio"), y meterlo en el borrador lo duplicaría. El editor lo dice con un aviso fijo y el botón "Guardar horario" pasó a un estilo secundario, para que no se lea como parte de Guardar/Publicar.
+
+### Lo que se sacrifica
+
+- En la vista previa no se puede probar el wizard de turno: hay que ir a "Ver página". Es el precio de que no se pueda crear un turno real desde el editor.
+- "Guardar y publicar" hace dos llamadas; si el guardado sale bien y la publicación falla, los cambios quedan guardados sin publicar, y el botón vuelve a decir "Publicar" para reintentar.
+
 ---
 
 ---

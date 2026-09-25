@@ -87,7 +87,8 @@ export function Editor({ horariosClinica, guardarHorariosClinica }: EditorModulo
         setError(respuesta.error);
       } else {
         setBorrador(normalizar(respuesta.valor));
-        setMensaje("Horario guardado.");
+        setMensaje("Horario guardado: ya se ve en tu página.");
+
       }
     } catch {
       setError("No se pudo guardar el horario. Intentá de nuevo.");
@@ -99,6 +100,13 @@ export function Editor({ horariosClinica, guardarHorariosClinica }: EditorModulo
   return (
     <div className="flex flex-col gap-4">
       <p className={CLASE_AYUDA}>Este es el horario del consultorio. Los turnos se ofrecen según la agenda de cada profesional.</p>
+      {/* El horario es un dato del consultorio, no del diseño: no pasa por
+          el borrador ni por Publicar (PP-2, H4, decidido por Kevin el
+          2026-09-25). El editor tiene que decirlo, porque todo lo demás de
+          esta pantalla sí espera a Publicar. */}
+      <p className="rounded-field border border-linea bg-hueso px-3 py-2 text-xs text-grafito">
+        <strong className="font-semibold">Se aplica al instante.</strong> “Guardar horario” lo cambia en tu página publicada, sin esperar a “Publicar”.
+      </p>
       {!guardarHorariosClinica && <p className={CLASE_AYUDA}>El guardado se conecta desde el editor de la clínica.</p>}
 
       <div className="flex flex-col gap-3">
@@ -166,7 +174,8 @@ export function Editor({ horariosClinica, guardarHorariosClinica }: EditorModulo
       </label>
 
       <div className="flex flex-col items-start gap-2">
-        <button type="button" disabled={guardando || !guardarHorariosClinica} className="rounded-full bg-salvia px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={guardar}>
+        <button type="button" disabled={guardando || !guardarHorariosClinica} className="rounded-full border border-salvia-oscuro bg-marfil px-4 py-2 text-sm font-medium text-salvia-oscuro hover:bg-salvia-claro disabled:cursor-not-allowed disabled:opacity-50" onClick={guardar}>
+
           {guardando ? "Guardando…" : "Guardar horario"}
         </button>
         {error && <p role="alert" className="text-xs text-terracota-oscuro">{error}</p>}

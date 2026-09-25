@@ -315,7 +315,7 @@ describe("PaginaEditor — edición", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("PE-8: 'Mantener mi copia' descarta el conflicto y deja reintentar con la revisión nueva", async () => {
+  it("PE-8 + PP-2 (H6): 'Mantener mi copia' reintenta el guardado con la revisión nueva, en el mismo click", async () => {
     const conflicto = { error: "x", revisionActual: 9, actualizadaEn: "2026-09-22T10:00:00Z", actualizadaPorNombre: "Juan" };
     actualizarPaginaPublicaActionMock.mockResolvedValueOnce({ kind: "conflicto", conflicto });
     const user = userEvent.setup();
@@ -328,12 +328,14 @@ describe("PaginaEditor — edición", () => {
 
     actualizarPaginaPublicaActionMock.mockResolvedValueOnce({ kind: "ok", pagina: { ...paginaGuardada, bio: "Atendemos desde 1998. Mío.", revision: 10 } });
     await user.click(screen.getByRole("button", { name: "Mantener mi copia" }));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(campoTextoDelModulo()).toHaveValue("Atendemos desde 1998. Mío.");
 
-    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-    expect(actualizarPaginaPublicaActionMock).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 9 }));
+    expect(actualizarPaginaPublicaActionMock).toHaveBeenCalledTimes(2);
+    expect(actualizarPaginaPublicaActionMock).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 9, bio: "Atendemos desde 1998. Mío." }));
+    expect(await screen.findByText("Cambios guardados.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
   });
+
 
   it("si el backend rechaza el guardado, muestra el error y conserva el borrador", async () => {
     actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "error", error: "la bio admite hasta 2000 caracteres" });
@@ -618,6 +620,8 @@ describe("PaginaEditor — nombre propio de cada módulo", () => {
   });
 });
 
+// En la vista previa el nombre de la clínica no es un h1 (PP-2, H5): se
+// busca por su texto.
 describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -643,10 +647,10 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
 
     const vista = () => within(screen.getByTestId("vista-previa-marco"));
     const foto = vista().getByAltText("Portada de Clínica Sonrisas");
-    expect(foto.parentElement).not.toContainElement(vista().getByRole("heading", { level: 1 }));
+    expect(foto.parentElement).not.toContainElement(vista().getByText("Clínica Sonrisas"));
 
     await user.click(casilla());
-    expect(foto.parentElement).toContainElement(vista().getByRole("heading", { level: 1 }));
+    expect(foto.parentElement).toContainElement(vista().getByText("Clínica Sonrisas"));
   });
 
   it("el color solo se puede elegir con el nombre sobre la foto, y cambia el color del nombre", async () => {
@@ -664,7 +668,7 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     await user.click(within(panel()).getByRole("radio", { name: "Dorado" }));
     expect(within(panel()).getByRole("radio", { name: "Dorado" })).toBeChecked();
 
-    expect(within(screen.getByTestId("vista-previa-marco")).getByRole("heading", { level: 1 })).toHaveStyle({ color: "#f2d27a" });
+    expect(within(screen.getByTestId("vista-previa-marco")).getByText("Clínica Sonrisas")).toHaveStyle({ color: "#f2d27a" });
 
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
     expect(actualizarPaginaPublicaActionMock).toHaveBeenCalledWith(
@@ -681,7 +685,100 @@ describe("PaginaEditor — nombre de la clínica sobre la portada", () => {
     await user.click(within(panel()).getByRole("button", { name: "Quitar" }));
     const vista = within(screen.getByTestId("vista-previa-marco"));
     expect(vista.queryByRole("img")).not.toBeInTheDocument();
-    expect(vista.getByRole("heading", { level: 1 })).toHaveClass("text-(--pp-texto)");
+    expect(vista.getByText("Clínica Sonrisas")).toHaveClass("text-(--pp-texto)");
     expect(casilla()).toBeDisabled();
+  });
+});
+
+// --- PP-2: que Publicar publique lo que se ve, y una vista previa inerte ----
+
+describe("PaginaEditor — PP-2: publicar lo que se ve (H3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const publicada: PaginaPublica = {
+    ...paginaGuardada,
+    deployadaEn: "2026-08-23T00:00:00Z",
+    ultimaVersionPublicada: {
+      ...ultimaVersionPublicadaDeVacia,
+      contenido: {
+        ...contenidoPublicadoDeVacia,
+        bio: "Atendemos desde 1998.",
+        modulos: [
+          { tipo: "sobre_nosotros", orden: 0, visible: true, config: {} },
+          { tipo: "especialidades", orden: 1, visible: true, config: {} },
+        ],
+      },
+    },
+  };
+
+  it("con cambios sin guardar el botón es 'Guardar y publicar' y la insignia 'Publicada' desaparece", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={publicada} />);
+    expect(screen.getByText("Publicada")).toBeInTheDocument();
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(campoTextoDelModulo(), " Más.");
+
+    expect(screen.getByRole("button", { name: "Guardar y publicar" })).toBeEnabled();
+    expect(screen.queryByText("Publicada")).not.toBeInTheDocument();
+  });
+
+  it("'Guardar y publicar' guarda primero y publica después", async () => {
+    const guardadaAhora = { ...publicada, bio: "Atendemos desde 1998. Más.", revision: 6 };
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: guardadaAhora });
+    publicarPaginaPublicaActionMock.mockResolvedValue({ pagina: { ...guardadaAhora, deployadaEn: "2026-09-25T10:00:00Z" } });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={publicada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(campoTextoDelModulo(), " Más.");
+    await user.click(screen.getByRole("button", { name: "Guardar y publicar" }));
+
+    await waitFor(() => expect(publicarPaginaPublicaActionMock).toHaveBeenCalledWith(sesion.slug));
+    expect(actualizarPaginaPublicaActionMock).toHaveBeenCalledWith(expect.objectContaining({ bio: "Atendemos desde 1998. Más." }));
+    expect(actualizarPaginaPublicaActionMock.mock.invocationCallOrder[0]).toBeLessThan(publicarPaginaPublicaActionMock.mock.invocationCallOrder[0]);
+  });
+
+  it("si el guardado falla, no publica nada", async () => {
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "error", error: "no se pudo guardar" });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={publicada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(campoTextoDelModulo(), " Más.");
+    await user.click(screen.getByRole("button", { name: "Guardar y publicar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("no se pudo guardar");
+    expect(publicarPaginaPublicaActionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("PaginaEditor — PP-2: la vista previa no es la página real (H5)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("'Pedir turno' en la vista previa no abre el wizard: avisa que ahí no funciona", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    const marco = screen.getByTestId("vista-previa-marco");
+
+    await user.click(within(marco).getByRole("button", { name: "Pedir turno" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText(/En la vista previa los botones y enlaces no hacen nada/)).toBeInTheDocument();
+  });
+
+  it("la vista previa no emite un h1 ni repite los ids de la página", () => {
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    const marco = screen.getByTestId("vista-previa-marco");
+
+    expect(within(marco).queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(marco.querySelector("#turno")).toBeNull();
+    const turno = marco.querySelector("[id$='-turno']");
+    expect(turno).not.toBeNull();
+    expect(within(marco).getByRole("link", { name: "Pedí tu turno" })).toHaveAttribute("href", `#${turno!.id}`);
   });
 });
