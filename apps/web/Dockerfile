@@ -54,7 +54,9 @@ ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
-RUN pnpm --filter @dental-mirage/web build
+# Un reintento, igual que en CI (PP-7): `next build` falla a veces al
+# procesar las fuentes de Google sin que el código tenga nada.
+RUN pnpm --filter @dental-mirage/web build || pnpm --filter @dental-mirage/web build
 
 # --- runtime: solo lo que server.js standalone necesita para correr ---
 FROM node:22-alpine AS runtime
