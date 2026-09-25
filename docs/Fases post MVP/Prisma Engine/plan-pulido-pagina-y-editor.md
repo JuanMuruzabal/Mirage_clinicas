@@ -70,8 +70,8 @@ Criterio (el mismo del plan Prisma Engine, ver la memoria de trabajo del 2026-09
 
 | PR | Rama | Qué cubre | Estado |
 |---|---|---|---|
-| PP-1 | `fix/pp-1-pagina-publica` | Página pública: H1, H7, H8, H14 (público), H16, H24 — TR-168 | implementado, sin PR |
-| PP-2 | `fix/pp-2-flujo-de-publicacion` | Flujo del editor: H3, H5, H6, H4 (ver decisión) | pendiente |
+| PP-1 | `fix/pp-1-pagina-publica` | Página pública: H1, H7, H8, H14 (público), H16, H24 — TR-168 | PR #62 |
+| PP-2 | `fix/pp-2-flujo-de-publicacion` | Flujo del editor: H3, H5, H6, H4 — TR-169 | implementado |
 | PP-3 | `feature/pp-3-historial-y-dialogos` | H2 (historial + restaurar), H10 y H19 con un diálogo propio, deshacer "Quitar" | pendiente |
 | PP-4 | `fix/pp-4-accesibilidad-editor` | H9, H11, H12, H14 (editor), H13 | pendiente |
 | PP-5 | `feature/pp-5-editor-mobile` | H15, H17 y el orden de pantallas en celular | pendiente |
@@ -94,7 +94,7 @@ Va primero porque es lo único que ya afecta a pacientes reales.
 - **H3** — con cambios sin guardar, el botón pasa a **"Guardar y publicar"** (guarda, y si el guardado sale bien, publica). El sello "Publicada" solo aparece si no hay cambios sin guardar ni sin publicar.
 - **H6** — "Mantener mi copia" reintenta el guardado con la revisión nueva.
 - **H5** — la plantilla recibe un modo `vistaPrevia`: el botón de turno y "Mis turnos" no abren nada (se ven igual, con un aviso "desactivado en la vista previa"), los links del menú hacen scroll dentro de la vista previa, y los ids de sección llevan un prefijo por instancia para que dos vistas previas no choquen. La plantilla deja de emitir `h1` en modo vista previa.
-- **H4** — **decisión a confirmar:** el horario es un dato del edificio (v2.2 del plan Prisma Engine), no del diseño de la página, y lo leen también otras pantallas; meterlo en el borrador lo duplicaría. Propuesta: queda como está, pero el editor lo dice ("Se aplica al instante en tu página, no espera a Publicar") y el botón deja de parecer parte del borrador.
+- **H4** — **decidido (Kevin, 2026-09-25): queda en vivo con aviso.** el horario es un dato del edificio (v2.2 del plan Prisma Engine), no del diseño de la página, y lo leen también otras pantallas; meterlo en el borrador lo duplicaría. Propuesta: queda como está, pero el editor lo dice ("Se aplica al instante en tu página, no espera a Publicar") y el botón deja de parecer parte del borrador.
 
 ### PP-3 — historial, diálogos y deshacer
 
@@ -130,3 +130,5 @@ Va primero porque es lo único que ya afecta a pacientes reales.
 
 - **2026-09-25** — relevamiento y plan.
 - **2026-09-25** — PP-1 implementado (TR-168). Verificado en Chrome sobre las 4 plantillas de demostración: axe sin violaciones (antes `list`, `listitem` y `scrollable-region-focusable`), ningún objetivo táctil de menos de 24 px (antes 3 a 9 por plantilla), 0 de 36 efectos fuera de su estado final con movimiento reducido (antes 36 de 36). De paso: la grilla de Equipo y la de Servicios usaban breakpoints de ventana (`sm:`/`lg:`), así que la vista previa "Móvil" del editor mostraba varias columnas; pasaron a container queries. Y el conteo animado no cancelaba su `requestAnimationFrame` al desmontar.
+- **2026-09-25** — PP-1 abierto como PR #62; CI en verde (el job `web` falló una vez al bajar las fuentes de Google en el build —mismo error en el PR #61— y pasó al relanzarlo).
+- **2026-09-25** — PP-2 implementado (TR-169). Rama cortada desde PP-1 porque las dos tocan `ClinicaPublicaTemplate`. H4 decidido: el horario queda en vivo, con aviso. Verificado solo con tests (el editor necesita API): la vista previa no abre el wizard, no emite `h1` ni repite ids; "Guardar y publicar" guarda antes de publicar y no publica si el guardado falla.
