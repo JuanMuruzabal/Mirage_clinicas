@@ -81,6 +81,14 @@ const paginaVacia: PaginaPublica = {
 
 const panel = () => screen.getByRole("complementary", { name: "Panel de edición" });
 
+// Agregar una sección vacía desde el catálogo (PP-6, H20): antes era un
+// <select> + "Agregar".
+async function agregarSeccion(user: ReturnType<typeof userEvent.setup>, nombre: string) {
+  await user.click(within(panel()).getByRole("button", { name: "+ Agregar sección" }));
+  const vacias = within(screen.getByRole("dialog", { name: "Agregar una sección" })).getByRole("region", { name: "Secciones" });
+  await user.click(within(vacias).getByRole("button", { name: new RegExp(`^${nombre}`) }));
+}
+
 function campoTextoDelModulo(): HTMLTextAreaElement {
   const control = within(panel()).getAllByRole("textbox").find((element) => element.tagName === "TEXTAREA");
   if (!(control instanceof HTMLTextAreaElement)) throw new Error("No se encontró el campo de texto del módulo");
@@ -436,8 +444,7 @@ describe("PaginaEditor — edición", () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
-    await user.selectOptions(within(panel()).getByLabelText("Agregar un módulo"), "contacto");
-    await user.click(within(panel()).getByRole("button", { name: "Agregar" }));
+    await agregarSeccion(user, "Contacto");
     expect(within(panel()).getByRole("button", { name: "Contacto" })).toBeInTheDocument();
 
     // Contacto entró al final: subirlo dos lugares lo deja primero.
@@ -462,8 +469,10 @@ describe("PaginaEditor — edición", () => {
         paginaInicial={{ ...paginaGuardada, modulos: [{ id: "m1", tipo: "contacto", orden: 0, visible: true, config: {} }] }}
       />,
     );
-    const opciones = within(within(panel()).getByLabelText("Agregar un módulo")).getAllByRole("option");
-    expect(opciones.map((o) => o.textContent)).not.toContainEqual(expect.stringContaining("Contacto"));
+    await user.click(within(panel()).getByRole("button", { name: "+ Agregar sección" }));
+    const vacias = within(screen.getByRole("dialog", { name: "Agregar una sección" })).getByRole("region", { name: "Secciones" });
+    expect(within(vacias).queryByRole("button", { name: /^Contacto/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
 
     await user.click(within(panel()).getByRole("button", { name: "Contacto" }));
     expect(within(panel()).getByRole("button", { name: "Quitar Contacto" })).toBeDisabled();
@@ -473,8 +482,7 @@ describe("PaginaEditor — edición", () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
 
-    await user.selectOptions(within(panel()).getByLabelText("Agregar un módulo"), "texto_libre");
-    await user.click(within(panel()).getByRole("button", { name: "Agregar" }));
+    await agregarSeccion(user, "Texto libre");
     await user.type(within(panel()).getByPlaceholderText("Ej.: Nuestra filosofía"), "Financiación");
     await user.type(campoTextoDelModulo(), "Hasta 6 cuotas.");
 
@@ -568,8 +576,7 @@ describe("PaginaEditor — edición", () => {
     const user = userEvent.setup();
     render(<PaginaEditor sesion={sesion} paginaInicial={{ ...paginaGuardada, estadisticas: { pacientes_atendidos: 12, turnos_realizados: 30 } }} />);
 
-    await user.selectOptions(within(panel()).getByLabelText("Agregar un módulo"), "estadisticas");
-    await user.click(within(panel()).getByRole("button", { name: "Agregar" }));
+    await agregarSeccion(user, "Estadísticas");
     // Arrancan las dos marcadas; desmarcar "turnos realizados" deja una.
     await user.click(within(panel()).getByRole("checkbox", { name: /Turnos realizados/ }));
 
@@ -1005,5 +1012,108 @@ describe("PaginaEditor — PP-3: historial de publicaciones (H2)", () => {
 
     const dialogo = screen.getByRole("dialog", { name: "Historial de publicaciones" });
     expect(await within(dialogo).findByRole("alert")).toHaveTextContent("no existe esa versión");
+  });
+});
+
+describe("PaginaEditor — PP-6: un editor más simple", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("H20: con un módulo abierto, la sección nueva entra debajo de él", async () => {
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: paginaGuardada });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.click(within(panel()).getByRole("button", { name: "+ Agregar sección" }));
+    const dialogo = screen.getByRole("dialog", { name: "Agregar una sección" });
+    expect(within(dialogo).getByRole("radio", { name: "Debajo de “Sobre nosotros”" })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(within(dialogo).getByRole("region", { name: "Secciones" })).getByRole("button", { name: /^Contacto/ }));
+
+    // Entra abierta, para editarla de una.
+    expect(within(panel()).getByRole("button", { name: "Contacto" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    const { modulos } = actualizarPaginaPublicaActionMock.mock.calls[0][0];
+    expect(modulos.map((m: { tipo: string }) => m.tipo)).toEqual(["sobre_nosotros", "contacto", "especialidades"]);
+  });
+
+  it("H20: el catálogo muestra una miniatura por sección, también las prearmadas", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(within(panel()).getByRole("button", { name: "+ Agregar sección" }));
+    const dialogo = screen.getByRole("dialog", { name: "Agregar una sección" });
+    for (const nombre of ["Secciones", "Prearmadas"]) {
+      const botones = within(within(dialogo).getByRole("region", { name: nombre })).getAllByRole("button");
+      expect(botones.length).toBeGreaterThan(0);
+      for (const b of botones) expect(b.querySelector("svg")).not.toBeNull();
+    }
+    // Sin módulo abierto no hay nada que elegir sobre dónde: va al final.
+    expect(within(dialogo).queryByRole("radiogroup", { name: "Dónde" })).not.toBeInTheDocument();
+  });
+
+  it("H18: fondo, alineación y efectos quedan en «Más opciones», cerrado", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(within(panel()).getByRole("button", { name: "Especialidades" }));
+    const resumen = within(panel()).getByText("Más opciones");
+    const detalles = resumen.closest("details")!;
+    expect(detalles.open).toBe(false);
+    expect(within(detalles).getByRole("radiogroup", { name: "Fondo de la sección" })).toBeInTheDocument();
+    // El diseño de la sección sigue a la vista, fuera del desplegable.
+    expect(within(panel()).getByRole("radiogroup", { name: "Diseño de la sección" }).closest("details")).toBeNull();
+    await user.click(resumen);
+    expect(detalles.open).toBe(true);
+  });
+
+  it("H18: Diseño arranca por los presets y termina con el movimiento", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(within(panel()).getByRole("tab", { name: "Diseño" }));
+    const titulos = within(screen.getByRole("tabpanel")).getAllByRole("heading").map((h) => h.textContent);
+    expect(titulos[0]).toBe("Presets de estilo");
+    expect(titulos.at(-1)).toBe("Movimiento");
+  });
+
+  it("H21: tocar una sección en la vista previa abre su módulo y lleva el foco ahí", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    const marco = screen.getByTestId("vista-previa-marco");
+    const secciones = [...marco.querySelectorAll<HTMLElement>("[data-modulo]")];
+    // La portada y un <section> por módulo visible.
+    expect(secciones[0].dataset.modulo).toBe("portada");
+    const especialidades = secciones.find((s) => s.dataset.modulo !== "portada" && s.textContent?.includes("Odontología general"))!;
+
+    await user.click(especialidades);
+    const fila = within(panel()).getByRole("button", { name: "Especialidades" });
+    expect(fila).toHaveAttribute("aria-expanded", "true");
+    expect(fila).toHaveFocus();
+    // Y en la vista previa queda marcada como la abierta.
+    expect(especialidades).toHaveClass("outline-salvia-oscuro");
+  });
+
+  it("H21: tocar la portada abre el editor de la portada, aunque se estuviera en otra pestaña", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(within(panel()).getByRole("tab", { name: "Diseño" }));
+    await user.click(screen.getByTestId("vista-previa-marco").querySelector<HTMLElement>('[data-modulo="portada"]')!);
+    expect(within(panel()).getByRole("tab", { name: "Módulos" })).toHaveAttribute("aria-selected", "true");
+    expect(within(panel()).getByRole("button", { name: /^Portada/ })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("H23: la pestaña se llama «Google y redes» y Ocultar dice qué está haciendo", async () => {
+    let resolver: (v: unknown) => void = () => {};
+    ocultarPaginaPublicaActionMock.mockReturnValue(new Promise((r) => (resolver = r)));
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} urlSitio="https://prisma.com.ar" />);
+    expect(within(panel()).getByRole("tab", { name: "Google y redes" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ocultar" }));
+    expect(screen.getByRole("button", { name: "Ocultando…" })).toBeInTheDocument();
+    resolver({ pagina: { ...paginaGuardada, oculta: true } });
+    expect(await screen.findByRole("button", { name: "Mostrar" })).toBeInTheDocument();
+
+    await user.click(within(panel()).getByRole("tab", { name: "Google y redes" }));
+    expect(screen.getByRole("figure", { name: /vista previa en google/i })).toHaveTextContent(`prisma.com.ar › ${sesion.slug}`);
   });
 });

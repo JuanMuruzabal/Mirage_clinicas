@@ -93,11 +93,6 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
 
   return (
     <div className="flex flex-col gap-5">
-      <Grupo titulo="Movimiento">
-        {selectorDeToken("movimiento")}
-        {selectorDeToken("fondoAnimado")}
-        <p className={CLASE_AYUDA}>Las animaciones se detienen si el visitante prefiere movimiento reducido.</p>
-      </Grupo>
       <Grupo titulo="Colores">
         <GrupoDeOpciones
           etiqueta="Tema"
@@ -198,6 +193,14 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
           )}
         </>
       )}
+
+      {/* Movimiento al final (PP-6, H18): es lo último que se afina, y antes
+          era lo primero que se veía al abrir Diseño. */}
+      <Grupo titulo="Movimiento">
+        {selectorDeToken("movimiento")}
+        {selectorDeToken("fondoAnimado")}
+        <p className={CLASE_AYUDA}>Las animaciones se detienen si el visitante prefiere movimiento reducido.</p>
+      </Grupo>
     </div>
   );
 }

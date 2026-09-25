@@ -1,4 +1,18 @@
-import type { BloqueMiniatura, VarianteModulo } from "./tipos";
+import type { BloqueMiniatura, DefinicionModulo, VarianteModulo } from "./tipos";
+
+// Para un módulo sin variantes ni miniatura propia: un título y dos líneas.
+const MINIATURA_GENERICA: BloqueMiniatura[] = [[25, 10, 50, 7, "titulo"], [15, 24, 70, 4, "texto"], [20, 32, 60, 4, "texto"]];
+
+/**
+ * Lo que dibuja el catálogo de "Agregar sección" para un módulo (PP-6, H20):
+ * la variante pedida (la de una sección prearmada), si no la primera, y si el
+ * módulo no tiene variantes, su `miniatura`.
+ */
+export function miniaturaDeModulo(definicion: DefinicionModulo, varianteId?: string): VarianteModulo {
+  const variante = definicion.variantes.find((v) => v.id === varianteId) ?? definicion.variantes[0];
+  if (variante) return variante;
+  return { id: definicion.tipo, nombre: definicion.nombre, bloques: definicion.miniatura ?? MINIATURA_GENERICA };
+}
 
 // Miniatura esquemática de una variante (PE-3): un solo dibujo para todas,
 // a partir de los bloques que declara cada meta.ts (o portada.ts). Colores del

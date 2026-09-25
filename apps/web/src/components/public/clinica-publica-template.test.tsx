@@ -317,3 +317,22 @@ describe("ClinicaPublicaTemplate — tokens y variantes (PE-2/PE-3)", () => {
     expect(seccion.style.getPropertyValue("--pp-alinear")).toBe("left");
   });
 });
+
+describe("ClinicaPublicaTemplate — secciones elegibles solo en el editor (PP-6, H21)", () => {
+  const conModulos = () => contenido({ bio: "Somos una clínica.", modulos: [modulo("sobre_nosotros")] });
+
+  it("la página pública no lleva data-modulo ni contornos", () => {
+    const { container } = render(<ClinicaPublicaTemplate {...props} contenido={conModulos()} />);
+    expect(container.querySelector("[data-modulo]")).toBeNull();
+    expect(container.querySelector(".cursor-pointer")).toBeNull();
+  });
+
+  it("en la vista previa del editor cada sección lleva la clave de su módulo, y la abierta queda marcada", () => {
+    const c = conModulos();
+    const { container } = render(
+      <ClinicaPublicaTemplate {...props} contenido={c} vistaPrevia={{ prefijoIds: "vp-", seccionesElegibles: true, moduloAbierto: c.modulos[0].clave }} />,
+    );
+    expect(container.querySelector('[data-modulo="portada"]')).not.toBeNull();
+    expect(container.querySelector(`[data-modulo="${c.modulos[0].clave}"]`)).toHaveClass("outline-salvia-oscuro");
+  });
+});

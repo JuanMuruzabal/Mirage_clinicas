@@ -11,6 +11,7 @@ export const videoModulo: DefinicionModulo = {
   configInicial: () => ({ url: "" }),
   ancho: () => "completo",
   variantes: [],
+  miniatura: [[10, 6, 80, 48, "foto"], [44, 24, 12, 12, "acento"]],
   opcionesDeSeccion: { titulo: true, fondo: true, alineacion: true },
   slotsAnimables: SLOTS_VIDEO,
   Editor,

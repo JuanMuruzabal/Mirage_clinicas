@@ -3056,6 +3056,30 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-173: Un editor más simple — "Más opciones" cerrado, un catálogo de secciones y la vista previa conectada con la lista
+
+- **Contexto:** PP-6 del plan de pulido (`docs/Fases post MVP/Prisma Engine/plan-pulido-pagina-y-editor.md`, 2026-09-25). (H18) Cada módulo mostraba de entrada variante, título, fondo, alineación y un efecto con intensidad **por elemento**; Diseño arrancaba por "Movimiento" y los presets quedaban al final. (H20) Agregar era un `<select>` con "Nombre — descripción" que siempre agregaba al final, más otro igual para las secciones prearmadas. (H21) La vista previa y la lista no se hablaban: tocar una sección no la abría, y abrir un módulo no la mostraba. (H23) La pestaña "Buscadores", un "Guardando…" en Ocultar y la vista de Google con `/slug` sin dominio.
+
+### Las decisiones
+
+1. **"Más opciones", cerrado por defecto**, en cada módulo: fondo, alineación y efectos por elemento. A la vista quedan el contenido, el diseño de la sección (variante) y el título público. Es un `<details>` nativo: se abre con teclado y el lector anuncia si está abierto, sin estado que mantener.
+2. **Diseño arranca por los presets de estilo**, después colores, tipografía, forma y fondo, y **movimiento al final**: se va de lo que cambia todo de una a lo que se afina.
+3. **"+ Agregar sección" abre un catálogo** (`CatalogoSecciones`, un `Dialogo`): las secciones vacías y las prearmadas, cada una con su miniatura — la de su primera variante, la de la variante de la prearmada, o una `miniatura` nueva en el `meta.ts` de los cinco módulos que no tienen variantes (foto, llamado a la acción, obras sociales, preguntas frecuentes, video); `miniaturaDeModulo` resuelve cuál, y un test exige que todo módulo tenga una. Con un módulo abierto se ofrece **"Debajo de «X»"** (el default) o "Al final". La sección nueva entra abierta.
+4. **Vista previa y lista conectadas** (`data-modulo` en cada sección y en la portada, solo cuando la plantilla se dibuja como vista previa elegible):
+   - Tocar una sección abre su módulo: pestaña Módulos, panel expandido, en un celular la vista Editar, y el **foco** en el botón del módulo (quien usa teclado o lector queda donde se edita). Tocar un botón o un link de la sección hace lo mismo, además del aviso de que ahí no funcionan. Las anclas del menú siguen haciendo scroll dentro de la vista previa.
+   - Abrir un módulo desde la lista lleva la vista previa hasta su sección y la marca (contorno salvia; al pasar el mouse, punteado).
+   - **Para eso, desde `lg` el editor son dos columnas `sticky` bajo el header, cada una con su scroll.** Antes crecían con la página: llevar la vista previa hasta una sección habría movido la ventana, y el panel —con el módulo recién abierto— se iba de la pantalla. El scroll se hace sobre el recuadro de la vista previa, nunca sobre la ventana, y respeta el movimiento reducido.
+   - El estado de "qué módulo está abierto" subió de `ListaModulos` a `PaginaEditor` (props `abierto`/`onAbrir`).
+5. **Microcopy (H23):** la pestaña se llama "Google y redes"; Ocultar dice "Ocultando…"/"Mostrando…" mientras trabaja; la vista de Google muestra "dominio › slug" con el dominio real, que la página calcula en el servidor con `urlDelSitio()` y le pasa al editor.
+
+### Lo que se sacrifica
+
+- Las secciones de la vista previa se eligen con puntero; con teclado el camino sigue siendo la lista (una sección no es un control, y volverla uno sumaría decenas de paradas de Tab a una vista que no es interactiva).
+- En escritorio, con una ventana muy baja, la vista previa tiene un mínimo de 28 rem de alto: por debajo de eso la página scrollea como antes.
+- H22 (fotos huérfanas en el storage al descartar un borrador) no estaba asignado a ningún PR del plan y sigue abierto.
+
+---
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

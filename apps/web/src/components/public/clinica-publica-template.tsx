@@ -29,7 +29,17 @@ interface ClinicaPublicaTemplateProps {
    * no repiten `#turno`— y el nombre de la clínica no es un `h1`: el de la
    * pantalla es "Tu página". Lo que se puede tocar lo neutraliza VistaPrevia.
    */
-  vistaPrevia?: { prefijoIds: string };
+  vistaPrevia?: {
+    prefijoIds: string;
+    /**
+     * PP-6 (H21): la vista previa del editor se puede tocar para abrir el
+     * módulo de cada sección. Con esto cada sección (y la portada) lleva
+     * `data-modulo` con la clave de su módulo, un contorno al pasar el mouse,
+     * y la del módulo abierto queda marcada.
+     */
+    seccionesElegibles?: boolean;
+    moduloAbierto?: string | null;
+  };
 }
 
 // El menú según el token `menu` (PE-2). "pastillas" es el de siempre.
@@ -291,9 +301,23 @@ export function ClinicaPublicaTemplate({
   // alto, que puede ser de dos filas en un celular.
   const margenDeScroll = tema.tokens.menu === "barra" ? "scroll-mt-28" : "scroll-mt-6";
 
+  // Cada sección con la clave de su módulo: la vista previa del editor la
+  // necesita para saber qué se tocó (PP-6, H21).
   const secciones = c.modulos
-    .map((m, i) => seccionDeModulo(m, i, { slug, nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento }))
-    .filter((s): s is SeccionPublica => s !== null);
+    .map((m, i) => {
+      const s = seccionDeModulo(m, i, { slug, nombreClinica, telefono, especialidades, contenido: c, estiloMovimiento: tema.tokens.movimiento });
+      return s && { ...s, clave: m.clave };
+    })
+    .filter((s): s is SeccionPublica & { clave: string } => s !== null);
+  const elegibles = !!vistaPrevia?.seccionesElegibles;
+  // El contorno de una sección elegible: punteado al pasar el mouse, lleno si
+  // es la del módulo abierto. Colores del PANEL, no del tema: es el editor.
+  const marcaDeSeccion = (clave: string) =>
+    !elegibles
+      ? ""
+      : `cursor-pointer rounded-(--pp-radio) outline-offset-4 ${
+          vistaPrevia?.moduloAbierto === clave ? "outline-2 outline-salvia-oscuro" : "hover:outline-2 hover:outline-dashed hover:outline-salvia"
+        }`;
   const linksDelMenu = secciones.filter((s) => s.etiqueta !== null);
 
   return (
@@ -303,6 +327,7 @@ export function ClinicaPublicaTemplate({
     <div className={`pp-raiz ${tema.className}`} style={tema.style} data-pp-movimiento={tema.tokens.movimiento}>
       <EfectoSlot id={tema.tokens.fondoAnimado === "ninguno" ? undefined : tema.tokens.fondoAnimado} intensidad="media">
       <div className="pp-fondo-vivo__base flex flex-col gap-(--pp-espacio-pagina) bg-[var(--pp-fondo,#e7f2f7)] [background-image:var(--pp-fondo-imagen)] [background-size:var(--pp-fondo-tamano)] px-6 py-16">
+        <div data-modulo={elegibles ? "portada" : undefined} className={marcaDeSeccion("portada")}>
         <Portada
           variante={tema.tokens.portada}
           foto={portada}
@@ -313,6 +338,7 @@ export function ClinicaPublicaTemplate({
           colorNombre={colorNombre}
           Tag={vistaPrevia ? "p" : "h1"}
         />
+        </div>
 
         <nav aria-label="Ir a una sección de esta página" className={menu.nav}>
           <a href={`#${prefijo}turno`} className={menu.link}>
@@ -354,9 +380,10 @@ export function ClinicaPublicaTemplate({
                   <section
                     key={s.id}
                     id={`${prefijo}${s.id}`}
+                    data-modulo={elegibles ? s.clave : undefined}
 
                     style={opciones.style}
-                    className={`${margenDeScroll} ${s.ancho
+                    className={`${margenDeScroll} ${marcaDeSeccion(s.clave)} ${s.ancho
  === "completo" ? "@2xl:col-span-2" : ""} ${opciones.className}`}
                   >
                     {s.contenido}

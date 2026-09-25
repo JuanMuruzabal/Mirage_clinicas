@@ -19,7 +19,6 @@ import {
   type EquipoElegible,
   type HorariosClinica,
   type ServicioVista,
-  TOPE_FOTOS_SUELTAS,
   configInicial,
   definicionDeModulo,
   MAX_LARGO_NOMBRE_MODULO,
@@ -33,6 +32,7 @@ import {
   type ModuloBorrador,
 } from "@/lib/pagina-publica/modulos";
 import { EditorDePortada } from "./editor-de-portada";
+import { CatalogoSecciones, type DondeAgregar, type EleccionDeSeccion } from "./catalogo-secciones";
 import { EditorDeModulo } from "./editor-de-modulo";
 import { OpcionesDeModulo } from "./opciones-de-modulo";
 import { CLASE_AYUDA, CLASE_BOTON, CLASE_BOTON_PELIGRO, CLASE_CAMPO, CLASE_ETIQUETA, CLASE_TACTIL } from "./estilos";
@@ -55,6 +55,12 @@ interface ListaModulosProps {
    * prop, quitar es un cambio común.
    */
   onBorradorDeshacible?: (parcial: Partial<Borrador>, mensaje: string) => void;
+  /**
+   * El módulo abierto (su clave, "portada" o null). Vive en PaginaEditor y no
+   * acá desde PP-6 (H21): tocar una sección de la vista previa también lo abre.
+   */
+  abierto: string | null;
+  onAbrir: (clave: string | null) => void;
 }
 
 // El nombre que ve el admin en la lista: el que le puso él (para reconocer,
@@ -120,6 +126,7 @@ function FilaModulo({
   return (
     <li
       ref={setNodeRef}
+      data-fila={modulo.clave}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`rounded-card border-[0.5px] border-arena bg-marfil ${isDragging ? "relative z-10 shadow-soft" : ""} ${
         modulo.visible ? "" : "opacity-70"
@@ -233,18 +240,13 @@ function FilaModulo({
 // módulos, que se reordenan arrastrando (dnd-kit, con teclado) o con las
 // flechas — las flechas no son un extra: arrastrar no funciona bien con un
 // lector de pantalla ni en todos los dispositivos táctiles.
-export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onBorrador, onBorradorDeshacible }: ListaModulosProps) {
+export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onBorrador, onBorradorDeshacible, abierto, onAbrir }: ListaModulosProps) {
   const { modulos } = borrador;
-  const [abierto, setAbierto] = useState<string | null>(null);
-  const [tipoNuevo, setTipoNuevo] = useState("");
-  const [presetNuevo, setPresetNuevo] = useState("");
+  const [catalogoAbierto, setCatalogoAbierto] = useState(false);
 
   // id estable para dnd-kit (PP-5): sin él numera sus ids de accesibilidad
-
   // con un contador GLOBAL, que en el servidor sigue subiendo entre requests
-
   // ("DndDescribedBy-2" en el HTML, "-0" al hidratar) — desajuste de
-
   // hidratación visto en la consola del navegador real.
 
   const idDnd = useId();
@@ -266,25 +268,25 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
     onBorrador({ modulos: moverModulo(modulos, desde, hasta) });
   }
 
-  function agregar() {
-    const tipo = tipoNuevo || agregables[0]?.tipo;
-    if (!tipo || !puedeAgregar(modulos, tipo)) return;
-    const nuevo: ModuloBorrador = { clave: nuevaClave(), tipo, visible: true, config: configInicial(tipo) };
-    onBorrador({ modulos: [...modulos, nuevo] });
-    setAbierto(nuevo.clave);
-    setTipoNuevo("");
-  }
-
-  function agregarPreset() {
-    const preset = presetsAgregables.find((item) => item.id === presetNuevo) ?? presetsAgregables[0];
-    if (!preset) return;
+  // Agregar (PP-6, H20): debajo del módulo abierto, o al final. Se abre el
+  // nuevo para editarlo de una.
+  function agregar(eleccion: EleccionDeSeccion, donde: DondeAgregar) {
     const clave = nuevaClave();
-    const { datosVista, ...base } = moduloDePresetSeccion(preset, clave);
-    void datosVista;
-    const nuevo: ModuloBorrador = { ...base, clave, visible: true };
-    onBorrador({ modulos: [...modulos, nuevo] });
-    setAbierto(nuevo.clave);
-    setPresetNuevo("");
+    let nuevo: ModuloBorrador;
+    if ("tipo" in eleccion) {
+      if (!puedeAgregar(modulos, eleccion.tipo)) return;
+      nuevo = { clave, tipo: eleccion.tipo, visible: true, config: configInicial(eleccion.tipo) };
+    } else {
+      if (!puedeAgregar(modulos, eleccion.preset.modulo.tipo)) return;
+      const { datosVista, ...base } = moduloDePresetSeccion(eleccion.preset, clave);
+      void datosVista;
+      nuevo = { ...base, clave, visible: true };
+    }
+    const indiceAbierto = modulos.findIndex((m) => m.clave === abierto);
+    const posicion = donde === "debajo" && indiceAbierto >= 0 ? indiceAbierto + 1 : modulos.length;
+    onBorrador({ modulos: [...modulos.slice(0, posicion), nuevo, ...modulos.slice(posicion)] });
+    onAbrir(nuevo.clave);
+    setCatalogoAbierto(false);
   }
 
   return (
@@ -292,10 +294,10 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
       <div className="flex flex-col gap-2">
         <span className={CLASE_ETIQUETA}>Siempre primero</span>
         <ul className="flex flex-col gap-2">
-          <li className="rounded-card border-[0.5px] border-arena bg-marfil">
+          <li data-fila="portada" className="rounded-card border-[0.5px] border-arena bg-marfil">
             <button
               type="button"
-              onClick={() => setAbierto(abierto === "portada" ? null : "portada")}
+              onClick={() => onAbrir(abierto === "portada" ? null : "portada")}
               aria-expanded={abierto === "portada"}
               className="flex w-full items-center justify-between p-3 text-left text-sm font-medium text-grafito"
             >
@@ -335,7 +337,7 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
                   horariosClinica={horariosClinica}
                   serviciosDisponibles={serviciosDisponibles}
                   guardarHorariosClinica={guardarHorariosClinica}
-                  onAbrir={() => setAbierto(abierto === m.clave ? null : m.clave)}
+                  onAbrir={() => onAbrir(abierto === m.clave ? null : m.clave)}
                   onMover={(desde, hasta) => onBorrador({ modulos: moverModulo(modulos, desde, hasta) })}
                   onCambiar={(cambios) => onBorrador({ modulos: modulos.map((x) => (x.clave === m.clave ? { ...x, ...cambios } : x)) })}
                   onQuitar={() => {
@@ -351,38 +353,22 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
         </DndContext>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena p-3">
-        {agregables.length > 0 ? (
-          <>
-            <label className="flex flex-col gap-1.5">
-              <span className={CLASE_ETIQUETA}>Agregar un módulo</span>
-              <select value={tipoNuevo || agregables[0].tipo} onChange={(e) => setTipoNuevo(e.target.value)} className={CLASE_CAMPO}>
-                {agregables.map((d) => (
-                  <option key={d.tipo} value={d.tipo}>
-                    {d.nombre} — {d.descripcion}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={agregar} className={`${CLASE_BOTON} self-start`}>
-              Agregar
-            </button>
-          </>
-        ) : (
-          <p className={CLASE_AYUDA}>Ya tenés todos los módulos disponibles en tu página.</p>
-        )}
-        <p className={CLASE_AYUDA}>Fotos sueltas: hasta {TOPE_FOTOS_SUELTAS} por página.</p>
-      </div>
-      {presetsAgregables.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena p-3">
-          <label className="flex flex-col gap-1.5">
-            <span className={CLASE_ETIQUETA}>Secciones prearmadas</span>
-            <select aria-label="Preset de sección" value={presetNuevo || presetsAgregables[0].id} onChange={(event) => setPresetNuevo(event.target.value)} className={CLASE_CAMPO}>
-              {presetsAgregables.map((preset) => <option key={preset.id} value={preset.id}>{preset.nombre} — {preset.descripcion}</option>)}
-            </select>
-          </label>
-          <button type="button" onClick={agregarPreset} className={`${CLASE_BOTON} self-start`}>Agregar sección prearmada</button>
-        </div>
+      <button
+        type="button"
+        onClick={() => setCatalogoAbierto(true)}
+        disabled={agregables.length === 0 && presetsAgregables.length === 0}
+        className="min-h-11 rounded-card border-[0.5px] border-dashed border-arena p-3 text-sm font-medium text-grafito hover:border-salvia-oscuro hover:text-salvia-oscuro disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        + Agregar sección
+      </button>
+      {catalogoAbierto && (
+        <CatalogoSecciones
+          agregables={agregables}
+          presets={presetsAgregables}
+          nombreDelAbierto={modulos.find((m) => m.clave === abierto) ? nombreDeModulo(modulos.find((m) => m.clave === abierto)!) : null}
+          onElegir={agregar}
+          onCerrar={() => setCatalogoAbierto(false)}
+        />
       )}
     </div>
   );
