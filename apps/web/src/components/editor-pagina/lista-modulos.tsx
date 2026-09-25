@@ -49,6 +49,12 @@ interface ListaModulosProps {
     | { ok: false; error: string }
   >;
   onBorrador: (parcial: Partial<Borrador>) => void;
+  /**
+   * Un cambio con "Deshacer" (PP-3, H19): quitar un módulo borra su
+   * configuración y sus fotos de un click, sin confirmar antes. Sin este
+   * prop, quitar es un cambio común.
+   */
+  onBorradorDeshacible?: (parcial: Partial<Borrador>, mensaje: string) => void;
 }
 
 // El nombre que ve el admin en la lista: el que le puso él (para reconocer,
@@ -227,7 +233,7 @@ function FilaModulo({
 // módulos, que se reordenan arrastrando (dnd-kit, con teclado) o con las
 // flechas — las flechas no son un extra: arrastrar no funciona bien con un
 // lector de pantalla ni en todos los dispositivos táctiles.
-export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onBorrador }: ListaModulosProps) {
+export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegible, horariosClinica, serviciosDisponibles, guardarHorariosClinica, onBorrador, onBorradorDeshacible }: ListaModulosProps) {
   const { modulos } = borrador;
   const [abierto, setAbierto] = useState<string | null>(null);
   const [tipoNuevo, setTipoNuevo] = useState("");
@@ -322,7 +328,11 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
                   onAbrir={() => setAbierto(abierto === m.clave ? null : m.clave)}
                   onMover={(desde, hasta) => onBorrador({ modulos: moverModulo(modulos, desde, hasta) })}
                   onCambiar={(cambios) => onBorrador({ modulos: modulos.map((x) => (x.clave === m.clave ? { ...x, ...cambios } : x)) })}
-                  onQuitar={() => onBorrador({ modulos: modulos.filter((x) => x.clave !== m.clave) })}
+                  onQuitar={() => {
+                    const sinEste = { modulos: modulos.filter((x) => x.clave !== m.clave) };
+                    if (onBorradorDeshacible) onBorradorDeshacible(sinEste, `Quitaste “${nombreDeModulo(m)}”.`);
+                    else onBorrador(sinEste);
+                  }}
                   onBorrador={onBorrador}
                 />
               ))}

@@ -10,12 +10,16 @@ const {
   actualizarPaginaPublicaActionMock,
   obtenerPaginaPublicaActionMock,
   subirFotoPaginaPublicaActionMock,
+  historialPaginaPublicaActionMock,
+  restaurarVersionPaginaPublicaActionMock,
 } = vi.hoisted(() => ({
   ocultarPaginaPublicaActionMock: vi.fn(),
   publicarPaginaPublicaActionMock: vi.fn(),
   actualizarPaginaPublicaActionMock: vi.fn(),
   obtenerPaginaPublicaActionMock: vi.fn(),
   subirFotoPaginaPublicaActionMock: vi.fn(),
+  historialPaginaPublicaActionMock: vi.fn(),
+  restaurarVersionPaginaPublicaActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/pagina-publica", () => ({
@@ -24,6 +28,8 @@ vi.mock("@/app/actions/pagina-publica", () => ({
   actualizarPaginaPublicaAction: actualizarPaginaPublicaActionMock,
   obtenerPaginaPublicaAction: obtenerPaginaPublicaActionMock,
   subirFotoPaginaPublicaAction: subirFotoPaginaPublicaActionMock,
+  historialPaginaPublicaAction: historialPaginaPublicaActionMock,
+  restaurarVersionPaginaPublicaAction: restaurarVersionPaginaPublicaActionMock,
 }));
 // La previsualización en vivo reusa ClinicaPublicaTemplate → PedirTurnoButton,
 // que usa useSearchParams para leer `?enlace=` (Fase 2, ítem 5) — sin
@@ -780,5 +786,176 @@ describe("PaginaEditor — PP-2: la vista previa no es la página real (H5)", ()
     const turno = marco.querySelector("[id$='-turno']");
     expect(turno).not.toBeNull();
     expect(within(marco).getByRole("link", { name: "Pedí tu turno" })).toHaveAttribute("href", `#${turno!.id}`);
+  });
+});
+
+// --- PP-3: deshacer, confirmar con un diálogo propio e historial -----------
+
+describe("PaginaEditor — PP-3: deshacer en vez de confirmar (H19)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("quitar un módulo no pregunta: avisa con 'Deshacer', y deshacer lo devuelve", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.click(within(panel()).getByRole("button", { name: "Quitar Sobre nosotros" }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(within(panel()).queryByRole("button", { name: "Sobre nosotros" })).not.toBeInTheDocument();
+    expect(screen.getByText("Quitaste “Sobre nosotros”.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(within(panel()).getByRole("button", { name: "Sobre nosotros" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Deshacer" })).not.toBeInTheDocument();
+    // Volvió al estado guardado: no queda un cambio fantasma.
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+    confirm.mockRestore();
+  });
+
+  it("el próximo cambio cierra la opción de deshacer", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(within(panel()).getByRole("button", { name: "Especialidades" }));
+    await user.click(within(panel()).getByRole("button", { name: "Quitar Especialidades" }));
+    expect(screen.getByRole("button", { name: "Deshacer" })).toBeInTheDocument();
+
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(campoTextoDelModulo(), " Más.");
+    expect(screen.queryByRole("button", { name: "Deshacer" })).not.toBeInTheDocument();
+  });
+
+  it("aplicar una plantilla se puede deshacer", async () => {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(screen.getByRole("button", { name: "Plantillas" }));
+    await user.click(screen.getByRole("button", { name: "Reemplazar todo el borrador" }));
+    expect(screen.getByText(/Reemplazaste el borrador con/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+  });
+});
+
+describe("PaginaEditor — PP-3: publicar con textos de ejemplo (H10)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function conTextosDeEjemplo() {
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(screen.getByRole("button", { name: "Plantillas" }));
+    await user.click(screen.getByRole("button", { name: "Reemplazar todo el borrador" }));
+    return user;
+  }
+
+  it("pregunta con un diálogo propio, no con window.confirm; cancelar no guarda ni publica", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    const user = await conTextosDeEjemplo();
+    await user.click(screen.getByRole("button", { name: "Guardar y publicar" }));
+
+    const dialogo = screen.getByRole("dialog", { name: "Quedan textos de ejemplo" });
+    expect(confirm).not.toHaveBeenCalled();
+    await user.click(within(dialogo).getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(actualizarPaginaPublicaActionMock).not.toHaveBeenCalled();
+    expect(publicarPaginaPublicaActionMock).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it("'Publicar igual' guarda y publica", async () => {
+    actualizarPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: { ...paginaGuardada, revision: 6 } });
+    publicarPaginaPublicaActionMock.mockResolvedValue({ pagina: { ...paginaGuardada, revision: 6, deployadaEn: "2026-09-25T10:00:00Z" } });
+    const user = await conTextosDeEjemplo();
+    await user.click(screen.getByRole("button", { name: "Guardar y publicar" }));
+    await user.click(screen.getByRole("button", { name: "Publicar igual" }));
+
+    await waitFor(() => expect(publicarPaginaPublicaActionMock).toHaveBeenCalledWith(sesion.slug));
+    expect(actualizarPaginaPublicaActionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PaginaEditor — PP-3: historial de publicaciones (H2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const versiones = [
+    { ...ultimaVersionPublicadaDeVacia, numero: 2, publicadaEn: "2026-09-20T10:00:00Z", publicadaPorNombre: "Juan Pérez" },
+    { ...ultimaVersionPublicadaDeVacia, numero: 1 },
+  ];
+
+  it("lista las versiones y restaura una en el borrador, con la revisión guardada, sin publicar", async () => {
+    historialPaginaPublicaActionMock.mockResolvedValue({ versiones });
+    restaurarVersionPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: { ...paginaGuardada, bio: "Texto de la versión 1", revision: 6 } });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    const dialogo = screen.getByRole("dialog", { name: "Historial de publicaciones" });
+    expect(await within(dialogo).findByText("Publicada ahora")).toBeInTheDocument();
+    expect(within(dialogo).getByText(/Juan Pérez/)).toBeInTheDocument();
+
+    await user.click(within(dialogo).getByRole("button", { name: "Restaurar la versión 1" }));
+
+    expect(restaurarVersionPaginaPublicaActionMock).toHaveBeenCalledWith(1, 5);
+    expect(publicarPaginaPublicaActionMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByText("Versión 1 restaurada en el borrador. Publicá para que se vea.")).toBeInTheDocument();
+  });
+
+  it("con cambios sin guardar, restaurar pide confirmación en la fila antes de pisarlos", async () => {
+    historialPaginaPublicaActionMock.mockResolvedValue({ versiones });
+    restaurarVersionPaginaPublicaActionMock.mockResolvedValue({ kind: "ok", pagina: { ...paginaGuardada, revision: 6 } });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+    await user.click(within(panel()).getByRole("button", { name: "Sobre nosotros" }));
+    await user.type(campoTextoDelModulo(), " Más.");
+
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    const dialogo = screen.getByRole("dialog", { name: "Historial de publicaciones" });
+    await user.click(await within(dialogo).findByRole("button", { name: "Restaurar la versión 2" }));
+
+    expect(restaurarVersionPaginaPublicaActionMock).not.toHaveBeenCalled();
+    expect(within(dialogo).getByText("Tenés cambios sin guardar: restaurar los reemplaza.")).toBeInTheDocument();
+    await user.click(within(dialogo).getByRole("button", { name: "Sí, restaurar la versión 2" }));
+    expect(restaurarVersionPaginaPublicaActionMock).toHaveBeenCalledWith(2, 5);
+  });
+
+  it("un 409 al restaurar cierra el historial y muestra el aviso de conflicto", async () => {
+    historialPaginaPublicaActionMock.mockResolvedValue({ versiones });
+    restaurarVersionPaginaPublicaActionMock.mockResolvedValue({
+      kind: "conflicto",
+      conflicto: { error: "x", revisionActual: 9, actualizadaEn: "2026-09-22T10:00:00Z", actualizadaPorNombre: "Juan" },
+    });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    await user.click(await screen.findByRole("button", { name: "Restaurar la versión 1" }));
+
+    expect(await screen.findByText(/Juan guardó cambios/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("un error al restaurar se muestra dentro del historial, que queda abierto", async () => {
+    historialPaginaPublicaActionMock.mockResolvedValue({ versiones });
+    restaurarVersionPaginaPublicaActionMock.mockResolvedValue({ kind: "error", error: "no existe esa versión" });
+    const user = userEvent.setup();
+    render(<PaginaEditor sesion={sesion} paginaInicial={paginaGuardada} />);
+
+    await user.click(screen.getByRole("button", { name: "Historial" }));
+    await user.click(await screen.findByRole("button", { name: "Restaurar la versión 1" }));
+
+    const dialogo = screen.getByRole("dialog", { name: "Historial de publicaciones" });
+    expect(await within(dialogo).findByRole("alert")).toHaveTextContent("no existe esa versión");
   });
 });
