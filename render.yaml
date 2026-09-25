@@ -17,16 +17,14 @@
 # segundo trío de abajo (con el sufijo `-dev` que tenía antes) en cuanto
 # se pague un plan que permita una segunda base.
 #
-# Nota sobre storage de fotos (pendiente, Fase 2 — perfil de profesional y
-# fotos de la página pública, hoy sin construir): cuando se implemente,
-# va a ser Cloudflare R2, mismo patrón dev/prod que Marcuzzi_Madryn (ver
-# docs/Arquitectura y base/tradeoffs.md). Los env vars ya están reservados abajo (`sync:
-# false`, sin cargar todavía) para no tener que tocar este blueprint de
-# nuevo cuando se construya la feature — la convención de key pensada
-# para eso (namespaced por profesional, no un bucket plano, porque acá
-# hay N profesionales subiendo sus propias fotos, a diferencia de
-# Marcuzzi que es una sola aplicación con un dueño):
-# `paginas/{profesionalId}/{filename}` y `perfiles/{profesionalId}/{filename}`.
+# Nota sobre storage de fotos (Fase 4.6, TR-167 en
+# docs/Arquitectura y base/tradeoffs.md): las fotos de la página pública
+# viven en un bucket PRIVADO de Cloudflare R2. La API es la única que le
+# habla (STORAGE_R2_*, más abajo, `sync: false`: se cargan a mano en el
+# dashboard), y la web las sirve same-origin por /uploads/* pidiéndoselas
+# a la API. Sin esas variables la subida responde 501: el disco del
+# contenedor se pierde en cada deploy. Las claves del bucket son planas
+# (el nombre es un token aleatorio): la ruta /uploads solo acepta eso.
 
 databases:
   - name: dental-mirage-db
@@ -145,16 +143,16 @@ services:
       - key: HIBP_ENABLED
         value: "false"
       # R2 — storage de fotos, ver la nota grande al principio del
-      # archivo. Reservado, sin cargar hasta que la feature exista.
-      - key: R2_ACCOUNT_ID
+      # archivo y apps/api/.env.example. Con BUCKET cargado y alguna de las
+      # otras vacía, la API no arranca a propósito.
+      - key: STORAGE_R2_BUCKET
         sync: false
-      - key: R2_ACCESS_KEY_ID
+      # https://<account_id>.r2.cloudflarestorage.com
+      - key: STORAGE_R2_ENDPOINT
         sync: false
-      - key: R2_SECRET_ACCESS_KEY
+      - key: STORAGE_R2_ACCESS_KEY
         sync: false
-      - key: R2_BUCKET
-        sync: false
-      - key: R2_PUBLIC_URL
+      - key: STORAGE_R2_SECRET_KEY
         sync: false
 
   - type: web

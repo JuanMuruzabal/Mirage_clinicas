@@ -2,6 +2,8 @@ package storage_test
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,5 +85,71 @@ func TestNewLocalStorage_RecortaLaBarraFinalDePublicURLBase(t *testing.T) {
 	}
 	if url != "http://localhost:8080/uploads/x.jpg" {
 		t.Errorf("url = %q, esperaba una sola barra entre el base y el nombre", url)
+	}
+}
+
+func TestLocalStorage_OpenLeeLoGuardadoYDistingueElInexistente(t *testing.T) {
+	s, err := storage.NewLocalStorage(t.TempDir(), "/uploads")
+	if err != nil {
+		t.Fatalf("NewLocalStorage error inesperado: %v", err)
+	}
+	if _, err := s.Save(context.Background(), "tok.webp", strings.NewReader("abc")); err != nil {
+		t.Fatalf("Save error inesperado: %v", err)
+	}
+
+	contenido, largo, err := s.Open(context.Background(), "tok.webp")
+	if err != nil {
+		t.Fatalf("Open error inesperado: %v", err)
+	}
+	defer func() { _ = contenido.Close() }()
+	datos, _ := io.ReadAll(contenido)
+	if string(datos) != "abc" || largo != 3 {
+		t.Errorf("Open = %q (largo %d), esperaba %q (3)", datos, largo, "abc")
+	}
+
+	if _, _, err := s.Open(context.Background(), "otro.webp"); !errors.Is(err, storage.ErrNoExiste) {
+		t.Errorf("inexistente: err = %v, esperaba ErrNoExiste", err)
+	}
+	// Tampoco sale del directorio con un nombre armado.
+	otro, _, err := s.Open(context.Background(), "../tok.webp")
+	if err != nil {
+		t.Fatalf("../tok.webp debería recortarse al base name y encontrarse: %v", err)
+	}
+	_ = otro.Close()
+}
+
+// TestNombreValido — el mismo patrón que la ruta /uploads de la web
+// (NOMBRE_DE_ARCHIVO en apps/web/src/app/uploads/[...path]/route.ts).
+func TestNombreValido(t *testing.T) {
+	for nombre, esperado := range map[string]bool{
+		"abc_DEF-123.jpg":                 true,
+		"abc.png":                         true,
+		"abc.w480.webp":                   true,
+		"abc.w1600.webp":                  true,
+		"abc.w96.webp":                    false,
+		"abc.svg":                         false,
+		"abc.jpeg":                        false,
+		"../abc.jpg":                      false,
+		"sub/abc.jpg":                     false,
+		"abc.jpg\n":                       false,
+		".jpg":                            false,
+		strings.Repeat("a", 129) + ".jpg": false,
+	} {
+		if got := storage.NombreValido(nombre); got != esperado {
+			t.Errorf("NombreValido(%q) = %v, esperaba %v", nombre, got, esperado)
+		}
+	}
+}
+
+func TestContentTypeDe(t *testing.T) {
+	for nombre, esperado := range map[string]string{
+		"a.jpg":       "image/jpeg",
+		"a.png":       "image/png",
+		"a.w960.webp": "image/webp",
+		"a.exe":       "application/octet-stream",
+	} {
+		if got := storage.ContentTypeDe(nombre); got != esperado {
+			t.Errorf("ContentTypeDe(%q) = %q, esperaba %q", nombre, got, esperado)
+		}
 	}
 }

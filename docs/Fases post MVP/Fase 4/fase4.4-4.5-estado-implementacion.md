@@ -56,7 +56,7 @@ La base ya tiene un usuario de prueba (`editor-qa@example.com` / `UnaClaveLarga1
 - **El working tree está en CRLF** y varios archivos de `apps/api` lo confirman. Un reemplazo de texto multilínea hecho sin normalizar falla **en silencio** (no encuentra el bloque y no avisa): pasó con `clinicas.go`. Verificar con `grep` después de editar, o normalizar a LF, reemplazar y volver a CRLF.
 - **El `@container` no se mueve más arriba** (TR-151).
 - **`horarios` no está en el editor** a propósito (TR-151).
-- **En producción las fotos no se pueden subir hasta la 4.6.**
+- **En producción las fotos no se podían subir hasta la 4.6.** Hecha el 2026-09-24 (TR-167): R2 privado, servido por `/uploads`; se enciende al cargar `STORAGE_R2_*` en Render.
 - **Nombre propio de módulo y nombre sobre la portada** (TR-155): el nombre de un módulo es una etiqueta del EDITOR (`config.nombre`), no un título público; el color del nombre es un set curado con su velo (`lib/pagina-publica/portada.ts`, espejo del backend y del CHECK). Los inputs controlados no deben pasar su valor por `trim()`: se come el espacio al tipear.
 - **Las fotos locales se sirven por `/uploads/*` de la WEB** (TR-154), no directo de la API: la CSP bloquea imágenes de otro origen o de http. Si tocás la CSP (`middleware.ts`), `middleware.test.ts` fija que `img-src` no acepte http y que `frame-src` contenga el embed de Maps.
 - **Al levantar un stack de prueba, mirá qué hay en el puerto 3000** (`docker ps`): si el usuario tiene su `docker compose` andando, `next dev` falla con EADDRINUSE y las pruebas le pegan a la versión vieja sin avisar.

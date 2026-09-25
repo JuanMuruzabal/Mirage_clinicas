@@ -68,9 +68,10 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 
 	// Fotos subidas desde /panel/pagina/fotos (Fase 4.2) — servidas
 	// públicas a propósito, se usan en la página pública de la clínica.
-	// Sin StorageDir (deps.Storage nil, ver AuthDeps) no se monta nada.
-	if deps.StorageDir != "" {
-		r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(deps.StorageDir))))
+	// Las lee del storage que haya (disco en dev, R2 en prod, TR-167); sin
+	// storage (deps.Storage nil, ver AuthDeps) no se monta nada.
+	if deps.Storage != nil {
+		r.Get("/uploads/{nombre}", servirArchivoSubidoHandler(deps.Storage))
 	}
 
 	r.Route("/auth", func(r chi.Router) {

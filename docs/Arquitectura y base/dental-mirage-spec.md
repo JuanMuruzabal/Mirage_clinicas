@@ -105,6 +105,8 @@ El wizard persiste el progreso en cada paso — cerrar sesión y volver retoma e
 
 ## 5. Módulo: Edición y deploy de página
 
+> **Estado real (2026-09-24):** lo que esta sección deja "para desarrollo posterior" ya existe — el editor de módulos, temas y fotos (Fase 4) y el motor Prisma Engine, con borrador y Publicar. "Guardar" ya no publica, y "Deployar" pasó a ser **Publicar** con historial de versiones. Ver §14.
+
 - Cada profesional (u organización, a futuro) tiene una página asociada.
 - **MVP:** ruta `/clinica-x` dentro del dominio de Mirage.
 - **Futuro:** subdominio propio por clínica.
@@ -323,3 +325,23 @@ Consecuencia: `GET /clinicas/{slug}/mis-turnos` devuelve una **lista** de turnos
 - **Correcciones post-merge de la 3.2.4 (2026-09-14, TR-141).** Un reporte grave —un colega que "aparece como titular" de una clínica ajena "con los datos de mi perfil"— resultó **falso**: son dos clínicas distintas que se llaman igual (el sufijo `-2` del slug lo generó el propio mecanismo de unicidad) y dos perfiles distintos cargados con el mismo nombre. Los siete chequeos de integridad de la base dieron vacío. Lo que sí apareció revisándola fue **la misma matrícula nacional en cuatro cuentas**: pasa a ser única, en un índice parcial que deja convivir a los perfiles sin matrícula, con un 409 legible en los dos caminos de escritura del perfil. Queda anotado para investigar, sin tocar nada todavía, **una IP interna de Render** apareciendo en `sessions.ip` a un segundo de distancia de IPs reales (radiografía técnica §18).
 
 **Pendiente — el multi-tenant propiamente dicho:** 1 clínica → N profesionales (vistas aisladas por profesional, pacientes y turnos viviendo en la clínica) y 1 profesional → N clínicas, más roles (administrador, recepcionista), onboarding "¿dónde trabajás hoy?" y gestión de colaboradores. Dos entregables de documentación comprometidos en el brief: diagramas ER pre- y post-Fase 3 en `docs/Arquitectura y base/modelo de datos/`, y un documento explicativo del cambio de modelo en `docs/Fases post MVP/Fase 3/`.
+
+---
+
+## 14. Fase 4 y Prisma Engine — Personalización de la página pública
+
+Pedido directo del cliente (2026-09-17, sin brief `.docx`). Definición funcional en `docs/Fases post MVP/Fase 4/fase4-personalizar-pagina.md`; plan en `docs/Arquitectura y base/implementation-plan.md` §14; la continuación como motor, en `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`.
+
+**Fase 4.1 a 4.5 (2026-09-17/18, TR-150 a TR-155, PR #43 y #44).** La página deja de ser una plantilla fija: `PaginaPublica` suma bio, tema, variante de color, tipografía, portada, redes y mapa, y la tabla `pagina_publica_modulos` guarda qué secciones se ven y en qué orden (se guardan con reemplazo completo, no un CRUD por módulo). Las estadísticas de la página son reales, nunca cargadas a mano, y especialidades pasa a ser la unión de todos los profesionales activos (arregla el bug de "solo el owner"). El editor (`/personalizar-pagina`, solo rol `admin`) reordena módulos, elige tema y sube fotos, con vista previa móvil/tablet/escritorio. Las fotos se sirven desde el mismo origen de la web (TR-154). Entró como etapa intermedia: el cliente va a sumar ajustes finos todavía sin definir.
+
+**Prisma Engine (2026-09-21 a 2026-09-24, plan de Kevin).** Reescribe la vertical como un motor:
+
+- **PE-1 — registro único de módulos** (`packages/prisma-engine`, PR #51/#52): cada módulo declara su esquema (zod), su editor y su render en un solo lugar; `pnpm engine:generar` exporta los esquemas a JSON Schema, que el backend valida en Go.
+- **PE-8 — borrador y Publicar** (PR #54): guardar escribe el borrador; Publicar crea una versión numerada y la página pública sirve siempre la última publicada ("Página en preparación" hasta la primera). Candado optimista por `revision` (409 con quién y cuándo) y restauración de versiones al borrador.
+- **PE-2 + PE-3 — tokens de diseño y variantes por módulo** (TR-163, PR #55).
+- **PE-4 + PE-5 — efectos curados y fondos tranquilos** (TR-164, PR #57): movimiento apagado por defecto, respeta `prefers-reduced-motion`.
+- **PE-6 + PE-7 — módulos del rubro y plantillas** (PR #58): Equipo (con aval del profesional), Horarios de la clínica (`horarios_clinica`), Servicios; plantillas y presets por especialidad.
+- **PE-9 — SEO, compartir y rendimiento** (TR-165, PR #59): título y descripción con defaults derivados, JSON-LD, imagen para compartir, sitemap, variantes WebP de cada foto y un presupuesto de Lighthouse en CI.
+- **Fase 4.6 — storage en producción** (TR-167, 2026-09-24): las fotos viven en un bucket privado de Cloudflare R2 y se siguen sirviendo por `/uploads` (la web le pide a la API, la API lee del bucket). Se activa cargando `STORAGE_R2_*` en Render (ver `README.md`); sin eso, la subida en producción responde 501.
+
+**Pendiente, sin fecha:** de PE-8, el link de vista previa firmado del borrador, deshacer/rehacer y el resumen "qué cambió" antes de Publicar; de PE-1, `schema_version` con una migración por módulo, para el primer cambio de forma de un módulo. Sigue fuera de alcance la subida de foto de perfil (TR-046, sujeta a lo que decidan Kevin y Juan).

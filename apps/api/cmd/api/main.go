@@ -3,7 +3,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -197,40 +196,55 @@ func purgeOnce(gormDB *gorm.DB) {
 	}
 }
 
+// buildStorage — fotos de la página pública (Fase 4.2; R2 desde la 4.6,
+// TR-167). Tres casos:
+//
+//   - STORAGE_R2_BUCKET configurado: R2. Si falta alguna de las otras
+//     variables, NO arranca: prometería persistencia real y caer a otra
+//     cosa en silencio es lo que este guard existe para evitar.
+//   - Sin R2 y sirviéndose en localhost: disco local (STORAGE_DIR).
+//   - Sin R2 y fuera de localhost (Render sin las variables cargadas):
+//     nil. La subida responde 501 y /uploads no se monta. Hasta la 4.6 este
+//     caso caía al disco local, y en Render ese disco se pierde en cada
+//     deploy y cada vez que el servicio free se duerme: la subida andaba y
+//     la foto se rompía después, sin aviso. La señal es AppBaseURL y no
+//     APP_ENV, que vale "development" en Render a propósito (TR-135).
+//
+// En los dos primeros casos la URL es RELATIVA ("/uploads/x.webp"): la
+// resuelve el navegador contra el origen de la PÁGINA, y la web tiene una
+// ruta /uploads/* que le pide el archivo a esta API por la red interna
+// (apps/web/src/app/uploads), que lo lee del storage. El navegador nunca le
+// habla a la API (BFF) ni a R2, y la CSP (img-src 'self' https:) no se abre.
+// STORAGE_PUBLIC_URL solo cambia ese prefijo.
+func buildStorage(cfg config.Config) (storage.Storage, error) {
+	publicURLBase := cfg.StoragePublicURL
+	if publicURLBase == "" {
+		publicURLBase = "/uploads"
+	}
+	if cfg.StorageR2Bucket != "" {
+		return storage.NewR2Storage(storage.R2Config{
+			Bucket:    cfg.StorageR2Bucket,
+			Endpoint:  cfg.StorageR2Endpoint,
+			AccessKey: cfg.StorageR2Key,
+			SecretKey: cfg.StorageR2Secret,
+			Region:    cfg.StorageR2Region,
+		}, publicURLBase)
+	}
+	if !cfg.SeSirveEnLocalhost() {
+		slog.Warn("storage de fotos sin configurar (STORAGE_R2_*): la subida de fotos de la página pública responde 501 — el disco del contenedor no persiste entre deploys",
+			slog.String("env", cfg.Env))
+		// nil explícito: un *LocalStorage nil dentro de la interfaz no
+		// sería == nil y la subida intentaría usarlo.
+		return nil, nil
+	}
+	return storage.NewLocalStorage(cfg.StorageDir, publicURLBase)
+}
+
 // buildAuthDeps inyecta las implementaciones dev/prod de cada dependencia
 // externa del módulo de auth (CLAUDE.md — patrón dev/prod: interfaz +
 // no-op en dev + real activada por env var). Sin la env var
 // correspondiente, cada dependencia queda nil-disabled — nunca un 500;
 // mail siempre tiene una implementación (LogSender en dev).
-// buildStorage — Fase 4.2, fotos de la página pública. Mismo patrón
-// dev/prod del resto de dependencias externas, con una diferencia: acá SÍ
-// falla el arranque si la config es inconsistente, en vez de degradar en
-// silencio. STORAGE_R2_BUCKET configurado prometería persistencia real en
-// R2; caer en silencio a disco local serviría fotos que desaparecen en el
-// próximo deploy (el filesystem del contenedor no es persistente) sin que
-// nadie se entere hasta que un profesional reporte que su foto rota.
-func buildStorage(cfg config.Config) (storage.Storage, error) {
-	if cfg.StorageR2Bucket != "" {
-		return nil, fmt.Errorf("STORAGE_R2_BUCKET está configurado pero la implementación R2 todavía no existe (TR-046, Fase 4.6) — sacá la variable para seguir con disco local acá, o esperá a que la 4.6 esté lista")
-	}
-	publicURLBase := cfg.StoragePublicURL
-	if publicURLBase == "" {
-		// Sin STORAGE_PUBLIC_URL (vacía por default, ver .env.example): la
-		// URL es RELATIVA ("/uploads/x.jpg") y la resuelve el navegador
-		// contra el origen de la PÁGINA, no el de la API. La web tiene una
-		// ruta /uploads/* que le pide el archivo a la API por la red interna
-		// (apps/web/src/app/uploads) — el navegador nunca le habla directo a
-		// la API (BFF) y la CSP de la web (img-src 'self' https:) no tiene
-		// que abrirse para un origen http de desarrollo. Antes esto era
-		// "http://localhost:<puerto>/uploads": otro origen y sin HTTPS, y el
-		// navegador bloqueaba toda foto subida. La API sigue sirviendo el
-		// directorio (router.go, AuthDeps.StorageDir); esa es la fuente que
-		// consulta la ruta de la web.
-		publicURLBase = "/uploads"
-	}
-	return storage.NewLocalStorage(cfg.StorageDir, publicURLBase)
-}
-
 func buildAuthDeps(cfg config.Config, gormDB *gorm.DB, store storage.Storage) apihttp.AuthDeps {
 	var mailSender dmmail.Sender = dmmail.LogSender{}
 	if cfg.ResendAPIKey != "" {
@@ -294,11 +308,9 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB, store storage.Storage) ap
 		// real del visitante. Vacío: la cabecera se ignora, ver
 		// internal/http/ip_del_visitante.go.
 		BFFSharedSecret: cfg.BFFSharedSecret,
-		// Fase 4.2 — fotos de la página pública. store nunca es nil acá:
-		// buildStorage ya hizo fallar el arranque si la config era
-		// inconsistente (ver más arriba, en main()).
-		Storage:    store,
-		StorageDir: cfg.StorageDir,
+		// Fase 4.2 — fotos de la página pública. nil fuera de localhost sin
+		// R2 configurado: la subida responde 501 (buildStorage).
+		Storage: store,
 	}
 }
 

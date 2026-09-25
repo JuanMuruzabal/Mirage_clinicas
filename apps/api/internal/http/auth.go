@@ -142,18 +142,13 @@ type AuthDeps struct {
 	// Vacío = la cabecera se ignora y el comportamiento es el de antes de
 	// la Fase 3.1.1.
 	BFFSharedSecret string
-	// Storage — fotos de la página pública (Fase 4.2). nil: el upload
-	// responde 501, mismo criterio que Google/Turnstile de arriba. En
-	// cmd/api/main.go siempre resuelve a algo salvo que STORAGE_R2_BUCKET
-	// esté configurado y la implementación R2 todavía no exista (TR-046,
-	// Fase 4.6) — ahí main.go se niega a arrancar en vez de degradar en
-	// silencio a disco local, que se perdería en cada deploy.
+	// Storage — fotos de la página pública (Fase 4.2): las guarda la
+	// subida y las sirve GET /uploads/{nombre}. nil: la subida responde
+	// 501, mismo criterio que Google/Turnstile de arriba, y no se monta
+	// /uploads. cmd/api/main.go lo deja nil fuera de localhost sin R2
+	// configurado (buildStorage, TR-167): el disco del contenedor se
+	// pierde en cada deploy.
 	Storage storage.Storage
-	// StorageDir — SOLO para montar el file server de /uploads/* en
-	// router.go (NewRouterWithDeps). No es parte de la interfaz Storage
-	// (que no expone su directorio) y no se usa para nada más. Vacío: no
-	// se monta ninguna ruta /uploads.
-	StorageDir string
 }
 
 func registerAuthRoutes(r chi.Router, gdb *gorm.DB, deps AuthDeps) {

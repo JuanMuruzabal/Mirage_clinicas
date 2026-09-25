@@ -35,7 +35,7 @@ Todo lo que este documento listaba como pendiente (tests de `clinicas_test.go`/C
 
 **Storage wiring (`cmd/api/main.go`, `internal/http/auth.go`, `internal/http/router.go`):**
 - `Config.StorageDir`/`StoragePublicURL`/R2 **ya existían** en `config.go`/`.env.example` (reservados para foto de perfil, nunca usados) — se reusaron tal cual, no se inventaron env vars nuevas.
-- `buildStorage()` en `main.go`: si `STORAGE_R2_BUCKET` está seteado, **falla el arranque** (R2 no existe todavía, TR-046/Fase 4.6) en vez de degradar en silencio a disco local (que se perdería en cada deploy).
+- *(Superado por la 4.6, TR-167: hoy `buildStorage` usa R2 si está configurado.)* `buildStorage()` en `main.go`: si `STORAGE_R2_BUCKET` está seteado, **falla el arranque** (R2 no existe todavía, TR-046/Fase 4.6) en vez de degradar en silencio a disco local (que se perdería en cada deploy).
 - `/uploads/*` se sirve como archivos estáticos desde `router.go`, montado solo si `AuthDeps.StorageDir != ""`.
 
 **Tests (todos en `apps/api/internal/http/pagina_publica_test.go`, TODOS PASANDO):** PATCH de contenido exitoso, rechazo de tema inválido, rechazo de variante de OTRO tema (ej. `clinico-1` con `tema=calido`), rechazo de tipo de módulo inválido (`portada` no se persiste), reemplazo completo de módulos en 2 PATCH sucesivos, 403 sin rol admin, upload exitoso, rechazo de content-type inválido, 501 sin storage, 401 sin auth, estadísticas con turnos asistido/ausente/sin marcar mezclados (helper nuevo `newTestRouterWithStorage` en `testhelpers_test.go`).

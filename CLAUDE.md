@@ -2,52 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## ⚠️ ZONA EN OBRA — Prisma Engine (plan de personalización de página, en curso)
-
-**Estado del aviso: ACTIVO.** Se mantiene hasta que **todas las filas de la tabla de abajo estén en ✅**, o hasta que Kevin lo cancele explícitamente. Quien mergee un PE actualiza la tabla en ese mismo PR; quien mergee el último borra esta sección entera y el puntero de la Fase 4.
-
-Kevin (`Kevinmass`) tiene un plan para reescribir la vertical de personalización de la página pública: `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **La implementación está en curso, pero el plan todavía no está completo**; PE-1 y PE-8 ya se mergearon, y los siguientes PRs y su estado figuran en la tabla de abajo. Lo que el plan marca **[SUJETO A REVISIÓN]** puede cambiar si Juan opina distinto. Este aviso existe para que nadie construya sobre algo que el plan va a reemplazar, o lo pise, antes de que Kevin lo termine.
-
-**Instrucción para agentes de código (obligatoria).** Antes de editar, borrar o mover cualquier archivo o área de la lista "Áreas cubiertas", **frená y avisale al usuario** con algo como: *"Ojo: esto toca una zona del plan Prisma Engine de Kevin (PE-N). Puede chocar con su trabajo o quedar obsoleto cuando entre una etapa pendiente del plan. ¿Seguimos igual, o lo hablás antes con Kevin?"* — y esperá la respuesta. **No es un bloqueo**: si el usuario confirma, seguí, pero dejá dicho en el PR qué área del plan tocaste. Antes de empezar, corré `git fetch --prune`, `git branch -r --list "origin/*pe-*"` y `gh pr list --state open --search "Prisma Engine"` para ver si ya hay ramas o PRs del plan abiertos sobre esos archivos.
-
-**No hace falta avisar** si la rama actual es `feature/pe-*` o `docs/prisma-engine*` (es trabajo del propio plan), ni si el usuario dice explícitamente que está trabajando sobre el plan.
-
-**Áreas cubiertas** (por el plan, en cualquiera de sus PRs):
-- **Frontend, página pública y editor:** `apps/web/src/lib/pagina-publica/`, `apps/web/src/lib/temas-pagina-publica/`, `apps/web/src/components/editor-pagina/`, `apps/web/src/components/pagina-editor.tsx`, `apps/web/src/components/public/` (la plantilla y `modulos-publicos.tsx`), `apps/web/src/app/personalizar-pagina/`, `apps/web/src/app/[slug]/`, `apps/web/src/app/uploads/`.
-- **Frontend, perfil y transversales:** `apps/web/src/app/perfil/` (aval del profesional y foto de perfil), `apps/web/src/components/scroll-reveal.tsx` y `expandable-card.tsx` (la dependencia `framer-motion`), `apps/web/src/middleware.ts` (CSP), `apps/web/next.config.ts`, las dependencias `zod` y `framer-motion` de `apps/web/package.json`.
-- **Backend:** `apps/api/internal/http/pagina_publica.go` (validación de módulos y temas, `PATCH /panel/pagina`), `clinicas.go` (el `GET` público), `me.go` (perfil), `apps/api/internal/storage/` y `buildStorage` en `cmd/api/main.go`.
-- **Modelo de datos:** `PaginaPublica`, `PaginaPublicaModulo`, `ClinicMember` (columna de aval), `ProfessionalProfile` (foto y descripción) y la tabla nueva `horarios_clinica`; y por eso `apps/api/internal/db/migrate.go` y `migrate_una_vez.go` en lo que toque esas tablas.
-- **Estructura nueva:** `packages/prisma-engine/` y `apps/api/internal/prismaengine/` (los crea PE-1), el script `pnpm engine:generar`, y los cambios de `pnpm-workspace.yaml`, `apps/web/Dockerfile`, `render.yaml` y `.github/workflows/ci.yml` que PE-1 necesita.
-
-**Qué evitar mientras el aviso esté activo:**
-- **Desde el 2026-09-22 los PRs que quedan del plan van de a pares** (PE-2+3, PE-4+5, PE-6+7, PE-9+4.6), un PR por par.
-- **No sumes tipos de módulo, temas, variantes ni tipografías por el camino de hoy** — desde PE-1 (parte 1, mergeada) viven en `packages/prisma-engine` (`registro.ts`, `schemas.ts`, `catalogo/temas.json`), no en un `switch` de `editor-de-modulo.tsx`/`modulos-publicos.tsx` ni en un mapa a mano de Go: sumar uno tocando solo esos archivos evita el problema que PE-1 vino a resolver. Si es urgente, coordinalo con Kevin.
-- **Los efectos también tienen un catálogo único** (`packages/prisma-engine/src/efectos/catalogo.ts`) y slots declarados por módulo en `meta.ts`; sus esquemas generados se validan en Go. No agregues un efecto solo en CSS, en un selector del editor o en un `switch`.
-- **No cambies el modelo borrador/publicar** que dejó PE-8 (ver la Fase 4 más abajo): guardar NO publica, el `GET` público sirve la última versión publicada, y `PATCH /panel/pagina` exige `revision`. Lo que falta de esa vertical (vista previa firmada, deshacer/rehacer, resumen "qué cambió") sigue siendo del plan.
-- **No agregues columnas ni migraciones** sobre `paginas_publicas`, `pagina_publica_modulos`, `clinic_members` ni `professional_profiles` sin revisar el plan: chocan con `schema_version`, con el aval del profesional y con `horarios_clinica`.
-- **La subida de foto de perfil** deja de estar fuera de alcance solo si Kevin y Juan confirman esa decisión (marcada **[SUJETO A REVISIÓN]** en el plan). Hasta entonces sigue fuera.
-- Los arreglos chicos (un bug de una línea, un texto) están bien: avisá igual, y si podés, dejalos en un commit aparte.
-- **Numeración de TR:** el PR #53 (optimización post-Fase 3, de Juan) usó TR-161 y TR-162, así que el plan sigue desde **TR-163** (PE-2 + PE-3). Antes de numerar una TR nueva, mirá también las de los PRs abiertos (`gh pr diff <n> | grep '^+## TR-'`): dos ramas pueden tomar el mismo número sin que ninguna lo note.
-
-**Estado de los PRs del plan** (⬜ pendiente · 🔄 en curso, con la rama · ✅ mergeado a `dev`):
-
-| PR | Qué | Estado |
-|---|---|---|
-| PE-1 | Núcleo: registro único de módulos y catálogo compartido | ✅ (PR #51/#52) |
-| PE-8 | Borrador, Publicar = Deployar e historial | ✅ (PR #54) |
-| PE-2 | Tokens de diseño | ✅ (PR #55, junto con PE-3) |
-| PE-3 | Variantes por módulo | ✅ (PR #55, junto con PE-2) |
-| PE-4 | Motor de efectos | ✅ (PR #57, junto con PE-5) |
-| PE-5 | Fondos tranquilos y texto avanzado | ✅ (PR #57, junto con PE-4) |
-| PE-6 | Módulos del rubro (Equipo, Horarios, Servicios y contenido) | ✅ (PR #58, junto con PE-7) |
-| PE-7 | Plantillas y presets | ✅ (PR #58, junto con PE-6) |
-| PE-9 | SEO, compartir y rendimiento | ✅ (PR #59, sin la 4.6) |
-| Fase 4.6 | Storage real en producción (R2), dependencia externa | ⬜ |
-
-**PE-1, lo único deliberadamente afuera:** `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo. Es infraestructura para cuando un PR FUTURO cambie la forma de un módulo — se suma en el primer PR que de verdad la necesite (PE-2 en adelante), no antes.
-
-**PE-8, lo que quedó afuera** (pendiente dentro del plan, sin PR asignado): el link de vista previa firmado del borrador, deshacer/rehacer en el editor, y el resumen "qué cambió" antes de Publicar.
-
 ## Qué es esto
 
 PRISMA: plataforma para odontólogos de Córdoba que combina gestión de clínica (turnero, agenda, pacientes) con una página pública propia deployable donde los pacientes piden turno, más un buscador público de clínicas. La especificación completa vive en `docs/Arquitectura y base/dental-mirage-spec.md`; el plan de implementación fase por fase en `docs/Arquitectura y base/implementation-plan.md`; las decisiones de arquitectura/alcance con sus alternativas descartadas en `docs/Arquitectura y base/tradeoffs.md`. Leé esos tres antes de planificar o tocar un módulo nuevo — son la fuente de verdad, este archivo es solo el mapa rápido. El sistema de auth/onboarding (Google OAuth, verificación de mail por código de 6 dígitos, clínicas individuales/organización) queda documentado como cierre de feature en `docs/Login/feature-sumarte-login-resumen.md` (qué se implementó, variables de entorno, repaso de seguridad) y como decisiones puntuales en `docs/Arquitectura y base/tradeoffs.md` TR-036 a TR-047 — el flujo post-TR-047 cambió: `/sumarse` es solo crear cuenta + confirmar código (2 pasos), perfil profesional y clínica se completan después en un modal de "bienvenida" sobre `/seleccionar-servicio` (TR-057 a TR-059) — `docs/Login/feature-sumarte-login.md` fue el prompt original de esa feature, no un documento vivo, y puede quedar desactualizado. `README.md` (raíz) tiene la puerta de entrada para levantar el proyecto de cero (setup, comandos, CI, deploy).
@@ -103,7 +57,7 @@ La sesión y el rate-limiting de auth (`internal/ratelimit`) viven en Postgres, 
 
 ## Interfaces con implementación dev/prod (spec §9.4)
 
-Mismo patrón que Marcuzzi_Madryn para cada dependencia externa: interfaz en Go, implementación dev (no-op/log) e implementación prod activada por env var, inyectada desde `main.go`. El envío inicial del formulario público de turno **no** usa este patrón — es un link `wa.me` generado client-side (TR-003), no una integración de backend; el patrón dev/prod queda reservado para recordatorios automatizados futuros (Fase 2) y para las dependencias del auth nuevo, ya implementadas: `internal/mail` (Resend/`LogSender`), `internal/googleauth` (Google OAuth), `internal/turnstile` (CAPTCHA), `internal/security` (HaveIBeenPwned) — todas nil-safe/no-op sin la env var correspondiente configurada, ver `buildAuthDeps` en `cmd/api/main.go`. `internal/storage` (foto de perfil) solo tiene la implementación dev (disco local) hecha — R2/S3 prod queda pendiente, ver TR-046 en `docs/Arquitectura y base/tradeoffs.md`.
+Mismo patrón que Marcuzzi_Madryn para cada dependencia externa: interfaz en Go, implementación dev (no-op/log) e implementación prod activada por env var, inyectada desde `main.go`. El envío inicial del formulario público de turno **no** usa este patrón — es un link `wa.me` generado client-side (TR-003), no una integración de backend; el patrón dev/prod queda reservado para recordatorios automatizados futuros (Fase 2) y para las dependencias del auth nuevo, ya implementadas: `internal/mail` (Resend/`LogSender`), `internal/googleauth` (Google OAuth), `internal/turnstile` (CAPTCHA), `internal/security` (HaveIBeenPwned) — todas nil-safe/no-op sin la env var correspondiente configurada, ver `buildAuthDeps` en `cmd/api/main.go`. `internal/storage` (fotos de la página pública) tiene disco local en dev y Cloudflare R2 en prod (Fase 4.6, TR-167); la foto de perfil sigue sin subida (TR-046).
 
 ## Timezone
 
@@ -254,7 +208,7 @@ Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de
 | 4.3 | Catálogo de temas: 5 temas × 3 variantes de color cada uno + 5 pares de tipografía **compartidos entre temas** (no uno por tema, para no cargar hasta 15 pares de Google Fonts) — validado con CHECK en Postgres (`chk_pagina_publica_tema*`) y en el handler (`temaEsValido`, que sí valida la relación tema↔variante — el CHECK de la base valida cada columna contra su propio catálogo plano, no esa relación cruzada) | ✅ |
 | 4.4 | Editor: borrador único que se guarda de una vez, módulos reordenables (`@dnd-kit` + flechas), selector de tema, subida de fotos, vista previa móvil/tablet/escritorio | ✅ mergeada a `dev` (PR #44), sin QA en navegador |
 | 4.5 | `ClinicaPublicaTemplate` dibuja el tema y los módulos persistidos | ✅ mergeada a `dev` (PR #44), sin QA en navegador |
-| 4.6 | Storage real en producción (Cloudflare R2, TR-046) — hoy `internal/storage` solo tiene `LocalStorage` (disco, dev); `STORAGE_R2_BUCKET` configurado hace fallar el arranque a propósito en vez de degradar en silencio a un storage que se pierde en cada deploy | pendiente |
+| 4.6 | Storage real en producción: bucket privado de Cloudflare R2 (`R2Storage`), servido same-origin por la API (TR-167) | ✅ en código — falta crear el bucket y cargar `STORAGE_R2_*` en Render |
 
 Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 
@@ -265,7 +219,7 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 - **GORM ignora un `false` en un `bool` con `default:true` al hacer `Create`** — ocultar un módulo se guardaba como visible. Se escribe aparte con `Update`.
 - **Las fotos locales se sirven same-origin** por `apps/web/src/app/uploads/[...path]/route.ts` (URL relativa `/uploads/x.jpg`, TR-154): la CSP (`img-src 'self' https:`) bloquea imágenes de otro origen o de http, y **jsdom no aplica CSP** — un test unitario no lo ve. El mapa del módulo Contacto entra por `frame-src https://www.google.com/maps`.
 - **El nombre de un módulo (`config.nombre`) es una etiqueta del editor, no un título público; el nombre de la clínica puede ir sobre la portada con un color de un set curado** (`lib/pagina-publica/portada.ts`, TR-155). El color y su velo van juntos: sumar uno toca `COLORES_NOMBRE`, `coloresNombreValidos` (Go) y el CHECK `chk_pagina_publica_nombre_color`.
-- **Sin storage no hay fotos:** en producción la subida responde 501 hasta la 4.6. `horarios` está aceptado por el backend pero no en el editor (¿de cuál de los N profesionales?).
+- **Las fotos se sirven SIEMPRE por `/uploads/{nombre}`**, con disco o con R2 (TR-167): la web se las pide a la API (`GET /uploads/{nombre}`, `internal/http/uploads.go`), que las lee con `Storage.Open`. El bucket es privado y la URL guardada es relativa. El patrón del nombre vive en DOS lugares (`storage.NombreValido` y `NOMBRE_DE_ARCHIVO` de la ruta de la web): si cambia uno, cambia el otro. **Sin R2 fuera de localhost no hay storage** y la subida responde 501 — hasta la 4.6 caía al disco del contenedor y las fotos se perdían en cada deploy. Si falta alguna `STORAGE_R2_*` con el bucket cargado, la API no arranca. `horarios` está aceptado por el backend pero no en el editor (¿de cuál de los N profesionales?).
 - **Server Actions tienen 1 MB de body por default**; `next.config.ts` lo sube a 6 MB por las fotos.
 
 **Borrador y publicación (PE-8, PR #54)** — cambia lo que dicen las filas 4.2/4.4 de arriba:
@@ -297,7 +251,9 @@ Lo que hay que saber al tocar la página pública o su editor (TR-151 a TR-153):
 
 Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transaccional), no un CRUD por módulo — no hay precedente en el repo de un PATCH parcial de un array polimórfico, y calza con que el editor de la 4.4 arma todo el layout en el cliente y guarda de una vez. `Modulos *[]moduloRequest` es un puntero al slice, no el slice solo: distingue "no vino en el body" (no tocar) de "vino `[]`" (borrar todos).
 
-**Continuación: Prisma Engine (en curso).** El registro único de módulos (PE-1), borrador/Publicar (PE-8), tokens y variantes (PE-2+3) efectos y fondos (PE-4+5), y módulos del rubro + plantillas (PE-6+7) ya están en `dev`. PE-9 (SEO, compartir y rendimiento, PR #59) también; queda la Fase 4.6 (storage R2), más los pendientes sueltos de PE-8 y el `schema_version` de PE-1, según `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`. **Ver el aviso "Zona en obra" al principio de este archivo antes de tocar la página pública, su editor o el perfil del profesional.**
+**Prisma Engine (plan completo).** `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md` (Kevin): PE-1 a PE-9 y la Fase 4.6 están en `dev`. Lo que dejó y hay que respetar:
+- **Tipos de módulo, temas, variantes, tipografías y efectos viven en `packages/prisma-engine`** (`registro.ts`, `schemas.ts`, `catalogo/temas.json`, `efectos/catalogo.ts`, slots en cada `meta.ts`), no en un `switch` del editor o de `modulos-publicos.tsx` ni en un mapa a mano de Go. Después de tocarlos, `pnpm run engine:generar`.
+- **Quedó afuera, sin PR asignado:** de PE-8, el link de vista previa firmado del borrador, deshacer/rehacer en el editor y el resumen "qué cambió" antes de Publicar; de PE-1, `paginas_publicas.schema_version` + un `migrar(config, desde, hasta)` por módulo, que se suma en el primer PR que cambie la forma de un módulo. Lo marcado **[SUJETO A REVISIÓN]** en el plan (aval del profesional, subida de foto de perfil) puede cambiar si Juan opina distinto.
 
 ## Flujo de ramas
 
