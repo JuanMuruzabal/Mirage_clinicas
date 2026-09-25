@@ -24,12 +24,17 @@ function Galeria({
   esUrlDeFotoSegura: (url: string) => boolean;
   estiloMovimiento?: ContextoPublico["estiloMovimiento"];
 }): ReactNode {
-  const fotos = listaDeConfig(config, "fotoUrls").filter(esUrlDeFotoSegura);
+  // La descripción se lee de la MISMA posición que la URL, antes de filtrar
+  // las URLs inseguras (filtrar primero correría las descripciones).
+  const alts = listaDeConfig(config, "fotoAlts");
+  const fotos = listaDeConfig(config, "fotoUrls")
+    .map((url, i) => ({ url, altPropio: (alts[i] ?? "").trim() }))
+    .filter((f) => esUrlDeFotoSegura(f.url));
   if (fotos.length === 0) return null;
   // Sin título propio la galería no lleva encabezado (como antes de PE-3).
   const tituloPropio = textoDeConfig(config, "tituloPublico").trim();
   const variante = varianteDeConfig(config, VARIANTES);
-  const alt = (i: number) => `Foto ${i + 1} de ${nombreClinica}`;
+  const alt = (i: number) => fotos[i].altPropio || `Foto ${i + 1} de ${nombreClinica}`;
   const envolver = envolverSlots(config, estiloMovimiento, SLOTS_GALERIA);
 
   let cuerpo: ReactNode;
@@ -37,7 +42,7 @@ function Galeria({
     // Mosaico = columnas CSS: cada foto conserva su proporción real.
     cuerpo = (
       <div className="columns-2 gap-3 @xl:columns-3">
-        {fotos.map((url, i) => (
+        {fotos.map(({ url }, i) => (
           <div key={`${url}-${i}`} className="mb-3 break-inside-avoid">{envolver("imagen", <Foto src={url} alt={alt(i)} className={`w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>
@@ -52,7 +57,7 @@ function Galeria({
         tabIndex={0}
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
       >
-        {fotos.map((url, i) => (
+        {fotos.map(({ url }, i) => (
           <div key={`${url}-${i}`} className="w-4/5 flex-none snap-center @xl:w-1/2">{envolver("imagen", <Foto src={url} alt={alt(i)} className={`aspect-[4/3] w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>
@@ -60,7 +65,7 @@ function Galeria({
   } else {
     cuerpo = (
       <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3">
-        {fotos.map((url, i) => (
+        {fotos.map(({ url }, i) => (
           <div key={`${url}-${i}`}>{envolver("imagen", <Foto src={url} alt={alt(i)} className={`aspect-square w-full ${CLASE_FOTO}`} />)}</div>
         ))}
       </div>

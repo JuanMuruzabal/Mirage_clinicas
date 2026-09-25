@@ -677,6 +677,9 @@ export interface ClinicaPublica {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl?: string | null;
+  // fotoPortadaAlt (PP-4) — la descripción de la foto de portada; "" (o
+  // ausente, en una versión anterior) = el alt genérico.
+  fotoPortadaAlt?: string;
   redesSociales: Record<string, string>;
   mostrarMapa: boolean;
   direccion?: string | null;
@@ -789,6 +792,9 @@ export interface PaginaPublica {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl?: string | null;
+  // fotoPortadaAlt (PP-4) — la descripción de la foto de portada; "" (o
+  // ausente, en una versión anterior) = el alt genérico.
+  fotoPortadaAlt?: string;
   redesSociales: Record<string, string>;
   mostrarMapa: boolean;
   direccionOverride?: string | null;
@@ -834,6 +840,9 @@ export interface ContenidoVersionPaginaPublica {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl?: string | null;
+  // fotoPortadaAlt (PP-4) — la descripción de la foto de portada; "" (o
+  // ausente, en una versión anterior) = el alt genérico.
+  fotoPortadaAlt?: string;
   redesSociales: Record<string, string>;
   mostrarMapa: boolean;
   direccionOverride?: string | null;

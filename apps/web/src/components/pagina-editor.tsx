@@ -35,6 +35,7 @@ import { VistaPrevia } from "@/components/editor-pagina/vista-previa";
 import { GaleriaPlantillas } from "@/components/editor-pagina/galeria-plantillas";
 import { HistorialVersiones } from "@/components/editor-pagina/historial-versiones";
 import { BuscadoresYRedes } from "@/components/editor-pagina/buscadores-y-redes";
+import { Pestanas } from "@/components/editor-pagina/pestanas";
 import { descripcionSeoPorDefecto, tituloSeoPorDefecto } from "@/lib/pagina-publica/seo";
 
 interface PaginaEditorProps {
@@ -43,6 +44,12 @@ interface PaginaEditorProps {
 }
 
 type Pestana = "modulos" | "diseno" | "buscadores";
+
+const PESTANAS = [
+  ["modulos", "Módulos"],
+  ["diseno", "Diseño"],
+  ["buscadores", "Buscadores"],
+] as const satisfies readonly (readonly [Pestana, string])[];
 
 // PaginaEditor (T4.1/T4.2, spec §5; contenido real desde la Fase 4.4) —
 // layout del editor: barra de acciones arriba (Ver página/Guardar
@@ -351,7 +358,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             </button>
           )}
           {/* role="status": se anuncia sin robar el foco. */}
-          <span role="status" className="text-xs text-grafito/70">
+          <span role="status" className="text-xs text-grafito/75">
             {sinGuardar ? "Tenés cambios sin guardar." : aviso ? aviso : sinPublicar ? "Hay cambios sin publicar." : null}
           </span>
         </div>
@@ -395,7 +402,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
       )}
 
       {ejemplosPendientes.length > 0 && (
-        <aside className="rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 text-sm text-grafito/60" aria-label="Textos de ejemplo sin editar">
+        <aside className="rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 text-sm text-grafito/75" aria-label="Textos de ejemplo sin editar">
           <p className="font-medium">Textos de ejemplo</p>
           <ul className="mt-1 list-inside list-disc opacity-70">
             {ejemplosPendientes.map((ejemplo) => <li key={`${ejemplo.ruta}:${ejemplo.valor}`}>{ejemplo.etiqueta}</li>)}
@@ -433,7 +440,7 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
             onClick={() => setPanelAbierto((a) => !a)}
             aria-label={panelAbierto ? "Retraer panel de edición" : "Expandir panel de edición"}
             aria-expanded={panelAbierto}
-            className="flex items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/50 hover:text-grafito"
+            className="flex items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/75 hover:text-grafito"
           >
             <span aria-hidden="true" className={`inline-block transition-transform duration-300 ${panelAbierto ? "" : "rotate-180"}`}>
               →
@@ -442,29 +449,12 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
 
           {panelAbierto && (
             <div className="flex flex-col gap-4 overflow-auto p-4">
-              <div role="tablist" aria-label="Qué editar" className="flex gap-1 rounded-full bg-hueso p-1">
-                {(
-                  [
-                    ["modulos", "Módulos"],
-                    ["diseno", "Diseño"],
-                    ["buscadores", "Buscadores"],
-                  ] as const
-                ).map(([id, etiqueta]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={pestana === id}
-                    onClick={() => setPestana(id)}
-                    className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
-                      pestana === id ? "bg-marfil text-grafito shadow-soft" : "text-grafito/60 hover:text-grafito"
-                    }`}
-                  >
-                    {etiqueta}
-                  </button>
-                ))}
-              </div>
-
+              <Pestanas
+                etiqueta="Qué editar"
+                pestanas={PESTANAS}
+                activa={pestana}
+                onCambio={setPestana}
+              >
               {pestana === "buscadores" ? (
                 <BuscadoresYRedes
                   slug={sesion.slug}
@@ -505,12 +495,13 @@ export function PaginaEditor({ sesion, paginaInicial }: PaginaEditorProps) {
                       className="rounded-field border-[0.5px] border-arena px-3 py-2 text-left hover:border-salvia"
                     >
                       <span className="block text-sm font-medium text-grafito">{preset.nombre}</span>
-                      <span className="block text-xs text-grafito/65">{preset.descripcion}</span>
+                      <span className="block text-xs text-grafito/75">{preset.descripcion}</span>
                     </button>
                   ))}
                 </section>
                 </>
               )}
+              </Pestanas>
             </div>
           )}
         </aside>

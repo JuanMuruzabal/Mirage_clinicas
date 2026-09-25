@@ -59,11 +59,13 @@ type clinicaPublicaResponse struct {
 
 	// Contenido de la Fase 4.2 — el renderizado dinámico real es la Fase
 	// 4.5, acá el backend ya expone el dato completo.
-	Bio            *string           `json:"bio,omitempty"`
-	Tema           string            `json:"tema"`
-	TemaVariante   string            `json:"temaVariante"`
-	TemaTipografia string            `json:"temaTipografia"`
-	FotoPortadaURL *string           `json:"fotoPortadaUrl,omitempty"`
+	Bio            *string `json:"bio,omitempty"`
+	Tema           string  `json:"tema"`
+	TemaVariante   string  `json:"temaVariante"`
+	TemaTipografia string  `json:"temaTipografia"`
+	FotoPortadaURL *string `json:"fotoPortadaUrl,omitempty"`
+	// FotoPortadaAlt (PP-4): el de la versión publicada; "" = el genérico.
+	FotoPortadaAlt string            `json:"fotoPortadaAlt,omitempty"`
 	RedesSociales  map[string]string `json:"redesSociales"`
 	MostrarMapa    bool              `json:"mostrarMapa"`
 	Direccion      *string           `json:"direccion,omitempty"`
@@ -260,6 +262,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		resp.TemaVariante = c.TemaVariante
 		resp.TemaTipografia = c.TemaTipografia
 		resp.FotoPortadaURL = c.FotoPortadaURL
+		resp.FotoPortadaAlt = c.FotoPortadaAlt
 		resp.RedesSociales = redes
 		resp.MostrarMapa = c.MostrarMapa
 		resp.NombreSobrePortada = c.NombreSobrePortada

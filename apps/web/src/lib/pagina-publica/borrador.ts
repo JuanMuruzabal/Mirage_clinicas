@@ -16,6 +16,8 @@ export interface Borrador {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl: string;
+  /** PP-4: la descripción de la foto de portada; "" = el alt genérico. */
+  fotoPortadaAlt: string;
   redes: Record<string, string>;
   mostrarMapa: boolean;
   direccionOverride: string;
@@ -38,6 +40,7 @@ export function borradorDePagina(p: PaginaPublica): Borrador {
     temaVariante: p.temaVariante,
     temaTipografia: p.temaTipografia,
     fotoPortadaUrl: p.fotoPortadaUrl ?? "",
+    fotoPortadaAlt: p.fotoPortadaAlt ?? "",
     redes: { ...p.redesSociales },
     mostrarMapa: p.mostrarMapa,
     direccionOverride: p.direccionOverride ?? "",
@@ -64,6 +67,7 @@ export function borradorAPayload(b: Borrador): ActualizarPaginaPublicaPayload {
     temaVariante: b.temaVariante,
     temaTipografia: b.temaTipografia,
     fotoPortadaUrl: b.fotoPortadaUrl,
+    fotoPortadaAlt: textoSeo(b.fotoPortadaAlt),
     redesSociales: b.redes,
     mostrarMapa: b.mostrarMapa,
     direccionOverride: b.direccionOverride.trim(),
@@ -99,6 +103,7 @@ function firmaDeContenido(b: Borrador): string {
   // guardar" fantasma. La firma de la versión publicada hace lo mismo.
   return JSON.stringify({
     ...contenido,
+    fotoPortadaAlt: textoSeo(contenido.fotoPortadaAlt),
     temaTokens: tokensDeConfig(contenido.temaTokens),
     seoTitulo: textoSeo(contenido.seoTitulo),
     seoDescripcion: textoSeo(contenido.seoDescripcion),
@@ -128,6 +133,8 @@ function firmaDeContenidoPublicado(c: ContenidoVersionPaginaPublica): string {
     temaVariante: c.temaVariante,
     temaTipografia: c.temaTipografia,
     fotoPortadaUrl: c.fotoPortadaUrl ?? "",
+    // PP-4: mismo lugar que en Borrador (después de fotoPortadaUrl).
+    fotoPortadaAlt: c.fotoPortadaAlt ?? "",
     redes: c.redesSociales,
     mostrarMapa: c.mostrarMapa,
     direccionOverride: c.direccionOverride ?? "",
@@ -156,6 +163,7 @@ export function contenidoDeBorrador(
     temaVariante: b.temaVariante,
     temaTipografia: b.temaTipografia,
     fotoPortadaUrl: b.fotoPortadaUrl || null,
+    fotoPortadaAlt: b.fotoPortadaAlt,
     redesSociales: b.redes,
     mostrarMapa: b.mostrarMapa,
     // Mismo criterio que direccionEfectiva() del backend: gana el override.

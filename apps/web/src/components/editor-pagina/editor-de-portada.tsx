@@ -1,9 +1,10 @@
 "use client";
 
-import { VARIANTES_PORTADA, resolverTokens, type TokensTema } from "@dental-mirage/prisma-engine";
+import { DescripcionDeFoto, MAX_LARGO_ALT_FOTO, VARIANTES_PORTADA, resolverTokens, type TokensTema } from "@dental-mirage/prisma-engine";
 import type { Borrador } from "@/lib/pagina-publica/borrador";
 import { COLORES_NOMBRE, COLOR_NOMBRE_POR_DEFECTO } from "@/lib/pagina-publica/portada";
-import { CLASE_AYUDA, CLASE_ETIQUETA } from "./estilos";
+import { CLASE_AYUDA, CLASE_PASTILLA, claseDeEleccion } from "./estilos";
+import { GrupoDeOpciones } from "./grupo-de-opciones";
 import { SelectorDeVariante } from "./selector-de-variante";
 import { SubirFoto } from "./subir-foto";
 
@@ -41,9 +42,13 @@ export function EditorDePortada({ borrador, onBorrador }: EditorDePortadaProps) 
       <SubirFoto
         etiqueta="foto de portada"
         url={borrador.fotoPortadaUrl}
-        onSubida={(url) => onBorrador({ fotoPortadaUrl: url })}
-        onQuitar={() => onBorrador({ fotoPortadaUrl: "" })}
+        // Una foto nueva no es la que se describió: la descripción se vacía.
+        onSubida={(url) => onBorrador({ fotoPortadaUrl: url, fotoPortadaAlt: "" })}
+        onQuitar={() => onBorrador({ fotoPortadaUrl: "", fotoPortadaAlt: "" })}
       />
+      {hayFoto && (
+        <DescripcionDeFoto valor={borrador.fotoPortadaAlt} max={MAX_LARGO_ALT_FOTO} onCambio={(fotoPortadaAlt) => onBorrador({ fotoPortadaAlt })} />
+      )}
 
       <SelectorDeVariante etiqueta="Diseño de la portada" variantes={VARIANTES_PORTADA} elegida={variante} onElegir={elegirVariante} />
       {!hayFoto && (variante === "dividida" || variante === "fondo") && (
@@ -68,29 +73,25 @@ export function EditorDePortada({ borrador, onBorrador }: EditorDePortadaProps) 
         </label>
       )}
 
-      <fieldset disabled={!sobreLaFoto} className="flex flex-col gap-2 disabled:opacity-50">
-        <legend className={CLASE_ETIQUETA}>Color del nombre</legend>
-        <div role="radiogroup" aria-label="Color del nombre" className="flex flex-wrap gap-2">
-          {COLORES_NOMBRE.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="radio"
-              aria-checked={c.id === colorElegido}
-              aria-label={c.nombre}
-              title={c.nombre}
-              disabled={!sobreLaFoto}
-              onClick={() => onBorrador({ nombreColor: c.id })}
-              className={`flex items-center gap-2 rounded-full border-[0.5px] px-3 py-1.5 text-xs ${
-                c.id === colorElegido ? "border-salvia-oscuro bg-salvia-claro" : "border-arena bg-marfil hover:border-salvia"
-              }`}
-            >
-              <span aria-hidden="true" className="h-4 w-4 rounded-full border-[0.5px] border-grafito/30" style={{ background: c.hex }} />
-              {c.nombre}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <div className={sobreLaFoto ? "" : "opacity-50"}>
+        <GrupoDeOpciones
+          etiqueta="Color del nombre"
+          valor={colorElegido}
+          onCambio={(id) => onBorrador({ nombreColor: id })}
+          disabled={!sobreLaFoto}
+          className="flex flex-wrap gap-2"
+          claseOpcion={(elegida) => `flex items-center gap-2 ${CLASE_PASTILLA} ${claseDeEleccion(elegida)}`}
+          opciones={COLORES_NOMBRE.map((c) => ({
+            valor: c.id,
+            contenido: (
+              <>
+                <span aria-hidden="true" className="h-4 w-4 rounded-full border-[0.5px] border-grafito/30" style={{ background: c.hex }} />
+                {c.nombre}
+              </>
+            ),
+          }))}
+        />
+      </div>
     </div>
   );
 }

@@ -32,7 +32,7 @@ export function Editor({ modulo, onConfig }: EditorModuloProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-grafito/60">Agregá hasta {MAX_PREGUNTAS_FRECUENTES} preguntas y respuestas.</p>
+      <p className="text-xs text-grafito/75">Agregá hasta {MAX_PREGUNTAS_FRECUENTES} preguntas y respuestas.</p>
       {preguntas.map((item, indice) => (
         <fieldset key={indice} className="flex flex-col gap-3 rounded-field border border-linea p-3">
           <legend className={CLASE_ETIQUETA}>Pregunta {indice + 1}</legend>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { campoNombrePropio, camposDeSeccion, campoEfectos, urlDeFotoSchema } from "../../schema-base";
+import { campoNombrePropio, camposDeSeccion, campoEfectos, urlDeFotoSchema, altDeFotoSchema } from "../../schema-base";
 import { SLOTS_FOTO } from "../../efectos/slots";
 
 // `subtipo` es obligatorio (mismo criterio que subtiposFotoValidos en
@@ -10,5 +10,6 @@ export const schema = z.object({
   ...camposDeSeccion,
   ...campoEfectos(SLOTS_FOTO),
   fotoUrl: urlDeFotoSchema.optional(),
+  fotoAlt: altDeFotoSchema.optional(),
   subtipo: z.enum(["retrato", "banner", "franja"]),
 });

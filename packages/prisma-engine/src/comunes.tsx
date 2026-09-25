@@ -9,16 +9,43 @@ import { srcsetDeFoto, TAMANOS_FOTO_POR_DEFECTO } from "./imagenes";
 
 export const CLASE_CAMPO =
   "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia-oscuro disabled:opacity-60";
-export const CLASE_ETIQUETA = "text-xs uppercase tracking-widest text-grafito/60";
+export const CLASE_ETIQUETA = "text-xs uppercase tracking-widest text-grafito/75";
 export const CLASE_BOTON_PELIGRO =
-  "rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:border-terracota hover:bg-terracota-claro disabled:cursor-not-allowed disabled:opacity-50";
-export const CLASE_AYUDA = "text-xs text-grafito/60";
+  "rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:border-terracota hover:bg-terracota-claro disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11";
+export const CLASE_AYUDA = "text-xs text-grafito/75";
 
 export function Contador({ actual, max }: { actual: number; max: number }) {
   return (
     <span className={`${CLASE_AYUDA} self-end tabular-nums`}>
       {actual}/{max}
     </span>
+  );
+}
+
+/**
+ * El campo "Descripción de la foto" (PP-4, H13): el texto alternativo que lee
+ * un lector de pantalla, y lo que muestra un buscador de imágenes. Opcional:
+ * vacío, la página usa uno genérico. Lo usan la foto suelta, la galería y la
+ * portada (apps/web), para que las tres expliquen lo mismo con las mismas
+ * palabras.
+ */
+export function DescripcionDeFoto({
+  valor,
+  max,
+  onCambio,
+  etiqueta = "Descripción de la foto",
+}: {
+  valor: string;
+  max: number;
+  onCambio: (valor: string) => void;
+  etiqueta?: string;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className={CLASE_ETIQUETA}>{etiqueta} · opcional</span>
+      <input type="text" maxLength={max} value={valor} onChange={(e) => onCambio(e.target.value)} placeholder="Ej.: la sala de espera, con luz natural" className={CLASE_CAMPO} />
+      <span className={CLASE_AYUDA}>Contá qué se ve, para quien no puede ver la imagen. Si la dejás vacía, se usa una descripción genérica.</span>
+    </label>
   );
 }
 

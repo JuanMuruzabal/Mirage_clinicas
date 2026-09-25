@@ -104,6 +104,14 @@
         "pattern": "^$|^\\/uploads\\/|^https:\\/\\/|^http:\\/\\/"
       },
       "maxItems": 8
+    },
+    "fotoAlts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 150
+      },
+      "maxItems": 8
     }
   },
   "additionalProperties": false,

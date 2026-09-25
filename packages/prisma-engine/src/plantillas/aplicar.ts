@@ -15,6 +15,8 @@ export interface EstadoAplicablePlantilla {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl: string;
+  /** PP-4: la descripción de la portada. Opcional: no todo estado la lleva. */
+  fotoPortadaAlt?: string;
   redes: Record<string, string>;
   mostrarMapa: boolean;
   direccionOverride: string;
@@ -145,6 +147,8 @@ export function aplicarPlantilla<T extends EstadoAplicablePlantilla>(
     ...diseno,
     bio: plantilla.bio,
     fotoPortadaUrl: plantilla.fotoPortadaUrl,
+    // La descripción era de la foto que se reemplaza: no describe la nueva.
+    fotoPortadaAlt: "",
     redes: { ...plantilla.redes },
     mostrarMapa: plantilla.mostrarMapa,
     direccionOverride: plantilla.direccionOverride,

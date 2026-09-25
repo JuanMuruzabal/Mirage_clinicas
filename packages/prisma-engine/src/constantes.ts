@@ -12,6 +12,11 @@ export const MAX_LARGO_TITULO_TEXTO = 80;
 export const MAX_LARGO_TEXTO_LIBRE = 2000;
 export const MAX_LARGO_RED = 100;
 export const MAX_LARGO_NOMBRE_MODULO = 60;
+// El texto alternativo de una foto (PP-4, H13): una o dos frases alcanzan
+// para contar qué se ve; más que eso ya es un párrafo que el lector de
+// pantalla lee de corrido. Espejo de maxLargoAltFoto (pagina_publica.go),
+// que valida el de la portada — el de los módulos lo valida el esquema.
+export const MAX_LARGO_ALT_FOTO = 150;
 
 export const ESTADISTICAS: { id: EstadisticaId; etiqueta: string; descripcion: string }[] = [
   { id: "pacientes_atendidos", etiqueta: "Pacientes atendidos", descripcion: "Personas con al menos un turno al que asistieron." },

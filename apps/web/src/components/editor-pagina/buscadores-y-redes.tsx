@@ -70,7 +70,7 @@ export function BuscadoresYRedes({ slug, seoTitulo, seoDescripcion, tituloPorDef
           formato final, pero los largos y el texto son estos. */}
       <figure aria-label="Vista previa en Google" className="flex flex-col gap-0.5 rounded-field border border-linea bg-hueso p-3">
         <figcaption className={CLASE_ETIQUETA}>Vista previa en Google</figcaption>
-        <span className="mt-1 truncate text-xs text-grafito/60">/{slug}</span>
+        <span className="mt-1 truncate text-xs text-grafito/75">/{slug}</span>
         <span className="text-base leading-snug text-[#1a0dab]">{recortar(titulo, 60)}</span>
         <span className="text-xs text-grafito/75">{descripcion}</span>
       </figure>

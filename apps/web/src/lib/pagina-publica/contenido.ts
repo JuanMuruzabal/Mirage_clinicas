@@ -13,6 +13,8 @@ export interface ContenidoPagina {
   temaVariante: string;
   temaTipografia: string;
   fotoPortadaUrl?: string | null;
+  /** PP-4: la descripción de la portada; vacía = el alt genérico. */
+  fotoPortadaAlt?: string;
   redesSociales: Record<string, string>;
   mostrarMapa: boolean;
   /** La dirección EFECTIVA (override o la de la clínica). */
@@ -55,6 +57,7 @@ export function contenidoDeClinicaPublica(clinica: ClinicaPublica): ContenidoPag
     temaVariante: clinica.temaVariante,
     temaTipografia: clinica.temaTipografia,
     fotoPortadaUrl: clinica.fotoPortadaUrl,
+    fotoPortadaAlt: clinica.fotoPortadaAlt ?? "",
     redesSociales: clinica.redesSociales,
     mostrarMapa: clinica.mostrarMapa,
     direccion: clinica.direccion,
