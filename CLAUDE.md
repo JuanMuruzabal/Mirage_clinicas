@@ -82,8 +82,9 @@ MVP (spec §2): alta de profesional individual + gestión de clínica completa (
 
 ## Auditoría de seguridad y optimización (línea de trabajo recurrente)
 
-Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas periódicas de revisión técnica. **Antes de tocar `internal/http`, `internal/db` o `apps/web/src/lib/api.ts`, leer `docs/Seguridad y optimizacion/radiografia-tecnica_1.md`** — es el diagnóstico vigente y explica por qué varias cosas están como están.
+Desde el 2026-09-08, después de cerrar la Fase 2, el sistema entra en rondas periódicas de revisión técnica. **Antes de tocar `internal/http`, `internal/db` o `apps/web/src/lib/api.ts`, leer `docs/Seguridad y optimizacion/radiografia-tecnica_2.md`** (el diagnóstico vigente) y, para el porqué de lo que ya está resuelto, la `_1`.
 
+- `docs/Seguridad y optimizacion/radiografia-tecnica_2.md` — la segunda radiografía (2026-09-26), general para todo el proyecto: 3 bloqueantes (Next.js con RCE publicada, el enlace compartido que deja reservar para pacientes de otra familia, y la verificación automática de mail que deja aceptar invitaciones ajenas), cada uno reproducido con un test, y su plan en Fases A/B/C.
 - `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — el diagnóstico (primera radiografía, de ahí el `_1`), el plan de acción en Fases A/B/C, y el registro de cada ronda de arreglos.
 - `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
 - `docs/Seguridad y optimizacion/optimizacion-post-fase3.md` — la ronda de optimización y revisión post-Fase 3 (2026-09-22/23), en tres partes: el panel multi-tenant, la concurrencia (varias clínicas y empleados a la vez) y el wizard público con una revisión de aislamiento. Qué se midió y cómo, qué se aplicó de caché/memcache/goroutines/colas y qué se descartó, con los números.
