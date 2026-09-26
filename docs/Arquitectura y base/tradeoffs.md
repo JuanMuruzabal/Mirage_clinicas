@@ -3153,6 +3153,25 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - **Bajar los parámetros de argon2id** para gastar menos memoria: 19 MiB ya es el mínimo de OWASP. El tope ataca la cantidad simultánea, no la fortaleza de cada hash.
 - **`framer-motion` en `/buscar`** (131 KB para un efecto de aparición): zona del plan Prisma Engine, para Kevin.
 
+## TR-178: Radiografía técnica 2, Fases B y C — lo público con tope, los contenedores sin root y una CSP más cerrada
+
+- **Contexto:** radiografía técnica 2, 2026-09-26, después de cerrar la Fase A (TR-175 a TR-177).
+
+### Las decisiones
+
+1. **120 lecturas públicas por minuto por IP** (`limitarLecturasPublicas`, `ratelimit.LimitLecturaPublicaPerIP`): buscador, página pública, sitemap y la agenda del wizard. Muy por encima de una persona sacando turno, y con margen para varias detrás de la misma IP (una red de celular). Solo GET/HEAD: los POST del wizard ya tienen topes más estrictos. **No cuenta el tráfico sin IP pública** (desarrollo, tests), donde todos comparten dirección. Como los demás límites por IP (TR-134), depende de que `BFF_SHARED_SECRET` coincida en los dos servicios; `render.yaml` lo genera en la API y lo copia a la web, así que no se desincroniza a mano.
+2. **La página pública responde 404 solo cuando la clínica no existe.** Ante cualquier otro error de la API —caída, el tope nuevo— respondía 404, que a un visitante le dice que la clínica no existe y a un buscador que la saque del índice. Ahora lanza un error del servidor, que un buscador reintenta.
+3. **Contenedores sin root.** API como `app` (Alpine 3.24: la 3.20 salió de soporte en abril de 2026), web como `node`. Los directorios donde escriben (`/data/uploads` del storage local, `.next` de Next) son de ese usuario, para que un volumen nuevo herede el dueño y el optimizador de imágenes pueda cachear.
+4. **CI con `permissions: contents: read`.** Ningún job necesita escribir en el repo.
+5. **El mail de Google se normaliza a minúsculas**, como el registro nativo: con mayúsculas creaba una segunda cuenta con el mismo mail.
+6. **CSP con `object-src 'none'` y una `Permissions-Policy`** que apaga cámara, micrófono, geolocalización, pagos, USB y `browsing-topics`. Se dejan el portapapeles (copiar el link de turno) y pantalla completa/autoplay (los videos embebidos).
+
+### Lo que se sacrifica
+
+- Un visitante que haga más de 2 lecturas por segundo sostenidas ve un error por un minuto. Un scraper legítimo tendría que ir más despacio.
+- Un volumen de fotos local creado ANTES de este cambio puede haber quedado de root; en ese caso la subida local falla hasta recrear el volumen (`docker volume rm dental_mirage_uploads_data`). En la prueba de hoy el volumen existente quedó con el dueño correcto.
+- CI sigue probando con Go 1.26.0 mientras producción compila con el último 1.26.x: igualarlos rompía el acople `go.mod` ↔ CI o dejaba producción sin parches.
+
 ---
 
 ---

@@ -78,9 +78,15 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 		registerAuthRoutes(r, db, deps)
 	})
 
-	registerEspecialidadRoutes(r, db)
-	registerClinicaRoutes(r, db)
-	registerTurnoPublicoRoutes(r, db, deps)
+	// Lecturas públicas sin sesión, con tope por IP (radiografía técnica 2,
+	// ver lectura_publica.go). Los POST del wizard que viven en este mismo
+	// grupo no cuentan: tienen sus propios topes.
+	r.Group(func(r chi.Router) {
+		r.Use(limitarLecturasPublicas(deps.IPLimiter))
+		registerEspecialidadRoutes(r, db)
+		registerClinicaRoutes(r, db)
+		registerTurnoPublicoRoutes(r, db, deps)
+	})
 
 	// Grupo con sesión requerida pero SIN clínica todavía — /me y
 	// /onboarding/* (paso 2/3 del wizard) tienen que poder operar antes de

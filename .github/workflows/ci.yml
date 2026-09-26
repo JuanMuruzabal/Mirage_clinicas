@@ -11,6 +11,14 @@ on:
     branches: [main, dev]
   pull_request:
 
+# Solo lectura del repo (radiografía técnica 2, Fase B). Sin esto, el
+# GITHUB_TOKEN de cada job heredaba el permiso por defecto del repositorio,
+# que puede ser de escritura: una action comprometida podría pushear o
+# tocar releases. Ningún job lo necesita escrito: el deploy usa sus propios
+# secretos (RENDER_DEPLOY_HOOK_*) y upload-artifact, su propio token.
+permissions:
+  contents: read
+
 jobs:
   web:
     name: web (lint + typecheck + build)

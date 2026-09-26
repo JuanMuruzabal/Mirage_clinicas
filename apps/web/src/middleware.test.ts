@@ -66,6 +66,22 @@ describe("middleware", () => {
     expect(response.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
   });
 
+  // Radiografía técnica 2, Fase C.
+  it("cierra los plugins y apaga las APIs del navegador que la app no usa", () => {
+    const response = middleware(new NextRequest("https://dentalmirage.com.ar/"));
+    const csp = response.headers.get("Content-Security-Policy") ?? "";
+    expect(csp).toContain("object-src 'none'");
+
+    const permisos = response.headers.get("Permissions-Policy") ?? "";
+    for (const api of ["camera=()", "microphone=()", "geolocation=()", "payment=()"]) {
+      expect(permisos).toContain(api);
+    }
+    // El portapapeles (copiar el link de turno) y pantalla completa (los
+    // videos embebidos) se usan: no pueden quedar apagados.
+    expect(permisos).not.toContain("clipboard-write");
+    expect(permisos).not.toContain("fullscreen");
+  });
+
   // Regresión real (2026-09-18, Fase 4.4/4.5): las fotos de la página pública
   // no cargaban en local porque su URL era http://localhost:8080/... — otro
   // origen y sin HTTPS. La solución fue servirlas del mismo origen, NO abrir

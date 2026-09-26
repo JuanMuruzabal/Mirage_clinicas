@@ -73,6 +73,16 @@ var (
 	// por IP+clínica alcanza para un uso real (alguien consultando su
 	// propio turno más de una vez) sin habilitar fuerza bruta cómoda.
 	LimitMisTurnosConsultaPerIP = Limit{Max: 20, Window: time.Hour}
+
+	// LimitLecturaPublicaPerIP — radiografía técnica 2 (2026-09-26): las
+	// lecturas públicas sin sesión (buscador, página pública, tipos,
+	// profesionales, disponibilidad) no tenían ningún tope, y algunas son
+	// caras — la disponibilidad recorre agendas. 120 por minuto (dos por
+	// segundo, sostenido) está muy por encima de lo que hace una persona
+	// sacando turno a los clicks, y deja margen para varias personas
+	// detrás de la misma IP (una red de celular, una oficina). Lo que
+	// frena es a quien las pide en bucle.
+	LimitLecturaPublicaPerIP = Limit{Max: 120, Window: time.Minute}
 )
 
 // scopeLoginFailed cuenta intentos de login fallidos consecutivos por

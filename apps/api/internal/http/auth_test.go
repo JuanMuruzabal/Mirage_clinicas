@@ -928,3 +928,30 @@ func TestGoogle_NoVinculaConCuentaNativaSinVerificar(t *testing.T) {
 		t.Errorf("status = %d, esperaba %d (no vincular sin verificar el mail nativo primero)", rec.Code, http.StatusConflict)
 	}
 }
+
+// TestGoogle_MailConMayusculasVinculaConLaCuentaNativa — radiografía
+// técnica 2: el registro nativo guarda el mail en minúsculas, y el de Google
+// llegaba tal cual. Con mayúsculas no encontraba la cuenta y creaba una
+// segunda con el mismo mail en otra caja.
+func TestGoogle_MailConMayusculasVinculaConLaCuentaNativa(t *testing.T) {
+	router, gdb := newTestRouterWithGoogle(t, fakeGoogleExchanger{sub: "google-sub-mayus", email: "Vincular.Mayus@Example.com", emailVerified: true})
+	doJSON(t, router, http.MethodPost, "/auth/register", registerRequest{
+		Email: "vincular.mayus@example.com", Password: "password123456", AceptaTerminos: true,
+	})
+	marcarMailVerificadoDePrueba(t, gdb, "vincular.mayus@example.com")
+
+	stateRec := doJSON(t, router, http.MethodGet, "/auth/google/state", nil)
+	var stateResp googleStateResponse
+	_ = json.Unmarshal(stateRec.Body.Bytes(), &stateResp)
+
+	rec := doJSON(t, router, http.MethodPost, "/auth/google", googleRequest{Code: "un-code", State: stateResp.State})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, esperaba %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var count int64
+	gdb.Model(&db.User{}).Where("LOWER(email) = ?", "vincular.mayus@example.com").Count(&count)
+	if count != 1 {
+		t.Errorf("usuarios con ese mail (sin mirar mayúsculas) = %d, esperaba 1", count)
+	}
+}

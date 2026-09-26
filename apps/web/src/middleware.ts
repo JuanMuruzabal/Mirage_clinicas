@@ -50,8 +50,20 @@ function buildCsp(nonce: string): string {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    // Sin plugins (<object>, <embed>): default-src 'self' ya los limitaba al
+    // mismo origen; 'none' los cierra del todo (radiografía técnica 2, Fase C).
+    "object-src 'none'",
   ].join("; ");
 }
+
+// Permissions-Policy (radiografía técnica 2, Fase C): apaga las APIs del
+// navegador que la app no usa, para ella y para cualquier iframe embebido
+// (Maps, videos, Turnstile). Si una dependencia comprometida o un embed
+// intentara pedir la cámara o la ubicación, el navegador ni pregunta.
+// Quedan afuera a propósito el portapapeles (copiar el link de turno y el
+// código de invitación) y pantalla completa/autoplay, que usan los videos
+// del módulo de YouTube/Vimeo.
+const PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()";
 
 export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -69,6 +81,7 @@ export function middleware(request: NextRequest) {
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", PERMISSIONS_POLICY);
 
   return response;
 }

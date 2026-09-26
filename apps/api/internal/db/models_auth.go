@@ -406,6 +406,9 @@ const (
 	// consulta por DNI+mail sin verificación de código — por IP, para
 	// que probar combinaciones de DNI al voleo no sea gratis.
 	RateLimitScopeMisTurnosConsulta = "mis_turnos_consulta"
+	// RateLimitScopeLecturaPublica — las lecturas públicas sin sesión
+	// (buscador, página pública, agenda del wizard). Radiografía técnica 2.
+	RateLimitScopeLecturaPublica = "lectura_publica"
 )
 
 // AuditEvent registra eventos sensibles (spec §7: login, login fallido,

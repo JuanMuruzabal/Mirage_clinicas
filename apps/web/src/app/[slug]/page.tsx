@@ -61,7 +61,13 @@ export default async function ClinicaPublicaPage({ params }: PageProps<"/[slug]"
   const { slug } = await params;
   const result = await cargarClinicaPublica(slug);
   if (!result.ok) {
-    notFound();
+    // "No encontrada" SOLO si la API dice que no existe (radiografía
+    // técnica 2). Cualquier otro error —la API caída, un 429 del tope de
+    // lecturas por IP— es temporal: un 404 le diría al visitante que la
+    // clínica no existe, y a Google que la saque del índice. Se lanza, y
+    // Next responde con un error del servidor, que un buscador reintenta.
+    if (result.status === 404) notFound();
+    throw new Error(`no se pudo cargar la página pública (${result.status}): ${result.error}`);
   }
   const clinica = result.data;
   const publicada = !clinica.enPreparacion && !clinica.oculta;
