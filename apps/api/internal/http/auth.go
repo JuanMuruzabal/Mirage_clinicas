@@ -699,6 +699,11 @@ func (h *authHandler) google(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "tu cuenta de Google no tiene el mail verificado")
 		return
 	}
+	// El mail con la misma forma que el registro nativo (normalizeEmail,
+	// radiografía técnica 2): sin esto, un "Juan@Gmail.com" de Google no
+	// encontraba la cuenta "juan@gmail.com" y creaba una segunda con el
+	// mismo mail en otra caja.
+	info.Email = normalizeEmail(info.Email)
 
 	ip := clientIP(r)
 	var user db.User
