@@ -1089,6 +1089,30 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				}
 			}
 		}
+
+		// "YA HE VENIDO ANTES" CON ENLACE EXIGE EL CÓDIGO, SALVO PARA LA
+		// FICHA DEL ENLACE (radiografía técnica 2, B2). Elegir una ficha
+		// existente es decir "soy esta persona", y eso lo prueba el código
+		// de mail o un enlace generado para ESA ficha — nunca un enlace
+		// genérico, que se reenvía. Sin esto, con un enlace cualquiera se
+		// reservaba a nombre del paciente de otra familia declarando el
+		// mail de su tutor. "Primera vez" no cambia: con enlace sigue sin
+		// código, y un DNI que ya existe pasa por la detección de
+		// conflictos de siempre.
+		exigePruebaDeMail := !usaEnlace
+		if usaEnlace && usaPacienteVerificado {
+			enlace, err := buscarEnlaceTurnoVigente(gdb, clinic.ID, req.EnlaceToken)
+			if err == nil && (enlace.PacienteID == nil || *enlace.PacienteID != pacienteVerificadoID) {
+				exigePruebaDeMail = true
+			}
+			// Con el enlace inexistente, consumirEnlaceTurno lo rechaza
+			// más abajo con su propio mensaje.
+		}
+		if exigePruebaDeMail && req.VerificacionToken == "" {
+			writeError(w, http.StatusBadRequest, "verificá tu mail antes de pedir el turno")
+			return
+		}
+
 		fecha, err := clock.ParseDate(req.Fecha)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "la fecha debe tener el formato YYYY-MM-DD")
@@ -1201,11 +1225,16 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			// cuenta) — se consume el ENLACE en su lugar, mismo criterio
 			// de "dentro de la misma transacción" para que un fallo más
 			// adelante lo deje sin gastar.
+			//
+			// Con enlace y "ya he venido antes" sobre una ficha que no es
+			// la del enlace, se gastan LAS DOS cosas: el enlace (su cupo) y
+			// la prueba de mail (exigePruebaDeMail, arriba).
 			if usaEnlace {
 				if err := consumirEnlaceTurno(tx, clinic.ID, req.EnlaceToken, req.ParaOtro); err != nil {
 					return err
 				}
-			} else {
+			}
+			if exigePruebaDeMail {
 				nuevoToken, err := consumirYReemitirVerificacionTurnoPublico(tx, clinic.ID.String(), identidadEmail, req.VerificacionToken)
 				if err != nil {
 					return err

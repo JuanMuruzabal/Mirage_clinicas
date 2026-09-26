@@ -333,19 +333,39 @@ type pacienteVerificadoResponse struct {
 // dos consume nada: el token de verificación se gasta recién al mandar
 // el pedido final (consumirVerificacionTurnoPublico) y el enlace igual
 // (consumirEnlaceTurno) — acá solo se comprueba que siga vigente.
-func validarIdentidadPublicaOEnlace(gdb *gorm.DB, clinicID uuid.UUID, email, verificacionToken, enlaceToken string) error {
-	if enlaceToken != "" {
-		enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken)
-		if err != nil {
-			return err
-		}
-		if !enlace.Vigente(time.Now()) {
-			return errEnlaceTurnoInvalido
-		}
-		return nil
+//
+// UN ENLACE SOLO PRUEBA LA IDENTIDAD DE LA FICHA A LA QUE APUNTA
+// (radiografía técnica 2, B2, 2026-09-26). Hasta esa fecha cualquier
+// enlace vigente reemplazaba al código para CUALQUIER mail: quien tuviera
+// un enlace genérico —se reenvía por WhatsApp— tipeaba el mail de un tutor
+// ajeno, veía sus pacientes y les sacaba turno, sin que nadie hubiera
+// probado ese mail. El enlace dice "el profesional confía en quien lo
+// tiene", no "quien lo tiene es dueño de cualquier mail". Por eso:
+//   - con el código de mail, la prueba es el mail (y no se acota nada);
+//   - con un enlace generado desde una ficha (`enlaces_turno.paciente_id`,
+//     Fase 3.2.7b), la prueba vale SOLO para esa ficha: se devuelve su id
+//     para que el caller acote el resultado a ella;
+//   - con un enlace genérico, "ya he venido antes" pide el código como
+//     sin enlace (errTurnoVerifPruebaInvalida).
+func validarIdentidadPublicaOEnlace(gdb *gorm.DB, clinicID uuid.UUID, email, verificacionToken, enlaceToken string) (*uuid.UUID, error) {
+	if verificacionToken != "" {
+		_, err := validarVerificacionTurnoPublico(gdb, clinicID.String(), email, verificacionToken)
+		return nil, err
 	}
-	_, err := validarVerificacionTurnoPublico(gdb, clinicID.String(), email, verificacionToken)
-	return err
+	if enlaceToken == "" {
+		return nil, errTurnoVerifPruebaInvalida
+	}
+	enlace, err := buscarEnlaceTurnoVigente(gdb, clinicID, enlaceToken)
+	if err != nil {
+		return nil, err
+	}
+	if !enlace.Vigente(time.Now()) {
+		return nil, errEnlaceTurnoInvalido
+	}
+	if enlace.PacienteID == nil {
+		return nil, errTurnoVerifPruebaInvalida
+	}
+	return enlace.PacienteID, nil
 }
 
 // pacienteVerificadoPublicoHandler — GET
@@ -403,7 +423,8 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		if err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, email, token, enlaceToken); err != nil {
+		fichaDelEnlace, err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, email, token, enlaceToken)
+		if err != nil {
 			if errors.Is(err, errTurnoVerifPruebaInvalida) {
 				writeError(w, http.StatusForbidden, "verificá tu mail antes de continuar")
 				return
@@ -422,7 +443,13 @@ func pacienteVerificadoPublicoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// de este DNI, aunque casualmente tenga turnos resueltos/asistidos
 		// (no debería, es recién creada, pero la condición queda explícita
 		// por las dudas).
-		err := gdb.Where("clinic_id = ? AND dni = ? AND en_conflicto = false", clinic.ID, dni).First(&paciente).Error
+		consulta := gdb.Where("clinic_id = ? AND dni = ? AND en_conflicto = false", clinic.ID, dni)
+		if fichaDelEnlace != nil {
+			// Con un enlace generado desde una ficha, la única que se
+			// puede encontrar es esa (ver validarIdentidadPublicaOEnlace).
+			consulta = consulta.Where("id = ?", *fichaDelEnlace)
+		}
+		err = consulta.First(&paciente).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeError(w, http.StatusNotFound, "no encontramos un paciente verificado con esos datos")
 			return
@@ -472,7 +499,8 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 		writeError(w, http.StatusBadRequest, "verificá tu mail antes de continuar")
 		return
 	}
-	if err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, tutorEmail, token, enlaceToken); err != nil {
+	fichaDelEnlace, err := validarIdentidadPublicaOEnlace(gdb, clinic.ID, tutorEmail, token, enlaceToken)
+	if err != nil {
 		if errors.Is(err, errTurnoVerifPruebaInvalida) {
 			writeError(w, http.StatusForbidden, "verificá tu mail antes de continuar")
 			return
@@ -497,9 +525,14 @@ func listarPacientesVerificadosDeTutorHandler(w http.ResponseWriter, gdb *gorm.D
 	// tutor que compartan (raro, pero posible) el mismo mail no debe
 	// duplicar la tarjeta.
 	var candidatos []db.Paciente
-	if err := gdb.Joins("JOIN paciente_tutores ON paciente_tutores.paciente_id = pacientes.id").
-		Where("pacientes.clinic_id = ? AND pacientes.en_conflicto = false AND LOWER(paciente_tutores.email) = LOWER(?)", clinic.ID, tutorEmail).
-		Distinct().
+	consulta := gdb.Joins("JOIN paciente_tutores ON paciente_tutores.paciente_id = pacientes.id").
+		Where("pacientes.clinic_id = ? AND pacientes.en_conflicto = false AND LOWER(paciente_tutores.email) = LOWER(?)", clinic.ID, tutorEmail)
+	if fichaDelEnlace != nil {
+		// Mismo criterio que el modo por DNI: con un enlace generado desde
+		// una ficha, la lista es esa ficha o nada.
+		consulta = consulta.Where("pacientes.id = ?", *fichaDelEnlace)
+	}
+	if err := consulta.Distinct().
 		Order("pacientes.created_at").Find(&candidatos).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo buscar pacientes")
 		return

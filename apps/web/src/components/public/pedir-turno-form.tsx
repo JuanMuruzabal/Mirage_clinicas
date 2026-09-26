@@ -369,6 +369,12 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
   // nada que preguntar sobre quién es esta persona.
   const fichaDelEnlace = enlaceInfo?.paciente ?? null;
 
+  // ¿El enlace alcanza para decir "soy esta persona" en "ya he venido
+  // antes"? Solo si lo generaron desde una ficha (radiografía técnica 2,
+  // B2): un enlace genérico se reenvía, y no prueba ningún mail — con ese,
+  // ese camino pide el código como sin enlace. "Primera vez" no cambia.
+  const enlaceProbaLaIdentidad = conEnlace && fichaDelEnlace !== null;
+
   // Los parámetros con los que se piden los huecos. El tipo va por NOMBRE
   // y con quién aparte, porque la duración —y por lo tanto los huecos— es
   // la que ESE profesional le puso a ESE tipo.
@@ -564,12 +570,17 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
     // Fase 2, ítem 5: con enlace no hay código que mandar, pero el mismo
     // chequeo retroactivo de confirmarCodigo() aplica igual — si este
     // DNI+mail ya pertenecen a una ficha verificada, se muestra esa
-    // tarjeta en vez de seguir de largo como paciente nuevo.
+    // tarjeta en vez de seguir de largo como paciente nuevo. Con un enlace
+    // genérico ese chequeo no corre (el backend lo rechaza sin código,
+    // radiografía técnica 2, B2): sigue como primera vez, y si el DNI ya
+    // existía lo resuelve la detección de conflictos de siempre.
     if (enlaceToken) {
       setBuscandoPaciente(true);
-      const resultado = await pacienteVerificadoPublicoAction(slug, dniContacto, emailContacto, "", enlaceToken);
+      const resultado = enlaceProbaLaIdentidad
+        ? await pacienteVerificadoPublicoAction(slug, dniContacto, emailContacto, "", enlaceToken)
+        : {};
       setBuscandoPaciente(false);
-      if (resultado.paciente) {
+      if ("paciente" in resultado && resultado.paciente) {
         setPacienteVerificado(resultado.paciente);
         setFlujo("verificado");
         setPaso("tarjeta-paciente");
@@ -635,11 +646,16 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
     // Con enlace (Fase 2, ítem 5) no hay código: el enlace ES la prueba,
     // así que se resuelve la lista de una — mismo criterio que
     // continuarOtroYaVine.
+    // Con un enlace genérico la lista no se pide: el backend la rechaza sin
+    // código (radiografía técnica 2, B2), y el tutor sigue a cargar al
+    // paciente como primera vez.
     if (enlaceToken) {
       setBuscandoPaciente(true);
-      const resultado = await pacientesVerificadosDeTutorAction(slug, tutorEmail, "", enlaceToken);
+      const resultado = enlaceProbaLaIdentidad
+        ? await pacientesVerificadosDeTutorAction(slug, tutorEmail, "", enlaceToken)
+        : {};
       setBuscandoPaciente(false);
-      if (resultado.pacientes && resultado.pacientes.length > 0) {
+      if ("pacientes" in resultado && resultado.pacientes && resultado.pacientes.length > 0) {
         setPacientesVerificadosTutor(resultado.pacientes);
         setPacienteListaSeleccionado(null);
         setPaso("otro-tarjeta-paciente");
@@ -728,8 +744,9 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
     // Fase 2, ítem 5: sin código que mandar — la identidad se resuelve
     // directo contra el enlace (mismo criterio "validar sin consumir" que
     // el código de verificación). Encontrada o no la ficha, esta pantalla
-    // reemplaza a "ya-vine-codigo" del todo para este camino.
-    if (enlaceToken) {
+    // reemplaza a "ya-vine-codigo" del todo para este camino. Solo con un
+    // enlace generado desde una ficha (enlaceProbaLaIdentidad).
+    if (enlaceProbaLaIdentidad) {
       setBuscandoPaciente(true);
       const resultado = await pacienteVerificadoPublicoAction(slug, dni, email, "", enlaceToken);
       setBuscandoPaciente(false);
@@ -772,8 +789,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
     setPacienteNoEncontrado(false);
 
     // Fase 2, ítem 5: mismo criterio que continuarYaVine — sin código,
-    // resuelve directo contra el enlace.
-    if (enlaceToken) {
+    // resuelve directo contra el enlace, si es de una ficha.
+    if (enlaceProbaLaIdentidad) {
       setBuscandoPaciente(true);
       const resultado = await pacientesVerificadosDeTutorAction(slug, tutorEmail, "", enlaceToken);
       setBuscandoPaciente(false);
@@ -976,9 +993,10 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
     let payload: SolicitarTurnoPublicoPayload;
     if (esVerificado) {
       // "Ya he venido antes" confirmado, con código o con enlace (Fase 2,
-      // ítem 5) — mismo criterio que las otras 2 ramas de este if: la
-      // credencial que se manda depende de por cuál de los dos caminos
-      // llegó, nunca las dos juntas.
+      // ítem 5). Con un enlace GENÉRICO viajan las dos credenciales: el
+      // enlace (su cupo, su profesional) y el código de mail, que es lo que
+      // prueba la identidad (radiografía técnica 2, B2). Con un enlace
+      // generado desde la ficha no hay código: el enlace ya es de ella.
       payload = {
         // Vacío cuando la ficha vino en el enlace: el wizard no le pidió
         // el mail a nadie. El backend lo resuelve desde la propia ficha
@@ -990,7 +1008,8 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
         ...(eligeProfesional ? { profesionalId } : {}),
         fecha,
         hora,
-        ...(enlaceToken ? { enlaceToken } : { verificacionToken }),
+        ...(enlaceToken ? { enlaceToken } : {}),
+        ...(verificacionToken ? { verificacionToken } : {}),
         pacienteVerificadoId: pacienteVerificado.id,
         ...(esOtroFlujo ? { paraOtro: true, tutorEmail: emailEnVerificacion } : {}),
       };
@@ -1265,10 +1284,10 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
           paso={3}
           total={5}
           enviando={enviandoCodigo || buscandoPaciente}
-          accionLabel={enlaceToken ? "Buscar" : undefined}
-          accionLabelEnviando={enlaceToken ? "Buscando…" : undefined}
+          accionLabel={enlaceProbaLaIdentidad ? "Buscar" : undefined}
+          accionLabelEnviando={enlaceProbaLaIdentidad ? "Buscando…" : undefined}
           extra={
-            enlaceToken ? (
+            enlaceProbaLaIdentidad ? (
               <>
                 {pacienteNoEncontrado && <NoEncontradoAviso onEmpezarComoNuevo={empezarComoNuevo} />}
                 {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -1353,10 +1372,10 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
           paso={3}
           total={5}
           enviando={enviandoCodigo || buscandoPaciente}
-          accionLabel={enlaceToken ? "Buscar" : undefined}
-          accionLabelEnviando={enlaceToken ? "Buscando…" : undefined}
+          accionLabel={enlaceProbaLaIdentidad ? "Buscar" : undefined}
+          accionLabelEnviando={enlaceProbaLaIdentidad ? "Buscando…" : undefined}
           extra={
-            enlaceToken ? (
+            enlaceProbaLaIdentidad ? (
               <>
                 {pacienteNoEncontrado && <NoEncontradoAviso onEmpezarComoNuevo={empezarComoNuevoOtro} />}
                 {error && <ErrorMsg>{error}</ErrorMsg>}
