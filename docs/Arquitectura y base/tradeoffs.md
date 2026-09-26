@@ -3103,6 +3103,56 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - Una foto que solo aparecía en un borrador descartado desaparece al día siguiente; si alguien la quisiera, la tiene que volver a subir.
 - La lista de códigos de área de 3 dígitos se mantiene a mano; si falta uno, ese número se parte como de 4 (se lee raro, el link anda).
 
+## TR-175: Un enlace compartido prueba la identidad SOLO de la ficha a la que apunta
+
+- **Contexto:** radiografía técnica 2 (`docs/Seguridad y optimizacion/radiografia-tecnica_2.md`, B2), 2026-09-26. Reproducido antes de arreglar.
+- **El problema:** el enlace de "Compartir link" (TR-120) salta la verificación de mail a propósito, porque quien lo tiene es de confianza. Pero `validarIdentidadPublicaOEnlace` lo aplicaba a TODO el wizard, incluido "ya he venido antes", que depende de un mail probado. Con cualquier enlace vigente se listaban los pacientes de un tutor ajeno tipeando su mail (id, nombre con inicial, DNI censurado), y se les sacaba turno declarando ese mail sin probarlo. El turno entraba en la ficha verificada —sin conflicto que avisara al profesional— y ocupaba el cupo de "un turno activo por tipo" de esa familia.
+
+### Las decisiones
+
+1. **El enlace dice "el profesional confía en quien lo tiene", no "quien lo tiene es dueño de cualquier mail".** Un enlace se reenvía (WhatsApp); no prueba nada sobre un mail.
+2. **Enlace generado desde una ficha (`enlaces_turno.paciente_id`, Fase 3.2.7b): sigue sin código**, pero la búsqueda (por DNI o por mail de tutor) y la reserva quedan acotadas a ESA ficha. Es el caso que el profesional eligió a mano.
+3. **Enlace genérico: "ya he venido antes" pide el código de mail como sin enlace**, y la reserva lleva las dos credenciales y gasta las dos (el cupo del enlace y la prueba de mail).
+4. **"Primera vez" no cambia**: con enlace sigue sin código. Un DNI que ya existe pasa por la detección de conflictos de siempre, que es el camino protegido.
+
+### Lo que se sacrifica
+
+- Con un enlace genérico, quien ya vino tiene un paso más (el código) si elige "ya he venido antes".
+- El pedido del cliente de mostrar la tarjeta "¿Sos vos?" cuando en "primera vez" se tipea un DNI+mail de una ficha verificada deja de aplicar **con enlace genérico**: el turno se saca igual y queda en su ficha (la detección de conflictos la reconoce por el mail), pero sin esa pantalla. Sin enlace, o con enlace de ficha, sigue igual.
+
+## TR-176: Los controles de arranque miran la URL pública, no `APP_ENV`
+
+- **Contexto:** radiografía técnica 2, B3 y B4, 2026-09-26.
+- **El problema:** tres controles de seguridad dependían de señales que no dicen si el entorno es público. `AutoVerifyEmail` (TR-051) se prendía con `RESEND_API_KEY` vacía, y desde que una invitación se dirige a un mail (Fase 3.2.4) eso deja registrarse con el mail de un invitado y aceptar la invitación en su lugar (reproducido; hoy Resend está cargado en Render, así que era latente). El freno por `JWT_SECRET` de ejemplo (TR-125) y el descarte del `BFF_SHARED_SECRET` de ejemplo miraban `APP_ENV`, que en Render vale `development` a propósito (TR-021): **nunca corrieron en el único entorno público**.
+
+### Las decisiones
+
+1. **La señal de "esto es público" es `AppBaseURL`** (de ella salen los links de los mails), igual que en TR-135. `Config.SeSirveEnLocalhost()` es la pregunta, para los tres.
+2. **`AutoVerifyEmail` solo en localhost** (`Config.VerificarMailsAutomaticamente`). Borrar `RESEND_API_KEY` en el dashboard ya no reabre el agujero.
+3. **Con una URL pública, el proceso no arranca** si falta `RESEND_API_KEY` o si `JWT_SECRET` es el de ejemplo (`requireConfiguracionSeguraFueraDeLocalhost`, antes `requireExplicitSecretsOutsideDev`). Una configuración rota se ve como un deploy que falla, no como un registro que no manda mails.
+
+### Lo que se sacrifica
+
+- Un deploy público sin Resend ya no arranca: para probar algo en un entorno público sin mails hay que cargar la variable igual.
+- El guardián de migraciones destructivas (TR-132) sigue mirando `APP_ENV`: cambiarlo afecta cómo se deploya y es una decisión abierta desde la sección 17.3 de la primera radiografía.
+
+## TR-177: Endpoints públicos con consultas fijas, y un techo para los hashes de contraseña
+
+- **Contexto:** radiografía técnica 2, pasada de optimización, 2026-09-26. Medido con un contador de consultas de gorm y 25 clínicas publicadas.
+
+### Las decisiones
+
+1. **El titular y los profesionales de varias clínicas se resuelven en 3 consultas fijas** (`perfilesPublicosDe`: membresías con su rol, perfiles y especialidades). Reemplaza a `ownerProfile` + `profesionalesActivosDeLaClinica`, que eran 1 + 2 consultas por profesional y se repetían. Buscador: **201 consultas → 5** (119–210 ms → ~5 ms), y ya no crece con las clínicas. Página pública: **17 → 12**, y ya no crece con los profesionales (con 4 eran 26). Las estadísticas de la página salen en una consulta en vez de dos. Un test fija que la cantidad de consultas no crece.
+2. **Como mucho 4 hashes argon2id a la vez** (`internal/security`). Cada uno reserva 19 MiB (medido: ~20 MB y ~23 ms de CPU); sin tope, unos 25 logins simultáneos llenaban los 512 MB de Render y el proceso moría para todos. Con el tope, el peor caso son ~80 MB y el resto espera unos milisegundos. Mismo criterio que el procesamiento de fotos (TR-165).
+3. **De paso, en el buscador:** no lista páginas en modo mantenimiento (el sitemap ya las excluía) y `%`/`_` se buscan literales.
+
+### Lo que se descartó, con su condición
+
+- **Caché de la página pública entre requests** (`revalidate` + invalidar al publicar): hoy son 12 consultas y ~5 ms por visita. Cuando el tráfico de una página lo justifique, y resolviendo cómo se refrescan las estadísticas, que cambian sin publicar.
+- **Paginar el buscador:** con consultas fijas solo crece el tamaño de la respuesta (~140 bytes por clínica). Con cientos de clínicas publicadas.
+- **Bajar los parámetros de argon2id** para gastar menos memoria: 19 MiB ya es el mínimo de OWASP. El tope ataca la cantidad simultánea, no la fortaleza de cada hash.
+- **`framer-motion` en `/buscar`** (131 KB para un efecto de aparición): zona del plan Prisma Engine, para Kevin.
+
 ---
 
 ---

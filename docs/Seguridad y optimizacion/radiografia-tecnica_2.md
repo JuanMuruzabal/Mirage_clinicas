@@ -17,10 +17,14 @@ La primera radiografía (`radiografia-tecnica_1.md`, 2026-09-08) se hizo cuando 
 4. [A vigilar](#a-vigilar)
 5. [Lo que se verificó y está bien](#lo-que-se-verificó-y-está-bien)
 6. [Escaneos automáticos, en detalle](#escaneos-automáticos-en-detalle)
-7. [Plan de acción](#plan-de-acción)
-8. [Reproducciones](#reproducciones)
+7. [Optimización](#optimización)
+8. [Plan de acción](#plan-de-acción)
+9. [Fase A — cómo se cerró](#fase-a--cómo-se-cerró)
+10. [Reproducciones](#reproducciones)
 
 ---
+
+> **Estado al 2026-09-26: Fase A cerrada** (B1, B2 y B3 arreglados, cada uno con su test de regresión verificado en los dos sentidos) y la **pasada de optimización aplicada** (sección 7). Al arreglar B3 apareció un hallazgo más de la misma familia, **B4**, cerrado en el mismo paso. Ver la sección 9.
 
 ## Veredicto
 
@@ -79,6 +83,18 @@ Lo mismo vale para una invitación de `profesional` (con matrícula inventada) o
 **Arreglo propuesto, en cualquiera de los dos casos:** poner `AutoVerifyEmail` detrás de `HerramientasDeDesarrolloHabilitadas()`, como ya se hizo con `ExponerCodigoVerificacion` y `SimularBloqueosSeguridad` (TR-135): la auditoría de TR-135 ya advertía que atarlo a "¿está configurado Resend?" era atarlo a una variable no relacionada. Y que el proceso se niegue a arrancar con un `APP_BASE_URL` público y sin Resend, igual que con el secreto de firma (A4 de la primera radiografía).
 
 > `cmd/api/main.go:321` (`AutoVerifyEmail: cfg.ResendAPIKey == ""`) · `internal/http/auth.go:447` · `internal/http/invitaciones_recibidas.go` (`invitacionParaMi`)
+
+---
+
+### 🟡 B4 (latente) — Los controles de arranque miraban `APP_ENV`, que en Render vale `development` — encontrado al arreglar B3
+
+El proceso se niega a arrancar con el secreto de firma de ejemplo (A4 de la primera radiografía), y descarta el `BFF_SHARED_SECRET` de ejemplo. Los dos controles se salteaban cuando `APP_ENV` era `development`, y **en Render vale `development` a propósito** (TR-021, un solo entorno). O sea: **nunca corrieron en el único entorno público**. Un `JWT_SECRET` vacío en el dashboard habría arrancado firmando el `state` de OAuth con el secreto publicado en el repo, y un `BFF_SHARED_SECRET` copiado del `.env.example` habría dejado a cualquiera elegir su IP ante el rate-limiting.
+
+Es el mismo error que TR-135 corrigió para las herramientas de desarrollo, que quedó sin corregir en estos dos. Hoy las variables están bien cargadas, así que no se puede explotar; se cierra porque el control existe justamente para el día en que no lo estén.
+
+**Arreglo (hecho):** los dos miran si la app se sirve en localhost (`AppBaseURL`), igual que `HerramientasDeDesarrolloHabilitadas`. Y con una URL pública el arranque se frena también si falta `RESEND_API_KEY` (cierra B3 del todo).
+
+> Nota aparte, sin cambios: el guardián de migraciones destructivas (TR-132) también mira `APP_ENV`, y por eso en Render no pide `DB_ALLOW_DESTRUCTIVE`. Eso ya estaba documentado como decisión abierta en la sección 17.3 de la primera radiografía; cambiarlo afecta cómo se deploya, así que no entra sin decidirlo.
 
 ---
 
@@ -159,11 +175,44 @@ Sobre la versión de Go: `go.mod` dice `go 1.26.0`. La imagen de Docker (`golang
 
 ---
 
+## Optimización
+
+Mismo método que `optimizacion-post-fase3.md`: **contar y medir antes de tocar**. Un test temporal registró un contador de consultas en gorm y midió cada endpoint público con 25 clínicas publicadas; el panel y el wizard ya se habían medido en la ronda post-Fase 3.
+
+### Endpoints públicos
+
+| Endpoint | Antes | Después | Qué pasaba |
+|---|---|---|---|
+| **Buscador** (`GET /clinicas`) | **201 consultas · 119–210 ms** | **5 consultas · ~5 ms** | Por cada clínica, `ownerProfile` (3) + `profesionalesActivosDeLaClinica` (1 + 2 por profesional). **Crecía con el sistema**: con 200 clínicas, unas 1.600 consultas por búsqueda |
+| **Página pública** (`GET /clinicas/{slug}`), 1 profesional | 17 consultas · 13 ms | **12 consultas · ~5,5 ms** | La misma lista de profesionales se calculaba dos veces, y las estadísticas en dos consultas sobre las mismas filas |
+| Página pública, 4 profesionales | 26 consultas | **12** | Ahora no depende de cuántos profesionales tenga la clínica |
+| Profesionales / disponibilidad (wizard) | 9 · 5–11 ms | sin cambios | Ya optimizado en la ronda post-Fase 3 (addendum de TR-162) |
+| Sitemap, especialidades, tipos | 1–3 | sin cambios | — |
+
+**El arreglo:** `perfilesPublicosDe` resuelve titular y profesionales activos de **varias clínicas en 3 consultas fijas** (membresías con su rol, perfiles, especialidades), con los mismos criterios que las dos funciones que reemplaza. La usan el buscador, la página pública y el editor. `TestBuscarClinicas_LasConsultasNoCrecenConLasClinicas` y `TestGetClinicaPublica_ConsultasConVariosProfesionales` fijan que la cantidad de consultas no crece: con el código viejo fallan con 25 → 73 y 17 → 26.
+
+### El hash de contraseñas no tenía techo de memoria
+
+argon2id reserva 19 MiB por hash mientras corre (medido: **~20 MB y ~23 ms de CPU** por hash en una máquina de desarrollo; en la fracción de CPU de Render free, bastante más, así que se superponen todavía más). No había tope de hashes simultáneos: unos 25 logins a la vez —un pico, o alguien que los provoque desde muchas IPs, esquivando el límite por IP— llenan los 512 MB de la instancia y **el proceso muere para todos**. Ahora corren **4 a la vez como máximo** (peor caso ~80 MB), y el resto espera su turno unos milisegundos; mismo criterio que el procesamiento de fotos. Un test lanza 20 hashes simultáneos y verifica que nunca corren más de 4.
+
+### Frontend
+
+- **La página pública ya hace un solo viaje a la API por visita**: `cargarClinicaPublica` está memoizada por request con `cache()` desde PE-9 (metadata, página e imagen para compartir la comparten).
+- **El reparto de JavaScript es razonable**: `dnd-kit` (204 KB) solo baja en el editor, y la página pública carga los efectos de forma diferida.
+- **`/buscar` descarga `framer-motion` (131 KB) para un efecto de aparición** (`ScrollReveal`). Es la dependencia que el plan Prisma Engine tiene en revisión (`scroll-reveal.tsx` está en su zona), así que queda para Kevin: con un `IntersectionObserver` y CSS alcanza.
+
+### Identificado y no aplicado, con su condición
+
+- **Caché de la página pública entre requests** (`revalidate` + invalidar al publicar). Hoy cada visita pega en la API, que ahora son 12 consultas y ~5 ms. Convendría cuando el tráfico de una página lo justifique, y hay que resolver cómo se refrescan las estadísticas (pacientes atendidos, turnos realizados), que cambian sin publicar. Además `[slug]` es zona Prisma Engine.
+- **Paginación del buscador.** Con consultas fijas, lo que crece es solo el tamaño de la respuesta (~140 bytes por clínica). Se suma cuando haya cientos de clínicas publicadas.
+
+---
+
 ## Plan de acción
 
 Mismo criterio que la primera: primero lo que cierra un riesgo real, después lo que destraba escala.
 
-### Fase A — Ya
+### Fase A — Ya — ✅ **cerrada el 2026-09-26** (ver la sección 9)
 
 1. **Subir Next.js a 16.3.3** (B1). Verificación: `pnpm audit` sin críticas, `build:web` y la suite web.
 2. **Cerrar el enlace compartido** (B2): con enlace, el camino "ya he venido antes" solo toca la ficha del enlace. Las dos reproducciones de la sección 8 se vuelven tests que tienen que dar 403/400.
@@ -184,9 +233,25 @@ Mismo criterio que la primera: primero lo que cierra un riesgo real, después lo
 
 ---
 
+## Fase A — cómo se cerró
+
+Cada arreglo en su commit, con un test que **falla con el código anterior y pasa con el nuevo** (verificado en los dos sentidos, revirtiendo el arreglo). Decisiones en `tradeoffs.md` TR-175 a TR-177; el porqué y lo descartado, en `como-se-arreglo-cada-cosa.md`.
+
+| | Qué se hizo | Verificación |
+|---|---|---|
+| **B1** | Next.js 16.3.0 → **16.3.3** (arrastra `sharp` 0.35.4 y `js-yaml` parcheado) | `pnpm audit`: **0 vulnerabilidades**. Suite web, typecheck, lint y build en verde |
+| **B2** | **Un enlace prueba la identidad solo de la ficha a la que apunta** (TR-175). Con un enlace generado desde una ficha, "ya he venido antes" sigue sin código pero acotado a esa ficha; con un enlace genérico, pide el código de mail como sin enlace, y la reserva gasta las dos cosas. "Primera vez" no cambia | 5 tests nuevos en `enlace_identidad_publica_test.go` (fallan los 5 con el código anterior) y 3 adaptados. En el wizard, 4 tests nuevos o adaptados |
+| **B3 + B4** | `AutoVerifyEmail` solo en localhost; el arranque con URL pública exige `RESEND_API_KEY` y un `JWT_SECRET` propio; el `BFF_SHARED_SECRET` de ejemplo se descarta por URL, no por `APP_ENV` (TR-176) | 4 tests (fallan con las condiciones viejas). El caso "Render" —`APP_ENV=development` con URL pública— es el que prueba B4 |
+
+**Un costo de B2, dicho:** el pedido del cliente de "en 'primera vez', si el DNI y el mail ya son de una ficha verificada, mostrale su tarjeta" deja de aplicar **con un enlace genérico**. El turno se saca igual y queda en su ficha (la detección de conflictos la reconoce por el mail); lo que no aparece es la pantalla "¿Sos vos?". Sin enlace, o con un enlace de ficha, sigue igual.
+
+**B2 tocó `apps/web/src/components/public/pedir-turno-form.tsx` y la optimización tocó `clinicas.go`**, las dos en la zona del plan Prisma Engine, con el OK de Juan en cada caso: solo el wizard de turno, y mismas respuestas JSON.
+
+---
+
 ## Reproducciones
 
-Los tres tests que confirmaron B2 y B3, tal como se corrieron (paquete `internal/http`, Postgres real). Hoy **pasan**, y eso es la prueba del problema: al arreglar, se invierten las aserciones y quedan como tests de regresión.
+Los tres tests que confirmaron B2 y B3, tal como se corrieron antes del arreglo (paquete `internal/http`, Postgres real): **pasaban**, y eso era la prueba del problema. Con las aserciones invertidas son hoy los tests de regresión de la sección 9.
 
 **B2 — listar los pacientes de un tutor ajeno con un enlace:**
 
