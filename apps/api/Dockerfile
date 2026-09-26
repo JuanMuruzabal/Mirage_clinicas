@@ -28,15 +28,24 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api
 RUN CGO_ENABLED=0 go build -o /out/migrate ./cmd/migrate
 
-FROM alpine:3.20 AS runtime
-# ca-certificates: necesario si en el futuro el backend hace requests
-# salientes por HTTPS (p. ej. un storage/email real, ver
-# docs/Arquitectura y base/tradeoffs.md sobre las interfaces dev/prod pendientes).
+# Alpine 3.24 (radiografía técnica 2, Fase B): la 3.20 salió de soporte en
+# abril de 2026 y ya no recibe parches de seguridad.
+FROM alpine:3.24 AS runtime
+# ca-certificates: necesario para las requests salientes por HTTPS (Resend,
+# Google, Turnstile, HaveIBeenPwned, R2).
 RUN apk add --no-cache ca-certificates
+# Sin root (radiografía técnica 2, Fase B): el proceso corre como `app`, un
+# usuario sin privilegios. /data/uploads es donde escribe el storage local
+# en docker compose (STORAGE_DIR); se crea acá y es de `app` para que un
+# volumen NUEVO herede ese dueño al montarse. En Render las fotos van a R2
+# y el proceso no escribe en disco.
+RUN addgroup -S app && adduser -S -G app app \
+    && mkdir -p /data/uploads && chown app:app /data/uploads
 WORKDIR /app
 
 COPY --from=build /out/api /app/api
 COPY --from=build /out/migrate /app/migrate
+USER app
 
 EXPOSE 8080
 # Corre la migración (idempotente) ANTES de arrancar el servidor, en el
