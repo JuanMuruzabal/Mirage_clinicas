@@ -326,7 +326,7 @@ func respuestaDePagina(gdb *gorm.DB, clinicID uuid.UUID, p db.PaginaPublica) (pa
 		resp.DireccionClinica = clinic.Direccion
 		resp.CiudadClinica = clinic.Ciudad
 	}
-	resp.EspecialidadesClinica = especialidadesUnicasDe(profesionalesActivosDeLaClinica(gdb, clinicID))
+	resp.EspecialidadesClinica = especialidadesUnicasDe(perfilesPublicosDe(gdb, []uuid.UUID{clinicID})[clinicID].profesionales)
 	resp.ActualizadaEn = p.UpdatedAt.UTC().Format(time.RFC3339)
 	if p.ActualizadaPorUserID != nil {
 		nombre := nombreDelProfesional(gdb, p.ActualizadaPorUserID)
@@ -399,20 +399,20 @@ func getOrCrearPaginaPublica(gdb *gorm.DB, clinicID uuid.UUID) (*db.PaginaPublic
 // estadísticas reales del sistema"). Clínica-wide a propósito — es un dato
 // de la vidriera pública de la clínica entera, no del profesional que
 // mira el editor.
+//
+// Los dos números en UNA consulta (radiografía técnica 2): miran las mismas
+// filas, y la página pública es lo más visitado del sistema.
 func estadisticasDeLaClinica(gdb *gorm.DB, clinicID uuid.UUID) map[string]int {
-	var pacientesAtendidos int64
-	gdb.Model(&db.Turno{}).
-		Where("clinic_id = ? AND asistencia = ?", clinicID, "asistio").
-		Distinct("paciente_id").Count(&pacientesAtendidos)
-
-	var turnosRealizados int64
-	gdb.Model(&db.Turno{}).
-		Where("clinic_id = ? AND asistencia = ?", clinicID, "asistio").
-		Count(&turnosRealizados)
+	var fila struct {
+		PacientesAtendidos int64
+		TurnosRealizados   int64
+	}
+	gdb.Raw(`SELECT COUNT(DISTINCT paciente_id) AS pacientes_atendidos, COUNT(*) AS turnos_realizados
+		FROM turnos WHERE clinic_id = ? AND asistencia = ?`, clinicID, "asistio").Scan(&fila)
 
 	return map[string]int{
-		"pacientes_atendidos": int(pacientesAtendidos),
-		"turnos_realizados":   int(turnosRealizados),
+		"pacientes_atendidos": int(fila.PacientesAtendidos),
+		"turnos_realizados":   int(fila.TurnosRealizados),
 	}
 }
 
