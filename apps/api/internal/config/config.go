@@ -132,15 +132,18 @@ type Config struct {
 }
 
 // bffSharedSecret resuelve BFF_SHARED_SECRET descartando el valor de
-// ejemplo fuera de `development`. Es la misma lección de TR-125 (un
+// ejemplo cuando la app NO se sirve en localhost (radiografía técnica 2,
+// 2026-09-26 — hasta esa fecha decía "fuera de `development`", y en Render
+// APP_ENV vale "development" a propósito: el descarte no corría nunca
+// donde importaba, el mismo error que TR-135 corrigió para DEV_TOOLS). Es la misma lección de TR-125 (un
 // secreto público no es un secreto), pero con otra reacción: acá no se
 // frena el arranque, se degrada a "sin configurar". Confiar en un secreto
 // que está en el repo sería PEOR que no confiar en nada — habilitaría a
 // cualquiera a elegir su IP; no confiar en nada solo hace que la API vea
 // la IP del proceso web, que es como funcionaba antes de la Fase 3.1.1.
-func bffSharedSecret(env string) string {
+func bffSharedSecret(appBaseURL string) string {
 	valor := getEnv("BFF_SHARED_SECRET", "")
-	if env != "development" && valor == BFFSharedSecretDeDesarrollo {
+	if !esLocal(appBaseURL) && valor == BFFSharedSecretDeDesarrollo {
 		return ""
 	}
 	return valor
@@ -178,6 +181,18 @@ func (c Config) SeSirveEnLocalhost() bool {
 	return esLocal(c.AppBaseURL)
 }
 
+// VerificarMailsAutomaticamente — AutoVerifyEmail (TR-051): sin Resend, las
+// cuentas nuevas quedan verificadas de entrada. SOLO en localhost
+// (radiografía técnica 2, B3, 2026-09-26). Desde que una invitación se
+// dirige a un MAIL (Fase 3.2.4), verificar sin prueba deja a cualquiera
+// registrarse con el mail de un invitado y aceptar la invitación en su
+// lugar — con rol de recepción, ve todos los pacientes de la clínica.
+// Antes dependía solo de que RESEND_API_KEY estuviera cargada: borrarla
+// en el dashboard reabría el agujero sin ningún cambio de código.
+func (c Config) VerificarMailsAutomaticamente() bool {
+	return c.ResendAPIKey == "" && c.SeSirveEnLocalhost()
+}
+
 // esLocal — ¿esta URL apunta a la máquina de quien desarrolla? Ante
 // cualquier duda (una URL que no parsea, un host vacío) responde NO: el
 // default tiene que ser el seguro.
@@ -199,6 +214,7 @@ func esLocal(baseURL string) bool {
 // docker-compose.yml).
 func Load() Config {
 	port := getEnv("PORT", "8080")
+	appBaseURL := getEnv("APP_BASE_URL", "http://localhost:3000")
 	return Config{
 		Port:             port,
 		DBUrl:            getEnv("DATABASE_URL", "postgres://dental_mirage:dental_mirage@localhost:5432/dental_mirage?sslmode=disable"),
@@ -207,13 +223,13 @@ func Load() Config {
 
 		AllowDestructiveMigrations: getEnv("DB_ALLOW_DESTRUCTIVE", "false") == "true",
 
-		BFFSharedSecret: bffSharedSecret(getEnv("APP_ENV", "development")),
+		BFFSharedSecret: bffSharedSecret(appBaseURL),
 
 		DevTools: getEnv("DEV_TOOLS", "false") == "true",
 
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 
-		AppBaseURL: getEnv("APP_BASE_URL", "http://localhost:3000"),
+		AppBaseURL: appBaseURL,
 
 		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
 		// Dominio real del cliente (miragesoftware.online) — con nombre de

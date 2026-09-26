@@ -67,7 +67,7 @@ func main() {
 	// firmando el `state` de OAuth con un secreto que cualquiera puede
 	// leer en GitHub. Un secreto crítico tiene que frenar el arranque si
 	// falta, nunca degradar solo.
-	if err := requireExplicitSecretsOutsideDev(cfg); err != nil {
+	if err := requireConfiguracionSeguraFueraDeLocalhost(cfg); err != nil {
 		fatal("configuración insegura", err)
 	}
 
@@ -142,8 +142,21 @@ func main() {
 	}
 }
 
-// requireExplicitSecretsOutsideDev — ver el comentario grande en main()
-// sobre por qué. Función pura sobre la Config ya resuelta: se puede
+// requireConfiguracionSeguraFueraDeLocalhost — ver el comentario grande en
+// main() sobre por qué.
+//
+// Mira la URL pública, no APP_ENV (radiografía técnica 2, 2026-09-26).
+// Se llamaba requireExplicitSecretsOutsideDev y no corría si APP_ENV era
+// "development" — que es lo que vale en Render, a propósito (TR-021): el
+// guard nunca corrió en el único entorno público. Misma lección que
+// TR-135: la señal de "esto es público" es AppBaseURL, de donde salen los
+// links de los mails, no una variable que dice otra cosa.
+//
+// Frena el arranque por dos motivos: el secreto de firma de ejemplo, y la
+// falta de Resend — sin él las cuentas se verificarían solas, y eso deja
+// aceptar invitaciones ajenas (B3). VerificarMailsAutomaticamente ya lo
+// apaga fuera de localhost; esto convierte una configuración rota en un
+// deploy que falla a la vista, en vez de un registro que no manda mails. Función pura sobre la Config ya resuelta: se puede
 // testear sin mutar variables de entorno del proceso de test.
 //
 // Chequea el VALOR RESUELTO, no si la variable de entorno existe (agujero
@@ -160,13 +173,17 @@ func main() {
 // Comparar contra config.OAuthStateSecretDeDesarrollo cubre los cuatro casos de
 // una sola vez: variable ausente, vacía, con solo espacios, o seteada a
 // mano con el mismo valor de ejemplo.
-func requireExplicitSecretsOutsideDev(cfg config.Config) error {
-	if cfg.Env == "development" {
+func requireConfiguracionSeguraFueraDeLocalhost(cfg config.Config) error {
+	if cfg.SeSirveEnLocalhost() {
 		return nil
 	}
 	if cfg.OAuthStateSecret == config.OAuthStateSecretDeDesarrollo {
-		return errors.New("JWT_SECRET es obligatorio fuera de development y no puede quedar vacío — " +
+		return errors.New("JWT_SECRET es obligatorio con una APP_BASE_URL pública y no puede quedar vacío — " +
 			"no se puede arrancar con el secreto de ejemplo del repo")
+	}
+	if cfg.ResendAPIKey == "" {
+		return errors.New("RESEND_API_KEY es obligatoria con una APP_BASE_URL pública — " +
+			"sin ella no salen los códigos de verificación y las cuentas no se pueden verificar")
 	}
 	return nil
 }
@@ -317,8 +334,10 @@ func buildAuthDeps(cfg config.Config, gormDB *gorm.DB, store storage.Storage) ap
 		// de verificación — auto-verificar en vez de dejarlo bloqueado
 		// (pedido explícito del cliente, 2026-08-26, mientras no esté
 		// configurado Resend en Render; ver TR-051 en docs/Arquitectura y base/tradeoffs.md).
-		// Se apaga solo apenas se cargue la env var.
-		AutoVerifyEmail: cfg.ResendAPIKey == "",
+		// Se apaga solo apenas se cargue la env var — y desde la
+		// radiografía técnica 2 (B3), nunca se prende fuera de localhost:
+		// ver config.VerificarMailsAutomaticamente.
+		AutoVerifyEmail: cfg.VerificarMailsAutomaticamente(),
 		// Las dos de abajo YA NO comparten la señal de AutoVerifyEmail.
 		// Son otra clase de cosa: aquella es una decisión de producto (sin
 		// forma de mandar mails, bloquear cuentas nuevas sería peor que
