@@ -20,11 +20,14 @@ La primera radiografía (`radiografia-tecnica_1.md`, 2026-09-08) se hizo cuando 
 7. [Optimización](#optimización)
 8. [Plan de acción](#plan-de-acción)
 9. [Fase A — cómo se cerró](#fase-a--cómo-se-cerró)
-10. [Reproducciones](#reproducciones)
+10. [Fases B y C — cómo se cerraron](#fases-b-y-c--cómo-se-cerraron)
+11. [Reproducciones](#reproducciones)
 
 ---
 
-> **Estado al 2026-09-26: Fase A cerrada** (B1, B2 y B3 arreglados, cada uno con su test de regresión verificado en los dos sentidos) y la **pasada de optimización aplicada** (sección 7). Al arreglar B3 apareció un hallazgo más de la misma familia, **B4**, cerrado en el mismo paso. Ver la sección 9.
+> **Estado al 2026-09-26: Fases A, B y C cerradas** (sección 10). Lo único que queda son dos ítems con su condición escrita: la caché de la página pública entre requests y paginar el buscador.
+>
+> **Fase A cerrada** (B1, B2 y B3 arreglados, cada uno con su test de regresión verificado en los dos sentidos) y la **pasada de optimización aplicada** (sección 7). Al arreglar B3 apareció un hallazgo más de la misma familia, **B4**, cerrado en el mismo paso. Ver la sección 9.
 
 ## Veredicto
 
@@ -218,13 +221,13 @@ Mismo criterio que la primera: primero lo que cierra un riesgo real, después lo
 2. **Cerrar el enlace compartido** (B2): con enlace, el camino "ya he venido antes" solo toca la ficha del enlace. Las dos reproducciones de la sección 8 se vuelven tests que tienen que dar 403/400.
 3. **`AutoVerifyEmail` detrás de `HerramientasDeDesarrolloHabilitadas()`** (B3), y no arrancar con URL pública sin Resend. Resend está cargado en Render, así que no es urgente, pero es barato y evita que el problema vuelva sin que nadie lo note.
 
-### Fase B — Antes de sumar clínicas reales
+### Fase B — Antes de sumar clínicas reales — ✅ **cerrada el 2026-09-26** (ver la sección 10)
 
 1. **Tope por IP en los endpoints públicos de lectura** y el buscador en una consulta, paginado y filtrando `oculta` (A1, A3).
 2. **Contenedores sin root y Alpine soportada** (A2).
 3. **`permissions: contents: read` en CI** y normalizar el mail de Google (a vigilar 5 y 6).
 
-### Fase C — Cuando haga falta
+### Fase C — Cuando haga falta — ✅ **cerrada el 2026-09-26**, salvo lo que tiene condición (ver la sección 10)
 
 1. `object-src 'none'` y `Permissions-Policy` en la CSP, coordinado con Kevin (zona Prisma Engine).
 2. Escapar `%`/`_` en el buscador.
@@ -246,6 +249,29 @@ Cada arreglo en su commit, con un test que **falla con el código anterior y pas
 **Un costo de B2, dicho:** el pedido del cliente de "en 'primera vez', si el DNI y el mail ya son de una ficha verificada, mostrale su tarjeta" deja de aplicar **con un enlace genérico**. El turno se saca igual y queda en su ficha (la detección de conflictos la reconoce por el mail); lo que no aparece es la pantalla "¿Sos vos?". Sin enlace, o con un enlace de ficha, sigue igual.
 
 **B2 tocó `apps/web/src/components/public/pedir-turno-form.tsx` y la optimización tocó `clinicas.go`**, las dos en la zona del plan Prisma Engine, con el OK de Juan en cada caso: solo el wizard de turno, y mismas respuestas JSON.
+
+---
+
+## Fases B y C — cómo se cerraron
+
+Decisiones en `tradeoffs.md` TR-178. Cada cambio, en su commit y con su verificación.
+
+| | Qué se hizo | Verificación |
+|---|---|---|
+| **A1 — tope por IP en las lecturas públicas** | 120 GET por minuto por IP en el buscador, la página pública, el sitemap y la agenda del wizard (`limitarLecturasPublicas`). Los POST del wizard no cuentan: tienen sus topes. El tráfico sin IP pública (desarrollo, tests) tampoco | 3 tests; el del tope falla sacando el middleware |
+| **La página pública ya no dice "no encontrada" ante un error temporal** | Solo responde 404 si la API dice 404. Con la API caída o el tope respondía 404: al visitante le decía que la clínica no existe, y a Google que la saque del índice | Typecheck y build (los Server Components están fuera de la suite, a propósito) |
+| **A2 — contenedores sin root, Alpine con soporte** | API como `app` sobre Alpine 3.24, con `/data/uploads` a su nombre; web como `node`, con `.next` a su nombre | `docker compose up --build`: los dos procesos sin root, el volumen de fotos escribible y el optimizador de imágenes respondiendo y cacheando |
+| **CI con permisos de solo lectura** | `permissions: contents: read` | — |
+| **El mail de Google, normalizado** | Minúsculas, como el registro nativo | Test: sin el arreglo se crean 2 usuarios con el mismo mail |
+| **CSP y Permissions-Policy** | `object-src 'none'`; cámara, micrófono, geolocalización, pagos, USB y `browsing-topics` apagados. Portapapeles y pantalla completa, intactos | Test del middleware |
+| **`%`/`_` literales en el buscador** | Se hizo con la optimización (Fase A) | Test |
+
+**Lo que no se hizo, y por qué:**
+
+- **CI con el mismo parche de Go que producción.** CI usa la versión exacta de `go.mod` (1.26.0) y el Dockerfile la última 1.26.x. Igualarlos exige romper el acople `go.mod` ↔ CI que el Dockerfile pide de forma explícita, o fijar producción en 1.26.0 y dejarla sin parches de seguridad. La diferencia son solo parches menores, y probar sobre el más viejo es lo conservador.
+- **Caché de la página pública entre requests y paginar el buscador.** Siguen con su condición (sección 7): hoy son 12 consultas y ~5 ms por visita, y ~140 bytes por clínica en el buscador.
+
+**Tocó cuatro archivos de la zona Prisma Engine**, con el OK de Juan: `apps/web/Dockerfile`, `.github/workflows/ci.yml`, `apps/web/src/middleware.ts` y `apps/web/src/app/[slug]/page.tsx`.
 
 ---
 

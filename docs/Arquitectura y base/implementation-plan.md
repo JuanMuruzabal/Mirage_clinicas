@@ -806,8 +806,11 @@ Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 
 | **B3/B4 — verificación automática de mail y controles de arranque atados a señales que no dicen "público"** | ✅ TR-176. Latentes: Resend está cargado en Render |
 | **Optimización de los endpoints públicos** | ✅ TR-177. Buscador 201 → 5 consultas; página pública 17 → 12 y fija |
 | **Techo de memoria para los hashes de contraseña** | ✅ TR-177. Como mucho 4 a la vez |
-| **Fase B: tope por IP en las lecturas públicas, contenedores sin root, Alpine soportada, `permissions` en CI** | ⏳ Pendiente, antes de sumar clínicas reales |
-| **Fase C: CSP (`object-src`, `Permissions-Policy`), caché de la página pública, paginar el buscador** | ⏸ Con su condición escrita en la radiografía |
+| **Fase B: tope por IP en las lecturas públicas, contenedores sin root, Alpine soportada, `permissions` en CI, mail de Google normalizado** | ✅ TR-178 |
+| **La página pública ya no responde 404 ante un error temporal** | ✅ TR-178 (encontrado al poner el tope) |
+| **Fase C: CSP (`object-src 'none'`, `Permissions-Policy`)** | ✅ TR-178 |
+| **Fase C: caché de la página pública, paginar el buscador** | ⏸ Con su condición escrita en la radiografía |
+| **Fase C: CI con el parche de Go de producción** | ✖ Descartado (TR-178): rompía el acople `go.mod` ↔ CI o dejaba producción sin parches |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 

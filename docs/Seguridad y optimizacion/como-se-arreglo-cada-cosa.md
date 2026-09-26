@@ -543,6 +543,14 @@ El buscador hacía 201 consultas con 25 clínicas. No hacía falta medir para so
 
 **La idea:** *medí para saber cuánto, no para confirmar lo que ya sospechás; y fijá en un test la propiedad que se rompe (la cantidad), no la que varía (el tiempo).*
 
+### Fases B y C — un límite nuevo destapa un comportamiento viejo
+
+Al poner el tope de lecturas públicas apareció algo que no era de seguridad: la página pública respondía **404 ante cualquier error** de la API. Con la API caída ya pasaba, pero nadie lo veía; con un tope que devuelve 429, se iba a ver seguido. Y un 404 no es inocuo: le dice a Google "esta página ya no existe", y la saca del índice. Un error del servidor le dice "volvé más tarde".
+
+**La idea:** *cuando agregás una forma nueva de fallar, mirá qué hace con ella cada lugar que consume ese error. La falla nueva suele ser correcta; lo que no aguanta es el manejo viejo, que se escribió pensando solo en "no existe".*
+
+Lo otro que vale la pena llevarse de estas fases es la prueba de los contenedores. Pasar a un usuario sin root se escribe en dos líneas y **se rompe en tiempo de ejecución, no al compilar**: el primer upload, o la primera imagen optimizada, fallan por permisos. Por eso la verificación no fue "el build pasa", sino levantar todo con `docker compose` y escribir en el volumen y en la caché de Next como lo haría la app.
+
 ## Resumen en una página
 
 | Arreglo | La idea de fondo |
@@ -567,6 +575,8 @@ El buscador hacía 201 consultas con 25 clínicas. No hacía falta medir para so
 | Controles por URL y no por `APP_ENV` | Al corregir una señal equivocada, buscá todos los que la usan |
 | Consultas fijas en lo público | Fijá en un test lo que se rompe (la cantidad), no lo que varía (el tiempo) |
 | Tope de hashes simultáneos | Lo caro a propósito necesita techo de concurrencia |
+| 404 solo si no existe (Fase B) | Una falla nueva expone el manejo viejo del error |
+| Contenedores sin root | Lo que se rompe al correr se prueba corriendo, no compilando |
 
 ---
 
