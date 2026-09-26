@@ -42,6 +42,32 @@ var DefaultArgon2Params = Argon2Params{
 
 const argon2idPrefix = "$argon2id$"
 
+// HASHES A LA VEZ, CON TOPE (radiografía técnica 2, 2026-09-26). Cada
+// argon2id reserva `Memory` (19 MiB) mientras corre — medido: ~20 MB y
+// ~23 ms de CPU por hash en una máquina de desarrollo, bastante más en la
+// fracción de CPU de Render free. Sin tope, la memoria que usan los logins
+// simultáneos no tiene techo: unos 25 a la vez (un pico, o alguien que los
+// provoque desde muchas IPs, esquivando el límite por IP) llenan los 512 MB
+// de la instancia y el proceso muere para todos. Con el tope, el peor caso
+// es maxHashesSimultaneos × 19 MiB y el resto espera su turno unos
+// milisegundos — mismo criterio que el procesamiento de fotos
+// (internal/imagenes).
+const maxHashesSimultaneos = 4
+
+var hashesEnCurso = make(chan struct{}, maxHashesSimultaneos)
+
+// argon2IDKey — la primitiva, en una variable para que un test pueda
+// reemplazarla y contar cuántas corren a la vez.
+var argon2IDKey = argon2.IDKey
+
+// derivarClave — el ÚNICO lugar donde corre argon2, para que el tope valga
+// igual al hashear (registro, reset) y al verificar (login).
+func derivarClave(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) []byte {
+	hashesEnCurso <- struct{}{}
+	defer func() { <-hashesEnCurso }()
+	return argon2IDKey(password, salt, time, memory, threads, keyLen)
+}
+
 // Hash calcula el hash argon2id de una contraseña, codificado en el
 // formato PHC estándar (`$argon2id$v=19$m=...,t=...,p=...$salt$hash`) —
 // wrapping documentado de la primitiva de golang.org/x/crypto/argon2, no
@@ -58,7 +84,7 @@ func HashWithParams(password string, params Argon2Params) (string, error) {
 		return "", fmt.Errorf("no se pudo generar el salt: %w", err)
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, params.Iterations, params.Memory, params.Parallelism, params.KeyLength)
+	hash := derivarClave([]byte(password), salt, params.Iterations, params.Memory, params.Parallelism, params.KeyLength)
 
 	encoded := fmt.Sprintf(
 		"%sv=%d$m=%d,t=%d,p=%d$%s$%s",
@@ -132,7 +158,7 @@ func verifyArgon2(password, encodedHash string) (bool, error) {
 		return false, fmt.Errorf("no se pudo decodificar el hash: %w", err)
 	}
 
-	got := argon2.IDKey([]byte(password), salt, params.Iterations, params.Memory, params.Parallelism, uint32(len(want)))
+	got := derivarClave([]byte(password), salt, params.Iterations, params.Memory, params.Parallelism, uint32(len(want)))
 
 	// Comparación en tiempo constante (spec §7).
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
