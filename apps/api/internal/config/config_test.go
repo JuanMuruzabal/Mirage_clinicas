@@ -48,28 +48,31 @@ func TestLoad_EnvVacioCaeAlDefault(t *testing.T) {
 	}
 }
 
-// TestLoad_BFFSharedSecretDeEjemploSeDescartaFueraDeDevelopment — el valor
-// de ejemplo está en el repo (docker-compose.yml, los .env.example), así
-// que fuera de development no puede valer como prueba de que un pedido
-// viene del BFF: con él, cualquiera declararía la IP que quisiera y
-// evadiría el rate-limiting y los detectores de abuso del wizard.
+// TestLoad_BFFSharedSecretDeEjemploSeDescartaConURLPublica — el valor de
+// ejemplo está en el repo (docker-compose.yml, los .env.example), así que
+// con una URL pública no puede valer como prueba de que un pedido viene
+// del BFF: con él, cualquiera declararía la IP que quisiera y evadiría el
+// rate-limiting y los detectores de abuso del wizard.
 //
 // Degradar a "sin configurar" deja a la API viendo la IP del proceso web,
 // que es exactamente como funcionaba antes de la Fase 3.1.1 — molesto,
 // pero seguro.
-func TestLoad_BFFSharedSecretDeEjemploSeDescartaFueraDeDevelopment(t *testing.T) {
+//
+// La señal es la URL, no APP_ENV (radiografía técnica 2, 2026-09-26): en
+// Render APP_ENV vale "development" a propósito, y con el criterio viejo
+// el valor de ejemplo se aceptaba justo ahí. Es la fila que importa.
+func TestLoad_BFFSharedSecretDeEjemploSeDescartaConURLPublica(t *testing.T) {
 	t.Setenv("BFF_SHARED_SECRET", BFFSharedSecretDeDesarrollo)
-
 	t.Setenv("APP_ENV", "development")
+
+	t.Setenv("APP_BASE_URL", "http://localhost:3000")
 	if got := Load().BFFSharedSecret; got != BFFSharedSecretDeDesarrollo {
-		t.Errorf("en development = %q, esperaba que el valor de ejemplo sirva", got)
+		t.Errorf("en localhost = %q, esperaba que el valor de ejemplo sirva", got)
 	}
 
-	for _, env := range []string{"staging", "production"} {
-		t.Setenv("APP_ENV", env)
-		if got := Load().BFFSharedSecret; got != "" {
-			t.Errorf("en %s = %q, esperaba vacío — el secreto de ejemplo es público", env, got)
-		}
+	t.Setenv("APP_BASE_URL", "https://miragesoftware.online")
+	if got := Load().BFFSharedSecret; got != "" {
+		t.Errorf("con URL pública y APP_ENV=development (Render) = %q, esperaba vacío — el secreto de ejemplo es público", got)
 	}
 }
 
@@ -77,10 +80,32 @@ func TestLoad_BFFSharedSecretDeEjemploSeDescartaFueraDeDevelopment(t *testing.T)
 // configurado no se toca en ningún entorno.
 func TestLoad_BFFSharedSecretPropioSeRespeta(t *testing.T) {
 	t.Setenv("BFF_SHARED_SECRET", "un-secreto-de-verdad")
-	for _, env := range []string{"development", "staging", "production"} {
-		t.Setenv("APP_ENV", env)
+	for _, url := range []string{"http://localhost:3000", "https://miragesoftware.online"} {
+		t.Setenv("APP_BASE_URL", url)
 		if got := Load().BFFSharedSecret; got != "un-secreto-de-verdad" {
-			t.Errorf("en %s = %q, esperaba el valor configurado", env, got)
+			t.Errorf("con %s = %q, esperaba el valor configurado", url, got)
+		}
+	}
+}
+
+// TestVerificarMailsAutomaticamente_SoloEnLocalhost — radiografía técnica
+// 2, B3: sin Resend, verificar cuentas solas deja aceptar invitaciones
+// ajenas. Solo puede pasar en la máquina de quien desarrolla, aunque
+// alguien borre RESEND_API_KEY en Render.
+func TestVerificarMailsAutomaticamente_SoloEnLocalhost(t *testing.T) {
+	casos := []struct {
+		url, resend string
+		quiere      bool
+	}{
+		{"http://localhost:3000", "", true},
+		{"http://localhost:3000", "re_x", false},
+		{"https://miragesoftware.online", "", false},
+		{"https://miragesoftware.online", "re_x", false},
+	}
+	for _, c := range casos {
+		cfg := Config{AppBaseURL: c.url, ResendAPIKey: c.resend}
+		if got := cfg.VerificarMailsAutomaticamente(); got != c.quiere {
+			t.Errorf("url=%s resend=%q: %v, esperaba %v", c.url, c.resend, got, c.quiere)
 		}
 	}
 }

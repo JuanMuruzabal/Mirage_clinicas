@@ -96,47 +96,81 @@ type clinicaPublicaResponse struct {
 	Personalizada bool `json:"personalizada"`
 }
 
-// ownerProfile busca el ProfessionalProfile del dueño (ClinicMember con
-// role="owner") de una clínica — en el alcance actual (sin invitaciones,
-// spec §9) es siempre exactamente uno, el que la creó en el Paso 3 del
-// wizard.
-func ownerProfile(gdb *gorm.DB, clinicID uuid.UUID) (db.ProfessionalProfile, bool) {
-	var member db.ClinicMember
-	if err := gdb.Scopes(db.ConRol(db.RoleOwner)).Where("clinic_id = ?", clinicID).First(&member).Error; err != nil {
-		return db.ProfessionalProfile{}, false
+// perfilesPublicosDe — el titular y los profesionales activos de VARIAS
+// clínicas, en tres consultas fijas (radiografía técnica 2, pasada de
+// optimización, 2026-09-26): una para las membresías con su rol, una para
+// los perfiles y una para sus especialidades (el Preload).
+//
+// Reemplaza a llamar ownerProfile + profesionalesActivosDeLaClinica por
+// cada clínica, que eran 1 + 2 consultas por profesional y se repetían:
+// medido con 25 clínicas publicadas, el buscador hacía 201 consultas —8 por
+// clínica, creciendo con el sistema— y la página pública calculaba la misma
+// lista dos veces. Mismos criterios que esas dos funciones: el titular es
+// el miembro con rol `owner` (sin mirar el estado, como ownerProfile) y los
+// profesionales, los miembros ACTIVOS con rol `profesional`, en orden de
+// alta.
+type perfilesDeClinica struct {
+	titular       db.ProfessionalProfile
+	profesionales []db.ProfessionalProfile
+}
+
+func perfilesPublicosDe(gdb *gorm.DB, clinicIDs []uuid.UUID) map[uuid.UUID]perfilesDeClinica {
+	out := make(map[uuid.UUID]perfilesDeClinica, len(clinicIDs))
+	if len(clinicIDs) == 0 {
+		return out
 	}
-	var profile db.ProfessionalProfile
-	if err := gdb.Preload("Especialidades").First(&profile, "user_id = ?", member.UserID).Error; err != nil {
-		return db.ProfessionalProfile{}, false
+	var filas []struct {
+		ClinicID uuid.UUID
+		UserID   uuid.UUID
+		Rol      string
+		Status   string
 	}
-	return profile, true
+	if err := gdb.Raw(`
+		SELECT cm.clinic_id, cm.user_id, r.rol, cm.status
+		FROM clinic_members cm
+		JOIN clinic_member_roles r ON r.clinic_member_id = cm.id
+		WHERE cm.clinic_id IN ? AND r.rol IN ?
+		ORDER BY cm.created_at, cm.id`,
+		clinicIDs, []string{db.RoleOwner, db.RoleProfesional}).Scan(&filas).Error; err != nil {
+		return out
+	}
+
+	userIDs := make([]uuid.UUID, 0, len(filas))
+	for _, f := range filas {
+		userIDs = append(userIDs, f.UserID)
+	}
+	var perfiles []db.ProfessionalProfile
+	if len(userIDs) > 0 {
+		if err := gdb.Preload("Especialidades").Where("user_id IN ?", userIDs).Find(&perfiles).Error; err != nil {
+			return out
+		}
+	}
+	perfilDe := make(map[uuid.UUID]db.ProfessionalProfile, len(perfiles))
+	for _, p := range perfiles {
+		perfilDe[p.UserID] = p
+	}
+
+	conTitular := map[uuid.UUID]bool{}
+	for _, f := range filas {
+		p, ok := perfilDe[f.UserID]
+		if !ok {
+			continue
+		}
+		actual := out[f.ClinicID]
+		switch {
+		case f.Rol == db.RoleOwner && !conTitular[f.ClinicID]:
+			actual.titular = p
+			conTitular[f.ClinicID] = true
+		case f.Rol == db.RoleProfesional && f.Status == db.ClinicMemberStatusActive:
+			actual.profesionales = append(actual.profesionales, p)
+		}
+		out[f.ClinicID] = actual
+	}
+	return out
 }
 
 func nombreCompletoProfesional(p db.ProfessionalProfile) string {
 	return strings.TrimSpace(p.Nombre + " " + p.Apellido)
-}
-
-// profesionalesActivosDeLaClinica — Fase 4.2, fix del bug owner-only:
-// desde la Fase 3.2 una clínica puede tener N profesionales, y hasta acá
-// la página pública/el buscador solo miraban al owner (ownerProfile) —
-// una clínica con 3 odontólogos mostraba especialidades como si hubiera
-// uno solo. Mismo filtro que listarEquipoHandler (equipo.go, activos de
-// la clínica) + el Preload que ya usa ownerProfile.
-func profesionalesActivosDeLaClinica(gdb *gorm.DB, clinicID uuid.UUID) []db.ProfessionalProfile {
-	var miembros []db.ClinicMember
-	if err := gdb.Scopes(db.ConRol(db.RoleProfesional)).
-		Where("clinic_id = ? AND status = ?", clinicID, db.ClinicMemberStatusActive).
-		Find(&miembros).Error; err != nil {
-		return nil
-	}
-	perfiles := make([]db.ProfessionalProfile, 0, len(miembros))
-	for _, m := range miembros {
-		var perfil db.ProfessionalProfile
-		if err := gdb.Preload("Especialidades").First(&perfil, "user_id = ?", m.UserID).Error; err == nil {
-			perfiles = append(perfiles, perfil)
-		}
-	}
-	return perfiles
 }
 
 // especialidadesUnicasDe — unión deduplicada de las especialidades de
@@ -182,7 +216,8 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 			oculta = pagina.Oculta
 		}
 
-		profile, _ := ownerProfile(gdb, clinic.ID)
+		perfiles := perfilesPublicosDe(gdb, []uuid.UUID{clinic.ID})[clinic.ID]
+		profile := perfiles.titular
 		var telefono *string
 		if profile.Telefono != "" {
 			telefono = &profile.Telefono
@@ -193,7 +228,7 @@ func getClinicaPublicaHandler(gdb *gorm.DB) http.HandlerFunc {
 		// deja como el del owner a propósito — mostrar a todo el equipo
 		// en la vidriera pública es un cambio de diseño de la plantilla
 		// (Fase 4.5), no el alcance de este fix.
-		especialidades := especialidadesUnicasDe(profesionalesActivosDeLaClinica(gdb, clinic.ID))
+		especialidades := especialidadesUnicasDe(perfiles.profesionales)
 
 		resp := clinicaPublicaResponse{
 			Slug:              clinic.Slug,
@@ -296,11 +331,17 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 		// docs/Arquitectura y base/tradeoffs.md): join 1:1 con paginas_publicas, sin fila o con
 		// `deployada_en` nulo, no aparece en el buscador.
 		query := gdb.Model(&db.Clinic{}).
-			Joins("JOIN paginas_publicas pp ON pp.clinic_id = clinics.id AND pp.deployada_en IS NOT NULL").
+			// `oculta = false` (radiografía técnica 2): una página en modo
+			// mantenimiento (spec §5.2) no aparece en el buscador, igual que
+			// ya no aparecía en el sitemap. Antes se listaba y el resultado
+			// llevaba a la pantalla de mantenimiento.
+			Joins("JOIN paginas_publicas pp ON pp.clinic_id = clinics.id AND pp.deployada_en IS NOT NULL AND pp.oculta = false").
 			Order("clinics.nombre")
 
 		if q != "" {
-			like := "%" + q + "%"
+			// `%` y `_` son comodines de LIKE: escapados, "q=%" busca un
+			// signo de porcentaje en vez de devolver todas las clínicas.
+			like := "%" + escaparComodinesLike(q) + "%"
 			// r.rol = RoleProfesional, no RoleOwner (fix Fase 4.2): buscar
 			// "Dr. García" tiene que encontrar la clínica aunque García no
 			// sea el dueño — antes de este fix, un profesional invitado
@@ -335,18 +376,31 @@ func buscarClinicasHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		ids := make([]uuid.UUID, len(clinics))
+		for i, c := range clinics {
+			ids[i] = c.ID
+		}
+		perfiles := perfilesPublicosDe(gdb, ids)
+
 		out := make([]clinicaResultado, len(clinics))
 		for i, c := range clinics {
-			profile, _ := ownerProfile(gdb, c.ID)
+			profile := perfiles[c.ID].titular
 			out[i] = clinicaResultado{
 				Slug:              c.Slug,
 				NombreClinica:     c.Nombre,
 				ProfesionalNombre: nombreCompletoProfesional(profile),
 				// Unión de todos los profesionales activos, no solo el
 				// owner (mismo fix que getClinicaPublicaHandler).
-				Especialidades: especialidadesUnicasDe(profesionalesActivosDeLaClinica(gdb, c.ID)),
+				Especialidades: especialidadesUnicasDe(perfiles[c.ID].profesionales),
 			}
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
+}
+
+// escaparComodinesLike — la barra invertida, `%` y `_` literales para un
+// patrón LIKE/ILIKE (en Postgres la barra invertida es el carácter de
+// escape por defecto).
+func escaparComodinesLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }

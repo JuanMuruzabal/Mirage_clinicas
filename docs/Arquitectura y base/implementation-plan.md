@@ -795,6 +795,20 @@ Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en me
 | **La configuración de agenda siempre tiene dueño** | ✅ `CHECK (user_id IS NOT NULL) NOT VALID` en las tres tablas: la base rechaza la fila sin dueño que los scopes mostrarían a todos. `NOT VALID` para que una fila vieja en producción no pueda tumbar el deploy |
 | **Auditoría de los ids de la URL** | ✅ `TestAislamiento_LosIDsDeLaURLSeAcotan`: `clinic_id` en todo el paquete, y el filtro del profesional en el panel. Cubre lo que la auditoría existente no veía |
 
+### 12.6 Radiografía técnica 2 (2026-09-26)
+
+Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 completa, Fase 4, Prisma Engine, plan de pulido). Diagnóstico: `docs/Seguridad y optimizacion/radiografia-tecnica_2.md`; porqués: `como-se-arreglo-cada-cosa.md`; decisiones: `tradeoffs.md` TR-175 a TR-177.
+
+| | Estado |
+|---|---|
+| **B1 — Next.js 16.3.0 con dos RCE críticas publicadas** | ✅ 16.3.3. `pnpm audit`: 0 vulnerabilidades |
+| **B2 — el enlace compartido dejaba reservar para pacientes de otra familia** | ✅ TR-175. Reproducido antes (200 y 201) |
+| **B3/B4 — verificación automática de mail y controles de arranque atados a señales que no dicen "público"** | ✅ TR-176. Latentes: Resend está cargado en Render |
+| **Optimización de los endpoints públicos** | ✅ TR-177. Buscador 201 → 5 consultas; página pública 17 → 12 y fija |
+| **Techo de memoria para los hashes de contraseña** | ✅ TR-177. Como mucho 4 a la vez |
+| **Fase B: tope por IP en las lecturas públicas, contenedores sin root, Alpine soportada, `permissions` en CI** | ⏳ Pendiente, antes de sumar clínicas reales |
+| **Fase C: CSP (`object-src`, `Permissions-Policy`), caché de la página pública, paginar el buscador** | ⏸ Con su condición escrita en la radiografía |
+
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.

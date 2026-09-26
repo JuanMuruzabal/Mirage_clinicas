@@ -2,7 +2,7 @@
 
 **PRISMA · Guía de estudio de la auditoría de seguridad y optimización**
 
-Este documento acompaña a `radiografia-tecnica_1.md`. La radiografía dice **qué** estaba mal y **qué** se hizo; este explica **por qué se hizo así y no de otra forma**, qué alternativa se descartó en cada caso, y qué idea general queda para aplicar en otro proyecto.
+Este documento acompaña a `radiografia-tecnica_1.md` y, desde el 2026-09-26, a `radiografia-tecnica_2.md` (sección "Segunda radiografía"). La radiografía dice **qué** estaba mal y **qué** se hizo; este explica **por qué se hizo así y no de otra forma**, qué alternativa se descartó en cada caso, y qué idea general queda para aplicar en otro proyecto.
 
 Está escrito para leerse de arriba a abajo, sin necesidad de tener el código abierto al lado.
 
@@ -17,6 +17,7 @@ Está escrito para leerse de arriba a abajo, sin necesidad de tener el código a
 5. [Fase C — cuando el cambio puede destruir datos](#fase-c--cuando-el-cambio-puede-destruir-datos)
 6. [Cómo se decidió qué NO hacer](#cómo-se-decidió-qué-no-hacer)
 7. [Cómo verificar que un arreglo de verdad arregla algo](#cómo-verificar-que-un-arreglo-de-verdad-arregla-algo)
+8. [Segunda radiografía — las costuras entre features](#segunda-radiografía--las-costuras-entre-features)
 
 ---
 
@@ -498,6 +499,50 @@ Y una vuelta de tuerca: esa copia **no puede vivir en el directorio temporal del
 
 ---
 
+## Segunda radiografía — las costuras entre features
+
+`radiografia-tecnica_2.md` (2026-09-26). La primera encontró problemas **dentro** de un módulo; esta, casi todos **entre** dos, y eso cambia cómo se buscan. Cada feature por separado estaba bien pensada y con su porqué escrito; el problema aparecía al juntar dos que se diseñaron con meses de diferencia.
+
+### B1 — Next.js: empezar por lo que otro ya encontró
+
+Lo primero de la pasada no fue leer código, fue correr `pnpm audit` y `govulncheck`. Tardaron dos minutos y encontraron lo más grave de toda la revisión: dos ejecuciones remotas de código ya publicadas para la versión de Next.js en uso.
+
+**Por qué así.** Una vulnerabilidad publicada es la más barata de explotar: el aviso le dice a cualquiera qué versión atacar. Y es la más barata de arreglar: subir una versión. Revisar a mano un framework de miles de líneas no tiene sentido cuando alguien más ya lo hizo.
+
+**Qué se verificó antes de clasificarla.** Que de verdad aplique: una de las dos solo afecta servidores Windows (producción es Linux), la otra afecta al optimizador de imágenes, y ese endpoint está vivo porque la home usa `next/image`. Un aviso que no aplica no es bloqueante, y uno que sí aplica no puede esperar.
+
+**La idea:** *el escaneo automático va primero, y cada aviso se confirma contra el código antes de clasificarlo.*
+
+### B2 — El enlace compartido: una confianza que se estiró más allá de lo que se decidió
+
+El enlace de "Compartir link" salta la verificación de mail a propósito (TR-120): el profesional se lo manda a alguien de confianza. Meses después, "ya he venido antes" se diseñó sobre una premisa también correcta: para mostrar una ficha, el mail tiene que estar probado. El código que aceptaba "el código de mail **o** el enlace" las juntó, y el enlace pasó a probar cualquier mail.
+
+**Por qué no se sacó el salto de verificación del enlace.** Porque es lo que el cliente pidió y funciona: quien recibe el link saca su turno sin código. Lo que estaba mal no era el salto, era **su alcance**. Un enlace dice "confío en quien lo tiene", no "quien lo tiene es dueño de este mail". Así que se acotó a lo que el enlace sí puede garantizar: la ficha para la que el profesional lo generó.
+
+**Lo descartado.** *Ocultar "ya he venido antes" con enlace genérico:* más simple, pero obliga a un paciente que ya vino a retipear sus datos. *Limitar las consultas por IP:* frena que alguien pruebe muchos mails, no que pruebe uno.
+
+**La idea:** *cuando una excepción de seguridad cruza de una feature a otra, preguntá si lo que la justificaba sigue valiendo en el lugar nuevo.*
+
+### B3 y B4 — La señal equivocada, otra vez
+
+`AutoVerifyEmail` se ataba a "¿está cargado Resend?", y los dos frenos de arranque a "¿`APP_ENV` es `development`?". Ninguna de las dos preguntas es "¿esto es público?". En Render, `APP_ENV` vale `development` a propósito, así que los frenos **nunca corrieron donde importaban**; y la verificación automática, inofensiva cuando se decidió, se volvió un riesgo el día que las invitaciones empezaron a dirigirse a un mail.
+
+Es exactamente el error que TR-135 ya había corregido para las herramientas de desarrollo. Que se repitiera en otros dos lugares dice algo: **la corrección se hizo donde apareció el síntoma, no en todos los lugares que usaban la misma señal**.
+
+**Por qué frenar el arranque sin Resend en vez de solo apagar la verificación automática.** Apagarla sola deja un registro que no manda mails y nadie se entera. Un deploy que no arranca se ve en el momento.
+
+**La idea:** *cuando arreglás un control que miraba la señal equivocada, buscá todos los que miran la misma señal.*
+
+### La optimización: contar antes de tocar
+
+El buscador hacía 201 consultas con 25 clínicas. No hacía falta medir para sospecharlo —había un bucle con dos helpers adentro—, pero medir dijo **cuánto**: 8 por clínica, y no 3 como parecía leyendo el código, porque cada helper tenía su propio N+1 adentro. Sin el número, el arreglo habría atacado la mitad del problema.
+
+**Por qué un test que cuenta consultas, y no uno que mide milisegundos.** Los milisegundos dependen de la máquina y fallan al azar en CI. La cantidad de consultas es determinista, y es justamente lo que se rompe cuando alguien vuelve a poner una consulta dentro de un bucle. El test pregunta "¿con 9 clínicas son las mismas consultas que con 3?", no "¿tarda menos de X?".
+
+**El techo de los hashes.** Mismo principio que "todo lo que entra necesita un techo" (idea 2 de arriba): la memoria que usan los logins la decidía quien los mandaba. argon2id pide 19 MiB por hash a propósito, que es lo que lo hace caro de atacar, y por eso mismo la cantidad simultánea tiene que tener tope.
+
+**La idea:** *medí para saber cuánto, no para confirmar lo que ya sospechás; y fijá en un test la propiedad que se rompe (la cantidad), no la que varía (el tiempo).*
+
 ## Resumen en una página
 
 | Arreglo | La idea de fondo |
@@ -517,6 +562,11 @@ Y una vuelta de tuerca: esa copia **no puede vivir en el directorio temporal del
 | `profesional_id` → `clinics` | En un proyecto que evolucionó, el nombre es la fuente menos confiable |
 | `conflictos_paciente` sin FK | No toda referencia rota es un error: el historial guarda lo que ya no existe |
 | Guardián de migraciones destructivas | Una barrera que molesta cuando no hace falta se termina desactivando |
+| Next.js 16.3.3 (radiografía 2) | El escaneo automático va primero; cada aviso se confirma contra el código |
+| Enlace acotado a su ficha | Una excepción de seguridad no viaja sola a otra feature |
+| Controles por URL y no por `APP_ENV` | Al corregir una señal equivocada, buscá todos los que la usan |
+| Consultas fijas en lo público | Fijá en un test lo que se rompe (la cantidad), no lo que varía (el tiempo) |
+| Tope de hashes simultáneos | Lo caro a propósito necesita techo de concurrencia |
 
 ---
 

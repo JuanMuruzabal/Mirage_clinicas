@@ -392,13 +392,17 @@ func TestPacienteVerificadoPublico_TutorEmailFormatoInvalidoFalla(t *testing.T) 
 // cliente ("el usuario por el link tendria que tambien tener la opcion si
 // ya vino antes, mostrando su tarjeta") depende de que este camino
 // funcione igual que con código.
+//
+// Desde la radiografía técnica 2 (B2, 2026-09-26) eso vale SOLO para un
+// enlace generado desde la ficha: un enlace genérico ya no reemplaza al
+// código (ver enlace_identidad_publica_test.go).
 
 func TestPacienteVerificadoPublico_ConEnlaceTokenExitoso(t *testing.T) {
 	router, gdb := newTestRouter(t)
 	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace1@example.com")
 	email := "bruno@example.com"
 	paciente := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", email)
-	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+	enlaceToken := crearEnlaceParaFichaDePrueba(t, router, reg.Token, paciente.ID.String())
 
 	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30111222", email, enlaceToken), nil)
 	if rec.Code != http.StatusOK {
@@ -443,11 +447,12 @@ func TestPacienteVerificadoPublico_ConEnlaceTokenVencidoFalla(t *testing.T) {
 
 // TestPacienteVerificadoPublico_ConEnlaceTokenSinMatchFalla — mismo 404
 // "primera vez" que con código: el enlace es válido, pero el DNI+mail no
-// pertenecen a ninguna ficha verificada.
+// pertenecen a su ficha.
 func TestPacienteVerificadoPublico_ConEnlaceTokenSinMatchFalla(t *testing.T) {
 	router, gdb := newTestRouter(t)
-	reg, _ := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace4@example.com")
-	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+	reg, tipoID := profesionalConTipoConsulta(t, gdb, router, "pacverif-enlace4@example.com")
+	paciente := crearPacienteVerificadoDePrueba(t, gdb, reg.Profesional.ID, tipoID, "30111222", "bruno@example.com")
+	enlaceToken := crearEnlaceParaFichaDePrueba(t, router, reg.Token, paciente.ID.String())
 
 	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoConEnlaceURL(reg.Profesional.Slug, "30999888", "nadie@example.com", enlaceToken), nil)
 	if rec.Code != http.StatusNotFound {
@@ -461,7 +466,10 @@ func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenListaHijosVerificados
 	tutorEmail := "mama-enlace@example.com"
 	hijo1 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000011", "Mila", tutorEmail, 0)
 	hijo2 := crearPacienteVerificadoConTutorDePrueba(t, gdb, reg.Profesional.ID, tipoID, "41000012", "Nico", tutorEmail, time.Hour)
-	enlaceToken := crearEnlaceTurnoDePrueba(t, router, reg.Token)
+	// Un enlace generado desde la ficha de Mila: la lista del tutor trae a
+	// Mila y a nadie más (radiografía técnica 2, B2). Con código, en
+	// cambio, trae a los dos (ver los tests de arriba con verificacionToken).
+	enlaceToken := crearEnlaceParaFichaDePrueba(t, router, reg.Token, hijo1.ID.String())
 
 	rec := doJSON(t, router, http.MethodGet, pacienteVerificadoTutorConEnlaceURL(reg.Profesional.Slug, tutorEmail, enlaceToken), nil)
 	if rec.Code != http.StatusOK {
@@ -471,12 +479,8 @@ func TestPacienteVerificadoPublico_TutorEmailConEnlaceTokenListaHijosVerificados
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("respuesta no es JSON válido: %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("len(got) = %d, esperaba 2", len(got))
-	}
-	ids := map[string]bool{got[0].ID: true, got[1].ID: true}
-	if !ids[hijo1.ID.String()] || !ids[hijo2.ID.String()] {
-		t.Errorf("ids = %v, esperaba los dos hijos (%s, %s)", ids, hijo1.ID, hijo2.ID)
+	if len(got) != 1 || got[0].ID != hijo1.ID.String() {
+		t.Fatalf("got = %+v, esperaba solo a %s (no a %s)", got, hijo1.ID, hijo2.ID)
 	}
 }
 

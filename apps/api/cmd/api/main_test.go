@@ -6,35 +6,53 @@ import (
 	"dental-mirage/api/internal/config"
 )
 
-// TestRequireExplicitSecretsOutsideDev — corrección de seguridad (auditoría
+// TestRequireConfiguracionSegura — corrección de seguridad (auditoría
 // 2026-09-08, docs/Seguridad y optimizacion/radiografia-tecnica_1.md): en
-// development, JWT_SECRET puede faltar (cae al valor de ejemplo del repo,
-// pensado para no trabar el desarrollo local); en cualquier otro entorno
-// declarado, arrancar con ese valor tiene que ser imposible.
-func TestRequireExplicitSecretsOutsideDev(t *testing.T) {
-	t.Run("en development, con el secreto de ejemplo, no falla", func(t *testing.T) {
-		cfg := config.Config{Env: "development", OAuthStateSecret: config.OAuthStateSecretDeDesarrollo}
-		if err := requireExplicitSecretsOutsideDev(cfg); err != nil {
-			t.Errorf("error = %v, esperaba nil en development", err)
-		}
-	})
-
-	t.Run("fuera de development, con el secreto de ejemplo, falla", func(t *testing.T) {
-		cfg := config.Config{Env: "production", OAuthStateSecret: config.OAuthStateSecretDeDesarrollo}
-		if err := requireExplicitSecretsOutsideDev(cfg); err == nil {
-			t.Error("esperaba un error: arrancar en producción con el secreto público del repo")
-		}
-	})
-
-	t.Run("fuera de development, con un secreto real, no falla", func(t *testing.T) {
-		cfg := config.Config{Env: "production", OAuthStateSecret: "un-secreto-real-de-verdad"}
-		if err := requireExplicitSecretsOutsideDev(cfg); err != nil {
-			t.Errorf("error = %v, esperaba nil con un secreto propio", err)
-		}
-	})
+// la máquina de quien desarrolla, JWT_SECRET puede faltar (cae al valor de
+// ejemplo del repo, pensado para no trabar el desarrollo local); con una
+// URL pública, arrancar con ese valor tiene que ser imposible.
+//
+// Desde la radiografía técnica 2 (2026-09-26) la señal es la URL y no
+// APP_ENV: en Render APP_ENV vale "development" a propósito, así que el
+// guard viejo no corría nunca donde importaba. La fila "Render" de abajo
+// es la que lo prueba.
+func TestRequireConfiguracionSegura(t *testing.T) {
+	const publica = "https://miragesoftware.online"
+	casos := []struct {
+		nombre     string
+		cfg        config.Config
+		debeFallar bool
+	}{
+		{"localhost, con el secreto de ejemplo y sin Resend", config.Config{
+			Env: "development", AppBaseURL: "http://localhost:3000", OAuthStateSecret: config.OAuthStateSecretDeDesarrollo,
+		}, false},
+		{"Render (APP_ENV=development, URL pública) con el secreto de ejemplo", config.Config{
+			Env: "development", AppBaseURL: publica, OAuthStateSecret: config.OAuthStateSecretDeDesarrollo, ResendAPIKey: "re_x",
+		}, true},
+		{"URL pública sin Resend", config.Config{
+			Env: "development", AppBaseURL: publica, OAuthStateSecret: "un-secreto-real", ResendAPIKey: "",
+		}, true},
+		{"URL pública con secreto propio y Resend", config.Config{
+			Env: "development", AppBaseURL: publica, OAuthStateSecret: "un-secreto-real", ResendAPIKey: "re_x",
+		}, false},
+		{"APP_ENV=production no alcanza para eximir: manda la URL", config.Config{
+			Env: "production", AppBaseURL: publica, OAuthStateSecret: config.OAuthStateSecretDeDesarrollo, ResendAPIKey: "re_x",
+		}, true},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			err := requireConfiguracionSeguraFueraDeLocalhost(caso.cfg)
+			if caso.debeFallar && err == nil {
+				t.Error("el guard dejó arrancar")
+			}
+			if !caso.debeFallar && err != nil {
+				t.Errorf("el guard frenó un arranque legítimo: %v", err)
+			}
+		})
+	}
 }
 
-// TestRequireExplicitSecretsOutsideDev_ContraConfigLoadReal — el test que
+// TestRequireConfiguracionSegura_ContraConfigLoadReal — el test que
 // cierra el agujero encontrado al revisar la Fase A (2026-09-09), y la
 // razón por la que va contra config.Load() de verdad en vez de armar una
 // Config a mano: el bug vivía justamente en la juntura entre las dos
@@ -52,7 +70,10 @@ func TestRequireExplicitSecretsOutsideDev(t *testing.T) {
 //
 //	cfg.OAuthStateSecret resuelto = "dev-secret-cambiar-en-produccion"
 //	AGUJERO CONFIRMADO: el guard dejó arrancar
-func TestRequireExplicitSecretsOutsideDev_ContraConfigLoadReal(t *testing.T) {
+//
+// Desde la radiografía técnica 2, con la configuración de Render de verdad
+// (APP_ENV=development y una URL pública), que el guard anterior no veía.
+func TestRequireConfiguracionSegura_ContraConfigLoadReal(t *testing.T) {
 	casos := []struct {
 		nombre     string
 		valor      string
@@ -71,11 +92,13 @@ func TestRequireExplicitSecretsOutsideDev_ContraConfigLoadReal(t *testing.T) {
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			// t.Setenv restaura el valor previo al terminar el subtest.
-			t.Setenv("APP_ENV", "production")
+			t.Setenv("APP_ENV", "development")
+			t.Setenv("APP_BASE_URL", "https://miragesoftware.online")
+			t.Setenv("RESEND_API_KEY", "re_de_prueba")
 			t.Setenv("JWT_SECRET", caso.valor)
 
 			cfg := config.Load()
-			err := requireExplicitSecretsOutsideDev(cfg)
+			err := requireConfiguracionSeguraFueraDeLocalhost(cfg)
 			if caso.debeFallar && err == nil {
 				t.Errorf("el guard dejó arrancar con OAuthStateSecret resuelto = %q", cfg.OAuthStateSecret)
 			}
