@@ -30,7 +30,9 @@ Lo que encontró esta pasada está en otro lado: en **las costuras entre feature
 
 | Bloqueante | Alto impacto | A vigilar | Ya está bien |
 |---|---|---|---|
-| 3 | 3 | 8 | 14 |
+| 2 | 3 | 8 | 14 |
+
+> **B3 bajó de bloqueante a latente (2026-09-26):** Juan confirmó que Render tiene cargada `RESEND_API_KEY`, así que en producción la verificación automática de mail está apagada y B3 no se puede explotar hoy. Queda documentado porque se reactiva solo con borrar esa variable.
 
 ---
 
@@ -62,7 +64,7 @@ El enlace de "Compartir link" (TR-120) salta la verificación de mail **a propó
 
 > `internal/http/paciente_verificado_publico.go:336` (`validarIdentidadPublicaOEnlace`), `:384` (modo tutor) · `internal/http/turno_publico.go:1018` y `:1351` (reserva con `pacienteVerificadoId`)
 
-### 🔴 B3 — Sin Resend configurado, cualquiera acepta una invitación dirigida a otra persona — reproducido, condicional
+### 🟡 B3 (latente) — Sin Resend configurado, cualquiera acepta una invitación dirigida a otra persona — reproducido, condicional
 
 Sin `RESEND_API_KEY`, `AutoVerifyEmail` deja las cuentas nuevas **verificadas de entrada** (TR-051). Cuando se decidió no exponía nada. Desde la Fase 3.2.4, **una invitación se dirige a un MAIL**, y aceptarla solo exige que la sesión sea de una cuenta con ese mail (`invitacionParaMi` compara `user.Email`). Sumadas:
 
@@ -72,7 +74,7 @@ Sin `RESEND_API_KEY`, `AutoVerifyEmail` deja las cuentas nuevas **verificadas de
 
 Lo mismo vale para una invitación de `profesional` (con matrícula inventada) o de `admin` (edita la página pública).
 
-**Es condicional:** depende de si Render tiene cargada `RESEND_API_KEY`. Es `sync: false` en `render.yaml`, así que desde el repo no se puede saber. **Si está cargada, este hallazgo no aplica a producción** (baja a "a vigilar"). Si no, es el más grave de la lista.
+**Es condicional:** depende de si Render tiene cargada `RESEND_API_KEY`. Es `sync: false` en `render.yaml`, así que desde el repo no se puede saber. **Confirmado el 2026-09-26: está cargada**, así que hoy no aplica a producción. El riesgo es que vuelva solo: alcanza con que alguien borre o renombre la variable, sin ningún cambio de código.
 
 **Arreglo propuesto, en cualquiera de los dos casos:** poner `AutoVerifyEmail` detrás de `HerramientasDeDesarrolloHabilitadas()`, como ya se hizo con `ExponerCodigoVerificacion` y `SimularBloqueosSeguridad` (TR-135): la auditoría de TR-135 ya advertía que atarlo a "¿está configurado Resend?" era atarlo a una variable no relacionada. Y que el proceso se niegue a arrancar con un `APP_BASE_URL` público y sin Resend, igual que con el secreto de firma (A4 de la primera radiografía).
 
@@ -165,7 +167,7 @@ Mismo criterio que la primera: primero lo que cierra un riesgo real, después lo
 
 1. **Subir Next.js a 16.3.3** (B1). Verificación: `pnpm audit` sin críticas, `build:web` y la suite web.
 2. **Cerrar el enlace compartido** (B2): con enlace, el camino "ya he venido antes" solo toca la ficha del enlace. Las dos reproducciones de la sección 8 se vuelven tests que tienen que dar 403/400.
-3. **`AutoVerifyEmail` detrás de `HerramientasDeDesarrolloHabilitadas()`** (B3), y no arrancar con URL pública sin Resend. Antes: **confirmar en el dashboard de Render si `RESEND_API_KEY` está cargada.**
+3. **`AutoVerifyEmail` detrás de `HerramientasDeDesarrolloHabilitadas()`** (B3), y no arrancar con URL pública sin Resend. Resend está cargado en Render, así que no es urgente, pero es barato y evita que el problema vuelva sin que nadie lo note.
 
 ### Fase B — Antes de sumar clínicas reales
 
