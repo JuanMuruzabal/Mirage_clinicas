@@ -41,6 +41,13 @@ func TestRunMigrations_BienvenidaALasCuentasExistentes(t *testing.T) {
 			if n != 1 {
 				t.Errorf("corrida %d: la cuenta %s tiene %d bienvenidas, esperaba 1", corrida, u.Email, n)
 			}
+			// La fecha también: el INSERT ... SELECT no pasa por GORM, y sin
+			// ella la tarjeta mostraba el epoch ("31 dic").
+			var sinFecha int64
+			gdb.Model(&db.Notificacion{}).Where("user_id = ? AND created_at IS NULL", u.ID).Count(&sinFecha)
+			if sinFecha != 0 {
+				t.Errorf("corrida %d: la bienvenida de %s quedó sin fecha", corrida, u.Email)
+			}
 		}
 	}
 }

@@ -41,8 +41,11 @@ type Notificacion struct {
 	Datos   DatosNotificacion `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
 	// LeidaEn nil = nueva. Se marca al abrirla, nunca al mostrarla en la
 	// lista: "leída" quiere decir que la persona la expandió.
-	LeidaEn   *time.Time `gorm:"column:leida_en"`
-	CreatedAt time.Time  `gorm:"index:idx_notificaciones_bandeja,priority:2,sort:desc"`
+	LeidaEn *time.Time `gorm:"column:leida_en"`
+	// CreatedAt — con default en la base: el backfill de las bienvenidas
+	// inserta por SQL, sin pasar por GORM, y sin default quedaba NULL (la
+	// tarjeta decía "31 dic", el epoch en la hora de Córdoba).
+	CreatedAt time.Time `gorm:"not null;default:now();index:idx_notificaciones_bandeja,priority:2,sort:desc"`
 }
 
 func (Notificacion) TableName() string { return "notificaciones" }
@@ -99,8 +102,8 @@ const migracionBienvenidas = "bienvenida_a_las_cuentas_existentes"
 
 func backfillBienvenidas(tx *gorm.DB) error {
 	return tx.Exec(`
-		INSERT INTO notificaciones (user_id, tipo)
-		SELECT u.id, ? FROM users u
+		INSERT INTO notificaciones (user_id, tipo, created_at)
+		SELECT u.id, ?, now() FROM users u
 		WHERE NOT EXISTS (
 			SELECT 1 FROM notificaciones n WHERE n.user_id = u.id AND n.tipo = ?
 		)`, NotificacionBienvenida, NotificacionBienvenida).Error
