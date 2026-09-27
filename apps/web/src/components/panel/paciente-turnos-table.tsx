@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useAltoDeFilas } from "@/lib/alto-de-filas";
+import { FechaHoraCelda } from "./fecha-hora-celda";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import {
   ESTADO_DERIVADO_CLASS,
   ESTADO_DERIVADO_LABEL,
   estadoDeTurno,
-  formatFechaHora,
   temaTipoConsulta,
 } from "@/lib/turno-format";
 import { rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
@@ -143,6 +144,9 @@ function FilaSinAccion({
 }
 
 export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRangosRapidos = true }: PacienteTurnosTableProps) {
+  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
+  const cajaTabla = useRef<HTMLDivElement>(null);
+  useAltoDeFilas(cajaTabla);
   // Confirmado — lo que de verdad filtra la tabla de abajo.
   const [tipoId, setTipoId] = useState("todos");
   const [desde, setDesde] = useState("");
@@ -332,7 +336,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
         // su propia scrollbar vertical (`.panel-table-scroll`, ver
         // globals.css) con un historial largo, en vez de alargar la
         // página (mismo criterio que turnos-table.tsx/pacientes/page.tsx).
-        <div className="panel-table-scroll max-h-[400px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[18rem] max-md:overflow-x-hidden md:overflow-x-auto">
+        <div ref={cajaTabla} className="panel-table-scroll max-h-[400px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,18rem)] max-md:overflow-x-hidden md:overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               {/* border-b (1px) en mobile — pedido explícito del cliente,
@@ -415,7 +419,9 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">
+                      <FechaHoraCelda iso={t.horaInicio} />
+                    </td>
                     <td className="px-4 py-3">
                       {/* Mismo estado derivado que /panel/turnos: suma
                           "En proceso" y renombra "Confirmado" a

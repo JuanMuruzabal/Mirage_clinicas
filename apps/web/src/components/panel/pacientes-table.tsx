@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import type { Paciente } from "@dental-mirage/shared-types";
 import { textoEsLargo } from "@/lib/texto-largo";
 import { VerTextoBoton } from "../ver-texto-boton";
@@ -11,6 +11,7 @@ import { EstadoVerificadoBadge } from "./estado-verificado-badge";
 import { CargarMas } from "./cargar-mas";
 import { listPacientesPaginadoAction } from "@/app/actions/pacientes";
 import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
+import { useAltoDeFilas } from "@/lib/alto-de-filas";
 import type { ListarPacientesParams } from "@/lib/api";
 import { PACIENTES_POR_PAGINA } from "@/lib/paginacion";
 
@@ -51,6 +52,9 @@ function todosLosContactos(p: Paciente): { mails: string[]; telefonos: string[] 
 // desde `md` el chevron de acá queda oculto porque DNI/Email ya se ven
 // como columnas propias, no hace falta desplegar nada.
 export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, filtros }: PacientesTableProps) {
+  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
+  const cajaTabla = useRef<HTMLDivElement>(null);
+  useAltoDeFilas(cajaTabla);
   // useEstadoDelServidor y no useState: con useState, los datos nuevos
   // que trae `router.refresh()` se ignoraban y la tabla solo se
   // actualizaba con F5 (ver el comentario grande de ese hook).
@@ -87,7 +91,7 @@ export function PacientesTable({ pacientes: pacientesIniciales, totalInicial, fi
 
   return (
     <>
-    <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
+    <div ref={cajaTabla} className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,21rem)] max-md:overflow-x-hidden md:overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
           {/* border-b (1px) en mobile — pedido explícito del cliente,

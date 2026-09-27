@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useAltoDeFilas } from "@/lib/alto-de-filas";
+import { FechaHoraCelda } from "./fecha-hora-celda";
 import Link from "next/link";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
@@ -12,7 +14,6 @@ import {
   ESTADO_DERIVADO_LABEL,
   ORIGEN_LABEL,
   estadoDeTurno,
-  formatFechaHora,
   temaTipoConsulta,
 } from "@/lib/turno-format";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
@@ -97,6 +98,9 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
   // establecido, ver el comentario ahí) — un efecto de montaje simple
   // alcanza, no hace falta re-disparar esto en ningún otro momento.
   const filaAbiertaRef = useRef<HTMLTableRowElement>(null);
+  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
+  const cajaTabla = useRef<HTMLDivElement>(null);
+  useAltoDeFilas(cajaTabla);
   useEffect(() => {
     filaAbiertaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
@@ -387,7 +391,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
           iOS con rebote elástico (2026-08-28): WebKit no soporta bien
           el sticky en thead/tr durante el overscroll, sí en las celdas
           directamente. */}
-      <div className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[21rem] max-md:overflow-x-hidden md:overflow-x-auto">
+      <div ref={cajaTabla} className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,21rem)] max-md:overflow-x-hidden md:overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
@@ -484,7 +488,9 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                         t.motivo || "—"
                       )}
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{formatFechaHora(t.horaInicio)}</td>
+                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">
+                      <FechaHoraCelda iso={t.horaInicio} />
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoVisible]}`}>
                         <QuadrantMark estado={t.estado} />
