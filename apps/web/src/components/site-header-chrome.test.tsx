@@ -107,7 +107,9 @@ describe("SiteHeaderChrome — menú mobile (estado anónimo)", () => {
 
     expect(container.querySelector("header")).toHaveClass("bg-transparent");
     await user.click(screen.getByRole("button", { name: "Abrir menú" }));
-    expect(container.querySelector("header")).toHaveClass("bg-porcelain");
+    // Marfil y no porcelana desde el rediseño de la home (2026-09-26): la
+    // piel cálida es de todo el sitio.
+    expect(container.querySelector("header")).toHaveClass("bg-marfil");
   });
 
   it("no muestra el botón de menú mobile en los otros dos estados (un solo botón compacto, nunca desborda)", () => {

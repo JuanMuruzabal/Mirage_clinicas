@@ -1,0 +1,266 @@
+/* La home pública (2026-09-26, rediseño pedido por el cliente: "atacando
+   el dolor del profesional, con animaciones bien pulidas, que demuestre el
+   carácter de la app"). Un archivo aparte de globals.css porque todo esto
+   es de UNA página: no tiene por qué viajar a las demás.
+
+   Dos familias de animación:
+   - `.rv*` (revelar): se arma una vez cuando la parte entra en la
+     pantalla. El disparo lo decide `Revelar` (components/home/revelar.tsx);
+     sin JavaScript se arma al pintar.
+   - `.lp*` (bucle): las ilustraciones de producto, que se mueven mientras
+     se las mira, con ritmos lentos y pausas largas.
+   Con "reducir movimiento" no se mueve nada: todo queda en su estado final
+   (y las ilustraciones, en el cuadro que mejor las explica). */
+
+.home-oscuro {
+  background-color: var(--color-grafito);
+  background-image: url("/textures/soft-cross-claro.svg");
+  color: var(--color-marfil);
+}
+.home-claro {
+  background-color: var(--color-hueso);
+  background-image: url("/textures/soft-cross.svg");
+}
+.home-calma {
+  background-color: var(--color-salvia-oscuro);
+  background-image: url("/textures/soft-cross-claro.svg");
+  color: var(--color-marfil);
+}
+
+/* ── Revelar ─────────────────────────────────────────────────────────── */
+.revelar {
+  --rv-retraso: calc(var(--revelar-orden, 0) * 110ms);
+  --rv-curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.revelar[data-revelar="activo"] {
+  --rv-retraso: 0ms;
+}
+.rv {
+  animation: rv-subir 760ms var(--rv-curva) backwards;
+  animation-delay: calc(var(--rv-retraso) + var(--i, 0) * 110ms);
+}
+.rv--izq { animation-name: rv-izq; }
+.rv--der { animation-name: rv-der; }
+.rv--escala { animation-name: rv-escala; }
+.rv--linea {
+  transform-origin: top;
+  animation-name: rv-linea;
+  animation-duration: 1600ms;
+}
+/* El mensaje de WhatsApp se ve primero y recién después se apaga y se
+   tacha, cuando aparece a su lado lo que pasa con PRISMA. */
+.rv--apagar {
+  animation-name: rv-apagar;
+  animation-duration: 900ms;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--rv-retraso) + 700ms + var(--i, 0) * 110ms);
+}
+.rv--tachar {
+  transform-origin: left;
+  animation-name: rv-tachar;
+  animation-duration: 600ms;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--rv-retraso) + 800ms + var(--i, 0) * 110ms);
+}
+.revelar[data-revelar="en-espera"] {
+  visibility: hidden;
+}
+.rv--linea-h {
+  transform-origin: left;
+  animation-name: rv-tachar;
+  animation-duration: 1400ms;
+}
+/* El propio contenedor también puede ser `.rv` (los paneles de funciones):
+   el reinicio lo alcanza a él, no solo a lo de adentro. */
+.revelar[data-revelar="en-espera"].rv,
+.revelar[data-revelar="en-espera"] .rv {
+  animation: none;
+}
+
+@keyframes rv-subir { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes rv-izq { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes rv-der { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes rv-escala { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes rv-linea { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes rv-apagar { from { opacity: 1; } to { opacity: 0.38; } }
+@keyframes rv-tachar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* El contador de mensajes del "martes cualquiera": un número que sube
+   con la lista. `@property` deja animar un entero; donde no existe, el
+   número aparece ya en su valor final. */
+@property --home-contador {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
+.home-contador {
+  counter-reset: mensajes var(--home-contador);
+  --home-contador: var(--home-contador-final, 0);
+  animation: home-contar 2200ms steps(7, end) backwards;
+  animation-delay: calc(var(--rv-retraso, 0ms) + 300ms);
+}
+.home-contador::after {
+  content: counter(mensajes);
+}
+.revelar[data-revelar="en-espera"] .home-contador {
+  animation: none;
+}
+@keyframes home-contar { from { --home-contador: 0; } }
+
+/* ── La agenda viva del hero ─────────────────────────────────────────
+   Un ciclo de 13 s: los turnos entran de a uno —como entran de verdad,
+   desde la página pública—, llega el aviso al celular, se queda un rato
+   y el día vuelve a empezar. */
+.lp-turno {
+  animation: lp-turno 13s var(--rv-curva, ease-out) infinite backwards;
+  animation-delay: calc(0.8s + var(--i, 0) * 1.1s);
+}
+.lp-aviso {
+  animation: lp-aviso 13s cubic-bezier(0.2, 0.8, 0.2, 1) infinite backwards;
+  animation-delay: 4.4s;
+}
+.lp-flotar {
+  animation: lp-flotar 7s ease-in-out infinite;
+  animation-delay: var(--retraso, 0s);
+}
+@keyframes lp-turno {
+  0% { opacity: 0; transform: translateX(28px); }
+  5%, 84% { opacity: 1; transform: none; }
+  90%, 100% { opacity: 0; transform: none; }
+}
+@keyframes lp-aviso {
+  0% { opacity: 0; transform: translateY(-18px) scale(0.96); }
+  4%, 74% { opacity: 1; transform: none; }
+  80%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes lp-flotar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ── Las ilustraciones de cada función ───────────────────────────────── */
+
+/* Turnos que se piden solos: los cuatro pasos del wizard se encienden en
+   orden. */
+.lp-paso {
+  animation: lp-paso 6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.9s);
+}
+@keyframes lp-paso {
+  0%, 8% { background-color: var(--color-marfil); color: var(--color-grafito); border-color: var(--color-linea); }
+  14%, 70% { background-color: var(--color-salvia-oscuro); color: var(--color-marfil); border-color: var(--color-salvia-oscuro); }
+  80%, 100% { background-color: var(--color-marfil); color: var(--color-grafito); border-color: var(--color-linea); }
+}
+
+/* Nunca dos turnos a la misma hora: el segundo intenta caer en el mismo
+   casillero, rebota y se acomoda en el siguiente libre. */
+.lp-choque {
+  animation: lp-choque 5.5s cubic-bezier(0.3, 0.7, 0.3, 1) infinite;
+}
+@keyframes lp-choque {
+  0%, 6% { opacity: 0; transform: translate(0, -36px); }
+  18% { opacity: 1; transform: translate(0, 0); }
+  22% { transform: translate(-6px, 0); }
+  26% { transform: translate(6px, 0); }
+  30% { transform: translate(-3px, 0); }
+  34% { transform: translate(0, 0); }
+  48%, 86% { opacity: 1; transform: translate(0, 46px); }
+  94%, 100% { opacity: 0; transform: translate(0, 46px); }
+}
+.lp-choque-aviso {
+  animation: lp-choque-aviso 5.5s ease-in-out infinite;
+}
+@keyframes lp-choque-aviso {
+  0%, 18% { opacity: 0; }
+  22%, 36% { opacity: 1; }
+  42%, 100% { opacity: 0; }
+}
+
+/* Tu página, con tu cara: la portada cambia de tema. */
+.lp-portada {
+  animation: lp-portada 9s steps(1, end) infinite;
+}
+@keyframes lp-portada {
+  0% { background-color: var(--color-salvia-oscuro); }
+  33% { background-color: var(--color-acero-oscuro); }
+  66% { background-color: var(--color-terracota-oscuro); }
+}
+.lp-publicar {
+  animation: lp-publicar 3s ease-in-out infinite;
+}
+@keyframes lp-publicar {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-salvia-oscuro) 40%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-salvia-oscuro) 0%, transparent); }
+}
+
+/* Un link para compartir: sale volando hacia el chat. */
+.lp-link {
+  animation: lp-link 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes lp-link {
+  0%, 20% { opacity: 1; transform: none; }
+  45% { opacity: 0; transform: translate(70px, -22px) scale(0.7); }
+  46%, 60% { opacity: 0; transform: none; }
+  75%, 100% { opacity: 1; transform: none; }
+}
+.lp-recibido {
+  animation: lp-recibido 5s ease-out infinite;
+}
+@keyframes lp-recibido {
+  0%, 42% { opacity: 0; transform: translateY(8px); }
+  50%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; }
+}
+
+/* Cada uno con su agenda: la mirada de recepción recorre las columnas. */
+.lp-foco {
+  animation: lp-foco 7.5s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+}
+@keyframes lp-foco {
+  0%, 22% { transform: translateX(0); }
+  33%, 55% { transform: translateX(100%); }
+  66%, 88% { transform: translateX(200%); }
+  100% { transform: translateX(0); }
+}
+
+/* Te enterás en el momento: la campana se sacude y el aviso entra. */
+.lp-campana {
+  transform-origin: 50% 10%;
+  animation: lp-campana 4.5s ease-in-out infinite;
+}
+@keyframes lp-campana {
+  0%, 30%, 100% { transform: rotate(0); }
+  34% { transform: rotate(14deg); }
+  38% { transform: rotate(-12deg); }
+  42% { transform: rotate(8deg); }
+  46% { transform: rotate(0); }
+}
+.lp-push {
+  animation: lp-push 4.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+@keyframes lp-push {
+  0%, 30% { opacity: 0; transform: translateY(-14px); }
+  38%, 86% { opacity: 1; transform: none; }
+  94%, 100% { opacity: 0; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv,
+  .home-contador,
+  .lp-turno, .lp-aviso, .lp-flotar, .lp-paso, .lp-choque, .lp-choque-aviso,
+  .lp-portada, .lp-publicar, .lp-link, .lp-recibido, .lp-foco, .lp-campana, .lp-push {
+    animation: none !important;
+  }
+  .revelar[data-revelar="en-espera"] {
+    visibility: visible;
+  }
+  /* Los "apagados" y "tachados" son el final de la historia: quedan así. */
+  .rv--apagar { opacity: 0.38; }
+  .rv--tachar { transform: none; }
+  .lp-paso:nth-child(-n + 3) {
+    background-color: var(--color-salvia-oscuro);
+    color: var(--color-marfil);
+    border-color: var(--color-salvia-oscuro);
+  }
+  .lp-choque { transform: translate(0, 46px); }
+}
