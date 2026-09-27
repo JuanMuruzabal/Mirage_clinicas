@@ -40,14 +40,14 @@ describe("HeaderFrame", () => {
     expect(header.className).not.toContain("bg-porcelain");
   });
 
-  it("en el Home sin scrollear, transparente sobre el hero oscuro (texto claro)", () => {
+  it("en el Home sin scrollear, transparente sobre el hero claro (texto grafito)", () => {
     usePathnameMock.mockReturnValue("/");
     const { container } = render(
       <HeaderFrame>
         <p>contenido</p>
       </HeaderFrame>,
     );
-    expect(container.querySelector("header")).toHaveClass("bg-transparent", "text-marfil");
+    expect(container.querySelector("header")).toHaveClass("bg-transparent", "text-grafito");
   });
 
   // Desde el rediseño de la home (2026-09-26), con la piel cálida como el
