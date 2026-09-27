@@ -3172,6 +3172,40 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - Un volumen de fotos local creado ANTES de este cambio puede haber quedado de root; en ese caso la subida local falla hasta recrear el volumen (`docker volume rm dental_mirage_uploads_data`). En la prueba de hoy el volumen existente quedó con el dueño correcto.
 - CI sigue probando con Go 1.26.0 mientras producción compila con el último 1.26.x: igualarlos rompía el acople `go.mod` ↔ CI o dejaba producción sin parches.
 
+## TR-179: Notificaciones por cuenta, y avisos al celular con Web Push
+
+- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app.
+- **Lo que confirmó el cliente:** avisan **solo los turnos que entran solos** (página pública y link compartido; uno cargado desde el panel ya lo sabe quien lo cargó). Los recibe **el profesional que atiende y la recepción de esa clínica**; la copia de recepción dice para qué profesional es. **Nadie ve la bandeja de otro.** La bienvenida la reciben todas las cuentas, también las que ya existían.
+
+### Las decisiones
+
+1. **La bandeja es de la CUENTA, no de la clínica** (`notificaciones.user_id`). La campana suma las de todas sus clínicas, y cada aviso guarda de cuál viene. Leer o abrir una ajena da **404** (mismo criterio que la ficha de un paciente ajeno); la consulta por id va con `user_id` y está declarada en la auditoría de ids de la URL.
+2. **El aviso es una FOTO del turno al crearse** (`datos` jsonb: paciente, clínica, profesional, tipo, horario), y `turno_id` va **sin foreign key**, como `conflictos_paciente` (TR-131): es historial, y un turno puede dejar de existir. Lo que puede haber cambiado se resuelve **al abrirlo** (`POST /me/notificaciones/{id}/abrir`): la fecha actual si lo reprogramaron, la lista de canceladas si lo cancelaron, el calendario si ya no existe, `/clinicas` si la persona ya no trabaja ahí.
+3. **Abrir un aviso deja la sesión donde el turno se ve:** cambia la clínica activa si hace falta (y la web recarga la página entera, porque el header mostraría la anterior), y para recepción pone el foco en el profesional del turno (TR-160). Sin eso, "Ver turno" llevaba a un calendario donde el turno no estaba.
+4. **El panel entra desde la derecha, del lado de la campana** (corrección del cliente: la primera versión entraba por la izquierda). **Las dos pestañas se cargan juntas al abrirlo**, y cambiar de pestaña no pide nada: pedir en cada cambio mostraba el esqueleto de carga un instante. "Leídas" suma arriba las que se leyeron en esa apertura.
+5. **"Leída" quiere decir que la persona la EXPANDIÓ**, no que la vio en la lista. La que se lee se queda en "Nuevas" mientras el panel sigue abierto —sin el punto—: si desapareciera al tocarla, no se podría leer lo que se acaba de abrir.
+6. **Nacen en la misma transacción que el turno** (`crearNotificacionesDeTurnoNuevo`, en `turno_publico.go`), así que un turno que se revierte no deja avisos colgados; cuando un detector de abuso del wizard (Fase 2.4) borra turnos, borra también sus avisos.
+7. **El número de la campana es un endpoint sondeado, y se mide como tal (TR-162):** cada 60 s y solo con la pestaña visible, más al volver a ella; `/me/notificaciones/contador` es un `COUNT` sobre un índice parcial de las no leídas (`idx_notificaciones_nuevas`). Cuando llega un push, el service worker les avisa a las pestañas abiertas y el número se actualiza al instante.
+8. **Avisos al celular con Web Push estándar (VAPID + `aes128gcm`, RFC 8291/8292), implementado con la biblioteca estándar de Go** (`internal/push`). El cifrado se verifica contra el vector de prueba del RFC 8291 byte por byte; la firma VAPID es un ES256 armado a mano, sin sumar una librería de JWT (TR-125: acá no hay JWT, y así sigue). Se probó de punta a punta contra el servicio de push de Mozilla: el navegador descifró el aviso y lo mostró.
+9. **Mismo patrón dev/prod que el resto de las dependencias externas:** sin `VAPID_*` hay un `LogEnviador` y la opción de activar avisos no se ofrece; con una sola de las dos claves, o con un par que no corresponde, **el proceso no arranca**. Las claves se generan con `go run ./cmd/vapid`.
+10. **La suscripción es por DISPOSITIVO** (`push_suscripciones`, `endpoint` único): activarlos en el celular no los activa en la compu. En un navegador compartido la suscripción queda a nombre de la última cuenta que entró. Un endpoint que el servicio de push da por muerto (404/410) se borra solo.
+11. **El envío va en una goroutine DESPUÉS de comitear**, no para paralelizar consultas (TR-161 sigue en pie): el paciente que saca el turno no espera a Google o Apple. Las suscripciones se leen antes, en el request; la goroutine solo toca la base para borrar una vencida, y usa el pool, no la transacción del request.
+12. **La app es instalable** (`app/manifest.ts`, íconos en `public/icons/`, `appleWebApp`). El service worker (`public/sw.js`) solo maneja avisos: **no cachea nada ni intercepta pedidos**, para que un deploy nuevo nunca deje a nadie en una versión vieja. Tocar un aviso abre `/notificaciones/<id>`, que hace lo mismo que "Ver turno" y redirige con una Location relativa.
+13. **La bienvenida**: las cuentas nuevas la reciben al registrarse (nativo o Google); las existentes, una sola vez, por `aplicarUnaVez` (TR-123). `created_at` tiene default `now()` en la base: el backfill inserta por SQL, y sin default quedaba NULL (la tarjeta decía "31 dic").
+
+### Lo que se sacrifica
+
+- **En iPhone los avisos llegan solo con PRISMA agregada a la pantalla de inicio** (iOS 16.4+): es una regla de Apple para la web. El panel lo explica cuando detecta Safari sin instalar.
+- **Recepción recibe un aviso por cada turno de cada profesional**: en una clínica grande son muchos. Si molesta, el filtro (por profesional o por clínica) es un cambio de la bandeja, no del modelo.
+- **El aviso muestra los datos de cuando se creó.** Si cambian el nombre del paciente, la tarjeta sigue con el viejo; "Ver turno" lleva al turno de hoy.
+- **El aviso no llega si el navegador no tiene conexión con su servicio de push** (el Chromium sin claves de Google que usan las pruebas automatizadas, por ejemplo). No hay reintento: la campana igual lo muestra.
+
+### Lo que se descartó, con su condición
+
+- **Un socket o SSE para la campana:** con un minuto alcanza para un turno nuevo, y el push cubre lo urgente. Si la bandeja suma avisos que necesiten llegar al segundo con la app abierta.
+- **Avisos de lo que se carga desde el panel** (turno manual, reprogramado, cancelado): quien lo hace ya lo sabe. Si el cliente pide avisarle al profesional lo que hace recepción en su agenda, es un tipo nuevo de aviso sobre el mismo modelo.
+- **Mail o WhatsApp como canal:** fuera de alcance (recordatorios automatizados, spec §2).
+
 ---
 
 ---

@@ -1,6 +1,9 @@
 import "server-only";
 import { headers } from "next/headers";
 import type {
+  AperturaDeNotificacion,
+  BandejaDeNotificaciones,
+  Notificacion,
   ContadoresDePacientes,
   ContadoresDeTurnos,
   AutoreservarTurnosResponse,
@@ -1977,5 +1980,67 @@ export function apiSubirFotoPaginaPublica(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: form,
+  });
+}
+
+// ---------------------------------------------------------------------
+// Notificaciones por cuenta y avisos al celular (TR-179). Todo cuelga de
+// la sesión, no de la clínica activa.
+// ---------------------------------------------------------------------
+
+export function apiBandejaDeNotificaciones(
+  token: string,
+  estado: "nuevas" | "leidas",
+): Promise<ApiResult<BandejaDeNotificaciones>> {
+  return request<BandejaDeNotificaciones>(`/me/notificaciones?estado=${estado}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiContadorDeNotificaciones(token: string): Promise<ApiResult<{ nuevas: number }>> {
+  return request<{ nuevas: number }>("/me/notificaciones/contador", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiLeerNotificacion(token: string, id: string): Promise<ApiResult<Notificacion>> {
+  return request<Notificacion>(`/me/notificaciones/${encodeURIComponent(id)}/leer`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiAbrirNotificacion(token: string, id: string): Promise<ApiResult<AperturaDeNotificacion>> {
+  return request<AperturaDeNotificacion>(`/me/notificaciones/${encodeURIComponent(id)}/abrir`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiConfiguracionPush(token: string): Promise<ApiResult<{ clavePublica: string }>> {
+  return request<{ clavePublica: string }>("/me/push", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/** Lo que devuelve PushSubscription.toJSON() en el navegador. */
+export interface SuscripcionPush {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export function apiGuardarSuscripcionPush(token: string, suscripcion: SuscripcionPush): Promise<ApiResult<{ activo: boolean }>> {
+  return request<{ activo: boolean }>("/me/push/suscripciones", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(suscripcion),
+  });
+}
+
+export function apiBorrarSuscripcionPush(token: string, endpoint: string): Promise<ApiResult<unknown>> {
+  return request<unknown>("/me/push/suscripciones", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ endpoint }),
   });
 }

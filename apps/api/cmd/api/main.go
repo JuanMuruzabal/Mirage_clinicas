@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -19,6 +20,7 @@ import (
 	apihttp "dental-mirage/api/internal/http"
 	"dental-mirage/api/internal/limpieza"
 	dmmail "dental-mirage/api/internal/mail"
+	"dental-mirage/api/internal/push"
 	"dental-mirage/api/internal/ratelimit"
 	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/storage"
@@ -112,6 +114,11 @@ func main() {
 	}
 
 	deps := buildAuthDeps(cfg, gormDB, store)
+	enviadorPush, err := buildPush(cfg)
+	if err != nil {
+		fatal("error configurando los avisos al celular", err)
+	}
+	deps.Push = enviadorPush
 	router := apihttp.NewRouterWithDeps(gormDB, deps, cfg.CORSAllowedOrigins)
 
 	go runPurgeLoop(gormDB)
@@ -297,6 +304,25 @@ func buildStorage(cfg config.Config) (storage.Storage, error) {
 // no-op en dev + real activada por env var). Sin la env var
 // correspondiente, cada dependencia queda nil-disabled — nunca un 500;
 // mail siempre tiene una implementación (LogSender en dev).
+// buildPush — los avisos al celular (Web Push, TR-179). Sin claves, no se
+// mandan (LogEnviador) y nada más cambia. Con una sola de las dos, o con un
+// par que no se corresponde, el proceso NO arranca: mismo criterio que el
+// storage R2 — una configuración a medias tiene que verse en el deploy, no
+// en un aviso que nunca llega.
+func buildPush(cfg config.Config) (push.Enviador, error) {
+	if cfg.VAPIDPublicKey == "" && cfg.VAPIDPrivateKey == "" {
+		return push.LogEnviador{}, nil
+	}
+	if cfg.VAPIDPublicKey == "" || cfg.VAPIDPrivateKey == "" {
+		return nil, errors.New("VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY van juntas: falta una")
+	}
+	sujeto := cfg.VAPIDSubject
+	if sujeto == "" && strings.HasPrefix(cfg.AppBaseURL, "https://") {
+		sujeto = cfg.AppBaseURL
+	}
+	return push.NuevoVAPID(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, sujeto)
+}
+
 func buildAuthDeps(cfg config.Config, gormDB *gorm.DB, store storage.Storage) apihttp.AuthDeps {
 	var mailSender dmmail.Sender = dmmail.LogSender{}
 	if cfg.ResendAPIKey != "" {

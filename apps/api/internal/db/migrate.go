@@ -224,6 +224,9 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// existe en la clínica, sin inventarle un turno (ver el
 		// comentario de PacienteEnMiLista en models.go).
 		&PacienteEnMiLista{},
+		// Notificaciones por cuenta y los navegadores con avisos activados
+		// (TR-179, ver models_notificaciones.go).
+		&Notificacion{}, &PushSuscripcion{},
 		// Fase 2.4.1, corrección de seguridad: bloqueo de IP (además del de
 		// mail) y auditoría de qué se bloqueó/borró y por qué.
 		&IPBloqueadaTurnoPublico{}, &AuditoriaBloqueoTurnoPublico{},
@@ -728,6 +731,14 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pagina_publica_versiones_numero
 		   ON pagina_publica_versiones (pagina_publica_id, numero)`,
 
+		// TR-179: el número de la campana se pide seguido (cada vez que la
+		// pantalla vuelve a tener foco, y cada minuto). Índice PARCIAL solo
+		// sobre las nuevas: las leídas crecen sin techo, y ese conteo no
+		// tiene por qué recorrerlas (TR-162: en un endpoint sondeado, el
+		// costo es por minuto y por persona).
+		`CREATE INDEX IF NOT EXISTS idx_notificaciones_nuevas
+		   ON notificaciones (user_id) WHERE leida_en IS NULL`,
+
 		// PE-6: validaciones estructurales del horario del edificio. Los
 		// intervalos HH:MM y su orden se validan en el endpoint; estos CHECK
 		// impiden días fuera de rango y más de dos franjas, incluso si una
@@ -811,6 +822,17 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	}
 	if !aplicada {
 		if err := registrarMigracion(gdb, migracionBackfillVersion1PaginasPublicas, backfillVersion1PaginasPublicas); err != nil {
+			return err
+		}
+	}
+
+	// TR-179: la bienvenida de las cuentas anteriores a las notificaciones.
+	aplicada, err = migracionYaAplicada(gdb, migracionBienvenidas)
+	if err != nil {
+		return err
+	}
+	if !aplicada {
+		if err := registrarMigracion(gdb, migracionBienvenidas, backfillBienvenidas); err != nil {
 			return err
 		}
 	}

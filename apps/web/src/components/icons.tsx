@@ -366,3 +366,14 @@ export function IconBriefcase({ className }: IconProps) {
   );
 }
 
+
+// IconBell — la campana de notificaciones del header (TR-179). Mismo
+// trazo que el resto del set.
+export function IconBell({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M10 2.75a4.75 4.75 0 0 0-4.75 4.75v2.9l-1.4 2.35a.5.5 0 0 0 .43.75h11.44a.5.5 0 0 0 .43-.75l-1.4-2.35V7.5A4.75 4.75 0 0 0 10 2.75z" />
+      <path d="M8.1 15.9a2 2 0 0 0 3.8 0" />
+    </svg>
+  );
+}

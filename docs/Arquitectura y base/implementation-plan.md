@@ -919,6 +919,19 @@ Pedido directo del cliente (2026-09-17, sin brief `.docx`), primer entregable de
 - **Prueba visual.** La 4.4/4.5 se verificó con la suite, el build y el HTML server-side con el stack real; no en un navegador (TR-153 lista qué quedó sin ver).
 - **Preload de fuentes.** `tipografias.ts` declara 8 fuentes de Google al importarse; cada ruta que lo importa preloadea las 8 aunque el tema use 2. Si pesa, `preload: false`.
 
+
+## 15. Notificaciones por cuenta y avisos al celular (2026-09-26)
+
+Pedido directo del cliente, sin brief. Decisiones: `docs/Arquitectura y base/tradeoffs.md` TR-179.
+
+| Parte | Qué | Estado |
+|---|---|---|
+| Backend | Tablas `notificaciones` y `push_suscripciones`; aviso al profesional y a recepción cuando un turno entra por la página pública o un link (en la misma transacción que el turno); bienvenida a las cuentas nuevas y, una sola vez, a las existentes; `GET /me/notificaciones`, `/contador`, `POST .../leer`, `POST .../abrir` | ✅ en código (`feature/notificaciones-por-cuenta`) |
+| Web Push | `internal/push`: VAPID + `aes128gcm` con la biblioteca estándar, `LogEnviador` sin claves, `cmd/vapid` para generarlas; suscripción por dispositivo | ✅ en código — en producción se activa cargando `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` en Render |
+| Frontend | Campana con número en el header (toda pantalla con sesión), panel lateral con Nuevas/Leídas, "Ver turno" que cierra el menú del panel; service worker de solo avisos, manifiesto e íconos para instalar la app | ✅ en código |
+
+**Pendiente, sin fecha:** filtrar la bandeja de recepción por profesional, si con varias agendas se vuelve mucho (TR-179, "lo que se sacrifica").
+
 ---
 
 *Documento vivo — actualizar cuando el cliente confirme o corrija alguna de las decisiones asumidas en la sección 9, o cuando `/frontend-design` (T5.1) fije la paleta/tipografía definitivas.*

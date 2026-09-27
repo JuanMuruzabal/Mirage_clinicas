@@ -11,6 +11,7 @@ import { isHerramientaRoute, isPanelRoute, mostrarColaboradoresEnHeader } from "
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
+import { CampanaNotificaciones } from "@/components/notificaciones/campana-notificaciones";
 
 /**
  * Toda la interactividad del header vive acá (mismo patrón que
@@ -279,28 +280,39 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
           </nav>
         )}
 
-        {/* Colaboradores, a la derecha del todo (Fase 3.2.5, mockup
-            `panel-profesional.html`): quién trabaja en esta clínica y
-            quién está ahora. Al otro extremo que el selector de clínica
-            a propósito — uno dice dónde estás, el otro con quién. */}
-        <EquipoDelPanel />
+        {/* Todo lo de la derecha, JUNTO (TR-179): la fila es
+            justify-between, y dos hermanos sueltos se repartirían el
+            espacio — la campana quedaba flotando en el medio. */}
+        <div className="flex flex-shrink-0 items-center gap-1">
+          {/* La campana de notificaciones (TR-179), en toda pantalla con
+              sesión: la bandeja es de la cuenta, no de una pantalla. Va a
+              la izquierda del botón de la cuenta (colaboradores, la tuerca
+              o "Mis clínicas"). */}
+          {estado !== "anonimo" && <CampanaNotificaciones />}
 
-        {/* En /clinicas el mismo menú con el ícono de colaboradores
-            (2026-09-19, pedido del cliente): el header de toda la app
-            pasa a tener un solo botón redondo a la derecha, y que cambie
-            de dibujo entre pantallas era justamente lo que se pidió
-            emparejar. La funcionalidad no cambia. */}
-        {mostrarGear && <HeaderConfigMenu icono={esClinicas ? "colaboradores" : "tuerca"} />}
+          {/* Colaboradores, a la derecha del todo (Fase 3.2.5, mockup
+              `panel-profesional.html`): quién trabaja en esta clínica y
+              quién está ahora. Al otro extremo que el selector de clínica
+              a propósito — uno dice dónde estás, el otro con quién. */}
+          <EquipoDelPanel />
 
-        {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
-            sesión. Llevar directo a /seleccionar-servicio salteaba la
-            elección de clínica — y para una cuenta sin terminar rebotaba
-            de vuelta acá. */}
-        {mostrarMiClinica && (
-          <Link href="/clinicas" className={pillLinkClass}>
-            Mis clínicas
-          </Link>
-        )}
+          {/* En /clinicas el mismo menú con el ícono de colaboradores
+              (2026-09-19, pedido del cliente): el header de toda la app
+              pasa a tener un solo botón redondo a la derecha, y que cambie
+              de dibujo entre pantallas era justamente lo que se pidió
+              emparejar. La funcionalidad no cambia. */}
+          {mostrarGear && <HeaderConfigMenu icono={esClinicas ? "colaboradores" : "tuerca"} />}
+
+          {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
+              sesión. Llevar directo a /seleccionar-servicio salteaba la
+              elección de clínica — y para una cuenta sin terminar rebotaba
+              de vuelta acá. */}
+          {mostrarMiClinica && (
+            <Link href="/clinicas" className={`${pillLinkClass} ml-2`}>
+              Mis clínicas
+            </Link>
+          )}
+        </div>
 
         {mostrarAccesosAnonimos && (
           <>

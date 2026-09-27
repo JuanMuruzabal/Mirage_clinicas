@@ -11,6 +11,9 @@ vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 // panel-topbar.test.tsx—, pero sin el mock la acción real corre fuera de
 // un request y deja un rechazo sin atender.
 vi.mock("@/app/actions/topbar-panel", () => ({ datosDelTopbarAction: vi.fn(async () => null) }));
+// Lo mismo con la campana de notificaciones (TR-179): pide su número al
+// montarse. Su comportamiento vive en campana-notificaciones.test.tsx.
+vi.mock("@/app/actions/notificaciones", () => ({ contarNotificacionesNuevasAction: vi.fn(async () => 0) }));
 
 const { SiteHeaderChrome } = await import("./site-header-chrome");
 type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
@@ -352,6 +355,32 @@ describe("SiteHeaderChrome — botón único 'Mi clínica'", () => {
     usePathnameMock.mockReturnValue("/");
     renderHeader("anonimo");
     expect(screen.queryByRole("link", { name: "Mis clínicas" })).not.toBeInTheDocument();
+  });
+});
+
+// TR-179: la campana es de la CUENTA, así que está en toda pantalla con
+// sesión —pública o de herramienta, con el onboarding terminado o no— y en
+// ninguna sin sesión.
+describe("SiteHeaderChrome — campana de notificaciones", () => {
+  const campana = () => screen.queryByRole("button", { name: /^Notificaciones/ });
+
+  it.each([
+    ["completo", "/"],
+    ["completo", "/buscar"],
+    ["completo", "/clinicas"],
+    ["completo", "/panel/calendario"],
+    ["completo", "/perfil"],
+    ["cuentaSinTerminar", "/seleccionar-servicio"],
+  ] as const)("con estado %s en %s, está", (estado, pathname) => {
+    usePathnameMock.mockReturnValue(pathname);
+    renderHeader(estado);
+    expect(campana()).toBeInTheDocument();
+  });
+
+  it.each(["/", "/buscar", "/ingresar"])("sin sesión en %s, no está", (pathname) => {
+    usePathnameMock.mockReturnValue(pathname);
+    renderHeader("anonimo");
+    expect(campana()).not.toBeInTheDocument();
   });
 });
 

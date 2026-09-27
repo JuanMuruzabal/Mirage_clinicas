@@ -101,6 +101,9 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 		// de abajo: la pantalla existe también para quien todavía no
 		// tiene ninguna clínica.
 		registerMisClinicasRoutes(r, db)
+		// Notificaciones por cuenta (TR-179): cuelgan de la sesión y no de
+		// la clínica activa — la bandeja junta todas las clínicas.
+		registrarNotificacionesRoutes(r, db, deps)
 		registerProtectedAuthRoutes(r, db)
 
 		// Subgrupo: además de sesión, exige una Clinic ya creada (spec §4,

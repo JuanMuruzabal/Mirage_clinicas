@@ -506,6 +506,12 @@ func borrarTurnosYPacientesOrfanados(tx *gorm.DB, turnos []db.Turno) ([]string, 
 	if err := tx.Where("id IN ?", turnoIDs).Delete(&db.Turno{}).Error; err != nil {
 		return nil, 0, err
 	}
+	// Las notificaciones de "turno nuevo" de esos turnos también (TR-179):
+	// eran abuso, y el profesional no tiene por qué seguir viendo turnos
+	// que ya no existen.
+	if err := tx.Where("turno_id IN ?", turnoIDs).Delete(&db.Notificacion{}).Error; err != nil {
+		return nil, 0, err
+	}
 
 	for pacienteID := range pacientesAfectados {
 		var turnosRestantes int64
@@ -1184,6 +1190,10 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 		// transacción de todos modos comitea normal (el bloqueo/borrado
 		// tiene que persistir) pero la respuesta HTTP final es un rechazo.
 		var mensajeBloqueoAbuso string
+		// notificaciones — las de "turno nuevo" (TR-179), creadas en la
+		// misma transacción que el turno; los avisos al celular salen
+		// después del commit.
+		var notificaciones []db.Notificacion
 		// Prueba de mail reemitida para que el cartel final pueda ofrecer
 		// otro turno sin volver a pedir el código (Fase 3.1). Se
 		// llena dentro de la transacción y se lee después de que commitee:
@@ -1621,6 +1631,16 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				return err
 			}
 
+			// TR-179: al profesional que lo atiende y a recepción, cada
+			// uno en su bandeja. Solo los turnos que entran por acá (la
+			// página y el link compartido): los del panel ya los sabe quien
+			// los cargó.
+			creadas, err := crearNotificacionesDeTurnoNuevo(tx, clinic, turno, tipo.Nombre, usaEnlace)
+			if err != nil {
+				return err
+			}
+			notificaciones = creadas
+
 			if conflictoConVerificado != nil {
 				conflicto := db.ConflictoPaciente{
 					ClinicID:              clinic.ID,
@@ -1730,6 +1750,8 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 			HoraFin:        clock.In(*turno.HoraFin).Format("15:04"),
 			TipoConsulta:   tipo.Nombre,
 		})
+
+		avisarPorPush(gdb, deps.Push, notificaciones)
 
 		writeJSON(w, http.StatusCreated, solicitarTurnoPublicoResponse{
 			ID:                turno.ID.String(),
