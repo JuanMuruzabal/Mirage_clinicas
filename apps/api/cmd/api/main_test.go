@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"dental-mirage/api/internal/config"
+	"dental-mirage/api/internal/push"
 )
 
 // TestRequireConfiguracionSegura — corrección de seguridad (auditoría
@@ -106,5 +107,35 @@ func TestRequireConfiguracionSegura_ContraConfigLoadReal(t *testing.T) {
 				t.Errorf("el guard frenó un arranque legítimo: %v", err)
 			}
 		})
+	}
+}
+
+// TestBuildPush — TR-179: sin claves, los avisos al celular simplemente no
+// salen; con una configuración a medias, el proceso no arranca.
+func TestBuildPush(t *testing.T) {
+	publica, privada, err := push.GenerarClaves()
+	if err != nil {
+		t.Fatal(err)
+	}
+	otraPublica, _, _ := push.GenerarClaves()
+
+	sinClaves, err := buildPush(config.Config{})
+	if err != nil || sinClaves.ClavePublica() != "" {
+		t.Errorf("sin claves: %v, clave %q — esperaba el enviador de desarrollo", err, sinClaves.ClavePublica())
+	}
+	if _, err := buildPush(config.Config{VAPIDPublicKey: publica}); err == nil {
+		t.Error("con una sola de las dos claves tendría que fallar")
+	}
+	if _, err := buildPush(config.Config{VAPIDPublicKey: otraPublica, VAPIDPrivateKey: privada, VAPIDSubject: "mailto:a@b.com"}); err == nil {
+		t.Error("con un par que no se corresponde tendría que fallar")
+	}
+	// Sin VAPID_SUBJECT, el contacto es la URL pública.
+	conURL, err := buildPush(config.Config{VAPIDPublicKey: publica, VAPIDPrivateKey: privada, AppBaseURL: "https://miragesoftware.online"})
+	if err != nil || conURL.ClavePublica() != publica {
+		t.Errorf("con claves y URL https: %v", err)
+	}
+	// Sin sujeto y con una URL local no hay contacto válido.
+	if _, err := buildPush(config.Config{VAPIDPublicKey: publica, VAPIDPrivateKey: privada, AppBaseURL: "http://localhost:3000"}); err == nil {
+		t.Error("sin sujeto y con URL http tendría que fallar")
 	}
 }

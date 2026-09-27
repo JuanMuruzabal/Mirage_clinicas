@@ -167,6 +167,16 @@ func clavesForaneas() []claveForanea {
 		// criterio que fk_pacientes_creado_por arriba).
 		{"fk_pagina_publica_versiones_publicada_por", "pagina_publica_versiones", "publicada_por_user_id", "users", "SET NULL", true},
 		{"fk_paginas_publicas_actualizada_por", "paginas_publicas", "actualizada_por_user_id", "users", "SET NULL", true},
+
+		// Notificaciones por cuenta (TR-179). CASCADE: la bandeja y los
+		// navegadores con avisos son de esa cuenta y no significan nada
+		// sin ella — y la limpieza de cuentas sin verificar (cleanup.go)
+		// borra usuarios que ya tienen su bienvenida. La clínica, RESTRICT
+		// como todo lo de una clínica. `turno_id` va sin FK a propósito
+		// (ver Notificacion en models_notificaciones.go).
+		{"fk_notificaciones_usuario", "notificaciones", "user_id", "users", "CASCADE", false},
+		{"fk_notificaciones_clinica", "notificaciones", "clinic_id", "clinics", "", true},
+		{"fk_push_suscripciones_usuario", "push_suscripciones", "user_id", "users", "CASCADE", false},
 	}
 }
 

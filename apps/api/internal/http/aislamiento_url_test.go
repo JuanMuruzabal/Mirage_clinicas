@@ -43,6 +43,9 @@ func TestAislamiento_LosIDsDeLaURLSeAcotan(t *testing.T) {
 	}
 	parametroDeLaURL := regexp.MustCompile(`(\w+),\s*err\s*:?=\s*uuid\.Parse\(chi\.URLParam\(r,\s*"(\w+)"\)\)`)
 	esConsulta := regexp.MustCompile(`\.(Where|First|Delete|Find|Take|Update|Updates|Model|Raw|Exec)\(`)
+	// Los strings de una línea, para no confundir `"id = ?"` —texto de
+	// otra consulta— con un uso de la variable `id`.
+	literalesDeTexto := regexp.MustCompile("\"(?:[^\"\\\\]|\\\\.)*\"|`[^`]*`")
 	delProfesionalEnLinea := regexp.MustCompile(`\b(atendido_por_)?user_id\s*=\s*\?`)
 
 	// Buscan el id SIN `clinic_id`, y está bien.
@@ -51,6 +54,10 @@ func TestAislamiento_LosIDsDeLaURLSeAcotan(t *testing.T) {
 		// recibe: es suya porque va dirigida a SU mail — el de la fila del
 		// usuario de la sesión, no uno que venga en el request.
 		"invitaciones_recibidas.go": {`"id = ? AND email = ? AND accepted_at IS NULL AND expires_at > ?"`},
+		// La bandeja de notificaciones es de la CUENTA, no de una clínica
+		// (TR-179): junta las de todas sus clínicas. Lo que la acota es el
+		// usuario de la sesión.
+		"notificaciones.go": {`"id = ? AND user_id = ?"`},
 	}
 	// En el panel, buscan el id por clínica pero NO por profesional, y
 	// está bien.
@@ -107,7 +114,14 @@ func TestAislamiento_LosIDsDeLaURLSeAcotan(t *testing.T) {
 			usaLaVariable := regexp.MustCompile(`\b` + regexp.QuoteMeta(variable) + `\b`)
 			uso := -1
 			for j := i + 1; j < len(lineas) && j < i+45; j++ {
-				if usaLaVariable.MatchString(lineas[j]) && esConsulta.MatchString(lineas[j]) {
+				// La variable tiene que aparecer como CÓDIGO: dentro de un
+				// string (el `"id = ?"` de otra consulta) no es un uso. Sin
+				// esto, un handler con la variable `id` pasaba si cerca
+				// había cualquier consulta con "id = ?" — encontrado el
+				// 2026-09-26 (TR-179), con un handler que pasaba sin haber
+				// sido revisado.
+				codigo := literalesDeTexto.ReplaceAllString(lineas[j], `""`)
+				if usaLaVariable.MatchString(codigo) && esConsulta.MatchString(lineas[j]) {
 					uso = j
 					break
 				}
