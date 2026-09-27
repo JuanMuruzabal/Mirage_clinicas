@@ -138,7 +138,7 @@ Debe incluir, como estructura fija:
   - Nombre de la clínica.
   - Nombre del profesional.
   - Especialidad.
-- **La home (rediseño del 2026-09-26, TR-181)** le habla primero al profesional y cuenta una historia: la agenda que se llena sola, el dolor de los mensajes de turnos a cualquier hora, el giro de compartir un link, las seis funciones de PRISMA, cómo se empieza y cómo se cuida a los pacientes. El paciente conserva su entrada al buscador en el header y en una banda propia de la home (`#buscar`).
+- **La home (TR-181, 2026-09-26/27)** le habla primero al profesional y es simple: qué es, con un dibujo; la historia de Lucía en tres escenas (el WhatsApp de noche, el link, la calma); cuatro ventajas; la entrada para pacientes (`#buscar`) y el llamado final. Los dibujos son objetos del consultorio (el mate, el celular, el calendario) en un solo estilo de línea.
 
 ---
 

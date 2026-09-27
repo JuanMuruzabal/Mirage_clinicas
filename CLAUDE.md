@@ -300,9 +300,9 @@ Pedido directo del cliente (2026-09-26). La campana del header abre la bandeja d
 - **Algo que se muestra solo al pasar el mouse no existe en el celular.** Si una acción vive en un hover, dale también un camino táctil (en el menú de colaboradores, la fila entera es el link).
 ## La home pública (TR-181)
 
-- **Cuenta una historia para el profesional** (hero con la agenda que se llena sola → el dolor → el giro → funciones → pasos → seguridad → pacientes → cierre), con las secciones en `components/home/` y los estilos en `app/home.css` (solo los importa `app/page.tsx`). Los anclas `#como-funciona` y `#buscar` son los destinos del header: no los renombres.
-- **Todo lo que la home promete tiene que existir en el producto.** Si una función cambia o se va, la home cambia con ella; y nada de cifras, testimonios o sellos que no se puedan sostener.
-- **Nada de framer-motion ni de contenido escondido hasta hidratar en la home**: `Revelar` + CSS, mismo criterio que TR-180. Con "reducir movimiento", nada se mueve.
+- **Simple y al pie, a pedido del cliente:** cinco partes que dicen una cosa cada una (qué es, la historia de Lucía en un carrusel de tres escenas, cuatro ventajas, la entrada para pacientes y el cierre). Una primera versión con siete secciones y mucho texto se descartó por "cargada": **antes de sumar una sección o un párrafo a la home, preguntate si no alcanza con un dibujo y una frase.** Secciones en `components/home/`, estilos en `app/home.css` (solo los importa `app/page.tsx`). Los anclas `#como-funciona` y `#buscar` son los destinos del header: no los renombres.
+- **Los dibujos viven en `components/home/dibujos.tsx`**, en un solo estilo (línea de tinta, rellenos cálidos, un acento verde) y con objetos, no personas. Si algo se anima con CSS, la posición va en un `<g transform>` de afuera y la animación en uno de adentro: el `transform` del CSS pisa el del SVG y la pieza termina en la esquina (bug real).
+- **Todo lo que la home promete tiene que existir en el producto**, y nada de cifras, testimonios o sellos que no se puedan sostener. Nada de framer-motion ni de contenido escondido hasta hidratar: `Revelar` + CSS, mismo criterio que TR-180; con "reducir movimiento", nada se mueve y el carrusel no avanza solo.
 
 ## Flujo de ramas
 
