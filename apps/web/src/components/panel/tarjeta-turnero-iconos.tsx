@@ -1,93 +1,192 @@
+import type { CSSProperties } from "react";
+
 interface IconoDecorativoProps {
   className?: string;
 }
 
-// Íconos decorativos de cabecera del Turnero (F2.3 extra ítem 1,
-// corrección de QA 2026-09-06: "añadir diseños a los encabezados de cada
-// tarjeta", ver diseño1.png/diseño2.png en docs/) — puramente
-// ornamentales (`aria-hidden`), uno por tarjeta, con un motivo pensado
-// para lo que esa tarjeta representa: reloj (turnos de hoy), avance
-// (turnos próximos), casilleros bloqueados (horarios reservados), tilde
-// (turnos resueltos), sello (turnos confirmados). Mismo criterio de
-// trazo que icons.tsx (`currentColor`, sin relleno salvo donde el propio
-// mockup lo pide) — el color/opacidad los pone quien los usa, ver
-// TarjetaConLista/TarjetaSimple.
+// Los dibujos de fondo de las tarjetas de General — segunda versión
+// (2026-09-26, pedido del cliente: "mejorar los dibujos de las tarjetas").
+//
+// La primera versión eran íconos sueltos (un reloj, tres chevrones, un
+// círculo con un signo más) que no se leían como un juego ni decían mucho
+// de lo que cuenta cada tarjeta. Estos siguen las mismas reglas entre sí:
+//
+//   - el mismo trazo (3 sobre 100) con esquinas duras, como la marca de
+//     cuadrante de PRISMA (spec §9.7);
+//   - una pieza RELLENA por dibujo, que es la que cuenta la historia (la
+//     mañana que ya pasó, el turno del día que viene, los horarios
+//     tomados, la arena que falta caer);
+//   - algo propio del consultorio donde hace sentido: la tarjeta de
+//     resueltos es una muela con el tilde.
+//
+// Puramente decorativos (`aria-hidden`); el color y el tamaño los pone
+// quien los usa. Cada pieza lleva la clase que dice cómo entra cuando la
+// tarjeta se despliega (`.dib-*` en globals.css, dentro de
+// `.despliegue-dibujo`); `--i` escalona las que son varias.
 
+const TRAZO = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 3,
+  strokeLinecap: "square" as const,
+  strokeLinejoin: "miter" as const,
+};
+
+const i = (n: number) => ({ "--i": n }) as CSSProperties;
+
+function svgProps(className: string, viewBox = "0 0 100 100") {
+  return {
+    "aria-hidden": true as const,
+    viewBox,
+    className: `despliegue-dibujo ${className}`,
+    ...TRAZO,
+  };
+}
+
+// Turnos de hoy — un reloj con la mañana ya transcurrida rellena (de las
+// 12 a las 3): el día como algo que avanza. Las agujas giran hasta su
+// lugar cuando la tarjeta aparece.
 export function IconoReloj({ className = "" }: IconoDecorativoProps) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" className={className}>
-      <circle cx="50" cy="50" r="42" />
-      <path d="M50 22v6M78 50h-6M50 78v-6M22 50h6" strokeLinecap="round" />
-      <path d="M50 50V26M50 50l20 12" strokeLinecap="round" strokeLinejoin="round" />
+    <svg {...svgProps(className)}>
+      <circle className="dib-trazo" pathLength={1} cx="50" cy="50" r="40" />
+      <path className="dib-aparecer" d="M50 50 L50 18 A32 32 0 0 1 82 50 Z" fill="currentColor" fillOpacity="0.35" stroke="none" />
+      {[
+        [48, 12, 4, 8],
+        [80, 48, 8, 4],
+        [48, 80, 4, 8],
+        [12, 48, 8, 4],
+      ].map(([x, y, w, h], n) => (
+        <rect key={n} className="dib-aparecer" style={i(n)} x={x} y={y} width={w} height={h} fill="currentColor" stroke="none" />
+      ))}
+      <g className="dib-girar">
+        <path d="M50 50 L50 26" />
+        <path d="M50 50 L66 60" />
+      </g>
+      <rect x="47" y="47" width="6" height="6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
+// Turnos próximos — los días que vienen, uno detrás del otro: el de
+// adelante tiene su encabezado y el turno marcado. Entran deslizándose,
+// del más lejano al más cercano.
 export function IconoAvance({ className = "" }: IconoDecorativoProps) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 130 100" fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M10 18 L38 50 L10 82" />
-      <path d="M48 18 L76 50 L48 82" opacity="0.65" />
-      <path d="M86 18 L114 50 L86 82" opacity="0.4" />
+    <svg {...svgProps(className, "0 0 110 100")}>
+      <g className="dib-deslizar" style={i(0)} opacity="0.4">
+        <rect x="60" y="10" width="40" height="46" />
+      </g>
+      <g className="dib-deslizar" style={i(1)} opacity="0.65">
+        <rect x="38" y="26" width="40" height="46" />
+      </g>
+      <g className="dib-deslizar" style={i(2)}>
+        <rect x="16" y="42" width="40" height="46" className="fill-marfil" />
+        <rect x="16" y="42" width="40" height="11" fill="currentColor" fillOpacity="0.35" />
+        <rect x="24" y="61" width="11" height="11" fill="currentColor" stroke="none" />
+        <path d="M40 64 L48 64 M40 70 L46 70" strokeWidth="2.5" />
+      </g>
     </svg>
   );
 }
 
+// Una línea de pendiente -1 recortada a un rectángulo: el rayado de los
+// horarios tomados, sin `<pattern>` (que pediría un id único por página).
+function rayado(x: number, y: number, w: number, h: number): string {
+  const tramos: string[] = [];
+  for (let s = x + y + 5; s < x + w + y + h; s += 6) {
+    const desde = Math.max(x, s - (y + h));
+    const hasta = Math.min(x + w, s - y);
+    if (hasta > desde) tramos.push(`M${desde} ${s - desde} L${hasta} ${s - hasta}`);
+  }
+  return tramos.join(" ");
+}
+
+// Horarios reservados — una semana en casilleros; los rayados son los que
+// están tomados. Aparecen en ola, en diagonal.
 export function IconoCasilleros({ className = "" }: IconoDecorativoProps) {
-  // Grilla 3×3 de casilleros — algunos "bloqueados" (relleno sólido),
-  // otros libres (solo borde), como un mini horario semanal.
-  const filas: boolean[][] = [
-    [true, false, true],
-    [false, true, false],
-    [true, false, false],
-  ];
+  const tomados = new Set(["0-1", "1-0", "1-3", "2-2"]);
+  const celdas: { x: number; y: number; clave: string; n: number }[] = [];
+  for (let f = 0; f < 3; f++) {
+    for (let c = 0; c < 4; c++) {
+      celdas.push({ x: 6 + c * 23, y: 18 + f * 23, clave: `${f}-${c}`, n: c + f });
+    }
+  }
   return (
-    <svg aria-hidden="true" viewBox="0 0 116 116" fill="none" stroke="currentColor" strokeWidth="2.5" className={className}>
-      {filas.map((fila, i) =>
-        fila.map((bloqueado, j) => (
-          <rect
-            key={`${i}-${j}`}
-            x={j * 40 + 2}
-            y={i * 40 + 2}
-            width="32"
-            height="20"
-            rx="5"
-            fill={bloqueado ? "currentColor" : "none"}
-            fillOpacity={bloqueado ? 0.55 : 0}
-          />
-        )),
-      )}
+    <svg {...svgProps(className)}>
+      {celdas.map(({ x, y, clave, n }) => (
+        <g key={clave} className="dib-aparecer" style={i(n)}>
+          <rect x={x} y={y} width="18" height="18" />
+          {tomados.has(clave) && <path d={rayado(x, y, 18, 18)} strokeWidth="2" strokeLinecap="butt" />}
+        </g>
+      ))}
     </svg>
   );
 }
 
+// Turnos resueltos hoy — una muela con el tilde: lo que se atendió. El
+// contorno y el tilde se dibujan solos, en ese orden.
 export function IconoTilde({ className = "" }: IconoDecorativoProps) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" className={className}>
-      <circle cx="50" cy="50" r="45" strokeWidth="3" />
-      <path d="M30 52 L44 66 L74 34" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+    <svg {...svgProps(className)} strokeLinecap="round" strokeLinejoin="round">
+      <path
+        className="dib-trazo"
+        pathLength={1}
+        d="M31 14 C21 14 14 22 15 34 C16 47 21 55 23 68 C25 81 28 90 34 90 C41 90 41 75 45 67 C47 63 48.5 61 50 61 C51.5 61 53 63 55 67 C59 75 59 90 66 90 C72 90 75 81 77 68 C79 55 84 47 85 34 C86 22 79 14 69 14 C61 14 57 18 50 18 C43 18 39 14 31 14 Z"
+      />
+      <path className="dib-trazo" style={i(2)} pathLength={1} d="M36 34 L46 44 L65 25" strokeWidth="5" />
     </svg>
   );
 }
 
+// Turnos pendientes — un reloj de arena: lo que todavía no pasó. Se da
+// vuelta al aparecer, como quien lo da vuelta para empezar a contar.
 export function IconoSello({ className = "" }: IconoDecorativoProps) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" className={className}>
-      <circle cx="50" cy="50" r="40" strokeDasharray="7 7" />
-      <path d="M50 32v36M32 50h36" strokeLinecap="round" />
+    <svg {...svgProps(className)}>
+      <g className="dib-girar">
+        <rect x="22" y="10" width="56" height="6" fill="currentColor" stroke="none" />
+        <rect x="22" y="84" width="56" height="6" fill="currentColor" stroke="none" />
+        <path d="M30 16 L70 16 L70 24 C70 38 55 44 53 50 C55 56 70 62 70 76 L70 84 L30 84 L30 76 C30 62 45 56 47 50 C45 44 30 38 30 24 Z" />
+        <path d="M37 27 L63 27 C60 36 53 40 50 45 C47 40 40 36 37 27 Z" fill="currentColor" fillOpacity="0.45" stroke="none" />
+        <path d="M35 82 C38 72 45 68 50 68 C55 68 62 72 65 82 Z" fill="currentColor" fillOpacity="0.45" stroke="none" />
+        <path d="M50 50 L50 66" strokeWidth="2" strokeDasharray="2 3" />
+      </g>
     </svg>
   );
 }
 
-// IconoEstadistica — barras de comparación (asistió vs ausente), para la
-// tarjeta "Estadística".
+// Estadística — barras de a pares sobre una línea de base: la de la
+// izquierda es "asistieron" (el color de la tarjeta), la de la derecha
+// "ausentes" (terracota). Crecen desde la base.
 export function IconoEstadistica({ className = "" }: IconoDecorativoProps) {
+  const pares: [number, number][] = [
+    [46, 14],
+    [62, 22],
+    [38, 10],
+    [70, 18],
+  ];
   return (
-    <svg aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className={className}>
-      <path d="M20 80V50" />
-      <path d="M42 80V30" />
-      <path d="M64 80V56" />
-      <path d="M86 80V16" />
+    <svg {...svgProps(className, "0 0 110 100")}>
+      <path d="M4 90 L106 90" />
+      {pares.map(([alta, baja], n) => {
+        const x = 10 + n * 25;
+        return (
+          <g key={n}>
+            <rect className="dib-crecer" style={i(n)} x={x} y={90 - alta} width="9" height={alta} fill="currentColor" fillOpacity="0.55" stroke="none" />
+            <rect
+              className="dib-crecer text-terracota-oscuro/40"
+              style={i(n + 0.5)}
+              x={x + 11}
+              y={90 - baja}
+              width="9"
+              height={baja}
+              fill="currentColor"
+              stroke="none"
+            />
+          </g>
+        );
+      })}
     </svg>
   );
 }

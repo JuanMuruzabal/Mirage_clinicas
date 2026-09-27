@@ -6,7 +6,19 @@ import { PanelSidebarProvider, usePanelSidebar } from "@/lib/panel-sidebar-conte
 const { usePathnameMock } = vi.hoisted(() => ({ usePathnameMock: vi.fn(() => "/panel/calendario") }));
 vi.mock("next/navigation", () => ({ usePathname: usePathnameMock }));
 
-const { PanelSidebar } = await import("./panel-sidebar");
+const { PanelSidebar, esSeccionActiva } = await import("./panel-sidebar");
+
+describe("esSeccionActiva", () => {
+  it.each([
+    ["/panel", "/panel", true],
+    ["/panel/turnos", "/panel", false],
+    ["/panel/pacientes", "/panel/pacientes", true],
+    ["/panel/pacientes/abc", "/panel/pacientes", true],
+    ["/panel/pacientesx", "/panel/pacientes", false],
+  ])("%s en %s → %s", (ruta, seccion, esperado) => {
+    expect(esSeccionActiva(ruta, seccion)).toBe(esperado);
+  });
+});
 
 // usePanelSidebar() (TR-075 en docs/Arquitectura y base/tradeoffs.md) requiere el Provider
 // del layout raíz — este botón expone el toggle para los tests, ya que
@@ -35,6 +47,27 @@ describe("PanelSidebar", () => {
     renderSidebar();
     const activo = screen.getByRole("link", { name: "Calendario" });
     expect(activo).toHaveClass("bg-salvia-claro");
+    expect(activo).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "General" })).not.toHaveAttribute("aria-current");
+  });
+
+  // 2026-09-26: la ficha de un paciente es "Pacientes". Antes solo la ruta
+  // exacta marcaba la sección, y adentro de una ficha el menú no decía
+  // dónde se estaba.
+  it("marca la sección también en sus pantallas de adentro", () => {
+    usePathnameMock.mockReturnValue("/panel/pacientes/abc-123");
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Pacientes" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "General" })).not.toHaveAttribute("aria-current");
+    usePathnameMock.mockReturnValue("/panel/calendario");
+  });
+
+  it("el ícono de la sección activa rellena su acento; los demás no", () => {
+    renderSidebar();
+    const acentoDe = (nombre: string) =>
+      screen.getByRole("link", { name: nombre }).querySelector("svg .fill-current, svg .fill-transparent");
+    expect(acentoDe("Calendario")).toHaveClass("fill-current");
+    expect(acentoDe("Turnos")).toHaveClass("fill-transparent");
   });
 
   // "Tu perfil" salió de acá el 2026-09-19 (pedido del cliente): vive en
@@ -115,8 +148,10 @@ describe("PanelSidebar", () => {
     expect(linkPagina.querySelector("svg")).toBeInTheDocument();
 
     // 6 desde que "Tu perfil" salió del sidebar (2026-09-19); eran 7.
-    // "Panel" usa QuadrantMark, que es un <span>, no suma acá.
-    const iconos = container.querySelectorAll("svg");
+    // "Panel" usa QuadrantMark, que es un <span>, no suma acá. Se cuentan
+    // los de los links: el botón de retraer también tiene un svg (el
+    // chevron, desde 2026-09-26) y no es una sección.
+    const iconos = container.querySelectorAll("a svg");
     expect(iconos).toHaveLength(6);
   });
 

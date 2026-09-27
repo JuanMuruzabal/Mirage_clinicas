@@ -15,6 +15,7 @@ import {
 import { IconoReloj } from "./tarjeta-turnero-iconos";
 import { LinkConVista } from "./link-con-vista";
 import { BotonMantenerApretado } from "./boton-mantener-apretado";
+import { Despliegue } from "./despliegue";
 
 // TarjetaTurnosDeHoy — la tarjeta principal del panel (2026-09-19,
 // rediseño pedido por el cliente).
@@ -130,7 +131,7 @@ export function TarjetaTurnosDeHoy({
     ahora === null ? turnos.length : turnos.filter((t) => estadoDelItem(t, ahora) === "pendiente").length;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
+    <Despliegue forma="derecha" className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
       {/* En mobile las dos partes se apilan; en escritorio el bloque de
           la izquierda es una columna fija y el cuerpo se queda con el
           resto. `items-stretch` para que el cuerpo tenga siempre el alto
@@ -142,15 +143,19 @@ export function TarjetaTurnosDeHoy({
       <div className="flex min-w-0 flex-col items-stretch md:flex-row">
         <div className="relative flex shrink-0 flex-col justify-between gap-4 overflow-hidden bg-marfil p-6 md:w-60">
           <IconoReloj className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />
-          <div className="relative z-10 flex items-baseline justify-between gap-3">
-            <p className="font-[family-name:var(--font-mono)] text-xs tracking-widest text-grafito/50 uppercase">
+          {/* El rótulo solo en su renglón y el link abajo (2026-09-26): los
+              dos en la misma fila no entraban en los 240 px de la columna,
+              y "TURNOS DE HOY" se partía en dos renglones. En mobile el
+              bloque es ancho y vuelven a compartir la fila. */}
+          <div className="relative z-10 flex items-baseline justify-between gap-3 md:flex-col md:gap-1">
+            <p className="font-[family-name:var(--font-mono)] text-xs tracking-widest whitespace-nowrap text-grafito/50 uppercase">
               Turnos de hoy
             </p>
             <Link href={hrefCabecera} className="text-sm font-medium whitespace-nowrap text-salvia-oscuro hover:text-grafito">
               Ver en calendario
             </Link>
           </div>
-          <p className="relative z-10 font-[family-name:var(--font-display)] text-6xl font-medium text-salvia-oscuro">
+          <p className="despliegue-cifra relative z-10 font-[family-name:var(--font-display)] text-6xl font-medium text-salvia-oscuro">
             {turnos.length}
           </p>
         </div>
@@ -175,7 +180,7 @@ export function TarjetaTurnosDeHoy({
             aparecía la barra gris predeterminada del navegador al lado
             de la beige. Cerrando el eje Y acá queda UNA sola caja que
             scrollea, la de adentro, que es la que tiene el estilo. */}
-        <div className="panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden">
+        <div className="despliegue-cuerpo panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden">
           {turnos.length === 0 ? (
             <p className="p-6 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
               No hay turnos para hoy.
@@ -248,7 +253,7 @@ export function TarjetaTurnosDeHoy({
           Ver todos
         </Link>
       </div>
-    </div>
+    </Despliegue>
   );
 }
 

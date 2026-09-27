@@ -159,6 +159,7 @@ export default async function PanelGeneralPage() {
           vacioMensaje="No hay turnos próximos."
           acento
           icono={<IconoAvance className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          orden={1}
           filas={resumen.turnosProximos.map((t) => ({
             key: t.id,
             href: `/panel/calendario?vista=semana&fecha=${t.fecha}&turno=${t.id}`,
@@ -185,6 +186,7 @@ export default async function PanelGeneralPage() {
           // cliente, 2026-09-06) — mismo tamaño/offset horizontal, más
           // margen inferior.
           icono={<IconoCasilleros className="pointer-events-none absolute right-2 -bottom-8 h-24 w-24 text-salvia/35" />}
+          orden={2}
           filas={resumen.horariosReservados.map((h) => ({
             key: h.id,
             href: `/panel/calendario?vista=semana&fecha=${h.fecha}&bloqueo=${h.id}`,
@@ -223,6 +225,7 @@ export default async function PanelGeneralPage() {
           vacioMensaje="Todavía no terminó ningún turno hoy."
           acento
           icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          orden={3}
           filas={resumen.turnosResueltos.map((t) => ({
             key: t.id,
             href: `/panel/turnos?estado=resuelto&turno=${t.id}`,
@@ -256,30 +259,34 @@ export default async function PanelGeneralPage() {
           }))}
         />
 
-        {/* Última (corrección de QA, 2026-09-06: "la tarjeta de turnos
-            confirmados debe ser la última") — antes iba cuarta.
+        {/* Pendientes y Estadística, APILADAS al lado de Resueltos
+            (2026-09-26). Con "Turnos de hoy" a lo ancho, la sexta tarjeta
+            quedaba sola en su fila con medio renglón vacío; apiladas
+            llenan la grilla, y siguen juntas y al final, como pidió el
+            cliente (2026-09-06: "pendientes la última" y "estadística al
+            lado"). En el celular es una sola columna y el orden no cambia.
             "Pendientes" y no "confirmados" desde 2026-09-19: el mismo
             cambio de rótulo que las pestañas de Turnos. Lo que cuenta no
-            cambió — turnos `agendado` que todavía no pasaron. */}
-        <TarjetaSimple
-          eyebrow="Turnos pendientes"
-          valor={resumen.totalConfirmados}
-          href="/panel/turnos?estado=agendado"
-          titulo="Ver turnos"
-          acento
-          icono={<IconoSello className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-arena" />}
-        />
-
-        {/* "Estadística" (corrección de QA, 2026-09-06: "crear una
-            tarjeta nueva al lado de turnos confirmados... turnos
-            asistidos en verde y turnos ausentados en rojo") — acumulado
-            histórico completo, no acotado a hoy/la semana. */}
-        <TarjetaEstadistica
-          eyebrow="Estadística"
-          asistieron={resumen.turnosAsistidos}
-          ausentes={resumen.turnosAusentes}
-          icono={<IconoEstadistica className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
-        />
+            cambió — turnos `agendado` que todavía no pasaron. Estadística
+            es el acumulado histórico completo, no acotado a hoy. */}
+        <div className="flex flex-col gap-6">
+          <TarjetaSimple
+            eyebrow="Turnos pendientes"
+            valor={resumen.totalConfirmados}
+            href="/panel/turnos?estado=agendado"
+            titulo="Ver turnos"
+            acento
+            orden={4}
+            icono={<IconoSello className="pointer-events-none absolute right-3 -bottom-3 h-24 w-24 text-salvia/35" />}
+          />
+          <TarjetaEstadistica
+            eyebrow="Estadística"
+            asistieron={resumen.turnosAsistidos}
+            ausentes={resumen.turnosAusentes}
+            orden={5}
+            icono={<IconoEstadistica className="pointer-events-none absolute right-2 -bottom-2 h-24 w-28 text-salvia/35" />}
+          />
+        </div>
       </div>
     </div>
   );
