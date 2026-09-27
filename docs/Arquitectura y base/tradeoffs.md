@@ -3226,6 +3226,23 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 - En una captura de página completa (o una impresión) las tarjetas que nunca entraron en la pantalla salen en blanco: esperan a que alguien scrollee hasta ellas.
 - Cuando no hay turnos resueltos, esa tarjeta queda más alta que su contenido para acompañar a las dos apiladas; el cuerpo vacío lo cubre el efecto vidrio.
+## TR-181: La home cuenta una historia — el dolor del profesional, el giro y lo que hace PRISMA
+
+- **Contexto:** pedido del cliente, 2026-09-26, con ulifeon.com como referencia: "diseñe la página de home para que sea algo similar, atacando el dolor del profesional, con animaciones bien pulidas y que demuestre el carácter de nuestra app y funcionalidades; una buena presentación vende el producto". La home anterior (T1.1, TR-015) eran dos fotos de stock con un buscador arriba y dos tarjetas desplegables.
+
+### Las decisiones
+
+1. **La home le habla primero al profesional**, y cuenta una historia en este orden: el producto en acción (un hero con la agenda que se llena sola y el aviso al celular), el dolor (los mensajes de turnos de un día cualquiera, a cualquier hora, "sin responder"), el giro ("Compartiste un link": los mismos pedidos, tachados, y al lado lo que pasa con PRISMA), qué hace PRISMA (seis funciones), cómo se empieza, cómo se cuida a los pacientes y el llamado final. **El paciente no pierde su entrada:** "Buscar clínicas" sigue en el header y la home tiene su propia banda (`#buscar`), igual que antes.
+2. **Las ilustraciones son piezas del producto dibujadas con HTML, no capturas ni fotos**: el bloque de turno con su marca de cuadrante, la campana, el wizard, el botón de Publicar. Se ven nítidas en cualquier pantalla, no hay que regenerarlas cuando cambia una pantalla y pesan casi nada. Las dos fotos de stock se borraron.
+3. **Todo lo que la home promete existe en el producto** (el wizard por tipo → profesional → día → horario, el código por mail, la detección de un DNI ajeno, el link de una hora para uno mismo o un familiar, recepción viendo a todos, el aviso al celular de TR-179). No hay cifras inventadas ni sellos de cumplimiento que no se pueden sostener.
+4. **Animaciones CSS, sin framer-motion en la home.** `ScrollReveal` arrancaba con opacidad 0 en el HTML del servidor —la página se veía vacía hasta hidratar— y sumaba 131 KB de JavaScript a la primera página que ve cualquiera. `Revelar` (`components/home/revelar.tsx`) usa el mismo criterio que las tarjetas del panel (TR-180): se arma al pintar sin JavaScript, y lo que está fuera de la pantalla espera a entrar. Las ilustraciones se mueven en bucles lentos con pausas largas (`.lp-*`). Con "reducir movimiento" nada se mueve: todo queda en el cuadro que mejor lo explica.
+5. **La piel cálida es de todo el sitio.** El header de la home era el único que conservaba porcelana/ink (pedido del 2026-08-23, "el home solo cambiar tarjetas y botones"); con la home rediseñada, sobre el hero grafito va transparente con texto marfil y al scrollear pasa a marfil como el resto.
+6. **Los estilos de la home van en `app/home.css`**, importado solo por `app/page.tsx`: son de una página y no tienen por qué viajar a las demás.
+
+### Lo que se sacrifica
+
+- La home ya no abre con el buscador: quien llega como paciente lo encuentra en el header o en la banda de pacientes, más abajo.
+- "Te enterás en el momento" describe el aviso al celular de TR-179: esta home tiene que entrar a `dev` después de esas notificaciones.
 
 ---
 

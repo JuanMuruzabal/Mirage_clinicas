@@ -298,6 +298,11 @@ Pedido directo del cliente (2026-09-26). La campana del header abre la bandeja d
 - **Las tarjetas de General se despliegan al entrar en la pantalla** con `Despliegue` (`components/panel/despliegue.tsx`); la animación es CSS (`.despliegue*`, `.dib-*` en `globals.css`). Una tarjeta nueva se envuelve en `Despliegue` con su `orden`, su número lleva `despliegue-cifra`, su cuerpo `despliegue-cuerpo` y su dibujo `despliegue-dibujo`. **Nunca escondas el contenido hasta que hidrate**: el HTML del servidor tiene que verse sin JavaScript, y con "reducir movimiento" no se anima nada.
 - **Un ícono del sidebar es de `sidebar-icons.tsx`** y lleva una pieza de acento (`acento(activo)`) que se rellena en la sección activa. La sección activa sale de `esSeccionActiva`, que también marca las pantallas de adentro.
 - **Algo que se muestra solo al pasar el mouse no existe en el celular.** Si una acción vive en un hover, dale también un camino táctil (en el menú de colaboradores, la fila entera es el link).
+## La home pública (TR-181)
+
+- **Cuenta una historia para el profesional** (hero con la agenda que se llena sola → el dolor → el giro → funciones → pasos → seguridad → pacientes → cierre), con las secciones en `components/home/` y los estilos en `app/home.css` (solo los importa `app/page.tsx`). Los anclas `#como-funciona` y `#buscar` son los destinos del header: no los renombres.
+- **Todo lo que la home promete tiene que existir en el producto.** Si una función cambia o se va, la home cambia con ella; y nada de cifras, testimonios o sellos que no se puedan sostener.
+- **Nada de framer-motion ni de contenido escondido hasta hidratar en la home**: `Revelar` + CSS, mismo criterio que TR-180. Con "reducir movimiento", nada se mueve.
 
 ## Flujo de ramas
 
