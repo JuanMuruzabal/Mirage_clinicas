@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconSeguridad, IconTurnos } from "./sidebar-icons";
 import { QuadrantMark } from "../quadrant-mark";
+import { IconChevronLeft } from "../icons";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 
 const NAV_ITEMS = [
@@ -40,6 +41,14 @@ const NAV_ITEMS = [
 // variante mobile aparte — el cliente prefiere el control manual de
 // siempre, la flechita, sobre un riel forzado por viewport, TR-025) —
 // pasa de w-16 (64px) a 52px exactos con los íconos centrados (TR-029).
+// Una sección queda marcada también en sus pantallas de adentro (la ficha
+// de un paciente es "Pacientes"). General es la excepción: todo el panel
+// vive debajo de /panel, así que solo cuenta la ruta exacta.
+export function esSeccionActiva(pathname: string, href: string): boolean {
+  if (href === "/panel") return pathname === "/panel";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function PanelSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -103,9 +112,7 @@ export function PanelSidebar() {
           aria-expanded={!collapsed}
           className="hidden items-center justify-center border-b-[0.5px] border-arena py-3 text-grafito/50 hover:text-grafito md:flex"
         >
-          <span aria-hidden="true" className={`inline-block transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}>
-            ←
-          </span>
+          <IconChevronLeft className={`h-4 w-4 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
         </button>
 
         {/* "Panel" → /seleccionar-servicio (TR-075 en docs/Arquitectura y base/tradeoffs.md,
@@ -140,17 +147,18 @@ export function PanelSidebar() {
 
         <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Gestión de clínica">
           {NAV_ITEMS.map(({ href, label, Icon }) => {
-            const active = pathname === href;
+            const active = esSeccionActiva(pathname, href);
             return (
               <Link
                 key={href}
                 href={href}
                 title={collapsed ? label : undefined}
-                className={`flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
+                aria-current={active ? "page" : undefined}
+                className={`group flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center" : ""
                 } ${active ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito hover:bg-arena"}`}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
+                <Icon className="h-5 w-5 flex-shrink-0" activo={active} />
                 {!collapsed && <span className="truncate">{label}</span>}
               </Link>
             );
@@ -164,7 +172,7 @@ export function PanelSidebar() {
           <Link
             href="/personalizar-pagina"
             title={collapsed ? "Tu página" : undefined}
-            className={`flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+            className={`group flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
               collapsed ? "justify-center" : ""
             }`}
           >
@@ -185,11 +193,16 @@ export function PanelSidebar() {
           <Link
             href="/panel/seguridad"
             title={collapsed ? "Seguridad" : undefined}
-            className={`flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+            aria-current={esSeccionActiva(pathname, "/panel/seguridad") ? "page" : undefined}
+            className={`group flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
               collapsed ? "justify-center" : ""
+            } ${
+              esSeccionActiva(pathname, "/panel/seguridad")
+                ? "bg-salvia-claro text-salvia-oscuro"
+                : "text-grafito/60 hover:bg-arena hover:text-grafito"
             }`}
           >
-            <IconSeguridad className="h-5 w-5 flex-shrink-0" />
+            <IconSeguridad className="h-5 w-5 flex-shrink-0" activo={esSeccionActiva(pathname, "/panel/seguridad")} />
             {!collapsed && <span className="truncate">Seguridad</span>}
           </Link>
         </div>

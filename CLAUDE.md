@@ -292,6 +292,13 @@ Pedido directo del cliente (2026-09-26). La campana del header abre la bandeja d
 - **`public/sw.js` no cachea ni intercepta pedidos** — un service worker que cachea deja a la gente en una versión vieja después de un deploy. Si hace falta offline, es otra decisión.
 - **Los avisos al celular son por dispositivo**, y en iPhone solo con PRISMA instalada en la pantalla de inicio (regla de Apple).
 
+
+## Pulido visual del panel (TR-180)
+
+- **Las tarjetas de General se despliegan al entrar en la pantalla** con `Despliegue` (`components/panel/despliegue.tsx`); la animación es CSS (`.despliegue*`, `.dib-*` en `globals.css`). Una tarjeta nueva se envuelve en `Despliegue` con su `orden`, su número lleva `despliegue-cifra`, su cuerpo `despliegue-cuerpo` y su dibujo `despliegue-dibujo`. **Nunca escondas el contenido hasta que hidrate**: el HTML del servidor tiene que verse sin JavaScript, y con "reducir movimiento" no se anima nada.
+- **Un ícono del sidebar es de `sidebar-icons.tsx`** y lleva una pieza de acento (`acento(activo)`) que se rellena en la sección activa. La sección activa sale de `esSeccionActiva`, que también marca las pantallas de adentro.
+- **Algo que se muestra solo al pasar el mouse no existe en el celular.** Si una acción vive en un hover, dale también un camino táctil (en el menú de colaboradores, la fila entera es el link).
+
 ## Flujo de ramas
 
 Mismo criterio que Marcuzzi_Madryn: `main` (prod) ← solo merge cuando el usuario lo pide explícitamente ("mergeá") · `dev` (integración, push libre) ← `feature/`/`fix/` para trabajo grande, cambios chicos van directo a `dev`. Merge a `main` siempre vía `git merge --ff-only`. **Ojo: "push libre" no es inocuo** — un push a `dev` corre CI (web, api, test-api con `-race` y gate 80%, test-web) y, si pasa, dispara el deploy en Render (un solo entorno, TR-021); `main` corre el mismo CI pero no despliega.

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Equipo, MiembroDelEquipo, Presencia } from "@dental-mirage/shared-types";
 import { logoutAction } from "@/app/actions/auth";
 import { presenciaAction } from "@/app/actions/presencia";
-import { IconLogout, IconUser } from "@/components/icons";
+import { IconChevronRight, IconLogout, IconUser } from "@/components/icons";
 
 const itemDeCuenta =
   "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
@@ -221,48 +221,57 @@ export function EquipoPopover({
 
 function FilaColaborador({ miembro, onIr }: { miembro: MiembroDelEquipo; onIr: () => void }) {
   const rol = miembro.esTitular ? "Titular" : (ETIQUETA_ROL[miembro.roles[0] ?? ""] ?? miembro.roles[0] ?? "");
+  // La fila ENTERA lleva al perfil (2026-09-26, pedido del cliente: en el
+  // celular "Ver perfil" no aparecía). Antes el link vivía escondido y se
+  // mostraba al pasar el mouse; en una pantalla táctil no hay hover, así que
+  // no había cómo llegar. Ahora:
+  //   - con mouse, la presencia cede su lugar a "Ver perfil" al apuntar la
+  //     fila, como antes;
+  //   - en táctil (`hover: none`) la presencia queda siempre a la vista y
+  //     un chevron dice que la fila se toca.
+  // El propio perfil va a /perfil, que además lo edita; el de un colega, a
+  // su ficha en solo lectura.
   return (
-    <li className="group flex items-center gap-3 rounded-field px-3 py-2 hover:bg-hueso">
-      <span
-        aria-hidden="true"
-        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-          miembro.enLinea ? "bg-salvia-oscuro text-marfil" : "bg-arena text-grafito/60"
-        }`}
+    <li>
+      <Link
+        href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
+        onClick={onIr}
+        aria-label={`Ver perfil de ${miembro.nombre}`}
+        className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-hueso focus-visible:bg-hueso focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-salvia active:bg-salvia-claro/60"
       >
-        {iniciales(miembro.nombre)}
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-medium text-grafito">
-          {miembro.nombre}
-          {miembro.esVos && <span className="text-grafito/50"> (vos)</span>}
-        </span>
-        <span className="truncate text-xs text-grafito/50">{rol}</span>
-      </span>
-      {/* La presencia y el acceso al perfil comparten lugar: la fila ya
-          está llena y las dos cosas no se necesitan al mismo tiempo
-          (2026-09-19). En reposo se lee "en línea / hace 20 min"; al
-          apuntar la fila aparece "Ver perfil". En touch, donde no hay
-          hover, el foco del teclado y el `group-focus-within` lo
-          muestran igual. */}
-      <span className="relative ml-auto flex flex-shrink-0 items-center">
         <span
-          className={`flex items-center gap-1.5 text-xs group-hover:invisible group-focus-within:invisible ${
-            miembro.enLinea ? "text-salvia-oscuro" : "text-grafito/45"
+          aria-hidden="true"
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+            miembro.enLinea ? "bg-salvia-oscuro text-marfil" : "bg-arena text-grafito/60"
           }`}
         >
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${miembro.enLinea ? "bg-salvia-oscuro" : "bg-arena"}`} />
-          {miembro.enLinea ? "En línea" : haceCuanto(miembro.ultimaActividad)}
+          {iniciales(miembro.nombre)}
         </span>
-        {/* El propio perfil va a /perfil, que además de mostrarlo lo
-            edita; el de un colega, a su ficha en solo lectura. */}
-        <Link
-          href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
-          onClick={onIr}
-          className="absolute inset-y-0 right-0 flex items-center whitespace-nowrap text-xs font-medium text-salvia-oscuro opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
-        >
-          Ver perfil
-        </Link>
-      </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-medium text-grafito">
+            {miembro.nombre}
+            {miembro.esVos && <span className="text-grafito/50"> (vos)</span>}
+          </span>
+          <span className="truncate text-xs text-grafito/50">{rol}</span>
+        </span>
+        <span className="relative ml-auto flex flex-shrink-0 items-center gap-1">
+          <span
+            className={`flex items-center gap-1.5 text-xs [@media(hover:hover)]:group-hover:invisible [@media(hover:hover)]:group-focus-visible:invisible ${
+              miembro.enLinea ? "text-salvia-oscuro" : "text-grafito/45"
+            }`}
+          >
+            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${miembro.enLinea ? "bg-salvia-oscuro" : "bg-arena"}`} />
+            {miembro.enLinea ? "En línea" : haceCuanto(miembro.ultimaActividad)}
+          </span>
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 right-0 hidden items-center whitespace-nowrap text-xs font-medium text-salvia-oscuro opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:hover)]:flex"
+          >
+            Ver perfil &rarr;
+          </span>
+          <IconChevronRight className="h-4 w-4 flex-shrink-0 text-grafito/35 [@media(hover:hover)]:hidden" />
+        </span>
+      </Link>
     </li>
   );
 }

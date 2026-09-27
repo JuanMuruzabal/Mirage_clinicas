@@ -3206,6 +3206,27 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - **Avisos de lo que se carga desde el panel** (turno manual, reprogramado, cancelado): quien lo hace ya lo sabe. Si el cliente pide avisarle al profesional lo que hace recepción en su agenda, es un tipo nuevo de aviso sobre el mismo modelo.
 - **Mail o WhatsApp como canal:** fuera de alcance (recordatorios automatizados, spec §2).
 
+## TR-180: El panel se arma al entrar — tarjetas que se despliegan, dibujos e íconos propios
+
+- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil).
+
+### Las decisiones
+
+1. **La animación es CSS; JavaScript solo decide cuándo** (`components/panel/despliegue.tsx`, `.despliegue*` en `globals.css`). Sin hacer nada, cada tarjeta se despliega una vez al pintar: el HTML del servidor nunca queda escondido esperando a hidratar (misma regla que TR-168). Al hidratar, las que están fuera de la pantalla pasan a `en-espera` —taparlas no se ve, están afuera— y se despliegan cuando entran (`IntersectionObserver`). Las que ya estaban a la vista no se tocan: repetirles la animación sería un parpadeo.
+2. **Las visibles al entrar se despliegan en cascada** (`orden`, 90 ms entre una y otra), no todas juntas. Las que entran al scrollear arrancan sin demora.
+3. **`animation-fill-mode: backwards`, no `both`:** terminado el despliegue la tarjeta no conserva `clip-path` ni `transform`, que recortarían anillos de foco y sombras.
+4. **Con "reducir movimiento" no hay nada de esto**, ni en CSS ni en el componente: todo aparece en su estado final.
+5. **Dibujos de las tarjetas redibujados como un juego** (`tarjeta-turnero-iconos.tsx`): el mismo trazo con esquinas duras, como la marca de cuadrante, y una pieza rellena que cuenta la historia (la mañana ya transcurrida en el reloj, el turno marcado en el día que viene, los horarios tomados rayados, la muela con el tilde, el reloj de arena). Se arman con la tarjeta (`.dib-*`).
+6. **Íconos del sidebar propios** (`sidebar-icons.tsx`): tablero de tres bloques, la hoja del mes con un día marcado, el número de turno con su talón, la ficha del paciente, la ventana con la portada, el escudo con cerradura. Cada uno tiene una pieza de acento que se rellena en la sección activa —lleno = acá estás, la misma idea que los cuadrantes llenos de la marca— y se insinúa al pasar el mouse. La sección queda marcada también en sus pantallas de adentro (`esSeccionActiva`: la ficha de un paciente es "Pacientes"), con `aria-current`.
+7. **"Estadística" se apila con "Turnos pendientes" al lado de "Resueltos":** con "Turnos de hoy" a lo ancho quedaba sola en la última fila. Siguen juntas y al final, como pidió el cliente el 2026-09-06.
+8. **En el menú de colaboradores, la fila entera lleva al perfil.** "Ver perfil" aparecía solo al pasar el mouse, y en una pantalla táctil no había cómo llegar. Con mouse se ve como antes; en táctil la fila muestra un chevron.
+9. **El menú de cuenta usa el mismo disco verde en /perfil y en /clinicas**: en /perfil quedaba una tuerca suelta, distinta del ícono del resto del header.
+
+### Lo que se sacrifica
+
+- En una captura de página completa (o una impresión) las tarjetas que nunca entraron en la pantalla salen en blanco: esperan a que alguien scrollee hasta ellas.
+- Cuando no hay turnos resueltos, esa tarjeta queda más alta que su contenido para acompañar a las dos apiladas; el cuerpo vacío lo cubre el efecto vidrio.
+
 ---
 
 ---
