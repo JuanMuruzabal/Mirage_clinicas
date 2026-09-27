@@ -26,7 +26,8 @@ repo es el ejemplo de cómo aplicarlo.
 | Backend       | Go + [chi](https://github.com/go-chi/chi) (router) + GORM (acceso a datos) |
 | Frontend      | Next.js 16 + TypeScript + Tailwind CSS                                      |
 | Base de datos | PostgreSQL 16, extensión `btree_gist` + exclusion constraints              |
-| Monorepo      | pnpm workspaces (`apps/web`, `packages/shared-types`) + módulo Go independiente (`apps/api`) |
+| Monorepo      | pnpm workspaces (`apps/web`, `packages/shared-types`, `packages/prisma-engine`) + módulo Go independiente (`apps/api`) |
+| Infra         | Render (un entorno) con los dos `Dockerfile` (Alpine 3.24, procesos sin root), Postgres administrado y Cloudflare R2 para las fotos |
 
 Decisiones y alternativas descartadas de cada elección: `docs/Arquitectura y base/tradeoffs.md`
 (TR-001 a TR-012 responden las preguntas abiertas de la spec — tipos de
@@ -35,11 +36,13 @@ alcance de organización, identidad visual; TR-013 en adelante son ajustes
 de ejecución posteriores).
 
 El requisito no obvio más importante del proyecto: dos turnos de un mismo
-profesional **no** se validan solo en la aplicación — `turno.rango_horario`
-tiene un `EXCLUDE USING gist` a nivel de Postgres que impide solapamientos
-incluso ante bugs de concurrencia en el backend, acotado a turnos en estado
-`agendado` (ver TR-006 en `docs/Arquitectura y base/tradeoffs.md`). Ver `apps/api/internal/db`
-y la sección homónima en `CLAUDE.md`.
+profesional **no** se validan solo en la aplicación — la tabla `turnos`
+tiene un `EXCLUDE USING gist` sobre `(atendido_por_user_id, rango_horario)`
+a nivel de Postgres que impide solapamientos incluso ante bugs de
+concurrencia en el backend, acotado a turnos en estado `agendado` (TR-006,
+y TR-137 para el cambio de columna con el multi-tenant: la garantía es por
+**profesional**, también entre dos clínicas distintas, no por clínica). Ver
+`apps/api/internal/db` y la sección homónima en `CLAUDE.md`.
 
 ## Estructura del repo
 
@@ -48,15 +51,20 @@ apps/
   api/            # Backend Go (módulo independiente, no es un workspace pnpm)
     cmd/api/      # Entry point del servidor HTTP
     cmd/migrate/  # Entry point que aplica el esquema (idempotente)
+    cmd/vapid/    # Genera las claves de los avisos al celular (Web Push)
     internal/     # Handlers, modelos, clock, testdb, etc.
     Dockerfile    # Imagen de producción (build en dos etapas)
   web/            # Frontend Next.js 16 (App Router)
     Dockerfile    # Imagen de producción (output: standalone)
 packages/
   shared-types/   # Interfaces TS que reflejan a mano los structs de apps/api
-docs/             # Spec, plan de implementación, tradeoffs
+  prisma-engine/  # Registro único de los módulos de la página pública: esquemas,
+                  # temas, efectos y plantillas (se exportan a Go con engine:generar)
+docs/             # Spec, plan, tradeoffs, fases, seguridad y optimización
+scripts/          # qa-entorno-dev.sh: QA de punta a punta contra los contenedores
 docker-compose.yml
 render.yaml       # Blueprint de Render (Infrastructure as Code) — ver "Deploy"
+lighthouserc.json # Presupuesto de rendimiento de la página pública (job de CI)
 ```
 
 ## Cómo correr el proyecto
@@ -87,16 +95,18 @@ Con eso arriba: **http://localhost:3000** es el sitio,
 **http://localhost:8080** es la API.
 
 Variables opcionales en desarrollo (`JWT_SECRET`, `CONTACTO_EMAIL`,
-`BFF_SHARED_SECRET`, `DEV_TOOLS`):
+`BFF_SHARED_SECRET`, `DEV_TOOLS`, y `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/
+`VAPID_SUBJECT` para probar los avisos al celular en local):
 copiar [`.env.example`](.env.example) a `.env` en la raíz antes de
 levantar el stack si hace falta cambiar algún default.
 
-> **`JWT_SECRET` es opcional SOLO en `development`.** Con `APP_ENV`
-> distinto de `development`, el proceso **se niega a arrancar** si su
-> valor resuelto es el de ejemplo del repo — incluida la variable puesta
-> pero vacía o con solo espacios, que es el error humano más plausible
-> (borrar el contenido del campo en el dashboard en vez de borrar la
-> fila). Ver TR-125.
+> **`JWT_SECRET` es opcional SOLO en localhost.** Si `APP_BASE_URL` es
+> una URL pública, el proceso **se niega a arrancar** si su valor resuelto
+> es el de ejemplo del repo — incluida la variable puesta pero vacía o con
+> solo espacios, que es el error humano más plausible (borrar el contenido
+> del campo en el dashboard en vez de borrar la fila). Ver TR-125 y TR-176:
+> hasta la segunda radiografía este control miraba `APP_ENV`, que en Render
+> vale `development` a propósito, así que nunca corría en producción.
 >
 > Pese al nombre, **acá no hay ningún JWT**: la sesión es un token opaco
 > validado contra la tabla `sessions` (TR-037). Esa variable firma con
@@ -149,8 +159,8 @@ docker compose down -v     # borra también postgres_data y uploads_data (las fo
 
 ### Opción B — Cada app suelta (mejor para iterar rápido con hot-reload)
 
-Requisitos: Go ≥ 1.25 (el `go.mod` fija la versión, `go` la descarga sola
-si hace falta con `GOTOOLCHAIN=auto`, el default), Node ≥ 20, pnpm ≥ 9.
+Requisitos: Go ≥ 1.26 (el `go.mod` fija la versión, `go` la descarga sola
+si hace falta con `GOTOOLCHAIN=auto`, el default), Node ≥ 20 (CI usa 22), pnpm ≥ 9.
 
 1. Levantar solo Postgres:
    ```bash
@@ -170,13 +180,15 @@ si hace falta con `GOTOOLCHAIN=auto`, el default), Node ≥ 20, pnpm ≥ 9.
    `internal/config` y `lib/api.ts`) — pero documentan qué variables
    existen y hacen falta si algo corre en un puerto/host distinto.
 
-   `apps/api/.env.example` incluye además las variables del módulo de
-   auth/onboarding (`docs/Login/feature-sumarte-login.md`): Resend (mails),
-   Google OAuth, Cloudflare Turnstile (CAPTCHA), HaveIBeenPwned y storage
-   de foto de perfil. Ninguna es obligatoria en dev — sin configurar,
-   cada dependencia queda deshabilitada (mails van al log, sin Google, sin
-   CAPTCHA) en vez de romper el arranque; ver los comentarios del archivo
-   para el detalle de cada una.
+   `apps/api/.env.example` incluye además las variables de las
+   dependencias externas: Resend (mails), Google OAuth, Cloudflare
+   Turnstile (CAPTCHA), HaveIBeenPwned, el storage de las fotos de la
+   página pública (disco en local, Cloudflare R2 en producción) y las
+   claves de los avisos al celular (VAPID). Ninguna es obligatoria en
+   localhost — sin configurar, cada dependencia queda deshabilitada (mails
+   al log, sin Google, sin CAPTCHA, fotos en disco, sin avisos al celular)
+   en vez de romper el arranque; ver los comentarios del archivo para el
+   detalle de cada una.
 4. Aplicar el esquema (idempotente, se puede correr de nuevo sin romper
    nada):
    ```bash
@@ -199,6 +211,11 @@ pnpm run typecheck:shared-types
 pnpm run test:web             # vitest run — ver sección "Tests" más abajo
 pnpm run test:coverage:web
 
+pnpm run typecheck:prisma-engine
+pnpm run test:prisma-engine
+pnpm run engine:generar       # exporta esquemas y catálogo de temas a apps/api (CI verifica que no cambie)
+pnpm run validar:plantillas   # valida plantillas y presets contra los esquemas de los módulos
+
 pnpm run dev:api              # go run ./cmd/api
 pnpm run build:api            # go build ./...
 pnpm run vet:api              # go vet ./...
@@ -209,6 +226,16 @@ pnpm run test:coverage:api
 
 Lint de Go (no tiene atajo en `package.json`, correr dentro de
 `apps/api`): `golangci-lint run ./...`.
+
+Otros que no tienen atajo:
+
+- **Claves de los avisos al celular:** `cd apps/api && go run ./cmd/vapid`
+  imprime `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`.
+- **Presupuesto de rendimiento** (lo mismo que el job `lighthouse` de CI),
+  desde la raíz y con `pnpm run build:web` hecho:
+  `PRISMA_DEMO_PLANTILLAS=1 pnpm dlx @lhci/cli@0.15.1 autorun`.
+- **QA del entorno real:** `scripts/qa-entorno-dev.sh`, contra los
+  contenedores levantados con `docker compose up -d --build`.
 
 ## Tests
 
@@ -263,10 +290,15 @@ test <patrón del archivo>`.
 ## Integración continua
 
 `.github/workflows/ci.yml` corre en cada push a `main` o `dev`, y en
-cualquier pull request, con seis jobs:
+cualquier pull request, con seis jobs y permisos de solo lectura sobre el
+repo (`permissions: contents: read`, TR-178):
 
-- **`web`**: `eslint`, `next typegen && tsc --noEmit`, typecheck de
-  `packages/shared-types`, `next build`.
+- **`web`**: regenera el catálogo de Prisma Engine y falla si difiere de
+  lo commiteado (`engine:generar`), valida plantillas y presets, `eslint`,
+  `next typegen && tsc --noEmit`, typecheck de `packages/shared-types` y
+  `packages/prisma-engine`, los tests de `prisma-engine` y `next build`
+  (con un reintento: el build descarga las fuentes de Google y a veces
+  esa descarga falla sola).
 - **`api`**: `go vet`, `golangci-lint`, `go build`.
 - **`test-api`**: los tests de Go contra un Postgres real levantado como
   `services:` del job, con `-race` + coverage — falla el build si el
@@ -274,13 +306,12 @@ cualquier pull request, con seis jobs:
 - **`test-web`**: la suite de Vitest con coverage — el propio
   `coverage.thresholds` de `apps/web/vitest.config.mts` hace fallar el
   comando por debajo de 80%.
-- **`deploy-prod`**: solo en push directo a `main` (nunca en un
-  pull_request) y solo si los cuatro jobs de arriba pasaron. Dispara los
-  Deploy Hooks de `dental-mirage-api`/`dental-mirage-web` en Render.
-- **`deploy-dev`**: mismo criterio, pero en push a `dev` — dispara los
-  Deploy Hooks de `dental-mirage-api-dev`/`dental-mirage-web-dev`. Los dos
-  entornos (ver "Deploy" abajo) se redeployan automáticamente, cada uno
-  solo con el push a su propia rama.
+- **`lighthouse`**: el presupuesto de rendimiento de la página pública
+  (PE-9, TR-165), sobre páginas de demostración (`lighthouserc.json`).
+- **`deploy`**: solo en push a `dev` (nunca en un pull request) y solo si
+  `web`, `api`, `test-api` y `test-web` pasaron. Dispara los Deploy Hooks
+  de `dental-mirage-api`/`dental-mirage-web` en Render. Un push a `main`
+  corre todo lo demás pero no despliega (ver "Deploy").
 
 Antes de abrir un PR, correr localmente el mismo pipeline que corre CI
 (los comandos de arriba, en el mismo orden) evita sorpresas — en
@@ -370,10 +401,12 @@ pierde en cada deploy. Ver "Activar el storage de fotos" más abajo.
    - `dental-mirage-web`: `CONTACTO_EMAIL` (el dato real del cliente,
      reemplaza el placeholder de desarrollo).
    - `dental-mirage-api`: `RESEND_API_KEY`/`RESEND_FROM_EMAIL` (envío real
-     de mails — ver "Activar el envío real de mail" más abajo),
-     `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (login con Google) y
-     `TURNSTILE_SECRET_KEY` (CAPTCHA). Todas nil-safe: sin cargarlas, esa
-     dependencia puntual queda deshabilitada (mails solo se loguean, sin
+     de mails — ver "Activar el envío real de mail" más abajo).
+     **Obligatorias:** con una `APP_BASE_URL` pública la API no arranca
+     sin `RESEND_API_KEY` (TR-176).
+   - `dental-mirage-api`: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (login
+     con Google) y `TURNSTILE_SECRET_KEY` (CAPTCHA). Estas sí son
+     opcionales: sin cargarlas, esa dependencia queda deshabilitada (sin
      botón de Google, sin CAPTCHA) — nunca un 500, ver
      `docs/Login/feature-sumarte-login-resumen.md`.
    - `dental-mirage-api`: `STORAGE_R2_BUCKET`/`STORAGE_R2_ENDPOINT`/
@@ -420,10 +453,12 @@ permite interpolar la URL de un servicio dentro de otro en el blueprint).
 ### Activar el envío real de mail (Resend)
 
 El código ya está completo (`internal/mail.ResendSender`, plantillas HTML
-en `internal/mail/templates/`) — mientras `RESEND_API_KEY` no esté
-cargada, las cuentas nativas nuevas quedan verificadas de entrada en vez
-de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
-`docs/Arquitectura y base/tradeoffs.md`). Para activarlo de verdad:
+en `internal/mail/templates/`). **En un deploy público es obligatorio**:
+con una `APP_BASE_URL` pública, la API no arranca sin `RESEND_API_KEY`
+(TR-176). La verificación automática de cuentas sin mail
+(`AutoVerifyEmail`, TR-051) quedó solo para localhost: en un entorno
+público dejaba registrarse con el mail de una persona invitada y aceptar
+la invitación en su lugar (segunda radiografía, B3). Para activarlo:
 
 1. Crear una cuenta en [resend.com](https://resend.com) (si todavía no
    existe).
@@ -439,9 +474,7 @@ de esperar un mail que nunca se manda (`AutoVerifyEmail`, TR-051 en
      paso 2 (ej. `no-reply@tudominio.com`) — **no** un mail cualquiera,
      Resend rechaza el envío si el dominio del remitente no está
      verificado en la cuenta.
-5. Guardar → Render redeploya `dental-mirage-api` solo. Apenas el
-   servicio arranca con `RESEND_API_KEY` no vacía, `AutoVerifyEmail` se
-   apaga automáticamente — ningún otro cambio de código ni de config.
+5. Guardar → Render redeploya `dental-mirage-api` solo.
 6. Verificar: registrar una cuenta de prueba real y confirmar que el mail
    de verificación llega (revisar spam la primera vez).
 
@@ -481,121 +514,207 @@ disco del contenedor: hay que volver a subirlas.
   converge acá antes de pasar a `main`.
 - **`feature/<nombre-corto>`** / **`fix/<nombre-corto>`** — reservadas
   para trabajo grande (funcionalidades/bugs generales), salen de `dev` y
-  vuelven a `dev`.
+  vuelven a `dev` por pull request, que se mergea con merge commit. CI
+  tiene que pasar antes de mergear; conviene borrar la rama después (el
+  repo no lo hace solo).
 - **Cambios chicos** (ajustes de UI, un tweak puntual, bugs menores) —
   commit directo a `dev`, sin abrir rama.
 
 ## Estado del proyecto
 
+Resumen por etapa. El detalle fase por fase está en
+`docs/Arquitectura y base/implementation-plan.md`, el funcional en
+`dental-mirage-spec.md` y cada decisión, con sus alternativas descartadas,
+en `tradeoffs.md`.
+
+### MVP (Sprints 0 a 5)
+
 Sprints 0 a 4 completados y verificados (onboarding, gestión de clínica,
 turnos entrantes + pacientes + formulario público, página pública + deploy
-+ búsqueda) — detalle sprint por sprint, con las verificaciones de cada
-uno, en `docs/Arquitectura y base/implementation-plan.md`. De Sprint 5 (pulido, QA end-to-end,
-salida a producción), la infraestructura de CI/deploy (T5.5) ya está
-armada — Dockerfiles, `render.yaml`, deploy automático por rama; falta
-aplicar el blueprint en el dashboard de Render y cargar los secrets (ver
-"Deploy" arriba). El resto de Sprint 5 (mobile-first, QA end-to-end) sigue
-pendiente.
++ búsqueda). De Sprint 5 quedó armada la infraestructura de CI y deploy:
+el sistema corre en Render, un solo entorno que se redeploya con cada push
+a `dev` que pasa CI (ver "Deploy").
 
-**Fase 2 completa (2026-09-07):** calendario avanzado y autogestión de
-turnos — detalle fase por fase en `docs/Arquitectura y base/implementation-plan.md` §11,
-decisiones de arquitectura en `docs/Arquitectura y base/tradeoffs.md` TR-078 a TR-120,
-resumen funcional en `docs/Arquitectura y base/dental-mirage-spec.md` §11. Los 5 ítems del
-brief original (calendario mobile con scroll fijo; ajustes de horario de
-atención/tipos de consulta/horarios reservados; selección de horario por
-el paciente; compartir calendario por link efímero — la vista "pantalla
-grande" del ítem 2 se descartó por completo tras fallar en dispositivo
-real, TR-085), los 5 ítems extra pedidos post-QA (dashboard rediseñado,
-banner de conflicto + autoreservar turnos, formulario público reescrito
-con verificación por código, DNI único por clínica, filtros rápidos de
-fecha) y los ítems extra de identidad/seguridad (paciente verificado "ya
-he venido antes", detección de conflictos, 3 detectores anti-abuso,
-"sacar turno para otro" con tutor) quedan implementados, aprobados por el
-cliente y mergeados a `dev`.
+### Fase 2 — completa (2026-09-07)
 
-**Fase 3 — multi-tenant, en curso (desde 2026-09-12).** N profesionales por clínica y N clínicas por profesional. Brief del cliente y bitácoras en `docs/Fases post MVP/Fase 3/`; modelo de datos con los diagramas ER de antes y después en `docs/Arquitectura y base/modelo de datos/`; plan por subfases en `implementation-plan.md` §13; decisiones en `tradeoffs.md` TR-133 a TR-160.
+Calendario avanzado y autogestión de turnos: los 5 ítems del brief
+(calendario mobile, ajustes de horario de atención/tipos de consulta/
+horarios reservados, selección de horario por el paciente, compartir
+calendario por link efímero), los 5 extra pedidos después del QA (dashboard
+rediseñado, autoreservar turnos, formulario público reescrito con
+verificación por código, DNI único por clínica, filtros rápidos) y los de
+identidad y seguridad (paciente verificado y "ya he venido antes",
+detección de conflictos de identidad, 3 detectores anti-abuso, "sacar turno
+para otro" con tutor). Plan en §11, decisiones TR-078 a TR-120.
+
+### Fase 3 — multi-tenant, completa (2026-09-12 a 2026-09-26)
+
+N profesionales por clínica y N clínicas por profesional, con recepción.
+Brief y bitácoras en `docs/Fases post MVP/Fase 3/`; modelo de datos con los
+diagramas ER de antes y después en `docs/Arquitectura y base/modelo de datos/`;
+plan por subfases en `implementation-plan.md` §13; decisiones TR-133 a
+TR-162 y TR-166.
 
 | Subfase | Estado |
 |---|---|
 | 3.1 — cambios al wizard público (1 turno activo por DNI **y tipo de consulta**, "ya he venido antes" con turno activo, repetir turno de otro tipo) | ✅ 2026-09-12 (TR-133) |
-| 3.1.1 / 3.1.2 — la IP real del visitante, y la topología que no era la que decía la documentación | ✅ 2026-09-13 (TR-134, TR-136) |
+| 3.1.1 / 3.1.2 — la IP real del visitante, y la topología de proxies que no era la que decía la documentación | ✅ 2026-09-13 (TR-134, TR-136) |
 | 3.2.1 — esquema y migración: el modelo soporta N↔N sin que cambie una sola pantalla | ✅ 2026-09-13 (TR-137) |
 | 3.2.2 — roles y permisos en el backend, y el aislamiento entre colegas | ✅ 2026-09-13 (TR-138) |
-| 3.2.3 — onboarding y "¿dónde trabajás hoy?": la clínica activa se elige y vive en la sesión; el perfil deja de asumir que todos atienden pacientes (quien no tiene matrícula la completa antes de crear su clínica o de entrar a una como profesional) | ✅ 2026-09-13 (TR-139) |
+| 3.2.3 — onboarding y "¿dónde trabajás hoy?": la clínica activa se elige y vive en la sesión; el perfil deja de asumir que todos atienden pacientes | ✅ 2026-09-13 (TR-139) |
 | 3.2.4 — colaboradores: invitar por código o mail, confirmar del otro lado, roles con exclusión | ✅ 2026-09-14 (TR-140) |
-| 3.2.5 — panel del profesional: selector de clínica en el topbar, colaboradores con presencia real, tipos de consulta de colegas que se copian al incluirlos, y el historial del paciente con su dueño | ✅ 2026-09-14/15 (TR-142 a TR-145) |
-| 3.2.7 — el wizard público elige tipo y después profesional (adelantada a la 3.2.6 por decisión del cliente), el enlace compartido decide con quién y para quién, y dos rondas de ajustes previas a recepción | ✅ 2026-09-15/19 (TR-146 a TR-149, TR-156 a TR-159) |
-| 3.2.6 — vista del recepcionista: un **profesional en foco** guardado en la sesión, no un módulo aparte. Sin foco, la vista general de la clínica; con foco, las mismas cuatro pantallas comportándose como ese profesional | ✅ 2026-09-20/21 (TR-160) |
-| 3.2.8 — latencia y cierre (el tiempo real salió de acá: la presencia se resolvió en la 3.2.5 sin decisión de transporte) | pendiente |
+| 3.2.5 — panel del profesional: selector de clínica, colaboradores con presencia real, tipos de consulta de colegas, el historial del paciente con su dueño | ✅ 2026-09-14/15 (TR-142 a TR-145) |
+| 3.2.7 — el wizard público elige tipo y después profesional, el enlace compartido decide con quién y para quién, y dos rondas de ajustes | ✅ 2026-09-15/19 (TR-146 a TR-149, TR-156 a TR-159) |
+| 3.2.6 — vista del recepcionista: un **profesional en foco** guardado en la sesión. Sin foco, la vista general de la clínica; con foco, las mismas pantallas comportándose como ese profesional | ✅ 2026-09-20/21 (TR-160) |
+| 3.2.8 — latencia y cierre. La presencia en tiempo real ya se había resuelto en la 3.2.5 (sale de `sessions`, sin sockets); la latencia, con la ronda de optimización post-Fase 3; y el cierre, con la segunda radiografía técnica (ver abajo) | ✅ 2026-09-22/26 (TR-161, TR-162) |
 
-Tres cosas de esta fase valen para cualquiera que toque el código: **la columna que apunta a la clínica se llama `clinic_id`** en todo el esquema (antes `profesional_id`, que ya guardaba un `clinics.id`); **el aislamiento entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en cada query; y **quién es "yo" puede no ser quien apretó el botón** — recepción trabaja parada en la vista de un profesional, así que lo que guarda "de quién es esta fila" sale del foco y no de la sesión. Ver CLAUDE.md.
+Después del cierre entró un ajuste pedido por el cliente: **un paciente
+tiene un mail y un teléfono principales, y el resto son alternativos
+editables** (TR-166, PR #60).
 
-**Primera radiografía técnica completada (2026-09-09):** con la Fase 2
-cerrada, el sistema pasó por una auditoría completa de seguridad,
-complejidad y rendimiento antes de escalar a N profesionales / N clínicas.
-No fue un trabajo de una vez: queda como **línea de trabajo recurrente**,
-con un snapshot fechado por ronda para poder comparar.
+Tres cosas de esta fase valen para cualquiera que toque el código: **la
+columna que apunta a la clínica se llama `clinic_id`** en todo el esquema
+(antes `profesional_id`, que ya guardaba un `clinics.id`); **el aislamiento
+entre colegas vive en un scope**, `soloMisTurnos`/`soloMisPacientes`, no en
+cada query, y dos tests (`TestAislamiento_*`) fallan si una consulta nueva
+se lo saltea; y **quién es "yo" puede no ser quien apretó el botón** —
+recepción trabaja parada en la vista de un profesional, así que lo que
+guarda "de quién es esta fila" sale del foco y no de la sesión. Ver
+`CLAUDE.md`.
 
-Los documentos, en `docs/Seguridad y optimizacion/`:
+### Fase 4 y Prisma Engine — la página pública personalizable
+
+La página pública dejó de ser una plantilla fija. Definición en
+`docs/Fases post MVP/Fase 4/`, plan del motor en
+`docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md`, plan en
+`implementation-plan.md` §14 y resumen en `dental-mirage-spec.md` §14.
+
+- **Fase 4.1 a 4.5** (PR #43 y #44, TR-150 a TR-155): bio, temas con
+  variantes de color y tipografías, portada, redes, mapa, fotos, módulos
+  que se muestran, ocultan y reordenan, y un editor en
+  `/personalizar-pagina` (solo el rol `admin`) con vista previa en móvil,
+  tablet y escritorio.
+- **Prisma Engine** (PR #50 a #52, #54, #55 y #57 a #59): un registro único de módulos en
+  `packages/prisma-engine`, que el backend valida en Go; **borrador y
+  Publicar** con historial de versiones y candado ante dos personas
+  editando a la vez (PE-8); tokens de diseño y variantes por módulo
+  (TR-163); efectos y fondos animados, apagados por defecto (TR-164);
+  módulos del rubro (equipo, horarios, servicios) y plantillas por
+  especialidad; y SEO, imagen para compartir, fotos en WebP a tres anchos
+  y un presupuesto de Lighthouse en CI (TR-165).
+- **Fase 4.6 — storage en producción** (PR #61, TR-167): las fotos viven
+  en un bucket privado de Cloudflare R2 y se sirven desde el mismo origen
+  de la web. Se activa cargando `STORAGE_R2_*` en Render.
+- **Plan de pulido** (PR #62 a #68, TR-168 a TR-174): 27 hallazgos del
+  editor y de la página pública vistos en un navegador real y con axe —
+  accesibilidad, el editor en el celular, deshacer en vez de confirmar,
+  anchos de lectura y limpieza automática de fotos huérfanas—, todos
+  resueltos.
+
+Pendiente sin fecha: el link de vista previa firmado del borrador,
+deshacer/rehacer en el editor, el resumen "qué cambió" antes de Publicar y
+el versionado de la forma de cada módulo (`schema_version`).
+
+### Notificaciones por cuenta y avisos al celular (2026-09-26/27)
+
+Pedido directo del cliente (PR #71, TR-179; plan §15, spec §15).
+
+- **Una campana en el header**, en toda pantalla con sesión, con el número
+  de avisos sin leer de la cuenta (de todas sus clínicas). Abre un panel
+  desde la derecha con dos pestañas, **Nuevas** y **Leídas**.
+- **Qué avisa:** los turnos que entran solos (por la página pública o por
+  un link compartido) y una bienvenida. Lo reciben el profesional que
+  atiende y la recepción de esa clínica, cuya copia dice para qué
+  profesional es. Cada cuenta ve solo su bandeja.
+- **Cada aviso de turno** muestra fecha, horario, paciente, tipo de
+  consulta y clínica. Expandirlo lo marca como leído, y "Ver turno" lleva
+  al turno en el calendario, cambiando de clínica y de vista si hace falta.
+- **Avisos al celular (Web Push)**, por dispositivo, que llegan con la app
+  cerrada. PRISMA se puede instalar en la pantalla de inicio; en iPhone es
+  obligatorio para recibirlos (regla de Apple, iOS 16.4+). Implementado
+  con la biblioteca estándar de Go (VAPID + cifrado `aes128gcm`, verificado
+  contra el vector del RFC 8291), sin dependencias nuevas.
+- **Para activar los avisos al celular en producción** hay que cargar las
+  claves VAPID en Render (ver "Deploy"). Sin ellas, la campana y la
+  bandeja funcionan igual; solo no se ofrece activar los avisos.
+
+### Pulido visual del panel y la home (2026-09-26/27)
+
+- **Panel** (PR #72, TR-180): las tarjetas de "General" se despliegan al
+  entrar en la pantalla, con dibujos propios; el sidebar tiene íconos
+  propios que marcan la sección donde se está; y "Ver perfil" funciona en
+  el celular.
+- **Home** (PR #73 y #74, TR-181): simple y al pie, con dibujos propios
+  —el mate, el celular, el calendario—, la historia de Lucía en tres
+  escenas (el WhatsApp de noche, el link, la calma), cuatro ventajas y la
+  entrada para pacientes. Una primera versión con siete secciones se
+  descartó por cargada.
+
+### Seguridad y optimización
+
+No es un trabajo de una vez: es una **línea de trabajo recurrente**, con
+una ronda por etapa. Los documentos, en `docs/Seguridad y optimizacion/`:
 
 | Documento | Qué es |
 |---|---|
-| [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/snapshot-2026-09-09.md>) | **Empezá por acá.** El inventario completo de qué hace seguro y eficiente al sistema hoy — sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué agregó la auditoría. Cierra con lo que **no** está y qué lo activa |
-| [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | El diagnóstico crudo, módulo por módulo, y el registro de cada ronda de arreglos (§13 a §17) |
-| [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría |
-| [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/optimizacion-post-fase3.md>) | La ronda de **optimización y revisión post-Fase 3** (2026-09-22/23): el panel multi-tenant, la concurrencia con varias clínicas y empleados, y el wizard público con una revisión de aislamiento. Qué se midió y cómo, qué se aplicó de caché/goroutines/colas y qué se descartó, con los números y las condiciones de activación de lo que quedó pendiente |
-| [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada snapshot |
+| [`radiografia-tecnica_2.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_2.md>) | **El diagnóstico vigente** (2026-09-26): la segunda pasada general, sobre todo el proyecto después de la Fase 3, la Fase 4 y Prisma Engine. Hallazgos, cómo se cerró cada fase y los tests que reproducen cada problema |
+| [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/snapshot-2026-09-09.md>) | El inventario de qué hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, detectores de abuso, aislamiento, integridad de la base, headers, BFF— tomado al cerrar la primera radiografía |
+| [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | La primera radiografía (2026-09-08/09), módulo por módulo, y el registro de cada ronda de arreglos |
+| [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/optimizacion-post-fase3.md>) | La ronda de optimización post-Fase 3 (2026-09-22/23): qué se midió y cómo, qué se aplicó de caché, goroutines y colas, y qué se descartó, con los números |
+| [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de las auditorías |
+| [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada ronda |
 
-Decisiones de arquitectura: `docs/Arquitectura y base/tradeoffs.md`
-**TR-121 a TR-132**, y **TR-161** y **TR-162**. Plan por fases: `implementation-plan.md` §12.
+**Primera radiografía** (2026-09-08/09, TR-121 a TR-132, plan §12):
+el modelo de confianza de la IP del cliente, techos al body y a los
+timeouts, arranque seguro, paginación de los listados del panel, índices
+que faltaban, logging estructurado sin la query string, **foreign keys
+reales** (de 4 constraints a 33), el guardián de migraciones que borran
+datos, migraciones de datos separadas de las de esquema, tests de
+aislamiento entre clínicas y Go 1.26.
 
-**Qué cambió en el sistema.** Fases A y B cerradas, y los dos ítems
-accionables de la Fase C:
+**Optimización post-Fase 3** (2026-09-22/23, TR-161 y TR-162): el índice
+que faltaba para la consulta más común del panel (de un escaneo de la tabla
+entera a 0,077 ms), `/me` pedido una vez por página en vez de tres, los
+contadores del tablero en una sola pasada, el endpoint que se sondea cada 2
+segundos cortando antes de cargar nada, y el "próximo horario disponible"
+del wizard de 172 a 13 ms. En la revisión apareció una **fuga de
+privacidad del wizard** —con solo conocer un DNI se veía el turno de otra
+persona— que quedó cerrada (addendum de TR-147). Redis, memcache y las
+goroutines dentro de un request se evaluaron y se descartaron, con la
+condición que las activaría.
 
-- **Modelo de confianza de la IP del cliente** (TR-121) — el hallazgo más
-  serio: `clientIP()` leía el primer valor de `X-Forwarded-For`, que lo
-  escribe el propio cliente. De esa función dependen el rate-limiter por IP
-  y un detector de abuso del formulario público.
-- **Techos donde no los había** (TR-126) — 1 MiB al body de cualquier
-  request, timeouts explícitos de lectura/escritura en el servidor (la fase
-  que `middleware.Timeout` no cubre), y 35 s en el fetch del BFF.
-- **Arranque seguro** (TR-125) — el proceso se niega a arrancar fuera de
-  `development` si el secreto de firma es el valor de ejemplo del repo.
-- **Los listados del panel dejan de traer la tabla entera** (TR-122) —
-  paginación opt-in con `X-Total-Count` y "Cargar más". `/panel/turnos`
-  traía **cinco** listas completas por visita: la de la pestaña activa más
-  las cuatro que se usaban solo para el contador de cada pestaña.
-- **Índice `(user_id, role)`** (TR-127) — la consulta que corre en cada
-  request autenticada y no usaba índice. Redis se evaluó para sesiones y se
-  descartó: al medir, la consulta cara era otra.
-- **Logging estructurado** (TR-124) — JSON con `request_id`/`clinic_id`/
-  status/latencia, sin loguear nunca la query string (en "Mis turnos" lleva
-  DNI y mail del paciente).
-- **Foreign keys reales** (TR-131) — de 4 constraints a 33. Destapó que
-  `profesional_id` guarda un `clinics.id` y no un `profesionales.id`, y 38
-  filas huérfanas de cuando el significado de esa columna cambió sin migrar
-  lo viejo.
-- **Guardián de migraciones destructivas** (TR-132) — una migración que
-  borra datos no corre fuera de `development` sin autorización explícita, y
-  el permiso se pide solo si de verdad hay algo que perder.
-- **Migraciones de datos separadas de las de esquema** (TR-123), con
-  reintento ante deadlock — un escenario real tanto en CI como en un deploy
-  con la instancia anterior todavía atendiendo tráfico.
-- **12 tests de aislamiento entre clínicas** (TR-129) en CI, y **Go 1.26**
-  cerrando 3 de 4 CVEs de `x/crypto` (TR-128), con `govulncheck`
-  confirmando 0 alcanzables.
+**Segunda radiografía** (2026-09-26, TR-175 a TR-178): Fases A, B y C
+cerradas el mismo día.
 
-**Lo que queda abierto, y qué lo activa.** Tres ítems de la Fase C siguen
-bloqueados **por su propia condición**, no por falta de tiempo: migrar el
-rate-limiter por IP a Redis y ajustar el pool/PgBouncer necesitan más de
-una instancia del backend (hoy hay una), y partir los tres archivos más
-grandes quedó postergado a la próxima radiografía — es el único ítem del
-informe que no arregla nada, el más caro, y el único que puede *introducir*
-regresiones sobre el camino más delicado del sistema (TR-130).
+- **Next.js 16.3.3**, que corrige dos vulnerabilidades críticas de
+  ejecución remota publicadas para la versión en uso.
+- **Un enlace compartido prueba la identidad solo de la ficha a la que
+  apunta** (TR-175): con cualquier enlace vigente se podían listar los
+  pacientes de otra familia y reservarles turno (reproducido).
+- **Los controles de arranque miran la URL pública, no `APP_ENV`**
+  (TR-176): en Render `APP_ENV` vale `development`, así que el freno del
+  secreto de ejemplo nunca corría. Con una URL pública la API no arranca
+  sin Resend, y la verificación automática de mails quedó solo para
+  localhost.
+- **Endpoints públicos con consultas fijas** (TR-177): el buscador pasó de
+  201 a 5 consultas con 25 clínicas, y ya no crece con ellas. Y **como mucho
+  4 hashes de contraseña a la vez**: sin tope, unos 25 logins simultáneos
+  llenaban la memoria de la instancia.
+- **Tope de 120 lecturas públicas por minuto por IP**, la página pública
+  responde 404 solo si la clínica no existe, **contenedores sin root**
+  sobre Alpine 3.24, CI con permisos de solo lectura, el mail de Google
+  normalizado y una CSP más cerrada (TR-178).
+
+**Lo que queda abierto, y qué lo activa.** De la segunda radiografía, la
+caché de la página pública entre requests y paginar el buscador, cada uno
+con su condición escrita. De la primera, migrar el rate-limiter por IP a
+Redis y ajustar el pool de conexiones, que necesitan más de una instancia
+del backend (hoy hay una), y partir los archivos más grandes, postergado
+porque es lo único que puede introducir regresiones sin arreglar nada
+(TR-130).
 
 > ⚠️ **Lo único urgente: no hay sistema de backups.** La base está en el
 > plan `free` de Render a propósito mientras no haya clínicas reales — y
 > ese plan **se borra solo a los 30 días**. Subir de plan y armar backups
 > antes del primer profesional real no es opcional. Ver el snapshot,
 > sección "Lo que NO está, y por qué".
-
