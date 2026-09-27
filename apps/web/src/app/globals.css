@@ -843,10 +843,21 @@ li > [data-pp-efecto] {
 @keyframes despliegue-deslizar { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.despliegue-cifra, .despliegue-cuerpo, .despliegue-cuerpo li, .despliegue-cuerpo tbody tr, .despliegue-dibujo, .despliegue-dibujo *) {
+  /* Con "reducir movimiento" la tarjeta no se despliega ni se mueve nada
+     adentro: aparece con un fundido, que no es movimiento (2026-09-27, ver
+     TR-180). Sin esto, en Android no había ninguna animación: el ahorro de
+     batería de varias marcas (y "Quitar animaciones") prenden esta
+     preferencia sin que la persona la haya elegido para la web. */
+  .despliegue-cuerpo,
+  .despliegue--derecha .despliegue-cuerpo,
+  .despliegue-cifra,
+  .despliegue-dibujo {
+    animation-name: despliegue-fundido;
+    animation-duration: 600ms;
+    animation-timing-function: ease-out;
+  }
+  :is(.despliegue-cuerpo li, .despliegue-cuerpo tbody tr, .despliegue-dibujo *) {
     animation: none !important;
   }
-  .despliegue[data-despliegue="en-espera"] {
-    visibility: visible;
-  }
 }
+@keyframes despliegue-fundido { from { opacity: 0; } to { opacity: 1; } }

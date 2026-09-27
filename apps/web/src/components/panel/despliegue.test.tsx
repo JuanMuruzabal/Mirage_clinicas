@@ -4,7 +4,8 @@ import { Despliegue } from "./despliegue";
 
 // La animación es CSS; lo que se prueba acá es CUÁNDO se dispara: la
 // tarjeta que ya está a la vista no se toca, la que está afuera espera y
-// se despliega al entrar, y con "reducir movimiento" no pasa nada.
+// se despliega al entrar, también con "reducir movimiento" (ahí el CSS
+// cambia el despliegue por un fundido).
 
 type Callback = (entradas: { isIntersecting: boolean }[]) => void;
 let observadores: { callback: Callback; disconnect: ReturnType<typeof vi.fn> }[] = [];
@@ -78,7 +79,11 @@ describe("Despliegue", () => {
     expect(observadores[0].disconnect).toHaveBeenCalled();
   });
 
-  it("con 'reducir movimiento' no espera nada: se ve siempre", () => {
+  // Con "reducir movimiento" también espera: el CSS cambia el despliegue
+  // por un fundido, que tiene que verse al entrar. Antes no hacía nada, y
+  // en Android —donde el ahorro de batería prende esa preferencia— el
+  // panel no tenía ninguna animación (2026-09-27).
+  it("con 'reducir movimiento' también espera, para aparecer con un fundido al entrar", () => {
     conCaja(1200);
     vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
     render(
@@ -86,7 +91,9 @@ describe("Despliegue", () => {
         <p>contenido</p>
       </Despliegue>,
     );
-    expect(tarjeta()).not.toHaveAttribute("data-despliegue");
+    expect(tarjeta()).toHaveAttribute("data-despliegue", "en-espera");
+    act(() => observadores[0].callback([{ isIntersecting: true }]));
+    expect(tarjeta()).toHaveAttribute("data-despliegue", "activo");
   });
 
   it("la forma y el orden llegan al nodo, para que el CSS los use", () => {
