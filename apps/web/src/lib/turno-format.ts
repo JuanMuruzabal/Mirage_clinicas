@@ -184,10 +184,18 @@ export const ORIGEN_LABEL: Record<Turno["origen"], string> = {
 const TIMEZONE_CORDOBA = "America/Argentina/Cordoba";
 
 export function formatFechaHora(iso?: string): string {
-  if (!iso) return "—";
+  const partes = partesFechaHora(iso);
+  return partes ? `${partes.fecha} · ${partes.hora}` : "—";
+}
+
+/** La fecha ("15 sept") y la hora ("08:00") por separado, en hora de
+ *  Córdoba — para las tablas del celular, donde van en dos renglones
+ *  (`FechaHoraCelda`). */
+export function partesFechaHora(iso?: string): { fecha: string; hora: string } | null {
+  if (!iso) return null;
   const d = new Date(iso);
-  return `${d.toLocaleDateString("es-AR", { day: "numeric", month: "short", timeZone: TIMEZONE_CORDOBA })} · ${d.toLocaleTimeString(
-    "es-AR",
-    { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TIMEZONE_CORDOBA },
-  )}`;
+  return {
+    fecha: d.toLocaleDateString("es-AR", { day: "numeric", month: "short", timeZone: TIMEZONE_CORDOBA }),
+    hora: d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TIMEZONE_CORDOBA }),
+  };
 }

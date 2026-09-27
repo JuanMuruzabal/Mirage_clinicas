@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CajaDeTabla } from "./caja-de-tabla";
 import type {
   BloqueoHorario,
   HorarioAtencion,
@@ -505,7 +506,7 @@ export function ConfiguracionCalendarioModal({
                 // QA) — antes era una lista de tarjetas suelta, distinta
                 // del resto del modal. max-h-64 + overflow-auto: mismo
                 // motivo que ReglasTable, "que no se agrande la página".
-                <div className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena">
+                <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
@@ -542,7 +543,7 @@ export function ConfiguracionCalendarioModal({
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </CajaDeTabla>
               )}
               {errorTipo && (
                 <p role="alert" className="text-sm text-terracota-oscuro">
@@ -613,7 +614,7 @@ function ExcepcionesHorarioTable({
   }
 
   return (
-    <div className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena">
+    <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
@@ -636,7 +637,7 @@ function ExcepcionesHorarioTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </CajaDeTabla>
   );
 }
 
@@ -737,7 +738,7 @@ function ReglasTable({
     // scrollbar cuando se acumulen muchos [registros], así no se agranda
     // la página" — antes la tabla crecía sin límite y empujaba todo el
     // modal (que ya tiene su propio scroll general) cada vez más largo.
-    <div className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena">
+    <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
@@ -768,7 +769,7 @@ function ReglasTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </CajaDeTabla>
   );
 }
 

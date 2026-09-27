@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ResumenTurnoItem } from "@dental-mirage/shared-types";
 import { marcarAsistenciaAction } from "@/app/actions/turnos";
 import { useAhora } from "@/lib/reloj";
+import { useAltoDeFilas } from "@/lib/alto-de-filas";
 import {
   ESTADO_DERIVADO_LABEL,
   ESTADO_DERIVADO_PILL,
@@ -101,6 +102,9 @@ export function TarjetaTurnosDeHoy({
   hrefPie: string;
 }) {
   const router = useRouter();
+  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
+  const cajaTabla = useRef<HTMLDivElement>(null);
+  useAltoDeFilas(cajaTabla);
   // `null` mientras se renderiza en el servidor, a propósito: ahí
   // `Date.now()` es el reloj del contenedor, y si el estado de una fila
   // saliera de esa hora el HTML del servidor podría discrepar del
@@ -180,7 +184,7 @@ export function TarjetaTurnosDeHoy({
             aparecía la barra gris predeterminada del navegador al lado
             de la beige. Cerrando el eje Y acá queda UNA sola caja que
             scrollea, la de adentro, que es la que tiene el estilo. */}
-        <div className="despliegue-cuerpo panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden">
+        <div ref={cajaTabla} className="despliegue-cuerpo panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden max-md:max-h-[var(--alto-mobile,16rem)]">
           {turnos.length === 0 ? (
             <p className="p-6 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
               No hay turnos para hoy.
