@@ -718,3 +718,15 @@ li > [data-pp-efecto] {
   [data-pp-efecto], .pp-palabra { opacity: 1 !important; filter: none !important; }
   .pp-fondo-vivo__capa { opacity: .32 !important; }
 }
+
+/* Bandeja de notificaciones (TR-179): el panel entra desde la izquierda y
+   el velo aparece. Solo con motion-safe en el componente: con "reducir
+   movimiento", el panel aparece quieto. */
+@keyframes notificaciones-entrar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes notificaciones-velo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

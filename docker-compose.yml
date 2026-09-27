@@ -78,6 +78,14 @@ services:
       # contenedor y borra las fotos, mientras la base — que sí persiste —
       # sigue apuntando a archivos que ya no existen (imagen rota).
       STORAGE_DIR: /data/uploads
+      # Avisos al celular (Web Push, TR-179). Vacías = la campana funciona
+      # igual pero no se ofrece activar avisos. Para probarlos en local:
+      # `cd apps/api && go run ./cmd/vapid`, exportar las tres y levantar
+      # de nuevo (VAPID_SUBJECT tiene que ser mailto: acá, porque la URL
+      # pública es http://localhost).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     ports:
       - "8080:8080"
     volumes:
