@@ -228,7 +228,7 @@ describe("CampanaNotificaciones — la bandeja", () => {
     expect(within(tarjeta).getByText("Un link compartido")).toBeInTheDocument();
   });
 
-  it("Leídas: pide esa pestaña; la bienvenida se lee con su texto", async () => {
+  it("Leídas: viene cargada desde la apertura; la bienvenida se lee con su texto", async () => {
     const user = userEvent.setup();
     renderCampana();
     await user.click(campana());
@@ -246,6 +246,42 @@ describe("CampanaNotificaciones — la bandeja", () => {
     // Volver a la pestaña actual no la vuelve a pedir.
     await user.click(screen.getByRole("tab", { name: /Leídas/ }));
     expect(acciones.bandejaDeNotificacionesAction).toHaveBeenCalledTimes(2);
+  });
+
+  // Pedir en cada cambio de pestaña mostraba el esqueleto un instante: las
+  // dos se cargan al abrir y cambiar no pide nada.
+  it("cambiar de pestaña no vuelve a cargar: sin esqueleto ni pedidos nuevos", async () => {
+    const user = userEvent.setup();
+    renderCampana();
+    await user.click(campana());
+    await screen.findAllByRole("article");
+    expect(acciones.bandejaDeNotificacionesAction).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole("tab", { name: /Leídas/ }));
+    expect(screen.queryByLabelText("Cargando notificaciones")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("article")[0]).toHaveTextContent("Te damos la bienvenida");
+    await user.click(screen.getByRole("tab", { name: /Nuevas/ }));
+    expect(screen.queryByLabelText("Cargando notificaciones")).not.toBeInTheDocument();
+    expect(acciones.bandejaDeNotificacionesAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("la que se lee aparece enseguida arriba de Leídas, sin el punto", async () => {
+    const user = userEvent.setup();
+    renderCampana();
+    await user.click(campana());
+    const primera = (await screen.findAllByRole("article"))[0];
+    await user.click(within(primera).getByRole("button", { expanded: false }));
+
+    await user.click(screen.getByRole("tab", { name: /Leídas/ }));
+
+    const tarjetas = screen.getAllByRole("article");
+    expect(tarjetas).toHaveLength(2);
+    expect(tarjetas[0]).toHaveTextContent("Bruno Iglesias");
+    expect(within(tarjetas[0]).queryByLabelText("Sin leer")).not.toBeInTheDocument();
+    expect(tarjetas[1]).toHaveTextContent("Te damos la bienvenida");
+    // Volver a abrirla ahí no la marca de nuevo.
+    await user.click(within(tarjetas[0]).getByRole("button", { expanded: false }));
+    expect(acciones.leerNotificacionAction).toHaveBeenCalledTimes(1);
   });
 
   it("vacía: 'Estás al día'", async () => {

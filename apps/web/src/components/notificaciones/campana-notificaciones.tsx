@@ -49,8 +49,8 @@ export function CampanaNotificaciones() {
   }, []);
 
   function abrir() {
-    // Si el menú del panel está abierto (mobile), se cierra: el panel de
-    // notificaciones entra por el mismo lado.
+    // Si el menú del panel está abierto (mobile), se cierra: no queda
+    // abierto debajo del velo.
     panelSidebar.close();
     setAbierto(true);
   }

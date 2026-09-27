@@ -24,12 +24,16 @@ interface PanelNotificacionesProps {
 }
 
 // PanelNotificaciones — la bandeja de la cuenta (TR-179), un panel que
-// entra desde la izquierda. Dos pestañas: Nuevas (sin leer) y Leídas.
+// entra desde la derecha, del lado de la campana. Dos pestañas: Nuevas (sin
+// leer) y Leídas.
+//
+// Las dos pestañas se cargan JUNTAS al abrir, y cambiar de pestaña no pide
+// nada: pedir en cada cambio mostraba el esqueleto un instante (un parpadeo).
 //
 // Leer = expandir la tarjeta. La que se lee se queda en "Nuevas" mientras
 // el panel sigue abierto —sin el punto de "sin leer"—: si desapareciera al
-// tocarla, no se podría leer lo que se acaba de abrir. Pasa a "Leídas" en
-// la próxima carga.
+// tocarla, no se podría leer lo que se acaba de abrir. En "Leídas" aparece
+// enseguida, arriba de todo.
 export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesProps) {
   const router = useRouter();
   const panelSidebar = usePanelSidebar();
@@ -38,10 +42,14 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
 
   const [pestania, setPestania] = useState<Pestania>("nuevas");
   const [intento, setIntento] = useState(0);
-  // La bandeja ANOTADA con la pestaña que pidió: mientras no coincida con
-  // la pestaña actual, está cargando. Así no hace falta un setState dentro
-  // del efecto para marcar "cargando".
-  const [datos, setDatos] = useState<{ pestania: Pestania; intento: number; bandeja: BandejaDeNotificaciones | null } | null>(null);
+  // Las dos bandejas, ANOTADAS con el intento que las pidió: mientras no
+  // coincida con el intento actual, está cargando. Así no hace falta un
+  // setState dentro del efecto para marcar "cargando".
+  const [datos, setDatos] = useState<{
+    intento: number;
+    nuevas: BandejaDeNotificaciones | null;
+    leidas: BandejaDeNotificaciones | null;
+  } | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
   const [leidasRecien, setLeidasRecien] = useState<ReadonlySet<string>>(new Set());
   const [abriendo, setAbriendo] = useState<string | null>(null);
@@ -49,17 +57,16 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
 
   useEffect(() => {
     let vigente = true;
-    bandejaDeNotificacionesAction(pestania)
-      .catch(() => null)
-      .then((bandeja) => {
-        if (!vigente) return;
-        setDatos({ pestania, intento, bandeja });
-        setLeidasRecien(new Set());
-      });
+    const pedir = (p: Pestania) => bandejaDeNotificacionesAction(p).catch(() => null);
+    Promise.all([pedir("nuevas"), pedir("leidas")]).then(([nuevas, leidas]) => {
+      if (!vigente) return;
+      setDatos({ intento, nuevas, leidas });
+      setLeidasRecien(new Set());
+    });
     return () => {
       vigente = false;
     };
-  }, [pestania, intento]);
+  }, [intento]);
 
   // Esc cierra; el foco arranca en el botón de cerrar; el fondo no se
   // desplaza mientras el panel está abierto.
@@ -77,10 +84,12 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
     };
   }, [onCerrar]);
 
-  const cargando = !datos || datos.pestania !== pestania || datos.intento !== intento;
-  const bandeja = cargando ? null : datos.bandeja;
-  const nuevasSinLeer = Math.max(0, (datos?.bandeja?.nuevas ?? 0) - leidasRecien.size);
-  const leidas = (datos?.bandeja?.leidas ?? 0) + leidasRecien.size;
+  const cargando = !datos || datos.intento !== intento;
+  // Los totales son los mismos en las dos respuestas; se toma la que llegó.
+  const totales = datos?.nuevas ?? datos?.leidas ?? null;
+  const nuevasSinLeer = Math.max(0, (totales?.nuevas ?? 0) - leidasRecien.size);
+  const leidas = (totales?.leidas ?? 0) + leidasRecien.size;
+  const bandeja = cargando ? null : bandejaDeLaPestania(pestania, datos, leidasRecien);
 
   function cambiarPestania(p: Pestania) {
     if (p === pestania) return;
@@ -142,7 +151,7 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
 
         <aside
           id="panel-notificaciones"
-          className="absolute inset-y-0 left-0 flex w-full max-w-[26rem] flex-col border-r-[0.5px] border-arena bg-hueso shadow-[0_0_40px_-8px_rgb(53_49_43/0.35)] motion-safe:animate-[notificaciones-entrar_280ms_cubic-bezier(0.2,0.8,0.2,1)]"
+          className="absolute inset-y-0 right-0 flex w-full max-w-[26rem] flex-col border-l-[0.5px] border-arena bg-hueso shadow-[0_0_40px_-8px_rgb(53_49_43/0.35)] motion-safe:animate-[notificaciones-entrar_280ms_cubic-bezier(0.2,0.8,0.2,1)]"
         >
           <header className="flex flex-col gap-5 px-6 pb-4 pt-6">
             <div className="flex items-start justify-between gap-4">
@@ -219,6 +228,24 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
       </div>
     </ModalPortal>
   );
+}
+
+// Lo que muestra cada pestaña. "Leídas" suma arriba las que se leyeron en
+// esta apertura (vinieron en "Nuevas"), sin volver a pedir nada.
+function bandejaDeLaPestania(
+  pestania: Pestania,
+  datos: { nuevas: BandejaDeNotificaciones | null; leidas: BandejaDeNotificaciones | null },
+  leidasRecien: ReadonlySet<string>,
+): BandejaDeNotificaciones | null {
+  if (pestania === "nuevas") return datos.nuevas;
+  if (!datos.leidas) return null;
+  const recien = (datos.nuevas?.notificaciones ?? []).filter((n) => leidasRecien.has(n.id));
+  if (recien.length === 0) return datos.leidas;
+  const yaEstan = new Set(datos.leidas.notificaciones.map((n) => n.id));
+  return {
+    ...datos.leidas,
+    notificaciones: [...recien.filter((n) => !yaEstan.has(n.id)), ...datos.leidas.notificaciones],
+  };
 }
 
 function Pestana({

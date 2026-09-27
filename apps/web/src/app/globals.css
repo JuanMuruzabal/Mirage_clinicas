@@ -723,7 +723,7 @@ li > [data-pp-efecto] {
    el velo aparece. Solo con motion-safe en el componente: con "reducir
    movimiento", el panel aparece quieto. */
 @keyframes notificaciones-entrar {
-  from { transform: translateX(-100%); }
+  from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
 @keyframes notificaciones-velo {
