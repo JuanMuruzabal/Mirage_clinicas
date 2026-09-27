@@ -175,10 +175,15 @@ func TestResumenPanel_AlTerminarPasaAResueltoConSuMarca(t *testing.T) {
 func horaVigenteDeHoy(t *testing.T) time.Time {
 	t.Helper()
 	inicio := clock.Now().Add(10 * time.Minute)
-	fin := inicio.Add(30 * time.Minute)
+	// Una hora de margen y no media: las pruebas de conflictos arman un
+	// horario reservado de 45 minutos desde `inicio`. Con 30, entre las 23:15
+	// y las 23:20 de Córdoba ese horario cruzaba la medianoche, la API lo
+	// rechazaba ("la hora de fin debe ser posterior a la de inicio") y CI
+	// fallaba según la hora a la que corriera (2026-09-27, PR #72).
+	fin := inicio.Add(60 * time.Minute)
 	mismoDia := clock.In(inicio).Format("2006-01-02") == clock.In(clock.Now()).Format("2006-01-02")
 	if !mismoDia || clock.In(fin).Format("2006-01-02") != clock.In(clock.Now()).Format("2006-01-02") {
-		t.Skip("no se puede construir un turno vigente de HOY a menos de 40 minutos de la medianoche de Córdoba — correr de nuevo en un rato")
+		t.Skip("no se puede construir un turno vigente de HOY a menos de 70 minutos de la medianoche de Córdoba — correr de nuevo en un rato")
 	}
 	return inicio
 }

@@ -138,7 +138,7 @@ Debe incluir, como estructura fija:
   - Nombre de la clínica.
   - Nombre del profesional.
   - Especialidad.
-- **La home (rediseño del 2026-09-26, TR-181)** le habla primero al profesional y cuenta una historia: la agenda que se llena sola, el dolor de los mensajes de turnos a cualquier hora, el giro de compartir un link, las seis funciones de PRISMA, cómo se empieza y cómo se cuida a los pacientes. El paciente conserva su entrada al buscador en el header y en una banda propia de la home (`#buscar`).
+- **La home (TR-181, 2026-09-26/27)** le habla primero al profesional y es simple: qué es, con un dibujo; la historia de Lucía en tres escenas (el WhatsApp de noche, el link, la calma); cuatro ventajas; la entrada para pacientes (`#buscar`) y el llamado final. Los dibujos son objetos del consultorio (el mate, el celular, el calendario) en un solo estilo de línea.
 
 ---
 
@@ -357,3 +357,9 @@ Pedido directo del cliente (2026-09-26); decisiones en `docs/Arquitectura y base
 Una campana al lado del ícono de perfil, en toda pantalla con sesión, con el número de avisos sin leer de la cuenta (de todas sus clínicas). Abre un panel desde la derecha con dos pestañas, **Nuevas** y **Leídas**. Hoy hay dos clases de aviso: **turno nuevo** —cuando un paciente saca turno desde la página pública o con un link compartido; lo reciben el profesional que atiende y la recepción de esa clínica, cuya copia dice para qué profesional es— y **bienvenida**. Cada aviso de turno muestra fecha, horario, paciente, tipo de consulta y clínica; expandirlo lo marca como leído, y "Ver turno" lleva al turno en el calendario, cambiando de clínica si hace falta. Las notificaciones son de cada cuenta: nadie ve las de otro.
 
 **Avisos al celular.** Desde el mismo panel se activan, por dispositivo, avisos del sistema (Web Push) que llegan con la app cerrada y, al tocarlos, abren el turno. PRISMA se puede instalar en la pantalla de inicio; en iPhone es obligatorio para recibirlos (regla de Apple, iOS 16.4+).
+
+## 16. Pulido visual del panel
+
+Pedido directo del cliente (2026-09-26); decisiones en `docs/Arquitectura y base/tradeoffs.md` TR-180 y plan en `implementation-plan.md` §16.
+
+Las tarjetas de "General" se despliegan a medida que entran en la pantalla —la de "Turnos de hoy", de izquierda a derecha en monitor—, con un dibujo propio cada una (el reloj con la mañana transcurrida, la semana con los horarios tomados, la muela con el tilde, el reloj de arena). El sidebar tiene un juego de íconos propio y marca la sección donde se está, también en sus pantallas de adentro. En el celular, el perfil de cada colaborador se abre tocando su fila. Con "reducir movimiento" nada se anima. La home pública se describe en el §6.

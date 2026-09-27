@@ -3174,7 +3174,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ## TR-179: Notificaciones por cuenta, y avisos al celular con Web Push
 
-- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app.
+- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app. Entró en el PR #71.
 - **Lo que confirmó el cliente:** avisan **solo los turnos que entran solos** (página pública y link compartido; uno cargado desde el panel ya lo sabe quien lo cargó). Los recibe **el profesional que atiende y la recepción de esa clínica**; la copia de recepción dice para qué profesional es. **Nadie ve la bandeja de otro.** La bienvenida la reciben todas las cuentas, también las que ya existían.
 
 ### Las decisiones
@@ -3208,7 +3208,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ## TR-180: El panel se arma al entrar — tarjetas que se despliegan, dibujos e íconos propios
 
-- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil).
+- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil). Entró en el PR #72.
 
 ### Las decisiones
 
@@ -3226,23 +3226,26 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 - En una captura de página completa (o una impresión) las tarjetas que nunca entraron en la pantalla salen en blanco: esperan a que alguien scrollee hasta ellas.
 - Cuando no hay turnos resueltos, esa tarjeta queda más alta que su contenido para acompañar a las dos apiladas; el cuerpo vacío lo cubre el efecto vidrio.
-## TR-181: La home cuenta una historia — el dolor del profesional, el giro y lo que hace PRISMA
+## TR-181: La home, simple y al pie — un dibujo por idea y la historia de Lucía
 
-- **Contexto:** pedido del cliente, 2026-09-26, con ulifeon.com como referencia: "diseñe la página de home para que sea algo similar, atacando el dolor del profesional, con animaciones bien pulidas y que demuestre el carácter de nuestra app y funcionalidades; una buena presentación vende el producto". La home anterior (T1.1, TR-015) eran dos fotos de stock con un buscador arriba y dos tarjetas desplegables.
+- **Contexto:** pedido del cliente, 2026-09-26, con ulifeon.com como referencia: "atacando el dolor del profesional, con animaciones bien pulidas y que demuestre el carácter de la app; una buena presentación vende el producto". La home anterior (T1.1, TR-015) eran dos fotos de stock con el buscador arriba y dos tarjetas desplegables.
+- **Una primera versión quedó cargada** (siete secciones: la agenda en vivo, la lista de mensajes del día, el giro con los pedidos tachados, seis funciones, pasos, seguridad y cierre). El cliente la vio y pidió otra cosa (2026-09-27): *"le falta animaciones, dibujos agradables, simplicidad; ahora está muy cargada, debe ser simple y al pie como el ejemplo"*. Esta TR describe la segunda. La primera entró en el PR #73; la segunda, en el #74.
 
 ### Las decisiones
 
-1. **La home le habla primero al profesional**, y cuenta una historia en este orden: el producto en acción (un hero con la agenda que se llena sola y el aviso al celular), el dolor (los mensajes de turnos de un día cualquiera, a cualquier hora, "sin responder"), el giro ("Compartiste un link": los mismos pedidos, tachados, y al lado lo que pasa con PRISMA), qué hace PRISMA (seis funciones), cómo se empieza, cómo se cuida a los pacientes y el llamado final. **El paciente no pierde su entrada:** "Buscar clínicas" sigue en el header y la home tiene su propia banda (`#buscar`), igual que antes.
-2. **Las ilustraciones son piezas del producto dibujadas con HTML, no capturas ni fotos**: el bloque de turno con su marca de cuadrante, la campana, el wizard, el botón de Publicar. Se ven nítidas en cualquier pantalla, no hay que regenerarlas cuando cambia una pantalla y pesan casi nada. Las dos fotos de stock se borraron.
-3. **Todo lo que la home promete existe en el producto** (el wizard por tipo → profesional → día → horario, el código por mail, la detección de un DNI ajeno, el link de una hora para uno mismo o un familiar, recepción viendo a todos, el aviso al celular de TR-179). No hay cifras inventadas ni sellos de cumplimiento que no se pueden sostener.
-4. **Animaciones CSS, sin framer-motion en la home.** `ScrollReveal` arrancaba con opacidad 0 en el HTML del servidor —la página se veía vacía hasta hidratar— y sumaba 131 KB de JavaScript a la primera página que ve cualquiera. `Revelar` (`components/home/revelar.tsx`) usa el mismo criterio que las tarjetas del panel (TR-180): se arma al pintar sin JavaScript, y lo que está fuera de la pantalla espera a entrar. Las ilustraciones se mueven en bucles lentos con pausas largas (`.lp-*`). Con "reducir movimiento" nada se mueve: todo queda en el cuadro que mejor lo explica.
-5. **La piel cálida es de todo el sitio.** El header de la home era el único que conservaba porcelana/ink (pedido del 2026-08-23, "el home solo cambiar tarjetas y botones"); con la home rediseñada, sobre el hero grafito va transparente con texto marfil y al scrollear pasa a marfil como el resto.
-6. **Los estilos de la home van en `app/home.css`**, importado solo por `app/page.tsx`: son de una página y no tienen por qué viajar a las demás.
+1. **Cinco partes, y cada una dice UNA cosa:** qué es (un titular, una frase, dos botones y un dibujo), la historia de Lucía en tres escenas, lo que cambia en cuatro tarjetas (`#como-funciona`), la entrada para pacientes (`#buscar`) y el llamado final. La página mide menos de la mitad que la primera versión (3.282 px contra 6.758 en escritorio).
+2. **Los dibujos son objetos del día del profesional, en un solo estilo** (`components/home/dibujos.tsx`): el mate —es de acá—, el celular, el calendario de escritorio, una planta, los globos de WhatsApp, la luna. Línea de tinta, rellenos cálidos y un único acento verde, como la referencia (gris con un color). **Objetos y no personas**: una figura humana dibujada a mano en SVG se ve torpe, y los objetos cuentan lo mismo con más carácter.
+3. **La historia es un carrusel de tres escenas** (`Historia`): Lucía contesta turnos por WhatsApp a las 23:04 → comparte su link → sus pacientes sacan turno solos y ella atiende con el mate caliente. Avanza sola cada 7 s y se para con el mouse encima, con el foco adentro, con el botón de pausa (WCAG 2.2.2) o con "reducir movimiento". La escena que entra se vuelve a montar para que sus dibujos arranquen de nuevo.
+4. **Las animaciones son de los dibujos, lentas y con pausas**: el vapor del mate, los avisos que llegan al celular de a uno, el celular que vibra de noche, los globos que se amontonan, las estrellas, el avioncito del link que recorre su camino (`offset-path`), el calendario que se llena, las hojas que se mecen. Todo CSS (`app/home.css`), sin framer-motion. `Revelar` arma cada parte al entrar en la pantalla con el mismo criterio que TR-180: sin JavaScript se ve igual.
+5. **Todo lo que la home promete existe en el producto**: el paciente elige día y horario y confirma con un código, nunca dos turnos a la misma hora, la página propia y el buscador, el aviso al celular de TR-179. Sin cifras, testimonios ni sellos.
+6. **La piel cálida es de todo el sitio.** El header de la home conservaba porcelana/ink (pedido del 2026-08-23, "el home solo cambiar tarjetas y botones"); ahora arriba de todo es transparente con texto grafito sobre el hero marfil, y al scrollear pasa a marfil como el resto.
+7. **Los estilos de la home van en `app/home.css`**, importado solo por `app/page.tsx`. Se borraron las dos fotos de stock y los componentes que solo usaba la home anterior (`InfoCard`, `ExpandableCard`).
 
 ### Lo que se sacrifica
 
-- La home ya no abre con el buscador: quien llega como paciente lo encuentra en el header o en la banda de pacientes, más abajo.
-- "Te enterás en el momento" describe el aviso al celular de TR-179: esta home tiene que entrar a `dev` después de esas notificaciones.
+- La home ya no abre con el buscador: el paciente tiene "Busco turno como paciente" al lado del botón principal, "Buscar clínicas" en el header y su banda más abajo.
+- Se fueron el detalle de seguridad y los pasos para empezar: si hace falta contarlos, van en una página aparte, no en la home.
+- "Más tranquila" describe el aviso al celular de TR-179: esta home tiene que entrar a `dev` después de esas notificaciones.
 
 ---
 
