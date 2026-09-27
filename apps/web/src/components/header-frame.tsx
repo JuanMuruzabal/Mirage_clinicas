@@ -33,7 +33,11 @@ export function HeaderFrame({
   // duplicar el componente es este chequeo de pathname, igual criterio
   // que ya usa `hasHero` acá arriba (de hecho son complementarios: solo el
   // Home tiene hero, así que "no es el Home" alcanza).
-  const pielCalida = !hasHero;
+  //
+  // Desde el rediseño de la home (2026-09-26/27) la piel cálida es de TODO
+  // el sitio: la home dejó las fotos de fondo por un hero claro, y un header
+  // porcelana/ink sobre eso era el único elemento de otra paleta. Arriba de
+  // todo sigue transparente, con el texto en grafito sobre el marfil.
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -65,13 +69,13 @@ export function HeaderFrame({
 
   const solid = !hasHero || scrolled || forceSolid;
 
-  const solidClass = pielCalida ? "border-arena bg-marfil text-grafito" : "border-line bg-porcelain text-ink";
+  const solidClass = "border-arena bg-marfil text-grafito";
 
   return (
     <header
       ref={headerRef}
       className={`fixed inset-x-0 top-0 z-40 border-b transition-colors duration-300 ${
-        solid ? solidClass : "border-transparent bg-transparent text-porcelain"
+        solid ? solidClass : "border-transparent bg-transparent text-grafito"
       }`}
     >
       {children}

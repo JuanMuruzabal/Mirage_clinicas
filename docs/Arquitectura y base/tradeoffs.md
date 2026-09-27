@@ -3172,6 +3172,81 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 - Un volumen de fotos local creado ANTES de este cambio puede haber quedado de root; en ese caso la subida local falla hasta recrear el volumen (`docker volume rm dental_mirage_uploads_data`). En la prueba de hoy el volumen existente quedó con el dueño correcto.
 - CI sigue probando con Go 1.26.0 mientras producción compila con el último 1.26.x: igualarlos rompía el acople `go.mod` ↔ CI o dejaba producción sin parches.
 
+## TR-179: Notificaciones por cuenta, y avisos al celular con Web Push
+
+- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app.
+- **Lo que confirmó el cliente:** avisan **solo los turnos que entran solos** (página pública y link compartido; uno cargado desde el panel ya lo sabe quien lo cargó). Los recibe **el profesional que atiende y la recepción de esa clínica**; la copia de recepción dice para qué profesional es. **Nadie ve la bandeja de otro.** La bienvenida la reciben todas las cuentas, también las que ya existían.
+
+### Las decisiones
+
+1. **La bandeja es de la CUENTA, no de la clínica** (`notificaciones.user_id`). La campana suma las de todas sus clínicas, y cada aviso guarda de cuál viene. Leer o abrir una ajena da **404** (mismo criterio que la ficha de un paciente ajeno); la consulta por id va con `user_id` y está declarada en la auditoría de ids de la URL.
+2. **El aviso es una FOTO del turno al crearse** (`datos` jsonb: paciente, clínica, profesional, tipo, horario), y `turno_id` va **sin foreign key**, como `conflictos_paciente` (TR-131): es historial, y un turno puede dejar de existir. Lo que puede haber cambiado se resuelve **al abrirlo** (`POST /me/notificaciones/{id}/abrir`): la fecha actual si lo reprogramaron, la lista de canceladas si lo cancelaron, el calendario si ya no existe, `/clinicas` si la persona ya no trabaja ahí.
+3. **Abrir un aviso deja la sesión donde el turno se ve:** cambia la clínica activa si hace falta (y la web recarga la página entera, porque el header mostraría la anterior), y para recepción pone el foco en el profesional del turno (TR-160). Sin eso, "Ver turno" llevaba a un calendario donde el turno no estaba.
+4. **El panel entra desde la derecha, del lado de la campana** (corrección del cliente: la primera versión entraba por la izquierda). **Las dos pestañas se cargan juntas al abrirlo**, y cambiar de pestaña no pide nada: pedir en cada cambio mostraba el esqueleto de carga un instante. "Leídas" suma arriba las que se leyeron en esa apertura.
+5. **"Leída" quiere decir que la persona la EXPANDIÓ**, no que la vio en la lista. La que se lee se queda en "Nuevas" mientras el panel sigue abierto —sin el punto—: si desapareciera al tocarla, no se podría leer lo que se acaba de abrir.
+6. **Nacen en la misma transacción que el turno** (`crearNotificacionesDeTurnoNuevo`, en `turno_publico.go`), así que un turno que se revierte no deja avisos colgados; cuando un detector de abuso del wizard (Fase 2.4) borra turnos, borra también sus avisos.
+7. **El número de la campana es un endpoint sondeado, y se mide como tal (TR-162):** cada 60 s y solo con la pestaña visible, más al volver a ella; `/me/notificaciones/contador` es un `COUNT` sobre un índice parcial de las no leídas (`idx_notificaciones_nuevas`). Cuando llega un push, el service worker les avisa a las pestañas abiertas y el número se actualiza al instante.
+8. **Avisos al celular con Web Push estándar (VAPID + `aes128gcm`, RFC 8291/8292), implementado con la biblioteca estándar de Go** (`internal/push`). El cifrado se verifica contra el vector de prueba del RFC 8291 byte por byte; la firma VAPID es un ES256 armado a mano, sin sumar una librería de JWT (TR-125: acá no hay JWT, y así sigue). Se probó de punta a punta contra el servicio de push de Mozilla: el navegador descifró el aviso y lo mostró.
+9. **Mismo patrón dev/prod que el resto de las dependencias externas:** sin `VAPID_*` hay un `LogEnviador` y la opción de activar avisos no se ofrece; con una sola de las dos claves, o con un par que no corresponde, **el proceso no arranca**. Las claves se generan con `go run ./cmd/vapid`.
+10. **La suscripción es por DISPOSITIVO** (`push_suscripciones`, `endpoint` único): activarlos en el celular no los activa en la compu. En un navegador compartido la suscripción queda a nombre de la última cuenta que entró. Un endpoint que el servicio de push da por muerto (404/410) se borra solo.
+11. **El envío va en una goroutine DESPUÉS de comitear**, no para paralelizar consultas (TR-161 sigue en pie): el paciente que saca el turno no espera a Google o Apple. Las suscripciones se leen antes, en el request; la goroutine solo toca la base para borrar una vencida, y usa el pool, no la transacción del request.
+12. **La app es instalable** (`app/manifest.ts`, íconos en `public/icons/`, `appleWebApp`). El service worker (`public/sw.js`) solo maneja avisos: **no cachea nada ni intercepta pedidos**, para que un deploy nuevo nunca deje a nadie en una versión vieja. Tocar un aviso abre `/notificaciones/<id>`, que hace lo mismo que "Ver turno" y redirige con una Location relativa.
+13. **La bienvenida**: las cuentas nuevas la reciben al registrarse (nativo o Google); las existentes, una sola vez, por `aplicarUnaVez` (TR-123). `created_at` tiene default `now()` en la base: el backfill inserta por SQL, y sin default quedaba NULL (la tarjeta decía "31 dic").
+
+### Lo que se sacrifica
+
+- **En iPhone los avisos llegan solo con PRISMA agregada a la pantalla de inicio** (iOS 16.4+): es una regla de Apple para la web. El panel lo explica cuando detecta Safari sin instalar.
+- **Recepción recibe un aviso por cada turno de cada profesional**: en una clínica grande son muchos. Si molesta, el filtro (por profesional o por clínica) es un cambio de la bandeja, no del modelo.
+- **El aviso muestra los datos de cuando se creó.** Si cambian el nombre del paciente, la tarjeta sigue con el viejo; "Ver turno" lleva al turno de hoy.
+- **El aviso no llega si el navegador no tiene conexión con su servicio de push** (el Chromium sin claves de Google que usan las pruebas automatizadas, por ejemplo). No hay reintento: la campana igual lo muestra.
+
+### Lo que se descartó, con su condición
+
+- **Un socket o SSE para la campana:** con un minuto alcanza para un turno nuevo, y el push cubre lo urgente. Si la bandeja suma avisos que necesiten llegar al segundo con la app abierta.
+- **Avisos de lo que se carga desde el panel** (turno manual, reprogramado, cancelado): quien lo hace ya lo sabe. Si el cliente pide avisarle al profesional lo que hace recepción en su agenda, es un tipo nuevo de aviso sobre el mismo modelo.
+- **Mail o WhatsApp como canal:** fuera de alcance (recordatorios automatizados, spec §2).
+
+## TR-180: El panel se arma al entrar — tarjetas que se despliegan, dibujos e íconos propios
+
+- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil).
+
+### Las decisiones
+
+1. **La animación es CSS; JavaScript solo decide cuándo** (`components/panel/despliegue.tsx`, `.despliegue*` en `globals.css`). Sin hacer nada, cada tarjeta se despliega una vez al pintar: el HTML del servidor nunca queda escondido esperando a hidratar (misma regla que TR-168). Al hidratar, las que están fuera de la pantalla pasan a `en-espera` —taparlas no se ve, están afuera— y se despliegan cuando entran (`IntersectionObserver`). Las que ya estaban a la vista no se tocan: repetirles la animación sería un parpadeo.
+2. **Las visibles al entrar se despliegan en cascada** (`orden`, 90 ms entre una y otra), no todas juntas. Las que entran al scrollear arrancan sin demora.
+3. **`animation-fill-mode: backwards`, no `both`:** terminado el despliegue la tarjeta no conserva `clip-path` ni `transform`, que recortarían anillos de foco y sombras.
+4. **Con "reducir movimiento" no hay nada de esto**, ni en CSS ni en el componente: todo aparece en su estado final.
+5. **Dibujos de las tarjetas redibujados como un juego** (`tarjeta-turnero-iconos.tsx`): el mismo trazo con esquinas duras, como la marca de cuadrante, y una pieza rellena que cuenta la historia (la mañana ya transcurrida en el reloj, el turno marcado en el día que viene, los horarios tomados rayados, la muela con el tilde, el reloj de arena). Se arman con la tarjeta (`.dib-*`).
+6. **Íconos del sidebar propios** (`sidebar-icons.tsx`): tablero de tres bloques, la hoja del mes con un día marcado, el número de turno con su talón, la ficha del paciente, la ventana con la portada, el escudo con cerradura. Cada uno tiene una pieza de acento que se rellena en la sección activa —lleno = acá estás, la misma idea que los cuadrantes llenos de la marca— y se insinúa al pasar el mouse. La sección queda marcada también en sus pantallas de adentro (`esSeccionActiva`: la ficha de un paciente es "Pacientes"), con `aria-current`.
+7. **"Estadística" se apila con "Turnos pendientes" al lado de "Resueltos":** con "Turnos de hoy" a lo ancho quedaba sola en la última fila. Siguen juntas y al final, como pidió el cliente el 2026-09-06.
+8. **En el menú de colaboradores, la fila entera lleva al perfil.** "Ver perfil" aparecía solo al pasar el mouse, y en una pantalla táctil no había cómo llegar. Con mouse se ve como antes; en táctil la fila muestra un chevron.
+9. **El menú de cuenta usa el mismo disco verde en /perfil y en /clinicas**: en /perfil quedaba una tuerca suelta, distinta del ícono del resto del header.
+
+### Lo que se sacrifica
+
+- En una captura de página completa (o una impresión) las tarjetas que nunca entraron en la pantalla salen en blanco: esperan a que alguien scrollee hasta ellas.
+- Cuando no hay turnos resueltos, esa tarjeta queda más alta que su contenido para acompañar a las dos apiladas; el cuerpo vacío lo cubre el efecto vidrio.
+## TR-181: La home, simple y al pie — un dibujo por idea y la historia de Lucía
+
+- **Contexto:** pedido del cliente, 2026-09-26, con ulifeon.com como referencia: "atacando el dolor del profesional, con animaciones bien pulidas y que demuestre el carácter de la app; una buena presentación vende el producto". La home anterior (T1.1, TR-015) eran dos fotos de stock con el buscador arriba y dos tarjetas desplegables.
+- **Una primera versión quedó cargada** (siete secciones: la agenda en vivo, la lista de mensajes del día, el giro con los pedidos tachados, seis funciones, pasos, seguridad y cierre). El cliente la vio y pidió otra cosa (2026-09-27): *"le falta animaciones, dibujos agradables, simplicidad; ahora está muy cargada, debe ser simple y al pie como el ejemplo"*. Esta TR describe la segunda.
+
+### Las decisiones
+
+1. **Cinco partes, y cada una dice UNA cosa:** qué es (un titular, una frase, dos botones y un dibujo), la historia de Lucía en tres escenas, lo que cambia en cuatro tarjetas (`#como-funciona`), la entrada para pacientes (`#buscar`) y el llamado final. La página mide menos de la mitad que la primera versión (3.282 px contra 6.758 en escritorio).
+2. **Los dibujos son objetos del día del profesional, en un solo estilo** (`components/home/dibujos.tsx`): el mate —es de acá—, el celular, el calendario de escritorio, una planta, los globos de WhatsApp, la luna. Línea de tinta, rellenos cálidos y un único acento verde, como la referencia (gris con un color). **Objetos y no personas**: una figura humana dibujada a mano en SVG se ve torpe, y los objetos cuentan lo mismo con más carácter.
+3. **La historia es un carrusel de tres escenas** (`Historia`): Lucía contesta turnos por WhatsApp a las 23:04 → comparte su link → sus pacientes sacan turno solos y ella atiende con el mate caliente. Avanza sola cada 7 s y se para con el mouse encima, con el foco adentro, con el botón de pausa (WCAG 2.2.2) o con "reducir movimiento". La escena que entra se vuelve a montar para que sus dibujos arranquen de nuevo.
+4. **Las animaciones son de los dibujos, lentas y con pausas**: el vapor del mate, los avisos que llegan al celular de a uno, el celular que vibra de noche, los globos que se amontonan, las estrellas, el avioncito del link que recorre su camino (`offset-path`), el calendario que se llena, las hojas que se mecen. Todo CSS (`app/home.css`), sin framer-motion. `Revelar` arma cada parte al entrar en la pantalla con el mismo criterio que TR-180: sin JavaScript se ve igual.
+5. **Todo lo que la home promete existe en el producto**: el paciente elige día y horario y confirma con un código, nunca dos turnos a la misma hora, la página propia y el buscador, el aviso al celular de TR-179. Sin cifras, testimonios ni sellos.
+6. **La piel cálida es de todo el sitio.** El header de la home conservaba porcelana/ink (pedido del 2026-08-23, "el home solo cambiar tarjetas y botones"); ahora arriba de todo es transparente con texto grafito sobre el hero marfil, y al scrollear pasa a marfil como el resto.
+7. **Los estilos de la home van en `app/home.css`**, importado solo por `app/page.tsx`. Se borraron las dos fotos de stock y los componentes que solo usaba la home anterior (`InfoCard`, `ExpandableCard`).
+
+### Lo que se sacrifica
+
+- La home ya no abre con el buscador: el paciente tiene "Busco turno como paciente" al lado del botón principal, "Buscar clínicas" en el header y su banda más abajo.
+- Se fueron el detalle de seguridad y los pasos para empezar: si hace falta contarlos, van en una página aparte, no en la home.
+- "Más tranquila" describe el aviso al celular de TR-179: esta home tiene que entrar a `dev` después de esas notificaciones.
+
 ---
 
 ---

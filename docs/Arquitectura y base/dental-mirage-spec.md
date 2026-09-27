@@ -138,6 +138,7 @@ Debe incluir, como estructura fija:
   - Nombre de la clínica.
   - Nombre del profesional.
   - Especialidad.
+- **La home (TR-181, 2026-09-26/27)** le habla primero al profesional y es simple: qué es, con un dibujo; la historia de Lucía en tres escenas (el WhatsApp de noche, el link, la calma); cuatro ventajas; la entrada para pacientes (`#buscar`) y el llamado final. Los dibujos son objetos del consultorio (el mate, el celular, el calendario) en un solo estilo de línea.
 
 ---
 
@@ -348,3 +349,11 @@ Pedido directo del cliente (2026-09-17, sin brief `.docx`). Definición funciona
 - **Fase 4.6 — storage en producción** (TR-167, 2026-09-24): las fotos viven en un bucket privado de Cloudflare R2 y se siguen sirviendo por `/uploads` (la web le pide a la API, la API lee del bucket). Se activa cargando `STORAGE_R2_*` en Render (ver `README.md`); sin eso, la subida en producción responde 501.
 
 **Pendiente, sin fecha:** de PE-8, el link de vista previa firmado del borrador, deshacer/rehacer y el resumen "qué cambió" antes de Publicar; de PE-1, `schema_version` con una migración por módulo, para el primer cambio de forma de un módulo. Sigue fuera de alcance la subida de foto de perfil (TR-046, sujeta a lo que decidan Kevin y Juan).
+
+## 15. Notificaciones por cuenta
+
+Pedido directo del cliente (2026-09-26); decisiones en `docs/Arquitectura y base/tradeoffs.md` TR-179 y plan en `implementation-plan.md` §15.
+
+Una campana al lado del ícono de perfil, en toda pantalla con sesión, con el número de avisos sin leer de la cuenta (de todas sus clínicas). Abre un panel desde la derecha con dos pestañas, **Nuevas** y **Leídas**. Hoy hay dos clases de aviso: **turno nuevo** —cuando un paciente saca turno desde la página pública o con un link compartido; lo reciben el profesional que atiende y la recepción de esa clínica, cuya copia dice para qué profesional es— y **bienvenida**. Cada aviso de turno muestra fecha, horario, paciente, tipo de consulta y clínica; expandirlo lo marca como leído, y "Ver turno" lleva al turno en el calendario, cambiando de clínica si hace falta. Las notificaciones son de cada cuenta: nadie ve las de otro.
+
+**Avisos al celular.** Desde el mismo panel se activan, por dispositivo, avisos del sistema (Web Push) que llegan con la app cerrada y, al tocarlos, abren el turno. PRISMA se puede instalar en la pantalla de inicio; en iPhone es obligatorio para recibirlos (regla de Apple, iOS 16.4+).

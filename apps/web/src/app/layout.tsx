@@ -35,6 +35,9 @@ export const metadata: Metadata = {
   title: "PRISMA",
   description:
     "Gestión de clínica y página pública para odontólogos de Córdoba: turnero, agenda y una página propia donde tus pacientes piden turno.",
+  // Instalable en la pantalla de inicio (TR-179): en iPhone es lo que
+  // habilita los avisos al celular. El manifiesto está en app/manifest.ts.
+  appleWebApp: { capable: true, title: "PRISMA", statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

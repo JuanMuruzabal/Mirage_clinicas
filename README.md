@@ -381,6 +381,15 @@ pierde en cada deploy. Ver "Activar el storage de fotos" más abajo.
      pública — ver "Activar el storage de fotos" más abajo). Sin ellas la
      subida de fotos responde 501; con el bucket cargado y alguna de las
      otras vacía, la API **no arranca** (el log dice cuál falta).
+   - `dental-mirage-api`: `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/
+     `VAPID_SUBJECT` (avisos al celular, TR-179). Se generan una vez con
+     `cd apps/api && go run ./cmd/vapid`; `VAPID_SUBJECT` es un `mailto:`
+     de contacto (sin él se usa `APP_BASE_URL`, si es https). No están en
+     `render.yaml`: se cargan a mano en el dashboard. Sin ellas la campana
+     funciona igual pero no se ofrece activar avisos; con una sola de las
+     dos claves, la API **no arranca**. Conviene no cambiarlas: cada
+     dispositivo ya activado deja de recibir avisos hasta que su dueño
+     vuelve a abrir la bandeja, donde la suscripción se rehace sola.
    - `dental-mirage-web`: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`/
      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (mismo Google Client ID de arriba,
      y la site key pública de Turnstile) — sin esto, el botón de Google y

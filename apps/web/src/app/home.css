@@ -1,0 +1,188 @@
+/* La home pública (TR-181). Un archivo aparte de globals.css porque todo
+   esto es de UNA página: no tiene por qué viajar a las demás.
+
+   Segunda versión (2026-09-27, pedido del cliente: "está muy cargada, debe
+   ser simple y al pie, con dibujos agradables y animaciones"). Dos familias
+   de animación:
+   - `.rv*` (revelar): una parte se arma una vez cuando entra en la
+     pantalla. El disparo lo decide `Revelar` (components/home/revelar.tsx);
+     sin JavaScript se arma al pintar.
+   - `.dib-*` (dibujos): lo que se mueve dentro de las ilustraciones
+     (components/home/dibujos.tsx), con ritmos lentos y pausas largas.
+   Con "reducir movimiento" no se mueve nada: todo queda en su mejor cuadro. */
+
+.home-fondo {
+  background-color: var(--color-hueso);
+  background-image: url("/textures/soft-cross.svg");
+}
+
+/* ── Revelar ─────────────────────────────────────────────────────────── */
+.revelar {
+  --rv-retraso: calc(var(--revelar-orden, 0) * 120ms);
+  --rv-curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.revelar[data-revelar="activo"] {
+  --rv-retraso: 0ms;
+}
+.rv {
+  animation: rv-subir 800ms var(--rv-curva) backwards;
+  animation-delay: calc(var(--rv-retraso) + var(--i, 0) * 120ms);
+}
+.rv--escala {
+  animation-name: rv-escala;
+  animation-duration: 1000ms;
+}
+.revelar[data-revelar="en-espera"] {
+  visibility: hidden;
+}
+.revelar[data-revelar="en-espera"].rv,
+.revelar[data-revelar="en-espera"] .rv {
+  animation: none;
+}
+@keyframes rv-subir { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes rv-escala { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* ── Los dibujos ─────────────────────────────────────────────────────── */
+
+/* El vapor del mate: sube, se estira y se va. */
+.dib-vapor {
+  animation: dib-vapor 3.4s ease-in-out infinite backwards;
+  animation-delay: calc(var(--i, 0) * 1.5s);
+}
+@keyframes dib-vapor {
+  0% { opacity: 0; transform: translateY(8px); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+/* Los avisos que le llegan al celular, de a uno. */
+.dib-aviso {
+  animation: dib-aviso 8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite backwards;
+  animation-delay: calc(0.6s + var(--i, 0) * 1.3s);
+}
+@keyframes dib-aviso {
+  0% { opacity: 0; transform: translateY(-10px); }
+  6%, 82% { opacity: 1; transform: none; }
+  90%, 100% { opacity: 0; transform: none; }
+}
+
+/* El celular que vibra de noche. */
+.dib-vibrar {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: dib-vibrar 3s ease-in-out infinite;
+}
+@keyframes dib-vibrar {
+  0%, 16%, 100% { transform: rotate(0); }
+  3% { transform: rotate(-2.4deg); }
+  6% { transform: rotate(2.4deg); }
+  9% { transform: rotate(-1.8deg); }
+  12% { transform: rotate(1.2deg); }
+}
+
+/* Los globos de WhatsApp que se amontonan. */
+.dib-globo {
+  transform-box: fill-box;
+  transform-origin: 10% 100%;
+  animation: dib-globo 7s cubic-bezier(0.3, 1.4, 0.5, 1) infinite backwards;
+  animation-delay: calc(0.4s + var(--i, 0) * 0.7s);
+}
+@keyframes dib-globo {
+  0% { opacity: 0; transform: scale(0.4); }
+  7%, 84% { opacity: 1; transform: none; }
+  92%, 100% { opacity: 0; transform: none; }
+}
+
+/* Las estrellas titilan. */
+.dib-titilar {
+  animation: dib-titilar 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -1.2s);
+}
+@keyframes dib-titilar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* El avioncito del link recorre el camino hasta el calendario. */
+.dib-avion {
+  offset-rotate: auto;
+  animation: dib-avion 4.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+}
+@keyframes dib-avion {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  70% { offset-distance: 100%; opacity: 1; }
+  78%, 100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Los casilleros del calendario se van llenando. */
+.dib-celda {
+  animation: dib-celda 520ms var(--rv-curva, ease-out) backwards;
+  animation-delay: calc(var(--rv-retraso, 0ms) + 700ms + var(--i, 0) * 220ms);
+}
+@keyframes dib-celda {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Las hojas de la planta se mecen apenas. */
+.dib-hojas {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: dib-hojas 6s ease-in-out infinite;
+}
+@keyframes dib-hojas {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+/* El sol de la escena tranquila gira muy despacio. */
+.dib-girar-lento {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: dib-girar-lento 40s linear infinite;
+}
+@keyframes dib-girar-lento {
+  to { transform: rotate(360deg); }
+}
+
+/* Un trazo que se dibuja solo (la mesa, el tilde). */
+.dib-trazar {
+  stroke-dasharray: 1;
+  animation: dib-trazar 1400ms var(--rv-curva, ease-out) backwards;
+  animation-delay: calc(var(--rv-retraso, 0ms) + 200ms);
+}
+@keyframes dib-trazar {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* La portada de la página cambia de estilo. */
+.dib-portada {
+  animation: dib-portada 9s steps(1, end) infinite;
+}
+@keyframes dib-portada {
+  0% { fill: var(--color-salvia); }
+  33% { fill: var(--color-acero); }
+  66% { fill: var(--color-terracota); }
+}
+
+/* Mientras una parte espera fuera de la pantalla, sus dibujos de una sola
+   vez (casilleros, trazos) tampoco arrancan: si no, cuando la persona llega
+   ya terminaron. */
+.revelar[data-revelar="en-espera"] :is(.dib-celda, .dib-trazar) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv,
+  .dib-vapor, .dib-aviso, .dib-vibrar, .dib-globo, .dib-titilar, .dib-avion,
+  .dib-celda, .dib-hojas, .dib-trazar, .dib-portada, .dib-girar-lento {
+    animation: none !important;
+  }
+  .revelar[data-revelar="en-espera"] {
+    visibility: visible;
+  }
+  /* El avioncito, quieto a mitad de camino. */
+  .dib-avion { offset-distance: 55%; }
+}

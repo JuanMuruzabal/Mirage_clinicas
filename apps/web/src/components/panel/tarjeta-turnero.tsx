@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { LinkConVista } from "./link-con-vista";
+import { Despliegue } from "./despliegue";
 
 // TarjetaTurnero* (F2.3 extra ítem 1 — rediseño del dashboard "Turnero",
 // docs/Arquitectura y base/implementation-plan.md §11.5, docs/Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md)
@@ -9,9 +10,12 @@ import { LinkConVista } from "./link-con-vista";
 // cuenta, anidar un <a> dentro de otro <a> no es válido HTML, así que la
 // cabecera y las filas del cuerpo pasan a ser links independientes.
 
-const CABECERA_BASE = "flex items-baseline justify-between gap-3";
+// `flex-wrap` + rótulo sin cortes (2026-09-26): en el celular, con un link
+// largo al lado ("Ver horarios reservados"), el rótulo se partía en dos
+// renglones. Ahora, si no entran juntos, el link baja entero.
+const CABECERA_BASE = "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1";
 const EYEBROW_BASE =
-  "font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50";
+  "font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest whitespace-nowrap text-grafito/50";
 const VALOR_BASE =
   "font-[family-name:var(--font-display)] text-5xl font-medium";
 const LABEL_CABECERA_BASE = "text-sm font-medium whitespace-nowrap";
@@ -55,6 +59,8 @@ interface TarjetaConListaProps {
   // filtro.
   hrefPie?: string;
   labelPie?: string;
+  /** Lugar en la página, para desplegarse en cascada (ver Despliegue). */
+  orden?: number;
 }
 
 // Cuerpo "medio transparente, mismo efecto que las tarjetas de la página
@@ -79,9 +85,10 @@ export function TarjetaConLista({
   icono,
   hrefPie,
   labelPie,
+  orden,
 }: TarjetaConListaProps) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
+    <Despliegue orden={orden} className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
       <div className="relative flex flex-col gap-2 overflow-hidden bg-marfil p-6">
         {icono}
         <div className="relative z-10 flex flex-col gap-2">
@@ -103,7 +110,7 @@ export function TarjetaConLista({
               ))}
           </div>
           <p
-            className={`${VALOR_BASE} ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+            className={`despliegue-cifra ${VALOR_BASE} ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
           >
             {valor}
           </p>
@@ -137,7 +144,7 @@ export function TarjetaConLista({
           en `hidden` y la Y sin declarar, la Y computa `auto` y esta caja
           se convierte en un segundo contenedor de scroll — una barra
           extra, y encima la del navegador en vez de la beige. */}
-      <div className="panel-card-vidrio max-h-52 flex-1 overflow-y-hidden">
+      <div className="despliegue-cuerpo panel-card-vidrio max-h-52 flex-1 overflow-y-hidden">
         <div className="panel-card-scroll h-full overflow-auto">
           {filas.length === 0 ? (
             // Misma tipografía de display que las filas con contenido
@@ -182,7 +189,7 @@ export function TarjetaConLista({
           </Link>
         </div>
       )}
-    </div>
+    </Despliegue>
   );
 }
 
@@ -283,6 +290,7 @@ interface TarjetaSimpleProps {
   titulo: string;
   acento?: boolean;
   icono?: ReactNode;
+  orden?: number;
 }
 
 // Sin cuerpo (tarjeta "Turnos confirmados", que solo pide un número) —
@@ -294,17 +302,19 @@ export function TarjetaSimple({
   titulo,
   acento = false,
   icono,
+  orden,
 }: TarjetaSimpleProps) {
   return (
+    <Despliegue orden={orden} className="flex">
     <Link
       href={href}
-      className="group relative flex flex-col gap-2 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft transition-colors duration-300 hover:bg-arena"
+      className="group relative flex flex-1 flex-col gap-2 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft transition-colors duration-300 hover:bg-arena"
     >
       {icono}
       <div className="relative z-10 flex flex-col gap-2">
         <p className={EYEBROW_BASE}>{eyebrow}</p>
         <p
-          className={`${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+          className={`despliegue-cifra ${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
         >
           {valor}
         </p>
@@ -313,6 +323,7 @@ export function TarjetaSimple({
         </p>
       </div>
     </Link>
+    </Despliegue>
   );
 }
 
@@ -321,6 +332,7 @@ interface TarjetaEstadisticaProps {
   asistieron: number;
   ausentes: number;
   icono?: ReactNode;
+  orden?: number;
 }
 
 // TarjetaEstadistica (F2.3 extra ítem 1, corrección de QA 2026-09-06:
@@ -334,27 +346,31 @@ export function TarjetaEstadistica({
   asistieron,
   ausentes,
   icono,
+  orden,
 }: TarjetaEstadisticaProps) {
   return (
-    <div className="relative flex flex-col gap-4 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft">
+    <Despliegue
+      orden={orden}
+      className="relative flex flex-1 flex-col gap-4 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft"
+    >
       {icono}
       <div className="relative z-10 flex flex-col gap-4">
         <p className={EYEBROW_BASE}>{eyebrow}</p>
         <div className="flex gap-8">
           <div className="flex flex-col gap-1">
-            <p className={`${VALOR_BASE} text-5xl text-salvia-oscuro`}>
+            <p className={`despliegue-cifra ${VALOR_BASE} text-5xl text-salvia-oscuro`}>
               {asistieron}
             </p>
             <p className="text-sm font-medium text-grafito/60">Asistieron</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className={`${VALOR_BASE} text-5xl text-terracota-oscuro`}>
+            <p className={`despliegue-cifra ${VALOR_BASE} text-5xl text-terracota-oscuro`}>
               {ausentes}
             </p>
             <p className="text-sm font-medium text-grafito/60">Ausentes</p>
           </div>
         </div>
       </div>
-    </div>
+    </Despliegue>
   );
 }

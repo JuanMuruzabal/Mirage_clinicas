@@ -57,7 +57,7 @@ La sesión y el rate-limiting de auth (`internal/ratelimit`) viven en Postgres, 
 
 ## Interfaces con implementación dev/prod (spec §9.4)
 
-Mismo patrón que Marcuzzi_Madryn para cada dependencia externa: interfaz en Go, implementación dev (no-op/log) e implementación prod activada por env var, inyectada desde `main.go`. El envío inicial del formulario público de turno **no** usa este patrón — es un link `wa.me` generado client-side (TR-003), no una integración de backend; el patrón dev/prod queda reservado para recordatorios automatizados futuros (Fase 2) y para las dependencias del auth nuevo, ya implementadas: `internal/mail` (Resend/`LogSender`), `internal/googleauth` (Google OAuth), `internal/turnstile` (CAPTCHA), `internal/security` (HaveIBeenPwned) — todas nil-safe/no-op sin la env var correspondiente configurada, ver `buildAuthDeps` en `cmd/api/main.go`. `internal/storage` (fotos de la página pública) tiene disco local en dev y Cloudflare R2 en prod (Fase 4.6, TR-167); la foto de perfil sigue sin subida (TR-046).
+Mismo patrón que Marcuzzi_Madryn para cada dependencia externa: interfaz en Go, implementación dev (no-op/log) e implementación prod activada por env var, inyectada desde `main.go`. El envío inicial del formulario público de turno **no** usa este patrón — es un link `wa.me` generado client-side (TR-003), no una integración de backend; el patrón dev/prod queda reservado para recordatorios automatizados futuros (Fase 2) y para las dependencias del auth nuevo, ya implementadas: `internal/mail` (Resend/`LogSender`), `internal/googleauth` (Google OAuth), `internal/turnstile` (CAPTCHA), `internal/security` (HaveIBeenPwned) — todas nil-safe/no-op sin la env var correspondiente configurada, ver `buildAuthDeps` en `cmd/api/main.go`. `internal/storage` (fotos de la página pública) tiene disco local en dev y Cloudflare R2 en prod (Fase 4.6, TR-167); la foto de perfil sigue sin subida (TR-046). `internal/push` (avisos al celular, TR-179) también: `LogEnviador` sin `VAPID_*`, `VAPIDEnviador` con ellas, ver `buildPush`.
 
 ## Timezone
 
@@ -277,6 +277,32 @@ Los módulos se guardan con **reemplazo completo** (`DELETE` + `INSERT` transacc
 - **La vista previa del editor no es la página real** (TR-169): no abre el wizard, no emite `h1` ni repite ids. Publicar con cambios sin guardar **guarda primero** y no publica si el guardado falla. El módulo Horarios es la excepción al borrador: se aplica en vivo, con aviso.
 - **Un efecto nunca deja el contenido en un estado intermedio** (TR-168): con movimiento reducido todo queda en su estado final, y el envoltorio del efecto no puede quedar entre un `<ul>` y su `<li>`. Las grillas de módulos usan container queries, no breakpoints de ventana (si no, la vista previa "Móvil" muestra columnas de escritorio).
 - Cada rama PP se corta desde `origin/dev`. Para ver la página pública sin API ni Docker: `PRISMA_DEMO_PLANTILLAS=1 pnpm dev --port 3100` en `apps/web` y abrir `/demo-<plantilla>`. El editor necesita la API: en PP-4 se levantaron las dos en local (`go run ./cmd/api` con las env vars de `docker-compose.yml` y `DATABASE_URL` a `localhost`; `pnpm dev` con `API_URL`/`BFF_SHARED_SECRET`) y se lo revisó con Chrome headless por CDP, poniendo la cookie `dm_session` de una cuenta de prueba creada con `POST /auth/register` + los mismos pasos de `scripts/qa-entorno-dev.sh` (la clínica ahora pide provincia, ciudad, dirección y teléfono).
+
+
+## Notificaciones por cuenta (TR-179)
+
+Pedido directo del cliente (2026-09-26). La campana del header abre la bandeja de la CUENTA (Nuevas/Leídas); hoy avisa de turnos que entran por la página pública o por un link compartido, y da la bienvenida. Plan en `implementation-plan.md` §15. Lo que hay que saber antes de tocarla:
+
+- **La bandeja es de la cuenta, no de la clínica** (`notificaciones.user_id`). Toda consulta por id va con `user_id = ?` y responde 404 si no es tuya — está declarada así en `TestAislamiento_LosIDsDeLaURLSeAcotan`.
+- **Si sumás un camino por el que un turno entra SOLO** (sin que nadie del panel lo cargue), llamá a `crearNotificacionesDeTurnoNuevo` dentro de la transacción del turno y a `avisarPorPush` después del commit, como `turno_publico.go`. Los turnos cargados desde el panel no avisan a propósito. Y si algo borra turnos, borra también sus notificaciones: `turno_id` no tiene FK (es historial, como `conflictos_paciente`).
+- **El aviso es una foto del turno al crearse** (`datos` jsonb). Lo que puede cambiar después —fecha, estado, si la persona sigue en la clínica— lo resuelve `POST /me/notificaciones/{id}/abrir`, que además deja la sesión en la clínica y, para recepción, en el foco donde el turno se ve.
+- **`/me/notificaciones/contador` se sondea** (cada 60 s por pestaña visible): es un `COUNT` sobre el índice parcial `idx_notificaciones_nuevas`. No le sumes joins (TR-162).
+- **Web Push está hecho con la biblioteca estándar** (`internal/push`, VAPID + `aes128gcm`, verificado contra el vector del RFC 8291). No sumes una librería de JWT para esto (TR-125). Claves: `go run ./cmd/vapid`; con una sola de las dos la API no arranca.
+- **El envío va en una goroutine después del commit** y solo toca la base para borrar una suscripción vencida, con el pool. No le agregues consultas: TR-161 sigue valiendo.
+- **`public/sw.js` no cachea ni intercepta pedidos** — un service worker que cachea deja a la gente en una versión vieja después de un deploy. Si hace falta offline, es otra decisión.
+- **Los avisos al celular son por dispositivo**, y en iPhone solo con PRISMA instalada en la pantalla de inicio (regla de Apple).
+
+
+## Pulido visual del panel (TR-180)
+
+- **Las tarjetas de General se despliegan al entrar en la pantalla** con `Despliegue` (`components/panel/despliegue.tsx`); la animación es CSS (`.despliegue*`, `.dib-*` en `globals.css`). Una tarjeta nueva se envuelve en `Despliegue` con su `orden`, su número lleva `despliegue-cifra`, su cuerpo `despliegue-cuerpo` y su dibujo `despliegue-dibujo`. **Nunca escondas el contenido hasta que hidrate**: el HTML del servidor tiene que verse sin JavaScript, y con "reducir movimiento" no se anima nada.
+- **Un ícono del sidebar es de `sidebar-icons.tsx`** y lleva una pieza de acento (`acento(activo)`) que se rellena en la sección activa. La sección activa sale de `esSeccionActiva`, que también marca las pantallas de adentro.
+- **Algo que se muestra solo al pasar el mouse no existe en el celular.** Si una acción vive en un hover, dale también un camino táctil (en el menú de colaboradores, la fila entera es el link).
+## La home pública (TR-181)
+
+- **Simple y al pie, a pedido del cliente:** cinco partes que dicen una cosa cada una (qué es, la historia de Lucía en un carrusel de tres escenas, cuatro ventajas, la entrada para pacientes y el cierre). Una primera versión con siete secciones y mucho texto se descartó por "cargada": **antes de sumar una sección o un párrafo a la home, preguntate si no alcanza con un dibujo y una frase.** Secciones en `components/home/`, estilos en `app/home.css` (solo los importa `app/page.tsx`). Los anclas `#como-funciona` y `#buscar` son los destinos del header: no los renombres.
+- **Los dibujos viven en `components/home/dibujos.tsx`**, en un solo estilo (línea de tinta, rellenos cálidos, un acento verde) y con objetos, no personas. Si algo se anima con CSS, la posición va en un `<g transform>` de afuera y la animación en uno de adentro: el `transform` del CSS pisa el del SVG y la pieza termina en la esquina (bug real).
+- **Todo lo que la home promete tiene que existir en el producto**, y nada de cifras, testimonios o sellos que no se puedan sostener. Nada de framer-motion ni de contenido escondido hasta hidratar: `Revelar` + CSS, mismo criterio que TR-180; con "reducir movimiento", nada se mueve y el carrusel no avanza solo.
 
 ## Flujo de ramas
 

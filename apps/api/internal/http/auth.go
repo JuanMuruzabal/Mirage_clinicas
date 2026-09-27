@@ -19,6 +19,7 @@ import (
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/googleauth"
 	dmmail "dental-mirage/api/internal/mail"
+	"dental-mirage/api/internal/push"
 	"dental-mirage/api/internal/ratelimit"
 	"dental-mirage/api/internal/security"
 	"dental-mirage/api/internal/storage"
@@ -72,7 +73,9 @@ const mensajeCuentaCreadaAutoVerificada = "cuenta creada"
 // nil-safe donde tiene sentido (Turnstile/Pwned deshabilitados en dev sin
 // credenciales, mismo criterio que internal/turnstile ya trae).
 type AuthDeps struct {
-	Mail              dmmail.Sender
+	Mail dmmail.Sender
+	// Push — avisos al celular (TR-179). nil = no se mandan.
+	Push              push.Enviador
 	Google            googleauth.Exchanger  // nil: /auth/google responde 501
 	Turnstile         turnstile.Verifier    // nil: sin CAPTCHA (dev)
 	Pwned             security.PwnedChecker // nil: sin chequeo de HaveIBeenPwned
@@ -454,6 +457,10 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 			if err := tx.Create(&user).Error; err != nil {
 				return err
 			}
+			// TR-179: toda cuenta nace con su bienvenida en la bandeja.
+			if err := db.CrearBienvenida(tx, user.ID); err != nil {
+				return err
+			}
 		} else if err := tx.Save(&user).Error; err != nil {
 			return err
 		}
@@ -769,7 +776,11 @@ func (h *authHandler) findOrCreateUserForGoogle(ctx context.Context, info google
 			return err
 		}
 		account := db.Account{UserID: newUser.ID, Provider: db.ProviderGoogle, ProviderAccountID: info.Sub}
-		return tx.Create(&account).Error
+		if err := tx.Create(&account).Error; err != nil {
+			return err
+		}
+		// TR-179: toda cuenta nace con su bienvenida en la bandeja.
+		return db.CrearBienvenida(tx, newUser.ID)
 	})
 	if txErr != nil {
 		return db.User{}, txErr

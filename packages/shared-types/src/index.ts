@@ -1038,3 +1038,52 @@ export interface ContadoresDePacientes {
   sinVerificar: number;
 }
 
+
+// Notificaciones por cuenta (TR-179) — espejo de notificacionResponse
+// (internal/http/notificaciones.go). La bandeja es de la persona y junta
+// todas sus clínicas: por eso cada notificación de turno dice de dónde
+// viene.
+export type TipoNotificacion = "bienvenida" | "turno_nuevo";
+
+/** La foto de lo que muestra la tarjeta, tomada al llegar el turno. */
+export interface DatosNotificacion {
+  pacienteNombre?: string;
+  clinicaNombre?: string;
+  profesionalNombre?: string;
+  profesionalUserId?: string;
+  tipoConsulta?: string;
+  /** RFC3339 con la zona de Córdoba (-03:00). */
+  horaInicio?: string;
+  horaFin?: string;
+  /** La copia de recepción: dice para qué profesional es el turno. */
+  paraRecepcion?: boolean;
+  /** Entró por un "Compartir link" y no por la página. */
+  porEnlace?: boolean;
+}
+
+export interface Notificacion {
+  id: string;
+  tipo: TipoNotificacion;
+  creadaEn: string;
+  leidaEn: string | null;
+  clinicaId?: string;
+  turnoId?: string;
+  datos: DatosNotificacion;
+}
+
+export interface BandejaDeNotificaciones {
+  notificaciones: Notificacion[];
+  nuevas: number;
+  leidas: number;
+}
+
+/** Lo que devuelve "abrir": dónde quedó parada la sesión y en qué estado
+ *  está el turno HOY (no el de la foto). */
+export interface AperturaDeNotificacion {
+  tipo: TipoNotificacion;
+  estadoTurno?: "agendado" | "cancelada";
+  turnoId?: string;
+  fecha?: string;
+  cambioDeClinica: boolean;
+  sinAcceso: boolean;
+}

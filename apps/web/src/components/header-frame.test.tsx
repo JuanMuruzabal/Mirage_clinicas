@@ -40,17 +40,19 @@ describe("HeaderFrame", () => {
     expect(header.className).not.toContain("bg-porcelain");
   });
 
-  it("en el Home sin scrollear, transparente sobre la foto (texto claro)", () => {
+  it("en el Home sin scrollear, transparente sobre el hero claro (texto grafito)", () => {
     usePathnameMock.mockReturnValue("/");
     const { container } = render(
       <HeaderFrame>
         <p>contenido</p>
       </HeaderFrame>,
     );
-    expect(container.querySelector("header")).toHaveClass("bg-transparent", "text-porcelain");
+    expect(container.querySelector("header")).toHaveClass("bg-transparent", "text-grafito");
   });
 
-  it("en el Home, al scrollear pasa a sólido", () => {
+  // Desde el rediseño de la home (2026-09-26), con la piel cálida como el
+  // resto del sitio.
+  it("en el Home, al scrollear pasa a sólido, con la piel cálida", () => {
     usePathnameMock.mockReturnValue("/");
     setScrollY(80);
     const { container } = render(
@@ -60,7 +62,7 @@ describe("HeaderFrame", () => {
     );
     window.dispatchEvent(new Event("scroll"));
 
-    expect(container.querySelector("header")).toHaveClass("bg-porcelain", "text-ink");
+    expect(container.querySelector("header")).toHaveClass("bg-marfil", "text-grafito");
   });
 
   it("dentro de /panel también, sólido con la piel cálida (marfil/grafito), no porcelana/ink (TR-013)", () => {
@@ -92,7 +94,7 @@ describe("HeaderFrame", () => {
         <p>contenido</p>
       </HeaderFrame>,
     );
-    expect(container.querySelector("header")).toHaveClass("bg-porcelain", "text-ink");
+    expect(container.querySelector("header")).toHaveClass("bg-marfil", "text-grafito");
   });
 
   it("mide su altura real al montar y la expone como --header-height (evita el hueco con el contenido de abajo)", () => {

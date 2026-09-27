@@ -104,6 +104,15 @@ type Config struct {
 	ResendAPIKey    string
 	ResendFromEmail string
 
+	// Avisos al celular (Web Push, TR-179). Las claves salen de
+	// `go run ./cmd/vapid`. Sin ellas los avisos no se mandan y el botón
+	// para activarlos no aparece; la bandeja de notificaciones funciona
+	// igual. VAPIDSubject es el contacto que exigen los servicios de push
+	// (un mailto: o una URL https); vacío, se usa APP_BASE_URL si es https.
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string
+
 	// Google OAuth (spec §2, decisión #1 del plan: popup + Authorization
 	// Code). Sin credenciales: /auth/google responde 501, el botón de
 	// Google se puede ocultar en el frontend.
@@ -232,6 +241,10 @@ func Load() Config {
 		AppBaseURL: appBaseURL,
 
 		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
+
+		VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
+		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:    getEnv("VAPID_SUBJECT", ""),
 		// Dominio real del cliente (miragesoftware.online) — con nombre de
 		// marca, Resend acepta "Nombre <mail>" en el campo `from` tal cual.
 		ResendFromEmail: getEnv("RESEND_FROM_EMAIL", "PRISMA <no-reply@miragesoftware.online>"),

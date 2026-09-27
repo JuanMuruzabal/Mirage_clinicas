@@ -718,3 +718,135 @@ li > [data-pp-efecto] {
   [data-pp-efecto], .pp-palabra { opacity: 1 !important; filter: none !important; }
   .pp-fondo-vivo__capa { opacity: .32 !important; }
 }
+
+/* Bandeja de notificaciones (TR-179): el panel entra desde la izquierda y
+   el velo aparece. Solo con motion-safe en el componente: con "reducir
+   movimiento", el panel aparece quieto. */
+@keyframes notificaciones-entrar {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes notificaciones-velo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Despliegue de las tarjetas de General (2026-09-26, pedido del
+   cliente: "que los cuerpos de las tarjetas se desplieguen a medida que en
+   mi pantalla se estén haciendo visibles; el de Turnos de hoy de izquierda
+   a derecha en monitor").
+
+   Cómo funciona, y por qué así:
+   - SIN JavaScript, cada tarjeta se despliega una vez al pintar la
+     página. El HTML del servidor nunca queda escondido esperando a que
+     hidrate (la regla de TR-168: un efecto no deja el contenido a medias).
+   - Al hidratar, `Despliegue` (components/panel/despliegue.tsx) marca
+     `en-espera` a las que todavía están FUERA de la pantalla —están
+     afuera, así que taparlas no se ve— y las vuelve a desplegar cuando
+     entran (`activo`). Las que ya estaban a la vista no se tocan.
+   - `backwards` y no `both`: terminado el despliegue, la tarjeta vuelve a
+     no tener clip-path ni transform, y no recorta anillos de foco ni
+     sombras.
+   - Con "reducir movimiento" no hay nada de esto: todo aparece en su
+     estado final. */
+.despliegue {
+  --despliegue-retraso: calc(var(--despliegue-orden, 0) * 90ms);
+  --despliegue-curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.despliegue[data-despliegue="activo"] {
+  --despliegue-retraso: 0ms;
+}
+
+.despliegue-cifra {
+  animation: despliegue-subir 560ms var(--despliegue-curva) backwards;
+  animation-delay: var(--despliegue-retraso);
+}
+.despliegue-cuerpo {
+  animation: despliegue-abajo 700ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 120ms);
+}
+/* "Turnos de hoy": en monitor el cuerpo está a la DERECHA del bloque del
+   número, y se abre hacia ese lado. En el celular las dos partes se
+   apilan, y se abre hacia abajo como las demás. */
+@media (min-width: 48rem) {
+  .despliegue--derecha .despliegue-cuerpo {
+    animation-name: despliegue-derecha;
+    animation-duration: 900ms;
+  }
+}
+.despliegue-cuerpo li,
+.despliegue-cuerpo tbody tr {
+  animation: despliegue-fila 460ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 320ms + var(--despliegue-fila, 6) * 60ms);
+}
+.despliegue-cuerpo li:nth-child(1), .despliegue-cuerpo tbody tr:nth-child(1) { --despliegue-fila: 0; }
+.despliegue-cuerpo li:nth-child(2), .despliegue-cuerpo tbody tr:nth-child(2) { --despliegue-fila: 1; }
+.despliegue-cuerpo li:nth-child(3), .despliegue-cuerpo tbody tr:nth-child(3) { --despliegue-fila: 2; }
+.despliegue-cuerpo li:nth-child(4), .despliegue-cuerpo tbody tr:nth-child(4) { --despliegue-fila: 3; }
+.despliegue-cuerpo li:nth-child(5), .despliegue-cuerpo tbody tr:nth-child(5) { --despliegue-fila: 4; }
+.despliegue-cuerpo li:nth-child(6), .despliegue-cuerpo tbody tr:nth-child(6) { --despliegue-fila: 5; }
+.despliegue--derecha .despliegue-cuerpo tbody tr {
+  animation-name: despliegue-fila-derecha;
+}
+
+/* Los dibujos de fondo de cada tarjeta se arman con ella. Cada pieza dice
+   cómo entra con una clase; `--i` escalona las que son varias. */
+.despliegue-dibujo {
+  animation: despliegue-aparecer 500ms ease-out backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 200ms);
+}
+.despliegue-dibujo .dib-trazo {
+  stroke-dasharray: 1;
+  animation: despliegue-trazo 1100ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 240ms + var(--i, 0) * 120ms);
+}
+.despliegue-dibujo .dib-aparecer {
+  animation: despliegue-aparecer 520ms ease-out backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 380ms + var(--i, 0) * 70ms);
+}
+.despliegue-dibujo .dib-crecer {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: despliegue-crecer 700ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 320ms + var(--i, 0) * 80ms);
+}
+.despliegue-dibujo .dib-girar {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation: despliegue-girar 1000ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 300ms);
+}
+.despliegue-dibujo .dib-deslizar {
+  animation: despliegue-deslizar 620ms var(--despliegue-curva) backwards;
+  animation-delay: calc(var(--despliegue-retraso) + 260ms + var(--i, 0) * 110ms);
+}
+
+/* Fuera de la pantalla, a la espera: sin animación y sin pintar (está
+   afuera, no se ve). Pasar a `activo` le vuelve a poner la animación a
+   cada pieza, y eso la arranca de nuevo. */
+.despliegue[data-despliegue="en-espera"] {
+  visibility: hidden;
+}
+.despliegue[data-despliegue="en-espera"] :is(.despliegue-cifra, .despliegue-cuerpo, .despliegue-cuerpo li, .despliegue-cuerpo tbody tr, .despliegue-dibujo, .despliegue-dibujo *) {
+  animation: none;
+}
+
+@keyframes despliegue-abajo { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes despliegue-derecha { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes despliegue-subir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes despliegue-fila { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes despliegue-fila-derecha { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes despliegue-aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes despliegue-trazo { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes despliegue-crecer { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes despliegue-girar { from { transform: rotate(-150deg); } to { transform: rotate(0deg); } }
+@keyframes despliegue-deslizar { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.despliegue-cifra, .despliegue-cuerpo, .despliegue-cuerpo li, .despliegue-cuerpo tbody tr, .despliegue-dibujo, .despliegue-dibujo *) {
+    animation: none !important;
+  }
+  .despliegue[data-despliegue="en-espera"] {
+    visibility: visible;
+  }
+}
