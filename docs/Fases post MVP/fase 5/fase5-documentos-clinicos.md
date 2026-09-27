@@ -27,7 +27,9 @@ El brief lo dice en mayúsculas y tiene razón: es la fase **más sensible** del
 
 ## 2. Los documentos
 
-Diecinueve archivos, que se convierten en **diecinueve plantillas** (el consentimiento de ortodoncia viene adentro del PDF de la historia de ortodoncia y se separa; los dos "registros de prestaciones" que traen al final la historia de PcD y la de ortodoncia son la misma cosa que el Anexo).
+**Son los modelos oficiales del Colegio Odontológico de la Provincia de Córdoba**, que los publica para que los usen los odontólogos en su "archivo oficial de historias clínicas y documentos de consentimiento informado" ([colodontcba.org.ar](https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/)). Cada plantilla cita esa fuente.
+
+Diecinueve archivos, que dan **veinte plantillas posibles** —el consentimiento de ortodoncia viene adentro del PDF de la historia de ortodoncia y se separa; los dos "registros de prestaciones" que traen al final la historia de PcD y la de ortodoncia son la misma cosa que el Anexo— y **diecinueve** con el de COVID afuera (D6). A esas se suman dos propias de PRISMA, la enmienda y la revocación (§4.8).
 
 ### 2.1 Historias clínicas y anexos
 
@@ -146,7 +148,7 @@ Orden recomendado (§6): primero un consentimiento simple para probar el circuit
 
 Todos los documentos piden datos que la ficha hoy no tiene: **fecha de nacimiento, domicilio, obra social, plan y número de afiliado**, y varios piden estado civil, nacionalidad y profesión. Recomendación: sumar a la ficha los cinco primeros (se repiten en casi todos) y **precargarlos** en cada documento, con la opción de guardar en la ficha lo que se complete en el documento. Los demás quedan como campos del documento.
 
-Y una pregunta que no es de diseño: **¿los modelos se pueden reproducir en la app?** Si son de una institución (por ejemplo, el Colegio), conviene tener su autorización por escrito antes de publicarlos como plantillas.
+Y una cuestión que no es de diseño: **los modelos son del Colegio Odontológico de la Provincia de Córdoba**, publicados en su web para uso de los odontólogos (§2). Usarlos como plantillas es para lo que se publicaron, y cada una cita la fuente; aun así, **conviene avisarle al Colegio** y, si se puede, tener su conformidad por escrito. De paso, es el interlocutor natural para la revisión legal de §5.3. Los PDF originales no se versionan en el repo (es público): la vista del original se arma con imágenes de sus páginas, que se suman con la conformidad del Colegio.
 
 ---
 
@@ -325,7 +327,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | **5.1 Cimientos** | Tablas, triggers de inmutabilidad y auditoría; paquete `documentos-clinicos` con el motor, los tipos de campo básicos y el generador a Go; validación en el backend; la pantalla del módulo (selector, original, tabla de pacientes, borradores); el editor con sidebar y calco en vivo; el registro del paciente y el bloque de la ficha; la protección de fichas con documentos. **Primer documento de punta a punta: consentimiento de tratamiento de conducto**, con firma en este dispositivo y sellado | D4, D7 |
 | **5.2 PDF** | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma | 5.1 |
 | **5.3 Firma a distancia** | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil | 5.2, D1, D2 |
-| **5.4 Consentimientos** | Los doce restantes, con el selector de piezas FDI y el asentimiento | 5.3, D6 |
+| **5.4 Consentimientos** | Los trece restantes (incluido el de ortodoncia), con el selector de piezas FDI y el asentimiento | 5.3, D6 |
 | **5.5 Odontograma** | El componente (editor, calco y PDF), permanentes y temporarios, las dos leyendas | 5.2, D5 |
 | **5.6 Historias clínicas** | General, PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma) | 5.5 |
 | **5.7 Evolución y copias** | Registro de prestaciones como asientos sellados (D3), enmiendas, revocación, copia completa para el paciente | 5.6, D3 |
@@ -340,7 +342,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 - Recepción y administrador de página reciben **404** en todo el módulo; un profesional sin el paciente en su lista, también.
 - El PDF de un documento sellado es **siempre el mismo** (su huella coincide con la registrada) y se descarga solo con sesión.
 - Un vínculo de firma **vence**, se usa **una sola vez** y no abre ningún otro documento.
-- Las 19 plantillas generan su JSON sin diferencias en CI, y cada una tiene un test que la completa, la sella y genera su PDF.
+- Las plantillas (las diecinueve del Colegio y las dos propias) generan su JSON sin diferencias en CI, y cada una tiene un test que la completa, la sella y genera su PDF.
 - Cobertura ≥ 80 % en los dos lados, como siempre.
 
 ---
@@ -355,4 +357,4 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | El editor genérico queda corto para una plantilla rara | Los tipos de campo son extensibles: una herramienta nueva (como el cefalograma) es un tipo más del motor, no un editor aparte |
 | Generar PDFs consume memoria en la instancia de Render | Se genera una vez por documento, al sellar; nunca en cada descarga |
 | El trabajo de cargar 19 plantillas a mano tiene errores de tipeo en el texto legal | Test que compara el texto de cada plantilla con el del PDF original (extraído una vez) y marca diferencias |
-| Los modelos son de una institución y no se pueden reproducir | Pregunta abierta al final de §3 |
+| El Colegio objeta el uso de sus modelos | Se publicaron para uso de los odontólogos y cada plantilla cita la fuente; avisarle antes de producción (final de §3) |
