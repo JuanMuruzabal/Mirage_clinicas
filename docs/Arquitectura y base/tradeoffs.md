@@ -3174,7 +3174,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ## TR-179: Notificaciones por cuenta, y avisos al celular con Web Push
 
-- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app.
+- **Contexto:** pedido del cliente, 2026-09-26: una campana al lado del ícono de perfil, en todo el header y por cuenta, que abre un panel lateral con "Nuevas" y "Leídas"; por ahora avisa de los turnos nuevos y da la bienvenida. Cada aviso de turno dice hora, fecha, paciente y clínica, con un botón que lleva al turno. Y, si se puede, que el aviso llegue al celular como el de una app. Entró en el PR #71.
 - **Lo que confirmó el cliente:** avisan **solo los turnos que entran solos** (página pública y link compartido; uno cargado desde el panel ya lo sabe quien lo cargó). Los recibe **el profesional que atiende y la recepción de esa clínica**; la copia de recepción dice para qué profesional es. **Nadie ve la bandeja de otro.** La bienvenida la reciben todas las cuentas, también las que ya existían.
 
 ### Las decisiones
@@ -3208,7 +3208,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ## TR-180: El panel se arma al entrar — tarjetas que se despliegan, dibujos e íconos propios
 
-- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil).
+- **Contexto:** pedido del cliente, 2026-09-26: "mejorar el frontend de /panel manteniendo la estética, pero más cómodo": que los cuerpos de las tarjetas de General se desplieguen a medida que se hacen visibles ("Turnos de hoy" de izquierda a derecha en monitor), mejores dibujos en las tarjetas, íconos del sidebar menos genéricos, y dos arreglos del header ("Ver perfil" en mobile, y la tuerca de /perfil). Entró en el PR #72.
 
 ### Las decisiones
 
@@ -3229,7 +3229,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 ## TR-181: La home, simple y al pie — un dibujo por idea y la historia de Lucía
 
 - **Contexto:** pedido del cliente, 2026-09-26, con ulifeon.com como referencia: "atacando el dolor del profesional, con animaciones bien pulidas y que demuestre el carácter de la app; una buena presentación vende el producto". La home anterior (T1.1, TR-015) eran dos fotos de stock con el buscador arriba y dos tarjetas desplegables.
-- **Una primera versión quedó cargada** (siete secciones: la agenda en vivo, la lista de mensajes del día, el giro con los pedidos tachados, seis funciones, pasos, seguridad y cierre). El cliente la vio y pidió otra cosa (2026-09-27): *"le falta animaciones, dibujos agradables, simplicidad; ahora está muy cargada, debe ser simple y al pie como el ejemplo"*. Esta TR describe la segunda.
+- **Una primera versión quedó cargada** (siete secciones: la agenda en vivo, la lista de mensajes del día, el giro con los pedidos tachados, seis funciones, pasos, seguridad y cierre). El cliente la vio y pidió otra cosa (2026-09-27): *"le falta animaciones, dibujos agradables, simplicidad; ahora está muy cargada, debe ser simple y al pie como el ejemplo"*. Esta TR describe la segunda. La primera entró en el PR #73; la segunda, en el #74.
 
 ### Las decisiones
 

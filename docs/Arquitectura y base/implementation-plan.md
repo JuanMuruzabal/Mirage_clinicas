@@ -926,11 +926,25 @@ Pedido directo del cliente, sin brief. Decisiones: `docs/Arquitectura y base/tra
 
 | Parte | Qué | Estado |
 |---|---|---|
-| Backend | Tablas `notificaciones` y `push_suscripciones`; aviso al profesional y a recepción cuando un turno entra por la página pública o un link (en la misma transacción que el turno); bienvenida a las cuentas nuevas y, una sola vez, a las existentes; `GET /me/notificaciones`, `/contador`, `POST .../leer`, `POST .../abrir` | ✅ en código (`feature/notificaciones-por-cuenta`) |
-| Web Push | `internal/push`: VAPID + `aes128gcm` con la biblioteca estándar, `LogEnviador` sin claves, `cmd/vapid` para generarlas; suscripción por dispositivo | ✅ en código — en producción se activa cargando `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` en Render |
-| Frontend | Campana con número en el header (toda pantalla con sesión), panel lateral con Nuevas/Leídas, "Ver turno" que cierra el menú del panel; service worker de solo avisos, manifiesto e íconos para instalar la app | ✅ en código |
+| Backend | Tablas `notificaciones` y `push_suscripciones`; aviso al profesional y a recepción cuando un turno entra por la página pública o un link (en la misma transacción que el turno); bienvenida a las cuentas nuevas y, una sola vez, a las existentes; `GET /me/notificaciones`, `/contador`, `POST .../leer`, `POST .../abrir` | ✅ mergeado (PR #71) |
+| Web Push | `internal/push`: VAPID + `aes128gcm` con la biblioteca estándar, `LogEnviador` sin claves, `cmd/vapid` para generarlas; suscripción por dispositivo | ✅ mergeado (PR #71) — en producción se activa cargando `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` en Render |
+| Frontend | Campana con número en el header (toda pantalla con sesión), panel lateral con Nuevas/Leídas, "Ver turno" que cierra el menú del panel; service worker de solo avisos, manifiesto e íconos para instalar la app; el panel entra por la derecha y sus dos pestañas se cargan juntas | ✅ mergeado (PR #71) |
 
 **Pendiente, sin fecha:** filtrar la bandeja de recepción por profesional, si con varias agendas se vuelve mucho (TR-179, "lo que se sacrifica").
+
+## 16. Pulido visual del panel y la home pública (2026-09-26/27)
+
+Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (panel) y TR-181 (home).
+
+| Parte | Qué | Estado |
+|---|---|---|
+| Header | "Ver perfil" se puede tocar en el celular (la fila entera del menú de colaboradores es el link); en `/perfil` el menú de cuenta usa el mismo disco verde que el resto | ✅ mergeado (PR #72) |
+| Panel — General | Las tarjetas se despliegan al entrar en la pantalla ("Turnos de hoy" hacia la derecha en monitor), con dibujos nuevos; "Estadística" apilada con "Turnos pendientes" | ✅ mergeado (PR #72) |
+| Panel — sidebar | Íconos propios con una pieza de acento que se rellena en la sección activa; la sección queda marcada en sus pantallas de adentro | ✅ mergeado (PR #72) |
+| Home, primera versión | Siete secciones contando el dolor del profesional, con ilustraciones de producto | ✅ mergeada (PR #73) — reemplazada por la segunda |
+| Home, segunda versión | Simple y al pie: qué es, la historia de Lucía en tres escenas, cuatro ventajas, pacientes y cierre, con dibujos propios (el mate, el celular, el calendario) | 🔄 PR #74 |
+
+**Pendiente, sin fecha:** si el cliente quiere contar la seguridad o los pasos para empezar, van en una página aparte, no en la home (TR-181, "lo que se sacrifica").
 
 ---
 
