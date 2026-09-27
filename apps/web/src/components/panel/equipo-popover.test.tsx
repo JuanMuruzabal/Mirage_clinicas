@@ -180,7 +180,7 @@ describe("EquipoPopover", () => {
 
       await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
 
-      expect(screen.getByRole("link", { name: "Ver perfil" })).toHaveAttribute("href", "/perfil");
+      expect(screen.getByRole("link", { name: "Ver perfil de Ana Titular" })).toHaveAttribute("href", "/perfil");
     });
 
     it("el de un colega va a su ficha en solo lectura", async () => {
@@ -194,7 +194,22 @@ describe("EquipoPopover", () => {
 
       await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
 
-      expect(screen.getByRole("link", { name: "Ver perfil" })).toHaveAttribute("href", "/colaboradores/u2");
+      expect(screen.getByRole("link", { name: "Ver perfil de Beto Colega" })).toHaveAttribute("href", "/colaboradores/u2");
+    });
+
+    // En el celular no hay hover: el "Ver perfil" que aparecía al apuntar
+    // la fila nunca se veía. Ahora la fila entera es el link, así que
+    // tocarla en cualquier punto lleva al perfil.
+    it("la fila entera es el link: tocar el nombre lleva al perfil", async () => {
+      render(
+        <EquipoPopover
+          equipo={equipo([miembro({ userId: "u2", nombre: "Beto Colega", esTitular: false, esVos: false })])}
+        />,
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Ver colaboradores" }));
+
+      expect(screen.getByText("Beto Colega").closest("a")).toHaveAttribute("href", "/colaboradores/u2");
     });
   });
 

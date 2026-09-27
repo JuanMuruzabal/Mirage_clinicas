@@ -301,7 +301,10 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
               pasa a tener un solo botón redondo a la derecha, y que cambie
               de dibujo entre pantallas era justamente lo que se pidió
               emparejar. La funcionalidad no cambia. */}
-          {mostrarGear && <HeaderConfigMenu icono={esClinicas ? "colaboradores" : "tuerca"} />}
+          {/* El mismo disco verde en /clinicas y en /perfil (2026-09-26, pedido
+              del cliente: en /perfil quedaba una tuerca suelta, distinta del
+              ícono que el header muestra en el resto de las pantallas). */}
+          {mostrarGear && <HeaderConfigMenu icono="colaboradores" />}
 
           {/* Fase 3.2.3: apunta a /clinicas, el inicio de partida de toda
               sesión. Llevar directo a /seleccionar-servicio salteaba la
