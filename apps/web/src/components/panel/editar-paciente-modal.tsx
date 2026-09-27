@@ -306,8 +306,15 @@ function ListaDeOtros({
               </>
             ) : (
               <>
-                <span className="min-w-0 flex-1 break-all font-[family-name:var(--font-mono)] text-sm text-grafito">{valor}</span>
-                <span className="flex gap-1.5">
+                {/* En el celular el dato ocupa su propio renglón y los botones
+                    van abajo (2026-09-27, captura del cliente): en la misma
+                    fila, los tres botones dejaban al dato en una columna de
+                    tres letras. `overflow-wrap: anywhere` y no `break-all`:
+                    corta un mail largo solo si no entra, no letra por letra. */}
+                <span className="w-full min-w-0 font-[family-name:var(--font-mono)] text-sm text-grafito [overflow-wrap:anywhere] sm:w-auto sm:flex-1">
+                  {valor}
+                </span>
+                <span className="flex flex-wrap gap-1.5">
                   <button type="button" aria-label={`Editar ${valor}`} onClick={() => setEditando(i)} className={accionClass}>
                     Editar
                   </button>
