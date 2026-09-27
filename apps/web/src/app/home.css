@@ -41,6 +41,7 @@
 }
 @keyframes rv-subir { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 @keyframes rv-escala { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes rv-fundido { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── Los dibujos ─────────────────────────────────────────────────────── */
 
@@ -175,13 +176,18 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Cada parte aparece con un fundido, sin subir ni crecer: un fundido no
+     es movimiento. Lo que sí se mueve en los dibujos (el vapor, el celular
+     que vibra, el avioncito) queda quieto. Ver TR-181. */
   .rv,
+  .rv--escala {
+    animation-name: rv-fundido;
+    animation-duration: 700ms;
+    animation-timing-function: ease-out;
+  }
   .dib-vapor, .dib-aviso, .dib-vibrar, .dib-globo, .dib-titilar, .dib-avion,
   .dib-celda, .dib-hojas, .dib-trazar, .dib-portada, .dib-girar-lento {
     animation: none !important;
-  }
-  .revelar[data-revelar="en-espera"] {
-    visibility: visible;
   }
   /* El avioncito, quieto a mitad de camino. */
   .dib-avion { offset-distance: 55%; }

@@ -80,7 +80,9 @@ describe("Revelar", () => {
     expect(observadores[0].disconnect).toHaveBeenCalled();
   });
 
-  it("con 'reducir movimiento' no espera nada", () => {
+  // Con "reducir movimiento" el CSS cambia la animación por un fundido,
+  // que igual tiene que esperar a que la parte se vea.
+  it("con 'reducir movimiento' también espera, para aparecer con un fundido", () => {
     conCaja(2000);
     vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
     render(
@@ -88,7 +90,9 @@ describe("Revelar", () => {
         <p>contenido</p>
       </Revelar>,
     );
-    expect(bloque()).not.toHaveAttribute("data-revelar");
+    expect(bloque()).toHaveAttribute("data-revelar", "en-espera");
+    act(() => observadores[0].callback([{ isIntersecting: true }]));
+    expect(bloque()).toHaveAttribute("data-revelar", "activo");
   });
 
   it("usa la etiqueta pedida y le pasa el orden al CSS", () => {

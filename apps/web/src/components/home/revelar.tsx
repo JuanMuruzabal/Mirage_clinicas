@@ -35,7 +35,8 @@ export function Revelar({
   useEffect(() => {
     const el = nodo.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    // Con "reducir movimiento" también: ahí el CSS cambia la animación por
+    // un fundido, que igual tiene que esperar a que la parte se vea.
 
     const caja = el.getBoundingClientRect();
     if (caja.top < window.innerHeight && caja.bottom > 0) return;
