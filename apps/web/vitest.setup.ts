@@ -17,7 +17,7 @@ vi.mock("server-only", () => ({}));
 // (Fase 4.5), que importa la plantilla pública. Este stub devuelve la forma
 // que ese archivo lee (`variable`), con un nombre derivado de la fuente para
 // que las clases de dos fuentes no colisionen. Si se suma una fuente nueva
-// a tipografias.ts, agregarla acá.
+// a tipografias.ts (o a lib/documentos-fuente.ts), agregarla acá.
 vi.mock("next/font/google", () => {
   const fuente = (nombre: string) => () => ({ variable: `--mock-${nombre}`, className: `mock-${nombre}`, style: { fontFamily: nombre } });
   return {
@@ -29,6 +29,7 @@ vi.mock("next/font/google", () => {
     Nunito_Sans: fuente("nunito-sans"),
     Libre_Baskerville: fuente("libre-baskerville"),
     Karla: fuente("karla"),
+    Arimo: fuente("arimo"),
   };
 });
 

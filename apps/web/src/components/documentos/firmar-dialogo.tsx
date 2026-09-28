@@ -82,6 +82,7 @@ export function FirmarDialogo({
       }
       onCerrar={onCerrar}
       ancho="medio"
+      superficie="marfil"
     >
       <div className="flex flex-col gap-4 p-4 sm:p-6">
         {admiteRepresentante && (

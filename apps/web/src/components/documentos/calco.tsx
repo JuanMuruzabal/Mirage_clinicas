@@ -21,9 +21,20 @@ import { TrazoDeFirmaSvg } from "./trazo-de-firma";
 //   - CalcoCongelado: desde "a firmar". Lee el texto que congeló la API
 //     —el que se firma— y no vuelve a armar nada.
 
+// Las familias del modelo del Colegio: Tahoma en el cuerpo y Times New
+// Roman en los títulos. Son fuentes del sistema (Tahoma tiene licencia de
+// Microsoft y no está en Google Fonts), así que van con reemplazos de
+// métricas parecidas donde no estén instaladas. El calco se lee como el
+// mismo documento; el original exacto está en "Así es el documento".
+const FUENTE_DEL_MODELO = 'Tahoma, Verdana, "DejaVu Sans", "Segoe UI", sans-serif';
+const FUENTE_TITULO_DEL_MODELO = '"Times New Roman", Times, "Liberation Serif", serif';
+
 export function HojaDeDocumento({ children, pie }: { children: ReactNode; pie?: ReactNode }) {
   return (
-    <article className="mx-auto w-full max-w-[46rem] rounded-card border border-linea bg-marfil px-[clamp(1.25rem,5vw,3.5rem)] py-[clamp(1.5rem,5vw,3rem)] text-[15px] leading-relaxed text-grafito shadow-soft">
+    <article
+      style={{ fontFamily: FUENTE_DEL_MODELO }}
+      className="mx-auto w-full max-w-[46rem] rounded-card border border-linea bg-marfil px-[clamp(1.25rem,5vw,3.5rem)] py-[clamp(1.5rem,5vw,3rem)] text-[14.5px] leading-relaxed text-grafito shadow-soft"
+    >
       {children}
       {pie && <div className="mt-8 border-t border-dashed border-linea pt-4 text-xs text-grafito/75">{pie}</div>}
     </article>
@@ -32,11 +43,11 @@ export function HojaDeDocumento({ children, pie }: { children: ReactNode; pie?: 
 
 function Titulo({ t, texto }: { t: "titulo" | "subtitulo"; texto: string }) {
   return t === "titulo" ? (
-    <h2 className="text-center font-[family-name:var(--font-display)] text-[clamp(1.35rem,4vw,1.75rem)] font-semibold tracking-wide text-grafito uppercase text-balance">
+    <h2 style={{ fontFamily: FUENTE_TITULO_DEL_MODELO }} className="text-center text-[clamp(1.15rem,3.4vw,1.4rem)] font-bold text-grafito uppercase italic text-balance">
       {texto}
     </h2>
   ) : (
-    <p className="mb-2 text-center font-[family-name:var(--font-display)] text-lg font-medium tracking-wide text-grafito/80 uppercase">
+    <p style={{ fontFamily: FUENTE_TITULO_DEL_MODELO }} className="mb-2 text-center text-[clamp(1.15rem,3.4vw,1.4rem)] font-bold text-grafito uppercase italic">
       {texto}
     </p>
   );
@@ -194,7 +205,7 @@ export function CalcoEnVivo({
             const texto = valorComoTexto(campo, valores[campo.id]);
             return (
               <div key={i} className="mt-4">
-                <p className="font-semibold">{campo.etiqueta}:</p>
+                <p className="font-bold underline underline-offset-2">{campo.etiqueta}:</p>
                 <p className="mt-1 whitespace-pre-line">
                   <DatoTocable
                     campoId={campo.id}
@@ -253,7 +264,7 @@ export function CalcoCongelado({
           case "campo":
             return (
               <div key={i} className="mt-4">
-                <p className="font-semibold">{bloque.etiqueta}:</p>
+                <p className="font-bold underline underline-offset-2">{bloque.etiqueta}:</p>
                 <p className="mt-1 whitespace-pre-line">{bloque.texto}</p>
               </div>
             );

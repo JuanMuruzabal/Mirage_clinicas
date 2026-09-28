@@ -1,0 +1,68 @@
+"""Renderiza las páginas de los modelos del Colegio como imágenes, para
+mostrarlas tal cual en "Así es el documento" (Fase 5.1).
+
+Los PDF originales NO están en el repo (es público): se bajan de
+https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/ y
+se dejan en una carpeta local. Lo que sí se versiona es lo que sale de acá:
+cada página en dos anchos (WebP sin pérdida, así el texto queda nítido) y
+un manifiesto con sus medidas que lee la web.
+
+Uso (desde la raíz del repo; necesita PyMuPDF y Pillow):
+
+    python scripts/renderizar-originales.py "<carpeta con los PDF>"
+
+Cuando se suma una plantilla nueva, se agrega su entrada en ORIGINALES y
+se vuelve a correr. Las imágenes van por VERSIÓN de plantilla
+(originales/<id>/v<versión>/): un documento sellado se dibuja siempre sobre
+la página que se firmó, aunque después el Colegio publique otro modelo y la
+plantilla pase a la versión siguiente (TR-187). Una versión que ya tiene
+documentos no se vuelve a renderizar con otro PDF.
+"""
+import json
+import os
+import sys
+
+import pymupdf
+from PIL import Image
+
+# (plantilla, versión) → (archivo del Colegio, páginas a mostrar, empezando en 1)
+ORIGINALES = {
+    ("consentimiento-tratamiento-conducto", 1): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
+}
+
+ANCHOS = (800, 1600)
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DESTINO = os.path.join(RAIZ, "apps", "web", "public", "documentos-clinicos", "originales")
+MANIFIESTO = os.path.join(RAIZ, "apps", "web", "src", "lib", "documentos-originales.json")
+
+
+def main(carpeta: str) -> None:
+    manifiesto = {}
+    for (plantilla, version), (archivo, paginas) in ORIGINALES.items():
+        pdf = pymupdf.open(os.path.join(carpeta, archivo))
+        salida = os.path.join(DESTINO, plantilla, f"v{version}")
+        os.makedirs(salida, exist_ok=True)
+        entradas = []
+        for numero in paginas:
+            pagina = pdf[numero - 1]
+            alto = None
+            for ancho in ANCHOS:
+                escala = ancho / pagina.rect.width
+                pix = pagina.get_pixmap(matrix=pymupdf.Matrix(escala, escala), alpha=False)
+                imagen = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                imagen.save(os.path.join(salida, f"pagina-{numero}.w{ancho}.webp"), "WEBP", lossless=True, method=6)
+                if ancho == max(ANCHOS):
+                    alto = pix.height
+            entradas.append({"numero": numero, "ancho": max(ANCHOS), "alto": alto})
+        manifiesto[f"{plantilla}@{version}"] = {"archivo": archivo, "paginas": entradas}
+        print(f"{plantilla} v{version}: {len(paginas)} página(s)")
+    with open(MANIFIESTO, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(manifiesto, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(__doc__)
+        sys.exit(1)
+    main(sys.argv[1])

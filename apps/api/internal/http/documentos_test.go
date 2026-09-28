@@ -352,6 +352,40 @@ func TestDocumentos_ValidacionesDelBorradorYDeTerminar(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity || len(cuerpo.Errores) != 1 || cuerpo.Errores[0].Campo != "elementos" {
 		t.Fatalf("terminar sin piezas: %d %+v", rec.Code, cuerpo)
 	}
+
+	// Lo que no entra en su renglón del original no se sella (TR-187): el
+	// borrador lo acepta —se está escribiendo—, terminar no.
+	valores := d.Valores
+	valores["elementos"] = []string{"36"}
+	valores["suscribe_fecha_nacimiento"] = "1990-01-01"
+	valores["suscribe_domicilio"] = "Calle 1"
+	valores["indicaciones"] = strings.Repeat("Indicación muy larga que no entra en seis renglones. ", 60)
+	e.guardar(t, e.token, d.ID, valores)
+	rec = doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/terminar", e.token, nil)
+	cuerpo = decodificar[struct {
+		Errores []documentos.ErrorDeCampo `json:"errores"`
+	}](t, rec.Body.Bytes())
+	if rec.Code != http.StatusUnprocessableEntity || len(cuerpo.Errores) != 1 || cuerpo.Errores[0].Campo != "indicaciones" {
+		t.Fatalf("terminar con indicaciones que no entran: %d %+v", rec.Code, cuerpo)
+	}
+
+	// Acortado, se termina, y el contenido congelado lleva la lámina
+	// compuesta: es lo que dibujan la vista sellada y el PDF.
+	valores["indicaciones"] = "Enjuagues con clorhexidina."
+	e.guardar(t, e.token, d.ID, valores)
+	terminado := e.terminar(t, e.token, d.ID)
+	contenido := decodificar[struct {
+		Lamina []documentos.ZonaCompuesta `json:"lamina"`
+	}](t, terminado.Contenido)
+	var indicaciones *documentos.ZonaCompuesta
+	for i := range contenido.Lamina {
+		if contenido.Lamina[i].Zona == "indicaciones" {
+			indicaciones = &contenido.Lamina[i]
+		}
+	}
+	if indicaciones == nil || len(indicaciones.Lineas) != 1 || indicaciones.Lineas[0].Texto != "Enjuagues con clorhexidina." {
+		t.Fatalf("la lámina congelada: %+v", contenido.Lamina)
+	}
 }
 
 func TestDocumentos_ValidacionesDeLaFirma(t *testing.T) {

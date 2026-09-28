@@ -98,6 +98,8 @@ type Plantilla struct {
 	Secciones   []Seccion          `json:"secciones"`
 	Cuerpo      []Bloque           `json:"cuerpo"`
 	Firmas      []FirmaDePlantilla `json:"firmas"`
+	// Lamina — dónde va cada dato sobre la página original (lamina.go).
+	Lamina *Lamina `json:"lamina,omitempty"`
 
 	campos map[string]*Campo
 }

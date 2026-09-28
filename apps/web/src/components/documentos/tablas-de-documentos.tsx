@@ -26,7 +26,7 @@ export function EstadoDeDocumento({ estado }: { estado: DocumentoResumen["estado
 export function TablaPacientesConDocumentos({ pacientes }: { pacientes: PacienteConDocumentos[] }) {
   if (pacientes.length === 0) {
     return (
-      <p className="rounded-card border border-dashed border-linea bg-hueso p-4 text-sm text-grafito/80">
+      <p className="rounded-card border border-linea bg-marfil p-4 text-sm text-grafito/80 shadow-soft">
         Todavía no hay documentos firmados. Cuando selles el primero, el paciente aparece acá.
       </p>
     );
@@ -64,15 +64,19 @@ export function TablaPacientesConDocumentos({ pacientes }: { pacientes: Paciente
 export function TablaDeDocumentos({
   documentos,
   conPaciente = false,
+  compacta = false,
   vacio,
 }: {
   documentos: DocumentoResumen[];
   /** Mostrar de quién es cada documento (la lista de "en curso"). */
   conPaciente?: boolean;
+  /** Para una columna angosta (debajo de "Completar este documento"): la
+   *  fecha va debajo del documento en vez de en su propia columna. */
+  compacta?: boolean;
   vacio: string;
 }) {
   if (documentos.length === 0) {
-    return <p className="rounded-card border border-dashed border-linea bg-hueso p-4 text-sm text-grafito/80">{vacio}</p>;
+    return <p className="rounded-card border border-linea bg-marfil p-4 text-sm text-grafito/80 shadow-soft">{vacio}</p>;
   }
   return (
     <CajaDeTabla className={CAJA}>
@@ -82,7 +86,7 @@ export function TablaDeDocumentos({
             {!conPaciente && <th className="panel-th-sticky px-4 py-3">Folio</th>}
             <th className="panel-th-sticky px-4 py-3">Documento</th>
             {conPaciente && <th className="panel-th-sticky px-4 py-3">Paciente</th>}
-            <th className="panel-th-sticky max-md:hidden px-4 py-3">Fecha</th>
+            {!compacta && <th className="panel-th-sticky max-md:hidden px-4 py-3">Fecha</th>}
             {!conPaciente && <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>}
             <th className="panel-th-sticky px-4 py-3">Estado</th>
           </tr>
@@ -95,13 +99,14 @@ export function TablaDeDocumentos({
                 <Link href={`/panel/documentos/${d.id}`} className="font-medium text-grafito hover:underline">
                   {d.plantillaNombre}
                 </Link>
+                {compacta && <p className="text-xs text-grafito/70">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</p>}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">
                   {d.paciente.nombre} {d.paciente.apellido}
                 </td>
               )}
-              <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</td>
+              {!compacta && <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</td>}
               {!conPaciente && (
                 <td className="max-md:hidden px-4 py-3 text-grafito">
                   {d.autorNombre}

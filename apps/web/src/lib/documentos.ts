@@ -1,6 +1,6 @@
 // Ayudantes de la pantalla de documentos clínicos (Fase 5.1).
 import type { EstadoDocumento } from "@dental-mirage/shared-types";
-import type { BloqueArmado, FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
+import type { BloqueArmado, FirmaDePlantilla, ZonaCompuesta } from "@dental-mirage/documentos-clinicos";
 import { TIMEZONE_CORDOBA } from "./turno-format";
 
 /** El documento congelado al terminar — espejo de ContenidoCongelado de
@@ -18,6 +18,10 @@ export interface ContenidoCongelado {
   valores: Record<string, unknown>;
   cuerpo: BloqueArmado[];
   firmas: FirmaDePlantilla[];
+  /** Lo cargado ya compuesto sobre la página original (TR-187): es lo que
+   *  se dibuja, tal cual lo congeló la API. Falta en una plantilla sin
+   *  lámina (entonces se lee `cuerpo` en el calco). */
+  lamina?: ZonaCompuesta[];
 }
 
 /** Lee el contenido congelado que manda la API, o null si no tiene la

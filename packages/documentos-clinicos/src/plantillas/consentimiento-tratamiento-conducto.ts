@@ -150,4 +150,68 @@ export const consentimientoTratamientoConducto: Plantilla = {
     { rol: "paciente", etiqueta: "Firma del paciente o representante", requerida: true },
     { rol: "profesional", etiqueta: "Firma del profesional", requerida: true },
   ],
+  // Dónde va cada dato sobre la página original (carta, 612 × 792 pt).
+  // Medido sobre el PDF del Colegio: cada `x`/`ancho` es el tramo de
+  // guiones bajos del renglón, y cada `y`, su línea de base 1,2 pt más
+  // arriba — así lo escrito se apoya en la línea sin taparla. El papel
+  // está en Tahoma de 10 pt; lo escrito también parte de 10.
+  lamina: {
+    paginas: [{ ancho: 612, alto: 792 }],
+    zonas: [
+      { id: "lugar_fecha", pagina: 1, x: 147, y: 105, ancho: 178, texto: "{{lugar}}, {{sistema.fecha}}" },
+      { id: "suscribe_nombre", pagina: 1, x: 164, y: 129.1, ancho: 129, texto: "{{suscribe_nombre}}" },
+      { id: "suscribe_fecha_nacimiento", pagina: 1, x: 384, y: 129.1, ancho: 134, texto: "{{suscribe_fecha_nacimiento}}" },
+      { id: "suscribe_dni", pagina: 1, x: 118, y: 141.1, ancho: 113, texto: "{{suscribe_dni}}" },
+      { id: "suscribe_domicilio", pagina: 1, x: 296, y: 141.1, ancho: 195, texto: "{{suscribe_domicilio}}" },
+      { id: "elementos", pagina: 1, x: 86, y: 165.3, ancho: 146, texto: "{{elementos}}" },
+      { id: "profesional_nombre", pagina: 1, x: 334, y: 165.3, ancho: 184, texto: "{{profesional_nombre}}" },
+      { id: "indicaciones", pagina: 1, x: 86, y: 483.3, ancho: 435, lineas: 6, interlineado: 12.08, texto: "{{indicaciones}}" },
+      { id: "medicacion", pagina: 1, x: 86, y: 579.9, ancho: 438, lineas: 2, interlineado: 12, texto: "{{medicacion}}" },
+      // "___/___/___": el día, el mes y el año, cada uno en su tramo. Vacíos
+      // no entra "No consigna": se tachan con una raya.
+      {
+        id: "proxima_consulta_dia",
+        pagina: 1,
+        x: 85.1,
+        y: 700.7,
+        ancho: 16.2,
+        alinear: "centro",
+        texto: "{{proxima_consulta_fecha:dia}}",
+        vacio: "—",
+      },
+      {
+        id: "proxima_consulta_mes",
+        pagina: 1,
+        x: 105.3,
+        y: 700.7,
+        ancho: 16.3,
+        alinear: "centro",
+        texto: "{{proxima_consulta_fecha:mes}}",
+        vacio: "—",
+      },
+      {
+        id: "proxima_consulta_anio",
+        pagina: 1,
+        x: 125.4,
+        y: 700.7,
+        ancho: 16.3,
+        alinear: "centro",
+        texto: "{{proxima_consulta_fecha:anio2}}",
+        vacio: "—",
+      },
+      {
+        id: "proxima_consulta_hora",
+        pagina: 1,
+        x: 170,
+        y: 700.7,
+        ancho: 42.7,
+        alinear: "centro",
+        texto: "{{proxima_consulta_hora}}",
+      },
+    ],
+    firmas: [
+      { rol: "paciente", pagina: 1, x: 85.1, y: 749, ancho: 158, alto: 38 },
+      { rol: "profesional", pagina: 1, x: 353.7, y: 749, ancho: 169.3, alto: 38 },
+    ],
+  },
 };

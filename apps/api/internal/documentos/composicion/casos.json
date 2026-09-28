@@ -1,0 +1,344 @@
+[
+  {
+    "zona": {
+      "id": "corta",
+      "pagina": 1,
+      "x": 85.1,
+      "y": 700.7,
+      "ancho": 16.2,
+      "alinear": "centro",
+      "texto": "{{x}}"
+    },
+    "texto": "07",
+    "compuesta": {
+      "zona": "corta",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 87.64,
+          "y": 700.7,
+          "texto": "07"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "corta",
+      "pagina": 1,
+      "x": 85.1,
+      "y": 700.7,
+      "ancho": 16.2,
+      "alinear": "centro",
+      "texto": "{{x}}"
+    },
+    "texto": "2026",
+    "compuesta": {
+      "zona": "corta",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 85.42,
+          "y": 700.7,
+          "texto": "2026"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "corta",
+      "pagina": 1,
+      "x": 85.1,
+      "y": 700.7,
+      "ancho": 16.2,
+      "alinear": "centro",
+      "texto": "{{x}}"
+    },
+    "texto": "—",
+    "compuesta": {
+      "zona": "corta",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 88.2,
+          "y": 700.7,
+          "texto": "—"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "corta",
+      "pagina": 1,
+      "x": 85.1,
+      "y": 700.7,
+      "ancho": 1,
+      "texto": "{{x}}"
+    },
+    "texto": "abc",
+    "compuesta": {
+      "zona": "corta",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": true,
+      "lineas": [
+        {
+          "x": 85.1,
+          "y": 700.7,
+          "texto": "a"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "renglon",
+      "pagina": 1,
+      "x": 164,
+      "y": 129.1,
+      "ancho": 129,
+      "texto": "{{x}}"
+    },
+    "texto": "María José Fernández",
+    "compuesta": {
+      "zona": "renglon",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 164,
+          "y": 129.1,
+          "texto": "María José Fernández"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "renglon",
+      "pagina": 1,
+      "x": 164,
+      "y": 129.1,
+      "ancho": 129,
+      "texto": "{{x}}"
+    },
+    "texto": "María José Fernández de la Colina Echeverría",
+    "compuesta": {
+      "zona": "renglon",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 164,
+          "y": 129.1,
+          "texto": "María José Fernández de la Colina Echeverría"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "renglon",
+      "pagina": 1,
+      "x": 164,
+      "y": 129.1,
+      "ancho": 129,
+      "texto": "{{x}}"
+    },
+    "texto": "Mariajosefernandezdelacolinaecheverriaquenoentraennada",
+    "compuesta": {
+      "zona": "renglon",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": true,
+      "lineas": [
+        {
+          "x": 164,
+          "y": 129.1,
+          "texto": "Mariajosefernandezdelacolinaecheverriaquenoe"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "renglon",
+      "pagina": 1,
+      "x": 164,
+      "y": 129.1,
+      "ancho": 129,
+      "texto": "{{x}}"
+    },
+    "texto": "Ñandú, ¿qué?\tsí",
+    "compuesta": {
+      "zona": "renglon",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 164,
+          "y": 129.1,
+          "texto": "Ñandú, ¿qué? sí"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}"
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes"
+        },
+        {
+          "x": 86,
+          "y": 507.46,
+          "texto": "del lado tratado."
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}"
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.\nSegunda indicación.\n\nTercera, después de un renglón en blanco.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": true,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "duros o muy calientes del lado tratado."
+        },
+        {
+          "x": 86,
+          "y": 507.46,
+          "texto": "Segunda indicación."
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}"
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado. Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado. Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": true,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "duros o muy calientes del lado tratado. Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta"
+        },
+        {
+          "x": 86,
+          "y": 507.46,
+          "texto": "que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado. Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}",
+      "tamano": 12,
+      "minimo": 11,
+      "alinear": "centro"
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 12,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 103.39,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días,"
+        },
+        {
+          "x": 98.73,
+          "y": 495.38,
+          "texto": "después del cepillado. No comer ni beber hasta que pase la anestesia; evitar"
+        },
+        {
+          "x": 173.11,
+          "y": 507.46,
+          "texto": "alimentos duros o muy calientes del lado tratado."
+        }
+      ]
+    }
+  }
+]

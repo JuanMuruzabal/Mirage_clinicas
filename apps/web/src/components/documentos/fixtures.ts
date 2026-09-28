@@ -1,6 +1,6 @@
 // Datos de prueba de los tests de documentos clínicos (Fase 5.1).
 import type { DocumentoDetalle, FirmaDeDocumento, TrazoDeFirma } from "@dental-mirage/shared-types";
-import { armarCuerpo, plantillaPorId, plantillaSchema, type Plantilla } from "@dental-mirage/documentos-clinicos";
+import { armarCuerpo, armarLamina, plantillaPorId, plantillaSchema, type Plantilla } from "@dental-mirage/documentos-clinicos";
 
 export const conducto = plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla;
 
@@ -150,6 +150,15 @@ export function aFirmar(firmas: FirmaDeDocumento[] = [], extra: Partial<Document
     firmas,
     firmasPendientes: ["paciente", "profesional"].filter((r) => !firmados.has(r)),
     ...extra,
+  };
+}
+
+/** El mismo documento, con la lámina que congela la API (TR-187). */
+export function conLamina(documento: DocumentoDetalle): DocumentoDetalle {
+  const contenido = documento.contenido as ReturnType<typeof contenidoDe>;
+  return {
+    ...documento,
+    contenido: { ...contenido, lamina: armarLamina(conducto, valoresCompletos as never, { fecha: "2026-09-27" }, "sellado") },
   };
 }
 

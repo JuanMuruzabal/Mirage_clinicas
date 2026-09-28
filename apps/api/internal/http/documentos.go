@@ -630,6 +630,16 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		ahora := clock.Now()
+		fecha := ahora.Format("2006-01-02")
+		contexto := documentos.Contexto{Fecha: fecha}
+		// Lo que no entra en su renglón del original no se puede sellar: el
+		// documento se vería cortado, o se saldría del papel (TR-187).
+		if errores := documentos.ValidarLamina(plantilla, doc.Valores, contexto); len(errores) > 0 {
+			errorDeValidacion(w, errores)
+			return
+		}
+
 		var paciente db.Paciente
 		if err := gdb.First(&paciente, "id = ?", doc.PacienteID).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")
@@ -646,8 +656,6 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		ahora := clock.Now()
-		fecha := ahora.Format("2006-01-02")
 		canonico, huella, err := documentos.Congelar(documentos.ContenidoCongelado{
 			Formato:     documentos.FormatoContenido,
 			DocumentoID: doc.ID.String(),
@@ -663,8 +671,9 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			Fecha:       fecha,
 			TerminadoEn: ahora.Format(time.RFC3339),
 			Valores:     documentos.LimpiarValores(plantilla, doc.Valores),
-			Cuerpo:      documentos.ArmarCuerpo(plantilla, doc.Valores, documentos.Contexto{Fecha: fecha}, documentos.TextoSellado),
+			Cuerpo:      documentos.ArmarCuerpo(plantilla, doc.Valores, contexto, documentos.TextoSellado),
 			Firmas:      plantilla.Firmas,
+			Lamina:      documentos.ArmarLamina(plantilla, doc.Valores, contexto, documentos.TextoSellado),
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")

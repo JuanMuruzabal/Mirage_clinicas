@@ -58,11 +58,12 @@ jobs:
       # sus fixtures, copiadas a apps/api/internal/documentos/. Mismo
       # criterio que el catálogo de Prisma Engine: si alguien cambia una
       # plantilla sin regenerar, la API validaría y congelaría el texto
-      # contra una versión vieja.
+      # contra una versión vieja. Con la lámina (TR-187) también van los
+      # casos de composición y la tabla de anchos con la que compone Go.
       - name: Regenerar las plantillas de documentos clínicos y verificar que no cambiaron
         run: |
           pnpm run documentos:generar
-          git diff --exit-code -- apps/api/internal/documentos/plantillas apps/api/internal/documentos/fixtures || {
+          git diff --exit-code -- apps/api/internal/documentos/plantillas apps/api/internal/documentos/fixtures apps/api/internal/documentos/composicion apps/api/internal/documentos/metricas-helvetica.json || {
             echo "::error::pnpm documentos:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
             exit 1;
           }

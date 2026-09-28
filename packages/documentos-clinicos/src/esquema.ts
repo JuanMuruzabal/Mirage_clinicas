@@ -52,6 +52,11 @@ export const VARIABLES_DEL_SISTEMA = ["sistema.fecha"] as const;
 
 export const MARCA = /\{\{([a-z][a-z0-9_.]*)\}\}/g;
 
+/** Las marcas de una zona de la lámina: `{{campo}}` o, para una fecha que
+ *  el papel pide en partes (`___/___/___`), `{{campo:dia}}`, `:mes`,
+ *  `:anio` o `:anio2` (los dos últimos dígitos). */
+export const MARCA_DE_ZONA = /\{\{([a-z][a-z0-9_.]*)(?::(dia|mes|anio|anio2))?\}\}/g;
+
 const idDeCampo = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/, "id de campo inválido");
 const texto = z.string().min(1).max(4000);
 
@@ -134,6 +139,59 @@ export const firmaSchema = z
   .strict();
 export type FirmaDePlantilla = z.infer<typeof firmaSchema>;
 
+// La lámina (TR-187, addendum del 2026-09-28): dónde va cada dato sobre la
+// página original del Colegio, en puntos del PDF (1/72 de pulgada, con el
+// origen arriba a la izquierda). Ver lamina.ts.
+const punto = z.number().min(0).max(2000);
+
+export const zonaSchema = z
+  .object({
+    id: idDeCampo,
+    pagina: z.number().int().min(1),
+    x: punto,
+    /** La línea de base del primer renglón. */
+    y: punto,
+    ancho: z.number().positive().max(2000),
+    /** Cuántos renglones tiene el hueco en el papel (1 si no se dice). */
+    lineas: z.number().int().min(1).max(60).optional(),
+    interlineado: z.number().positive().max(100).optional(),
+    /** El tamaño de letra de partida, en puntos (10 si no se dice). */
+    tamano: z.number().min(4).max(24).optional(),
+    /** Hasta dónde se achica para entrar (el 60 % del de partida si no se dice). */
+    minimo: z.number().min(3).max(24).optional(),
+    alinear: z.enum(["izquierda", "centro"]).optional(),
+    /** Lo que se escribe, con marcas (`{{lugar}}, {{sistema.fecha}}`). */
+    texto: z.string().min(1).max(500),
+    /** Lo que dice la zona vacía en un documento terminado ("No consigna"
+     *  si no se dice; en un hueco chico, "—"). */
+    vacio: z.string().min(1).max(40).optional(),
+  })
+  .strict();
+export type Zona = z.infer<typeof zonaSchema>;
+
+export const lugarDeFirmaSchema = z
+  .object({
+    rol: z.enum(ROLES_DE_FIRMA),
+    pagina: z.number().int().min(1),
+    x: punto,
+    /** La línea sobre la que se firma. */
+    y: punto,
+    ancho: z.number().positive().max(2000),
+    /** Cuánto lugar hay arriba de la línea para el trazo. */
+    alto: z.number().positive().max(300),
+  })
+  .strict();
+export type LugarDeFirma = z.infer<typeof lugarDeFirmaSchema>;
+
+export const laminaSchema = z
+  .object({
+    paginas: z.array(z.object({ ancho: z.number().positive(), alto: z.number().positive() }).strict()).min(1).max(20),
+    zonas: z.array(zonaSchema).min(1),
+    firmas: z.array(lugarDeFirmaSchema).min(1),
+  })
+  .strict();
+export type Lamina = z.infer<typeof laminaSchema>;
+
 function marcasDe(textoConMarcas: string): string[] {
   return [...textoConMarcas.matchAll(MARCA)].map((m) => m[1]);
 }
@@ -156,6 +214,7 @@ export const plantillaSchema = z
     secciones: z.array(seccionSchema).min(1),
     cuerpo: z.array(bloqueSchema).min(1),
     firmas: z.array(firmaSchema).min(1),
+    lamina: laminaSchema.optional(),
   })
   .strict()
   .superRefine((p, ctx) => {
@@ -201,6 +260,52 @@ export const plantillaSchema = z
     // art. 7), y cualquier asiento de la historia lleva quién lo hizo.
     if (!p.firmas.some((f) => f.rol === "profesional" && f.requerida)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "toda plantilla lleva la firma del profesional, obligatoria" });
+    }
+
+    if (p.lamina) {
+      const l = p.lamina;
+      const zonas = new Set<string>();
+      const enLaLamina = new Set<string>();
+      for (const z0 of l.zonas) {
+        if (zonas.has(z0.id)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `zona repetida: ${z0.id}` });
+        zonas.add(z0.id);
+        const pagina = l.paginas[z0.pagina - 1];
+        if (!pagina) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} está en una página que no existe` });
+        } else if (z0.x + z0.ancho > pagina.ancho || z0.y > pagina.alto) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} se sale de la página` });
+        }
+        if ((z0.minimo ?? 0) > (z0.tamano ?? 10)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} tiene un mínimo mayor que su tamaño` });
+        }
+        for (const m of z0.texto.matchAll(MARCA_DE_ZONA)) {
+          const nombre = m[1];
+          if ((VARIABLES_DEL_SISTEMA as readonly string[]).includes(nombre)) continue;
+          const campo = campos.find((c) => c.id === nombre);
+          if (!campo) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} marca un campo que no existe: ${nombre}` });
+            continue;
+          }
+          if (m[2] && campo.tipo !== "fecha") {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} parte un campo que no es fecha: ${nombre}` });
+          }
+          enLaLamina.add(nombre);
+        }
+      }
+      // Igual que con el cuerpo: lo que se carga tiene que verse en el papel.
+      for (const id of ids) {
+        if (!enLaLamina.has(id)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `el campo ${id} no aparece en la lámina` });
+      }
+      const lugares = new Set<string>();
+      for (const f of l.firmas) {
+        if (lugares.has(f.rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `lugar de firma repetido: ${f.rol}` });
+        lugares.add(f.rol);
+        if (!roles.has(f.rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la lámina ubica una firma que la plantilla no pide: ${f.rol}` });
+        if (!l.paginas[f.pagina - 1]) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la firma ${f.rol} está en una página que no existe` });
+      }
+      for (const rol of roles) {
+        if (!lugares.has(rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la lámina no ubica la firma ${rol}` });
+      }
     }
   });
 export type Plantilla = z.infer<typeof plantillaSchema>;

@@ -3,16 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DocumentoDetalle } from "@dental-mirage/shared-types";
-import type { FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
+import { plantillaPorId, type FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
 import { volverAEditarDocumentoAction } from "@/app/actions/documentos";
 import { contenidoCongelado, fechaYHora, huellaCorta } from "@/lib/documentos";
 import { CalcoCongelado } from "./calco";
 import { FirmarDialogo } from "./firmar-dialogo";
+import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
+import { PantallaCompleta } from "./pantalla-completa";
 
 // VistaDeDocumento — un documento terminado (Fase 5.1): esperando firmas,
-// sellado o anulado. El calco es el CONGELADO —el texto que la API fijó al
-// terminar y que es lo que se firma—, nunca vuelto a armar con la
-// plantilla.
+// sellado o anulado. Lo que se muestra es lo CONGELADO —lo que la API fijó
+// al terminar y es lo que se firma—, nunca vuelto a armar con la
+// plantilla: la página original con la composición congelada encima (la
+// lámina, TR-187) y las firmas en su renglón; o, en una plantilla sin
+// lámina, el calco con el texto congelado.
 //
 // Lee los datos directo de las props: después de firmar, `router.refresh()`
 // trae el documento nuevo y la pantalla lo muestra sin estado local que
@@ -32,6 +36,10 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
   const puedeFirmar = aFirmar && documento.esMio;
   const puedeVolverAEditar = puedeFirmar && documento.firmas.length === 0;
   const profesionalNombre = `${contenido.profesional.nombre} ${contenido.profesional.apellido}`.trim();
+  // La versión que se firmó, no la última: su lámina y su página.
+  const plantilla = plantillaPorId(contenido.plantilla.id, contenido.plantilla.version);
+  const paginasDeLamina = contenido.lamina ? paginasDeLaLamina(plantilla) : null;
+  const etiquetaDeLaHoja = documento.estado === "sellado" ? "Documento sellado" : "Documento para firmar";
 
   async function volverAEditar() {
     setVolviendo(true);
@@ -154,8 +162,30 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
         )}
       </aside>
 
-      <div className="min-w-0">
-        <CalcoCongelado cuerpo={contenido.cuerpo} definiciones={contenido.firmas} firmas={documento.firmas} pie={pie} />
+      <div className="flex min-w-0 flex-col gap-3">
+        {plantilla && paginasDeLamina && contenido.lamina ? (
+          <>
+            <PantallaCompleta titulo={`${contenido.plantilla.nombre}: ${etiquetaDeLaHoja.toLowerCase()}`} className="self-end lg:hidden">
+              <LaminaDocumento
+                plantilla={plantilla}
+                paginas={paginasDeLamina}
+                zonas={contenido.lamina}
+                firmas={documento.firmas}
+                etiqueta={etiquetaDeLaHoja}
+              />
+            </PantallaCompleta>
+            <LaminaDocumento
+              plantilla={plantilla}
+              paginas={paginasDeLamina}
+              zonas={contenido.lamina}
+              firmas={documento.firmas}
+              etiqueta={etiquetaDeLaHoja}
+            />
+            <div className="rounded-card border border-linea bg-marfil p-4 text-xs text-grafito/75 shadow-soft">{pie}</div>
+          </>
+        ) : (
+          <CalcoCongelado cuerpo={contenido.cuerpo} definiciones={contenido.firmas} firmas={documento.firmas} pie={pie} />
+        )}
       </div>
 
       {firmando && (

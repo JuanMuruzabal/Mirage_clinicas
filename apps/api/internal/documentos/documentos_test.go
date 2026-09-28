@@ -16,6 +16,9 @@ import (
 //go:embed fixtures/*.json
 var fixtures embed.FS
 
+//go:embed composicion/*.json
+var composicion embed.FS
+
 // El texto que firma el paciente lo arma ESTE paquete; el que ve el
 // profesional mientras completa, packages/documentos-clinicos. Si los dos
 // se separan en un detalle —una fecha, el orden de las piezas, lo que dice
@@ -39,6 +42,7 @@ func TestTexto_CoincideConElDeTypeScript(t *testing.T) {
 				Contexto  Contexto        `json:"contexto"`
 				Valores   map[string]any  `json:"valores"`
 				Cuerpo    json.RawMessage `json:"cuerpo"`
+				Lamina    json.RawMessage `json:"lamina"`
 			}
 			if err := json.Unmarshal(datos, &fx); err != nil {
 				t.Fatal(err)
@@ -57,7 +61,113 @@ func TestTexto_CoincideConElDeTypeScript(t *testing.T) {
 			if !reflect.DeepEqual(enGo, enTS) {
 				t.Fatalf("Go y TypeScript arman distinto el documento.\nGo: %s\nTS: %s", armado, fx.Cuerpo)
 			}
+			// La lámina: lo que se ve en pantalla y lo que se congela.
+			if errs := ValidarLamina(p, fx.Valores, fx.Contexto); len(errs) > 0 {
+				t.Fatalf("los valores de ejemplo no entran en la lámina: %+v", errs)
+			}
+			lamina, _ := json.Marshal(ArmarLamina(p, fx.Valores, fx.Contexto, TextoSellado))
+			var laminaGo, laminaTS any
+			_ = json.Unmarshal(lamina, &laminaGo)
+			_ = json.Unmarshal(fx.Lamina, &laminaTS)
+			if !reflect.DeepEqual(laminaGo, laminaTS) {
+				t.Fatalf("Go y TypeScript componen distinto la lámina.\nGo: %s\nTS: %s", lamina, fx.Lamina)
+			}
 		})
+	}
+}
+
+// La composición, rama por rama: los casos los armó el paquete de
+// TypeScript (achicar, cortar por palabra y por carácter, centrar,
+// desbordar, tildes y saltos de renglón). Si la pantalla y la API cortan un
+// renglón en un lugar distinto, el documento sellado no se vería como se
+// vio al completarlo.
+func TestComposicion_CoincideConLaDeTypeScript(t *testing.T) {
+	datos, err := composicion.ReadFile("composicion/casos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var casos []struct {
+		Zona      Zona            `json:"zona"`
+		Texto     string          `json:"texto"`
+		Compuesta json.RawMessage `json:"compuesta"`
+	}
+	if err := json.Unmarshal(datos, &casos); err != nil || len(casos) == 0 {
+		t.Fatalf("casos de composición: %v", err)
+	}
+	for i, c := range casos {
+		compuesta := ComponerZona(c.Zona, c.Texto)
+		enGo, _ := json.Marshal(struct {
+			Zona     string           `json:"zona"`
+			Pagina   int              `json:"pagina"`
+			Tamano   float64          `json:"tamano"`
+			Lineas   []LineaCompuesta `json:"lineas"`
+			Desborda bool             `json:"desborda"`
+		}{compuesta.Zona, compuesta.Pagina, compuesta.Tamano, compuesta.Lineas, compuesta.Desborda})
+		var a, b any
+		_ = json.Unmarshal(enGo, &a)
+		_ = json.Unmarshal(c.Compuesta, &b)
+		if !reflect.DeepEqual(a, b) {
+			t.Errorf("caso %d (%s, %q): Go y TypeScript componen distinto.\nGo: %s\nTS: %s", i, c.Zona.ID, c.Texto, enGo, c.Compuesta)
+		}
+	}
+}
+
+func TestLamina_BorradorSelladoYDesborde(t *testing.T) {
+	p, _ := Ultima("consentimiento-tratamiento-conducto")
+	ctx := Contexto{Fecha: "2026-09-28"}
+	valores := valoresDe(t, `{"lugar":"Córdoba","proxima_consulta_fecha":"2026-10-05"}`)
+
+	borrador := ArmarLamina(p, valores, ctx, TextoBorrador)
+	porZona := map[string]ZonaCompuesta{}
+	for _, z := range borrador {
+		porZona[z.Zona] = z
+	}
+	if got := porZona["lugar_fecha"].Lineas; len(got) != 1 || got[0].Texto != "Córdoba, 28/09/2026" {
+		t.Fatalf("lugar y fecha: %+v", got)
+	}
+	if z := porZona["indicaciones"]; !z.Vacia || len(z.Lineas) != 0 {
+		t.Fatalf("una zona vacía en un borrador no escribe nada: %+v", z)
+	}
+	if got := porZona["proxima_consulta_anio"].Lineas[0].Texto; got != "26" {
+		t.Fatalf("el año va en dos cifras: %q", got)
+	}
+
+	sellado := ArmarLamina(p, valores, ctx, TextoSellado)
+	for _, z := range sellado {
+		if z.Zona == "indicaciones" && z.Lineas[0].Texto != NoConsigna {
+			t.Fatalf("vacía y terminada dice No consigna: %+v", z)
+		}
+		if z.Zona == "proxima_consulta_hora" && z.Lineas[0].Texto != NoConsigna {
+			t.Fatalf("la hora vacía: %+v", z)
+		}
+	}
+
+	largo := strings.Repeat("Indicación muy larga que no entra. ", 60)
+	errs := ValidarLamina(p, valoresDe(t, mustJSON(t, map[string]any{"indicaciones": largo, "medicacion": largo})), ctx)
+	if len(errs) != 2 || errs[0].Campo != "indicaciones" || errs[1].Campo != "medicacion" {
+		t.Fatalf("lo que no entra es un error por campo: %+v", errs)
+	}
+	if ValidarLamina(&Plantilla{}, nil, ctx) != nil || ArmarLamina(&Plantilla{}, nil, ctx, TextoSellado) != nil {
+		t.Fatal("sin lámina no hay nada que componer")
+	}
+}
+
+func TestLamina_Partes(t *testing.T) {
+	casos := map[string]string{"dia": "07", "mes": "09", "anio": "2026", "anio2": "26", "otra": ""}
+	for parte, esperado := range casos {
+		if got := ParteDeFecha("2026-09-07", parte); got != esperado {
+			t.Errorf("%s: %q", parte, got)
+		}
+	}
+	if ParteDeFecha("7/9/2026", "dia") != "" {
+		t.Error("una fecha mal escrita no tiene partes")
+	}
+	if AnchoEnUnidades("") != 0 || AnchoEnUnidades("\u4e00") != anchoHelveticaFalta {
+		t.Error("un carácter sin métrica usa el ancho por defecto")
+	}
+	// Una zona tan angosta que ni un carácter entra: igual avanza.
+	if got := Envolver("abc", 1, 10); len(got) != 3 {
+		t.Fatalf("corte por carácter: %v", got)
 	}
 }
 

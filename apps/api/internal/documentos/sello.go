@@ -71,6 +71,10 @@ type ContenidoCongelado struct {
 	Valores     map[string]any     `json:"valores"`
 	Cuerpo      []BloqueArmado     `json:"cuerpo"`
 	Firmas      []FirmaDePlantilla `json:"firmas"`
+	// Lamina — lo cargado ya compuesto sobre la página original: lo que se
+	// ve y lo que irá al PDF, congelado como se vio (TR-187). Sin lámina
+	// (una plantilla sin original), se omite y la huella no cambia.
+	Lamina []ZonaCompuesta `json:"lamina,omitempty"`
 }
 
 // LimpiarValores — saca los campos vacíos: el contenido congelado guarda lo

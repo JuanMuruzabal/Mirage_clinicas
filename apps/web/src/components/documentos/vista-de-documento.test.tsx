@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { aFirmar, firma, sellado, trazo } from "./fixtures";
+import { aFirmar, conLamina, firma, sellado, trazo } from "./fixtures";
 
 const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock, push: vi.fn() }) }));
@@ -148,5 +148,28 @@ describe("FirmarDialogo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(acciones.firmarDocumentoAction).not.toHaveBeenCalled();
+  });
+
+  it("con lámina, lo sellado es la página original con lo congelado y las firmas en su renglón", async () => {
+    const { container } = render(<VistaDeDocumento documento={conLamina(sellado())} />);
+    const hoja = screen.getByRole("figure", { name: "Documento sellado" });
+    expect(hoja.querySelector("img")).toHaveAttribute("src", "/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v1/pagina-1.w1600.webp");
+    const escrito = [...container.querySelectorAll("figure text")].map((t) => t.textContent);
+    expect(escrito).toEqual(expect.arrayContaining(["Córdoba, 27/09/2026", "Ana Paz", "36", "No consigna"]));
+    // Las dos firmas, dibujadas sobre su línea del papel; nada tocable.
+    expect(hoja.querySelectorAll("svg svg[role=img]")).toHaveLength(2);
+    expect(hoja.querySelector("[data-zona]")).toBeNull();
+    // Sin calco: la hoja ES el documento. Las huellas van debajo.
+    expect(screen.queryByRole("heading", { name: "Consentimiento informado" })).not.toBeInTheDocument();
+    expect(screen.getByText(/folio 3/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver en pantalla completa" }));
+    expect(await screen.findByRole("dialog", { name: "Tratamiento de conducto: documento sellado" })).toBeInTheDocument();
+  });
+
+  it("a firmar con lámina: la firma que falta no se dibuja", () => {
+    render(<VistaDeDocumento documento={conLamina(aFirmar([firma("paciente")]))} />);
+    const hoja = screen.getByRole("figure", { name: "Documento para firmar" });
+    expect(hoja.querySelectorAll("svg svg[role=img]")).toHaveLength(1);
   });
 });

@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  armarLamina,
   estaVacio,
   seccionDelCampo,
+  validarLamina,
   validarValores,
   type Plantilla,
   type Valor,
@@ -15,6 +17,8 @@ import { descartarBorradorAction, guardarBorradorAction, terminarDocumentoAction
 import { Dialogo } from "@/components/dialogo";
 import { CalcoEnVivo } from "./calco";
 import { CampoDeDocumento, idDelCampo } from "./campo-de-documento";
+import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
+import { PantallaCompleta } from "./pantalla-completa";
 
 type EstadoDeGuardado = "guardado" | "pendiente" | "guardando" | "error";
 
@@ -29,10 +33,14 @@ function erroresPorCampo(errores: ErrorDeCampoDeDocumento[] | undefined): Record
 // EditorDeDocumento — completar un borrador (Fase 5.1, R4–R6 del brief).
 //
 // A la izquierda, el sidebar con los campos de la plantilla, sección por
-// sección; a la derecha, el calco del documento armándose en vivo. Tocar un
-// dato del calco abre su sección y pone el foco en su campo (el mismo
-// criterio que el editor de la página, TR-173). En el celular, una cosa por
-// vez: Completar o Ver documento (TR-172).
+// sección; a la derecha, el documento armándose en vivo: la página original
+// del Colegio con lo cargado escrito sobre sus renglones (la lámina,
+// TR-187) — es exactamente lo que se va a firmar y lo que va al PDF. Una
+// plantilla sin lámina muestra el calco. Tocar un dato de la hoja abre su
+// sección y pone el foco en su campo (el mismo criterio que el editor de la
+// página, TR-173). En el celular, una cosa por vez: Completar o Ver
+// documento (TR-172). La hoja se puede ver a pantalla completa, en el
+// celular y en la computadora.
 //
 // El estado local es lo que la persona está escribiendo: por eso NO usa
 // `useEstadoDelServidor` (CLAUDE.md, TR-156). Se guarda solo, un momento
@@ -49,6 +57,8 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
   const [terminando, setTerminando] = useState(false);
   const [vista, setVista] = useState<"completar" | "documento">("completar");
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
+  const hoy = documento.hoy ?? "";
+  const paginasDeLamina = paginasDeLaLamina(plantilla);
 
   const ultimo = useRef(valores);
   const vuelta = useRef(0);
@@ -56,7 +66,12 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
 
   // Los errores de formato se ven mientras se escribe, sin esperar a la API.
   const erroresLocales = useMemo(() => erroresPorCampo(validarValores(plantilla, valores, "tolerante")), [plantilla, valores]);
-  const errores = { ...erroresAlTerminar, ...erroresDelServidor, ...erroresLocales };
+  // Lo cargado, compuesto sobre la página original, y lo que no entra en
+  // su renglón: se avisa mientras se escribe, pero el borrador se guarda
+  // igual (terminar es lo que no lo deja pasar).
+  const zonas = useMemo(() => armarLamina(plantilla, valores, { fecha: hoy }, "borrador"), [plantilla, valores, hoy]);
+  const erroresDeLamina = useMemo(() => erroresPorCampo(validarLamina(plantilla, valores, { fecha: hoy })), [plantilla, valores, hoy]);
+  const errores = { ...erroresDeLamina, ...erroresAlTerminar, ...erroresDelServidor, ...erroresLocales };
 
   async function guardar(): Promise<boolean> {
     if (!sinGuardar.current) return true;
@@ -120,10 +135,13 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
 
   async function terminar() {
     setMensaje(null);
-    const faltan = erroresPorCampo(validarValores(plantilla, ultimo.current, "estricto"));
+    const faltan = erroresPorCampo([
+      ...validarValores(plantilla, ultimo.current, "estricto"),
+      ...validarLamina(plantilla, ultimo.current, { fecha: hoy }),
+    ]);
     if (Object.keys(faltan).length > 0) {
       setErroresAlTerminar(faltan);
-      setMensaje("Faltan datos para terminar: están marcados en el formulario.");
+      setMensaje("Hay datos para revisar antes de terminar: están marcados en el formulario.");
       irAlCampo(Object.keys(faltan)[0]);
       return;
     }
@@ -157,7 +175,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
     <div className="flex flex-col gap-4">
       {/* En el celular, una cosa por vez (TR-172). Todo es CSS: el HTML del
           servidor y el del cliente son el mismo. */}
-      <div role="tablist" aria-label="Qué mostrar" className="grid grid-cols-2 gap-1 rounded-full border border-linea bg-hueso p-1 lg:hidden">
+      <div role="tablist" aria-label="Qué mostrar" className="grid grid-cols-2 gap-1 rounded-full border border-linea bg-marfil p-1 shadow-soft lg:hidden">
         {(["completar", "documento"] as const).map((v) => (
           <button
             key={v}
@@ -218,7 +236,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
             );
           })}
 
-          <div className="flex flex-col gap-3 rounded-card border border-linea bg-hueso p-4">
+          <div className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-4 shadow-soft">
             <p aria-live="polite" className={`text-xs ${guardado === "error" ? "text-terracota-oscuro" : "text-grafito/75"}`}>
               {textoGuardado[guardado]}
             </p>
@@ -248,14 +266,23 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
           </div>
         </aside>
 
-        <div className={`${vista === "documento" ? "block" : "hidden"} min-w-0 lg:block`}>
-          <CalcoEnVivo
-            plantilla={plantilla}
-            valores={valores}
-            hoy={documento.hoy ?? ""}
-            campoActivo={campoActivo}
-            onElegir={irAlCampo}
-          />
+        <div className={`${vista === "documento" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:flex`}>
+          {paginasDeLamina ? (
+            <>
+              <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`} className="self-end">
+                <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} etiqueta="Tu documento" />
+              </PantallaCompleta>
+              <LaminaDocumento
+                plantilla={plantilla}
+                paginas={paginasDeLamina}
+                zonas={zonas}
+                editable={{ campoActivo, errores, onElegir: irAlCampo }}
+                etiqueta="Tu documento"
+              />
+            </>
+          ) : (
+            <CalcoEnVivo plantilla={plantilla} valores={valores} hoy={hoy} campoActivo={campoActivo} onElegir={irAlCampo} />
+          )}
         </div>
       </div>
 
@@ -264,6 +291,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
           titulo="¿Descartar este borrador?"
           descripcion="Se borra lo que cargaste. Todavía no es parte de la historia clínica del paciente."
           onCerrar={() => setConfirmarDescarte(false)}
+          superficie="marfil"
         >
           <div className="flex justify-end gap-2 p-4 sm:p-6">
             <button type="button" onClick={() => setConfirmarDescarte(false)} className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena">

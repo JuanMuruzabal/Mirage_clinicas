@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { borrador, todoTipo } from "./fixtures";
+import { borrador, conducto, todoTipo } from "./fixtures";
 
 const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock, push: vi.fn() }) }));
@@ -75,7 +75,7 @@ describe("EditorDeDocumento", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
     });
-    expect(screen.getByText("Faltan datos para terminar: están marcados en el formulario.")).toBeInTheDocument();
+    expect(screen.getByText("Hay datos para revisar antes de terminar: están marcados en el formulario.")).toBeInTheDocument();
     expect(screen.getByText("Este dato es obligatorio.")).toBeInTheDocument();
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
   });
@@ -135,6 +135,70 @@ describe("EditorDeDocumento", () => {
     expect(screen.queryByRole("textbox", { name: /^Nombre/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Clínica/ }));
     expect(screen.getByRole("group", { name: "Hábitos" })).toBeInTheDocument();
+  });
+
+  it("con lámina, el documento es la página original con lo cargado encima, y tocar un renglón abre su campo", async () => {
+    const { container } = render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba", indicaciones: "Enjuagues." })} plantilla={conducto} />);
+    // La página del Colegio y lo cargado, en la letra de la lámina.
+    const hoja = screen.getByRole("figure", { name: "Tu documento" });
+    expect(hoja.querySelector("img")).toHaveAttribute("src", "/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v1/pagina-1.w1600.webp");
+    const escrito = [...container.querySelectorAll("figure text")].map((t) => t.textContent);
+    expect(escrito).toContain("Córdoba, 27/09/2026");
+    expect(escrito).toContain("Enjuagues.");
+    // Ya no hay calco ni pestañas para comparar: la hoja ES el original.
+    expect(screen.queryByRole("tab", { name: "Modelo original" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Completar: Domicilio" }));
+    });
+    expect(screen.getByRole("textbox", { name: /^Domicilio/ })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Completar: Domicilio" })).toHaveClass("bg-salvia/20");
+    // Las tres partes de la próxima consulta llevan al mismo campo.
+    expect(screen.getByRole("button", { name: "Completar: Próxima consulta (mes)" })).toBeInTheDocument();
+  });
+
+  it("lo que no entra en su renglón se avisa mientras se escribe, y no deja terminar", async () => {
+    acciones.guardarBorradorAction.mockResolvedValue({ ok: true, documento: borrador() });
+    const largo = "Indicación muy larga que no entra. ".repeat(60);
+    render(
+      <EditorDeDocumento
+        documento={borrador({
+          lugar: "Córdoba",
+          suscribe_nombre: "Ana Paz",
+          suscribe_fecha_nacimiento: "1990-01-01",
+          suscribe_dni: "30111222",
+          suscribe_domicilio: "Calle 1",
+          elementos: ["36"],
+          profesional_nombre: "Juan Pérez",
+          indicaciones: largo,
+        })}
+        plantilla={conducto}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Completar: Indicaciones" })).toHaveClass("bg-terracota/15");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
+    });
+    expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
+    expect(screen.getByText("No entra en el espacio del documento: acortalo.")).toBeInTheDocument();
+  });
+
+  it("la hoja se abre a pantalla completa, en el celular y en la computadora", async () => {
+    render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
+    const boton = screen.getByRole("button", { name: "Ver en pantalla completa" });
+    expect(boton).not.toHaveClass("lg:hidden");
+    fireEvent.click(boton);
+    const capa = await screen.findByRole("dialog", { name: "Tratamiento de conducto: tu documento" });
+    // A pantalla completa se lee, no se edita.
+    expect(capa.querySelector("[data-zona]")).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("una plantilla sin lámina muestra el calco", () => {
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} />);
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver en pantalla completa" })).not.toBeInTheDocument();
   });
 
   it("en el celular, Completar o Ver documento", () => {

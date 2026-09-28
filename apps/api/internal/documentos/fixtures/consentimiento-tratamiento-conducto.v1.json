@@ -78,5 +78,199 @@
     {
       "t": "firmas"
     }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 147,
+          "y": 105,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_nombre",
+      "pagina": 1,
+      "tamano": 9.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 164,
+          "y": 129.1,
+          "texto": "Ejemplo de nombre y apellido"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_fecha_nacimiento",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 384,
+          "y": 129.1,
+          "texto": "07/03/1984"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_dni",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 118,
+          "y": 141.1,
+          "texto": "Ejemplo de dni"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_domicilio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 296,
+          "y": 141.1,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "elementos",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 165.3,
+          "texto": "11, 36, 37"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 334,
+          "y": 165.3,
+          "texto": "Ejemplo de profesional que lo propone"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "indicaciones",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 483.3,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicacion",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 579.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 591.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_dia",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 87.64,
+          "y": 700.7,
+          "texto": "07"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_mes",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 107.89,
+          "y": 700.7,
+          "texto": "03"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_anio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 127.99,
+          "y": 700.7,
+          "texto": "84"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_hora",
+      "pagina": 1,
+      "tamano": 7.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 170.51,
+          "y": 700.7,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    }
   ]
 }

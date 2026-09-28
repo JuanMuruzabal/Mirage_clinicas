@@ -106,7 +106,7 @@ export function LienzoDeFirma({
         onPointerCancel={terminar}
         onPointerLeave={terminar}
         style={{ height: ALTO, touchAction: "none" }}
-        className="relative w-full cursor-crosshair select-none rounded-field border border-linea bg-marfil"
+        className="relative w-full cursor-crosshair select-none rounded-field border border-linea bg-hueso"
       >
         {/* La línea de la firma y el aviso, debajo del trazo. */}
         <span aria-hidden="true" className="pointer-events-none absolute right-6 bottom-10 left-6 border-b border-dashed border-grafito/30" />
