@@ -538,6 +538,10 @@ func borrarTurnosYPacientesOrfanados(tx *gorm.DB, turnos []db.Turno) ([]string, 
 			continue
 		}
 		if err := borrarFichaPacienteConSusHijas(tx, pacienteID); err != nil {
+			if errors.Is(err, errFichaConDocumentos) {
+				// Tiene historia clínica: se queda (Fase 5.1).
+				continue
+			}
 			return nil, 0, err
 		}
 		if err := tx.Model(&db.ConflictoPaciente{}).

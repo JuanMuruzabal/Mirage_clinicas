@@ -34,6 +34,15 @@ func pacienteEstaVerificado(tx *gorm.DB, paciente db.Paciente) (bool, error) {
 		Where("paciente_id = ? AND estado = 'agendado' AND hora_fin < now() AND asistencia = 'asistio'", paciente.ID).
 		Limit(1).
 		Count(&count).Error
+	if err != nil || count > 0 {
+		return count > 0, err
+	}
+	// Un documento clínico sellado (Fase 5.1): un profesional lo atendió en
+	// persona y lo firmó con él, que es más que un turno asistido.
+	err = tx.Model(&db.DocumentoClinico{}).
+		Where("paciente_id = ? AND estado = ?", paciente.ID, db.DocumentoSellado).
+		Limit(1).
+		Count(&count).Error
 	return count > 0, err
 }
 
@@ -65,6 +74,19 @@ func pacientesVerificadosIDs(tx *gorm.DB, profesionalID uuid.UUID) (map[uuid.UUI
 		return nil, err
 	}
 	for _, id := range manualIDs {
+		out[id] = true
+	}
+
+	// Con un documento clínico sellado (Fase 5.1), mismo criterio que
+	// pacienteEstaVerificado.
+	var conDocumentoIDs []uuid.UUID
+	if err := tx.Model(&db.DocumentoClinico{}).
+		Where("clinic_id = ? AND estado = ?", profesionalID, db.DocumentoSellado).
+		Distinct("paciente_id").
+		Pluck("paciente_id", &conDocumentoIDs).Error; err != nil {
+		return nil, err
+	}
+	for _, id := range conDocumentoIDs {
 		out[id] = true
 	}
 	return out, nil
@@ -199,6 +221,9 @@ func borrarPacienteNoVerificadoSiSinHistorialReal(tx *gorm.DB, pacienteID uuid.U
 	}
 
 	if err := borrarFichaPacienteConSusHijas(tx, pacienteID); err != nil {
+		if errors.Is(err, errFichaConDocumentos) {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
@@ -226,7 +251,22 @@ func borrarPacienteNoVerificadoSiSinHistorialReal(tx *gorm.DB, pacienteID uuid.U
 // Es idempotente sobre lo ya limpiado: un call site que además migró los
 // tutores a otra ficha antes de llamar acá no rompe nada, simplemente no
 // queda nada que borrar.
+//
+// UNA FICHA CON DOCUMENTOS CLÍNICOS NO SE BORRA (Fase 5.1, TR-182): la
+// historia clínica se conserva diez años (Ley 26.529, art. 18). Devuelve
+// errFichaConDocumentos y no toca nada; cada caller decide qué hacer (los
+// automáticos, simplemente no borrar). La FK `fk_documentos_paciente` lo
+// garantiza igual en la base, pero rebotaría el DELETE con 23503 y
+// tumbaría la transacción entera — acá se corta antes, limpio.
 func borrarFichaPacienteConSusHijas(tx *gorm.DB, pacienteID uuid.UUID) error {
+	var conDocumentos bool
+	if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM documentos_clinicos WHERE paciente_id = ?)", pacienteID).
+		Scan(&conDocumentos).Error; err != nil {
+		return err
+	}
+	if conDocumentos {
+		return errFichaConDocumentos
+	}
 	if err := tx.Exec("UPDATE turnos SET paciente_id = NULL WHERE paciente_id = ?", pacienteID).Error; err != nil {
 		return err
 	}

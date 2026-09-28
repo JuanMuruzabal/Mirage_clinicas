@@ -31,7 +31,29 @@ describe("PacienteDatos", () => {
 
   it("muestra — cuando no hay email", () => {
     render(<PacienteDatos pacienteInicial={{ ...paciente, email: null }} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Email").parentElement).toHaveTextContent("—");
+  });
+
+  // Fase 5.1 (D7): los datos que piden los documentos clínicos.
+  it("muestra nacimiento, domicilio y obra social, o — si faltan", () => {
+    const { rerender } = render(<PacienteDatos pacienteInicial={paciente} />);
+    expect(screen.getByText("Nacimiento").parentElement).toHaveTextContent("—");
+    expect(screen.getByText("Obra social").parentElement).toHaveTextContent("—");
+    rerender(
+      <PacienteDatos
+        pacienteInicial={{
+          ...paciente,
+          fechaNacimiento: "1990-05-10",
+          domicilio: "San Martín 120",
+          obraSocial: "OSDE",
+          obraSocialPlan: "210",
+          obraSocialAfiliado: "123456",
+        }}
+      />,
+    );
+    expect(screen.getByText("10/05/1990")).toBeInTheDocument();
+    expect(screen.getByText("San Martín 120")).toBeInTheDocument();
+    expect(screen.getByText("OSDE · plan 210 · n.º 123456")).toBeInTheDocument();
   });
 
   // Corrección de QA: "Ver mail" (Extra 2.3.4/E4.1) faltaba acá — mismo
@@ -88,7 +110,7 @@ describe("PacienteDatos", () => {
       render(<PacienteDatos pacienteInicial={{ ...paciente, email: null }} emailsAlternativos={["migrado@example.com"]} />);
 
       expect(screen.getByText("migrado@example.com")).toBeInTheDocument();
-      expect(screen.queryByText("—")).not.toBeInTheDocument();
+      expect(screen.getByText("Email").parentElement).not.toHaveTextContent("—");
       expect(screen.queryByRole("button", { name: "Ver mails" })).not.toBeInTheDocument();
     });
 

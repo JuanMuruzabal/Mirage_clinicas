@@ -136,6 +136,9 @@ func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Ha
 			registerDisponibilidadRoutes(r, db)
 			// Fase 2, ítem 5 ("compartir calendario").
 			registerEnlaceTurnoRoutes(r, db, deps)
+			// Fase 5.1: documentos clínicos — solo profesionales (el corte
+			// de rol vive adentro, ver documentos.go).
+			registrarDocumentosRoutes(r, db)
 		})
 	})
 

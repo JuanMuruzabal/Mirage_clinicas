@@ -938,12 +938,101 @@ export interface Paciente {
    *  Solo viaja en la vista general de recepción: en la vista de un
    *  profesional son todas suyas. */
   profesionales?: { userId: string; nombre: string }[];
+  /** Los datos que piden los documentos clínicos (Fase 5.1, D7). Todos
+   *  opcionales; la fecha va como AAAA-MM-DD. */
+  fechaNacimiento?: string | null;
+  domicilio?: string | null;
+  obraSocial?: string | null;
+  obraSocialPlan?: string | null;
+  obraSocialAfiliado?: string | null;
 }
 
 // Espejo de pacienteDetalleResponse — datos personales + historial
 // completo de turnos (T3.6); el front separa "activos" de "historial".
 export interface PacienteDetalle extends Paciente {
   turnos: Turno[];
+  /** Cuántos documentos clínicos sellados tiene (Fase 5.1). Lo ve
+   *  cualquiera que vea la ficha: saber QUE hay historia clínica no es
+   *  leerla (TR-186). */
+  documentosClinicos?: number;
+}
+
+// --- Documentos clínicos (Fase 5.1) ---
+//
+// Espejos de documentoResumenResponse / documentoDetalleResponse /
+// firmaResponse (apps/api/internal/http/documentos.go). La forma de las
+// plantillas y del contenido congelado vive en
+// @dental-mirage/documentos-clinicos, no acá.
+
+export type EstadoDocumento = "borrador" | "a_firmar" | "sellado" | "anulado";
+
+/** Una firma dibujada: vectores con sus tiempos, no una imagen (TR-184).
+ *  Cada punto es [x, y, milisegundos desde el primer toque]. */
+export interface TrazoDeFirma {
+  ancho: number;
+  alto: number;
+  trazos: [number, number, number][][];
+}
+
+export interface FirmaDeDocumento {
+  rol: string;
+  nombre: string;
+  dni?: string;
+  enRepresentacion: boolean;
+  vinculo?: string;
+  metodo: "presencial" | "vinculo" | "alerta";
+  firmadoEn: string;
+  trazo: TrazoDeFirma;
+}
+
+export interface DocumentoResumen {
+  id: string;
+  plantillaId: string;
+  plantillaVersion: number;
+  plantillaNombre: string;
+  tipo: string;
+  estado: EstadoDocumento;
+  paciente: { id: string; nombre: string; apellido: string; dni: string };
+  autorUserId: string;
+  autorNombre: string;
+  /** Lo escribió quien mira. Uno ajeno se lee, no se toca. */
+  esMio: boolean;
+  folio?: number;
+  creadoEn: string;
+  actualizadoEn: string;
+  terminadoEn?: string;
+  selladoEn?: string;
+  anuladoEn?: string;
+}
+
+export interface DocumentoDetalle extends DocumentoResumen {
+  /** Solo en un borrador: lo cargado, campo por campo. */
+  valores?: Record<string, unknown>;
+  /** El día que el calco de un borrador pone en "Lugar y fecha". */
+  hoy?: string;
+  /** Desde "a firmar": el documento congelado, tal cual se firma. */
+  contenido?: unknown;
+  hashContenido?: string;
+  hashAnterior?: string;
+  hashSello?: string;
+  cadenaN?: number;
+  motivoAnulacion?: string;
+  firmas: FirmaDeDocumento[];
+  firmasPendientes: string[];
+}
+
+export interface PacienteConDocumentos {
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  cantidad: number;
+  ultimo: string;
+}
+
+export interface ErrorDeCampoDeDocumento {
+  campo: string;
+  mensaje: string;
 }
 
 // Espejo de conflictoPacienteResponse (Fase 2.4.1,

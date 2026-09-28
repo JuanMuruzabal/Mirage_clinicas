@@ -97,6 +97,22 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
           }
         />
       </div>
+      {/* Los datos que piden los documentos clínicos (Fase 5.1, D7): se
+          precargan en cada documento. */}
+      <div className="grid gap-4 border-t-[0.5px] border-arena pt-4 sm:grid-cols-3">
+        <Dato label="Nacimiento" valor={fechaDeNacimiento(paciente.fechaNacimiento)} />
+        <Dato label="Domicilio" valor={paciente.domicilio || "—"} />
+        <Dato
+          label="Obra social"
+          valor={
+            paciente.obraSocial
+              ? [paciente.obraSocial, paciente.obraSocialPlan && `plan ${paciente.obraSocialPlan}`, paciente.obraSocialAfiliado && `n.º ${paciente.obraSocialAfiliado}`]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "—"
+          }
+        />
+      </div>
 
       {modalAbierto && (
         <EditarPacienteModal
@@ -178,6 +194,15 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
     )}
     </>
   );
+}
+
+// fechaDeNacimiento — "1990-05-10" → "10/05/1990". La fecha viaja como
+// día de calendario (AAAA-MM-DD), sin hora: no pasa por Date, que la
+// correría de día según el huso.
+function fechaDeNacimiento(iso?: string | null): string {
+  if (!iso) return "—";
+  const [anio, mes, dia] = iso.split("-");
+  return anio && mes && dia ? `${dia}/${mes}/${anio}` : iso;
 }
 
 // TUTOR_RELACION_LABEL — mismas 3 opciones que el wizard público

@@ -28,6 +28,8 @@ var archivosDelPanel = []string{
 	// cuesta nada. Es para mañana: el día que alguien les agregue una
 	// consulta directa, esta auditoría la tiene que ver.
 	"turnos_contadores.go", "pacientes_contadores.go",
+	// Documentos clínicos (Fase 5.1, TR-186).
+	"documentos.go",
 }
 
 // TestAislamiento_NingunaConsultaDelPanelSinAcotar — la regla de
@@ -71,6 +73,9 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		// "toda la clínica" no es una respuesta posible y la agenda puede
 		// venir pedida en el propio request.
 		"soloDeLaAgendaDe",
+		// Documentos clínicos (Fase 5.1, TR-186): los que escribí, y los que
+		// puedo leer (los míos más los sellados de los pacientes de mi lista).
+		"soloMisDocumentos", "documentosQueVeo",
 	}
 	// El filtro escrito a mano en el propio WHERE cuenta igual: lo que
 	// importa es que la consulta esté acotada, no por qué vía.
@@ -164,6 +169,19 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 		// tipo. Acotarlas por profesional las volvería inútiles — el caso
 		// que cada una detecta es, justamente, el turno del colega.
 		"pacientes_de_la_clinica.go": {`clinic_id`},
+		"documentos.go": {
+			// El paciente de un documento nuevo puede ser cualquiera de la
+			// clínica, no solo los de mi lista: la identidad es de la clínica
+			// (TR-144), y hacerle un documento lo suma a mi lista (TR-157).
+			`"id = ? AND clinic_id = ?", pacienteID, clinicID).First(&paciente)`,
+			// La cadena de sellos y el folio son de la CLÍNICA (TR-182): el
+			// eslabón anterior es el último documento sellado de cualquier
+			// profesional, y el folio, el siguiente de ese paciente. Corren
+			// dentro de la firma de un documento mío, bajo el lock de la
+			// clínica, y no devuelven nada de nadie: solo un hash y un número.
+			`WHERE clinic_id = ? AND cadena_n IS NOT NULL ORDER BY cadena_n DESC LIMIT 1`,
+			`WHERE clinic_id = ? AND paciente_id = ? AND folio IS NOT NULL`,
+		},
 	}
 
 	permitida := func(archivo, linea string) bool {

@@ -54,6 +54,19 @@ jobs:
             exit 1;
           }
 
+      # Fase 5.1 (TR-183): las plantillas de los documentos clínicos y
+      # sus fixtures, copiadas a apps/api/internal/documentos/. Mismo
+      # criterio que el catálogo de Prisma Engine: si alguien cambia una
+      # plantilla sin regenerar, la API validaría y congelaría el texto
+      # contra una versión vieja.
+      - name: Regenerar las plantillas de documentos clínicos y verificar que no cambiaron
+        run: |
+          pnpm run documentos:generar
+          git diff --exit-code -- apps/api/internal/documentos/plantillas apps/api/internal/documentos/fixtures || {
+            echo "::error::pnpm documentos:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
+            exit 1;
+          }
+
       - name: Validar plantillas y presets de Prisma Engine
         run: pnpm run validar:plantillas
 
@@ -71,6 +84,12 @@ jobs:
 
       - name: Test (prisma-engine)
         run: pnpm run test:prisma-engine
+
+      - name: Typecheck (documentos-clinicos)
+        run: pnpm run typecheck:documentos-clinicos
+
+      - name: Test (documentos-clinicos, con su gate de 80%)
+        run: pnpm run test:documentos-clinicos
 
       - name: Build
         # Un reintento (PP-7): `next build` (Turbopack) falla a veces al

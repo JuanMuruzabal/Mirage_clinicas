@@ -81,7 +81,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
 
   return (
     <PanelShell>
-      <PanelSidebar />
+      <PanelSidebar conDocumentos={sesion.roles.includes("profesional")} />
       <main className="panel-main-h min-w-0 flex-1 max-md:min-h-0 max-md:overflow-x-auto max-md:overflow-y-auto max-md:overscroll-contain">
         {/* NotificacionesConflictoGlobal — pedido textual del cliente:
             aviso de conflicto (pacientes o calendario) visible desde

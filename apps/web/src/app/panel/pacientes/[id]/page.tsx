@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Turno } from "@dental-mirage/shared-types";
-import { apiGetPaciente } from "@/lib/api";
+import { apiDocumentosDePaciente, apiGetPaciente } from "@/lib/api";
 import { tiposConsultaDeLaVista } from "@/lib/tipos-de-la-vista";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PacienteDatos } from "@/components/panel/paciente-datos";
 import { PacienteTurnosTable } from "@/components/panel/paciente-turnos-table";
 import { AvatarIniciales } from "@/components/panel/avatar-iniciales";
 import { EstadoVerificadoBadge } from "@/components/panel/estado-verificado-badge";
+import { DocumentosDeLaFicha } from "@/components/documentos/documentos-de-la-ficha";
 
 export async function generateMetadata({ params }: PageProps<"/panel/pacientes/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -39,12 +40,16 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
   // la ficha. Para recepción, esa paleta es la precargada. Ver
   // `lib/tipos-de-la-vista.ts`.
   const sesion = await requireOnboardingComplete();
-  const [result, tiposConsulta] = token
+  // Los documentos clínicos solo los lee un profesional (TR-186); para el
+  // resto, la ficha dice cuántos hay y nada más.
+  const esProfesional = sesion.roles.includes("profesional");
+  const [result, tiposConsulta, documentos] = token
     ? await Promise.all([
         apiGetPaciente(token, id),
         tiposConsultaDeLaVista(token, sesion.roles),
+        esProfesional ? apiDocumentosDePaciente(token, id) : Promise.resolve(null),
       ])
-    : [null, []];
+    : [null, [], null];
   if (!result?.ok) {
     notFound();
   }
@@ -107,10 +112,13 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
           el impacto es mínimo porque este bloque es un placeholder sin
           funcionalidad real todavía (spec §4.5, sin carga/adjuntos). */}
       <section className="grid gap-4 sm:grid-cols-2 max-md:order-2">
-        <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-hueso p-6">
-          <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">Historia clínica</h2>
-          <p className="text-sm text-grafito/50">Próximamente vas a poder cargar y consultar la historia clínica desde acá.</p>
-        </div>
+        {/* Fase 5.1: el placeholder de "Historia clínica" pasa a ser el
+            bloque de documentos clínicos. */}
+        <DocumentosDeLaFicha
+          pacienteId={paciente.id}
+          documentos={documentos && documentos.ok ? documentos.data : null}
+          cantidadSellados={paciente.documentosClinicos ?? 0}
+        />
         <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-hueso p-6">
           <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">Presupuesto</h2>
           <p className="text-sm text-grafito/50">Próximamente vas a poder armar y compartir presupuestos desde acá.</p>

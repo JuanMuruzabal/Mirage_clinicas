@@ -40,6 +40,8 @@ func TestAislamiento_LosIDsDeLaURLSeAcotan(t *testing.T) {
 	scopesDelProfesional := []string{
 		"soloMisTurnos", "soloMisPacientes", "soloMiAgenda",
 		"soloMisConflictos", "soloMisTiposDeConsulta", "soloDeLaAgendaDe",
+		// Documentos clínicos (Fase 5.1, TR-186).
+		"soloMisDocumentos", "documentosQueVeo",
 	}
 	parametroDeLaURL := regexp.MustCompile(`(\w+),\s*err\s*:?=\s*uuid\.Parse\(chi\.URLParam\(r,\s*"(\w+)"\)\)`)
 	esConsulta := regexp.MustCompile(`\.(Where|First|Delete|Find|Take|Update|Updates|Model|Raw|Exec)\(`)

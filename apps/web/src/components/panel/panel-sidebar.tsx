@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { IconCalendario, IconGeneral, IconPacientes, IconPagina, IconSeguridad, IconTurnos } from "./sidebar-icons";
+import { IconCalendario, IconDocumentos, IconGeneral, IconPacientes, IconPagina, IconSeguridad, IconTurnos } from "./sidebar-icons";
 import { QuadrantMark } from "../quadrant-mark";
 import { IconChevronLeft } from "../icons";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
@@ -14,6 +14,10 @@ const NAV_ITEMS = [
   { href: "/panel/turnos", label: "Turnos", Icon: IconTurnos },
   { href: "/panel/pacientes", label: "Pacientes", Icon: IconPacientes },
 ];
+
+// Documentos clínicos (Fase 5.1): solo para quien atiende (TR-186). La
+// pantalla también lo verifica — esconder el ítem no es cerrar la puerta.
+const ITEM_DOCUMENTOS = { href: "/panel/documentos", label: "Documentos", Icon: IconDocumentos };
 
 // Sidebar retráctil, fijo respecto al scroll (spec §4.1: "acompaña al
 // usuario sin importar cuánto scrollee") — sticky bajo el header fixed,
@@ -49,7 +53,7 @@ export function esSeccionActiva(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function PanelSidebar() {
+export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolean } = {}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { open, close } = usePanelSidebar();
@@ -146,7 +150,7 @@ export function PanelSidebar() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Gestión de clínica">
-          {NAV_ITEMS.map(({ href, label, Icon }) => {
+          {(conDocumentos ? [...NAV_ITEMS, ITEM_DOCUMENTOS] : NAV_ITEMS).map(({ href, label, Icon }) => {
             const active = esSeccionActiva(pathname, href);
             return (
               <Link

@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
   // propio: ships TS/TSX de src/ directo, igual que @dental-mirage/shared-types
   // — pero ESE no necesitaba esto porque no trae JSX. Sin transpilePackages
   // Next no compila el código de fuera de apps/web y el import revienta.
-  transpilePackages: ["@dental-mirage/prisma-engine"],
+  // @dental-mirage/documentos-clinicos (Fase 5.1) viene igual: TS sin build.
+  transpilePackages: ["@dental-mirage/prisma-engine", "@dental-mirage/documentos-clinicos"],
   experimental: {
     // Server Actions rechaza por default cualquier body de más de 1 MB — y la
     // foto de la página pública (subirFotoPaginaPublicaAction, Fase 4.4)

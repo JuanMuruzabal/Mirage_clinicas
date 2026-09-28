@@ -213,3 +213,27 @@ describe("PanelSidebar", () => {
     });
   });
 });
+
+// Documentos clínicos (Fase 5.1): el ítem existe solo para quien atiende.
+describe("PanelSidebar — Documentos", () => {
+  it("sin el rol de profesional no aparece", () => {
+    render(
+      <PanelSidebarProvider>
+        <PanelSidebar />
+      </PanelSidebarProvider>,
+    );
+    expect(screen.queryByRole("link", { name: "Documentos" })).not.toBeInTheDocument();
+  });
+
+  it("con el rol, aparece y se marca en sus pantallas de adentro", () => {
+    usePathnameMock.mockReturnValue("/panel/documentos/doc-1");
+    render(
+      <PanelSidebarProvider>
+        <PanelSidebar conDocumentos />
+      </PanelSidebarProvider>,
+    );
+    const link = screen.getByRole("link", { name: "Documentos" });
+    expect(link).toHaveAttribute("href", "/panel/documentos");
+    expect(link).toHaveAttribute("aria-current", "page");
+  });
+});

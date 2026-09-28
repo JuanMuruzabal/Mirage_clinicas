@@ -788,6 +788,12 @@ func resolverConflictoPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			// marcarAsistenciaHandler, TR-107).
 			return resolverConflictoComoFalso(tx, conflicto, profesionalID, true, nil)
 		})
+		if errors.Is(err, errFichaConDocumentos) {
+			// No debería pasar —no se puede hacer un documento sobre una
+			// ficha en conflicto—, pero si pasa, la historia clínica gana.
+			writeError(w, http.StatusConflict, "la ficha duplicada tiene documentos clínicos: no se puede descartar")
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo resolver el conflicto")
 			return

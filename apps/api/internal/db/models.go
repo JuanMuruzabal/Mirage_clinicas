@@ -187,8 +187,21 @@ type Paciente struct {
 	// listado en el mismo instante. Lo encontró un test de la 3.2.3, no la
 	// pantalla.
 	CreadoPorUserID *uuid.UUID `gorm:"column:creado_por_user_id;type:uuid;index"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// Datos que piden casi todos los documentos clínicos (Fase 5.1, D7 de
+	// fase5-documentos-clinicos.md): se precargan en cada documento, y al
+	// terminar uno se completan acá los que la ficha todavía no tenía. Todos
+	// opcionales: una ficha del wizard público nace sin ellos.
+	//
+	// FechaNacimiento es DATE: llega como medianoche UTC, así que se
+	// formatea con .Format("2006-01-02") directo, nunca pasando por
+	// clock.In (lo correría al día anterior — ver CLAUDE.md).
+	FechaNacimiento    *time.Time `gorm:"column:fecha_nacimiento;type:date"`
+	Domicilio          *string    `gorm:"type:varchar(300)"`
+	ObraSocial         *string    `gorm:"column:obra_social;type:varchar(150)"`
+	ObraSocialPlan     *string    `gorm:"column:obra_social_plan;type:varchar(100)"`
+	ObraSocialAfiliado *string    `gorm:"column:obra_social_afiliado;type:varchar(60)"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 func (Paciente) TableName() string { return "pacientes" }

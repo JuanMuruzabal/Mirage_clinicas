@@ -10,6 +10,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@dental-mirage/documentos-clinicos':
+        specifier: workspace:*
+        version: link:../../packages/documentos-clinicos
       '@dental-mirage/prisma-engine':
         specifier: workspace:*
         version: link:../../packages/prisma-engine
@@ -91,6 +94,25 @@ importers:
         version: 4.3.3
       typescript:
         specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.11(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/documentos-clinicos:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.11(vitest@4.1.11)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      typescript:
+        specifier: ^5.4.0
         version: 5.9.3
       vitest:
         specifier: ^4.1.10

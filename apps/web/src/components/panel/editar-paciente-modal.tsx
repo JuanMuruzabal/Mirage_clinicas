@@ -84,6 +84,15 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
     otros: paciente.emailsAlternativos ?? [],
   });
   const [tutores, setTutores] = useState<TutorEditable[]>((paciente.tutores ?? []).map(tutorEditable));
+  // Los datos que piden los documentos clínicos (Fase 5.1, D7): se
+  // precargan en cada documento. Todos opcionales.
+  const [personales, setPersonales] = useState({
+    fechaNacimiento: paciente.fechaNacimiento ?? "",
+    domicilio: paciente.domicilio ?? "",
+    obraSocial: paciente.obraSocial ?? "",
+    obraSocialPlan: paciente.obraSocialPlan ?? "",
+    obraSocialAfiliado: paciente.obraSocialAfiliado ?? "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -127,6 +136,9 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
       const otroInvalido = limpios(t.telefono.otros).find((x) => !TELEFONO_REGEX.test(x));
       if (otroInvalido) return `El teléfono ${otroInvalido} de ${t.nombre} no tiene un formato válido.`;
     }
+    if (personales.fechaNacimiento && personales.fechaNacimiento > new Date().toISOString().slice(0, 10)) {
+      return "La fecha de nacimiento no puede ser futura.";
+    }
     return null;
   }
 
@@ -146,6 +158,11 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
       email: email.principal.trim(),
       telefonosAlternativos: limpios(telefono.otros),
       emailsAlternativos: limpios(email.otros),
+      fechaNacimiento: personales.fechaNacimiento,
+      domicilio: personales.domicilio.trim(),
+      obraSocial: personales.obraSocial.trim(),
+      obraSocialPlan: personales.obraSocialPlan.trim(),
+      obraSocialAfiliado: personales.obraSocialAfiliado.trim(),
       ...(tutores.length > 0 && {
         tutores: tutores.map((t) => ({
           id: t.id,
@@ -212,6 +229,52 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
               </Campo>
               <ListaDeOtros titulo="Otros mails" tipo="email" contacto={email} onChange={setEmail} />
             </div>
+
+            <fieldset className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">
+              <legend className="pb-2 text-xs font-semibold uppercase tracking-wide text-grafito/70">Para los documentos clínicos</legend>
+              <Campo label="Fecha de nacimiento">
+                <input
+                  type="date"
+                  value={personales.fechaNacimiento}
+                  onChange={(e) => setPersonales({ ...personales, fechaNacimiento: e.target.value })}
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo label="Domicilio">
+                <input
+                  value={personales.domicilio}
+                  maxLength={300}
+                  onChange={(e) => setPersonales({ ...personales, domicilio: e.target.value })}
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo label="Obra social">
+                <input
+                  value={personales.obraSocial}
+                  maxLength={150}
+                  onChange={(e) => setPersonales({ ...personales, obraSocial: e.target.value })}
+                  className={inputClass}
+                />
+              </Campo>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Campo label="Plan">
+                  <input
+                    value={personales.obraSocialPlan}
+                    maxLength={100}
+                    onChange={(e) => setPersonales({ ...personales, obraSocialPlan: e.target.value })}
+                    className={inputClass}
+                  />
+                </Campo>
+                <Campo label="Número de afiliado">
+                  <input
+                    value={personales.obraSocialAfiliado}
+                    maxLength={60}
+                    onChange={(e) => setPersonales({ ...personales, obraSocialAfiliado: e.target.value })}
+                    className={inputClass}
+                  />
+                </Campo>
+              </div>
+            </fieldset>
 
             {tutores.map((t, i) => (
               <fieldset key={t.id} className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">

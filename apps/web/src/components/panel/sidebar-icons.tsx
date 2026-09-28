@@ -74,6 +74,19 @@ export function IconTurnos({ className, activo }: IconProps) {
   );
 }
 
+// Documentos — la hoja con la esquina doblada, dos renglones y la firma
+// abajo (el acento): lo que se completa y se firma (Fase 5.1).
+export function IconDocumentos({ className, activo }: IconProps) {
+  return (
+    <svg {...commonProps} className={className}>
+      <path d="M4.25 2.75h8l3.5 3.5v11H4.25z" />
+      <path d="M12.25 2.75v3.5h3.5" />
+      <path d="M6.75 8.5h5M6.75 11h6.5" />
+      <rect className={acento(activo)} x="6.75" y="13.5" width="6.5" height="1.75" />
+    </svg>
+  );
+}
+
 // Pacientes — la ficha: foto (la cabeza es el acento), hombros y dos
 // renglones de datos.
 export function IconPacientes({ className, activo }: IconProps) {
