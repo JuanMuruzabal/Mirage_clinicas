@@ -191,7 +191,7 @@ Foreign keys con `NO ACTION` hacia `pacientes`, `clinics` y la **clave compuesta
 
 ### 4.2 Las plantillas son datos, no diecinueve editores
 
-El brief pide "un editor único por documento". La forma de dárselo sin escribir y mantener diecinueve editores a mano es que **cada documento sea una definición** y haya **un solo motor** que la dibuje de tres maneras: el formulario del sidebar, el calco en vivo y el PDF. Cada documento tiene así *su* editor —sus campos, sus opciones, sus herramientas—, y un arreglo en el motor llega a todos. Es el mismo camino que tomó la página pública con `packages/prisma-engine`.
+El brief pide "un editor único por documento". La forma de dárselo sin escribir y mantener diecinueve editores a mano es que **cada documento sea una definición** y haya **un solo motor** que la dibuje de tres maneras: el formulario del sidebar, el documento en vivo y el PDF. El documento en vivo es la **lámina** (TR-187, decisión 14): la página original del Colegio con lo cargado escrito sobre sus renglones, compuesto igual en TypeScript y en Go y congelado al terminar. Cada documento tiene así *su* editor —sus campos, sus opciones, sus herramientas—, y un arreglo en el motor llega a todos. Es el mismo camino que tomó la página pública con `packages/prisma-engine`.
 
 - **Paquete nuevo `packages/documentos-clinicos`** (TypeScript + zod), con un generador que exporta cada plantilla a JSON y lo copia a `apps/api` (`go:embed`), como `pnpm run engine:generar`. CI falla si lo generado difiere de lo commiteado.
 - **Una plantilla** = `id`, `version`, título, tipo, **secciones** con bloques, y la lista de **firmas** (qué roles, cuáles obligatorias).
@@ -200,6 +200,7 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 - **Versiones:** el texto legal de una versión no se edita nunca. Si cambia, es una versión nueva; los documentos ya sellados guardan la versión y **el texto tal cual lo leyó el paciente** dentro de su contenido congelado.
 - **Validación en el backend**, contra el esquema de esa versión: tolerante al guardar un borrador, estricta al terminar (campos obligatorios, piezas FDI válidas).
 - **Sin espacios en blanco** (Decreto 1089/2012, art. 15): al terminar, un campo opcional vacío queda impreso como "No consigna", para que no haya hueco donde agregar algo después.
+- **La lámina** (`lamina` en la plantilla): el tamaño de cada página en puntos del PDF, una **zona** por dato (dónde empieza el renglón, su ancho, cuántos renglones tiene, el texto con marcas; `{{campo:dia}}` para las fechas en partes) y el **lugar de cada firma**. Se miden sobre el PDF con PyMuPDF. Lo que no entra en su renglón ni al tamaño mínimo es un error al terminar.
 
 ### 4.3 Las pantallas
 
@@ -207,16 +208,16 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 
 **`/panel/documentos`**
 
-1. **El selector**: el nombre del documento entre `<` y `>` y un buscador (mismo dibujo que `CarruselDeProfesionales`), con un filtro Historias clínicas / Consentimientos.
-2. **La vista precargada**: el calco del documento elegido, con cada hueco nombrado, y el botón **Completar este documento**. **El modelo original se abre en la web del Colegio** ("Ver el modelo del Colegio ↗"): los PDF no se versionan en el repo, que es público. Las páginas del original como imágenes (pre-renderizadas, no un visor de PDF — en iOS un PDF embebido muestra solo la primera página) se suman con la conformidad del Colegio.
-3. **Pacientes con documentos**: tabla con nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente. Arriba, los **borradores** del profesional, para retomarlos.
+1. **El selector**: el nombre del documento entre `<` y `>` (mismo dibujo que `CarruselDeProfesionales`). Tocarlo despliega todos los documentos separados en consentimientos informados, historias clínicas y el resto (el buscador de la primera versión se sacó a pedido del cliente, 2026-09-28).
+2. **"Así es el documento"**: las páginas del modelo original **como imágenes** —exactas al PDF, pre-renderizadas con `scripts/renderizar-originales.py`, no un visor de PDF (en iOS un PDF embebido muestra solo la primera página)—, por versión de plantilla. Debajo del selector, el botón **Completar este documento** y, debajo, **tus documentos en curso**. En el celular, **Ver en pantalla completa** abre la hoja en una capa con "Acercar". Los PDF no se versionan; las imágenes de sus páginas sí. Una plantilla sin original renderizado muestra el calco vacío.
+3. **Al fondo, después del modelo: pacientes con documentos**, en blanco: nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente.
 
 **El editor** (`/panel/documentos/{id}`, un borrador):
 
-- **Escritorio**: sidebar con el formulario a la izquierda; el **calco en vivo** a la derecha. (El botón **Ver original** que muestre la página del modelo en ese mismo lugar llega con las imágenes del original, ver arriba.)
-- **Celular**: una cosa por vez, **Completar** o **Ver documento** (el mismo criterio que el editor de página, TR-172).
-- **Paso 1, el paciente**: buscador de pacientes de la clínica; al elegirlo se precargan sus datos y los del profesional.
-- **Los campos**, sección por sección. Tocar una parte del calco abre esa sección en el sidebar (como TR-173).
+- **Escritorio**: sidebar con el formulario a la izquierda; a la derecha, **la lámina**: la página del modelo con lo cargado escrito encima, que es exactamente lo que se firma y lo que va al PDF (TR-187, decisión 14). Lo que falta se ve teñido; lo que no entra, en terracota.
+- **Celular**: una cosa por vez, **Completar** o **Ver documento** (el mismo criterio que el editor de página, TR-172). En los dos tamaños, **Ver en pantalla completa** abre la hoja en una capa con "Acercar" (solo para leer: los renglones se tocan en la hoja del editor).
+- **Paso 1, el paciente**: el mismo buscador que "Paciente conocido" de "+ Agregar turno" (`BuscadorPacientes`), en un diálogo blanco; al elegirlo se precargan sus datos y los del profesional.
+- **Los campos**, sección por sección. Tocar un renglón de la hoja abre esa sección en el sidebar y pone el foco en su campo (como TR-173).
 - **Se guarda solo**. **Terminar** valida, congela y pasa a firmas.
 
 **Firmas** (§4.5): una tarjeta por firmante requerido, con tres acciones — **Firmar en este dispositivo**, **Enviar vínculo** (copiar o abrir WhatsApp) y **Avisar a mi celular**. El estado de cada una se actualiza solo. Con la última firma, el documento se sella y aparece **Descargar PDF**.
@@ -263,7 +264,7 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 ### 4.6 El PDF
 
 - **Se genera en el backend (Go), una sola vez, al sellar.** Lo produce el mismo proceso que sella, en la misma transacción que registra su huella. Generarlo en la web obligaría a la API a confiar en un PDF que no puede verificar. Un motor genérico recorre la plantilla y el contenido: títulos, texto legal, campos, tablas, el odontograma (misma geometría que el SVG), el genograma y las firmas redibujadas desde sus trazos. La librería (que escriba UTF-8 con fuentes TTF embebidas, dibuje vectores y, si se puede, produzca PDF/A para archivo a largo plazo) se elige con una prueba corta al empezar la subfase 5.2.
-- **No es un calco pixel a pixel del papel**: es el mismo contenido, prolijo y legible, con el título, las secciones y la leyenda del modelo. El calco fiel es el de la pantalla.
+- **Es la lámina** (*corregido el 2026-09-28, TR-187 decisión 14*): la página original del Colegio con la composición **congelada** al terminar dibujada encima, en Helvetica —fuente base de PDF, con las mismas métricas con las que se compuso—, y las firmas en su renglón. No se vuelve a componer: se dibuja lo que se firmó. La API necesita para eso las páginas del original de su lado (la imagen, o la página del PDF si el Colegio autoriza versionarlo).
 - **Se guarda aparte de las fotos de la página pública**: un storage propio (prefijo o bucket distinto en R2, solo `Save` y `Open`, **sin `Delete`**), con nombres que **no** calzan con `storage.NombreValido`. Así nunca los sirve la ruta pública `/uploads` ni los toca la limpieza diaria de fotos huérfanas (TR-174).
 - **Se descarga solo por la API**, con sesión, permiso y un evento `exportado` en la auditoría.
 
