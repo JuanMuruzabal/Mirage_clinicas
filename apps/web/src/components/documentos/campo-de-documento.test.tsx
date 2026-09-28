@@ -116,4 +116,17 @@ describe("SelectorDePiezas", () => {
     expect(screen.getAllByRole("button")).toHaveLength(20);
     expect(screen.getByRole("button", { name: "Pieza 55" })).toHaveAttribute("aria-pressed", "true");
   });
+
+  // jsdom no mide anchos: esto cuida la forma que hace que, en el celular,
+  // las piezas se desplacen en su caja en vez de ensanchar la pantalla.
+  it("las arcadas se desplazan de costado en su propia caja, sin ensanchar la sección", () => {
+    const { container } = render(<SelectorDePiezas denticion="ambas" valor={[]} onCambio={vi.fn()} />);
+    const caja = container.querySelector("[data-scroll-piezas]");
+    expect(caja).toHaveClass("overflow-x-auto");
+    // Centradas cuando entran; desde el borde cuando no (nada de justify-center en la caja que scrollea).
+    expect(caja?.firstElementChild).toHaveClass("w-max", "mx-auto");
+    expect(caja).not.toHaveClass("justify-center");
+    // Un fieldset se estira a su contenido si no se le dice lo contrario.
+    for (const arcada of container.querySelectorAll("fieldset")) expect(arcada).toHaveClass("min-w-0");
+  });
 });

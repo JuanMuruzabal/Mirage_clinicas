@@ -190,10 +190,13 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
         ))}
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+      {/* grid-cols-1 (una columna de `minmax(0, 1fr)`) y min-w-0: sin eso,
+          en el celular la columna se estira a lo que mida su contenido más
+          ancho (las piezas) y la pantalla entera se corre de costado. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
         <aside
           aria-label="Datos del documento"
-          className={`${vista === "completar" ? "flex" : "hidden"} flex-col gap-3 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1`}
+          className={`${vista === "completar" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1`}
         >
           {plantilla.secciones.map((seccion) => {
             const abierta = seccion.id === seccionAbierta;

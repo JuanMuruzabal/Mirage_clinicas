@@ -66,7 +66,8 @@ function Arcada({
     </div>
   );
   return (
-    <fieldset className="flex flex-col gap-1.5">
+    // min-w-0: un fieldset, por defecto, se estira al ancho de su contenido.
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
       <legend className="mb-1 text-xs font-medium tracking-wide text-grafito/75 uppercase">{nombre}</legend>
       {fila(arriba)}
       <div className="mx-auto w-full max-w-[26rem] border-t border-grafito/25" aria-hidden="true" />
@@ -90,14 +91,22 @@ export function SelectorDePiezas({
   }
   const permanentes = [...PIEZAS_PERMANENTES];
   const temporarias = [...PIEZAS_TEMPORARIAS];
+  // Dieciséis piezas por fila no entran en un celular: las arcadas se
+  // desplazan de costado en su propia caja, y la sección no se ensancha
+  // (pedido del cliente, 2026-09-28). Adentro, `w-max` + `mx-auto`: centradas
+  // cuando entran y, cuando no, arrancando del borde — un `justify-center`
+  // en el contenedor que scrollea dejaría las primeras piezas fuera de
+  // alcance a la izquierda.
   return (
-    <div className="flex flex-col gap-4 overflow-x-auto pb-1">
-      {denticion !== "temporaria" && (
-        <Arcada nombre="Permanentes" arriba={permanentes.slice(0, 16)} abajo={permanentes.slice(16)} elegidas={elegidas} onAlternar={alternar} />
-      )}
-      {denticion !== "permanente" && (
-        <Arcada nombre="Temporarias" arriba={temporarias.slice(0, 10)} abajo={temporarias.slice(10)} elegidas={elegidas} onAlternar={alternar} />
-      )}
+    <div data-scroll-piezas className="-mx-1 overflow-x-auto overscroll-x-contain pb-2">
+      <div className="mx-auto flex w-max flex-col gap-4 px-1">
+        {denticion !== "temporaria" && (
+          <Arcada nombre="Permanentes" arriba={permanentes.slice(0, 16)} abajo={permanentes.slice(16)} elegidas={elegidas} onAlternar={alternar} />
+        )}
+        {denticion !== "permanente" && (
+          <Arcada nombre="Temporarias" arriba={temporarias.slice(0, 10)} abajo={temporarias.slice(10)} elegidas={elegidas} onAlternar={alternar} />
+        )}
+      </div>
     </div>
   );
 }
