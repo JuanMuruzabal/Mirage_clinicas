@@ -236,6 +236,9 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Fase B de la auditoría (2026-09-08): control de las migraciones de
 		// DATOS que corren una sola vez — ver aplicarUnaVez más abajo.
 		&MigracionUnaVez{},
+		// Fase 5.1: documentos clínicos (TR-182). Los triggers que los
+		// vuelven inmutables están en migrate_documentos.go.
+		&DocumentoClinico{}, &DocumentoFirma{}, &DocumentoEvento{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}
@@ -789,6 +792,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	// PE-2: los CHECK de tema/variante/tipografía se arman desde el catálogo
 	// embebido (ver checksDelCatalogoDeTemas), no desde una lista a mano.
 	statements = append(statements, checksDelCatalogoDeTemas()...)
+
+	// Fase 5.1 (TR-182): el candado de los documentos clínicos — triggers,
+	// checks e índices. Ver migrate_documentos.go.
+	statements = append(statements, sentenciasDeDocumentos()...)
 
 	for _, stmt := range statements {
 		if err := gdb.Exec(stmt).Error; err != nil {

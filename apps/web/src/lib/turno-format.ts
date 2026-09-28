@@ -181,7 +181,7 @@ export const ORIGEN_LABEL: Record<Turno["origen"], string> = {
 // solo para mostrar texto: los turnos son siempre hora de Córdoba,
 // mostrarlos en la timezone del visitante (o del servidor) sería
 // directamente incorrecto, no solo un problema de hidratación.
-const TIMEZONE_CORDOBA = "America/Argentina/Cordoba";
+export const TIMEZONE_CORDOBA = "America/Argentina/Cordoba";
 
 export function formatFechaHora(iso?: string): string {
   const partes = partesFechaHora(iso);

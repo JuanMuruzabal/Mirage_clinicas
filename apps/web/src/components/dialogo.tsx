@@ -16,6 +16,9 @@ interface DialogoProps {
   ancho?: "chico" | "medio" | "ancho";
   /** Nombre accesible del botón "Cerrar", si hay otros en la pantalla. */
   etiquetaCerrar?: string;
+  /** El fondo de la caja. "marfil" es la paleta blanca de los modales del
+   *  panel (como "Agregar turno"); por defecto sigue siendo hueso. */
+  superficie?: "hueso" | "marfil";
 }
 
 const ANCHOS = { chico: "max-w-md", medio: "max-w-2xl", ancho: "max-w-7xl" } as const;
@@ -39,7 +42,7 @@ const ANCHOS = { chico: "max-w-md", medio: "max-w-2xl", ancho: "max-w-7xl" } as 
  */
 const sinSuscripcion = () => () => {};
 
-export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chico", etiquetaCerrar }: DialogoProps) {
+export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chico", etiquetaCerrar, superficie = "hueso" }: DialogoProps) {
   const id = useId();
   // false en el servidor y al hidratar; true desde el render siguiente.
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -100,7 +103,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
         aria-labelledby={`${id}-titulo`}
         aria-describedby={descripcion ? `${id}-descripcion` : undefined}
         tabIndex={-1}
-        className={`w-full ${ANCHOS[ancho]} rounded-card border-[0.5px] border-arena bg-hueso shadow-soft outline-none`}
+        className={`w-full ${ANCHOS[ancho]} rounded-card border-[0.5px] border-arena ${superficie === "marfil" ? "bg-marfil" : "bg-hueso"} shadow-soft outline-none`}
       >
         {/* Un <div> y no un <header>: fuera de un article/section, <header> es
             un landmark "banner", y con el diálogo abierto el documento tenía

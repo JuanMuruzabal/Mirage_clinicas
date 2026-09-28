@@ -55,6 +55,11 @@ import type {
   TurnosPendientesAsistenciaResponse,
   VerificarEmailPayload,
   VerificarEmailResponse,
+  DocumentoDetalle,
+  DocumentoResumen,
+  ErrorDeCampoDeDocumento,
+  PacienteConDocumentos,
+  TrazoDeFirma,
 } from "@dental-mirage/shared-types";
 
 // Cliente HTTP hacia apps/api — server-only, sin prefijo NEXT_PUBLIC_ (spec
@@ -75,7 +80,15 @@ const API_URL = process.env.API_URL ?? "http://localhost:8080";
 const requestTimeoutMs = 35_000;
 
 export type ApiResult<T> =
-  { ok: true; data: T } | { ok: false; status: number; error: string };
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      /** Los errores por campo de un 422 (documentos clínicos, Fase 5.1):
+       *  la pantalla los marca en cada campo, no solo arriba. */
+      errores?: ErrorDeCampoDeDocumento[];
+    };
 
 // Pagina<T> — una tanda de un listado paginado, más el total que hay
 // detrás de los filtros actuales (Fase B de la auditoría, ver
@@ -192,7 +205,7 @@ async function cabecerasDeIP(): Promise<Record<string, string>> {
 
 type RawResult<T> =
   | { ok: true; data: T; headers: Headers }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; errores?: ErrorDeCampoDeDocumento[] };
 
 // requestRaw — el fetch real. Existe separado de `request` solo para que
 // requestPaginado pueda mirar los headers de la respuesta sin duplicar
@@ -250,10 +263,19 @@ async function requestRaw<T>(
     const message = isErrorBody(body)
       ? body.error
       : "Ocurrió un error inesperado.";
-    return { ok: false, status: res.status, error: message };
+    const errores = erroresDeCampo(body);
+    return errores
+      ? { ok: false, status: res.status, error: message, errores }
+      : { ok: false, status: res.status, error: message };
   }
 
   return { ok: true, data: body as T, headers: res.headers };
+}
+
+function erroresDeCampo(body: unknown): ErrorDeCampoDeDocumento[] | undefined {
+  if (typeof body !== "object" || body === null || !("errores" in body)) return undefined;
+  const errores = (body as { errores: unknown }).errores;
+  return Array.isArray(errores) ? (errores as ErrorDeCampoDeDocumento[]) : undefined;
 }
 
 function isErrorBody(body: unknown): body is { error: string } {
@@ -1663,6 +1685,13 @@ export interface EditarPacientePayload {
     telefono: string;
     telefonosAlternativos: string[];
   }[];
+  // Los datos de los documentos clínicos (Fase 5.1, D7): ausente es "no
+  // tocar", "" es "borrar".
+  fechaNacimiento?: string;
+  domicilio?: string;
+  obraSocial?: string;
+  obraSocialPlan?: string;
+  obraSocialAfiliado?: string;
 }
 
 // Corrige DNI/teléfono/email de la ficha del paciente (2026-08-23, "por si
@@ -2042,5 +2071,75 @@ export function apiBorrarSuscripcionPush(token: string, endpoint: string): Promi
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ endpoint }),
+  });
+}
+
+// --- Documentos clínicos (Fase 5.1) ---------------------------------
+//
+// Todo el módulo es de profesionales (TR-186): recepción recibe 403 en
+// estas rutas. Ver apps/api/internal/http/documentos.go.
+
+function conSesion(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export function apiPacientesConDocumentos(token: string): Promise<ApiResult<PacienteConDocumentos[]>> {
+  return request<PacienteConDocumentos[]>("/documentos/pacientes", { headers: conSesion(token) });
+}
+
+export function apiDocumentosEnCurso(token: string): Promise<ApiResult<DocumentoResumen[]>> {
+  return request<DocumentoResumen[]>("/documentos/en-curso", { headers: conSesion(token) });
+}
+
+export function apiDocumentosDePaciente(token: string, pacienteId: string): Promise<ApiResult<DocumentoResumen[]>> {
+  return request<DocumentoResumen[]>(`/pacientes/${pacienteId}/documentos`, { headers: conSesion(token) });
+}
+
+export function apiGetDocumento(token: string, id: string): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${id}`, { headers: conSesion(token) });
+}
+
+export function apiCrearDocumento(token: string, plantillaId: string, pacienteId: string): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>("/documentos", {
+    method: "POST",
+    headers: conSesion(token),
+    body: JSON.stringify({ plantillaId, pacienteId }),
+  });
+}
+
+export function apiGuardarBorrador(token: string, id: string, valores: Record<string, unknown>): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${id}`, {
+    method: "PATCH",
+    headers: conSesion(token),
+    body: JSON.stringify({ valores }),
+  });
+}
+
+export function apiDescartarBorrador(token: string, id: string): Promise<ApiResult<unknown>> {
+  return request<unknown>(`/documentos/${id}`, { method: "DELETE", headers: conSesion(token) });
+}
+
+export function apiTerminarDocumento(token: string, id: string): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${id}/terminar`, { method: "POST", headers: conSesion(token) });
+}
+
+export function apiVolverAEditarDocumento(token: string, id: string): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${id}/volver-a-editar`, { method: "POST", headers: conSesion(token) });
+}
+
+export interface FirmaPayload {
+  rol: string;
+  nombre?: string;
+  dni?: string;
+  enRepresentacion?: boolean;
+  vinculo?: string;
+  trazo: TrazoDeFirma;
+}
+
+export function apiFirmarDocumento(token: string, id: string, firma: FirmaPayload): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${id}/firmas`, {
+    method: "POST",
+    headers: conSesion(token),
+    body: JSON.stringify(firma),
   });
 }

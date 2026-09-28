@@ -223,6 +223,11 @@ describe("EditarPacienteModal", () => {
       email: "",
       telefonosAlternativos: [],
       emailsAlternativos: [],
+      fechaNacimiento: "",
+      domicilio: "",
+      obraSocial: "",
+      obraSocialPlan: "",
+      obraSocialAfiliado: "",
       tutores: [
         {
           id: "tutor-1",
@@ -304,8 +309,38 @@ describe("EditarPacienteModal", () => {
       email: "bruno@example.com",
       telefonosAlternativos: [],
       emailsAlternativos: [],
+      fechaNacimiento: "",
+      domicilio: "",
+      obraSocial: "",
+      obraSocialPlan: "",
+      obraSocialAfiliado: "",
     });
     expect(onSuccess).toHaveBeenCalledWith({ ...paciente, dni: "30222333" });
+  });
+
+  // Fase 5.1 (D7): los datos de los documentos clínicos viajan con el
+  // resto, y una fecha de nacimiento futura no se manda.
+  it("manda los datos de los documentos clínicos, recortados", async () => {
+    editarPacienteActionMock.mockResolvedValue({ paciente });
+    const user = userEvent.setup();
+    render(<EditarPacienteModal paciente={{ ...paciente, obraSocial: "OSDE" }} onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Domicilio"), "  San Martín 120 ");
+    await user.type(screen.getByLabelText("Número de afiliado"), "123456");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(editarPacienteActionMock).toHaveBeenCalledWith(
+      "pac-1",
+      expect.objectContaining({ domicilio: "San Martín 120", obraSocial: "OSDE", obraSocialAfiliado: "123456", fechaNacimiento: "" }),
+    );
+  });
+
+  it("no manda una fecha de nacimiento futura", async () => {
+    const user = userEvent.setup();
+    render(<EditarPacienteModal paciente={{ ...paciente, fechaNacimiento: "2999-01-01" }} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("La fecha de nacimiento no puede ser futura.");
+    expect(editarPacienteActionMock).not.toHaveBeenCalled();
   });
 
   it("muestra el error que devuelve la acción", async () => {

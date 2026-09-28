@@ -177,6 +177,23 @@ func clavesForaneas() []claveForanea {
 		{"fk_notificaciones_usuario", "notificaciones", "user_id", "users", "CASCADE", false},
 		{"fk_notificaciones_clinica", "notificaciones", "clinic_id", "clinics", "", true},
 		{"fk_push_suscripciones_usuario", "push_suscripciones", "user_id", "users", "CASCADE", false},
+
+		// Documentos clínicos (Fase 5.1, TR-182). TODAS RESTRICT, y no por
+		// default: un documento es historia clínica que la ley obliga a
+		// conservar diez años (Ley 26.529, art. 18). La del paciente es la
+		// que frena el borrado automático de fichas (ver
+		// borrarFichaPacienteConSusHijas); la del usuario de una firma,
+		// cualquier purga de una cuenta que firmó algo. Un CASCADE o un SET
+		// NULL acá tampoco funcionarían: los triggers de
+		// migrate_documentos.go rechazan el UPDATE/DELETE que harían.
+		// `documento_eventos.documento_id` va sin FK a propósito (es
+		// historial, ver DocumentoEvento).
+		{"fk_documentos_clinica", "documentos_clinicos", "clinic_id", "clinics", "", false},
+		{"fk_documentos_paciente", "documentos_clinicos", "paciente_id", "pacientes", "", false},
+		{"fk_documento_firmas_documento", "documento_firmas", "documento_id", "documentos_clinicos", "", false},
+		{"fk_documento_firmas_usuario", "documento_firmas", "user_id", "users", "", true},
+		{"fk_documento_eventos_clinica", "documento_eventos", "clinic_id", "clinics", "", false},
+		{"fk_documento_eventos_usuario", "documento_eventos", "user_id", "users", "", true},
 	}
 }
 

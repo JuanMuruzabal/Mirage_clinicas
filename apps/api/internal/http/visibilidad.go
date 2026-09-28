@@ -510,3 +510,43 @@ func profesionalQueAtiende(gdb *gorm.DB, r *http.Request, clinicID uuid.UUID) (u
 	}
 	return db.OwnerDeLaClinica(gdb, clinicID)
 }
+
+// soloMisDocumentos — los documentos clínicos que escribió quien pregunta
+// (Fase 5.1, TR-186). Un borrador o un documento a firmar es solo de su
+// autor: todavía no es historia clínica, y nadie más lo edita ni lo firma.
+//
+// Mira la SESIÓN y no el foco: el módulo es solo de profesionales
+// (`requireRol(profesional)`), así que no hay "vista de otro" en la que
+// pararse — y un documento clínico se firma en nombre propio.
+func soloMisDocumentos(r *http.Request) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		session, ok := sessionFromContext(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		return tx.Where("documentos_clinicos.autor_user_id = ?", session.UserID)
+	}
+}
+
+// documentosQueVeo — los documentos clínicos que puede LEER quien pregunta
+// (TR-186): los suyos en cualquier estado, y los sellados o anulados de
+// los pacientes de su lista (los tres criterios de `soloMisPacientes`),
+// aunque los haya hecho un colega. La historia clínica es única por
+// establecimiento (Ley 26.529, art. 17): partirla por profesional haría que
+// cada uno trabaje con la mitad de los antecedentes.
+//
+// Los borradores y los "a firmar" de un colega NO: todavía no son historia
+// clínica, son el trabajo en curso de otra persona.
+func documentosQueVeo(r *http.Request, clinicID uuid.UUID) func(*gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		session, ok := sessionFromContext(r)
+		if !ok {
+			return tx.Where("1 = 0")
+		}
+		misPacientes := tx.Session(&gorm.Session{NewDB: true}).Model(&db.Paciente{}).
+			Scopes(soloMisPacientes(r)).Where("pacientes.clinic_id = ?", clinicID).Select("pacientes.id")
+		return tx.Where(`documentos_clinicos.autor_user_id = ? OR (
+			documentos_clinicos.estado IN ? AND documentos_clinicos.paciente_id IN (?)
+		)`, session.UserID, []string{db.DocumentoSellado, db.DocumentoAnulado}, misPacientes)
+	}
+}

@@ -955,7 +955,7 @@ Decisiones del cliente (2026-09-27): firma del profesional **electrónica con ev
 | Subfase | Qué | Estado |
 |---|---|---|
 | 5.0 Plan | Relevamiento de los 19 modelos, marco legal, diseño y plan | ✅ este PR |
-| 5.1 Cimientos | Tablas + triggers de inmutabilidad + auditoría; paquete `packages/documentos-clinicos` (motor, tipos de campo, generador a Go); pantalla del módulo, editor con calco en vivo, registro del paciente y bloque de la ficha; fichas con documentos que no se borran; datos nuevos de la ficha (D7). Primer documento: consentimiento de tratamiento de conducto, firmado en el dispositivo y sellado | ⏳ |
+| 5.1 Cimientos | Tablas + triggers de inmutabilidad + auditoría; paquete `packages/documentos-clinicos` (motor, tipos de campo, generador a Go); pantalla del módulo, editor con calco en vivo, registro del paciente y bloque de la ficha; fichas con documentos que no se borran; datos nuevos de la ficha (D7). Primer documento: consentimiento de tratamiento de conducto, firmado en el dispositivo y sellado | ✅ en PR (TR-187) |
 | 5.2 PDF | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma | ⏳ |
 | 5.3 Firma a distancia | Vínculo al celular del paciente, alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica en el perfil | ⏳ |
 | 5.4 Consentimientos | Los trece restantes, incluido el de ortodoncia (selector de piezas FDI, asentimiento) | ⏳ |

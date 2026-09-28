@@ -75,6 +75,13 @@ type pacienteResponse struct {
 	// todos suyos y la columna sería su inicial repetida en cada fila.
 	// Mismo criterio que la columna de profesional en Turnos.
 	Profesionales []profesionalDePacienteResponse `json:"profesionales,omitempty"`
+	// Los datos que piden los documentos clínicos (Fase 5.1, D7). Todos
+	// opcionales; la fecha va como AAAA-MM-DD.
+	FechaNacimiento    *string `json:"fechaNacimiento,omitempty"`
+	Domicilio          *string `json:"domicilio,omitempty"`
+	ObraSocial         *string `json:"obraSocial,omitempty"`
+	ObraSocialPlan     *string `json:"obraSocialPlan,omitempty"`
+	ObraSocialAfiliado *string `json:"obraSocialAfiliado,omitempty"`
 }
 
 // profesionalDePacienteResponse — el id además del nombre porque la
@@ -117,7 +124,18 @@ func toPacienteResponse(p db.Paciente, verificado bool, tutores []db.PacienteTut
 	for i, t := range tutores {
 		tutoresOut[i] = toTutorResponse(t, tutorTelAlt[t.ID])
 	}
+	var fechaNacimiento *string
+	if p.FechaNacimiento != nil {
+		// Columna DATE: medianoche UTC, se formatea directo (sin clock.In).
+		f := p.FechaNacimiento.Format("2006-01-02")
+		fechaNacimiento = &f
+	}
 	return pacienteResponse{
+		FechaNacimiento:       fechaNacimiento,
+		Domicilio:             p.Domicilio,
+		ObraSocial:            p.ObraSocial,
+		ObraSocialPlan:        p.ObraSocialPlan,
+		ObraSocialAfiliado:    p.ObraSocialAfiliado,
 		ID:                    p.ID.String(),
 		Nombre:                p.Nombre,
 		Apellido:              p.Apellido,
@@ -359,6 +377,10 @@ type pacienteDetalleResponse struct {
 	// pacienteResponse (ver el comentario grande ahí) — este struct ya no
 	// necesita declararlos aparte, los hereda del embed.
 	Turnos []turnoResponse `json:"turnos"`
+	// DocumentosClinicos — cuántos documentos sellados tiene (Fase 5.1).
+	// Lo ve cualquiera que vea la ficha, recepción incluida: saber QUE
+	// hay historia clínica no es leerla (TR-186).
+	DocumentosClinicos int64 `json:"documentosClinicos"`
 }
 
 // getPacienteHandler — GET /pacientes/{id} (T3.6): datos personales +
@@ -434,9 +456,18 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		var documentosSellados int64
+		if err := gdb.Model(&db.DocumentoClinico{}).
+			Where("paciente_id = ? AND estado = ?", paciente.ID, db.DocumentoSellado).
+			Count(&documentosSellados).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
+			return
+		}
+
 		writeJSON(w, http.StatusOK, pacienteDetalleResponse{
-			pacienteResponse: toPacienteResponse(paciente, verificado, tutores, emailsOut, telsOut, tutorTelAlt),
-			Turnos:           turnosOut,
+			pacienteResponse:   toPacienteResponse(paciente, verificado, tutores, emailsOut, telsOut, tutorTelAlt),
+			Turnos:             turnosOut,
+			DocumentosClinicos: documentosSellados,
 		})
 	}
 }
@@ -504,6 +535,9 @@ type editarPacienteRequest struct {
 	// Tutores — los que se editan, cada uno por su id. Los que no vienen
 	// no se tocan. Cada id tiene que ser un tutor de ESTA ficha.
 	Tutores *[]editarTutorRequest `json:"tutores"`
+	// Los datos de los documentos clínicos (Fase 5.1, D7): ausente es
+	// "no tocar" y "" es "borrar", como el resto de este PATCH.
+	datosPersonalesRequest
 }
 
 // editarTutorRequest — el mail y los teléfonos de un tutor.
@@ -658,6 +692,11 @@ func editarPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 				}
 				tutoresAEditar = append(tutoresAEditar, tutorAEditar{id, email, telefono, alts})
 			}
+		}
+
+		if msg := aplicarDatosPersonales(&paciente, req.datosPersonalesRequest); msg != "" {
+			writeError(w, http.StatusBadRequest, msg)
+			return
 		}
 
 		paciente.DNI = req.DNI

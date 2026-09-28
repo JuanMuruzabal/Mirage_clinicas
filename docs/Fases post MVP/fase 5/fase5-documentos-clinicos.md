@@ -92,7 +92,7 @@ Todo lo demás de este documento es técnico y tiene una recomendación firme. E
 | D4 | Quién ve | ✅ **Todos los profesionales que atienden al paciente**; recepción solo sabe cuántos hay |
 | D5 | Símbolo de prótesis fija y removible | ⏳ Se usa la propuesta; se confirma con el odontólogo en la QA de la 5.5 |
 | D6 | Orden, y el consentimiento de COVID | ⏳ Se usa el orden de §6; COVID **afuera** salvo que el cliente lo pida |
-| D7 | Datos nuevos en la ficha | ⏳ Se suman los cinco propuestos en la 5.1 |
+| D7 | Datos nuevos en la ficha | ✅ Los cinco, en la ficha y en "Editar datos" (5.1); se precargan en cada documento. Guardar en la ficha lo completado en un documento queda para la 5.6 (ver §4.1) |
 
 ### D1 — Qué firma usa el profesional (la "firma digital" del brief)
 
@@ -132,7 +132,7 @@ La recomendación es que **entre**, como una **evolución**: cada fila es un asi
 | **El autor** | Ve y exporta todo lo suyo. |
 | **Otro profesional que atiende al mismo paciente** (lo tiene en su lista, los tres criterios de `soloMisPacientes`) | Ve los documentos de ese paciente **aunque los haya hecho un colega**, en solo lectura y con el autor a la vista. La historia clínica es **única por establecimiento** (art. 17): partirla por profesional haría que cada uno trabaje con la mitad de los antecedentes del paciente. Es el mismo criterio de "el historial de un paciente se ve entero, con su dueño" de la Fase 3.2.5. |
 | **Un profesional que NO tiene al paciente en su lista** | No ve nada (404). |
-| **Recepción y administrador de página** | **No entran al módulo.** El brief dice "exclusivo de profesionales", y el contenido es secreto profesional. Recepción sí ve, en la ficha, *que* hay documentos (cuántos y de qué tipo) — no qué dicen. |
+| **Recepción y administrador de página** | **No entran al módulo** (403, como cualquier sección que exige un rol). El brief dice "exclusivo de profesionales", y el contenido es secreto profesional. Recepción sí ve, en la ficha, *cuántos* documentos firmados hay — no qué dicen. |
 
 Alternativa más estricta: cada profesional ve solo lo suyo.
 
@@ -187,10 +187,11 @@ Foreign keys con `NO ACTION` hacia `pacientes`, `clinics` y la **clave compuesta
 - **No se crea un documento sobre una ficha `en_conflicto`**: primero se resuelve la identidad. Así la ficha duplicada que un conflicto borra nunca tiene documentos.
 - **Una ficha con un documento sellado cuenta como verificada**: alguien la atendió en persona.
 - Crear un documento para un paciente de la clínica lo **suma a la lista** del autor (`pacientes_en_mi_lista`, TR-157).
+- **Los datos de D7 se editan en la ficha** ("Editar datos") y se precargan en cada documento. Lo que se completa en un documento **no** se escribe de vuelta en la ficha en la 5.1: en el consentimiento de conducto los datos son de *quien suscribe*, que puede ser un representante —escribirlos en la ficha le pondría al paciente la fecha de nacimiento de su madre—. Llega en la 5.6, con una marca por campo que diga que el dato es del paciente.
 
 ### 4.2 Las plantillas son datos, no diecinueve editores
 
-El brief pide "un editor único por documento". La forma de dárselo sin escribir y mantener diecinueve editores a mano es que **cada documento sea una definición** y haya **un solo motor** que la dibuje de tres maneras: el formulario del sidebar, el calco en vivo y el PDF. Cada documento tiene así *su* editor —sus campos, sus opciones, sus herramientas—, y un arreglo en el motor llega a todos. Es el mismo camino que tomó la página pública con `packages/prisma-engine`.
+El brief pide "un editor único por documento". La forma de dárselo sin escribir y mantener diecinueve editores a mano es que **cada documento sea una definición** y haya **un solo motor** que la dibuje de tres maneras: el formulario del sidebar, el documento en vivo y el PDF. El documento en vivo es la **lámina** (TR-187, decisión 14): la página original del Colegio con lo cargado escrito sobre sus renglones, compuesto igual en TypeScript y en Go y congelado al terminar. Cada documento tiene así *su* editor —sus campos, sus opciones, sus herramientas—, y un arreglo en el motor llega a todos. Es el mismo camino que tomó la página pública con `packages/prisma-engine`.
 
 - **Paquete nuevo `packages/documentos-clinicos`** (TypeScript + zod), con un generador que exporta cada plantilla a JSON y lo copia a `apps/api` (`go:embed`), como `pnpm run engine:generar`. CI falla si lo generado difiere de lo commiteado.
 - **Una plantilla** = `id`, `version`, título, tipo, **secciones** con bloques, y la lista de **firmas** (qué roles, cuáles obligatorias).
@@ -199,6 +200,7 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 - **Versiones:** el texto legal de una versión no se edita nunca. Si cambia, es una versión nueva; los documentos ya sellados guardan la versión y **el texto tal cual lo leyó el paciente** dentro de su contenido congelado.
 - **Validación en el backend**, contra el esquema de esa versión: tolerante al guardar un borrador, estricta al terminar (campos obligatorios, piezas FDI válidas).
 - **Sin espacios en blanco** (Decreto 1089/2012, art. 15): al terminar, un campo opcional vacío queda impreso como "No consigna", para que no haya hueco donde agregar algo después.
+- **La lámina** (`lamina` en la plantilla): el tamaño de cada página en puntos del PDF, una **zona** por dato (dónde empieza el renglón, su ancho, cuántos renglones tiene, el texto con marcas; `{{campo:dia}}` para las fechas en partes) y el **lugar de cada firma**. Se miden sobre el PDF con PyMuPDF. Lo que no entra en su renglón ni al tamaño mínimo es un error al terminar.
 
 ### 4.3 Las pantallas
 
@@ -206,16 +208,16 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 
 **`/panel/documentos`**
 
-1. **El selector**: el nombre del documento entre `<` y `>` y un buscador (mismo dibujo que `CarruselDeProfesionales`), con un filtro Historias clínicas / Consentimientos.
-2. **La vista del original**: las páginas del PDF de referencia como imágenes (pre-renderizadas, no un visor de PDF — en iOS un PDF embebido muestra solo la primera página), y el botón **Completar este documento**.
-3. **Pacientes con documentos**: tabla con nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente. Arriba, los **borradores** del profesional, para retomarlos.
+1. **El selector**: el nombre del documento entre `<` y `>` (mismo dibujo que `CarruselDeProfesionales`). Tocarlo despliega todos los documentos separados en consentimientos informados, historias clínicas y el resto (el buscador de la primera versión se sacó a pedido del cliente, 2026-09-28).
+2. **"Así es el documento"**: las páginas del modelo original **como imágenes** —exactas al PDF, pre-renderizadas con `scripts/renderizar-originales.py`, no un visor de PDF (en iOS un PDF embebido muestra solo la primera página)—, por versión de plantilla. Debajo del selector, el botón **Completar este documento** y, debajo, **tus documentos en curso**. En el celular, **Ver en pantalla completa** abre la hoja en una capa con "Acercar". Los PDF no se versionan; las imágenes de sus páginas sí. Una plantilla sin original renderizado muestra el calco vacío.
+3. **Al fondo, después del modelo: pacientes con documentos**, en blanco: nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente.
 
 **El editor** (`/panel/documentos/{id}`, un borrador):
 
-- **Escritorio**: sidebar con el formulario a la izquierda; el **calco en vivo** en el centro; un botón **Ver original** que muestra, en ese mismo lugar, la página correspondiente del modelo.
-- **Celular**: una cosa por vez, **Completar** o **Ver documento** (el mismo criterio que el editor de página, TR-172).
-- **Paso 1, el paciente**: buscador de pacientes de la clínica; al elegirlo se precargan sus datos y los del profesional.
-- **Los campos**, sección por sección. Tocar una parte del calco abre esa sección en el sidebar (como TR-173).
+- **Escritorio**: sidebar con el formulario a la izquierda; a la derecha, **la lámina**: la página del modelo con lo cargado escrito encima, que es exactamente lo que se firma y lo que va al PDF (TR-187, decisión 14). Lo que falta se ve teñido; lo que no entra, en terracota.
+- **Celular**: una cosa por vez, **Completar** o **Ver documento** (el mismo criterio que el editor de página, TR-172). En los dos tamaños, **Ver en pantalla completa** abre la hoja en una capa con "Acercar" (solo para leer: los renglones se tocan en la hoja del editor).
+- **Paso 1, el paciente**: el mismo buscador que "Paciente conocido" de "+ Agregar turno" (`BuscadorPacientes`), en un diálogo blanco; al elegirlo se precargan sus datos y los del profesional.
+- **Los campos**, sección por sección. Tocar un renglón de la hoja abre esa sección en el sidebar y pone el foco en su campo (como TR-173).
 - **Se guarda solo**. **Terminar** valida, congela y pasa a firmas.
 
 **Firmas** (§4.5): una tarjeta por firmante requerido, con tres acciones — **Firmar en este dispositivo**, **Enviar vínculo** (copiar o abrir WhatsApp) y **Avisar a mi celular**. El estado de cada una se actualiza solo. Con la última firma, el documento se sella y aparece **Descargar PDF**.
@@ -248,7 +250,7 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 
 **La constancia.** El PDF termina con una hoja de constancia por firma: método, fecha y hora de Córdoba, IP, dispositivo, mail verificado si lo hubo y la huella firmada. Es la evidencia que hace valer una firma electrónica (D1).
 
-**El profesional** firma con la rúbrica registrada en su perfil, reconfirmando su identidad en ese momento. El "sello" es su nombre y matrícula impresos al lado.
+**El profesional** firma con la rúbrica registrada en su perfil, reconfirmando su identidad en ese momento (5.3). El "sello" es su nombre y matrícula impresos al lado. **En la 5.1** dibuja su firma en el dispositivo, igual que el paciente, con la sesión como identidad: la API toma su nombre y documento del perfil e ignora lo que mande la pantalla.
 
 **El sellado.** Con la última firma requerida, en una sola transacción:
 
@@ -262,13 +264,13 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 ### 4.6 El PDF
 
 - **Se genera en el backend (Go), una sola vez, al sellar.** Lo produce el mismo proceso que sella, en la misma transacción que registra su huella. Generarlo en la web obligaría a la API a confiar en un PDF que no puede verificar. Un motor genérico recorre la plantilla y el contenido: títulos, texto legal, campos, tablas, el odontograma (misma geometría que el SVG), el genograma y las firmas redibujadas desde sus trazos. La librería (que escriba UTF-8 con fuentes TTF embebidas, dibuje vectores y, si se puede, produzca PDF/A para archivo a largo plazo) se elige con una prueba corta al empezar la subfase 5.2.
-- **No es un calco pixel a pixel del papel**: es el mismo contenido, prolijo y legible, con el título, las secciones y la leyenda del modelo. El calco fiel es el de la pantalla.
+- **Es la lámina** (*corregido el 2026-09-28, TR-187 decisión 14*): la página original del Colegio con la composición **congelada** al terminar dibujada encima, en Helvetica —fuente base de PDF, con las mismas métricas con las que se compuso—, y las firmas en su renglón. No se vuelve a componer: se dibuja lo que se firmó. La API necesita para eso las páginas del original de su lado (la imagen, o la página del PDF si el Colegio autoriza versionarlo).
 - **Se guarda aparte de las fotos de la página pública**: un storage propio (prefijo o bucket distinto en R2, solo `Save` y `Open`, **sin `Delete`**), con nombres que **no** calzan con `storage.NombreValido`. Así nunca los sirve la ruta pública `/uploads` ni los toca la limpieza diaria de fotos huérfanas (TR-174).
 - **Se descarga solo por la API**, con sesión, permiso y un evento `exportado` en la auditoría.
 
 ### 4.7 Permisos, aislamiento y privacidad
 
-- Todas las rutas del módulo exigen rol **`profesional`**. Recepción y administrador de página reciben 404.
+- Todas las rutas del módulo exigen rol **`profesional`** (`requireRol`). Recepción y administrador de página reciben 403, como en cualquier sección con rol; un documento o un paciente fuera de mi alcance, 404.
 - **Crear**: sobre un paciente de la clínica (queda en la lista del autor). **Ver**: según D4.
 - Los endpoints nuevos entran a las dos auditorías de aislamiento (`TestAislamiento_NingunaConsultaDelPanelSinAcotar` y `TestAislamiento_LosIDsDeLaURLSeAcotan`): todo id de la URL se acota por clínica y por los pacientes visibles.
 - **Nada del contenido va a los logs** (ya se loguea el patrón de ruta, no la URL), ni a una notificación push: la alerta dice "Hay una firma pendiente", sin nombre de paciente ni de documento, porque aparece en la pantalla bloqueada del celular.
@@ -339,7 +341,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 
 - Un documento sellado **no se puede modificar ni borrar** desde la app ni con SQL directo (test), y alterar uno a mano en la base **se detecta** al verificar la cadena (test).
 - Una ficha con documentos **no se borra** por ningún camino automático (un test por cada uno de los cuatro).
-- Recepción y administrador de página reciben **404** en todo el módulo; un profesional sin el paciente en su lista, también.
+- Recepción y administrador de página reciben **403** en todo el módulo; un profesional sin el paciente en su lista, **404**.
 - El PDF de un documento sellado es **siempre el mismo** (su huella coincide con la registrada) y se descarga solo con sesión.
 - Un vínculo de firma **vence**, se usa **una sola vez** y no abre ningún otro documento.
 - Las plantillas (las diecinueve del Colegio y las dos propias) generan su JSON sin diferencias en CI, y cada una tiene un test que la completa, la sella y genera su PDF.

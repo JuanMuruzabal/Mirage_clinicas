@@ -366,7 +366,7 @@ Las tarjetas de "General" se despliegan a medida que entran en la pantalla —la
 
 ## 17. Documentos clínicos (Fase 5)
 
-Brief del cliente (2026-09-27): `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.docx`. Diseño, marco legal y plan: `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.md`; decisiones en `tradeoffs.md` TR-182 a TR-186; tablero en `implementation-plan.md` §17. **En diseño: todavía no hay código.**
+Brief del cliente (2026-09-27): `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.docx`. Diseño, marco legal y plan: `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.md`; decisiones en `tradeoffs.md` TR-182 a TR-186; tablero en `implementation-plan.md` §17. **Subfase 5.1 implementada (TR-187):** el módulo, el editor, la firma en el dispositivo y el sellado, con el consentimiento de tratamiento de conducto como primer documento; siguen el PDF (5.2) y la firma a distancia (5.3).
 
 Un módulo nuevo del panel, **Documentos**, solo para profesionales, con las historias clínicas y los consentimientos informados de odontología precargados (19 modelos). El profesional elige un documento con flechas o un buscador, ve el modelo original, y lo completa en un sidebar —primero el paciente, después cada campo, con herramientas propias como el **odontograma** con la simbología de los modelos— mientras el documento se arma en vivo al lado. Terminado, lo firman el paciente (en el consultorio, o con el dedo en su celular desde un vínculo) y el profesional, y queda **sellado**: se agrega al registro del paciente, se exporta a PDF y **no se puede modificar ni borrar**. Una corrección o una revocación es un documento nuevo que apunta al original.
 

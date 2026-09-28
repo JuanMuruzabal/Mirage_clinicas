@@ -36,6 +36,7 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
 COPY packages/prisma-engine/package.json packages/prisma-engine/package.json
+COPY packages/documentos-clinicos/package.json packages/documentos-clinicos/package.json
 RUN pnpm install --frozen-lockfile
 
 # --- build: código fuente + `next build` (genera .next/standalone) ---
@@ -45,6 +46,7 @@ COPY --from=deps /repo ./
 COPY apps/web apps/web
 COPY packages/shared-types packages/shared-types
 COPY packages/prisma-engine packages/prisma-engine
+COPY packages/documentos-clinicos packages/documentos-clinicos
 # ARG → ENV: ninguno es secreto (viajan al navegador de por sí, ver el
 # comentario grande de arriba) — sin este puente, `next build` los ve
 # como `undefined` aunque Render/docker-compose los pasen bien como

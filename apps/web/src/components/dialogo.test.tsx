@@ -68,6 +68,23 @@ describe("Dialogo", () => {
     await user.click(screen.getByRole("dialog").parentElement!);
     expect(onCerrar).toHaveBeenCalledTimes(1);
   });
+
+  // Documentos clínicos (Fase 5.1): los modales del módulo van en la paleta
+  // blanca, como "Agregar turno"; el resto de la app sigue en hueso.
+  it("la superficie es hueso salvo que se pida la blanca", () => {
+    const { rerender } = render(
+      <Dialogo titulo="Prueba" onCerrar={vi.fn()}>
+        <p>Contenido</p>
+      </Dialogo>,
+    );
+    expect(screen.getByRole("dialog")).toHaveClass("bg-hueso");
+    rerender(
+      <Dialogo titulo="Prueba" onCerrar={vi.fn()} superficie="marfil">
+        <p>Contenido</p>
+      </Dialogo>,
+    );
+    expect(screen.getByRole("dialog")).toHaveClass("bg-marfil");
+  });
 });
 
 describe("Confirmacion", () => {
