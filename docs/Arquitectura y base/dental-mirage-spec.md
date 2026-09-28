@@ -98,7 +98,7 @@ El wizard persiste el progreso en cada paso — cerrar sesión y volver retoma e
   - Información personal.
   - Historial de turnos.
   - Turnos activos.
-  - Adjunto de historia clínica *(placeholder visual únicamente — sin implementación en el MVP)*.
+  - Adjunto de historia clínica *(placeholder visual únicamente — sin implementación en el MVP; desde la Fase 5 es el módulo de documentos clínicos, ver §17)*.
   - Adjunto de presupuesto de tratamiento *(placeholder visual únicamente — sin implementación en el MVP)*.
 
 ---
@@ -363,3 +363,12 @@ Una campana al lado del ícono de perfil, en toda pantalla con sesión, con el n
 Pedido directo del cliente (2026-09-26); decisiones en `docs/Arquitectura y base/tradeoffs.md` TR-180 y plan en `implementation-plan.md` §16.
 
 Las tarjetas de "General" se despliegan a medida que entran en la pantalla —la de "Turnos de hoy", de izquierda a derecha en monitor—, con un dibujo propio cada una (el reloj con la mañana transcurrida, la semana con los horarios tomados, la muela con el tilde, el reloj de arena). El sidebar tiene un juego de íconos propio y marca la sección donde se está, también en sus pantallas de adentro. En el celular, el perfil de cada colaborador se abre tocando su fila. Con "reducir movimiento" (que en Android prende también el ahorro de batería) las tarjetas aparecen con un fundido, sin desplegarse. La home pública se describe en el §6.
+
+## 17. Documentos clínicos (Fase 5)
+
+Brief del cliente (2026-09-27): `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.docx`. Diseño, marco legal y plan: `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.md`; decisiones en `tradeoffs.md` TR-182 a TR-186; tablero en `implementation-plan.md` §17. **En diseño: todavía no hay código.**
+
+Un módulo nuevo del panel, **Documentos**, solo para profesionales, con las historias clínicas y los consentimientos informados de odontología precargados (19 modelos). El profesional elige un documento con flechas o un buscador, ve el modelo original, y lo completa en un sidebar —primero el paciente, después cada campo, con herramientas propias como el **odontograma** con la simbología de los modelos— mientras el documento se arma en vivo al lado. Terminado, lo firman el paciente (en el consultorio, o con el dedo en su celular desde un vínculo) y el profesional, y queda **sellado**: se agrega al registro del paciente, se exporta a PDF y **no se puede modificar ni borrar**. Una corrección o una revocación es un documento nuevo que apunta al original.
+
+La firma es **electrónica con evidencias** (trazo, huella del contenido, fecha, dispositivo), preparada para sumar firma digital certificada (Ley 25.506). Los documentos de un paciente los ven todos los profesionales que lo atienden; recepción no entra al módulo. El diseño responde a la Ley 26.529 y su Decreto 1089/2012 (historia clínica informatizada, consentimiento, conservación por diez años), la Ley 26.812 (odontograma en sistema dígito dos) y la Ley 25.326 (datos sensibles); antes de usarlo con pacientes reales lo tiene que revisar un abogado o el Colegio.
+

@@ -942,9 +942,31 @@ Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (pane
 | Panel — General | Las tarjetas se despliegan al entrar en la pantalla ("Turnos de hoy" hacia la derecha en monitor), con dibujos nuevos; "Estadística" apilada con "Turnos pendientes" | ✅ mergeado (PR #72) |
 | Panel — sidebar | Íconos propios con una pieza de acento que se rellena en la sección activa; la sección queda marcada en sus pantallas de adentro | ✅ mergeado (PR #72) |
 | Home, primera versión | Siete secciones contando el dolor del profesional, con ilustraciones de producto | ✅ mergeada (PR #73) — reemplazada por la segunda |
-| Home, segunda versión | Simple y al pie: qué es, la historia de Lucía en tres escenas, cuatro ventajas, pacientes y cierre, con dibujos propios (el mate, el celular, el calendario) | 🔄 PR #74 |
+| Home, segunda versión | Simple y al pie: qué es, la historia de Lucía en tres escenas, cuatro ventajas, pacientes y cierre, con dibujos propios (el mate, el celular, el calendario) | ✅ mergeada (PR #74) |
 
 **Pendiente, sin fecha:** si el cliente quiere contar la seguridad o los pasos para empezar, van en una página aparte, no en la home (TR-181, "lo que se sacrifica").
+
+## 17. Fase 5 — Documentos clínicos (desde 2026-09-27)
+
+Brief del cliente: `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.docx`. Modelos de referencia: los 19 modelos oficiales del Colegio Odontológico de la Provincia de Córdoba ([colodontcba.org.ar](https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/)); no se versionan en el repo, que es público. **Diseño, marco legal y plan completos: `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.md`** — este apartado es solo el tablero. Decisiones: `tradeoffs.md` TR-182 a TR-186.
+
+Decisiones del cliente (2026-09-27): firma del profesional **electrónica con evidencias**, preparada para firma digital certificada (D1); el paciente firma por vínculo **sin código al mail** (D2); el registro de prestaciones **entra** con debe/haber/saldo como importes informativos (D3); los documentos los ven **todos los profesionales que atienden al paciente**, recepción no entra al módulo (D4). Asumidas hasta que el cliente diga otra cosa: símbolo de prótesis (D5, se confirma en la QA de la 5.5), consentimiento de COVID afuera (D6), cinco datos nuevos en la ficha (D7).
+
+| Subfase | Qué | Estado |
+|---|---|---|
+| 5.0 Plan | Relevamiento de los 19 modelos, marco legal, diseño y plan | ✅ este PR |
+| 5.1 Cimientos | Tablas + triggers de inmutabilidad + auditoría; paquete `packages/documentos-clinicos` (motor, tipos de campo, generador a Go); pantalla del módulo, editor con calco en vivo, registro del paciente y bloque de la ficha; fichas con documentos que no se borran; datos nuevos de la ficha (D7). Primer documento: consentimiento de tratamiento de conducto, firmado en el dispositivo y sellado | ⏳ |
+| 5.2 PDF | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma | ⏳ |
+| 5.3 Firma a distancia | Vínculo al celular del paciente, alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica en el perfil | ⏳ |
+| 5.4 Consentimientos | Los trece restantes, incluido el de ortodoncia (selector de piezas FDI, asentimiento) | ⏳ |
+| 5.5 Odontograma | Componente para editor, calco y PDF; permanentes y temporarios; las dos leyendas | ⏳ |
+| 5.6 Historias clínicas | General, PcD, ortodoncia (cefalogramas, VTO) y anexo de odontopediatría (genograma) | ⏳ |
+| 5.7 Evolución y copias | Registro de prestaciones como asientos sellados, enmiendas, revocación, copia completa para el paciente | ⏳ |
+| 5.8 Anclaje y cierre | Sello de tiempo externo diario, bucket con retención bloqueada, verificación de la cadena, revisión legal, QA en dispositivos reales | ⏳ |
+
+**Camino crítico:** 5.1 → 5.2 → 5.3. Desde la 5.4 las plantillas se suman sobre el motor.
+
+**Antes de usarlo con pacientes reales:** revisión de un abogado o del Colegio sobre la firma electrónica con evidencias, el texto de la constancia y los términos del servicio como encargado del tratamiento (Ley 25.326); avisarle al Colegio Odontológico de la Provincia de Córdoba que se usan sus modelos oficiales (y pedir su conformidad); revisar que los backups de Render duren diez años.
 
 ---
 
