@@ -260,6 +260,30 @@
   }
 }
 
+/* Los campos de fecha y hora en el iPhone (pedido del cliente,
+   2026-09-28). Safari de iOS les pone un ancho mínimo propio —el de su
+   control nativo— y con `w-full` se salen de su caja; además centra el
+   valor. Sin la apariencia nativa se comportan como cualquier campo; el
+   alto mínimo es porque, vacíos y sin apariencia, iOS los aplasta.
+   `-webkit-touch-callout` existe solo en iOS: en la computadora, y en
+   Android, esto no toca nada. */
+@layer base {
+  @supports (-webkit-touch-callout: none) {
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 0;
+      min-height: 2.75rem;
+    }
+
+    input::-webkit-date-and-time-value {
+      text-align: left;
+    }
+  }
+}
+
 /* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
    del todo dejaba ver el fondo nativo del navegador detrás de la página,
    sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024
