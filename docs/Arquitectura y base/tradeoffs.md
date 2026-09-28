@@ -3291,11 +3291,38 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 - **Fecha:** 2026-09-27 · **Fase:** plan (Fase 5) — decisión D4 del cliente
 - **Contexto:** con N profesionales por clínica (Fase 3.2), un paciente puede tener documentos de varios. La Ley 26.529 dice que la historia clínica es **única por establecimiento** (art. 17); el brief dice que el módulo es "exclusivo" y "completado únicamente por profesionales"; los datos de salud son sensibles (Ley 25.326).
-- **Decisión:** todas las rutas del módulo exigen rol `profesional`. Un profesional ve **todos** los documentos de los pacientes que están en su lista (los tres criterios de `soloMisPacientes`, TR-157), también los de sus colegas, **en solo lectura y con el autor a la vista**; para un paciente fuera de su lista, 404. Crear un documento para un paciente de la clínica lo suma a la lista del autor. **Recepción y administrador de página no entran** (404); en la ficha, recepción ve cuántos documentos hay y de qué tipo, no su contenido. Cada apertura y descarga de un documento sellado queda en la auditoría. Nada del contenido va a logs ni a notificaciones push (la alerta de firma no nombra paciente ni documento: aparece en la pantalla bloqueada).
+- **Decisión:** todas las rutas del módulo exigen rol `profesional`. Un profesional ve **todos** los documentos de los pacientes que están en su lista (los tres criterios de `soloMisPacientes`, TR-157), también los de sus colegas, **en solo lectura y con el autor a la vista**; para un paciente fuera de su lista, 404. Crear un documento para un paciente de la clínica lo suma a la lista del autor. **Recepción y administrador de página no entran** (403, el de cualquier sección que exige un rol; *corregido en la 5.1 — este TR decía 404*); en la ficha, recepción ve cuántos documentos firmados hay, no su contenido. Cada apertura y descarga de un documento sellado queda en la auditoría. Nada del contenido va a logs ni a notificaciones push (la alerta de firma no nombra paciente ni documento: aparece en la pantalla bloqueada).
 - **Alternativas consideradas:** (a) **cada profesional ve solo lo suyo** — no elegida por el cliente: parte la historia única y cada uno trabaja con la mitad de los antecedentes; (b) **recepción ve todo como en el resto del panel** (TR-160) — descartada: el brief lo acota a profesionales y el contenido es secreto profesional; (c) **toda la clínica ve todo** — descartada: un profesional que nunca atendió a esa persona no tiene por qué leer su historia.
 - **Por qué:** es el mismo criterio que ya rige el historial de turnos de la ficha ("se ve entero, con su dueño", Fase 3.2.5), con el aislamiento por paciente que ya existe; y deja el contenido clínico fuera del alcance de quien no atiende.
 - **Qué se sacrifica:** recepción no puede preparar un documento para que el profesional solo firme; la auditoría de accesos suma una escritura por cada lectura.
 - **Reversibilidad:** alta — es una regla de scopes.
+
+
+## TR-187: La 5.1, implementada — lo que el código decidió y el plan no
+
+- **Fecha:** 2026-09-28 · **Fase:** execution (Fase 5.1, cimientos de documentos clínicos)
+- **Contexto:** la 5.1 lleva a código TR-182 a TR-186: tablas y triggers, el paquete `packages/documentos-clinicos` con la plantilla de tratamiento de conducto, el motor en Go (`internal/documentos`), los endpoints, las pantallas y los datos nuevos de la ficha (D7). Al implementarla aparecieron decisiones que el plan no tenía o que había que corregir. Estado y detalle en `docs/Fases post MVP/fase 5/fase5-documentos-clinicos.md`.
+
+### Las decisiones
+
+1. **El texto que se firma lo arma Go, y un fixture lo ata al de TypeScript.** El calco en vivo lo arma el paquete de TS; el texto congelado, la API. `pnpm documentos:generar` exporta cada plantilla y un fixture (valores de ejemplo + el texto armado por TS, en modo sellado) a `apps/api/internal/documentos/`, y `TestTexto_CoincideConElDeTypeScript` exige que Go arme byte a byte lo mismo. Los ejemplos dejan vacío uno de cada cuatro campos opcionales y desordenan las piezas a propósito, para probar "No consigna" y el orden del odontograma. CI regenera y falla si difiere.
+2. **Los valores se validan con las mismas reglas y los mismos mensajes en los dos lados** (`valores.ts` / `valores.go`): tolerante al guardar un borrador, estricto al terminar. Un SI/NO con una respuesta inválida **no** cuenta como vacío (un test del paquete encontró que "tal vez" pasaba callado).
+3. **El contenido congelado se guarda como TEXT, no jsonb** (`contenido_canonico`): jsonb reordena y normaliza, y la huella se calcula sobre esos bytes exactos. El JSON canónico se arma en dos pasadas (struct → mapas → JSON con claves ordenadas y números literales).
+4. **La firma se normaliza antes de hashearse**: coordenadas a dos decimales, milisegundos enteros, el instante truncado a microsegundos en UTC (lo que guarda Postgres). Sin eso, la huella recalculada desde la base no coincidiría con la de la firma.
+5. **El lienzo de firma es SVG, no canvas**, y declara su tamaño redondeado hacia arriba: un punto sobre el borde nunca queda "fuera del lienzo" que la API valida. `touch-action: none` evita que firmar con el dedo mueva la página.
+6. **Un borrador descartado se borra de verdad y no deja eventos**: todavía no es historia clínica, y guardar un dato de salud que nadie terminó no tiene sentido. Por lo mismo, **`documento_eventos.documento_id` no lleva FK** (es historial, como `conflictos_paciente`): un documento que se terminó, volvió a borrador y se descartó deja su rastro.
+7. **El módulo responde 403 a recepción** (`requireRol`, como toda sección con rol), no 404 como decía TR-186. 404 queda para un documento o un paciente fuera del alcance de un profesional.
+8. **La cadena y el folio se piden sin acotar por profesional, y están declarados** en `TestAislamiento_NingunaConsultaDelPanelSinAcotar`: el eslabón anterior es el último sellado de la clínica, el folio el siguiente del paciente. Corren bajo el lock de la clínica y no devuelven nada de nadie. Los dos scopes nuevos (`soloMisDocumentos`, `documentosQueVeo`) entraron a las dos auditorías de aislamiento.
+9. **Una ficha con un documento sellado cuenta como verificada**, y **cualquier documento —hasta un borrador— frena el borrado automático de la ficha** (`errFichaConDocumentos`). Los cuatro caminos que borraban fichas lo respetan; el de resolver un conflicto responde 409.
+10. **D7 a medias, a propósito:** los cinco datos se editan en la ficha y se precargan en cada documento, pero lo completado en un documento **no vuelve a la ficha**. En el consentimiento de conducto los datos son de *quien suscribe*, que puede ser un representante: escribirlos le pondría al paciente la fecha de nacimiento de su madre. Llega en la 5.6 con una marca por campo.
+11. **La vista del original es un link al modelo del Colegio** mientras los PDF no se versionen (el repo es público); la pantalla muestra el calco vacío como "vista precargada".
+12. **El profesional firma dibujando, en la 5.1**, con la sesión como identidad; la API toma nombre y documento de su perfil e ignora los que mande la pantalla. La rúbrica registrada con reconfirmación llega en la 5.3.
+
+### Lo que se sacrifica
+
+- Hasta la 5.2 no hay PDF ni código de verificación: un documento sellado se ve y se verifica en la app, no se descarga.
+- Hasta la 5.3 solo se firma en el dispositivo del consultorio.
+- El selector ofrece un solo documento (el de conducto) hasta la 5.4.
 
 ---
 
