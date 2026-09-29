@@ -3365,7 +3365,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
   4. **La huella entra en la tabla del registro**, abreviada; la completa va en el `title` y en la constancia. Para eso `hashContenido` pasó del detalle al resumen (`documentoResumenResponse`): lo trae cada fila.
   5. **Los diálogos del módulo van al centro** (elegir paciente, confirmar terminar, descartar): `Dialogo` suma `centrado`, que usa `my-auto` en la caja y no `items-center` en el fondo. Un diálogo que no entra en la pantalla scrollea desde arriba en vez de quedar cortado.
   6. **Sin rótulo arriba del modelo**, y **los modelos se apilan** (`PilaDeModelos`).
-     - El elegido va adelante. Detrás, **más apagados** (55 % de opacidad), asoman en abanico el anterior y el siguiente de las flechas.
+     - El elegido va adelante. Detrás, **más apagados** (55 % de opacidad), asoman el anterior y el siguiente de las flechas, **derechos y alineados** con él: del mismo tamaño, centrados a su altura y parejos a cada lado. Primero iban en abanico, girados; el cliente lo vio desordenado y se sacó el giro (el rebote al barajar conserva un giro chico, solo mientras se mueve).
      - La hoja se achicó (72 % del ancho, en la computadora y en el celular) para que se vea la pila entera.
      - Al cambiar, las hojas se barajan: se separan, se cruzan a mitad de camino y la nueva llega al frente con un rebote. Un salto con el menú a una que no asomaba entra desde abajo.
      - La de adelante se mueve **como una carta de Balatro**, la referencia del cliente: flota con un vaivén lento y, con el mouse, se levanta y se inclina hacia él, con la sombra del lado contrario. Con el dedo no se inclina, porque arrastrar es hacer scroll.
