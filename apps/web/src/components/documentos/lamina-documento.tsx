@@ -106,6 +106,7 @@ export function LaminaDocumento({
   editable,
   firmas = [],
   etiqueta,
+  paraImprimir = false,
 }: {
   plantilla: Plantilla;
   paginas: PaginaOriginal[];
@@ -114,12 +115,15 @@ export function LaminaDocumento({
   firmas?: FirmaEnLamina[];
   /** Cómo se nombra la hoja ("Tu documento", "Documento sellado"). */
   etiqueta: string;
+  /** Cada página a su tamaño de papel exacto, con la imagen de 300 dpi y
+   *  un salto de página entre una y otra (ImpresionDelDocumento, TR-188). */
+  paraImprimir?: boolean;
 }) {
   const lamina = plantilla.lamina!;
   const compuestaDe = new Map(zonas.map((z) => [z.zona, z]));
 
   return (
-    <div className={`${fuenteDeLamina.variable} flex flex-col gap-4`}>
+    <div className={`${fuenteDeLamina.variable} flex flex-col ${paraImprimir ? "" : "gap-4"}`}>
       {lamina.paginas.map((medidas, i) => {
         const numero = i + 1;
         const imagen = paginas[i];
@@ -129,18 +133,32 @@ export function LaminaDocumento({
           <figure
             key={numero}
             aria-label={`${etiqueta}${lamina.paginas.length > 1 ? `, página ${numero} de ${lamina.paginas.length}` : ""}`}
-            className="relative w-full overflow-hidden rounded-[4px] border border-linea bg-white shadow-soft"
-            style={{ aspectRatio: `${medidas.ancho} / ${medidas.alto}` }}
+            className={
+              paraImprimir
+                ? "relative m-0 overflow-hidden bg-white"
+                : "relative w-full overflow-hidden rounded-[4px] border border-linea bg-white shadow-soft"
+            }
+            style={
+              paraImprimir
+                ? {
+                    // Las medidas de la lámina están en puntos del PDF: la hoja
+                    // sale del tamaño del papel original, sin escalar.
+                    width: `${medidas.ancho}pt`,
+                    height: `${medidas.alto}pt`,
+                    breakAfter: numero < lamina.paginas.length ? "page" : "auto",
+                  }
+                : { aspectRatio: `${medidas.ancho} / ${medidas.alto}` }
+            }
           >
             {/* Un <img> y no next/image: archivos estáticos ya en su tamaño. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imagen.src}
-              srcSet={imagen.srcSet}
-              sizes="(min-width: 1024px) 60vw, 100vw"
+              src={paraImprimir ? imagen.srcImpresion : imagen.src}
+              srcSet={paraImprimir ? undefined : imagen.srcSet}
+              sizes={paraImprimir ? undefined : "(min-width: 1024px) 60vw, 100vw"}
               width={imagen.ancho}
               height={imagen.alto}
-              loading={numero === 1 ? "eager" : "lazy"}
+              loading={numero === 1 || paraImprimir ? "eager" : "lazy"}
               alt=""
               className="absolute inset-0 h-full w-full select-none"
               draggable={false}

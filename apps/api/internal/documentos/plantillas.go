@@ -120,6 +120,16 @@ func (p *Plantilla) Campo(id string) *Campo {
 	return p.campos[id]
 }
 
+// SeFirmaEnPapel — un consentimiento informado se completa para imprimir
+// y se firma a mano, en papel (TR-188): el cliente averiguó que la firma
+// del paciente tiene que ser física, y una firma electrónica no la
+// reemplaza. Al terminarse no espera firmas en el sistema ni se sella:
+// queda "para imprimir". Mismo criterio que `seFirmaEnPapel` del paquete de
+// TypeScript.
+func (p *Plantilla) SeFirmaEnPapel() bool {
+	return p.Tipo == "consentimiento"
+}
+
 // FirmasRequeridas — los roles que tienen que firmar para sellar.
 func (p *Plantilla) FirmasRequeridas() []string {
 	var roles []string
@@ -190,6 +200,25 @@ func cargar(datos []byte) (*Plantilla, error) {
 		return nil, fmt.Errorf("sin firma del profesional")
 	}
 	return &p, nil
+}
+
+// RegistrarPlantillaDePrueba — suma una plantilla al registro. SOLO PARA
+// LOS TESTS de otros paquetes: la API la usa para probar el circuito de
+// firma electrónica y sellado con una historia clínica, que todavía no
+// tiene plantilla real (el consentimiento se firma en papel, TR-188).
+// Llamarla desde un init() del test: el registro no admite escrituras con
+// los tests ya corriendo.
+func RegistrarPlantillaDePrueba(p Plantilla) error {
+	datos, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	cargada, err := cargar(datos)
+	if err != nil {
+		return err
+	}
+	registro[clave(cargada.ID, cargada.Version)] = cargada
+	return nil
 }
 
 // PorID — una versión puntual de una plantilla.

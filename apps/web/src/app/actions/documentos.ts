@@ -10,6 +10,7 @@ import {
   apiGuardarBorrador,
   apiTerminarDocumento,
   apiVolverAEditarDocumento,
+  apiRegistrarImpresionDocumento,
   type FirmaPayload,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -61,6 +62,12 @@ export async function volverAEditarDocumentoAction(id: string): Promise<Resultad
   if (!res.ok) return { ok: false, error: res.error };
   revalidarDocumento(res.data);
   return { ok: true, documento: res.data };
+}
+
+/** La impresión la hace el navegador; esto solo la deja en la auditoría
+ *  (evento "exportado"). Si falla, la impresión sigue igual. */
+export async function registrarImpresionAction(id: string): Promise<void> {
+  await apiRegistrarImpresionDocumento(await token(), id);
 }
 
 export async function firmarDocumentoAction(id: string, firma: FirmaPayload): Promise<ResultadoDeDocumento> {

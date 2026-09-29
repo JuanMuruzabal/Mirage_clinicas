@@ -18,6 +18,11 @@ import (
 //	                          └──volver a editar (sin firmas)──▶ borrador
 //	                          └──anular──▶ anulado
 //
+// Un consentimiento informado se firma a mano, en papel (TR-188): no pasa
+// por "a_firmar" ni se sella en el sistema.
+//
+//	borrador ──terminar──▶ para_imprimir ──volver a editar──▶ borrador
+//
 // Lo que hace que un documento sellado no se pueda tocar NO vive acá ni
 // en los handlers: vive en la base, en los triggers de
 // migrate_documentos.go. Un handler nuevo mal escrito, una migración o un
@@ -27,6 +32,10 @@ const (
 	DocumentoAFirmar  = "a_firmar"
 	DocumentoSellado  = "sellado"
 	DocumentoAnulado  = "anulado"
+	// DocumentoParaImprimir — terminado, con su contenido congelado, y
+	// listo para imprimir: las firmas se ponen a mano sobre el papel, que es
+	// el documento legal (TR-188).
+	DocumentoParaImprimir = "para_imprimir"
 )
 
 type DocumentoClinico struct {
@@ -40,7 +49,7 @@ type DocumentoClinico struct {
 	AutorUserID      uuid.UUID `gorm:"column:autor_user_id;type:uuid;not null;index:idx_documento_del_autor,priority:1"`
 	PlantillaID      string    `gorm:"column:plantilla_id;type:varchar(80);not null"`
 	PlantillaVersion int       `gorm:"column:plantilla_version;not null"`
-	Estado           string    `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','sellado','anulado')"`
+	Estado           string    `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','para_imprimir','sellado','anulado')"`
 	// Valores — lo que cargó el profesional, campo por campo. En un
 	// borrador es lo único que hay; desde "a_firmar" el documento de
 	// verdad es ContenidoCanonico, y esto queda como está.

@@ -28,6 +28,13 @@ func sentenciasDeDocumentos() []string {
 		     REFERENCES clinic_members (clinic_id, user_id);
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
+		// Los estados posibles. DROP + ADD, no el patrón de duplicate_object:
+		// sumó 'para_imprimir' (TR-188) y GORM no actualiza un check que ya
+		// existe — la base se habría quedado rechazando el estado nuevo.
+		`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_estado`,
+		`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_estado
+		   CHECK (estado IN ('borrador', 'a_firmar', 'para_imprimir', 'sellado', 'anulado'))`,
+
 		// Un documento que salió de borrador tiene su contenido congelado.
 		`DO $$ BEGIN
 		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_congelado
@@ -55,7 +62,9 @@ func sentenciasDeDocumentos() []string {
 		//
 		// UPDATE: un documento sellado o anulado no cambia NADA. Uno
 		// "a_firmar" solo puede sellarse, anularse o volver a borrador (si
-		// nadie firmó), y en ningún caso cambia su contenido congelado. La
+		// nadie firmó), y en ningún caso cambia su contenido congelado. Uno
+		// "para_imprimir" (un consentimiento: se firma en papel, TR-188) solo
+		// vuelve a borrador; no se firma ni se sella en el sistema. La
 		// identidad (clínica, paciente, autor, plantilla) no cambia nunca.
 		// DELETE: solo un borrador (descartar); lo demás es historia clínica.
 		`CREATE OR REPLACE FUNCTION documentos_clinicos_candado() RETURNS trigger
@@ -79,8 +88,8 @@ func sentenciasDeDocumentos() []string {
 		   END IF;
 
 		   IF OLD.estado = 'borrador' THEN
-		     IF NEW.estado NOT IN ('borrador', 'a_firmar') THEN
-		       RAISE EXCEPTION 'documento clínico %: un borrador solo pasa a a_firmar', OLD.id;
+		     IF NEW.estado NOT IN ('borrador', 'a_firmar', 'para_imprimir') THEN
+		       RAISE EXCEPTION 'documento clínico %: un borrador solo pasa a a_firmar o para_imprimir', OLD.id;
 		     END IF;
 		     IF NEW.folio IS NOT NULL OR NEW.cadena_n IS NOT NULL OR NEW.hash_sello IS NOT NULL THEN
 		       RAISE EXCEPTION 'documento clínico %: un borrador no se sella', OLD.id;
@@ -88,7 +97,11 @@ func sentenciasDeDocumentos() []string {
 		     RETURN NEW;
 		   END IF;
 
-		   -- OLD.estado = 'a_firmar'
+		   IF OLD.estado = 'para_imprimir' AND NEW.estado NOT IN ('para_imprimir', 'borrador') THEN
+		     RAISE EXCEPTION 'documento clínico %: un documento para imprimir se firma en papel: solo vuelve a borrador', OLD.id;
+		   END IF;
+
+		   -- OLD.estado = 'a_firmar' o 'para_imprimir'
 		   IF NEW.estado = 'borrador' THEN
 		     IF EXISTS (SELECT 1 FROM documento_firmas f WHERE f.documento_id = OLD.id) THEN
 		       RAISE EXCEPTION 'documento clínico %: ya tiene firmas, no vuelve a borrador', OLD.id;
@@ -106,7 +119,7 @@ func sentenciasDeDocumentos() []string {
 		     RAISE EXCEPTION 'documento clínico %: el contenido congelado no cambia', OLD.id;
 		   END IF;
 
-		   IF NEW.estado = 'a_firmar' THEN
+		   IF NEW.estado IN ('a_firmar', 'para_imprimir') THEN
 		     IF NEW.folio IS DISTINCT FROM OLD.folio OR NEW.cadena_n IS DISTINCT FROM OLD.cadena_n
 		        OR NEW.hash_sello IS DISTINCT FROM OLD.hash_sello OR NEW.hash_anterior IS DISTINCT FROM OLD.hash_anterior THEN
 		       RAISE EXCEPTION 'documento clínico %: el sello se pone al sellar', OLD.id;

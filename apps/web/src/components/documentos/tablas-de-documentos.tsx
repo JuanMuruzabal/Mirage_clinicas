@@ -27,7 +27,7 @@ export function TablaPacientesConDocumentos({ pacientes }: { pacientes: Paciente
   if (pacientes.length === 0) {
     return (
       <p className="rounded-card border border-linea bg-marfil p-4 text-sm text-grafito/80 shadow-soft">
-        Todavía no hay documentos firmados. Cuando selles el primero, el paciente aparece acá.
+        Todavía no hay documentos terminados. Cuando termines el primero, el paciente aparece acá.
       </p>
     );
   }
@@ -99,14 +99,14 @@ export function TablaDeDocumentos({
                 <Link href={`/panel/documentos/${d.id}`} className="font-medium text-grafito hover:underline">
                   {d.plantillaNombre}
                 </Link>
-                {compacta && <p className="text-xs text-grafito/70">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</p>}
+                {compacta && <p className="text-xs text-grafito/70">{fechaCorta(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn)}</p>}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">
                   {d.paciente.nombre} {d.paciente.apellido}
                 </td>
               )}
-              {!compacta && <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</td>}
+              {!compacta && <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn)}</td>}
               {!conPaciente && (
                 <td className="max-md:hidden px-4 py-3 text-grafito">
                   {d.autorNombre}

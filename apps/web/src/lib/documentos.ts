@@ -36,6 +36,7 @@ export function contenidoCongelado(valor: unknown): ContenidoCongelado | null {
 export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
   borrador: "Borrador",
   a_firmar: "Esperando firmas",
+  para_imprimir: "Listo para imprimir",
   sellado: "Firmado y sellado",
   anulado: "Anulado",
 };
@@ -45,6 +46,7 @@ export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
 export const CHIP_DE_ESTADO: Record<EstadoDocumento, string> = {
   borrador: "bg-hueso text-grafito/75 border-linea",
   a_firmar: "bg-acero-claro text-acero-oscuro border-acero/30",
+  para_imprimir: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
   sellado: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
   anulado: "bg-arena text-grafito/70 border-linea",
 };

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -26,10 +27,14 @@ import (
 //	POST   /documentos                  crea un borrador para un paciente
 //	PATCH  /documentos/{id}             guarda el borrador
 //	DELETE /documentos/{id}             lo descarta (solo un borrador)
-//	POST   /documentos/{id}/terminar    lo congela: pasa a "a firmar"
+//	POST   /documentos/{id}/terminar    lo congela: pasa a "a firmar", o
+//	                                    "para imprimir" si es un
+//	                                    consentimiento (se firma en papel,
+//	                                    TR-188)
 //	POST   /documentos/{id}/volver-a-editar   (si nadie firmó)
 //	POST   /documentos/{id}/firmas      una firma en este dispositivo;
 //	                                    con la última requerida, se sella
+//	POST   /documentos/{id}/impresion   deja constancia de que se imprimió
 //
 // Lo que ninguno de estos handlers decide: que un documento sellado no se
 // toque. Eso lo hacen los triggers de la base (db/migrate_documentos.go).
@@ -48,6 +53,7 @@ func registrarDocumentosRoutes(r chi.Router, gdb *gorm.DB) {
 		r.Post("/documentos/{id}/terminar", terminarDocumentoHandler(gdb))
 		r.Post("/documentos/{id}/volver-a-editar", volverAEditarHandler(gdb))
 		r.Post("/documentos/{id}/firmas", firmarEnElDispositivoHandler(gdb))
+		r.Post("/documentos/{id}/impresion", impresionDeDocumentoHandler(gdb))
 		r.Get("/pacientes/{id}/documentos", documentosDePacienteHandler(gdb))
 	})
 }
@@ -244,7 +250,8 @@ type pacienteConDocumentosResponse struct {
 
 // pacientesConDocumentosHandler — GET /documentos/pacientes: la tabla de
 // debajo del selector. Los pacientes de MI lista con al menos un documento
-// sellado, del más reciente al más viejo.
+// terminado —sellado, o un consentimiento para imprimir (TR-188)—, del más
+// reciente al más viejo.
 func pacientesConDocumentosHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
@@ -261,9 +268,9 @@ func pacientesConDocumentosHandler(gdb *gorm.DB) http.HandlerFunc {
 			Ultimo   time.Time
 		}
 		if err := gdb.Table("documentos_clinicos d").
-			Select("p.id, p.nombre, p.apellido, p.dni, COUNT(d.id) AS cantidad, MAX(d.sellado_en) AS ultimo").
+			Select("p.id, p.nombre, p.apellido, p.dni, COUNT(d.id) AS cantidad, MAX(COALESCE(d.sellado_en, d.terminado_en)) AS ultimo").
 			Joins("JOIN pacientes p ON p.id = d.paciente_id").
-			Where("d.estado = ? AND d.paciente_id IN (?)", db.DocumentoSellado, misPacientes).
+			Where("d.estado IN ? AND d.paciente_id IN (?)", []string{db.DocumentoSellado, db.DocumentoParaImprimir}, misPacientes).
 			Group("p.id, p.nombre, p.apellido, p.dni").
 			Order("ultimo DESC").
 			Scan(&filas).Error; err != nil {
@@ -493,7 +500,7 @@ func getDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "documento no encontrado")
 			return
 		}
-		if doc.Estado == db.DocumentoSellado || doc.Estado == db.DocumentoAnulado {
+		if doc.Estado == db.DocumentoSellado || doc.Estado == db.DocumentoAnulado || doc.Estado == db.DocumentoParaImprimir {
 			if err := registrarEvento(gdb, r, doc, db.EventoDocumentoVisto, ""); err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo abrir el documento")
 				return
@@ -508,9 +515,9 @@ func getDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
-// miDocumento — un documento mío, en el estado pedido. Escribe la
-// respuesta de error y devuelve false si no.
-func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID uuid.UUID, estado string) (db.DocumentoClinico, bool) {
+// miDocumento — un documento mío, en alguno de los estados pedidos.
+// Escribe la respuesta de error y devuelve false si no.
+func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID uuid.UUID, estados ...string) (db.DocumentoClinico, bool) {
 	docID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "id de documento inválido")
@@ -522,7 +529,7 @@ func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID u
 		writeError(w, http.StatusNotFound, "documento no encontrado")
 		return db.DocumentoClinico{}, false
 	}
-	if doc.Estado != estado {
+	if !slices.Contains(estados, doc.Estado) {
 		switch doc.Estado {
 		case db.DocumentoSellado:
 			writeError(w, http.StatusConflict, "este documento ya está firmado y sellado: no se puede modificar")
@@ -530,6 +537,8 @@ func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID u
 			writeError(w, http.StatusConflict, "este documento está anulado: no se puede modificar")
 		case db.DocumentoAFirmar:
 			writeError(w, http.StatusConflict, "este documento ya se terminó y espera firmas: para editarlo, volvé a editarlo")
+		case db.DocumentoParaImprimir:
+			writeError(w, http.StatusConflict, "este documento está listo para imprimir y se firma a mano, en papel: para editarlo, volvé a editarlo")
 		default:
 			writeError(w, http.StatusConflict, "este documento todavía no se terminó")
 		}
@@ -680,10 +689,16 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Un consentimiento se firma a mano (TR-188): terminado, queda listo
+		// para imprimir, sin firmas en el sistema ni sello.
+		destino := db.DocumentoAFirmar
+		if plantilla.SeFirmaEnPapel() {
+			destino = db.DocumentoParaImprimir
+		}
 		err = gdb.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Model(&db.DocumentoClinico{}).Where("id = ? AND estado = ?", doc.ID, db.DocumentoBorrador).
 				Updates(map[string]any{
-					"estado": db.DocumentoAFirmar, "contenido_canonico": canonico, "hash_contenido": huella,
+					"estado": destino, "contenido_canonico": canonico, "hash_contenido": huella,
 					"terminado_en": ahora, "updated_at": ahora,
 				}).Error; err != nil {
 				return err
@@ -710,14 +725,16 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 // volverAEditarHandler — POST /documentos/{id}/volver-a-editar: un
 // documento "a firmar" vuelve a borrador, tal cual, SOLO si nadie firmó.
 // Con una firma, el contenido que esa persona firmó queda fijo: si hay que
-// cambiar algo, se anula y se hace otro (5.3).
+// cambiar algo, se anula y se hace otro (5.3). Uno "para imprimir" (un
+// consentimiento, TR-188) vuelve siempre: sus firmas están en el papel, y
+// el papel es el documento legal.
 func volverAEditarHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
 		if !ok {
 			return
 		}
-		doc, ok := miDocumento(w, r, gdb, clinicID, db.DocumentoAFirmar)
+		doc, ok := miDocumento(w, r, gdb, clinicID, db.DocumentoAFirmar, db.DocumentoParaImprimir)
 		if !ok {
 			return
 		}
@@ -731,7 +748,7 @@ func volverAEditarHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		err := gdb.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&db.DocumentoClinico{}).Where("id = ? AND estado = ?", doc.ID, db.DocumentoAFirmar).
+			if err := tx.Model(&db.DocumentoClinico{}).Where("id = ? AND estado = ?", doc.ID, doc.Estado).
 				Updates(map[string]any{
 					"estado": db.DocumentoBorrador, "contenido_canonico": nil, "hash_contenido": nil,
 					"terminado_en": nil, "updated_at": clock.Now(),
@@ -754,6 +771,40 @@ func volverAEditarHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+// impresionDeDocumentoHandler — POST /documentos/{id}/impresion: la
+// pantalla avisa que se abrió la impresión de un documento terminado, y
+// queda en la auditoría como "exportado" (TR-186: se registra quién sacó
+// datos de salud del sistema, y cuándo). Imprime quien lo puede ver. La
+// impresión misma la hace el navegador; la API no genera nada acá.
+func impresionDeDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		docID, err := uuid.Parse(chi.URLParam(r, "id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "id de documento inválido")
+			return
+		}
+		var doc db.DocumentoClinico
+		if err := gdb.Scopes(documentosQueVeo(r, clinicID)).
+			Where("documentos_clinicos.id = ? AND documentos_clinicos.clinic_id = ?", docID, clinicID).First(&doc).Error; err != nil {
+			writeError(w, http.StatusNotFound, "documento no encontrado")
+			return
+		}
+		if doc.Estado == db.DocumentoBorrador {
+			writeError(w, http.StatusConflict, "un borrador no se imprime: terminalo primero")
+			return
+		}
+		if err := registrarEvento(gdb, r, doc, db.EventoDocumentoExportado, "impresión"); err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo registrar la impresión")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

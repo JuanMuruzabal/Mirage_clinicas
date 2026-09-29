@@ -122,6 +122,48 @@ func TestDocumentos_UnBorradorSeEditaYSeDescarta(t *testing.T) {
 	debeAndar(t, "descartar un borrador", e.gdb.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, d.ID).Error)
 }
 
+// Un consentimiento terminado queda "para imprimir" (TR-188): se firma a
+// mano, así que en la base no se firma ni se sella; su contenido no cambia,
+// y lo único que puede hacer es volver a borrador tal cual.
+func TestDocumentos_ParaImprimirSoloVuelveABorrador(t *testing.T) {
+	e := nuevoEscenarioDocumento(t)
+	d := e.documento(t)
+	debeFallar(t, e.gdb, "pasar a para_imprimir sin contenido congelado", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET estado = 'para_imprimir' WHERE id = ?`, d.ID).Error
+	})
+	debeAndar(t, "terminar para imprimir", e.gdb.Exec(`UPDATE documentos_clinicos
+		SET estado = 'para_imprimir', contenido_canonico = '{}', hash_contenido = ?, terminado_en = now()
+		WHERE id = ?`, huella, d.ID).Error)
+
+	debeFallar(t, e.gdb, "firmarlo en el sistema", func(tx *gorm.DB) error {
+		return tx.Create(e.firma(d, db.FirmaPaciente, huella)).Error
+	})
+	debeFallar(t, e.gdb, "pasarlo a a_firmar", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET estado = 'a_firmar' WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "sellarlo", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'sellado', folio = 1, cadena_n = 1, hash_sello = ?, sellado_en = now() WHERE id = ?`, huella, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "cambiarle el contenido", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET contenido_canonico = '{"x":1}' WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "ponerle folio", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET folio = 1 WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "borrarlo", func(tx *gorm.DB) error {
+		return tx.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "volver a borrador cambiando los datos", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'borrador', valores = '{"lugar":"Otro"}', contenido_canonico = NULL, hash_contenido = NULL, terminado_en = NULL
+			WHERE id = ?`, d.ID).Error
+	})
+	debeAndar(t, "volver a borrador tal cual", e.gdb.Exec(`UPDATE documentos_clinicos
+		SET estado = 'borrador', contenido_canonico = NULL, hash_contenido = NULL, terminado_en = NULL
+		WHERE id = ?`, d.ID).Error)
+}
+
 func TestDocumentos_AFirmarNoCambiaSuContenido(t *testing.T) {
 	e := nuevoEscenarioDocumento(t)
 	d := e.documento(t)

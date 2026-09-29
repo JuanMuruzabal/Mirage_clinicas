@@ -2127,6 +2127,11 @@ export function apiVolverAEditarDocumento(token: string, id: string): Promise<Ap
   return request<DocumentoDetalle>(`/documentos/${id}/volver-a-editar`, { method: "POST", headers: conSesion(token) });
 }
 
+/** Deja constancia en la auditoría de que se abrió la impresión (TR-188). */
+export function apiRegistrarImpresionDocumento(token: string, id: string): Promise<ApiResult<null>> {
+  return request<null>(`/documentos/${id}/impresion`, { method: "POST", headers: conSesion(token) });
+}
+
 export interface FirmaPayload {
   rol: string;
   nombre?: string;

@@ -541,3 +541,18 @@ func TestSello_VerificarDetectaCadaAlteracion(t *testing.T) {
 		t.Error("el sello depende del anterior")
 	}
 }
+
+// Los consentimientos se firman a mano (TR-188); lo demás, en el sistema.
+func TestPlantillas_ElConsentimientoSeFirmaEnPapel(t *testing.T) {
+	conducto, _ := Ultima("consentimiento-tratamiento-conducto")
+	if !conducto.SeFirmaEnPapel() {
+		t.Fatal("el consentimiento de conducto se firma en papel")
+	}
+	historia := Plantilla{Tipo: "historia_clinica"}
+	if historia.SeFirmaEnPapel() {
+		t.Fatal("una historia clínica se firma en el sistema")
+	}
+	if err := RegistrarPlantillaDePrueba(Plantilla{}); err == nil {
+		t.Fatal("una plantilla sin id no se registra")
+	}
+}

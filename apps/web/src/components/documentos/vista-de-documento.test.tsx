@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { aFirmar, conLamina, firma, sellado, trazo } from "./fixtures";
+import { aFirmar, conLamina, firma, paraImprimir, sellado, trazo } from "./fixtures";
 
 const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock, push: vi.fn() }) }));
@@ -8,6 +8,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock, pu
 const acciones = vi.hoisted(() => ({
   firmarDocumentoAction: vi.fn(),
   volverAEditarDocumentoAction: vi.fn(),
+  registrarImpresionAction: vi.fn(),
 }));
 vi.mock("@/app/actions/documentos", () => acciones);
 
@@ -163,8 +164,64 @@ describe("FirmarDialogo", () => {
     expect(screen.queryByRole("heading", { name: "Consentimiento informado" })).not.toBeInTheDocument();
     expect(screen.getByText(/folio 3/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ver en pantalla completa" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver en pantalla completa" })[0]);
     expect(await screen.findByRole("dialog", { name: "Tratamiento de conducto: documento sellado" })).toBeInTheDocument();
+  });
+
+  it("un consentimiento para imprimir: sin firmas en la pantalla, se imprime la hoja a tamaño carta", async () => {
+    const imprimir = vi.fn();
+    vi.stubGlobal("print", imprimir);
+    acciones.volverAEditarDocumentoAction.mockResolvedValue({ ok: true, documento: paraImprimir() });
+    render(<VistaDeDocumento documento={conLamina(paraImprimir())} />);
+    expect(screen.getByRole("heading", { name: "Listo para imprimir" })).toBeInTheDocument();
+    expect(screen.getByText(/se firma a mano/)).toBeInTheDocument();
+    // Nada de firmar en la pantalla.
+    expect(screen.queryByRole("heading", { name: "Firmas" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Firmar en este dispositivo" })).not.toBeInTheDocument();
+    // La de la pantalla y la de la impresora (a esa, en pantalla, la esconde
+    // el CSS de globals.css, que jsdom no carga).
+    expect(screen.getAllByRole("figure", { name: "Documento para imprimir" })).toHaveLength(2);
+
+    // Lo que sale por la impresora: la hoja, en un portal a <body>, a su tamaño
+    // de papel y con la imagen de 300 dpi.
+    const impresion = document.body.querySelector(":scope > .impresion-documento");
+    expect(impresion).not.toBeNull();
+    expect(impresion?.querySelector("style")?.textContent).toBe("@page { size: 612pt 792pt; margin: 0; }");
+    const hoja = impresion?.querySelector("figure") as HTMLElement;
+    expect(hoja.style.width).toBe("612pt");
+    expect(hoja.style.height).toBe("792pt");
+    expect(hoja.querySelector("img")).toHaveAttribute("src", "/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v1/pagina-1.w2550.webp");
+    expect([...hoja.querySelectorAll("text")].map((t) => t.textContent)).toContain("Córdoba, 27/09/2026");
+
+    fireEvent.click(screen.getByRole("button", { name: "Imprimir" }));
+    expect(imprimir).toHaveBeenCalled();
+    expect(acciones.registrarImpresionAction).toHaveBeenCalledWith("doc-1");
+
+    // Se puede volver a editar: las firmas están en el papel.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Volver a editar" }));
+    });
+    expect(acciones.volverAEditarDocumentoAction).toHaveBeenCalledWith("doc-1");
+    vi.unstubAllGlobals();
+  });
+
+  it("el consentimiento para imprimir de un colega se imprime, no se edita", () => {
+    render(<VistaDeDocumento documento={conLamina(paraImprimir({ esMio: false, autorNombre: "Pedro Díaz" }))} />);
+    expect(screen.getByRole("button", { name: "Imprimir" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Volver a editar" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Lo hizo Pedro Díaz/)).toBeInTheDocument();
+  });
+
+  it("sin lámina, lo que se imprime es el calco, con márgenes comunes", () => {
+    render(<VistaDeDocumento documento={paraImprimir()} />);
+    const impresion = document.body.querySelector(":scope > .impresion-documento");
+    expect(impresion?.querySelector("style")?.textContent).toBe("@page { margin: 15mm; }");
+    expect(impresion?.querySelector("article")).not.toBeNull();
+  });
+
+  it("la columna de la izquierda queda pegada debajo del header", () => {
+    render(<VistaDeDocumento documento={sellado()} />);
+    expect(screen.getByRole("complementary", { name: "Firmas del documento" })).toHaveClass("lg:top-[calc(var(--header-height)+1rem)]");
   });
 
   it("a firmar con lámina: la firma que falta no se dibuja", () => {

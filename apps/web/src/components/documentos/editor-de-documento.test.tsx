@@ -177,7 +177,7 @@ describe("EditorDeDocumento", () => {
     );
     expect(screen.getByRole("button", { name: "Completar: Indicaciones" })).toHaveClass("bg-terracota/15");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
+      fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
     });
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
     expect(screen.getByText("No entra en el espacio del documento: acortalo.")).toBeInTheDocument();
@@ -185,14 +185,30 @@ describe("EditorDeDocumento", () => {
 
   it("la hoja se abre a pantalla completa, en el celular y en la computadora", async () => {
     render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
-    const boton = screen.getByRole("button", { name: "Ver en pantalla completa" });
-    expect(boton).not.toHaveClass("lg:hidden");
+    // Uno por encima de las dos columnas en la computadora; otro arriba de la
+    // hoja en el celular ("Ver documento").
+    const [escritorio, celular] = screen.getAllByRole("button", { name: "Ver en pantalla completa" });
+    expect(escritorio.parentElement).toHaveClass("hidden", "lg:flex");
+    expect(celular).toHaveClass("lg:hidden");
+    const boton = escritorio;
     fireEvent.click(boton);
     const capa = await screen.findByRole("dialog", { name: "Tratamiento de conducto: tu documento" });
     // A pantalla completa se lee, no se edita.
     expect(capa.querySelector("[data-zona]")).toBeNull();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("un consentimiento se termina para imprimir: se firma a mano", () => {
+    render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
+    expect(screen.getByRole("button", { name: "Terminar para imprimir" })).toBeInTheDocument();
+    expect(screen.getByText(/se firma a mano, en papel/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Terminar y pasar a firmas" })).not.toBeInTheDocument();
+  });
+
+  it("la columna de los datos queda pegada debajo del header, no tapada por él", () => {
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} />);
+    expect(screen.getByRole("complementary", { name: "Datos del documento" })).toHaveClass("lg:top-[calc(var(--header-height)+1rem)]");
   });
 
   it("una plantilla sin lámina muestra el calco", () => {

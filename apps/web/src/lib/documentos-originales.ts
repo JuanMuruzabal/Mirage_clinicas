@@ -15,6 +15,8 @@ export interface PaginaOriginal {
   numero: number;
   src: string;
   srcSet: string;
+  /** La de 2550 px: una hoja carta a 300 dpi, para imprimir (TR-188). */
+  srcImpresion: string;
   ancho: number;
   alto: number;
 }
@@ -36,6 +38,7 @@ export function paginasDelOriginal(plantillaId: string, version: number): Pagina
     numero: p.numero,
     src: `${base}/pagina-${p.numero}.w1600.webp`,
     srcSet: `${base}/pagina-${p.numero}.w800.webp 800w, ${base}/pagina-${p.numero}.w1600.webp 1600w`,
+    srcImpresion: `${base}/pagina-${p.numero}.w2550.webp`,
     ancho: p.ancho,
     alto: p.alto,
   }));

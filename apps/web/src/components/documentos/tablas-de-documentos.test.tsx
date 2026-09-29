@@ -25,7 +25,7 @@ describe("TablaPacientesConDocumentos", () => {
 
   it("vacía, lo dice", () => {
     render(<TablaPacientesConDocumentos pacientes={[]} />);
-    expect(screen.getByText(/Todavía no hay documentos firmados/)).toBeInTheDocument();
+    expect(screen.getByText(/Todavía no hay documentos terminados/)).toBeInTheDocument();
   });
 });
 
@@ -74,11 +74,11 @@ describe("DocumentosDeLaFicha", () => {
 
   it("recepción sabe cuántos hay, no qué dicen", () => {
     const { rerender } = render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={2} />);
-    expect(screen.getByText("2 documentos firmados. Solo los profesionales pueden abrirlos.")).toBeInTheDocument();
+    expect(screen.getByText("2 documentos terminados. Solo los profesionales pueden abrirlos.")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={1} />);
-    expect(screen.getByText(/^1 documento firmado\./)).toBeInTheDocument();
+    expect(screen.getByText(/^1 documento terminado\./)).toBeInTheDocument();
     rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={0} />);
-    expect(screen.getByText("Todavía no tiene documentos firmados.")).toBeInTheDocument();
+    expect(screen.getByText("Todavía no tiene documentos terminados.")).toBeInTheDocument();
   });
 });

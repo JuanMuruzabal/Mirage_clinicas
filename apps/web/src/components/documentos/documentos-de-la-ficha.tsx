@@ -34,8 +34,8 @@ export function DocumentosDeLaFicha({
       {documentos === null ? (
         <p className="text-sm text-grafito/80">
           {cantidadSellados === 0
-            ? "Todavía no tiene documentos firmados."
-            : `${cantidadSellados} ${cantidadSellados === 1 ? "documento firmado" : "documentos firmados"}. Solo los profesionales pueden abrirlos.`}
+            ? "Todavía no tiene documentos terminados."
+            : `${cantidadSellados} ${cantidadSellados === 1 ? "documento terminado" : "documentos terminados"}. Solo los profesionales pueden abrirlos.`}
         </p>
       ) : documentos.length === 0 ? (
         <p className="text-sm text-grafito/80">Todavía no tiene documentos. Empezá uno con “+ Nuevo”.</p>
@@ -48,7 +48,7 @@ export function DocumentosDeLaFicha({
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-grafito">{d.plantillaNombre}</span>
                     <span className="block text-xs text-grafito/70">
-                      {fechaCorta(d.selladoEn ?? d.actualizadoEn)} · {d.autorNombre}
+                      {fechaCorta(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn)} · {d.autorNombre}
                     </span>
                   </span>
                   <EstadoDeDocumento estado={d.estado} />

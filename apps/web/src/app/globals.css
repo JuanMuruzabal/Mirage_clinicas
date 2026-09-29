@@ -284,6 +284,37 @@
   }
 }
 
+/* La impresión de un documento clínico (TR-188: un consentimiento se
+   completa en pantalla, se imprime y se firma a mano). Las páginas viven en
+   un portal a <body> (`ImpresionDelDocumento`): en pantalla no se ven, y al
+   imprimir se ven SOLO ellas, a su tamaño de papel. Todo va atado a
+   `:has(.impresion-documento)`: una pantalla sin documento para imprimir
+   imprime como siempre. El `overflow`/`height` del panel (alto fijo, scroll
+   propio) cortaría un documento de varias páginas en la primera. */
+.impresion-documento {
+  display: none;
+}
+
+@media print {
+  html:has(.impresion-documento),
+  html:has(.impresion-documento) body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body:has(> .impresion-documento) > :not(.impresion-documento) {
+    display: none !important;
+  }
+
+  .impresion-documento {
+    display: block;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 /* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
    del todo dejaba ver el fondo nativo del navegador detrás de la página,
    sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024

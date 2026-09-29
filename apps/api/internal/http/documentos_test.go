@@ -22,6 +22,26 @@ import (
 
 const plantillaConducto = "consentimiento-tratamiento-conducto"
 
+// plantillaHistoriaDePrueba — el circuito de firma electrónica y sellado
+// lo prueba una historia clínica de prueba: el consentimiento de conducto
+// con otro tipo. Los consentimientos se firman en papel (TR-188) y todavía
+// no hay una historia clínica real cargada (llegan en la 5.4).
+const plantillaHistoriaDePrueba = "historia-de-prueba"
+
+func init() {
+	conducto, ok := documentos.Ultima(plantillaConducto)
+	if !ok {
+		panic("falta la plantilla de conducto")
+	}
+	historia := *conducto
+	historia.ID = plantillaHistoriaDePrueba
+	historia.Nombre = "Historia de prueba"
+	historia.Tipo = "historia_clinica"
+	if err := documentos.RegistrarPlantillaDePrueba(historia); err != nil {
+		panic(err)
+	}
+}
+
 type escenarioDocs struct {
 	router    http.Handler
 	gdb       *gorm.DB
@@ -61,10 +81,17 @@ func decodificar[T any](t *testing.T, body []byte) T {
 	return v
 }
 
+// crear — un borrador de la historia clínica de prueba (la que se firma en
+// el sistema). Para el consentimiento, que se firma en papel, crearDe.
 func (e escenarioDocs) crear(t *testing.T, token string, pacienteID uuid.UUID) documentoDetalleResponse {
 	t.Helper()
+	return e.crearDe(t, token, plantillaHistoriaDePrueba, pacienteID)
+}
+
+func (e escenarioDocs) crearDe(t *testing.T, token, plantillaID string, pacienteID uuid.UUID) documentoDetalleResponse {
+	t.Helper()
 	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", token, map[string]any{
-		"plantillaId": plantillaConducto, "pacienteId": pacienteID.String(),
+		"plantillaId": plantillaID, "pacienteId": pacienteID.String(),
 	})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("crear documento: status=%d body=%s", rec.Code, rec.Body.String())
@@ -243,7 +270,7 @@ func TestDocumentos_CircuitoCompleto(t *testing.T) {
 	// El registro del paciente, la tabla del módulo y la ficha.
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/pacientes/"+e.paciente.ID.String()+"/documentos", e.token, nil)
 	registro := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes())
-	if rec.Code != http.StatusOK || len(registro) != 1 || registro[0].PlantillaNombre != "Tratamiento de conducto" || registro[0].AutorNombre != "Lucía Gómez" {
+	if rec.Code != http.StatusOK || len(registro) != 1 || registro[0].PlantillaNombre != "Historia de prueba" || registro[0].AutorNombre != "Lucía Gómez" {
 		t.Fatalf("registro del paciente: %d %+v", rec.Code, registro)
 	}
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/pacientes", e.token, nil)
@@ -455,6 +482,103 @@ func TestDocumentos_VolverAEditarSoloSinFirmas(t *testing.T) {
 	enCurso := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes())
 	if len(enCurso) != 1 || enCurso[0].Estado != db.DocumentoAFirmar || enCurso[0].Paciente.DNI != "30111222" {
 		t.Fatalf("en curso: %+v", enCurso)
+	}
+}
+
+// Un consentimiento informado se completa para imprimir y se firma a mano
+// (TR-188): terminado, queda "para imprimir", sin firmas en el sistema ni
+// sello, y se puede volver a editar siempre.
+func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
+	e := escenarioDeDocumentos(t, "papel")
+	d := e.crearDe(t, e.token, plantillaConducto, e.paciente.ID)
+	valores := d.Valores
+	valores["elementos"] = []string{"36"}
+	e.guardar(t, e.token, d.ID, valores)
+
+	d = e.terminar(t, e.token, d.ID)
+	if d.Estado != db.DocumentoParaImprimir || d.HashContenido == nil || len(d.Contenido) == 0 || len(d.FirmasPendientes) != 0 || d.Folio != nil {
+		t.Fatalf("terminado, queda para imprimir, sin firmas pendientes ni folio: %+v", d)
+	}
+
+	// No se firma en el sistema.
+	rec := e.firmar(t, e.token, d.ID, map[string]any{"rol": "profesional"})
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "papel") {
+		t.Fatalf("firmar un consentimiento: %d %s", rec.Code, rec.Body.String())
+	}
+	// Ni se guarda encima.
+	if rec := doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores}); rec.Code != http.StatusConflict {
+		t.Fatalf("guardar sobre uno para imprimir: %d", rec.Code)
+	}
+
+	// Imprimirlo queda en la auditoría.
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/impresion", e.token, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("registrar la impresión: %d %s", rec.Code, rec.Body.String())
+	}
+	var impresiones int64
+	e.gdb.Model(&db.DocumentoEvento{}).Where("documento_id = ? AND tipo = ?", d.ID, db.EventoDocumentoExportado).Count(&impresiones)
+	if impresiones != 1 {
+		t.Fatalf("la impresión en la auditoría: %d", impresiones)
+	}
+
+	// Ya no está en curso; está en el registro del paciente, en la tabla del
+	// módulo y en la cuenta de la ficha.
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/en-curso", e.token, nil)
+	if enCurso := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes()); len(enCurso) != 0 {
+		t.Fatalf("uno para imprimir no está en curso: %+v", enCurso)
+	}
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/pacientes", e.token, nil)
+	if pacientes := decodificar[[]pacienteConDocumentosResponse](t, rec.Body.Bytes()); len(pacientes) != 1 || pacientes[0].Cantidad != 1 {
+		t.Fatalf("pacientes con documentos: %+v", pacientes)
+	}
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/pacientes/"+e.paciente.ID.String()+"/documentos", e.token, nil)
+	if registro := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes()); len(registro) != 1 || registro[0].Estado != db.DocumentoParaImprimir {
+		t.Fatalf("el registro del paciente: %+v", registro)
+	}
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/pacientes/"+e.paciente.ID.String(), e.token, nil)
+	if ficha := decodificar[pacienteDetalleResponse](t, rec.Body.Bytes()); ficha.DocumentosClinicos != 1 {
+		t.Fatalf("la ficha cuenta el consentimiento: %d", ficha.DocumentosClinicos)
+	}
+
+	// Vuelve a editar siempre: sus firmas están en el papel.
+	rec = doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil)
+	d = decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
+	if rec.Code != http.StatusOK || d.Estado != db.DocumentoBorrador || d.Valores["elementos"] == nil {
+		t.Fatalf("volver a editar uno para imprimir: %d %+v", rec.Code, d)
+	}
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/impresion", e.token, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("un borrador no se imprime: %d", rec.Code)
+	}
+	if d = e.terminar(t, e.token, d.ID); d.Estado != db.DocumentoParaImprimir {
+		t.Fatalf("terminado otra vez: %+v", d)
+	}
+}
+
+func TestDocumentos_UnColegaVeElConsentimientoParaImprimirDeSusPacientes(t *testing.T) {
+	e := escenarioDeDocumentos(t, "papel-colega")
+	d := e.crearDe(t, e.token, plantillaConducto, e.paciente.ID)
+	valores := d.Valores
+	valores["elementos"] = []string{"36"}
+	e.guardar(t, e.token, d.ID, valores)
+	e.terminar(t, e.token, d.ID)
+
+	colega := sumarColaboradorDePrueba(t, e.gdb, e.router, e.clinicID, "doc-papel-colega@example.com", db.RoleProfesional)
+	colegaID := userIDDelMail(t, e.gdb, "doc-papel-colega@example.com")
+	if rec := doJSONAuth(t, e.router, http.MethodGet, "/documentos/"+d.ID, colega, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("de un paciente que no atiende: %d", rec.Code)
+	}
+	// Ana entra en su lista: ve el consentimiento, en solo lectura, y lo puede imprimir.
+	if err := e.gdb.Create(&db.PacienteEnMiLista{PacienteID: e.paciente.ID, UserID: colegaID, ClinicID: e.clinicID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := doJSONAuth(t, e.router, http.MethodGet, "/documentos/"+d.ID, colega, nil)
+	if ajeno := decodificar[documentoDetalleResponse](t, rec.Body.Bytes()); rec.Code != http.StatusOK || ajeno.EsMio || ajeno.Estado != db.DocumentoParaImprimir {
+		t.Fatalf("el consentimiento de la colega: %d %+v", rec.Code, ajeno.documentoResumenResponse)
+	}
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/impresion", colega, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("imprimir el de la colega: %d", rec.Code)
+	}
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", colega, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("volver a editar el de la colega: %d", rec.Code)
 	}
 }
 

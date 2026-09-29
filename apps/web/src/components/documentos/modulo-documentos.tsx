@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { ETIQUETA_DE_TIPO, type Plantilla } from "@dental-mirage/documentos-clinicos";
+import type { Plantilla } from "@dental-mirage/documentos-clinicos";
 import { crearDocumentoAction } from "@/app/actions/documentos";
 import { ElegirPaciente } from "./elegir-paciente";
 import { OriginalDelColegio } from "./original-del-colegio";
@@ -88,7 +88,7 @@ export function ModuloDocumentos({
         <section aria-label={`Vista de ${elegida.nombre}`} className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="font-[family-name:var(--font-mono)] text-xs font-semibold tracking-[0.16em] text-salvia-oscuro uppercase">
-              Así es el documento · {ETIQUETA_DE_TIPO[elegida.tipo]}
+              Modelo
             </p>
             {/* En el celular la hoja entra al ancho de la pantalla y la letra
                 queda chica (pedido del cliente, 2026-09-28). */}

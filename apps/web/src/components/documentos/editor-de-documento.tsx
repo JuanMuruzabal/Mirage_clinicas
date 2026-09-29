@@ -6,6 +6,7 @@ import {
   armarLamina,
   estaVacio,
   seccionDelCampo,
+  seFirmaEnPapel,
   validarLamina,
   validarValores,
   type Plantilla,
@@ -42,6 +43,9 @@ function erroresPorCampo(errores: ErrorDeCampoDeDocumento[] | undefined): Record
 // documento (TR-172). La hoja se puede ver a pantalla completa, en el
 // celular y en la computadora.
 //
+// Un consentimiento se firma a mano (TR-188): terminarlo lo deja listo para
+// imprimir, no "a firmar".
+//
 // El estado local es lo que la persona está escribiendo: por eso NO usa
 // `useEstadoDelServidor` (CLAUDE.md, TR-156). Se guarda solo, un momento
 // después de cada cambio.
@@ -59,6 +63,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const hoy = documento.hoy ?? "";
   const paginasDeLamina = paginasDeLaLamina(plantilla);
+  const enPapel = seFirmaEnPapel(plantilla);
 
   const ultimo = useRef(valores);
   const vuelta = useRef(0);
@@ -190,13 +195,28 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
         ))}
       </div>
 
+      {/* En la computadora, "Ver en pantalla completa" va por encima de las
+          dos columnas: así "Quién suscribe" arranca a la altura de la hoja
+          (pedido del cliente, 2026-09-29). En el celular va arriba de la hoja,
+          en "Ver documento". */}
+      {paginasDeLamina && (
+        <div className="hidden justify-end lg:flex">
+          <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`}>
+            <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} etiqueta="Tu documento" />
+          </PantallaCompleta>
+        </div>
+      )}
+
       {/* grid-cols-1 (una columna de `minmax(0, 1fr)`) y min-w-0: sin eso,
           en el celular la columna se estira a lo que mida su contenido más
           ancho (las piezas) y la pantalla entera se corre de costado. */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+        {/* Pegada debajo del header fijo, no a 1rem del borde de la ventana:
+            ahí el header la tapaba y "Quién suscribe" desaparecía al hacer
+            scroll (mismo cálculo que el editor de la página, TR-173). */}
         <aside
           aria-label="Datos del documento"
-          className={`${vista === "completar" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1`}
+          className={`${vista === "completar" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1`}
         >
           {plantilla.secciones.map((seccion) => {
             const abierta = seccion.id === seccionAbierta;
@@ -254,10 +274,12 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
               disabled={terminando}
               className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
             >
-              {terminando ? "Terminando…" : "Terminar y pasar a firmas"}
+              {terminando ? "Terminando…" : enPapel ? "Terminar para imprimir" : "Terminar y pasar a firmas"}
             </button>
             <p className="text-xs text-grafito/75">
-              Al terminar, el texto del documento queda fijo. Si nadie firmó todavía, se puede volver a editar.
+              {enPapel
+                ? "Al terminar, queda listo para imprimir: se firma a mano, en papel. Si hay que corregir algo, se puede volver a editar."
+                : "Al terminar, el texto del documento queda fijo. Si nadie firmó todavía, se puede volver a editar."}
             </p>
             <button
               type="button"
@@ -272,7 +294,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
         <div className={`${vista === "documento" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:flex`}>
           {paginasDeLamina ? (
             <>
-              <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`} className="self-end">
+              <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`} className="self-end lg:hidden">
                 <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} etiqueta="Tu documento" />
               </PantallaCompleta>
               <LaminaDocumento

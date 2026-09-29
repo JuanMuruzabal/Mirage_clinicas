@@ -964,7 +964,9 @@ export interface PacienteDetalle extends Paciente {
 // plantillas y del contenido congelado vive en
 // @dental-mirage/documentos-clinicos, no acá.
 
-export type EstadoDocumento = "borrador" | "a_firmar" | "sellado" | "anulado";
+/** `para_imprimir`: un consentimiento terminado. Se firma a mano, en papel
+ *  (TR-188): no espera firmas en el sistema ni se sella. */
+export type EstadoDocumento = "borrador" | "a_firmar" | "para_imprimir" | "sellado" | "anulado";
 
 /** Una firma dibujada: vectores con sus tiempos, no una imagen (TR-184).
  *  Cada punto es [x, y, milisegundos desde el primer toque]. */
