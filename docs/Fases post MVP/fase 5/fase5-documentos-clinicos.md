@@ -221,7 +221,7 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
    - la de adelante flota y se inclina hacia el mouse, como una carta de Balatro;
    - con "reducir movimiento" todo es un fundido.
 
-   Mientras haya menos de tres modelos, la pila se completa con **hojas de muestra** que no se pueden completar y desaparecen solas con la 5.4.
+   Mientras haya menos de tres modelos, la pila se completa con **hojas de muestra** que no se pueden completar; desde la 5.2, con los catorce consentimientos, ya no aparecen.
 3. **Al fondo, después del modelo: pacientes con documentos**, en blanco: nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente.
 
 **El editor** (`/panel/documentos/{id}`, un borrador):
@@ -235,6 +235,8 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 **Un consentimiento terminado** (TR-188): en lugar de las firmas, **Imprimir**. Sale la hoja exacta a tamaño del papel del modelo, con la página a 300 dpi y sin el encabezado del navegador, y los renglones de firma en blanco. **Recibe su folio** al terminarse, queda en el registro del paciente como "Listo para imprimir" y **ya no se edita**: si hay que corregir algo, "hacé uno nuevo".
 
 **Firmas** (§4.5), para lo que se firma en el sistema: una tarjeta por firmante requerido, con tres acciones — **Firmar en este dispositivo**, **Enviar vínculo** (copiar o abrir WhatsApp) y **Avisar a mi celular**. El estado de cada una se actualiza solo. Con la última firma, el documento se sella y aparece **Descargar PDF**.
+
+**Los consentimientos de la 5.2** (TR-189) se completan igual que el de conducto, sobre la hoja del Colegio. Tres cosas nuevas del motor les dan forma: **casillas** que se marcan con una X (el asentimiento del menor, "consiento / no consiento", el lugar de la intervención), **sangría** para los huecos que arrancan a mitad del renglón de su título, y las **partes de la fecha del documento** ("Córdoba 29 de septiembre 2026"). Para escribir la lámina de un modelo nuevo: `scripts/medir-huecos.py` mide los huecos del PDF y `scripts/dibujar-lamina.py` dibuja la composición sobre la página para verificarla.
 
 **Registro del paciente** (`/panel/pacientes/{id}/documentos`): los documentos terminados del paciente, del folio más nuevo al más viejo, con folio, documento **con su tipo adelante** ("Consentimiento informado: Tratamiento de conducto"), fecha, profesional, **huella** y estado. Los **filtros** son los de Turnos: un buscador a la vista (documento, profesional, folio o huella) y el botón "Filtros" con el **modelo puntual**, Hoy/Semana/Mes y desde/hasta. "+ Nuevo documento" va en la fila del título. Cada uno se abre en solo lectura (la hoja, las firmas y la constancia) y lo sellado se descarga en PDF. **El bloque "Historia clínica" de la ficha** pasa a ser "Documentos clínicos": **solo el botón** para entrar al registro (2026-09-29); recepción ve cuántos hay. "Presupuesto" sigue como está.
 
@@ -266,7 +268,7 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 
 **La constancia.** El PDF termina con una hoja de constancia por firma: método, fecha y hora de Córdoba, IP, dispositivo, mail verificado si lo hubo y la huella firmada. Es la evidencia que hace valer una firma electrónica (D1).
 
-**El profesional** firma con la rúbrica registrada en su perfil, reconfirmando su identidad en ese momento (5.3). El "sello" es su nombre y matrícula impresos al lado. **En la 5.1** dibuja su firma en el dispositivo, igual que el paciente, con la sesión como identidad: la API toma su nombre y documento del perfil e ignora lo que mande la pantalla.
+**El profesional** firma con la rúbrica registrada en su perfil, reconfirmando su identidad en ese momento (5.4). El "sello" es su nombre y matrícula impresos al lado. **En la 5.1** dibuja su firma en el dispositivo, igual que el paciente, con la sesión como identidad: la API toma su nombre y documento del perfil e ignora lo que mande la pantalla.
 
 **El sellado.** Con la última firma requerida, en una sola transacción:
 
@@ -344,15 +346,15 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | Subfase | Qué | Depende de |
 |---|---|---|
 | **5.1 Cimientos** | Tablas, triggers de inmutabilidad y auditoría; paquete `documentos-clinicos` con el motor, los tipos de campo básicos y el generador a Go; validación en el backend; la pantalla del módulo (selector, original, tabla de pacientes, borradores); el editor con sidebar y calco en vivo; el registro del paciente y el bloque de la ficha; la protección de fichas con documentos. **Primer documento de punta a punta: consentimiento de tratamiento de conducto**, con firma en este dispositivo y sellado | D4, D7 |
-| **5.2 PDF** | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma. Solo para lo que se sella: un consentimiento se imprime desde la pantalla (TR-188) | 5.1 |
-| **5.3 Firma a distancia** — *solo historias clínicas (TR-188)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil | 5.2, D1, D2 |
-| **5.4 Consentimientos** | Los trece restantes (incluido el de ortodoncia), con el selector de piezas FDI y el asentimiento | 5.3, D6 |
-| **5.5 Odontograma** | El componente (editor, calco y PDF), permanentes y temporarios, las dos leyendas | 5.2, D5 |
+| **5.2 Consentimientos** — *reordenada el 2026-09-29, era la 5.4 (TR-189)* | Los trece restantes (incluido el de ortodoncia), con casillas para el asentimiento y las opciones del papel. Se imprimen y se firman a mano (TR-188) | 5.1, D6 |
+| **5.3 PDF** | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma. Solo para lo que se sella: un consentimiento se imprime desde la pantalla (TR-188) | 5.1 |
+| **5.4 Firma a distancia** — *solo historias clínicas (TR-188)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil | 5.2, D1, D2 |
+| **5.5 Odontograma** | El componente (editor, calco y PDF), permanentes y temporarios, las dos leyendas | 5.3, D5 |
 | **5.6 Historias clínicas** | General, PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma) | 5.5 |
 | **5.7 Evolución y copias** | Registro de prestaciones como asientos sellados (D3), enmiendas, revocación, copia completa para el paciente | 5.6, D3 |
 | **5.8 Anclaje y cierre** | Sello de tiempo externo diario de la cadena, bucket con retención bloqueada, verificación de la cadena, revisión legal, QA en dispositivos reales, documentación | 5.7 |
 
-**El camino crítico** es 5.1 → 5.2 → 5.3: hasta que no se puede sellar, exportar y firmar a distancia un documento, ninguna plantilla sirve en un consultorio. Por eso el primer documento es el más simple de todos. Desde 5.4, las plantillas se suman solas sobre el motor.
+**El camino crítico** cambió con TR-188: los consentimientos se imprimen y se firman a mano, así que les alcanza la 5.1 y están todos desde la 5.2. Para las historias clínicas sigue siendo 5.3 (PDF) → 5.4 (firma a distancia): hasta que no se puede sellar, exportar y firmar a distancia, una historia clínica no sirve en un consultorio. Las plantillas se suman solas sobre el motor; una herramienta nueva (el odontograma, el cefalograma) es un tipo de campo más.
 
 ### Criterios de aceptación de la fase
 

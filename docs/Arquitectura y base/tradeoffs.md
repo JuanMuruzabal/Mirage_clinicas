@@ -3377,4 +3377,41 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-189: Los catorce consentimientos del Colegio (Fase 5.2), y el reorden de las subfases
+
+- **Fecha:** 2026-09-29 · **Fase:** execution (Fase 5.2)
+- **Contexto:** la 5.1 dejó el motor y un solo consentimiento, el de conducto. El plan original ponía los trece restantes en la 5.4, después del PDF (5.2) y de la firma a distancia (5.3). Con TR-188 los consentimientos se imprimen y se firman a mano, así que ya no dependen ni del PDF ni de la firma a distancia. El cliente reordenó la fase: **los consentimientos pasan a ser la 5.2**, el PDF la **5.3** y la firma a distancia la **5.4**, las dos solo para las historias clínicas; de la 5.5 a la 5.8 no cambia nada. Donde un TR anterior dice "5.2 (PDF)" o "5.3 (firma a distancia)", hoy son la 5.3 y la 5.4.
+- **Decisión:**
+  1. **Los trece que faltaban, cargados como plantillas:** extracción, biopsia, implantes, periodoncia, prótesis completa, fija y parcial removible, ortodoncia, ortopedia, odontopediatría, atención de pacientes con discapacidad, sedoanalgesia y toma de imágenes. El texto es el del modelo, palabra por palabra; solo se tocó la ortografía, y cada plantilla dice qué. Cada una tiene su lámina medida sobre el PDF y sus páginas renderizadas (`renderizar-originales.py`). **El de ortodoncia sale de las páginas 5 y 6 de la historia de ortodoncia**, que lo trae adentro. **El de COVID-19 queda afuera** (D6).
+  2. **Cómo se mide una lámina:** `scripts/medir-huecos.py` lista cada hueco del PDF carácter por carácter (tramos de guiones, puntos o puntos suspensivos, y las líneas y casillas dibujadas) con el texto que tiene alrededor. La zona sigue la convención de la de conducto: un punto después de donde empieza el hueco, 1,2 pt sobre la línea de base, un par de puntos más angosta. **Después se verifica a ojo:** `lamina-de-prueba.ts` compone la lámina con valores largos y `scripts/dibujar-lamina.py` la dibuja sobre la página. Así se revisaron las catorce.
+  3. **Tres piezas nuevas del motor, iguales en TypeScript y en Go:** la paridad la prueban los fixtures de cada plantilla y los casos de composición.
+     - **Casillas** (`{{campo=valor}}`): una "X" si se eligió esa opción y nada si no, sin "No consigna". Sirven para opciones, preguntas de sí o no y opciones múltiples, y el esquema rechaza una casilla de un campo sin opciones o de una opción que no existe. Las usan el asentimiento de ortodoncia y odontopediatría, "consiento / no consiento" en discapacidad y el lugar de la intervención en sedoanalgesia.
+     - **Sangría** (`sangria`): el primer renglón empieza corrido y es más angosto. Es para los huecos que arrancan a mitad del renglón de su título ("Observaciones: ……") y siguen en los de abajo. Antes, o todos los renglones empezaban corridos, o el primero quedaba vacío.
+     - **Partes de la fecha del documento** (`{{sistema.fecha:dia}}`) y el nombre del mes (`:mes_nombre`), para el papel fechado "Córdoba ___ de ______ 20__".
+  4. **Cómo se modela cada dato:**
+     - Quien suscribe y el paciente se precargan de la ficha. El profesional y su matrícula, del perfil, bloqueados.
+     - El representante o tutor no se precarga: la ficha es del paciente.
+     - "M.P. … de …" precarga la ciudad de la clínica.
+     - Los maxilares de las prótesis y el lugar de la intervención son opciones.
+     - Los renglones sin título del modelo se llaman "Aclaraciones".
+     - En las prótesis, el día y el mes de la próxima consulta van en sus huecos, y el año y la hora juntos en el último ("2026, 16:30 hora"), que puede achicarse hasta 4,5 pt.
+  5. **Las firmas:**
+     - Cada modelo pide las suyas: representante, asentimiento del menor, y "otro profesional interviniente" para el anestesista, que no tiene cuenta.
+     - **Una firma que el papel repite se ubica una sola vez** (en ortopedia, el responsable firma dos veces): la otra queda en el papel para firmarla a mano.
+     - Como se firman en papel, los lugares de firma no dibujan nada. Están igual porque el esquema los exige y son parte del modelo.
+  6. **Los valores de ejemplo del fixture tienen la forma de un dato real** (un DNI, una matrícula) **o son cortos**: el fixture es un documento que se puede terminar, y el test de Go exige que entre en la lámina. Con la etiqueta entera ("Ejemplo de profesional odontólogo que deriva al paciente") no entraba ni achicado.
+  7. **Las hojas de muestra de la pila** (TR-188, tercera ronda) ya no aparecen: con catorce modelos, `muestrasSiFaltan` no suma ninguna. El mecanismo queda para una instalación con menos modelos.
+- **Alternativas consideradas:**
+  - (a) Una zona por renglón para los huecos que empiezan a mitad del renglón: descartada, porque un campo no puede seguir de una zona a otra.
+  - (b) Dejar vacío el primer renglón: es lo que se hacía, y desperdicia justo el renglón al lado del título.
+  - (c) Escribir la opción elegida con `{{campo}}` en vez de una casilla: el texto sería la etiqueta de la opción, no una marca.
+  - (d) Esperar al PDF y a la firma a distancia, como decía el plan: los consentimientos ya no las necesitan.
+- **Qué se sacrifica:**
+  - El diagnóstico de sedoanalgesia usa los dos renglones de la primera página, no los tres que siguen en la segunda: una zona no cruza de página.
+  - En periodoncia, el tratamiento propuesto y los medicamentos no usan el tramo del título, porque su interlineado no es parejo.
+  - El texto legal se transcribió a mano: el test que lo compara contra el PDF (riesgo de la §7 del documento de la fase) sigue pendiente.
+- **Condición de revisión:** si el Colegio publica una versión nueva de un modelo, va como versión nueva de la plantilla, con sus imágenes aparte (TR-187).
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
