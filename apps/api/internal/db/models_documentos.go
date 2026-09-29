@@ -101,7 +101,8 @@ const (
 )
 
 // Cómo se firmó. En la 5.1 solo existe "presencial" (en el dispositivo
-// del consultorio); "vinculo" y "alerta" llegan con la 5.3.
+// del consultorio); "vinculo" y "alerta" llegan con la 5.4 (la firma a
+// distancia, que era la 5.3 antes del reorden de la fase).
 const (
 	MetodoPresencial = "presencial"
 	MetodoVinculo    = "vinculo"

@@ -54,8 +54,24 @@ export const MARCA = /\{\{([a-z][a-z0-9_.]*)\}\}/g;
 
 /** Las marcas de una zona de la lámina: `{{campo}}` o, para una fecha que
  *  el papel pide en partes (`___/___/___`), `{{campo:dia}}`, `:mes`,
- *  `:anio` o `:anio2` (los dos últimos dígitos). */
-export const MARCA_DE_ZONA = /\{\{([a-z][a-z0-9_.]*)(?::(dia|mes|anio|anio2))?\}\}/g;
+ *  `:mes_nombre` ("septiembre"), `:anio` o `:anio2` (los dos últimos
+ *  dígitos); también la fecha del documento (`{{sistema.fecha:dia}}`,
+ *  "Córdoba ___ de ______ 20__"). Para una casilla del
+ *  papel ("CONSIENTO ___ o NO CONSIENTO ___", "☐ Hospital"),
+ *  `{{campo=valor}}`: una "X" si se eligió esa opción, nada si no (Fase
+ *  5.2). Grupo 1: el campo; 2: la parte de la fecha; 3: la opción. */
+export const MARCA_DE_ZONA = /\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio)|=([a-z0-9_]{1,40}))?\}\}/g;
+
+/** Lo que se escribe en la casilla de la opción elegida. */
+export const MARCA_DE_CASILLA = "X";
+
+/** Los valores que se pueden marcar en una casilla de un campo: las
+ *  opciones, o "si"/"no" para una pregunta de sí o no. */
+export function opcionesMarcables(campo: Campo): string[] | null {
+  if (campo.tipo === "si_no") return ["si", "no"];
+  if (campo.tipo === "opcion_unica" || campo.tipo === "opcion_multiple") return campo.opciones.map((o) => o.valor);
+  return null;
+}
 
 const idDeCampo = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/, "id de campo inválido");
 const texto = z.string().min(1).max(4000);
@@ -160,6 +176,10 @@ export const zonaSchema = z
     /** Hasta dónde se achica para entrar (el 60 % del de partida si no se dice). */
     minimo: z.number().min(3).max(24).optional(),
     alinear: z.enum(["izquierda", "centro"]).optional(),
+    /** Cuánto más a la derecha empieza el primer renglón: un hueco que
+     *  arranca a mitad del renglón de su título ("Observaciones: ……") y
+     *  sigue en los renglones enteros de abajo (Fase 5.2). */
+    sangria: z.number().positive().max(2000).optional(),
     /** Lo que se escribe, con marcas (`{{lugar}}, {{sistema.fecha}}`). */
     texto: z.string().min(1).max(500),
     /** Lo que dice la zona vacía en un documento terminado ("No consigna"
@@ -275,6 +295,9 @@ export const plantillaSchema = z
         } else if (z0.x + z0.ancho > pagina.ancho || z0.y > pagina.alto) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} se sale de la página` });
         }
+        if (z0.sangria !== undefined && z0.sangria >= z0.ancho) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} tiene una sangría que no deja lugar` });
+        }
         if ((z0.minimo ?? 0) > (z0.tamano ?? 10)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} tiene un mínimo mayor que su tamaño` });
         }
@@ -288,6 +311,14 @@ export const plantillaSchema = z
           }
           if (m[2] && campo.tipo !== "fecha") {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} parte un campo que no es fecha: ${nombre}` });
+          }
+          if (m[3]) {
+            const marcables = opcionesMarcables(campo);
+            if (!marcables) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} marca una casilla de un campo sin opciones: ${nombre}` });
+            } else if (!marcables.includes(m[3])) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} marca una opción que ${nombre} no tiene: ${m[3]}` });
+            }
           }
           enLaLamina.add(nombre);
         }

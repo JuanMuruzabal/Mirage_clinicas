@@ -55,13 +55,22 @@ export function paginasDeLaLamina(plantilla: Plantilla | undefined): PaginaOrigi
   return paginas.length === plantilla.lamina.paginas.length ? paginas : null;
 }
 
-const PARTES: Record<string, string> = { dia: "día", mes: "mes", anio: "año", anio2: "año" };
+const PARTES: Record<string, string> = { dia: "día", mes: "mes", mes_nombre: "mes", anio: "año", anio2: "año" };
 
-/** Cómo se nombra una zona: su campo, o —si es una parte de una fecha
- *  ("___/___/___")— su sección y la parte ("Próxima consulta (mes)"). */
+const SI_NO: Record<string, string> = { si: "Sí", no: "No" };
+
+/** Cómo se nombra una zona: su campo; si es una parte de una fecha
+ *  ("___/___/___"), su sección y la parte ("Próxima consulta (mes)"); y si
+ *  es la casilla de una opción, el campo y la opción ("Consentimiento:
+ *  No consiento"). */
 function etiquetaDeZona(plantilla: Plantilla, zona: Zona): string {
   const [marca] = [...zona.texto.matchAll(MARCA_DE_ZONA)].filter((m) => m[1] !== "sistema.fecha");
-  const etiqueta = (marca && campoPorId(plantilla, marca[1])?.etiqueta) ?? zona.id;
+  const campo = marca ? campoPorId(plantilla, marca[1]) : undefined;
+  const etiqueta = campo?.etiqueta ?? zona.id;
+  if (marca?.[3]) {
+    const opcion = campo && "opciones" in campo ? campo.opciones.find((o) => o.valor === marca[3])?.etiqueta : SI_NO[marca[3]];
+    return `${etiqueta}: ${opcion ?? marca[3]}`;
+  }
   if (!marca?.[2]) return etiqueta;
   return `${seccionDelCampo(plantilla, marca[1])?.titulo ?? etiqueta} (${PARTES[marca[2]]})`;
 }

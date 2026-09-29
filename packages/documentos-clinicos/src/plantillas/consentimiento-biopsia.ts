@@ -1,0 +1,188 @@
+// Consentimiento informado de biopsia — modelo oficial del Colegio
+// Odontológico de la Provincia de Córdoba
+// (Consentimiento-Informado-Biopsia.pdf).
+//
+// El texto es el del modelo, palabra por palabra; se tocó solo la
+// ortografía (tildes: "brindará", "diagnóstica", "úlcera", "hinchazón"; un
+// "mi circunstancias" que es "mis"; el "Firrma" de la leyenda). El párrafo
+// final del modelo dice "extracción/es del/los elemento/s" —viene del de
+// extracción— y se deja tal cual: ahí se escribe la zona de la biopsia.
+import type { Plantilla } from "../esquema";
+
+export const consentimientoBiopsia: Plantilla = {
+  id: "consentimiento-biopsia",
+  version: 1,
+  nombre: "Biopsia",
+  tipo: "consentimiento",
+  descripcion: "Consentimiento informado para una biopsia (toma de material para su análisis), con los riesgos y la medicación.",
+  fuente: {
+    nombre: "Colegio Odontológico de la Provincia de Córdoba",
+    url: "https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/",
+  },
+  secciones: [
+    {
+      id: "lugar",
+      titulo: "Lugar y fecha",
+      campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
+    },
+    {
+      id: "biopsia",
+      titulo: "Biopsia",
+      campos: [
+        { tipo: "texto", id: "zona", etiqueta: "Zona u objetivo de la biopsia", requerido: true },
+        {
+          tipo: "texto_largo",
+          id: "tratamientos_alternativos",
+          etiqueta: "Tratamientos alternativos (riesgos, beneficios y perjuicios)",
+        },
+        { tipo: "texto_largo", id: "riesgos_personalizados", etiqueta: "Riesgos personalizados" },
+      ],
+    },
+    {
+      id: "medicacion",
+      titulo: "Medicación indicada",
+      campos: [
+        { tipo: "texto_largo", id: "medicacion_pre", etiqueta: "Pre quirúrgico" },
+        { tipo: "texto_largo", id: "medicacion_post", etiqueta: "Post quirúrgico" },
+      ],
+    },
+    {
+      id: "otros",
+      titulo: "Otros",
+      campos: [{ tipo: "texto_largo", id: "otros", etiqueta: "Otros" }],
+    },
+    {
+      id: "proxima_consulta",
+      titulo: "Próxima consulta",
+      campos: [
+        { tipo: "fecha", id: "proxima_consulta_fecha", etiqueta: "Día" },
+        { tipo: "hora", id: "proxima_consulta_hora", etiqueta: "Hora" },
+      ],
+    },
+    {
+      id: "firmante",
+      titulo: "Quién suscribe",
+      campos: [
+        {
+          tipo: "texto",
+          id: "suscribe_nombre",
+          etiqueta: "Nombre y apellido",
+          requerido: true,
+          precarga: "paciente.nombreCompleto",
+          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos. Va también como aclaración de la firma.",
+        },
+        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
+        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
+        {
+          tipo: "texto",
+          id: "profesional_nombre",
+          etiqueta: "Profesional que lo propone",
+          requerido: true,
+          precarga: "profesional.nombreCompleto",
+          bloqueado: true,
+        },
+      ],
+    },
+  ],
+  cuerpo: [
+    { t: "titulo", texto: "Consentimiento informado" },
+    { t: "subtitulo", texto: "Biopsia" },
+    { t: "parrafo", texto: "Lugar y fecha: {{lugar}}, {{sistema.fecha}}." },
+    {
+      t: "parrafo",
+      texto:
+        "Usted tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que ocurren. Este documento intenta explicarle todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, usted o su representante legal, el consentimiento informado para que pueda realizarle el procedimiento descripto a continuación.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "A propósito declaro haber sido informado y haber comprendido acabadamente la conveniencia y el objetivo de la biopsia {{zona}} y las consecuencias de no llevar a cabo dicho procedimiento quirúrgico, que consiste en realizar una toma de material, para obtener muestras de un tejido vivo por punción o escisión de los tejidos involucrados para analizarla posteriormente, la muestra será analizada por un patólogo especialista lo cual nos brindará un diagnóstico de certeza.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Este procedimiento está indicado para lesiones que no pueden ser diagnosticadas por otros métodos, como ayuda en evolución diagnóstica de enfermedades infecciosas, micóticas y bacterianas, para determinar el tipo de tumor, en lesiones con sospecha de cáncer, cualquier lesión de aspecto clínico compatible con úlcera, ulceración, erosión, ampolla, y que no muestre evidencia de curación en 5 a 10 días, nódulos de crecimiento rápido, lesiones negras, lesiones blancas, lesiones rojas, cualquier tejido eliminado quirúrgicamente o eliminado espontáneamente.",
+    },
+    { t: "campo", campo: "tratamientos_alternativos" },
+    {
+      t: "parrafo",
+      texto:
+        "Declaro que mi odontólogo ha examinado mi boca debidamente. Que se me ha explicado otras alternativas a este procedimiento, que se han estudiado y considerado estos métodos que se me informaron, siendo mi voluntad que se me realice el procedimiento objeto del presente consentimiento.",
+    },
+    { t: "parrafo", texto: "Riesgos, molestias y efectos adversos previsibles:" },
+    {
+      t: "lista",
+      items: [
+        "Molestias postoperatorias que puedan durar desde unas horas hasta varios días y para lo cual se administrará medicación en caso de ser necesario.",
+        "Tumefacción (hinchazón) post-operatorio del área.",
+        "Infección y dolor.",
+        "Trismus, (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Parestesia (pérdida de la sensibilidad).",
+        "Hemorragia (sangrado abundante).",
+      ],
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Riesgos personalizados: además de los riesgos antes descriptos, por mis circunstancias especiales hay que esperar los siguientes riesgos: {{riesgos_personalizados}}",
+    },
+    { t: "parrafo", texto: "Medicación indicada:" },
+    { t: "campo", campo: "medicacion_pre" },
+    { t: "campo", campo: "medicacion_post" },
+    {
+      t: "parrafo",
+      texto:
+        "Consecuencias de la no realización del procedimiento propuesto: la no realización de la toma de material, implica no poder brindar un diagnóstico de certeza sobre la patología que usted padece, impidiendo como consecuencia brindar un tratamiento adecuado al caso.",
+    },
+    { t: "campo", campo: "otros" },
+    {
+      t: "parrafo",
+      texto:
+        "Todas mis dudas han sido aclaradas y estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento. Si al momento de la intervención surgiera una situación anátomo patológica distinta y más grave a la prevista, doy mi consentimiento para que se actúe del modo más conocido, según la ciencia y conciencia respecto a lo programado, por el exclusivo interés de mi salud. Asimismo, doy consentimiento para la administración de anestesia local que se aplicará para la realización de dicho tratamiento delegando al odontólogo el tipo de anestesia y me comprometo a regresar a la próxima consulta el día {{proxima_consulta_fecha}}, hora {{proxima_consulta_hora}}.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{zona}} propuesto por el Dr/a {{profesional_nombre}}.",
+    },
+    { t: "firmas" },
+  ],
+  firmas: [
+    { rol: "paciente", etiqueta: "Firma del paciente o representante", requerida: true },
+    { rol: "profesional", etiqueta: "Firma del profesional", requerida: true },
+  ],
+  // Carta (612 × 792 pt), dos páginas; el papel está en Times de 11 pt y
+  // sus renglones son puntos. La fecha de la próxima consulta son tres
+  // tramos subrayados separados por barras. Debajo de la firma del
+  // paciente, "Aclaración." y "DNI.": los datos de quien suscribe.
+  lamina: {
+    paginas: [
+      { ancho: 612, alto: 792 },
+      { ancho: 612, alto: 792 },
+    ],
+    zonas: [
+      { id: "lugar_fecha", pagina: 1, x: 152, y: 103.6, ancho: 345, texto: "{{lugar}}, {{sistema.fecha}}" },
+      { id: "zona", pagina: 1, x: 221.5, y: 193.6, ancho: 264, texto: "{{zona}}" },
+      { id: "tratamientos_alternativos", pagina: 1, x: 86, y: 362.4, ancho: 438, lineas: 3, interlineado: 12.7, texto: "{{tratamientos_alternativos}}" },
+      { id: "riesgos_personalizados", pagina: 1, x: 86, y: 672.8, ancho: 439, sangria: 34, lineas: 3, interlineado: 13.7, texto: "{{riesgos_personalizados}}" },
+      { id: "medicacion_pre", pagina: 2, x: 160.5, y: 82.6, ancho: 359, lineas: 3, interlineado: 15.35, texto: "{{medicacion_pre}}" },
+      { id: "medicacion_post", pagina: 2, x: 86, y: 127, ancho: 428, sangria: 70.5, lineas: 3, interlineado: 12.65, texto: "{{medicacion_post}}" },
+      { id: "otros", pagina: 2, x: 86, y: 228.1, ancho: 433, sangria: 27.5, lineas: 2, interlineado: 12.8, texto: "{{otros}}" },
+      { id: "proxima_consulta_dia", pagina: 2, x: 247, y: 356.3, ancho: 32, alinear: "centro", texto: "{{proxima_consulta_fecha:dia}}", vacio: "—" },
+      { id: "proxima_consulta_mes", pagina: 2, x: 289.5, y: 356.3, ancho: 30.5, alinear: "centro", texto: "{{proxima_consulta_fecha:mes}}", vacio: "—" },
+      { id: "proxima_consulta_anio", pagina: 2, x: 328, y: 356.3, ancho: 34, alinear: "centro", texto: "{{proxima_consulta_fecha:anio}}", vacio: "—" },
+      { id: "proxima_consulta_hora", pagina: 2, x: 396, y: 356.3, ancho: 44, texto: "{{proxima_consulta_hora}}", vacio: "—" },
+      { id: "suscribe_nombre", pagina: 2, x: 169, y: 395.9, ancho: 210, texto: "{{suscribe_nombre}}" },
+      { id: "suscribe_dni", pagina: 2, x: 423, y: 395.9, ancho: 103, texto: "{{suscribe_dni}}" },
+      { id: "suscribe_domicilio", pagina: 2, x: 209, y: 409.6, ancho: 317, texto: "{{suscribe_domicilio}}" },
+      { id: "zona_otorga", pagina: 2, x: 86, y: 437.1, ancho: 185, texto: "{{zona}}" },
+      { id: "profesional_nombre", pagina: 2, x: 86, y: 450.8, ancho: 169, texto: "{{profesional_nombre}}" },
+      { id: "aclaracion", pagina: 2, x: 168, y: 597.2, ancho: 180, texto: "{{suscribe_nombre}}" },
+      { id: "dni_firma", pagina: 2, x: 139, y: 612.9, ancho: 150, texto: "{{suscribe_dni}}" },
+    ],
+    firmas: [
+      { rol: "paciente", pagina: 2, x: 113.7, y: 570, ancho: 160, alto: 38 },
+      { rol: "profesional", pagina: 2, x: 398, y: 570, ancho: 125, alto: 38 },
+    ],
+  },
+};

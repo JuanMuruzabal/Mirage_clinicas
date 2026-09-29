@@ -1,0 +1,312 @@
+{
+  "plantilla": "consentimiento-protesis-fija",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "tratamiento_alternativo": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "material_convenido": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "riesgos_personalizados": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "proxima_consulta_fecha": "1984-03-07",
+    "suscribe_nombre": "Ejemplo de nombre",
+    "suscribe_dni": "30111222",
+    "suscribe_domicilio": "Ejemplo de domicilio",
+    "elementos": [
+      "37",
+      "11",
+      "36"
+    ],
+    "profesional_nombre": "Ejemplo de profesional",
+    "profesional_matricula": "1234"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Prótesis fija"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Usted tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que ocurren. Este documento intenta explicarle todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, usted o su representante legal, el consentimiento informado para que pueda realizarle el procedimiento descripto a continuación."
+    },
+    {
+      "t": "parrafo",
+      "texto": "A propósito declaro haber sido informado y haber comprendido acabadamente que el objeto del tratamiento, es devolver la función, estética y fonética de la cavidad bucal a través de coronas (fundas) de diferentes materiales pudiendo o no necesitar colocar algunos aditamentos, como ser pernos (que se coloca en el interior del conducto del diente el cual previamente recibió el tratamiento de conducto correspondiente), o implantes (reemplazo de las raíces naturales), etc. cuyo destino es darle retención a la prótesis fija formada por las coronas."
+    },
+    {
+      "t": "parrafo",
+      "texto": "La prótesis fija proporciona una masticación similar a la natural y un habla adecuada aunque no permite cerrar los espacios que pudieran haberse creado entre los dientes cuando han menguado las encías y al hablar se puede escapar saliva o aire; con el tiempo, el proceso de atrofia natural de los huesos maxilares y de las encías deja a la vista las uniones entre dientes y fundas, por lo que estéticamente puede necesitar reemplazo; otras causas de sustitución pueden ser: lesiones irrecuperables (caries, fracturas, filtraciones marginales, cambios en los maxilares y en la posición de los dientes naturales), procesos inexorables del paso del tiempo (envejecimiento) y que se ven agravados por descuidos y falta de higiene por parte del portador."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Para realizar un tratamiento de prótesis dental se me ha explicado la necesidad de tallar los dientes pilares de la prótesis fija, lo que puede conllevar la posibilidad de aproximación excesiva a la cámara pulpar (nervio) que nos obligaría a realizar un tratamiento de endodoncia (o llamado de conducto) y en algunos casos si el muñón (remanente de la corona) queda frágil, se necesitará realizar un perno de fibra o colado (metálico). También se me ha explicado la necesidad de mantener una higiene escrupulosa y diaria para evitar el desarrollo de gingivitis y secundariamente enfermedad periodontal (que se manifiestan con inflamación de las encías, sangrado y a veces dolor)."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Se me ha aclarado que existe la posibilidad de fractura de cualquier componente de la prótesis, que implique la reparación, cambio total de la misma e incluso la pérdida de la pieza dentaria pilar (donde asienta la prótesis fija)."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamiento_alternativo",
+      "etiqueta": "Tratamiento alternativo (riesgo, beneficios y perjuicios)",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "material_convenido",
+      "etiqueta": "Material convenido",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Riesgos:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Sensación de que los dientes artificiales son demasiado grandes o con diferencia en tamaño, forma y color con los naturales.",
+        "La pronunciación de ciertos sonidos puede resultar un poco alterada.",
+        "Es probable que se muerda fácilmente las mejillas y la lengua.",
+        "Si se le ha cementado la prótesis provisionalmente: se le puede desprender o puede notar ligeras molestias en los dientes que sirven de sujeción, al consumir o ingerir bebidas o alimentos fríos, calientes y dulces."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Además de los riesgos antes descriptos, por mis circunstancias especiales hay que esperar los siguientes riesgos: Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Los primeros días, procure cerrar la boca y masticar con cuidado para no morderse.",
+        "Evite comer alimentos duros como frutos secos con cáscara, huesos, etc.",
+        "Evite comer alimentos extremadamente pegajosos como chicles, caramelos masticables, etc.",
+        "Si se le ha cementado la prótesis provisionalmente, es recomendable masticar del otro lado, hacer una dieta semi blanda, prestar atención a la retención de alimentos entre prótesis y los dientes de al lado o la encía y advierta al dentista, antes de cementarla definitivamente.",
+        "Es importante mantener una correcta higiene oral en el resto de los dientes, independientemente de la prótesis.",
+        "Se debe realizar revisión cada seis meses para comprobar y corregir la aparición de caries, inflamación de encías, movilidades dentarias y el estado y ajuste de la prótesis. Acudir a una consulta inmediata siempre que aparezcan ulceraciones, alguna anormalidad o movilidad de la prótesis."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "He leído las instrucciones de manejo, cuidado y mantenimiento que me ha entregado el Dr/a. Ejemplo de profesional y he comprendido todas las explicaciones que se me han facilitado en el lenguaje claro y sencillo, he podido realizar todas las observaciones y se me han aclarado todas las dudas; por lo que estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Asimismo, entiendo que la colocación de la prótesis no constituye el acto final del tratamiento, sino que es necesario un proceso de adaptación que puede exigir retoques, por lo que me comprometo a regresar a la próxima consulta el día 07/03/1984, hora No consigna."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la que suscribe Ejemplo de nombre, DNI Nº 30111222, con domicilio en calle Ejemplo de domicilio, otorgo mi consentimiento a la colocación de una prótesis fija en los elemento/s 11, 36, 37 propuesta por el/la Dr/a Ejemplo de profesional, MP 1234."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 141.5,
+          "y": 101.7,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento_alternativo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 469.6,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 481.15,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "material_convenido",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 166.5,
+          "y": 515.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 527.15,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "riesgos_personalizados",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 101.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 113.2,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_instrucciones",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 308.7,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_dia",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 181.69,
+          "y": 366.2,
+          "texto": "07"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_mes",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 203.34,
+          "y": 366.2,
+          "texto": "03"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_anio_hora",
+      "pagina": 2,
+      "tamano": 5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 224.1,
+          "y": 366.2,
+          "texto": "1984, No consigna"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_nombre",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 157,
+          "y": 400.8,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_dni",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 367.5,
+          "y": 400.8,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_domicilio",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 174.5,
+          "y": 423.7,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "elementos",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 462.5,
+          "y": 446.7,
+          "texto": "11, 36, 37"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 197.5,
+          "y": 458.2,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

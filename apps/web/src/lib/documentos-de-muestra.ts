@@ -1,11 +1,12 @@
 // Las hojas de muestra de la pila de modelos (pedido del cliente,
 // 2026-09-29). La pila apila el documento elegido con el anterior y el
-// siguiente del carrusel, pero hoy hay un solo modelo cargado (los demás
-// consentimientos llegan con la 5.4): sin muestras no habría nada que
-// apilar ni que barajar. Se recorren con las flechas como un documento
-// más, no se pueden completar, y desaparecen solas en cuanto haya tres
-// modelos de verdad (`muestrasSiFaltan`). No son un adelanto de ningún
-// documento: por eso no llevan el nombre de uno.
+// siguiente del carrusel, y cuando se pidió había un solo modelo cargado:
+// sin muestras no había nada que apilar ni que barajar. Se recorren con
+// las flechas como un documento más, no se pueden completar, y desaparecen
+// solas en cuanto hay tres modelos de verdad (`muestrasSiFaltan`). Desde
+// la 5.2 (los catorce consentimientos) ya no aparecen; quedan para una
+// instalación con menos modelos. No son un adelanto de ningún documento:
+// por eso no llevan el nombre de uno.
 import type { TipoDePlantilla } from "@dental-mirage/documentos-clinicos";
 
 export interface ModeloDeMuestra {

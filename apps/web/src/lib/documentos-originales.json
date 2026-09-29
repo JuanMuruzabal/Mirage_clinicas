@@ -8,5 +8,215 @@
         "alto": 3300
       }
     ]
+  },
+  "consentimiento-extraccion@1": {
+    "archivo": "Consentimiento-Informado-de-Extraccion.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
+  "consentimiento-biopsia@1": {
+    "archivo": "Consentimiento-Informado-Biopsia.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
+  "consentimiento-implantes@1": {
+    "archivo": "Consentimiento-Informado-de-Implantes.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-periodoncia@1": {
+    "archivo": "Consentimiento-Informado-de-Periodoncia.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 3,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
+  "consentimiento-protesis-completa@1": {
+    "archivo": "Consentimiento-Informado-de-Protesis-Completa.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
+  "consentimiento-protesis-fija@1": {
+    "archivo": "Consentimiento-Informado-de-Protesis-Fija.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
+  "consentimiento-protesis-removible@1": {
+    "archivo": "Consentimiento-Informado-de-Protesis-Parcial-Removible.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3609
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3609
+      }
+    ]
+  },
+  "consentimiento-ortodoncia@1": {
+    "archivo": "Historia-Clinica-para-Modulo-de-Ortodoncia.pdf",
+    "paginas": [
+      {
+        "numero": 5,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 6,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-ortopedia@1": {
+    "archivo": "CONSENTIMIENTO-INFORMADO-ORTOPEDIA-VERSION-TERMINADA.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-odontopediatria@1": {
+    "archivo": "Consentimiento-Informado-de-Odontopediatría.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-discapacidad@1": {
+    "archivo": "Consentimiento-informado-para-discapacidad.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-sedoanalgesia@1": {
+    "archivo": "Consentimiento-sedoanalgesia-1.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 3,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 4,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
+  },
+  "consentimiento-toma-de-imagenes@1": {
+    "archivo": "CONSENTIMIENTO-INFORMADO-TOMA-DE-IMAGENES-60-anos-1.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
   }
 }

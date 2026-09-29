@@ -1,0 +1,202 @@
+// Consentimiento informado de extracción — modelo oficial del Colegio
+// Odontológico de la Provincia de Córdoba
+// (Consentimiento-Informado-de-Extraccion.pdf).
+//
+// El texto es el del modelo, palabra por palabra. Lo único que se tocó es
+// la ortografía (tildes: "hinchazón", "coágulo", "riñón", "odontógenas",
+// "realizó"…, y un "mi circunstancias" que es "mis") y el formato de los
+// huecos: donde el papel tiene una línea para escribir, acá hay un campo.
+// Las indicaciones de este modelo son texto fijo, no un hueco.
+import type { Plantilla } from "../esquema";
+
+export const consentimientoExtraccion: Plantilla = {
+  id: "consentimiento-extraccion",
+  version: 1,
+  nombre: "Extracción",
+  tipo: "consentimiento",
+  descripcion: "Consentimiento informado para la extracción de uno o más elementos, con los riesgos, las indicaciones y la medicación.",
+  fuente: {
+    nombre: "Colegio Odontológico de la Provincia de Córdoba",
+    url: "https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/",
+  },
+  secciones: [
+    {
+      id: "lugar",
+      titulo: "Lugar y fecha",
+      campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
+    },
+    {
+      id: "extraccion",
+      titulo: "Extracción",
+      campos: [
+        { tipo: "piezas", id: "elementos", etiqueta: "Elemento(s) a extraer", requerido: true, denticion: "ambas" },
+        {
+          tipo: "texto_largo",
+          id: "tratamientos_alternativos",
+          etiqueta: "Tratamientos alternativos (riesgos, beneficios y perjuicios)",
+        },
+        { tipo: "texto_largo", id: "riesgos_personalizados", etiqueta: "Riesgos personalizados" },
+      ],
+    },
+    {
+      id: "medicacion",
+      titulo: "Medicación indicada",
+      campos: [
+        { tipo: "texto_largo", id: "medicacion_pre", etiqueta: "Pre quirúrgico" },
+        { tipo: "texto_largo", id: "medicacion_post", etiqueta: "Pos quirúrgico" },
+      ],
+    },
+    {
+      id: "otros",
+      titulo: "Otros",
+      campos: [{ tipo: "texto_largo", id: "otros", etiqueta: "Otros" }],
+    },
+    {
+      id: "proxima_consulta",
+      titulo: "Próxima consulta",
+      campos: [
+        { tipo: "fecha", id: "proxima_consulta_fecha", etiqueta: "Día" },
+        { tipo: "hora", id: "proxima_consulta_hora", etiqueta: "Hora" },
+      ],
+    },
+    {
+      id: "firmante",
+      titulo: "Quién suscribe",
+      campos: [
+        {
+          tipo: "texto",
+          id: "suscribe_nombre",
+          etiqueta: "Nombre y apellido",
+          requerido: true,
+          precarga: "paciente.nombreCompleto",
+          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
+        },
+        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
+        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
+        {
+          tipo: "texto",
+          id: "profesional_nombre",
+          etiqueta: "Profesional que lo propone",
+          requerido: true,
+          precarga: "profesional.nombreCompleto",
+          bloqueado: true,
+        },
+      ],
+    },
+  ],
+  cuerpo: [
+    { t: "titulo", texto: "Consentimiento informado" },
+    { t: "subtitulo", texto: "Extracción" },
+    { t: "parrafo", texto: "Lugar y fecha: {{lugar}}, {{sistema.fecha}}." },
+    {
+      t: "parrafo",
+      texto:
+        "Usted tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que ocurren. Este documento intenta explicarle todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, usted o su representante legal, el consentimiento informado para que pueda realizarle el procedimiento descripto a continuación.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "A propósito declaro haber sido informado y haber comprendido acabadamente la conveniencia y el objetivo de la/s extracción del/los elemento/s {{elementos}} y las consecuencias de no llevar a cabo dicho tratamiento, devolviendo la salud bucal al paciente.",
+    },
+    { t: "campo", campo: "tratamientos_alternativos" },
+    {
+      t: "parrafo",
+      texto:
+        "Declaro que mi odontólogo ha examinado mi boca debidamente. Que se me ha explicado otras alternativas a este tratamiento, que se han estudiado y considerado estos métodos que se me informaron, siendo mi voluntad que se me realice el tratamiento objeto del presente consentimiento.",
+    },
+    { t: "parrafo", texto: "Riesgos, molestias y efectos adversos previsibles:" },
+    {
+      t: "lista",
+      items: [
+        "Molestias postoperatorias que puedan durar desde unas horas hasta varios días y para lo cual se administrará medicación en caso de ser necesario.",
+        "Tumefacción (hinchazón) post-operatorio del área gingival en la vecindad del diente extraído o tumefacción (hinchazón) facial, las cuales pueden persistir durante varios días.",
+        "Infección y dolor.",
+        "Trismus, (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Posibilidad de producirse comunicación Bucosinusal (comunicación entre la cavidad bucal y el seno maxilar que es una cavidad que integra parte de las vías respiratorias).",
+        "Parestesia (pérdida de la sensibilidad).",
+        "Alveolitis (infección y dolor del sitio vacío dejado posterior a la extracción para lo cual deberá regresar a la consulta y realizar el tratamiento correspondiente).",
+        "Fractura del elemento y/o del hueso.",
+        "Hemorragia (sangrado abundante).",
+      ],
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Riesgos personalizados: además de los riesgos antes descriptos, por mis circunstancias especiales hay que esperar los siguientes riesgos: {{riesgos_personalizados}}",
+    },
+    { t: "parrafo", texto: "Indicaciones:" },
+    {
+      t: "lista",
+      items: [
+        "La gasa protectora de la herida colocada por el profesional en el consultorio, retirarla al cabo de 1 hora de finalizada la intervención.",
+        "Si le sangra en horas durante las cuales no pudiera concurrir al consultorio, haga un bollo de gasa esterilizada del tamaño de una nuez y aplíquela sobre la herida apretando fuertemente sobre los dientes opuestos. Consérvela en su sitio hasta que vuelva al consultorio que ha de ser lo antes posible.",
+        "Cuando llegue a su casa, después de la operación conviene guardar reposo por algunas horas, en caso de recostarse, realizarlo con la cabeza en alto, sobre la región operada, puede colocar de manera intermitente frío durante quince minutos y quince minutos de descanso, no repita esta indicación más de dos o tres veces. Con este método se logra combatir el edema (hinchazón) post-operatorio.",
+        "No fumar.",
+        "No ingerir alimentos calientes, solo fríos o tibios (flan, yogurt, helado, gelatina, compota, entre otros).",
+        "No realizar succión (no tomar mate, no usar sorbete), puede disolver el coágulo sanguíneo y producir hemorragias o infecciones.",
+        "No realizar enjuagatorios, o buches.",
+        "No realizar esfuerzo físico, ni permanecer expuesto a fuentes de calor (sol, estufas, hornos, plancha).",
+        "No ingerir alimentos que presenten semillas pequeñas (tomate, kiwi, uva) ya que las mismas pueden introducirse en el interior de la herida.",
+        "No masticar del lado en donde se realizó la extracción.",
+        "No tocarse la zona con la mano.",
+        "No realizar movimientos que impliquen el descenso brusco de la cabeza.",
+      ],
+    },
+    { t: "parrafo", texto: "Medicación indicada:" },
+    { t: "campo", campo: "medicacion_pre" },
+    { t: "campo", campo: "medicacion_post" },
+    {
+      t: "parrafo",
+      texto:
+        "Consecuencias de la no realización del procedimiento propuesto: usted puede padecer focos infecciosos, infección de otros órganos (corazón, riñón), quistes, tumores, pérdida de hueso, afección de elementos dentarios vecinos, sinusitis odontógenas, problemas masticatorios, fonéticos y estéticos, pérdida del cabello, secuestros óseos.",
+    },
+    { t: "campo", campo: "otros" },
+    {
+      t: "parrafo",
+      texto:
+        "Todas mis dudas han sido aclaradas y estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento. Si al momento de la intervención surgiera una situación anátomo patológica distinta y más grave a la prevista, doy mi consentimiento para que se actúe del modo más conocido, según la ciencia y conciencia respecto a lo programado, por el exclusivo interés de mi salud. Asimismo, doy consentimiento para la administración de anestesia local que se aplicará para la realización de dicho tratamiento delegando al odontólogo el tipo de anestesia y me comprometo a regresar a la próxima consulta el día {{proxima_consulta_fecha}}, hora {{proxima_consulta_hora}}.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{elementos}} propuesto por el Dr/a {{profesional_nombre}}.",
+    },
+    { t: "firmas" },
+  ],
+  firmas: [
+    { rol: "paciente", etiqueta: "Firma del paciente o representante", requerida: true },
+    { rol: "profesional", etiqueta: "Firma del profesional", requerida: true },
+  ],
+  // Carta (612 × 792 pt), dos páginas. Los renglones del papel son puntos
+  // suspensivos; cada zona se apoya en su línea de base. La próxima
+  // consulta es "el día ____ /____ / (año) Hora __", con el año sin línea.
+  // Las firmas no tienen línea en el papel: van arriba de su leyenda.
+  lamina: {
+    paginas: [
+      { ancho: 612, alto: 792 },
+      { ancho: 612, alto: 792 },
+    ],
+    zonas: [
+      { id: "lugar_fecha", pagina: 1, x: 158, y: 86.2, ancho: 358, texto: "{{lugar}}, {{sistema.fecha}}" },
+      { id: "elementos", pagina: 1, x: 257, y: 171.5, ancho: 238, texto: "{{elementos}}" },
+      { id: "tratamientos_alternativos", pagina: 1, x: 86, y: 220.5, ancho: 438, lineas: 3, interlineado: 11.45, texto: "{{tratamientos_alternativos}}" },
+      { id: "riesgos_personalizados", pagina: 1, x: 86, y: 569.1, ancho: 438, lineas: 2, interlineado: 13, texto: "{{riesgos_personalizados}}" },
+      { id: "medicacion_pre", pagina: 2, x: 91.5, y: 228.5, ancho: 428, lineas: 2, interlineado: 13, texto: "{{medicacion_pre}}" },
+      { id: "medicacion_post", pagina: 2, x: 91.5, y: 274.3, ancho: 428, lineas: 2, interlineado: 12.9, texto: "{{medicacion_post}}" },
+      { id: "otros", pagina: 2, x: 86, y: 360.8, ancho: 434, sangria: 25, lineas: 4, interlineado: 11.47, texto: "{{otros}}" },
+      { id: "proxima_consulta_dia", pagina: 2, x: 445, y: 477.4, ancho: 32, alinear: "centro", texto: "{{proxima_consulta_fecha:dia}}", vacio: "—" },
+      { id: "proxima_consulta_mes", pagina: 2, x: 489, y: 477.4, ancho: 30, alinear: "centro", texto: "{{proxima_consulta_fecha:mes}}", vacio: "—" },
+      { id: "proxima_consulta_anio", pagina: 2, x: 528, y: 477.4, ancho: 34, alinear: "centro", texto: "{{proxima_consulta_fecha:anio}}", vacio: "—" },
+      { id: "proxima_consulta_hora", pagina: 2, x: 108, y: 489.4, ancho: 50, texto: "{{proxima_consulta_hora}}", vacio: "—" },
+      { id: "suscribe_nombre", pagina: 2, x: 159.5, y: 524.2, ancho: 250, texto: "{{suscribe_nombre}}" },
+      { id: "suscribe_dni", pagina: 2, x: 443.5, y: 524.2, ancho: 66, texto: "{{suscribe_dni}}" },
+      { id: "suscribe_domicilio", pagina: 2, x: 174.5, y: 535.8, ancho: 348, texto: "{{suscribe_domicilio}}" },
+      { id: "elementos_otorga", pagina: 2, x: 436, y: 547.3, ancho: 79, texto: "{{elementos}}" },
+      { id: "profesional_nombre", pagina: 2, x: 173.5, y: 558.8, ancho: 163, texto: "{{profesional_nombre}}" },
+    ],
+    firmas: [
+      { rol: "paciente", pagina: 2, x: 104, y: 643, ancho: 160, alto: 38 },
+      { rol: "profesional", pagina: 2, x: 406, y: 643, ancho: 160, alto: 38 },
+    ],
+  },
+};

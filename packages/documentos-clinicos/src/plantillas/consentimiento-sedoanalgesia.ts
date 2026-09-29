@@ -1,0 +1,296 @@
+// Consentimiento informado para atención odontológica bajo cuidados
+// anestésicos monitoreados (sedoanalgesia) — modelo oficial del Colegio
+// Odontológico de la Provincia de Córdoba (Consentimiento-sedoanalgesia-1.pdf).
+//
+// El texto es el del modelo, palabra por palabra. Suma los datos del
+// anestesista actuante, que también firma como "otro profesional
+// interviniente" (no tiene cuenta en PRISMA: firma en el papel, TR-188), y
+// el lugar de la intervención en tres casillas que se marcan con una X
+// (Fase 5.2). Los huecos que empiezan a mitad del renglón de su título
+// siguen en los renglones de abajo (la sangría de la zona).
+import type { Plantilla } from "../esquema";
+
+export const consentimientoSedoanalgesia: Plantilla = {
+  id: "consentimiento-sedoanalgesia",
+  version: 1,
+  nombre: "Sedoanalgesia",
+  tipo: "consentimiento",
+  descripcion:
+    "Consentimiento informado para atención odontológica bajo cuidados anestésicos monitoreados (sedación consciente), con el anestesista actuante.",
+  fuente: {
+    nombre: "Colegio Odontológico de la Provincia de Córdoba",
+    url: "https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/",
+  },
+  secciones: [
+    {
+      id: "lugar",
+      titulo: "Lugar y fecha",
+      campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
+    },
+    {
+      id: "paciente",
+      titulo: "Paciente",
+      campos: [
+        { tipo: "texto", id: "paciente_nombre", etiqueta: "Nombre y apellido", requerido: true, precarga: "paciente.nombreCompleto" },
+        { tipo: "numero", id: "paciente_edad", etiqueta: "Edad (años)", requerido: true, min: 0, max: 120 },
+        { tipo: "fecha", id: "paciente_fecha_nacimiento", etiqueta: "Fecha de nacimiento", requerido: true, precarga: "paciente.fechaNacimiento" },
+      ],
+    },
+    {
+      id: "responsable",
+      titulo: "Responsable legal o tutor",
+      campos: [
+        { tipo: "texto", id: "responsable_nombre", etiqueta: "Nombre y apellido", ayuda: "Solo si corresponde." },
+        { tipo: "texto", id: "responsable_dni", etiqueta: "DNI" },
+        { tipo: "texto", id: "responsable_telefono", etiqueta: "Teléfono" },
+      ],
+    },
+    {
+      id: "sedacion",
+      titulo: "Sedación",
+      campos: [
+        { tipo: "texto", id: "anestesista_nombre", etiqueta: "Anestesista actuante", requerido: true },
+        { tipo: "texto", id: "anestesista_mp", etiqueta: "MP del anestesista", requerido: true },
+        { tipo: "texto", id: "anestesista_poliza", etiqueta: "Póliza N°" },
+        { tipo: "texto_largo", id: "motivo", etiqueta: "Motivo por el cual se realizará este tipo de intervención", requerido: true },
+        {
+          tipo: "texto",
+          id: "odontologo_deriva",
+          etiqueta: "Profesional odontólogo que deriva al paciente",
+          precarga: "profesional.nombreCompleto",
+        },
+        { tipo: "texto", id: "odontologo_deriva_mp", etiqueta: "MP del que deriva", precarga: "profesional.matricula" },
+        { tipo: "texto_largo", id: "farmacologia", etiqueta: "Farmacología a emplearse para la sedación" },
+        { tipo: "texto_largo", id: "cardiologo", etiqueta: "Médico cardiólogo que autorice la sedación consciente" },
+        {
+          tipo: "opcion_unica",
+          id: "lugar_intervencion",
+          etiqueta: "Lugar a realizarse la intervención",
+          requerido: true,
+          opciones: [
+            { valor: "hospital", etiqueta: "Hospital" },
+            { valor: "centro_de_salud", etiqueta: "Centro de salud" },
+            { valor: "consultorio", etiqueta: "Consultorio" },
+          ],
+        },
+        { tipo: "texto", id: "institucion", etiqueta: "Nombre de la institución" },
+      ],
+    },
+    {
+      id: "tratamiento",
+      titulo: "Diagnóstico y tratamiento",
+      campos: [
+        { tipo: "texto_largo", id: "diagnostico", etiqueta: "Diagnóstico odontológico", requerido: true },
+        { tipo: "texto_largo", id: "tratamiento", etiqueta: "Tratamiento al que va a ser sometido el paciente", requerido: true },
+        { tipo: "texto_largo", id: "tratamientos_alternativos", etiqueta: "Tratamientos alternativos" },
+        { tipo: "texto_largo", id: "consecuencias", etiqueta: "Consecuencias de la no realización del tratamiento" },
+        { tipo: "texto_largo", id: "observaciones", etiqueta: "Observaciones" },
+      ],
+    },
+    {
+      id: "firmante",
+      titulo: "Quién suscribe",
+      campos: [
+        { tipo: "texto", id: "suscribe_nombre", etiqueta: "Nombre y apellido", requerido: true, precarga: "paciente.nombreCompleto" },
+        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
+        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
+      ],
+    },
+    {
+      id: "representante",
+      titulo: "Representante legal, curador o acompañante",
+      campos: [
+        { tipo: "texto", id: "representante_nombre", etiqueta: "Nombre y apellido", ayuda: "Solo si corresponde." },
+        { tipo: "texto", id: "representante_dni", etiqueta: "DNI" },
+        { tipo: "texto", id: "representante_vinculo", etiqueta: "Vínculo con el paciente" },
+      ],
+    },
+    {
+      id: "profesional",
+      titulo: "Profesional odontólogo",
+      campos: [
+        {
+          tipo: "texto",
+          id: "profesional_nombre",
+          etiqueta: "Profesional",
+          requerido: true,
+          precarga: "profesional.nombreCompleto",
+          bloqueado: true,
+        },
+        { tipo: "texto", id: "profesional_matricula", etiqueta: "M.P.", requerido: true, precarga: "profesional.matricula", bloqueado: true },
+      ],
+    },
+  ],
+  cuerpo: [
+    { t: "titulo", texto: "Consentimiento informado para atención odontológica" },
+    { t: "subtitulo", texto: "Bajo cuidados anestésicos monitoreados" },
+    { t: "parrafo", texto: "Lugar y fecha: {{lugar}}, {{sistema.fecha}}." },
+    {
+      t: "parrafo",
+      texto: "Paciente: {{paciente_nombre}}. Edad: {{paciente_edad}}. Fecha de nacimiento: {{paciente_fecha_nacimiento}}.",
+    },
+    {
+      t: "parrafo",
+      texto: "Responsable legal / Tutor: {{responsable_nombre}}. DNI: {{responsable_dni}}. Tel: {{responsable_telefono}}.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Por el presente se hace saber a Usted que tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que pudieran ocurrir. Este documento explica estas cuestiones muy importantes, léalo atentamente y consulte todas las dudas que se le planteen.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "La sedación consciente es una combinación de medicamentos para ayudarlo a relajarse (un sedante) y para bloquear el dolor (un anestésico) durante el procedimiento odontológico al que será sometido, bajo cuidados anestésicos monitorizados y realizado un médico anestesista matriculado. Usted verá reducida su actividad motora y refleja y mínimos cambios cardiovasculares. Puede permanecer dormido pero no inconsciente.",
+    },
+    {
+      t: "parrafo",
+      texto: "Anestesista actuante: {{anestesista_nombre}}. MP: {{anestesista_mp}}. Póliza N°: {{anestesista_poliza}}.",
+    },
+    { t: "campo", campo: "motivo" },
+    {
+      t: "parrafo",
+      texto: "Profesional odontólogo que deriva al paciente: {{odontologo_deriva}}. MP: {{odontologo_deriva_mp}}.",
+    },
+    { t: "campo", campo: "farmacologia" },
+    { t: "campo", campo: "cardiologo" },
+    { t: "parrafo", texto: "Lugar a realizarse la intervención: {{lugar_intervencion}}. Nombre de la institución: {{institucion}}." },
+    { t: "campo", campo: "diagnostico" },
+    { t: "campo", campo: "tratamiento" },
+    { t: "campo", campo: "tratamientos_alternativos" },
+    { t: "parrafo", texto: "Riesgos que pueden ocurrir durante la intervención. Generales / a nivel sistémico:" },
+    {
+      t: "lista",
+      items: [
+        "La medicación aplicada en la nariz puede causar ardor durante pocos segundos.",
+        "Náuseas y vómitos.",
+        "Reacciones en la piel del anestésico, picor o erupciones.",
+        "Sueño profundo que en ocasiones puede provocar problemas respiratorios, haciendo preciso el uso de oxígeno u otras ayudas para respirar, durante un período de tiempo.",
+        "Hipertensión arterial, inestabilidad o shock cardiovascular.",
+        "Reacciones alérgicas, o individuales inesperadas a los medicamentos utilizados que en ocasiones pueden ser graves y llegar a la muerte, o dejar secuelas neurológicas.",
+        "Laringoespasmo.",
+        "Apnea.",
+        "Broncoaspiración.",
+        "Riesgos relacionados con circunstancias específicas del paciente.",
+        "Cansancio pos intervención y/o somnolencia.",
+        "Dolor de cabeza persistente.",
+      ],
+    },
+    { t: "parrafo", texto: "Local / odontológico:" },
+    {
+      t: "lista",
+      items: [
+        "Molestias en las zonas tratadas por las intervenciones odontológicas, y o anestesia local efectuada.",
+        "Tumefacción (hinchazón) facial, las cuales pueden persistir durante varios días.",
+        "Infección y dolor.",
+        "Trismus (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Fractura del elemento dentario y/o del hueso maxilar.",
+        "Hematomas o hemorragia (sangrado abundante).",
+        "Contacto prematuro por operatoria alta (no se puede constatar oclusión).",
+        "Pulpitis.",
+        "Sensibilidad dentaria.",
+        "Otras dependiendo del tratamiento odontológico realizado.",
+      ],
+    },
+    { t: "campo", campo: "consecuencias" },
+    { t: "campo", campo: "observaciones" },
+    {
+      t: "parrafo",
+      texto:
+        "He tenido información clara y suficiente, la oportunidad de preguntar y he obtenido respuestas satisfactorias, de las ventajas e inconvenientes de la analgesia y sedación y de que en cualquier momento puedo revocar mi consentimiento, me siento libre para decidir de acuerdo a mis valores e intereses y me declaro competente para tomar la decisión que corresponda. He podido formular todas las preguntas que he creído oportunas. Asimismo doy fe que mi representado fue oído y/o dio su asentimiento a realizar el tratamiento.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Por lo antes expuesto doy el consentimiento al Odontólogo/a {{profesional_nombre}}, MP {{profesional_matricula}} a realizar el tratamiento antes expuesto.",
+    },
+    {
+      t: "parrafo",
+      texto: "El/la que suscribe {{suscribe_nombre}}, DNI {{suscribe_dni}}, domicilio {{suscribe_domicilio}}.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "En caso que corresponda: nombre del representante legal/curador/acompañante {{representante_nombre}}, DNI {{representante_dni}}, vínculo con el paciente {{representante_vinculo}}.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Nombre del profesional odontólogo: {{profesional_nombre}}, M.P.: {{profesional_matricula}}. Otro profesional interviniente: {{anestesista_nombre}}, MP: {{anestesista_mp}}.",
+    },
+    { t: "firmas" },
+  ],
+  firmas: [
+    { rol: "paciente", etiqueta: "Firma del paciente", requerida: false },
+    { rol: "representante", etiqueta: "Firma del representante", requerida: false },
+    { rol: "profesional", etiqueta: "Firma y sello del profesional odontólogo", requerida: true },
+    { rol: "otro_profesional", etiqueta: "Firma y sello del otro profesional interviniente", requerida: true },
+  ],
+  // A4 (595,3 × 841,9 pt), cuatro páginas, en Calibri de 11 pt con
+  // renglones de puntos. El diagnóstico sigue en tres renglones al principio
+  // de la segunda página: la zona usa los dos de la primera (una zona no
+  // cruza de página). Las casillas del lugar de la intervención son
+  // cuadrados dibujados.
+  lamina: {
+    paginas: [
+      { ancho: 595.3, alto: 841.9 },
+      { ancho: 595.3, alto: 841.9 },
+      { ancho: 595.3, alto: 841.9 },
+      { ancho: 595.3, alto: 841.9 },
+    ],
+    zonas: [
+      { id: "lugar_fecha", pagina: 1, x: 145, y: 205.6, ancho: 358, texto: "{{lugar}}, {{sistema.fecha}}" },
+      { id: "paciente_nombre", pagina: 1, x: 130, y: 250.5, ancho: 146, texto: "{{paciente_nombre}}" },
+      { id: "paciente_edad", pagina: 1, x: 300, y: 250.5, ancho: 62, alinear: "centro", texto: "{{paciente_edad}}" },
+      { id: "paciente_fecha_nacimiento", pagina: 1, x: 444, y: 250.5, ancho: 65, texto: "{{paciente_fecha_nacimiento}}" },
+      { id: "responsable_nombre", pagina: 1, x: 200, y: 273, ancho: 95, texto: "{{responsable_nombre}}", vacio: "—" },
+      { id: "responsable_dni", pagina: 1, x: 316, y: 273, ancho: 103, texto: "{{responsable_dni}}", vacio: "—" },
+      { id: "responsable_telefono", pagina: 1, x: 437, y: 273, ancho: 72, texto: "{{responsable_telefono}}", vacio: "—" },
+      { id: "anestesista_nombre", pagina: 1, x: 181.5, y: 464.5, ancho: 85, texto: "{{anestesista_nombre}}" },
+      { id: "anestesista_mp", pagina: 1, x: 283, y: 464.5, ancho: 82, texto: "{{anestesista_mp}}" },
+      { id: "anestesista_poliza", pagina: 1, x: 402.5, y: 464.5, ancho: 105, texto: "{{anestesista_poliza}}", vacio: "—" },
+      { id: "motivo", pagina: 1, x: 86, y: 486.9, ancho: 421, sangria: 248, lineas: 2, interlineado: 22.6, texto: "{{motivo}}" },
+      { id: "odontologo_deriva", pagina: 1, x: 296.5, y: 531.9, ancho: 126, texto: "{{odontologo_deriva}}" },
+      { id: "odontologo_deriva_mp", pagina: 1, x: 444, y: 531.9, ancho: 63, texto: "{{odontologo_deriva_mp}}" },
+      { id: "farmacologia", pagina: 1, x: 86, y: 554.3, ancho: 422, sangria: 192, lineas: 2, interlineado: 22.6, texto: "{{farmacologia}}" },
+      { id: "cardiologo", pagina: 1, x: 86, y: 599.3, ancho: 422, sangria: 298, lineas: 2, interlineado: 14.6, texto: "{{cardiologo}}" },
+      { id: "lugar_hospital", pagina: 1, x: 284.9, y: 659.4, ancho: 12.5, alinear: "centro", texto: "{{lugar_intervencion=hospital}}" },
+      { id: "lugar_centro_de_salud", pagina: 1, x: 391.1, y: 659.4, ancho: 12.6, alinear: "centro", texto: "{{lugar_intervencion=centro_de_salud}}" },
+      { id: "lugar_consultorio", pagina: 1, x: 483.8, y: 659.4, ancho: 12.5, alinear: "centro", texto: "{{lugar_intervencion=consultorio}}" },
+      { id: "institucion", pagina: 1, x: 204.5, y: 681.3, ancho: 292, texto: "{{institucion}}", vacio: "—" },
+      { id: "diagnostico", pagina: 1, x: 86, y: 726.3, ancho: 404, sangria: 116, lineas: 2, interlineado: 22.6, texto: "{{diagnostico}}" },
+      { id: "tratamiento", pagina: 2, x: 86, y: 206.9, ancho: 408, lineas: 4, interlineado: 22.53, texto: "{{tratamiento}}" },
+      {
+        id: "tratamientos_alternativos",
+        pagina: 2,
+        x: 86,
+        y: 296.9,
+        ancho: 404,
+        sangria: 118.3,
+        lineas: 4,
+        interlineado: 22.5,
+        texto: "{{tratamientos_alternativos}}",
+      },
+      { id: "consecuencias", pagina: 3, x: 86, y: 298, ancho: 417, sangria: 232, lineas: 3, interlineado: 22.5, texto: "{{consecuencias}}" },
+      { id: "observaciones", pagina: 3, x: 86, y: 365.4, ancho: 422, sangria: 70.9, lineas: 3, interlineado: 22.5, texto: "{{observaciones}}" },
+      { id: "profesional_consiente", pagina: 3, x: 367, y: 528, ancho: 143, texto: "{{profesional_nombre}}" },
+      { id: "profesional_matricula_consiente", pagina: 3, x: 263.5, y: 542.3, ancho: 65, texto: "{{profesional_matricula}}" },
+      { id: "suscribe_nombre", pagina: 3, x: 164.5, y: 564.9, ancho: 235, texto: "{{suscribe_nombre}}" },
+      { id: "suscribe_dni", pagina: 3, x: 420, y: 564.9, ancho: 88, texto: "{{suscribe_dni}}" },
+      { id: "suscribe_domicilio", pagina: 3, x: 128, y: 587.3, ancho: 376, texto: "{{suscribe_domicilio}}" },
+      { id: "representante_nombre", pagina: 3, x: 333.5, y: 654.9, ancho: 172, texto: "{{representante_nombre}}", vacio: "—" },
+      { id: "representante_dni", pagina: 3, x: 102.5, y: 677.4, ancho: 166, texto: "{{representante_dni}}", vacio: "—" },
+      { id: "representante_vinculo", pagina: 3, x: 373, y: 677.4, ancho: 132, texto: "{{representante_vinculo}}", vacio: "—" },
+      { id: "profesional_nombre", pagina: 4, x: 250, y: 147.5, ancho: 182, texto: "{{profesional_nombre}}" },
+      { id: "profesional_matricula", pagina: 4, x: 454.5, y: 147.5, ancho: 48, texto: "{{profesional_matricula}}" },
+      { id: "otro_profesional", pagina: 4, x: 223, y: 214.9, ancho: 215, texto: "{{anestesista_nombre}}" },
+      { id: "otro_profesional_mp", pagina: 4, x: 460, y: 214.9, ancho: 45, texto: "{{anestesista_mp}}" },
+    ],
+    firmas: [
+      { rol: "paciente", pagina: 3, x: 171, y: 609.9, ancho: 215, alto: 20 },
+      { rol: "representante", pagina: 3, x: 193.2, y: 699.8, ancho: 165, alto: 20 },
+      { rol: "profesional", pagina: 4, x: 142, y: 169.9, ancho: 218, alto: 20 },
+      { rol: "otro_profesional", pagina: 4, x: 142, y: 237.4, ancho: 220, alto: 20 },
+    ],
+  },
+};

@@ -25,7 +25,7 @@ const plantillaConducto = "consentimiento-tratamiento-conducto"
 // plantillaHistoriaDePrueba — el circuito de firma electrónica y sellado
 // lo prueba una historia clínica de prueba: el consentimiento de conducto
 // con otro tipo. Los consentimientos se firman en papel (TR-188) y todavía
-// no hay una historia clínica real cargada (llegan en la 5.4).
+// no hay una historia clínica real cargada (llegan en la 5.6).
 const plantillaHistoriaDePrueba = "historia-de-prueba"
 
 func init() {

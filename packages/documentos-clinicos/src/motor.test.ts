@@ -377,8 +377,19 @@ describe("el registro", () => {
     expect(normalizar(" Extracción ")).toBe("extraccion");
     expect(buscarPlantillas("CONDUCTO").map((p) => p.id)).toEqual(["consentimiento-tratamiento-conducto"]);
     expect(buscarPlantillas("consentimiento informado conducto")).toHaveLength(1);
-    expect(buscarPlantillas("ortodoncia")).toEqual([]);
+    expect(buscarPlantillas("ortodoncia").map((p) => p.id)).toContain("consentimiento-ortodoncia");
+    expect(buscarPlantillas("protesis removible").map((p) => p.id)).toEqual(["consentimiento-protesis-removible"]);
+    expect(buscarPlantillas("blanqueamiento")).toEqual([]);
     expect(buscarPlantillas("  ")).toHaveLength(plantillasVigentes().length);
+  });
+
+  it("están los catorce consentimientos del Colegio, todos con su lámina, y el de COVID afuera (D6)", () => {
+    const consentimientos = plantillasVigentes().filter((p) => p.tipo === "consentimiento");
+    expect(consentimientos).toHaveLength(14);
+    expect(consentimientos.every((p) => p.lamina)).toBe(true);
+    expect(consentimientos.some((p) => normalizar(p.nombre).includes("covid"))).toBe(false);
+    // Todos se firman en papel (TR-188).
+    expect(consentimientos.every((p) => seFirmaEnPapel(p))).toBe(true);
   });
 
   it("el consentimiento de conducto se lee con las piezas en orden y sin huecos", () => {

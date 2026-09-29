@@ -838,7 +838,7 @@ func recortar(s string, maximo int) string {
 // firmarEnElDispositivoHandler — POST /documentos/{id}/firmas: una firma
 // hecha en este mismo dispositivo, en persona (TR-184: la identidad la
 // constata el profesional, que está presente). La firma por vínculo y por
-// alerta al celular llegan en la 5.3.
+// alerta al celular llegan en la 5.4.
 //
 // Con la última firma requerida, el documento se sella en la MISMA
 // transacción: no existe un documento con todas sus firmas y sin sellar.

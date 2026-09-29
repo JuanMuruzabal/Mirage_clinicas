@@ -1,0 +1,503 @@
+{
+  "plantilla": "consentimiento-odontopediatria",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "representante_nombre": "Ejemplo de nombre",
+    "representante_edad": 0,
+    "representante_dni": "30111222",
+    "representante_domicilio": "Ejemplo de domicilio",
+    "menor_nombre": "Ejemplo de nombre",
+    "menor_dni": "30111222",
+    "profesional_nombre": "Ejemplo de profesional",
+    "profesional_matricula": "1234",
+    "diagnostico": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tratamiento": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tratamientos_alternativos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "riesgos_otros": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "beneficios": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "asentimiento": "si_quiero"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Odontopediatría"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Por la presente se hace saber a Usted que tiene derecho a conocer el procedimiento al que va a ser sometido el menor de edad y las complicaciones más frecuentes que ocurren. Este documento explica todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, el representante legal, el consentimiento informado para que pueda realizarse dicho procedimiento. A propósito declaro haber sido informado y haber comprendido acabadamente el objetivo del tratamiento a realizar."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Yo, Ejemplo de nombre, de 0 años de edad, DNI 30111222, domiciliado en Ejemplo de domicilio, como representante legal de Ejemplo de nombre, DNI: 30111222, he sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Estoy de acuerdo a que el niño sea sometido a anestesia local en caso que fuera necesario, sabiendo los riesgos que ello implica, delegando al odontólogo la elección del tipo de anestesia."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Se me ha explicado el diagnóstico, la naturaleza de la enfermedad que padece mi representado y su evolución natural, objetivos del tratamiento propuesto, así como las alternativas del tratamiento que pueden ser practicadas, descripción de las consecuencias derivadas del tratamiento o intervención, beneficios y complicaciones comunes que se pueden desencadenar durante o después del mismo, riesgos personales y entendiendo que ante alguna manifestación de complicaciones deberé acudir nuevamente al profesional tratante de mi representado."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Queda explícito en el siguiente texto lo siguiente:"
+    },
+    {
+      "t": "campo",
+      "campo": "diagnostico",
+      "etiqueta": "Diagnóstico",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamiento",
+      "etiqueta": "Tratamiento al que va a ser sometido el menor",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamientos_alternativos",
+      "etiqueta": "Tratamientos alternativos",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Riesgos y complicaciones esperados:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Dolor.",
+        "Inflamación.",
+        "Infección.",
+        "Fractura del elemento dentario por deterioro.",
+        "Pulpitis (inflamación del nervio): determina que se le realice al paciente un tratamiento del nervio.",
+        "Hematomas y hemorragias (sangrado - moretones)."
+      ]
+    },
+    {
+      "t": "campo",
+      "campo": "riesgos_otros",
+      "etiqueta": "Otros riesgos y complicaciones esperados",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "beneficios",
+      "etiqueta": "Beneficios esperados del tratamiento",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Comprendo y entiendo que si no se realiza el tratamiento odontológico, podría sufrir cualquiera de los siguientes problemas: enfermedad ósea, inflamación de las encías, infección, sensibilidad, movilidad de los dientes seguida por la necesidad de realizar la extracción."
+    },
+    {
+      "t": "campo",
+      "campo": "consecuencias",
+      "etiqueta": "Consecuencias de la no realización del tratamiento",
+      "texto": "No consigna"
+    },
+    {
+      "t": "campo",
+      "campo": "observaciones",
+      "etiqueta": "Observaciones",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Comprendo que la Odontopediatría, es el área de la odontología que se encarga de restablecer la salud bucal integral de niños y adolescentes. Comprendo que la odontología no es una ciencia exacta y por lo que los resultados está sujeto a múltiples factores. He tenido información clara y suficiente, la oportunidad de preguntar y he obtenido respuestas satisfactorias, me siento libre para decidir de acuerdo a mis valores e intereses y me declaro competente para tomar la decisión que corresponda. Asimismo doy fe que mi representado fue oído y/o dio su asentimiento a realizar el tratamiento."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Por lo antes expuesto doy el consentimiento al Dr/Dra: Ejemplo de profesional, MP: 1234 a realizar el tratamiento antes expuesto al menor de edad o discapacitado Ejemplo de nombre, DNI: 30111222, según lo antes expuesto."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Asentimiento: pido lo que quiero. Sí quiero atenderme."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 250,
+          "y": 114,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "representante_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 61.5,
+          "y": 278.3,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "representante_edad",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 341.22,
+          "y": 278.3,
+          "texto": "0"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "representante_dni",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 410,
+          "y": 278.3,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "representante_domicilio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 109.5,
+          "y": 295.5,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "menor_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 174.5,
+          "y": 312.8,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "menor_dni",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 407.5,
+          "y": 312.8,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 158,
+          "y": 329.9,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 445.5,
+          "y": 329.9,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diagnostico",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 94.5,
+          "y": 551,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 570.3,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 290,
+          "y": 647.4,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 666.67,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamientos_alternativos",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 159,
+          "y": 743.8,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 763.07,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "riesgos_otros",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 43.5,
+          "y": 189.6,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 206.2,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "beneficios",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 210.5,
+          "y": 239.2,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 255.73,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consecuencias",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 271,
+          "y": 371.5,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "observaciones",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 115,
+          "y": 437.5,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 454.05,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre_consiente",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 284,
+          "y": 588,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula_consiente",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 65.5,
+          "y": 605.9,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "menor_nombre_consiente",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 43.5,
+          "y": 625.2,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "menor_dni_consiente",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 412,
+          "y": 625.2,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "asentimiento_si",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 360.97,
+          "y": 761.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "asentimiento_no",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 525,
+          "y": 761.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 88,
+          "y": 806.9,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dni_firma",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 61.5,
+          "y": 819.6,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}
