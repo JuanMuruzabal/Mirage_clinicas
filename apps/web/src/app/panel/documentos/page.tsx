@@ -3,6 +3,7 @@ import { plantillasVigentes } from "@dental-mirage/documentos-clinicos";
 import { apiDocumentosEnCurso, apiGetPaciente, apiPacientesConDocumentos } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { hoyEnCordoba, requireProfesional } from "@/lib/documentos-servidor";
+import { muestrasSiFaltan } from "@/lib/documentos-de-muestra";
 import { ModuloDocumentos } from "@/components/documentos/modulo-documentos";
 import { TablaDeDocumentos, TablaPacientesConDocumentos } from "@/components/documentos/tablas-de-documentos";
 
@@ -17,12 +18,14 @@ function primero(valor: string | string[] | undefined): string | undefined {
 // paciente. Debajo del botón, lo que quedó en curso; al fondo, los
 // pacientes que ya tienen documentos (pedido del cliente, 2026-09-28).
 // `?paciente=<id>` llega desde la ficha: el documento es para esa persona.
-// `?plantilla=<id>` elige el documento de entrada.
+// `?plantilla=<id>` elige el documento de entrada. Mientras haya menos de
+// tres modelos, la pila se completa con hojas de muestra (2026-09-29).
 export default async function DocumentosPage({ searchParams }: PageProps<"/panel/documentos">) {
   await requireProfesional();
   const token = (await getSessionToken()) ?? "";
   const params = await searchParams;
   const pacienteId = primero(params.paciente);
+  const plantillas = plantillasVigentes();
 
   const [pacientes, enCurso, paciente] = await Promise.all([
     apiPacientesConDocumentos(token),
@@ -37,7 +40,8 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
       </h1>
 
       <ModuloDocumentos
-        plantillas={plantillasVigentes()}
+        plantillas={plantillas}
+        muestras={muestrasSiFaltan(plantillas.length)}
         plantillaInicial={primero(params.plantilla)}
         paciente={paciente?.ok ? { id: paciente.data.id, nombre: paciente.data.nombre, apellido: paciente.data.apellido } : undefined}
         hoy={hoyEnCordoba()}

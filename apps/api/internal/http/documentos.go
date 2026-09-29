@@ -83,6 +83,9 @@ type documentoResumenResponse struct {
 	TerminadoEn   *string `json:"terminadoEn,omitempty"`
 	SelladoEn     *string `json:"selladoEn,omitempty"`
 	AnuladoEn     *string `json:"anuladoEn,omitempty"`
+	// HashContenido — la huella del contenido congelado, desde que se
+	// terminó: la columna "Huella" del registro del paciente.
+	HashContenido *string `json:"hashContenido,omitempty"`
 }
 
 type firmaResponse struct {
@@ -106,7 +109,6 @@ type documentoDetalleResponse struct {
 	// canónico). Desde "a firmar", es lo que se muestra: no se vuelve a
 	// armar con la plantilla, se lee lo congelado.
 	Contenido        json.RawMessage `json:"contenido,omitempty"`
-	HashContenido    *string         `json:"hashContenido,omitempty"`
 	HashAnterior     *string         `json:"hashAnterior,omitempty"`
 	HashSello        *string         `json:"hashSello,omitempty"`
 	CadenaN          *int64          `json:"cadenaN,omitempty"`
@@ -171,6 +173,7 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 			EsMio: session != nil && d.AutorUserID == session.UserID, Folio: d.Folio,
 			CreadoEn: clock.In(d.CreatedAt).Format(time.RFC3339), ActualizadoEn: clock.In(d.UpdatedAt).Format(time.RFC3339),
 			TerminadoEn: fechaHoraPtr(d.TerminadoEn), SelladoEn: fechaHoraPtr(d.SelladoEn), AnuladoEn: fechaHoraPtr(d.AnuladoEn),
+			HashContenido: d.HashContenido,
 		}
 	}
 	return out, nil
@@ -183,7 +186,7 @@ func detalleDeDocumento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico) (do
 	}
 	out := documentoDetalleResponse{
 		documentoResumenResponse: resumenes[0],
-		HashContenido:            d.HashContenido, HashAnterior: d.HashAnterior, HashSello: d.HashSello,
+		HashAnterior:             d.HashAnterior, HashSello: d.HashSello,
 		CadenaN: d.CadenaN, MotivoAnulacion: d.MotivoAnulacion,
 		Firmas: []firmaResponse{}, FirmasPendientes: []string{},
 	}

@@ -30,18 +30,33 @@ describe("TablaPacientesConDocumentos", () => {
 });
 
 describe("TablaDeDocumentos", () => {
-  it("el registro: folio, documento, autor (con la marca de colega) y estado", () => {
+  it("el registro: folio, documento con su tipo, autor (con la marca de colega), huella y estado", () => {
     render(<TablaDeDocumentos documentos={[resumen(), resumen({ id: "doc-2", esMio: false, autorNombre: "Pedro Díaz", folio: 2 })]} vacio="nada" />);
-    expect(screen.getAllByRole("link", { name: "Tratamiento de conducto" })[0]).toHaveAttribute("href", "/panel/documentos/doc-1");
+    expect(screen.getAllByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })[0]).toHaveAttribute(
+      "href",
+      "/panel/documentos/doc-1",
+    );
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("(colega)")).toBeInTheDocument();
     expect(screen.getAllByText("Firmado y sellado")).toHaveLength(2);
+    // La huella abreviada en su columna, y la completa al pasar el mouse.
+    expect(screen.getByRole("columnheader", { name: "Huella" })).toBeInTheDocument();
+    const huellas = screen.getAllByText("a3f1c0de…0000");
+    expect(huellas[0]).toHaveAttribute("title", "a3f1c0de9b8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a392817060000");
   });
 
-  it("en curso: con el paciente, sin folio", () => {
+  it("un tipo desconocido deja el nombre solo, y sin huella va una raya", () => {
+    render(<TablaDeDocumentos documentos={[resumen({ tipo: "otra_cosa", plantillaNombre: "Algo nuevo", hashContenido: undefined })]} vacio="nada" />);
+    expect(screen.getByRole("link", { name: "Algo nuevo" })).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("en curso: con el paciente, sin folio ni huella", () => {
     render(<TablaDeDocumentos documentos={[borrador()]} conPaciente vacio="nada" />);
     expect(screen.getByText("Ana Paz")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })).toBeInTheDocument();
     expect(screen.queryByText("Folio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Huella")).not.toBeInTheDocument();
     expect(screen.getByText("Borrador")).toBeInTheDocument();
   });
 

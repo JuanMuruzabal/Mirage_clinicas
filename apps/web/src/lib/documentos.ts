@@ -1,6 +1,12 @@
 // Ayudantes de la pantalla de documentos clínicos (Fase 5.1).
-import type { EstadoDocumento } from "@dental-mirage/shared-types";
-import type { BloqueArmado, FirmaDePlantilla, ZonaCompuesta } from "@dental-mirage/documentos-clinicos";
+import type { DocumentoResumen, EstadoDocumento } from "@dental-mirage/shared-types";
+import {
+  ETIQUETA_DE_TIPO,
+  type BloqueArmado,
+  type FirmaDePlantilla,
+  type TipoDePlantilla,
+  type ZonaCompuesta,
+} from "@dental-mirage/documentos-clinicos";
 import { TIMEZONE_CORDOBA } from "./turno-format";
 
 /** El documento congelado al terminar — espejo de ContenidoCongelado de
@@ -60,6 +66,15 @@ export function fechaCorta(iso?: string): string {
     year: "numeric",
     timeZone: TIMEZONE_CORDOBA,
   });
+}
+
+/** "Consentimiento informado: Tratamiento de conducto" — el documento con
+ *  su tipo adelante, como se nombra en las tablas (pedido del cliente,
+ *  2026-09-29): el nombre solo no dice si es un consentimiento o una
+ *  historia clínica. */
+export function nombreConTipo(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre">): string {
+  const tipo = ETIQUETA_DE_TIPO[d.tipo as TipoDePlantilla];
+  return tipo ? `${tipo}: ${d.plantillaNombre}` : d.plantillaNombre;
 }
 
 /** "2026-09-27" — el día de un instante en hora de Córdoba, para comparar

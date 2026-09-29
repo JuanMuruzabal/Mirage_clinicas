@@ -3,103 +3,150 @@
 import { useMemo, useState } from "react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import { normalizar } from "@dental-mirage/documentos-clinicos";
-import { diaEnCordoba } from "@/lib/documentos";
+import { IconSearch } from "@/components/icons";
+import { FiltrosSheet } from "@/components/panel/filtros-sheet";
+import { rangoRapidoFechas } from "@/lib/calendar-utils";
+import { diaEnCordoba, nombreConTipo } from "@/lib/documentos";
+import { RANGOS_RAPIDOS } from "@/lib/turnos-filtros";
 import { TablaDeDocumentos } from "./tablas-de-documentos";
 
 // RegistroDeDocumentos — los documentos clínicos de un paciente con sus
-// filtros (pedido del cliente, 2026-09-29): buscar por documento,
-// profesional o folio; por tipo; y por fecha. La lista de un paciente es
-// corta y ya vino entera del servidor: filtra en la pantalla, sin volver a
-// pedir nada.
+// filtros (pedido del cliente, 2026-09-29). El MISMO sistema que Turnos y
+// los turnos de la ficha: un buscador a la vista y el resto en la hoja de
+// "Filtros" (FiltrosSheet), con un borrador que se confirma con "Ver N
+// documentos". El filtro de documento elige un MODELO puntual
+// ("Consentimiento informado: Tratamiento de conducto"), no una categoría
+// general: las opciones salen de los documentos que tiene el paciente.
+//
+// La lista de un paciente es corta y ya vino entera del servidor: filtra
+// en la pantalla, sin volver a pedir nada.
 
-const TIPOS = [
-  { valor: "todos", etiqueta: "Todos" },
-  { valor: "consentimiento", etiqueta: "Consentimientos" },
-  { valor: "historia_clinica", etiqueta: "Historias clínicas" },
-  { valor: "otros", etiqueta: "Otros" },
-] as const;
-type FiltroDeTipo = (typeof TIPOS)[number]["valor"];
+const CAMPO = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
 
-const CAMPO = "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia";
-const ETIQUETA = "flex flex-col gap-1 text-xs font-medium text-grafito/80";
+interface Filtros {
+  plantilla: string;
+  desde: string;
+  hasta: string;
+}
 
-function delTipo(d: DocumentoResumen, tipo: FiltroDeTipo): boolean {
-  if (tipo === "todos") return true;
-  if (tipo === "otros") return d.tipo !== "consentimiento" && d.tipo !== "historia_clinica";
-  return d.tipo === tipo;
+const SIN_FILTROS: Filtros = { plantilla: "todos", desde: "", hasta: "" };
+
+function pasaLosFiltros(d: DocumentoResumen, f: Filtros): boolean {
+  if (f.plantilla !== "todos" && d.plantillaId !== f.plantilla) return false;
+  const dia = diaEnCordoba(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn);
+  if (f.desde && dia < f.desde) return false;
+  if (f.hasta && dia > f.hasta) return false;
+  return true;
 }
 
 export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResumen[] }) {
   const [busqueda, setBusqueda] = useState("");
-  const [tipo, setTipo] = useState<FiltroDeTipo>("todos");
-  const [desde, setDesde] = useState("");
-  const [hasta, setHasta] = useState("");
-  const conFiltros = busqueda.trim() !== "" || tipo !== "todos" || desde !== "" || hasta !== "";
+  // Confirmado: lo que filtra la tabla. Borrador: lo que se edita en la hoja.
+  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
+  const [borrador, setBorrador] = useState<Filtros>(SIN_FILTROS);
 
-  const filtrados = useMemo(() => {
+  // Un modelo por opción, aunque el paciente tenga varios documentos de él.
+  const modelos = useMemo(() => {
+    const porId = new Map<string, string>();
+    for (const d of documentos) if (!porId.has(d.plantillaId)) porId.set(d.plantillaId, nombreConTipo(d));
+    return [...porId.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [documentos]);
+
+  const buscados = useMemo(() => {
     const palabras = normalizar(busqueda).split(/\s+/).filter(Boolean);
+    if (palabras.length === 0) return documentos;
     return documentos.filter((d) => {
-      if (!delTipo(d, tipo)) return false;
-      const texto = normalizar(`${d.plantillaNombre} ${d.autorNombre} ${d.folio ?? ""}`);
-      if (!palabras.every((p) => texto.includes(p))) return false;
-      const dia = diaEnCordoba(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn);
-      if (desde && dia < desde) return false;
-      if (hasta && dia > hasta) return false;
-      return true;
+      const texto = normalizar(`${nombreConTipo(d)} ${d.autorNombre} ${d.folio ?? ""} ${d.hashContenido ?? ""}`);
+      return palabras.every((p) => texto.includes(p));
     });
-  }, [documentos, busqueda, tipo, desde, hasta]);
+  }, [documentos, busqueda]);
 
-  function limpiar() {
-    setBusqueda("");
-    setTipo("todos");
-    setDesde("");
-    setHasta("");
+  const filtrados = useMemo(() => buscados.filter((d) => pasaLosFiltros(d, filtros)), [buscados, filtros]);
+  const cuantosConElBorrador = useMemo(() => buscados.filter((d) => pasaLosFiltros(d, borrador)).length, [buscados, borrador]);
+
+  // Un rango de fechas cuenta como UN filtro, igual que en Turnos.
+  const activeCount = (filtros.plantilla !== "todos" ? 1 : 0) + (filtros.desde || filtros.hasta ? 1 : 0);
+  const hayBorrador = borrador.plantilla !== "todos" || borrador.desde !== "" || borrador.hasta !== "";
+
+  if (documentos.length === 0) {
+    return <TablaDeDocumentos documentos={[]} vacio="Todavía no hay documentos para este paciente." />;
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {documentos.length > 0 && (
-        <div role="search" aria-label="Filtrar documentos" className="flex flex-wrap items-end gap-3 rounded-card border border-linea bg-marfil p-4 shadow-soft">
-          <label className={`${ETIQUETA} min-w-[14rem] flex-1`}>
-            Buscar
-            <input
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Documento, profesional o folio"
-              className={CAMPO}
-            />
-          </label>
-          <label className={`${ETIQUETA} min-w-[10rem]`}>
-            Tipo
-            <select value={tipo} onChange={(e) => setTipo(e.target.value as FiltroDeTipo)} className={CAMPO}>
-              {TIPOS.map((t) => (
-                <option key={t.valor} value={t.valor}>
-                  {t.etiqueta}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[12rem] flex-1">
+          <IconSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-grafito/40" />
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por documento, profesional, folio o huella"
+            aria-label="Buscar por documento, profesional, folio o huella"
+            className="w-full rounded-field border-[0.5px] border-arena bg-marfil py-2 pr-3 pl-9 text-sm text-grafito outline-none focus:border-salvia"
+          />
+        </div>
+        <FiltrosSheet
+          activo={activeCount > 0}
+          activeCount={activeCount}
+          aplicarLabel={`Ver ${cuantosConElBorrador} documento${cuantosConElBorrador === 1 ? "" : "s"}`}
+          onAplicar={() => setFiltros(borrador)}
+          onLimpiar={hayBorrador ? () => setBorrador(SIN_FILTROS) : undefined}
+          onAbrir={() => setBorrador(filtros)}
+        >
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-grafito">Documento</span>
+            <select value={borrador.plantilla} onChange={(e) => setBorrador({ ...borrador, plantilla: e.target.value })} className={CAMPO}>
+              <option value="todos">Todos los documentos</option>
+              {modelos.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre}
                 </option>
               ))}
             </select>
           </label>
-          <label className={`${ETIQUETA} min-w-[9rem]`}>
-            Desde
-            <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} className={CAMPO} />
-          </label>
-          <label className={`${ETIQUETA} min-w-[9rem]`}>
-            Hasta
-            <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} className={CAMPO} />
-          </label>
-          {conFiltros && (
-            <button type="button" onClick={limpiar} className="rounded-full px-3 py-2 text-sm font-medium text-salvia-oscuro hover:bg-arena">
-              Limpiar
-            </button>
-          )}
-        </div>
-      )}
+          <div className="flex flex-wrap gap-2">
+            {RANGOS_RAPIDOS.map((r) => {
+              const calculado = rangoRapidoFechas(r.rango);
+              const activo = borrador.desde === calculado.desde && borrador.hasta === calculado.hasta;
+              return (
+                <button
+                  key={r.rango}
+                  type="button"
+                  onClick={() => setBorrador({ ...borrador, desde: calculado.desde, hasta: calculado.hasta })}
+                  className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-marfil hover:brightness-95 ${activo ? "ring-2 ring-salvia-oscuro ring-offset-1" : ""}`}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+              <span className="font-medium text-grafito">Desde</span>
+              <input
+                type="date"
+                value={borrador.desde}
+                max={borrador.hasta || undefined}
+                onChange={(e) => setBorrador({ ...borrador, desde: e.target.value })}
+                className={CAMPO}
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+              <span className="font-medium text-grafito">Hasta</span>
+              <input
+                type="date"
+                value={borrador.hasta}
+                min={borrador.desde || undefined}
+                onChange={(e) => setBorrador({ ...borrador, hasta: e.target.value })}
+                className={CAMPO}
+              />
+            </label>
+          </div>
+        </FiltrosSheet>
+      </div>
 
-      <TablaDeDocumentos
-        documentos={filtrados}
-        vacio={documentos.length === 0 ? "Todavía no hay documentos para este paciente." : "Ningún documento coincide con los filtros."}
-      />
+      <TablaDeDocumentos documentos={filtrados} vacio="Ningún documento coincide con la búsqueda o los filtros." />
     </div>
   );
 }

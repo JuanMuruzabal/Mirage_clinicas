@@ -35,7 +35,7 @@ export function ElegirPaciente({
   }
 
   return (
-    <Dialogo titulo="¿Para qué paciente?" descripcion={plantillaNombre} onCerrar={onCerrar} ancho="chico" superficie="marfil">
+    <Dialogo titulo="¿Para qué paciente?" descripcion={plantillaNombre} onCerrar={onCerrar} ancho="chico" superficie="marfil" centrado>
       <div className="flex flex-col gap-3 p-4 sm:p-6">
         <BuscadorPacientes onElegir={(p) => void elegir(p)} />
         {creando && <p className="text-sm text-grafito/75">Creando el documento…</p>}

@@ -347,6 +347,7 @@ export function EditorDeDocumento({
           }
           onCerrar={() => setConfirmarTerminar(false)}
           superficie="marfil"
+          centrado
         >
           <div className="flex justify-end gap-2 p-4 sm:p-6">
             <button
@@ -374,6 +375,7 @@ export function EditorDeDocumento({
           descripcion="Se borra lo que cargaste. Todavía no es parte de la historia clínica del paciente."
           onCerrar={() => setConfirmarDescarte(false)}
           superficie="marfil"
+          centrado
         >
           <div className="flex justify-end gap-2 p-4 sm:p-6">
             <button type="button" onClick={() => setConfirmarDescarte(false)} className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena">

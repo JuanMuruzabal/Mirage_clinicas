@@ -273,6 +273,10 @@ func TestDocumentos_CircuitoCompleto(t *testing.T) {
 	if rec.Code != http.StatusOK || len(registro) != 1 || registro[0].PlantillaNombre != "Historia de prueba" || registro[0].AutorNombre != "Lucía Gómez" {
 		t.Fatalf("registro del paciente: %d %+v", rec.Code, registro)
 	}
+	// La huella viaja en el resumen: la tabla del registro la muestra.
+	if registro[0].HashContenido == nil || len(*registro[0].HashContenido) != 64 {
+		t.Fatalf("el registro trae la huella del contenido: %+v", registro[0].HashContenido)
+	}
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/pacientes", e.token, nil)
 	tabla := decodificar[[]pacienteConDocumentosResponse](t, rec.Body.Bytes())
 	if len(tabla) != 1 || tabla[0].DNI != "30111222" || tabla[0].Cantidad != 1 {
@@ -567,7 +571,7 @@ func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
 		t.Fatalf("pacientes con documentos: %+v", pacientes)
 	}
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/pacientes/"+e.paciente.ID.String()+"/documentos", e.token, nil)
-	if registro := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes()); len(registro) != 1 || registro[0].Estado != db.DocumentoParaImprimir {
+	if registro := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes()); len(registro) != 1 || registro[0].Estado != db.DocumentoParaImprimir || registro[0].HashContenido == nil {
 		t.Fatalf("el registro del paciente: %+v", registro)
 	}
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/pacientes/"+e.paciente.ID.String(), e.token, nil)

@@ -19,6 +19,11 @@ interface DialogoProps {
   /** El fondo de la caja. "marfil" es la paleta blanca de los modales del
    *  panel (como "Agregar turno"); por defecto sigue siendo hueso. */
   superficie?: "hueso" | "marfil";
+  /** Centrado en la pantalla en vez de pegado arriba (los diálogos del
+   *  módulo de documentos, pedido del cliente 2026-09-29). Con `my-auto`
+   *  en la caja y no `items-center` en el fondo: si no entra en la
+   *  pantalla, scrollea desde arriba en vez de quedar cortado. */
+  centrado?: boolean;
 }
 
 const ANCHOS = { chico: "max-w-md", medio: "max-w-2xl", ancho: "max-w-7xl" } as const;
@@ -42,7 +47,7 @@ const ANCHOS = { chico: "max-w-md", medio: "max-w-2xl", ancho: "max-w-7xl" } as 
  */
 const sinSuscripcion = () => () => {};
 
-export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chico", etiquetaCerrar, superficie = "hueso" }: DialogoProps) {
+export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chico", etiquetaCerrar, superficie = "hueso", centrado = false }: DialogoProps) {
   const id = useId();
   // false en el servidor y al hidratar; true desde el render siguiente.
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -103,7 +108,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
         aria-labelledby={`${id}-titulo`}
         aria-describedby={descripcion ? `${id}-descripcion` : undefined}
         tabIndex={-1}
-        className={`w-full ${ANCHOS[ancho]} rounded-card border-[0.5px] border-arena ${superficie === "marfil" ? "bg-marfil" : "bg-hueso"} shadow-soft outline-none`}
+        className={`w-full ${ANCHOS[ancho]} ${centrado ? "my-auto" : ""} rounded-card border-[0.5px] border-arena ${superficie === "marfil" ? "bg-marfil" : "bg-hueso"} shadow-soft outline-none`}
       >
         {/* Un <div> y no un <header>: fuera de un article/section, <header> es
             un landmark "banner", y con el diálogo abierto el documento tenía

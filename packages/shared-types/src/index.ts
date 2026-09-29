@@ -1005,6 +1005,8 @@ export interface DocumentoResumen {
   terminadoEn?: string;
   selladoEn?: string;
   anuladoEn?: string;
+  /** La huella (SHA-256) del contenido congelado, desde que se terminó. */
+  hashContenido?: string;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {
@@ -1014,7 +1016,6 @@ export interface DocumentoDetalle extends DocumentoResumen {
   hoy?: string;
   /** Desde "a firmar": el documento congelado, tal cual se firma. */
   contenido?: unknown;
-  hashContenido?: string;
   hashAnterior?: string;
   hashSello?: string;
   cadenaN?: number;
