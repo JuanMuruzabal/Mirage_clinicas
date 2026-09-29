@@ -5,7 +5,9 @@ Los PDF originales NO están en el repo (es público): se bajan de
 https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/ y
 se dejan en una carpeta local. Lo que sí se versiona es lo que sale de acá:
 cada página en dos anchos (WebP sin pérdida, así el texto queda nítido) y
-un manifiesto con sus medidas que lee la web.
+un manifiesto con sus medidas que lee la web. El ancho de 2550 px es el de
+la impresión: una hoja carta a 300 dpi (TR-188, los consentimientos se
+imprimen para firmarlos a mano).
 
 Uso (desde la raíz del repo; necesita PyMuPDF y Pillow):
 
@@ -30,7 +32,7 @@ ORIGINALES = {
     ("consentimiento-tratamiento-conducto", 1): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
 }
 
-ANCHOS = (800, 1600)
+ANCHOS = (800, 1600, 2550)
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.join(RAIZ, "apps", "web", "public", "documentos-clinicos", "originales")
 MANIFIESTO = os.path.join(RAIZ, "apps", "web", "src", "lib", "documentos-originales.json")

@@ -9,7 +9,7 @@ import {
   apiFirmarDocumento,
   apiGuardarBorrador,
   apiTerminarDocumento,
-  apiVolverAEditarDocumento,
+  apiRegistrarImpresionDocumento,
   type FirmaPayload,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -38,7 +38,9 @@ export async function crearDocumentoAction(plantillaId: string, pacienteId: stri
   const res = await apiCrearDocumento(await token(), plantillaId, pacienteId);
   if (!res.ok) return { error: res.error };
   revalidatePath("/panel/documentos");
-  redirect(`/panel/documentos/${res.data.id}`);
+  // Un solo borrador de cada documento por paciente: si ya había uno, la
+  // API lo devuelve y el editor avisa que se retomó.
+  redirect(`/panel/documentos/${res.data.id}${res.data.retomado ? "?retomado=1" : ""}`);
 }
 
 /** El guardado automático del editor. No revalida la página: el editor es
@@ -56,11 +58,10 @@ export async function terminarDocumentoAction(id: string): Promise<ResultadoDeDo
   return { ok: true, documento: res.data };
 }
 
-export async function volverAEditarDocumentoAction(id: string): Promise<ResultadoDeDocumento> {
-  const res = await apiVolverAEditarDocumento(await token(), id);
-  if (!res.ok) return { ok: false, error: res.error };
-  revalidarDocumento(res.data);
-  return { ok: true, documento: res.data };
+/** La impresión la hace el navegador; esto solo la deja en la auditoría
+ *  (evento "exportado"). Si falla, la impresión sigue igual. */
+export async function registrarImpresionAction(id: string): Promise<void> {
+  await apiRegistrarImpresionDocumento(await token(), id);
 }
 
 export async function firmarDocumentoAction(id: string, firma: FirmaPayload): Promise<ResultadoDeDocumento> {

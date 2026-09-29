@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
-import { aFirmar, borrador, sellado } from "./fixtures";
+import { borrador, sellado } from "./fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -25,23 +25,38 @@ describe("TablaPacientesConDocumentos", () => {
 
   it("vacía, lo dice", () => {
     render(<TablaPacientesConDocumentos pacientes={[]} />);
-    expect(screen.getByText(/Todavía no hay documentos firmados/)).toBeInTheDocument();
+    expect(screen.getByText(/Todavía no hay documentos terminados/)).toBeInTheDocument();
   });
 });
 
 describe("TablaDeDocumentos", () => {
-  it("el registro: folio, documento, autor (con la marca de colega) y estado", () => {
+  it("el registro: folio, documento con su tipo, autor (con la marca de colega), huella y estado", () => {
     render(<TablaDeDocumentos documentos={[resumen(), resumen({ id: "doc-2", esMio: false, autorNombre: "Pedro Díaz", folio: 2 })]} vacio="nada" />);
-    expect(screen.getAllByRole("link", { name: "Tratamiento de conducto" })[0]).toHaveAttribute("href", "/panel/documentos/doc-1");
+    expect(screen.getAllByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })[0]).toHaveAttribute(
+      "href",
+      "/panel/documentos/doc-1",
+    );
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("(colega)")).toBeInTheDocument();
     expect(screen.getAllByText("Firmado y sellado")).toHaveLength(2);
+    // La huella abreviada en su columna, y la completa al pasar el mouse.
+    expect(screen.getByRole("columnheader", { name: "Huella" })).toBeInTheDocument();
+    const huellas = screen.getAllByText("a3f1c0de…0000");
+    expect(huellas[0]).toHaveAttribute("title", "a3f1c0de9b8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a392817060000");
   });
 
-  it("en curso: con el paciente, sin folio", () => {
+  it("un tipo desconocido deja el nombre solo, y sin huella va una raya", () => {
+    render(<TablaDeDocumentos documentos={[resumen({ tipo: "otra_cosa", plantillaNombre: "Algo nuevo", hashContenido: undefined })]} vacio="nada" />);
+    expect(screen.getByRole("link", { name: "Algo nuevo" })).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("en curso: con el paciente, sin folio ni huella", () => {
     render(<TablaDeDocumentos documentos={[borrador()]} conPaciente vacio="nada" />);
     expect(screen.getByText("Ana Paz")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })).toBeInTheDocument();
     expect(screen.queryByText("Folio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Huella")).not.toBeInTheDocument();
     expect(screen.getByText("Borrador")).toBeInTheDocument();
   });
 
@@ -59,26 +74,20 @@ describe("TablaDeDocumentos", () => {
 });
 
 describe("DocumentosDeLaFicha", () => {
-  it("un profesional ve los últimos tres y llega al registro", () => {
-    const docs = [resumen(), resumen({ id: "d2" }), aFirmar(), resumen({ id: "d4" })];
-    render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={docs} cantidadSellados={3} />);
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    expect(screen.getByRole("link", { name: "Ver todos (4) →" })).toHaveAttribute("href", "/panel/pacientes/pac-1/documentos");
-    expect(screen.getByRole("link", { name: "+ Nuevo" })).toHaveAttribute("href", "/panel/documentos?paciente=pac-1");
-  });
-
-  it("un profesional sin documentos del paciente: la invitación a empezar", () => {
-    render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={[]} cantidadSellados={0} />);
-    expect(screen.getByText(/Todavía no tiene documentos/)).toBeInTheDocument();
+  it("un profesional ve solo el botón para entrar a los documentos del paciente, sin lista", () => {
+    render(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional cantidad={3} />);
+    expect(screen.getByRole("link", { name: "Ver documentos clínicos" })).toHaveAttribute("href", "/panel/pacientes/pac-1/documentos");
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
   it("recepción sabe cuántos hay, no qué dicen", () => {
-    const { rerender } = render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={2} />);
-    expect(screen.getByText("2 documentos firmados. Solo los profesionales pueden abrirlos.")).toBeInTheDocument();
+    const { rerender } = render(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={2} />);
+    expect(screen.getByText("2 documentos terminados. Solo los profesionales pueden abrirlos.")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={1} />);
-    expect(screen.getByText(/^1 documento firmado\./)).toBeInTheDocument();
-    rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={0} />);
-    expect(screen.getByText("Todavía no tiene documentos firmados.")).toBeInTheDocument();
+    rerender(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={1} />);
+    expect(screen.getByText(/^1 documento terminado\./)).toBeInTheDocument();
+    rerender(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={0} />);
+    expect(screen.getByText("Todavía no tiene documentos terminados.")).toBeInTheDocument();
   });
 });

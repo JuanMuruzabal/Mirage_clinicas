@@ -85,6 +85,24 @@ describe("Dialogo", () => {
     );
     expect(screen.getByRole("dialog")).toHaveClass("bg-marfil");
   });
+
+  it("va arriba salvo que se pida centrado, y centrado igual scrollea si no entra", () => {
+    const { rerender } = render(
+      <Dialogo titulo="Prueba" onCerrar={vi.fn()}>
+        <p>Contenido</p>
+      </Dialogo>,
+    );
+    expect(screen.getByRole("dialog")).not.toHaveClass("my-auto");
+    rerender(
+      <Dialogo titulo="Prueba" onCerrar={vi.fn()} centrado>
+        <p>Contenido</p>
+      </Dialogo>,
+    );
+    // my-auto en la caja, no items-center en el fondo: el fondo sigue
+    // alineado arriba con su scroll, así un diálogo alto no queda cortado.
+    expect(screen.getByRole("dialog")).toHaveClass("my-auto");
+    expect(screen.getByRole("dialog").parentElement).toHaveClass("items-start", "overflow-y-auto");
+  });
 });
 
 describe("Confirmacion", () => {

@@ -964,7 +964,9 @@ export interface PacienteDetalle extends Paciente {
 // plantillas y del contenido congelado vive en
 // @dental-mirage/documentos-clinicos, no acá.
 
-export type EstadoDocumento = "borrador" | "a_firmar" | "sellado" | "anulado";
+/** `para_imprimir`: un consentimiento terminado. Se firma a mano, en papel
+ *  (TR-188): no espera firmas en el sistema ni se sella. */
+export type EstadoDocumento = "borrador" | "a_firmar" | "para_imprimir" | "sellado" | "anulado";
 
 /** Una firma dibujada: vectores con sus tiempos, no una imagen (TR-184).
  *  Cada punto es [x, y, milisegundos desde el primer toque]. */
@@ -1003,6 +1005,8 @@ export interface DocumentoResumen {
   terminadoEn?: string;
   selladoEn?: string;
   anuladoEn?: string;
+  /** La huella (SHA-256) del contenido congelado, desde que se terminó. */
+  hashContenido?: string;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {
@@ -1012,13 +1016,15 @@ export interface DocumentoDetalle extends DocumentoResumen {
   hoy?: string;
   /** Desde "a firmar": el documento congelado, tal cual se firma. */
   contenido?: unknown;
-  hashContenido?: string;
   hashAnterior?: string;
   hashSello?: string;
   cadenaN?: number;
   motivoAnulacion?: string;
   firmas: FirmaDeDocumento[];
   firmasPendientes: string[];
+  /** Al crear: ya había un borrador mío de este documento para este
+   *  paciente, y es este (no se abrió otro). */
+  retomado?: boolean;
 }
 
 export interface PacienteConDocumentos {

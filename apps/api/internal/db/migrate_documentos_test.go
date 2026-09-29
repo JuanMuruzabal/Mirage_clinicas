@@ -122,6 +122,55 @@ func TestDocumentos_UnBorradorSeEditaYSeDescarta(t *testing.T) {
 	debeAndar(t, "descartar un borrador", e.gdb.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, d.ID).Error)
 }
 
+// Un consentimiento terminado queda "para imprimir" (TR-188): se firma a
+// mano, así que en la base no se firma ni se sella; recibe su folio al
+// terminarse, y ya no cambia ni vuelve a borrador.
+func TestDocumentos_ParaImprimirNoCambiaMas(t *testing.T) {
+	e := nuevoEscenarioDocumento(t)
+	d := e.documento(t)
+	debeFallar(t, e.gdb, "pasar a para_imprimir sin contenido congelado", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET estado = 'para_imprimir', folio = 1 WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "pasar a para_imprimir sin folio", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'para_imprimir', contenido_canonico = '{}', hash_contenido = ?, terminado_en = now()
+			WHERE id = ?`, huella, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "ponerle sello al terminarlo", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'para_imprimir', contenido_canonico = '{}', hash_contenido = ?, terminado_en = now(), folio = 1, cadena_n = 1
+			WHERE id = ?`, huella, d.ID).Error
+	})
+	debeAndar(t, "terminar para imprimir, con su folio", e.gdb.Exec(`UPDATE documentos_clinicos
+		SET estado = 'para_imprimir', contenido_canonico = '{}', hash_contenido = ?, terminado_en = now(), folio = 1
+		WHERE id = ?`, huella, d.ID).Error)
+
+	debeFallar(t, e.gdb, "firmarlo en el sistema", func(tx *gorm.DB) error {
+		return tx.Create(e.firma(d, db.FirmaPaciente, huella)).Error
+	})
+	debeFallar(t, e.gdb, "pasarlo a a_firmar", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET estado = 'a_firmar' WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "sellarlo", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'sellado', folio = 1, cadena_n = 1, hash_sello = ?, sellado_en = now() WHERE id = ?`, huella, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "cambiarle el contenido", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET contenido_canonico = '{"x":1}' WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "cambiarle el folio", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET folio = 2 WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "borrarlo", func(tx *gorm.DB) error {
+		return tx.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, d.ID).Error
+	})
+	debeFallar(t, e.gdb, "volver a borrador", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'borrador', folio = NULL, contenido_canonico = NULL, hash_contenido = NULL, terminado_en = NULL
+			WHERE id = ?`, d.ID).Error
+	})
+}
+
 func TestDocumentos_AFirmarNoCambiaSuContenido(t *testing.T) {
 	e := nuevoEscenarioDocumento(t)
 	d := e.documento(t)
@@ -140,15 +189,16 @@ func TestDocumentos_AFirmarNoCambiaSuContenido(t *testing.T) {
 		return tx.Create(e.firma(d, db.FirmaPaciente, strings.Repeat("0", 64))).Error
 	})
 
-	// Sin firmas, vuelve a borrador tal cual.
-	debeAndar(t, "volver a borrador", e.gdb.Exec(`UPDATE documentos_clinicos
-		SET estado = 'borrador', contenido_canonico = NULL, hash_contenido = NULL, terminado_en = NULL WHERE id = ?`, d.ID).Error)
+	// Terminado, no vuelve a borrador: ni sin firmas (TR-188).
+	debeFallar(t, e.gdb, "volver a borrador sin firmas", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos
+			SET estado = 'borrador', contenido_canonico = NULL, hash_contenido = NULL, terminado_en = NULL WHERE id = ?`, d.ID).Error
+	})
 	debeFallar(t, e.gdb, "firmar un borrador", func(tx *gorm.DB) error {
-		return tx.Create(e.firma(d, db.FirmaPaciente, huella)).Error
+		otro := e.documento(t)
+		return tx.Create(e.firma(otro, db.FirmaPaciente, huella)).Error
 	})
 
-	// Con una firma, ya no vuelve.
-	e.terminar(t, d)
 	debeAndar(t, "firmar", e.gdb.Create(e.firma(d, db.FirmaPaciente, huella)).Error)
 	debeFallar(t, e.gdb, "volver a borrador con una firma", func(tx *gorm.DB) error {
 		return tx.Exec(`UPDATE documentos_clinicos

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { DocumentoResumen, PacienteConDocumentos } from "@dental-mirage/shared-types";
 import { CajaDeTabla } from "@/components/panel/caja-de-tabla";
 import { ClickableTableRow } from "@/components/panel/clickable-table-row";
-import { CHIP_DE_ESTADO, ETIQUETA_DE_ESTADO, fechaCorta } from "@/lib/documentos";
+import { CHIP_DE_ESTADO, ETIQUETA_DE_ESTADO, fechaCorta, huellaCorta, nombreConTipo } from "@/lib/documentos";
 
 // Las tablas del módulo de documentos (Fase 5.1). Misma caja que el resto
 // del panel: en el celular muestra cuatro filas enteras antes del scroll
@@ -27,7 +27,7 @@ export function TablaPacientesConDocumentos({ pacientes }: { pacientes: Paciente
   if (pacientes.length === 0) {
     return (
       <p className="rounded-card border border-linea bg-marfil p-4 text-sm text-grafito/80 shadow-soft">
-        Todavía no hay documentos firmados. Cuando selles el primero, el paciente aparece acá.
+        Todavía no hay documentos terminados. Cuando termines el primero, el paciente aparece acá.
       </p>
     );
   }
@@ -88,6 +88,7 @@ export function TablaDeDocumentos({
             {conPaciente && <th className="panel-th-sticky px-4 py-3">Paciente</th>}
             {!compacta && <th className="panel-th-sticky max-md:hidden px-4 py-3">Fecha</th>}
             {!conPaciente && <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>}
+            {!conPaciente && <th className="panel-th-sticky max-md:hidden px-4 py-3">Huella</th>}
             <th className="panel-th-sticky px-4 py-3">Estado</th>
           </tr>
         </thead>
@@ -97,20 +98,35 @@ export function TablaDeDocumentos({
               {!conPaciente && <td className="px-4 py-3 tabular-nums text-grafito">{d.folio ?? "—"}</td>}
               <td className="px-4 py-3">
                 <Link href={`/panel/documentos/${d.id}`} className="font-medium text-grafito hover:underline">
-                  {d.plantillaNombre}
+                  {nombreConTipo(d)}
                 </Link>
-                {compacta && <p className="text-xs text-grafito/70">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</p>}
+                {compacta && <p className="text-xs text-grafito/70">{fechaCorta(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn)}</p>}
+                {/* En el celular la columna de la huella no entra: baja
+                    debajo del documento, como el profesional en la ficha. */}
+                {!conPaciente && d.hashContenido && (
+                  <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/70 md:hidden" title={d.hashContenido}>
+                    Huella {huellaCorta(d.hashContenido)}
+                  </p>
+                )}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">
                   {d.paciente.nombre} {d.paciente.apellido}
                 </td>
               )}
-              {!compacta && <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.actualizadoEn)}</td>}
+              {!compacta && <td className="max-md:hidden px-4 py-3 text-grafito">{fechaCorta(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn)}</td>}
               {!conPaciente && (
                 <td className="max-md:hidden px-4 py-3 text-grafito">
                   {d.autorNombre}
                   {!d.esMio && <span className="ml-1 text-xs text-grafito/70">(colega)</span>}
+                </td>
+              )}
+              {/* La huella del contenido congelado (SHA-256), abreviada; la
+                  completa en el title y en la constancia del documento.
+                  Pedido del cliente, 2026-09-29. */}
+              {!conPaciente && (
+                <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-xs whitespace-nowrap text-grafito" title={d.hashContenido}>
+                  {huellaCorta(d.hashContenido)}
                 </td>
               )}
               <td className="px-4 py-3">

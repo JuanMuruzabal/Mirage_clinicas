@@ -1,21 +1,28 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { ETIQUETA_DE_TIPO, type Plantilla } from "@dental-mirage/documentos-clinicos";
+import type { Plantilla } from "@dental-mirage/documentos-clinicos";
 import { crearDocumentoAction } from "@/app/actions/documentos";
+import { esMuestra, type ModeloDeMuestra } from "@/lib/documentos-de-muestra";
 import { ElegirPaciente } from "./elegir-paciente";
-import { OriginalDelColegio } from "./original-del-colegio";
 import { PantallaCompleta } from "./pantalla-completa";
+import { HojaDelModelo, PilaDeModelos } from "./pila-de-modelos";
 import { agruparPlantillas, SelectorDePlantillas } from "./selector-de-plantillas";
 
 // ModuloDocumentos — la pantalla de entrada del módulo (Fase 5.1, R3 y R8
 // del brief). El carrusel de documentos (que despliega la lista agrupada),
 // el botón para completarlo y, debajo, lo que quedó en curso (`enCurso`);
-// al lado en escritorio, el modelo original del elegido. Al fondo, después
+// al lado en escritorio, el modelo original del elegido, adelante de la pila
+// de los demás (`PilaDeModelos`, 2026-09-29). Al fondo, después
 // del modelo, `abajo`: los pacientes con documentos (pedido del cliente,
 // 2026-09-28).
+//
+// `muestras`: las hojas de muestra que completan la pila mientras falten
+// modelos (lib/documentos-de-muestra.ts). Se recorren como un documento
+// más, pero no se completan.
 export function ModuloDocumentos({
   plantillas,
+  muestras = [],
   plantillaInicial,
   paciente,
   hoy,
@@ -23,6 +30,7 @@ export function ModuloDocumentos({
   abajo,
 }: {
   plantillas: Plantilla[];
+  muestras?: ModeloDeMuestra[];
   plantillaInicial?: string;
   /** Si se llegó desde la ficha de un paciente: el documento es para él. */
   paciente?: { id: string; nombre: string; apellido: string };
@@ -30,15 +38,20 @@ export function ModuloDocumentos({
   enCurso?: ReactNode;
   abajo?: ReactNode;
 }) {
+  // El orden del menú, que es también el de las flechas y el de la pila.
+  const modelos: (Plantilla | ModeloDeMuestra)[] = [...plantillas, ...muestras];
+  const enOrden = agruparPlantillas(modelos).flatMap((g) => g.plantillas);
   // Sin una elegida de entrada, la primera del menú (el primer consentimiento).
-  const [elegida, setElegida] = useState<Plantilla>(
-    () => plantillas.find((p) => p.id === plantillaInicial) ?? agruparPlantillas(plantillas)[0].plantillas[0],
+  const [elegida, setElegida] = useState<Plantilla | ModeloDeMuestra>(
+    () => plantillas.find((p) => p.id === plantillaInicial) ?? enOrden[0],
   );
+  const deMuestra = esMuestra(elegida);
   const [eligiendoPaciente, setEligiendoPaciente] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creando, empezarACrear] = useTransition();
 
   function completar() {
+    if (deMuestra) return;
     if (!paciente) {
       setEligiendoPaciente(true);
       return;
@@ -54,27 +67,32 @@ export function ModuloDocumentos({
     <div className="flex flex-col gap-10">
       <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <SelectorDePlantillas plantillas={plantillas} elegida={elegida} onElegir={setElegida} />
+          <SelectorDePlantillas plantillas={modelos} elegida={elegida} onElegir={setElegida} />
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={completar}
-                disabled={creando}
+                disabled={creando || deMuestra}
                 className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
               >
                 {creando ? "Creando…" : paciente ? `Completar para ${paciente.nombre} ${paciente.apellido}` : "Completar este documento"}
               </button>
-              <a
-                href={elegida.fuente.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-medium text-salvia-oscuro underline-offset-4 hover:underline"
-              >
-                Web del Colegio ↗
-              </a>
+              {!deMuestra && (
+                <a
+                  href={elegida.fuente.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-salvia-oscuro underline-offset-4 hover:underline"
+                >
+                  Web del Colegio ↗
+                </a>
+              )}
             </div>
+            {deMuestra && (
+              <p className="text-sm text-grafito/75">Es una hoja de muestra para ver la pila de modelos: no se puede completar.</p>
+            )}
             {error && (
               <p role="alert" className="text-sm text-terracota-oscuro">
                 {error}
@@ -85,24 +103,23 @@ export function ModuloDocumentos({
           {enCurso}
         </div>
 
+        {/* Sin rótulo arriba de la hoja (pedido del cliente, 2026-09-29):
+            el documento lo nombra el carrusel de al lado. */}
         <section aria-label={`Vista de ${elegida.nombre}`} className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="font-[family-name:var(--font-mono)] text-xs font-semibold tracking-[0.16em] text-salvia-oscuro uppercase">
-              Así es el documento · {ETIQUETA_DE_TIPO[elegida.tipo]}
-            </p>
-            {/* En el celular la hoja entra al ancho de la pantalla y la letra
-                queda chica (pedido del cliente, 2026-09-28). */}
-            <PantallaCompleta titulo={elegida.nombre} className="lg:hidden">
-              <OriginalDelColegio plantilla={elegida} hoy={hoy} />
+          {/* En el celular la hoja entra al ancho de la pantalla y la letra
+              queda chica (pedido del cliente, 2026-09-28). */}
+          <div className="mb-3 flex justify-end lg:hidden">
+            <PantallaCompleta titulo={elegida.nombre}>
+              <HojaDelModelo modelo={elegida} hoy={hoy} />
             </PantallaCompleta>
           </div>
-          <OriginalDelColegio plantilla={elegida} hoy={hoy} />
+          <PilaDeModelos enOrden={enOrden} elegida={elegida} hoy={hoy} />
         </section>
       </div>
 
       {abajo}
 
-      {eligiendoPaciente && (
+      {eligiendoPaciente && !deMuestra && (
         <ElegirPaciente plantillaId={elegida.id} plantillaNombre={elegida.nombre} onCerrar={() => setEligiendoPaciente(false)} />
       )}
     </div>

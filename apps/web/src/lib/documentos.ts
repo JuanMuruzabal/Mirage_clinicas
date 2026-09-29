@@ -1,6 +1,12 @@
 // Ayudantes de la pantalla de documentos clínicos (Fase 5.1).
-import type { EstadoDocumento } from "@dental-mirage/shared-types";
-import type { BloqueArmado, FirmaDePlantilla, ZonaCompuesta } from "@dental-mirage/documentos-clinicos";
+import type { DocumentoResumen, EstadoDocumento } from "@dental-mirage/shared-types";
+import {
+  ETIQUETA_DE_TIPO,
+  type BloqueArmado,
+  type FirmaDePlantilla,
+  type TipoDePlantilla,
+  type ZonaCompuesta,
+} from "@dental-mirage/documentos-clinicos";
 import { TIMEZONE_CORDOBA } from "./turno-format";
 
 /** El documento congelado al terminar — espejo de ContenidoCongelado de
@@ -36,6 +42,7 @@ export function contenidoCongelado(valor: unknown): ContenidoCongelado | null {
 export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
   borrador: "Borrador",
   a_firmar: "Esperando firmas",
+  para_imprimir: "Listo para imprimir",
   sellado: "Firmado y sellado",
   anulado: "Anulado",
 };
@@ -45,6 +52,7 @@ export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
 export const CHIP_DE_ESTADO: Record<EstadoDocumento, string> = {
   borrador: "bg-hueso text-grafito/75 border-linea",
   a_firmar: "bg-acero-claro text-acero-oscuro border-acero/30",
+  para_imprimir: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
   sellado: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
   anulado: "bg-arena text-grafito/70 border-linea",
 };
@@ -58,6 +66,22 @@ export function fechaCorta(iso?: string): string {
     year: "numeric",
     timeZone: TIMEZONE_CORDOBA,
   });
+}
+
+/** "Consentimiento informado: Tratamiento de conducto" — el documento con
+ *  su tipo adelante, como se nombra en las tablas (pedido del cliente,
+ *  2026-09-29): el nombre solo no dice si es un consentimiento o una
+ *  historia clínica. */
+export function nombreConTipo(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre">): string {
+  const tipo = ETIQUETA_DE_TIPO[d.tipo as TipoDePlantilla];
+  return tipo ? `${tipo}: ${d.plantillaNombre}` : d.plantillaNombre;
+}
+
+/** "2026-09-27" — el día de un instante en hora de Córdoba, para comparar
+ *  contra un filtro de fechas (un `<input type="date">`). */
+export function diaEnCordoba(iso?: string): string {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE_CORDOBA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
 
 /** "27/09/2026 · 14:05" */

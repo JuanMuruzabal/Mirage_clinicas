@@ -284,6 +284,37 @@
   }
 }
 
+/* La impresión de un documento clínico (TR-188: un consentimiento se
+   completa en pantalla, se imprime y se firma a mano). Las páginas viven en
+   un portal a <body> (`ImpresionDelDocumento`): en pantalla no se ven, y al
+   imprimir se ven SOLO ellas, a su tamaño de papel. Todo va atado a
+   `:has(.impresion-documento)`: una pantalla sin documento para imprimir
+   imprime como siempre. El `overflow`/`height` del panel (alto fijo, scroll
+   propio) cortaría un documento de varias páginas en la primera. */
+.impresion-documento {
+  display: none;
+}
+
+@media print {
+  html:has(.impresion-documento),
+  html:has(.impresion-documento) body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body:has(> .impresion-documento) > :not(.impresion-documento) {
+    display: none !important;
+  }
+
+  .impresion-documento {
+    display: block;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 /* El rebote elástico del scroll (touchpad/mobile) al llegar arriba/abajo
    del todo dejaba ver el fondo nativo del navegador detrás de la página,
    sensación de "flotante" — mismo bug/arreglo que Marcuzzi_Madryn (TR-024
@@ -885,3 +916,130 @@ li > [data-pp-efecto] {
   }
 }
 @keyframes despliegue-fundido { from { opacity: 0; } to { opacity: 1; } }
+
+/* La pila de modelos del módulo de documentos (`PilaDeModelos`, pedido del
+   cliente 2026-09-29).
+   - El documento elegido va adelante. Detrás, más apagados, el anterior y
+     el siguiente, derechos y alineados con él: el mismo tamaño, centrados a
+     su altura, asomando parejo a cada lado (el abanico girado se descartó
+     por desordenado, pedido del cliente).
+   - Al cambiar, las dos hojas se separan hacia los costados y se cruzan a
+     mitad de camino; ahí la que se va pasa atrás. La nueva llega al frente
+     con un rebote, como una carta de Balatro (la referencia del cliente).
+   - Adelante, la hoja flota con un vaivén lento y se inclina hacia el mouse
+     (`.pila-flota` y `.pila-inclina`, capas separadas porque cada una tiene
+     su transform).
+   Ningún desplazamiento pasa del margen de la pila (14 % de cada lado): nada
+   se recorta ni aparece un scroll de costado a mitad de la animación. */
+/* Centro y no borde de arriba: al achicarse, las de atrás quedan centradas
+   a la altura de la de adelante, con el mismo margen arriba y abajo. */
+.pila-hoja,
+.pila-sale,
+.pila-frente {
+  transform-origin: 50% 50%;
+}
+.pila-hoja {
+  opacity: 0.55;
+  filter: brightness(0.92) saturate(0.8);
+  animation: pila-asoma 450ms ease-out both;
+}
+.pila-hoja--izquierda { transform: translateX(-13%) scale(0.92); }
+.pila-hoja--derecha { transform: translateX(13%) scale(0.92); }
+.pila-frente { z-index: 2; }
+.pila-entra,
+.pila-sale {
+  animation-duration: 680ms;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.3, 1);
+  animation-fill-mode: both;
+}
+.pila-entra--derecha { animation-name: pila-entra-derecha; }
+.pila-entra--izquierda { animation-name: pila-entra-izquierda; }
+.pila-entra--lejos { animation-name: pila-entra-lejos; }
+.pila-sale--izquierda { animation-name: pila-sale-izquierda; }
+.pila-sale--derecha { animation-name: pila-sale-derecha; }
+.pila-sale--lejos { animation-name: pila-sale-lejos; }
+
+.pila-flota {
+  animation: pila-flota 7s ease-in-out infinite;
+}
+.pila-inclina {
+  transform: perspective(900px) rotateX(var(--pila-rx, 0deg)) rotateY(var(--pila-ry, 0deg)) scale(var(--pila-escala, 1));
+  /* Al soltar vuelve con un resorte (la curva pasa de 1). */
+  transition:
+    transform 600ms cubic-bezier(0.25, 1.7, 0.4, 1),
+    filter 400ms ease-out;
+}
+.pila-inclina[data-inclinada] {
+  --pila-escala: 1.03;
+  filter: drop-shadow(var(--pila-sombra-x, 0px) var(--pila-sombra-y, 12px) 16px rgb(47 43 38 / 0.2));
+  transition:
+    transform 160ms ease-out,
+    filter 160ms ease-out;
+}
+
+@keyframes pila-asoma { from { opacity: 0; } to { opacity: 0.55; } }
+@keyframes pila-entra-derecha {
+  0% { transform: translateX(13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(17%) rotate(1deg) scale(0.96); opacity: 1; filter: none; }
+  72% { transform: translateX(-1.5%) rotate(-1deg) scale(1.025); }
+  88% { transform: translateX(0.4%) rotate(0.4deg) scale(0.995); }
+  100% { transform: none; opacity: 1; filter: none; }
+}
+@keyframes pila-entra-izquierda {
+  0% { transform: translateX(-13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(-17%) rotate(-1deg) scale(0.96); opacity: 1; filter: none; }
+  72% { transform: translateX(1.5%) rotate(1deg) scale(1.025); }
+  88% { transform: translateX(-0.4%) rotate(-0.4deg) scale(0.995); }
+  100% { transform: none; opacity: 1; filter: none; }
+}
+@keyframes pila-entra-lejos {
+  0% { opacity: 0; transform: translateY(18px) rotate(-2deg) scale(0.94); }
+  70% { opacity: 1; transform: translateY(-4px) rotate(0.8deg) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+/* La que se va arranca ENCIMA de la que entra (la escena empieza igual que
+   antes del click) y pasa atrás a mitad de camino. */
+@keyframes pila-sale-izquierda {
+  0%, 44% { z-index: 3; }
+  45%, 100% { z-index: 1; }
+  0% { transform: none; opacity: 1; filter: none; }
+  40% { transform: translateX(-17%) rotate(-1deg) scale(0.96); }
+  100% { transform: translateX(-13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+}
+@keyframes pila-sale-derecha {
+  0%, 44% { z-index: 3; }
+  45%, 100% { z-index: 1; }
+  0% { transform: none; opacity: 1; filter: none; }
+  40% { transform: translateX(17%) rotate(1deg) scale(0.96); }
+  100% { transform: translateX(13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+}
+@keyframes pila-sale-lejos {
+  from { z-index: 1; opacity: 1; transform: none; }
+  to { z-index: 1; opacity: 0; transform: scale(0.92); }
+}
+/* El vaivén de la hoja de adelante: sube y baja apenas y gira un poco en
+   los tres ejes, con los ejes desfasados para que no se vea mecánico. */
+@keyframes pila-flota {
+  0%, 100% { transform: perspective(1200px) translateY(0) rotate(-0.5deg) rotateX(1deg) rotateY(-1.5deg); }
+  25% { transform: perspective(1200px) translateY(-4px) rotate(0.2deg) rotateX(-0.4deg) rotateY(0.6deg); }
+  50% { transform: perspective(1200px) translateY(-2px) rotate(0.6deg) rotateX(-1deg) rotateY(1.5deg); }
+  75% { transform: perspective(1200px) translateY(-5px) rotate(-0.1deg) rotateX(0.5deg) rotateY(-0.4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Sin desplazarse: la hoja nueva aparece con un fundido sobre la que se
+     va, que se desvanece en su lugar, y la de adelante queda quieta
+     (TR-180: un fundido no es movimiento; flotar e inclinarse, sí). */
+  .pila-frente.pila-entra { animation-name: despliegue-fundido; }
+  .pila-sale.pila-sale { animation-name: pila-sale-fundido; }
+  .pila-flota { animation: none; }
+  .pila-inclina,
+  .pila-inclina[data-inclinada] {
+    transform: none;
+    transition: none;
+  }
+}
+@keyframes pila-sale-fundido {
+  from { z-index: 1; opacity: 1; transform: none; }
+  to { z-index: 1; opacity: 0; transform: none; }
+}

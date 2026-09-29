@@ -16,9 +16,10 @@ export const metadata: Metadata = { title: "Documento clínico — PRISMA" };
 // congelado (las firmas, o el documento sellado). La API decide quién ve
 // qué (TR-186): un borrador ajeno, o un documento de un paciente que no
 // está en mi lista, es un 404.
-export default async function DocumentoPage({ params }: PageProps<"/panel/documentos/[id]">) {
+export default async function DocumentoPage({ params, searchParams }: PageProps<"/panel/documentos/[id]">) {
   await requireProfesional();
   const { id } = await params;
+  const { retomado } = await searchParams;
   const token = (await getSessionToken()) ?? "";
   const res = await apiGetDocumento(token, id);
   if (!res.ok) notFound();
@@ -53,7 +54,7 @@ export default async function DocumentoPage({ params }: PageProps<"/panel/docume
       </div>
 
       {documento.estado === "borrador" && documento.esMio && plantilla ? (
-        <EditorDeDocumento documento={documento} plantilla={plantilla} />
+        <EditorDeDocumento documento={documento} plantilla={plantilla} retomado={retomado === "1"} />
       ) : (
         <VistaDeDocumento documento={documento} />
       )}

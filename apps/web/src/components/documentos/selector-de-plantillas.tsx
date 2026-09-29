@@ -1,20 +1,31 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ETIQUETA_DE_TIPO, type Plantilla } from "@dental-mirage/documentos-clinicos";
+import { ETIQUETA_DE_TIPO, type TipoDePlantilla } from "@dental-mirage/documentos-clinicos";
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/components/icons";
+import { esMuestra } from "@/lib/documentos-de-muestra";
+
+/** Lo que el carrusel necesita de un documento: una plantilla, o una hoja
+ *  de muestra de la pila (lib/documentos-de-muestra.ts). */
+interface ModeloDelCarrusel {
+  id: string;
+  nombre: string;
+  tipo: TipoDePlantilla;
+}
 
 // Los grupos del menú, en el orden que pidió el cliente (2026-09-28):
 // primero los consentimientos, después las historias clínicas y al final
-// lo demás (los anexos y cualquier tipo que se sume).
-const GRUPOS: { titulo: string; incluye: (p: Plantilla) => boolean }[] = [
-  { titulo: "Consentimientos informados", incluye: (p) => p.tipo === "consentimiento" },
-  { titulo: "Historias clínicas", incluye: (p) => p.tipo === "historia_clinica" },
-  { titulo: "Anexos y otros", incluye: (p) => p.tipo !== "consentimiento" && p.tipo !== "historia_clinica" },
+// lo demás (los anexos y cualquier tipo que se sume). Las hojas de
+// muestra, en un grupo propio al final: no son un documento de ningún tipo.
+const GRUPOS: { titulo: string; incluye: (p: ModeloDelCarrusel) => boolean }[] = [
+  { titulo: "Consentimientos informados", incluye: (p) => !esMuestra(p) && p.tipo === "consentimiento" },
+  { titulo: "Historias clínicas", incluye: (p) => !esMuestra(p) && p.tipo === "historia_clinica" },
+  { titulo: "Anexos y otros", incluye: (p) => !esMuestra(p) && p.tipo !== "consentimiento" && p.tipo !== "historia_clinica" },
+  { titulo: "Hojas de muestra", incluye: esMuestra },
 ];
 
 /** Las plantillas agrupadas, en el orden del menú (y de las flechas). */
-export function agruparPlantillas(plantillas: Plantilla[]): { titulo: string; plantillas: Plantilla[] }[] {
+export function agruparPlantillas<T extends ModeloDelCarrusel>(plantillas: T[]): { titulo: string; plantillas: T[] }[] {
   return GRUPOS.map((g) => ({ titulo: g.titulo, plantillas: plantillas.filter(g.incluye) })).filter((g) => g.plantillas.length > 0);
 }
 
@@ -24,14 +35,14 @@ export function agruparPlantillas(plantillas: Plantilla[]): { titulo: string; pl
 // historias clínicas y el resto (pedido del cliente, 2026-09-28: reemplaza
 // al buscador que había arriba). Las flechas recorren la misma lista, en el
 // mismo orden, como una rueda.
-export function SelectorDePlantillas({
+export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
   plantillas,
   elegida,
   onElegir,
 }: {
-  plantillas: Plantilla[];
-  elegida: Plantilla;
-  onElegir: (plantilla: Plantilla) => void;
+  plantillas: T[];
+  elegida: T;
+  onElegir: (plantilla: T) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -59,7 +70,7 @@ export function SelectorDePlantillas({
     onElegir(enOrden[(indice + paso + enOrden.length) % enOrden.length]);
   }
 
-  function elegir(p: Plantilla) {
+  function elegir(p: T) {
     setAbierto(false);
     onElegir(p);
   }
@@ -94,7 +105,9 @@ export function SelectorDePlantillas({
               <span className="block truncate font-[family-name:var(--font-display)] text-[19px] leading-tight font-semibold tracking-wide text-grafito">
                 {elegida.nombre}
               </span>
-              <span className="mt-0.5 block truncate text-[12.5px] text-grafito/75">{ETIQUETA_DE_TIPO[elegida.tipo]}</span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-grafito/75">
+                {esMuestra(elegida) ? "Hoja de muestra" : ETIQUETA_DE_TIPO[elegida.tipo]}
+              </span>
             </span>
             <IconChevronDown className={`h-4 w-4 flex-none text-grafito/70 transition-transform ${abierto ? "rotate-180" : ""}`} />
           </button>

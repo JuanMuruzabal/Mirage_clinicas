@@ -8,7 +8,8 @@ describe("las páginas del modelo original", () => {
     const base = "/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v1";
     expect(pagina.src).toBe(`${base}/pagina-1.w1600.webp`);
     expect(pagina.srcSet).toBe(`${base}/pagina-1.w800.webp 800w, ${base}/pagina-1.w1600.webp 1600w`);
-    expect(pagina.ancho).toBe(1600);
+    expect(pagina.srcImpresion).toBe(`${base}/pagina-1.w2550.webp`);
+    expect(pagina.ancho).toBe(2550);
     expect(pagina.alto).toBeGreaterThan(pagina.ancho);
   });
 

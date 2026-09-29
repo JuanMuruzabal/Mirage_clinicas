@@ -456,9 +456,11 @@ func getPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		// Los terminados: sellados, y los consentimientos para imprimir (se
+		// firman en papel, TR-188).
 		var documentosSellados int64
 		if err := gdb.Model(&db.DocumentoClinico{}).
-			Where("paciente_id = ? AND estado = ?", paciente.ID, db.DocumentoSellado).
+			Where("paciente_id = ? AND estado IN ?", paciente.ID, []string{db.DocumentoSellado, db.DocumentoParaImprimir}).
 			Count(&documentosSellados).Error; err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo obtener el paciente")
 			return

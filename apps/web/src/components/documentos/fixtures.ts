@@ -162,6 +162,11 @@ export function conLamina(documento: DocumentoDetalle): DocumentoDetalle {
   };
 }
 
+/** Un consentimiento terminado: se firma a mano (TR-188). */
+export function paraImprimir(extra: Partial<DocumentoDetalle> = {}): DocumentoDetalle {
+  return { ...aFirmar(), estado: "para_imprimir", firmasPendientes: [], ...extra };
+}
+
 export function sellado(): DocumentoDetalle {
   return {
     ...aFirmar([firma("paciente"), firma("profesional")]),

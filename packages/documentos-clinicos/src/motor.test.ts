@@ -18,6 +18,7 @@ import {
   plantillasVigentes,
   seccionDelCampo,
   segmentar,
+  seFirmaEnPapel,
   validarValores,
   valorComoTexto,
   valoresDeEjemplo,
@@ -393,5 +394,12 @@ describe("el registro", () => {
     expect(seccionDelCampo(p, "elementos")?.id).toBe("tratamiento");
     expect(seccionDelCampo(p, "nada")).toBeUndefined();
     expect(camposDe(p).every((c) => seccionDelCampo(p, c.id))).toBe(true);
+  });
+});
+
+describe("dónde se firma", () => {
+  it("un consentimiento, en papel; lo demás, en el sistema", () => {
+    expect(seFirmaEnPapel(plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla)).toBe(true);
+    expect(seFirmaEnPapel(completa)).toBe(false);
   });
 });

@@ -310,6 +310,15 @@ export const plantillaSchema = z
   });
 export type Plantilla = z.infer<typeof plantillaSchema>;
 
+/** Un consentimiento informado se completa para imprimir y se firma a
+ *  mano, en papel (TR-188): la firma del paciente tiene que ser física, y
+ *  una firma electrónica no la reemplaza. Terminado, no espera firmas en
+ *  el sistema ni se sella: queda "para imprimir". Mismo criterio que
+ *  `SeFirmaEnPapel` de internal/documentos (Go). */
+export function seFirmaEnPapel(plantilla: Pick<Plantilla, "tipo">): boolean {
+  return plantilla.tipo === "consentimiento";
+}
+
 export function camposDe(plantilla: Plantilla): Campo[] {
   return plantilla.secciones.flatMap((s) => s.campos);
 }

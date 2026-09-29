@@ -29,6 +29,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** Terminar pide confirmación: el primer botón valida y abre el diálogo. */
+async function terminarConfirmando(boton = "Terminar y pasar a firmas", confirmar = "Sí, terminar y pasar a firmas") {
+  fireEvent.click(screen.getByRole("button", { name: boton }));
+  const si = await screen.findByRole("button", { name: confirmar });
+  await act(async () => {
+    fireEvent.click(si);
+  });
+}
+
 async function esperarGuardado() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
@@ -85,9 +94,7 @@ describe("EditorDeDocumento", () => {
     acciones.terminarDocumentoAction.mockResolvedValue({ ok: true, documento: borrador() });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
     fireEvent.change(screen.getByRole("textbox", { name: /^Nombre/ }), { target: { value: "Ana Paz" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(acciones.guardarBorradorAction).toHaveBeenCalledWith("doc-1", { nombre: "Ana Paz" });
     expect(acciones.terminarDocumentoAction).toHaveBeenCalledWith("doc-1");
     expect(refreshMock).toHaveBeenCalled();
@@ -100,9 +107,7 @@ describe("EditorDeDocumento", () => {
       errores: [{ campo: "nombre", mensaje: "Este dato es obligatorio." }],
     });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(screen.getByText("Revisá los datos marcados.")).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
   });
@@ -111,11 +116,44 @@ describe("EditorDeDocumento", () => {
     acciones.guardarBorradorAction.mockResolvedValue({ ok: false, error: "caída" });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
     fireEvent.change(screen.getByRole("textbox", { name: /^Nombre/ }), { target: { value: "Ana P" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
     expect(screen.getByText("No se pudo guardar el borrador. Revisá los datos marcados y probá de nuevo.")).toBeInTheDocument();
+  });
+
+  it("terminar pide confirmar, porque después ya no se edita; «Seguir revisando» no termina", async () => {
+    render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
+    fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
+    const dialogo = await screen.findByRole("dialog", { name: "¿Terminar el documento?" });
+    expect(dialogo).toHaveTextContent(/ya no se puede editar/);
+    fireEvent.click(screen.getByRole("button", { name: "Seguir revisando" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
+  });
+
+  it("un consentimiento se confirma para imprimir", async () => {
+    render(
+      <EditorDeDocumento
+        documento={borrador({
+          lugar: "Córdoba",
+          suscribe_nombre: "Ana Paz",
+          suscribe_fecha_nacimiento: "1990-01-01",
+          suscribe_dni: "30111222",
+          suscribe_domicilio: "Calle 1",
+          elementos: ["36"],
+          profesional_nombre: "Juan Pérez",
+        })}
+        plantilla={conducto}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
+    expect(await screen.findByRole("dialog", { name: "¿Terminar el documento?" })).toHaveTextContent(/listo para imprimir/);
+    expect(screen.getByRole("button", { name: "Sí, terminar" })).toBeInTheDocument();
+  });
+
+  it("si ya había un borrador de este documento para el paciente, avisa que se retomó", () => {
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} retomado />);
+    expect(screen.getByRole("status")).toHaveTextContent("Ya tenías un borrador de este documento para Ana");
   });
 
   it("tocar un dato del calco abre su sección", async () => {
@@ -177,7 +215,7 @@ describe("EditorDeDocumento", () => {
     );
     expect(screen.getByRole("button", { name: "Completar: Indicaciones" })).toHaveClass("bg-terracota/15");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
+      fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
     });
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
     expect(screen.getByText("No entra en el espacio del documento: acortalo.")).toBeInTheDocument();
@@ -185,14 +223,30 @@ describe("EditorDeDocumento", () => {
 
   it("la hoja se abre a pantalla completa, en el celular y en la computadora", async () => {
     render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
-    const boton = screen.getByRole("button", { name: "Ver en pantalla completa" });
-    expect(boton).not.toHaveClass("lg:hidden");
+    // Uno por encima de las dos columnas en la computadora; otro arriba de la
+    // hoja en el celular ("Ver documento").
+    const [escritorio, celular] = screen.getAllByRole("button", { name: "Ver en pantalla completa" });
+    expect(escritorio.parentElement).toHaveClass("hidden", "lg:flex");
+    expect(celular).toHaveClass("lg:hidden");
+    const boton = escritorio;
     fireEvent.click(boton);
     const capa = await screen.findByRole("dialog", { name: "Tratamiento de conducto: tu documento" });
     // A pantalla completa se lee, no se edita.
     expect(capa.querySelector("[data-zona]")).toBeNull();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("un consentimiento se termina para imprimir: se firma a mano", () => {
+    render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
+    expect(screen.getByRole("button", { name: "Terminar para imprimir" })).toBeInTheDocument();
+    expect(screen.getByText(/se firma a mano, en papel/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Terminar y pasar a firmas" })).not.toBeInTheDocument();
+  });
+
+  it("la columna de los datos queda pegada debajo del header, no tapada por él", () => {
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} />);
+    expect(screen.getByRole("complementary", { name: "Datos del documento" })).toHaveClass("lg:top-[calc(var(--header-height)+1rem)]");
   });
 
   it("una plantilla sin lámina muestra el calco", () => {
