@@ -14,7 +14,9 @@ import { rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
 import { textoEsLargo, tipoConsultaNombreEsLargo } from "@/lib/texto-largo";
 import { QuadrantMark } from "../quadrant-mark";
 import { VerTextoBoton } from "../ver-texto-boton";
+import { etiquetaDeRango } from "@/lib/turnos-filtros";
 import { ClickableTableRow } from "./clickable-table-row";
+import { FiltrosAplicados, type FiltroAplicado } from "./filtros-aplicados";
 import { FiltrosSheet } from "./filtros-sheet";
 
 // El tipo de consulta de un turno de esta tabla, que puede ser de otro
@@ -219,6 +221,27 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
     setDraftHasta("");
   }
 
+  // Las etiquetas de lo YA aplicado (no del borrador): cada una quita solo
+  // su filtro, como las de Turnos.
+  const filtrosAplicados: FiltroAplicado[] = [];
+  if (desde || hasta) {
+    filtrosAplicados.push({
+      clave: "rango",
+      etiqueta: etiquetaDeRango(desde, hasta),
+      quitar: () => {
+        setDesde("");
+        setHasta("");
+      },
+    });
+  }
+  if (tipoId !== "todos") {
+    filtrosAplicados.push({
+      clave: "tipo",
+      etiqueta: tiposUsados.find((t) => t.clave === tipoId)?.nombre ?? "Tipo de consulta",
+      quitar: () => setTipoId("todos"),
+    });
+  }
+
   if (turnos.length === 0) {
     return (
       <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">{vacio}</p>
@@ -245,7 +268,9 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
           conteo del botón usa `draftFiltrados` (los valores todavía sin
           confirmar), la tabla de abajo sigue mostrando `filtrados`
           (confirmado) hasta que se toca "Ver X turnos". */}
-      <div>
+      {/* El botón y, al lado, las etiquetas de lo aplicado (pedido del
+          cliente, 2026-09-29: como en Turnos, cada una se quita sola). */}
+      <div className="flex flex-wrap items-center gap-2">
         <FiltrosSheet
           activo={hayFiltrosActivos}
           activeCount={activeCount}
@@ -319,6 +344,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
             </label>
           </div>
         </FiltrosSheet>
+        <FiltrosAplicados filtros={filtrosAplicados} />
       </div>
 
       {filtrados.length === 0 ? (

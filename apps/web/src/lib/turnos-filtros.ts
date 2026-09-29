@@ -1,5 +1,5 @@
 import type { ListarTurnosParams } from "@/lib/api";
-import { finDiaCordobaISO, inicioDiaCordobaISO, type RangoRapido } from "@/lib/calendar-utils";
+import { finDiaCordobaISO, inicioDiaCordobaISO, rangoRapidoFechas, type RangoRapido } from "@/lib/calendar-utils";
 
 // Extraído de app/panel/turnos/page.tsx (corrección de QA, 2026-09-06:
 // "los filtros de búsqueda... pasan a aparecer cuando se toca un botón,
@@ -68,3 +68,19 @@ export const RANGOS_RAPIDOS: { label: string; rango: RangoRapido }[] = [
   { label: "Semana", rango: "semana" },
   { label: "Mes", rango: "mes" },
 ];
+
+const ETIQUETA_DE_RANGO: Record<RangoRapido, string> = { hoy: "Hoy", semana: "Esta semana", mes: "Este mes" };
+
+// etiquetaDeRango — el texto de la etiqueta removible de un rango de fechas
+// aplicado (fotos de referencia del cliente: "Esta semana ✕"). Un rango
+// que coincide con un atajo se nombra como el atajo; cualquier otro,
+// "Rango de fechas". La usan Turnos, los turnos de la ficha y los
+// documentos del paciente, para que la misma selección se llame igual en
+// las tres pantallas.
+export function etiquetaDeRango(desde: string, hasta: string): string {
+  const atajo = RANGOS_RAPIDOS.find((r) => {
+    const calculado = rangoRapidoFechas(r.rango);
+    return calculado.desde === desde && calculado.hasta === hasta;
+  });
+  return atajo ? ETIQUETA_DE_RANGO[atajo.rango] : "Rango de fechas";
+}
