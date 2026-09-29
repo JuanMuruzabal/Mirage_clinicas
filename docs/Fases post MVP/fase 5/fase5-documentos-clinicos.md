@@ -215,7 +215,13 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 **`/panel/documentos`**
 
 1. **El selector**: el nombre del documento entre `<` y `>` (mismo dibujo que `CarruselDeProfesionales`). Tocarlo despliega todos los documentos separados en consentimientos informados, historias clínicas y el resto (el buscador de la primera versión se sacó a pedido del cliente, 2026-09-28).
-2. **"Modelo"** (así dice el rótulo desde el 2026-09-29): las páginas del modelo original **como imágenes** —exactas al PDF, pre-renderizadas con `scripts/renderizar-originales.py`, no un visor de PDF (en iOS un PDF embebido muestra solo la primera página)—, por versión de plantilla. Debajo del selector, el botón **Completar este documento** y, debajo, **tus documentos en curso**. En el celular, **Ver en pantalla completa** abre la hoja en una capa con "Acercar". Los PDF no se versionan; las imágenes de sus páginas sí. Una plantilla sin original renderizado muestra el calco vacío.
+2. **El modelo, sin rótulo** (se sacó el 2026-09-29: lo nombra el selector): las páginas del modelo original **como imágenes** —exactas al PDF, pre-renderizadas con `scripts/renderizar-originales.py`, no un visor de PDF (en iOS un PDF embebido muestra solo la primera página)—, por versión de plantilla. Debajo del selector, el botón **Completar este documento** y, debajo, **tus documentos en curso**. En el celular, **Ver en pantalla completa** abre la hoja en una capa con "Acercar". Los PDF no se versionan; las imágenes de sus páginas sí. Una plantilla sin original renderizado muestra el calco vacío. **Los modelos se apilan** (`PilaDeModelos`, TR-188, tercera ronda):
+   - el elegido va adelante, y el anterior y el siguiente asoman detrás, más apagados;
+   - cambiar con las flechas o el menú baraja las hojas;
+   - la de adelante flota y se inclina hacia el mouse, como una carta de Balatro;
+   - con "reducir movimiento" todo es un fundido.
+
+   Mientras haya menos de tres modelos, la pila se completa con **hojas de muestra** que no se pueden completar y desaparecen solas con la 5.4.
 3. **Al fondo, después del modelo: pacientes con documentos**, en blanco: nombre, DNI, cantidad y fecha del último (misma caja con alto de cuatro filas en el celular, TR-180). Tocar una fila lleva al registro de ese paciente.
 
 **El editor** (`/panel/documentos/{id}`, un borrador):
@@ -230,7 +236,7 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 
 **Firmas** (§4.5), para lo que se firma en el sistema: una tarjeta por firmante requerido, con tres acciones — **Firmar en este dispositivo**, **Enviar vínculo** (copiar o abrir WhatsApp) y **Avisar a mi celular**. El estado de cada una se actualiza solo. Con la última firma, el documento se sella y aparece **Descargar PDF**.
 
-**Registro del paciente** (`/panel/pacientes/{id}/documentos`): los documentos terminados del paciente, del folio más nuevo al más viejo, con folio, fecha, documento, profesional y estado, y **filtros** (buscar por documento, profesional o folio; tipo; desde/hasta). "+ Nuevo documento" va en la fila del título. Cada uno se abre en solo lectura (la hoja, las firmas y la constancia) y lo sellado se descarga en PDF. **El bloque "Historia clínica" de la ficha** pasa a ser "Documentos clínicos": **solo el botón** para entrar al registro (2026-09-29); recepción ve cuántos hay. "Presupuesto" sigue como está.
+**Registro del paciente** (`/panel/pacientes/{id}/documentos`): los documentos terminados del paciente, del folio más nuevo al más viejo, con folio, documento **con su tipo adelante** ("Consentimiento informado: Tratamiento de conducto"), fecha, profesional, **huella** y estado. Los **filtros** son los de Turnos: un buscador a la vista (documento, profesional, folio o huella) y el botón "Filtros" con el **modelo puntual**, Hoy/Semana/Mes y desde/hasta. "+ Nuevo documento" va en la fila del título. Cada uno se abre en solo lectura (la hoja, las firmas y la constancia) y lo sellado se descarga en PDF. **El bloque "Historia clínica" de la ficha** pasa a ser "Documentos clínicos": **solo el botón** para entrar al registro (2026-09-29); recepción ve cuántos hay. "Presupuesto" sigue como está.
 
 ### 4.4 El odontograma
 
