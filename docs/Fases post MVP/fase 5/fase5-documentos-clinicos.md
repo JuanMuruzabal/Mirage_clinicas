@@ -161,14 +161,18 @@ Y una cuestión que no es de diseño: **los modelos son del Colegio Odontológic
 Un **documento clínico** es una instancia de una plantilla, para un paciente, hecha por un profesional, en una clínica. Pasa por estos estados, y **nunca vuelve atrás desde "sellado"**:
 
 ```
-borrador ──(Terminar)──▶ a_firmar ──(última firma requerida)──▶ sellado
-   │                         │
-   └──(Descartar)──▶ ✕        └──(Anular con motivo)──▶ anulado   (si ya firmó alguien, queda registrado)
-                              └──(Volver a editar)──▶ borrador  (solo si todavía no firmó nadie)
+borrador ──(Terminar, con confirmación)──▶ a_firmar ──(última firma requerida)──▶ sellado
+   │                                          │
+   │                                          └──(Anular con motivo)──▶ anulado   (si ya firmó alguien, queda registrado)
+   ├──(Terminar un consentimiento)──▶ para_imprimir   (con su folio; se firma a mano, TR-188)
+   └──(Descartar)──▶ ✕
 ```
 
+**Nada terminado vuelve a borrador** (corregido el 2026-09-29, TR-188): si hay que cambiar algo, se hace otro documento. Por eso terminar pide confirmación.
+
 - **Borrador:** privado del autor, se guarda solo mientras se completa, se puede descartar. **No es historia clínica** todavía.
-- **A firmar:** el contenido queda **congelado** y se calcula su huella. Cada firma se ata a esa huella: si el contenido cambiara, las firmas dejarían de coincidir. Si todavía nadie firmó, se puede volver a borrador.
+- **Borrador, uno solo por documento y paciente:** pedir otro del mismo documento para el mismo paciente con un borrador abierto lleva a ese (2026-09-29).
+- **A firmar:** el contenido queda **congelado** y se calcula su huella. Cada firma se ata a esa huella: si el contenido cambiara, las firmas dejarían de coincidir. Ya no vuelve a borrador.
 - **Anulado:** un pedido de firma que no se concretó (el paciente se negó, cambió el plan). Si alguien ya había firmado, **no se borra**: queda con su motivo, porque el rechazo de un procedimiento también se documenta por escrito (Ley 26.529, art. 7 inc. f).
 - **Sellado:** con todas las firmas requeridas. Es historia clínica: **no se modifica ni se borra, nunca.**
 
@@ -220,13 +224,13 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 - **Celular**: una cosa por vez, **Completar** o **Ver documento** (el mismo criterio que el editor de página, TR-172). En los dos tamaños, **Ver en pantalla completa** abre la hoja en una capa con "Acercar" (solo para leer: los renglones se tocan en la hoja del editor).
 - **Paso 1, el paciente**: el mismo buscador que "Paciente conocido" de "+ Agregar turno" (`BuscadorPacientes`), en un diálogo blanco; al elegirlo se precargan sus datos y los del profesional.
 - **Los campos**, sección por sección. Tocar un renglón de la hoja abre esa sección en el sidebar y pone el foco en su campo (como TR-173).
-- **Se guarda solo**. **Terminar** valida, congela y pasa a firmas; un consentimiento, en cambio, queda **listo para imprimir** (TR-188).
+- **Se guarda solo**. **Terminar** valida, **pide confirmación** —después ya no se edita— y pasa a firmas; un consentimiento, en cambio, queda **listo para imprimir** (TR-188).
 
-**Un consentimiento terminado** (TR-188): en lugar de las firmas, **Imprimir**. Sale la hoja exacta a tamaño del papel del modelo, con la página a 300 dpi y sin el encabezado del navegador, y los renglones de firma en blanco. Se puede volver a editar siempre, y queda en el registro del paciente como "Listo para imprimir".
+**Un consentimiento terminado** (TR-188): en lugar de las firmas, **Imprimir**. Sale la hoja exacta a tamaño del papel del modelo, con la página a 300 dpi y sin el encabezado del navegador, y los renglones de firma en blanco. **Recibe su folio** al terminarse, queda en el registro del paciente como "Listo para imprimir" y **ya no se edita**: si hay que corregir algo, "hacé uno nuevo".
 
 **Firmas** (§4.5), para lo que se firma en el sistema: una tarjeta por firmante requerido, con tres acciones — **Firmar en este dispositivo**, **Enviar vínculo** (copiar o abrir WhatsApp) y **Avisar a mi celular**. El estado de cada una se actualiza solo. Con la última firma, el documento se sella y aparece **Descargar PDF**.
 
-**Registro del paciente** (`/panel/pacientes/{id}/documentos`): los documentos sellados del paciente en orden cronológico, con folio, fecha, documento, profesional y estado; cada uno se abre en solo lectura (el calco, las firmas y la constancia) y se descarga en PDF. **El bloque "Historia clínica" de la ficha** (hoy un placeholder) pasa a ser "Documentos clínicos": los últimos tres y el link al registro. "Presupuesto" sigue como está.
+**Registro del paciente** (`/panel/pacientes/{id}/documentos`): los documentos terminados del paciente, del folio más nuevo al más viejo, con folio, fecha, documento, profesional y estado, y **filtros** (buscar por documento, profesional o folio; tipo; desde/hasta). "+ Nuevo documento" va en la fila del título. Cada uno se abre en solo lectura (la hoja, las firmas y la constancia) y lo sellado se descarga en PDF. **El bloque "Historia clínica" de la ficha** pasa a ser "Documentos clínicos": **solo el botón** para entrar al registro (2026-09-29); recepción ve cuántos hay. "Presupuesto" sigue como está.
 
 ### 4.4 El odontograma
 
