@@ -31,7 +31,6 @@ import (
 //	                                    "para imprimir" si es un
 //	                                    consentimiento (se firma en papel,
 //	                                    TR-188)
-//	POST   /documentos/{id}/volver-a-editar   (si nadie firmó)
 //	POST   /documentos/{id}/firmas      una firma en este dispositivo;
 //	                                    con la última requerida, se sella
 //	POST   /documentos/{id}/impresion   deja constancia de que se imprimió
@@ -51,7 +50,6 @@ func registrarDocumentosRoutes(r chi.Router, gdb *gorm.DB) {
 		r.Patch("/documentos/{id}", guardarBorradorHandler(gdb))
 		r.Delete("/documentos/{id}", descartarBorradorHandler(gdb))
 		r.Post("/documentos/{id}/terminar", terminarDocumentoHandler(gdb))
-		r.Post("/documentos/{id}/volver-a-editar", volverAEditarHandler(gdb))
 		r.Post("/documentos/{id}/firmas", firmarEnElDispositivoHandler(gdb))
 		r.Post("/documentos/{id}/impresion", impresionDeDocumentoHandler(gdb))
 		r.Get("/pacientes/{id}/documentos", documentosDePacienteHandler(gdb))
@@ -115,6 +113,9 @@ type documentoDetalleResponse struct {
 	MotivoAnulacion  *string         `json:"motivoAnulacion,omitempty"`
 	Firmas           []firmaResponse `json:"firmas"`
 	FirmasPendientes []string        `json:"firmasPendientes"`
+	// Retomado — al crear: ya había un borrador mío de este documento para
+	// este paciente, y es este (no se abrió otro).
+	Retomado bool `json:"retomado,omitempty"`
 }
 
 func fechaHoraPtr(t *time.Time) *string {
@@ -461,7 +462,26 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			PlantillaID: plantilla.ID, PlantillaVersion: plantilla.Version,
 			Valores: documentos.Precargar(plantilla, datosDePrecarga(paciente, perfil, clinica)),
 		}
+		// Un solo borrador de cada documento por paciente (pedido del cliente,
+		// 2026-09-29): si ya tengo uno de este mismo documento para este
+		// paciente, se retoma ese en vez de abrir otro. Bajo el lock de la
+		// clínica, para que dos clics seguidos no creen dos.
+		var existente db.DocumentoClinico
+		retomado := false
 		err = gdb.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error; err != nil {
+				return err
+			}
+			res := tx.Scopes(soloMisDocumentos(r)).
+				Where("clinic_id = ? AND paciente_id = ? AND plantilla_id = ? AND estado = ?", clinicID, paciente.ID, plantilla.ID, db.DocumentoBorrador).
+				Limit(1).Find(&existente)
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected > 0 {
+				retomado = true
+				return nil
+			}
 			if err := tx.Create(&doc).Error; err != nil {
 				return err
 			}
@@ -470,6 +490,16 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el documento")
+			return
+		}
+		if retomado {
+			out, err := detalleDeDocumento(gdb, r, existente)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo abrir el borrador")
+				return
+			}
+			out.Retomado = true
+			writeJSON(w, http.StatusOK, out)
 			return
 		}
 		out, err := detalleDeDocumento(gdb, r, doc)
@@ -536,9 +566,9 @@ func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID u
 		case db.DocumentoAnulado:
 			writeError(w, http.StatusConflict, "este documento está anulado: no se puede modificar")
 		case db.DocumentoAFirmar:
-			writeError(w, http.StatusConflict, "este documento ya se terminó y espera firmas: para editarlo, volvé a editarlo")
+			writeError(w, http.StatusConflict, "este documento ya se terminó y espera firmas: no se puede editar")
 		case db.DocumentoParaImprimir:
-			writeError(w, http.StatusConflict, "este documento está listo para imprimir y se firma a mano, en papel: para editarlo, volvé a editarlo")
+			writeError(w, http.StatusConflict, "este documento está listo para imprimir y se firma a mano, en papel: no se puede editar ni firmar en el sistema")
 		default:
 			writeError(w, http.StatusConflict, "este documento todavía no se terminó")
 		}
@@ -696,11 +726,25 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			destino = db.DocumentoParaImprimir
 		}
 		err = gdb.Transaction(func(tx *gorm.DB) error {
+			cambios := map[string]any{
+				"estado": destino, "contenido_canonico": canonico, "hash_contenido": huella,
+				"terminado_en": ahora, "updated_at": ahora,
+			}
+			// El consentimiento terminado ya es parte de la historia del
+			// paciente: recibe su folio ahora (lo que se sella, al sellar).
+			// Bajo el lock de la clínica: el folio no admite dos "siguientes".
+			if destino == db.DocumentoParaImprimir {
+				if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error; err != nil {
+					return err
+				}
+				folio, err := siguienteFolio(tx, doc.ClinicID, doc.PacienteID)
+				if err != nil {
+					return err
+				}
+				cambios["folio"] = folio
+			}
 			if err := tx.Model(&db.DocumentoClinico{}).Where("id = ? AND estado = ?", doc.ID, db.DocumentoBorrador).
-				Updates(map[string]any{
-					"estado": destino, "contenido_canonico": canonico, "hash_contenido": huella,
-					"terminado_en": ahora, "updated_at": ahora,
-				}).Error; err != nil {
+				Updates(cambios).Error; err != nil {
 				return err
 			}
 			return registrarEvento(tx, r, doc, db.EventoDocumentoTerminado, "")
@@ -716,58 +760,6 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		out, err := detalleDeDocumento(gdb, r, doc)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")
-			return
-		}
-		writeJSON(w, http.StatusOK, out)
-	}
-}
-
-// volverAEditarHandler — POST /documentos/{id}/volver-a-editar: un
-// documento "a firmar" vuelve a borrador, tal cual, SOLO si nadie firmó.
-// Con una firma, el contenido que esa persona firmó queda fijo: si hay que
-// cambiar algo, se anula y se hace otro (5.3). Uno "para imprimir" (un
-// consentimiento, TR-188) vuelve siempre: sus firmas están en el papel, y
-// el papel es el documento legal.
-func volverAEditarHandler(gdb *gorm.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		clinicID, ok := profesionalIDFromRequest(w, r)
-		if !ok {
-			return
-		}
-		doc, ok := miDocumento(w, r, gdb, clinicID, db.DocumentoAFirmar, db.DocumentoParaImprimir)
-		if !ok {
-			return
-		}
-		var firmas int64
-		if err := gdb.Model(&db.DocumentoFirma{}).Where("documento_id = ?", doc.ID).Count(&firmas).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo volver a editar el documento")
-			return
-		}
-		if firmas > 0 {
-			writeError(w, http.StatusConflict, "alguien ya firmó este documento: lo firmado no se puede cambiar")
-			return
-		}
-		err := gdb.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&db.DocumentoClinico{}).Where("id = ? AND estado = ?", doc.ID, doc.Estado).
-				Updates(map[string]any{
-					"estado": db.DocumentoBorrador, "contenido_canonico": nil, "hash_contenido": nil,
-					"terminado_en": nil, "updated_at": clock.Now(),
-				}).Error; err != nil {
-				return err
-			}
-			return registrarEvento(tx, r, doc, db.EventoDocumentoAlBorrador, "")
-		})
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo volver a editar el documento")
-			return
-		}
-		if err := gdb.First(&doc, "id = ?", doc.ID).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo volver a editar el documento")
-			return
-		}
-		out, err := detalleDeDocumento(gdb, r, doc)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo volver a editar el documento")
 			return
 		}
 		writeJSON(w, http.StatusOK, out)
@@ -806,6 +798,18 @@ func impresionDeDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// siguienteFolio — el folio que sigue para un paciente en la clínica
+// (Ley 26.529, art. 12: la historia va foliada). Correlativo entre todos
+// los documentos del paciente, de cualquier profesional: lo reciben el
+// consentimiento al terminarse (TR-188) y lo demás al sellarse. Se llama
+// bajo el lock de la clínica.
+func siguienteFolio(tx *gorm.DB, clinicID, pacienteID uuid.UUID) (int, error) {
+	var folio int
+	err := tx.Raw(`SELECT COALESCE(MAX(folio), 0) + 1 FROM documentos_clinicos
+		WHERE clinic_id = ? AND paciente_id = ? AND folio IS NOT NULL`, clinicID, pacienteID).Scan(&folio).Error
+	return folio, err
 }
 
 // --- Firmar y sellar ---------------------------------------------------
@@ -991,9 +995,8 @@ func sellarSiEstaCompleto(tx *gorm.DB, r *http.Request, doc db.DocumentoClinico,
 	if anterior.CadenaN != nil && anterior.HashSello != nil {
 		hashAnterior, eslabon = *anterior.HashSello, *anterior.CadenaN+1
 	}
-	var folio int
-	if err := tx.Raw(`SELECT COALESCE(MAX(folio), 0) + 1 FROM documentos_clinicos
-		WHERE clinic_id = ? AND paciente_id = ? AND folio IS NOT NULL`, doc.ClinicID, doc.PacienteID).Scan(&folio).Error; err != nil {
+	folio, err := siguienteFolio(tx, doc.ClinicID, doc.PacienteID)
+	if err != nil {
 		return err
 	}
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import type { DocumentoDetalle } from "@dental-mirage/shared-types";
 import { plantillaPorId, type FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
-import { registrarImpresionAction, volverAEditarDocumentoAction } from "@/app/actions/documentos";
+import Link from "next/link";
+import { registrarImpresionAction } from "@/app/actions/documentos";
 import { contenidoCongelado, fechaYHora, huellaCorta } from "@/lib/documentos";
 import { CalcoCongelado } from "./calco";
 import { FirmarDialogo } from "./firmar-dialogo";
@@ -23,14 +23,14 @@ import { PantallaCompleta } from "./pantalla-completa";
 // pantalla ofrece imprimirlo, y lo que sale por la impresora es la misma
 // hoja, a su tamaño de papel (`ImpresionDelDocumento`).
 //
+// Terminado, un documento no se edita más (TR-188): no hay "volver a
+// editar". Si hay que corregir algo, se hace otro.
+//
 // Lee los datos directo de las props: después de firmar, `router.refresh()`
 // trae el documento nuevo y la pantalla lo muestra sin estado local que
 // quede viejo (TR-156).
 export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle }) {
-  const router = useRouter();
   const [firmando, setFirmando] = useState<FirmaDePlantilla | null>(null);
-  const [volviendo, setVolviendo] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const contenido = contenidoCongelado(documento.contenido);
 
   if (!contenido) {
@@ -40,8 +40,6 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
   const aFirmar = documento.estado === "a_firmar";
   const paraImprimir = documento.estado === "para_imprimir";
   const puedeFirmar = aFirmar && documento.esMio;
-  // Uno para imprimir vuelve siempre: sus firmas están en el papel.
-  const puedeVolverAEditar = documento.esMio && ((aFirmar && documento.firmas.length === 0) || paraImprimir);
   const profesionalNombre = `${contenido.profesional.nombre} ${contenido.profesional.apellido}`.trim();
   // La versión que se firmó, no la última: su lámina y su página.
   const plantilla = plantillaPorId(contenido.plantilla.id, contenido.plantilla.version);
@@ -54,18 +52,6 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
     // Queda en la auditoría; si eso falla, la impresión sigue igual.
     void registrarImpresionAction(documento.id);
     window.print();
-  }
-
-  async function volverAEditar() {
-    setVolviendo(true);
-    setError(null);
-    const res = await volverAEditarDocumentoAction(documento.id);
-    setVolviendo(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
-    router.refresh();
   }
 
   const pie = (
@@ -154,7 +140,16 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               >
                 Imprimir
               </button>
-              {!documento.esMio && <p className="mt-2 text-xs text-grafito/75">Lo hizo {documento.autorNombre}: lo podés imprimir, no editar.</p>}
+              <p className="mt-3 text-xs text-grafito/75">
+                {documento.esMio ? "Ya no se puede editar." : `Lo hizo ${documento.autorNombre}.`} Si hay que corregir algo,{" "}
+                <Link
+                  href={`/panel/documentos?paciente=${documento.paciente.id}&plantilla=${documento.plantillaId}`}
+                  className="font-medium text-salvia-oscuro underline-offset-4 hover:underline"
+                >
+                  hacé uno nuevo
+                </Link>
+                .
+              </p>
             </section>
           ) : (
             <section className="rounded-card border border-linea bg-marfil p-4">
@@ -202,21 +197,6 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
             </section>
           )}
 
-          {puedeVolverAEditar && (
-            <button
-              type="button"
-              onClick={() => void volverAEditar()}
-              disabled={volviendo}
-              className="self-start rounded-full px-3 py-1.5 text-sm font-medium text-salvia-oscuro hover:bg-arena disabled:opacity-60"
-            >
-              {volviendo ? "Volviendo…" : "Volver a editar"}
-            </button>
-          )}
-          {error && (
-            <p role="alert" className="text-sm text-terracota-oscuro">
-              {error}
-            </p>
-          )}
         </aside>
 
         <div className="flex min-w-0 flex-col gap-3">

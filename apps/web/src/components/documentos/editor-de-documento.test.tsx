@@ -29,6 +29,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** Terminar pide confirmación: el primer botón valida y abre el diálogo. */
+async function terminarConfirmando(boton = "Terminar y pasar a firmas", confirmar = "Sí, terminar y pasar a firmas") {
+  fireEvent.click(screen.getByRole("button", { name: boton }));
+  const si = await screen.findByRole("button", { name: confirmar });
+  await act(async () => {
+    fireEvent.click(si);
+  });
+}
+
 async function esperarGuardado() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
@@ -85,9 +94,7 @@ describe("EditorDeDocumento", () => {
     acciones.terminarDocumentoAction.mockResolvedValue({ ok: true, documento: borrador() });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
     fireEvent.change(screen.getByRole("textbox", { name: /^Nombre/ }), { target: { value: "Ana Paz" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(acciones.guardarBorradorAction).toHaveBeenCalledWith("doc-1", { nombre: "Ana Paz" });
     expect(acciones.terminarDocumentoAction).toHaveBeenCalledWith("doc-1");
     expect(refreshMock).toHaveBeenCalled();
@@ -100,9 +107,7 @@ describe("EditorDeDocumento", () => {
       errores: [{ campo: "nombre", mensaje: "Este dato es obligatorio." }],
     });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(screen.getByText("Revisá los datos marcados.")).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
   });
@@ -111,11 +116,44 @@ describe("EditorDeDocumento", () => {
     acciones.guardarBorradorAction.mockResolvedValue({ ok: false, error: "caída" });
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
     fireEvent.change(screen.getByRole("textbox", { name: /^Nombre/ }), { target: { value: "Ana P" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
-    });
+    await terminarConfirmando();
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
     expect(screen.getByText("No se pudo guardar el borrador. Revisá los datos marcados y probá de nuevo.")).toBeInTheDocument();
+  });
+
+  it("terminar pide confirmar, porque después ya no se edita; «Seguir revisando» no termina", async () => {
+    render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
+    fireEvent.click(screen.getByRole("button", { name: "Terminar y pasar a firmas" }));
+    const dialogo = await screen.findByRole("dialog", { name: "¿Terminar el documento?" });
+    expect(dialogo).toHaveTextContent(/ya no se puede editar/);
+    fireEvent.click(screen.getByRole("button", { name: "Seguir revisando" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
+  });
+
+  it("un consentimiento se confirma para imprimir", async () => {
+    render(
+      <EditorDeDocumento
+        documento={borrador({
+          lugar: "Córdoba",
+          suscribe_nombre: "Ana Paz",
+          suscribe_fecha_nacimiento: "1990-01-01",
+          suscribe_dni: "30111222",
+          suscribe_domicilio: "Calle 1",
+          elementos: ["36"],
+          profesional_nombre: "Juan Pérez",
+        })}
+        plantilla={conducto}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
+    expect(await screen.findByRole("dialog", { name: "¿Terminar el documento?" })).toHaveTextContent(/listo para imprimir/);
+    expect(screen.getByRole("button", { name: "Sí, terminar" })).toBeInTheDocument();
+  });
+
+  it("si ya había un borrador de este documento para el paciente, avisa que se retomó", () => {
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} retomado />);
+    expect(screen.getByRole("status")).toHaveTextContent("Ya tenías un borrador de este documento para Ana");
   });
 
   it("tocar un dato del calco abre su sección", async () => {

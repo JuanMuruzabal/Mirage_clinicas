@@ -1021,6 +1021,9 @@ export interface DocumentoDetalle extends DocumentoResumen {
   motivoAnulacion?: string;
   firmas: FirmaDeDocumento[];
   firmasPendientes: string[];
+  /** Al crear: ya había un borrador mío de este documento para este
+   *  paciente, y es este (no se abrió otro). */
+  retomado?: boolean;
 }
 
 export interface PacienteConDocumentos {

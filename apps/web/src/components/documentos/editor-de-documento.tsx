@@ -46,10 +46,24 @@ function erroresPorCampo(errores: ErrorDeCampoDeDocumento[] | undefined): Record
 // Un consentimiento se firma a mano (TR-188): terminarlo lo deja listo para
 // imprimir, no "a firmar".
 //
+// Terminar pide confirmación (pedido del cliente, 2026-09-29): terminado,
+// el documento ya no se edita (TR-188). Si hay que corregir algo después,
+// se hace otro.
+//
 // El estado local es lo que la persona está escribiendo: por eso NO usa
 // `useEstadoDelServidor` (CLAUDE.md, TR-156). Se guarda solo, un momento
 // después de cada cambio.
-export function EditorDeDocumento({ documento, plantilla }: { documento: DocumentoDetalle; plantilla: Plantilla }) {
+export function EditorDeDocumento({
+  documento,
+  plantilla,
+  retomado = false,
+}: {
+  documento: DocumentoDetalle;
+  plantilla: Plantilla;
+  /** Se pidió uno nuevo y ya había un borrador de este documento para este
+   *  paciente: se abrió ese (un solo borrador por documento y paciente). */
+  retomado?: boolean;
+}) {
   const router = useRouter();
   const [valores, setValores] = useState<Valores>(() => (documento.valores ?? {}) as Valores);
   const [seccionAbierta, setSeccionAbierta] = useState<string>(plantilla.secciones[0]?.id ?? "");
@@ -61,6 +75,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
   const [terminando, setTerminando] = useState(false);
   const [vista, setVista] = useState<"completar" | "documento">("completar");
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
+  const [confirmarTerminar, setConfirmarTerminar] = useState(false);
   const hoy = documento.hoy ?? "";
   const paginasDeLamina = paginasDeLaLamina(plantilla);
   const enPapel = seFirmaEnPapel(plantilla);
@@ -138,7 +153,8 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
     });
   }
 
-  async function terminar() {
+  // Primero lo que falta o no entra; si está todo, la confirmación.
+  function pedirTerminar() {
     setMensaje(null);
     const faltan = erroresPorCampo([
       ...validarValores(plantilla, ultimo.current, "estricto"),
@@ -150,6 +166,11 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
       irAlCampo(Object.keys(faltan)[0]);
       return;
     }
+    setConfirmarTerminar(true);
+  }
+
+  async function terminar() {
+    setConfirmarTerminar(false);
     setTerminando(true);
     if (!(await guardar())) {
       setTerminando(false);
@@ -178,6 +199,11 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
 
   return (
     <div className="flex flex-col gap-4">
+      {retomado && (
+        <p role="status" className="rounded-card border border-linea bg-marfil px-4 py-3 text-sm text-grafito shadow-soft">
+          Ya tenías un borrador de este documento para {documento.paciente.nombre}: seguís desde acá. Hay un solo borrador de cada documento por paciente.
+        </p>
+      )}
       {/* En el celular, una cosa por vez (TR-172). Todo es CSS: el HTML del
           servidor y el del cliente son el mismo. */}
       <div role="tablist" aria-label="Qué mostrar" className="grid grid-cols-2 gap-1 rounded-full border border-linea bg-marfil p-1 shadow-soft lg:hidden">
@@ -270,7 +296,7 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
             )}
             <button
               type="button"
-              onClick={() => void terminar()}
+              onClick={pedirTerminar}
               disabled={terminando}
               className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
             >
@@ -278,8 +304,8 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
             </button>
             <p className="text-xs text-grafito/75">
               {enPapel
-                ? "Al terminar, queda listo para imprimir: se firma a mano, en papel. Si hay que corregir algo, se puede volver a editar."
-                : "Al terminar, el texto del documento queda fijo. Si nadie firmó todavía, se puede volver a editar."}
+                ? "Al terminar, queda listo para imprimir —se firma a mano, en papel— y ya no se puede editar."
+                : "Al terminar, el texto del documento queda fijo y pasa a firmas: ya no se puede editar."}
             </p>
             <button
               type="button"
@@ -310,6 +336,37 @@ export function EditorDeDocumento({ documento, plantilla }: { documento: Documen
           )}
         </div>
       </div>
+
+      {confirmarTerminar && (
+        <Dialogo
+          titulo="¿Terminar el documento?"
+          descripcion={
+            enPapel
+              ? "Queda listo para imprimir y ya no se puede editar. Revisá que esté todo bien: si después hay que corregir algo, vas a tener que hacer otro."
+              : "El texto queda fijo, pasa a firmas y ya no se puede editar. Revisá que esté todo bien: si después hay que corregir algo, vas a tener que hacer otro."
+          }
+          onCerrar={() => setConfirmarTerminar(false)}
+          superficie="marfil"
+        >
+          <div className="flex justify-end gap-2 p-4 sm:p-6">
+            <button
+              type="button"
+              data-autofocus
+              onClick={() => setConfirmarTerminar(false)}
+              className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena"
+            >
+              Seguir revisando
+            </button>
+            <button
+              type="button"
+              onClick={() => void terminar()}
+              className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+            >
+              {enPapel ? "Sí, terminar" : "Sí, terminar y pasar a firmas"}
+            </button>
+          </div>
+        </Dialogo>
+      )}
 
       {confirmarDescarte && (
         <Dialogo

@@ -6,7 +6,6 @@ const api = vi.hoisted(() => ({
   apiFirmarDocumento: vi.fn(),
   apiGuardarBorrador: vi.fn(),
   apiTerminarDocumento: vi.fn(),
-  apiVolverAEditarDocumento: vi.fn(),
 }));
 const { getSessionTokenMock, redirectMock, revalidatePathMock } = vi.hoisted(() => ({
   getSessionTokenMock: vi.fn(),
@@ -27,7 +26,6 @@ const {
   firmarDocumentoAction,
   guardarBorradorAction,
   terminarDocumentoAction,
-  volverAEditarDocumentoAction,
 } = await import("./documentos");
 
 const documento = { id: "doc-1", paciente: { id: "pac-1" } };
@@ -49,6 +47,10 @@ describe("acciones de documentos", () => {
     await expect(crearDocumentoAction("plantilla", "pac-1")).rejects.toThrow("REDIRECT:/panel/documentos/doc-1");
     expect(api.apiCrearDocumento).toHaveBeenCalledWith("un-token", "plantilla", "pac-1");
 
+    // Ya había un borrador de ese documento para ese paciente: se retoma, y el editor lo avisa.
+    api.apiCrearDocumento.mockResolvedValue({ ok: true, data: { ...documento, retomado: true } });
+    await expect(crearDocumentoAction("plantilla", "pac-1")).rejects.toThrow("REDIRECT:/panel/documentos/doc-1?retomado=1");
+
     api.apiCrearDocumento.mockResolvedValue({ ok: false, status: 409, error: "conflicto" });
     await expect(crearDocumentoAction("plantilla", "pac-1")).resolves.toEqual({ error: "conflicto" });
   });
@@ -62,10 +64,9 @@ describe("acciones de documentos", () => {
     await expect(guardarBorradorAction("doc-1", { a: 1 })).resolves.toEqual({ ok: false, error: "Revisá", errores: [{ campo: "a", mensaje: "mal" }] });
   });
 
-  it("terminar, volver a editar y firmar revalidan el documento, el módulo y la ficha", async () => {
+  it("terminar y firmar revalidan el documento, el módulo y la ficha", async () => {
     for (const [accion, llamada, args] of [
       [terminarDocumentoAction, api.apiTerminarDocumento, ["doc-1"]],
-      [volverAEditarDocumentoAction, api.apiVolverAEditarDocumento, ["doc-1"]],
       [firmarDocumentoAction, api.apiFirmarDocumento, ["doc-1", { rol: "profesional", trazo }]],
     ] as const) {
       vi.clearAllMocks();

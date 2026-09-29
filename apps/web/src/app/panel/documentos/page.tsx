@@ -51,7 +51,7 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
         }
         abajo={
           <section className="flex flex-col gap-3">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Pacientes con documentos</h2>
+            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Pacientes con documentos clínicos</h2>
             {pacientes.ok ? (
               <TablaPacientesConDocumentos pacientes={pacientes.data} />
             ) : (

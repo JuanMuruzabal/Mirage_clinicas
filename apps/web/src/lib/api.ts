@@ -2123,10 +2123,6 @@ export function apiTerminarDocumento(token: string, id: string): Promise<ApiResu
   return request<DocumentoDetalle>(`/documentos/${id}/terminar`, { method: "POST", headers: conSesion(token) });
 }
 
-export function apiVolverAEditarDocumento(token: string, id: string): Promise<ApiResult<DocumentoDetalle>> {
-  return request<DocumentoDetalle>(`/documentos/${id}/volver-a-editar`, { method: "POST", headers: conSesion(token) });
-}
-
 /** Deja constancia en la auditoría de que se abrió la impresión (TR-188). */
 export function apiRegistrarImpresionDocumento(token: string, id: string): Promise<ApiResult<null>> {
   return request<null>(`/documentos/${id}/impresion`, { method: "POST", headers: conSesion(token) });

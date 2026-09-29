@@ -7,7 +7,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock, pu
 
 const acciones = vi.hoisted(() => ({
   firmarDocumentoAction: vi.fn(),
-  volverAEditarDocumentoAction: vi.fn(),
   registrarImpresionAction: vi.fn(),
 }));
 vi.mock("@/app/actions/documentos", () => acciones);
@@ -27,26 +26,12 @@ const { VistaDeDocumento } = await import("./vista-de-documento");
 beforeEach(() => vi.clearAllMocks());
 
 describe("VistaDeDocumento", () => {
-  it("a firmar, mío y sin firmas: se firma en el dispositivo o se vuelve a editar", async () => {
-    acciones.volverAEditarDocumentoAction.mockResolvedValue({ ok: true, documento: aFirmar() });
+  it("a firmar, mío y sin firmas: se firma en el dispositivo, y ya no se vuelve a editar", () => {
     render(<VistaDeDocumento documento={aFirmar()} />);
     expect(screen.getAllByRole("button", { name: "Firmar en este dispositivo" })).toHaveLength(2);
     expect(screen.getAllByText("Pendiente").length).toBeGreaterThan(1);
     expect(screen.getByText(/Terminado el 27\/09\/2026/)).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Volver a editar" }));
-    });
-    expect(acciones.volverAEditarDocumentoAction).toHaveBeenCalledWith("doc-1");
-    expect(refreshMock).toHaveBeenCalled();
-  });
-
-  it("volver a editar que falla muestra el error", async () => {
-    acciones.volverAEditarDocumentoAction.mockResolvedValue({ ok: false, error: "alguien ya firmó" });
-    render(<VistaDeDocumento documento={aFirmar()} />);
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Volver a editar" }));
-    });
-    expect(screen.getByRole("alert")).toHaveTextContent("alguien ya firmó");
+    expect(screen.queryByRole("button", { name: "Volver a editar" })).not.toBeInTheDocument();
   });
 
   it("con una firma ya no se vuelve a editar, y la firma aparece", () => {
@@ -169,9 +154,9 @@ describe("FirmarDialogo", () => {
   });
 
   it("un consentimiento para imprimir: sin firmas en la pantalla, se imprime la hoja a tamaño carta", async () => {
-    const imprimir = vi.fn();
-    vi.stubGlobal("print", imprimir);
-    acciones.volverAEditarDocumentoAction.mockResolvedValue({ ok: true, documento: paraImprimir() });
+    // spyOn y no stubGlobal: `unstubAllGlobals` se llevaría también el
+    // IntersectionObserver de vitest.setup, que usa el <Link> de la vista.
+    const imprimir = vi.spyOn(window, "print").mockImplementation(() => {});
     render(<VistaDeDocumento documento={conLamina(paraImprimir())} />);
     expect(screen.getByRole("heading", { name: "Listo para imprimir" })).toBeInTheDocument();
     expect(screen.getByText(/se firma a mano/)).toBeInTheDocument();
@@ -197,12 +182,14 @@ describe("FirmarDialogo", () => {
     expect(imprimir).toHaveBeenCalled();
     expect(acciones.registrarImpresionAction).toHaveBeenCalledWith("doc-1");
 
-    // Se puede volver a editar: las firmas están en el papel.
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Volver a editar" }));
-    });
-    expect(acciones.volverAEditarDocumentoAction).toHaveBeenCalledWith("doc-1");
-    vi.unstubAllGlobals();
+    // Ya no se edita: si hay que corregir algo, se hace otro del mismo documento.
+    expect(screen.queryByRole("button", { name: "Volver a editar" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Ya no se puede editar/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "hacé uno nuevo" })).toHaveAttribute(
+      "href",
+      "/panel/documentos?paciente=pac-1&plantilla=consentimiento-tratamiento-conducto",
+    );
+    imprimir.mockRestore();
   });
 
   it("el consentimiento para imprimir de un colega se imprime, no se edita", () => {

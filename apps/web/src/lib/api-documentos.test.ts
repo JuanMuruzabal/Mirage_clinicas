@@ -9,7 +9,6 @@ import {
   apiGuardarBorrador,
   apiPacientesConDocumentos,
   apiTerminarDocumento,
-  apiVolverAEditarDocumento,
 } from "./api";
 
 function espiarFetch(status: number, body: unknown) {
@@ -30,7 +29,6 @@ describe("lib/api — documentos clínicos (Fase 5.1)", () => {
     ["guardar", () => apiGuardarBorrador("t", "doc-1", { a: 1 }), "/documentos/doc-1", "PATCH"],
     ["descartar", () => apiDescartarBorrador("t", "doc-1"), "/documentos/doc-1", "DELETE"],
     ["terminar", () => apiTerminarDocumento("t", "doc-1"), "/documentos/doc-1/terminar", "POST"],
-    ["volver a editar", () => apiVolverAEditarDocumento("t", "doc-1"), "/documentos/doc-1/volver-a-editar", "POST"],
     ["firmar", () => apiFirmarDocumento("t", "doc-1", { rol: "profesional", trazo: { ancho: 1, alto: 1, trazos: [] } }), "/documentos/doc-1/firmas", "POST"],
   ])("%s", async (_, llamar, ruta, metodo) => {
     const fetchSpy = espiarFetch(200, {});

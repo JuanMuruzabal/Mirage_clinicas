@@ -15,13 +15,16 @@ import (
 // nunca vuelve desde "sellado":
 //
 //	borrador ──terminar──▶ a_firmar ──última firma──▶ sellado
-//	                          └──volver a editar (sin firmas)──▶ borrador
 //	                          └──anular──▶ anulado
 //
 // Un consentimiento informado se firma a mano, en papel (TR-188): no pasa
-// por "a_firmar" ni se sella en el sistema.
+// por "a_firmar" ni se sella en el sistema; al terminarlo recibe su folio.
 //
-//	borrador ──terminar──▶ para_imprimir ──volver a editar──▶ borrador
+//	borrador ──terminar──▶ para_imprimir
+//
+// Terminado, un documento NO vuelve a borrador (TR-188, pedido del cliente
+// del 2026-09-29): si hay que cambiar algo, se hace otro. Por eso la
+// pantalla pide confirmar antes de terminar.
 //
 // Lo que hace que un documento sellado no se pueda tocar NO vive acá ni
 // en los handlers: vive en la base, en los triggers de
@@ -157,7 +160,9 @@ func (DocumentoFirma) TableName() string { return "documento_firmas" }
 
 // Los eventos de la auditoría de un documento (TR-186).
 const (
-	EventoDocumentoTerminado   = "terminado"
+	EventoDocumentoTerminado = "terminado"
+	// EventoDocumentoAlBorrador — ya no se emite: un documento terminado no
+	// vuelve a borrador (TR-188). Queda por los eventos viejos que lo tienen.
 	EventoDocumentoAlBorrador  = "vuelto_a_borrador"
 	EventoDocumentoFirmado     = "firmado"
 	EventoDocumentoSellado     = "sellado"

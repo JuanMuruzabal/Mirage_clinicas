@@ -93,7 +93,8 @@ func (e escenarioDocs) crearDe(t *testing.T, token, plantillaID string, paciente
 	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", token, map[string]any{
 		"plantillaId": plantillaID, "pacienteId": pacienteID.String(),
 	})
-	if rec.Code != http.StatusCreated {
+	// 201 si es nuevo; 200 si retoma mi borrador del mismo documento.
+	if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
 		t.Fatalf("crear documento: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	return decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
@@ -257,7 +258,6 @@ func TestDocumentos_CircuitoCompleto(t *testing.T) {
 		{http.MethodPatch, "/documentos/" + d.ID},
 		{http.MethodDelete, "/documentos/" + d.ID},
 		{http.MethodPost, "/documentos/" + d.ID + "/terminar"},
-		{http.MethodPost, "/documentos/" + d.ID + "/volver-a-editar"},
 	} {
 		if rec := doJSONAuth(t, e.router, intento.metodo, intento.ruta, e.token, map[string]any{"valores": map[string]any{}}); rec.Code != http.StatusConflict {
 			t.Errorf("%s %s sobre un sellado: %d", intento.metodo, intento.ruta, rec.Code)
@@ -454,7 +454,9 @@ func TestDocumentos_ValidacionesDeLaFirma(t *testing.T) {
 	}
 }
 
-func TestDocumentos_VolverAEditarSoloSinFirmas(t *testing.T) {
+// Terminado, un documento no se edita más (TR-188, pedido del cliente):
+// no hay camino de vuelta a borrador. Si hay que corregir, se hace otro.
+func TestDocumentos_UnDocumentoTerminadoNoSeEditaMas(t *testing.T) {
 	e := escenarioDeDocumentos(t, "volver")
 	d := e.crear(t, e.token, e.paciente.ID)
 	valores := d.Valores
@@ -462,32 +464,66 @@ func TestDocumentos_VolverAEditarSoloSinFirmas(t *testing.T) {
 	e.guardar(t, e.token, d.ID, valores)
 	e.terminar(t, e.token, d.ID)
 
-	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil)
-	d = decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
-	if rec.Code != http.StatusOK || d.Estado != db.DocumentoBorrador || d.Valores["elementos"] == nil {
-		t.Fatalf("volver a editar sin firmas: %d %+v", rec.Code, d)
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("ya no hay forma de volver a editar: %d", rec.Code)
 	}
-	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil); rec.Code != http.StatusConflict {
-		t.Fatalf("un borrador no vuelve a borrador: %d", rec.Code)
+	rec := doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores})
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "no se puede editar") {
+		t.Fatalf("guardar sobre uno terminado: %d %s", rec.Code, rec.Body.String())
 	}
-
-	e.terminar(t, e.token, d.ID)
-	e.firmar(t, e.token, d.ID, map[string]any{"rol": "paciente", "nombre": "Ana Paz", "dni": "30111222"})
-	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil); rec.Code != http.StatusConflict {
-		t.Fatalf("con una firma, no vuelve: %d", rec.Code)
+	// Otro del mismo documento para el mismo paciente sí se puede: es otra instancia.
+	if otro := e.crear(t, e.token, e.paciente.ID); otro.ID == d.ID || otro.Retomado || otro.Estado != db.DocumentoBorrador {
+		t.Fatalf("una instancia nueva: %+v", otro)
 	}
 
-	// En curso: lo mío que espera firmas.
+	// En curso: lo mío que espera firmas y el borrador nuevo.
 	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/en-curso", e.token, nil)
 	enCurso := decodificar[[]documentoResumenResponse](t, rec.Body.Bytes())
-	if len(enCurso) != 1 || enCurso[0].Estado != db.DocumentoAFirmar || enCurso[0].Paciente.DNI != "30111222" {
+	if len(enCurso) != 2 || enCurso[1].Estado != db.DocumentoAFirmar || enCurso[1].Paciente.DNI != "30111222" {
 		t.Fatalf("en curso: %+v", enCurso)
 	}
 }
 
+// Un solo borrador de cada documento por paciente (pedido del cliente,
+// 2026-09-29): si ya tengo uno, "Completar" me devuelve ese.
+func TestDocumentos_UnSoloBorradorDelMismoDocumentoPorPaciente(t *testing.T) {
+	e := escenarioDeDocumentos(t, "unico")
+	primero := e.crearDe(t, e.token, plantillaConducto, e.paciente.ID)
+	if primero.Retomado {
+		t.Fatal("el primero es nuevo")
+	}
+	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", e.token, map[string]any{
+		"plantillaId": plantillaConducto, "pacienteId": e.paciente.ID.String(),
+	})
+	segundo := decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
+	if rec.Code != http.StatusOK || segundo.ID != primero.ID || !segundo.Retomado || segundo.Valores == nil {
+		t.Fatalf("el segundo retoma el borrador: %d %+v", rec.Code, segundo)
+	}
+	var borradores int64
+	e.gdb.Model(&db.DocumentoClinico{}).Where("paciente_id = ? AND estado = ?", e.paciente.ID, db.DocumentoBorrador).Count(&borradores)
+	if borradores != 1 {
+		t.Fatalf("un solo borrador: %d", borradores)
+	}
+	// Otro documento distinto sí abre su propio borrador.
+	if otro := e.crear(t, e.token, e.paciente.ID); otro.ID == primero.ID || otro.Retomado {
+		t.Fatalf("otro documento: %+v", otro)
+	}
+	// El borrador de un colega no cuenta: ese no lo veo.
+	colega := sumarColaboradorDePrueba(t, e.gdb, e.router, e.clinicID, "doc-unico-colega@example.com", db.RoleProfesional)
+	if err := e.gdb.Create(&db.ProfessionalProfile{
+		UserID: userIDDelMail(t, e.gdb, "doc-unico-colega@example.com"), Nombre: "Pedro", Apellido: "Díaz",
+		Telefono: "+5493517654321", MatriculaTipo: db.MatriculaTipoNacional, MatriculaNumero: matriculaDePrueba("doc-unico-colega@example.com"),
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if suyo := e.crearDe(t, colega, plantillaConducto, e.paciente.ID); suyo.ID == primero.ID || suyo.Retomado {
+		t.Fatalf("el del colega es suyo: %+v", suyo)
+	}
+}
+
 // Un consentimiento informado se completa para imprimir y se firma a mano
-// (TR-188): terminado, queda "para imprimir", sin firmas en el sistema ni
-// sello, y se puede volver a editar siempre.
+// (TR-188): terminado, queda "para imprimir", con su folio, sin firmas en
+// el sistema ni sello, y ya no se edita.
 func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
 	e := escenarioDeDocumentos(t, "papel")
 	d := e.crearDe(t, e.token, plantillaConducto, e.paciente.ID)
@@ -496,8 +532,8 @@ func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
 	e.guardar(t, e.token, d.ID, valores)
 
 	d = e.terminar(t, e.token, d.ID)
-	if d.Estado != db.DocumentoParaImprimir || d.HashContenido == nil || len(d.Contenido) == 0 || len(d.FirmasPendientes) != 0 || d.Folio != nil {
-		t.Fatalf("terminado, queda para imprimir, sin firmas pendientes ni folio: %+v", d)
+	if d.Estado != db.DocumentoParaImprimir || d.HashContenido == nil || len(d.Contenido) == 0 || len(d.FirmasPendientes) != 0 || d.Folio == nil || *d.Folio != 1 {
+		t.Fatalf("terminado, queda para imprimir, con folio 1 y sin firmas pendientes: %+v", d)
 	}
 
 	// No se firma en el sistema.
@@ -539,17 +575,20 @@ func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
 		t.Fatalf("la ficha cuenta el consentimiento: %d", ficha.DocumentosClinicos)
 	}
 
-	// Vuelve a editar siempre: sus firmas están en el papel.
-	rec = doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", e.token, nil)
-	d = decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
-	if rec.Code != http.StatusOK || d.Estado != db.DocumentoBorrador || d.Valores["elementos"] == nil {
-		t.Fatalf("volver a editar uno para imprimir: %d %+v", rec.Code, d)
+	// Si hay que corregir algo, se hace otro: una instancia nueva, que al
+	// terminarse recibe el folio siguiente. Un borrador no se imprime.
+	otro := e.crearDe(t, e.token, plantillaConducto, e.paciente.ID)
+	if otro.ID == d.ID || otro.Retomado {
+		t.Fatalf("otra instancia: %+v", otro)
 	}
-	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/impresion", e.token, nil); rec.Code != http.StatusConflict {
+	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+otro.ID+"/impresion", e.token, nil); rec.Code != http.StatusConflict {
 		t.Fatalf("un borrador no se imprime: %d", rec.Code)
 	}
-	if d = e.terminar(t, e.token, d.ID); d.Estado != db.DocumentoParaImprimir {
-		t.Fatalf("terminado otra vez: %+v", d)
+	valores = otro.Valores
+	valores["elementos"] = []string{"37"}
+	e.guardar(t, e.token, otro.ID, valores)
+	if otro = e.terminar(t, e.token, otro.ID); otro.Folio == nil || *otro.Folio != 2 {
+		t.Fatalf("el folio siguiente: %+v", otro)
 	}
 }
 
@@ -576,9 +615,6 @@ func TestDocumentos_UnColegaVeElConsentimientoParaImprimirDeSusPacientes(t *test
 	}
 	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/impresion", colega, nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("imprimir el de la colega: %d", rec.Code)
-	}
-	if rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos/"+d.ID+"/volver-a-editar", colega, nil); rec.Code != http.StatusNotFound {
-		t.Fatalf("volver a editar el de la colega: %d", rec.Code)
 	}
 }
 

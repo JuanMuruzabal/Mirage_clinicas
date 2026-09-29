@@ -62,6 +62,13 @@ export function fechaCorta(iso?: string): string {
   });
 }
 
+/** "2026-09-27" — el día de un instante en hora de Córdoba, para comparar
+ *  contra un filtro de fechas (un `<input type="date">`). */
+export function diaEnCordoba(iso?: string): string {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE_CORDOBA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+
 /** "27/09/2026 · 14:05" */
 export function fechaYHora(iso?: string): string {
   if (!iso) return "—";

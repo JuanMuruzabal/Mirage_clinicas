@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
-import { aFirmar, borrador, sellado } from "./fixtures";
+import { borrador, sellado } from "./fixtures";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -59,26 +59,20 @@ describe("TablaDeDocumentos", () => {
 });
 
 describe("DocumentosDeLaFicha", () => {
-  it("un profesional ve los últimos tres y llega al registro", () => {
-    const docs = [resumen(), resumen({ id: "d2" }), aFirmar(), resumen({ id: "d4" })];
-    render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={docs} cantidadSellados={3} />);
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    expect(screen.getByRole("link", { name: "Ver todos (4) →" })).toHaveAttribute("href", "/panel/pacientes/pac-1/documentos");
-    expect(screen.getByRole("link", { name: "+ Nuevo" })).toHaveAttribute("href", "/panel/documentos?paciente=pac-1");
-  });
-
-  it("un profesional sin documentos del paciente: la invitación a empezar", () => {
-    render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={[]} cantidadSellados={0} />);
-    expect(screen.getByText(/Todavía no tiene documentos/)).toBeInTheDocument();
+  it("un profesional ve solo el botón para entrar a los documentos del paciente, sin lista", () => {
+    render(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional cantidad={3} />);
+    expect(screen.getByRole("link", { name: "Ver documentos clínicos" })).toHaveAttribute("href", "/panel/pacientes/pac-1/documentos");
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
   it("recepción sabe cuántos hay, no qué dicen", () => {
-    const { rerender } = render(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={2} />);
+    const { rerender } = render(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={2} />);
     expect(screen.getByText("2 documentos terminados. Solo los profesionales pueden abrirlos.")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={1} />);
+    rerender(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={1} />);
     expect(screen.getByText(/^1 documento terminado\./)).toBeInTheDocument();
-    rerender(<DocumentosDeLaFicha pacienteId="pac-1" documentos={null} cantidadSellados={0} />);
+    rerender(<DocumentosDeLaFicha pacienteId="pac-1" esProfesional={false} cantidad={0} />);
     expect(screen.getByText("Todavía no tiene documentos terminados.")).toBeInTheDocument();
   });
 });

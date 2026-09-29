@@ -45,6 +45,13 @@ func sentenciasDeDocumentos() []string {
 		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_sellado_completo
 		     CHECK (estado <> 'sellado' OR (hash_sello IS NOT NULL AND folio IS NOT NULL AND cadena_n IS NOT NULL AND sellado_en IS NOT NULL));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		// Uno para imprimir ya tiene su folio: es parte de la historia del
+		// paciente (TR-188). NOT VALID: los de antes de esta regla (solo en
+		// bases de desarrollo) no se tocan; lo nuevo, sí.
+		`DO $$ BEGIN
+		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_para_imprimir_con_folio
+		     CHECK (estado <> 'para_imprimir' OR folio IS NOT NULL) NOT VALID;
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 		// Uno anulado dice por qué.
 		`DO $$ BEGIN
 		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_anulado_con_motivo
@@ -61,11 +68,12 @@ func sentenciasDeDocumentos() []string {
 		// --- documentos_clinicos: el candado ---
 		//
 		// UPDATE: un documento sellado o anulado no cambia NADA. Uno
-		// "a_firmar" solo puede sellarse, anularse o volver a borrador (si
-		// nadie firmó), y en ningún caso cambia su contenido congelado. Uno
-		// "para_imprimir" (un consentimiento: se firma en papel, TR-188) solo
-		// vuelve a borrador; no se firma ni se sella en el sistema. La
-		// identidad (clínica, paciente, autor, plantilla) no cambia nunca.
+		// "a_firmar" solo puede sellarse o anularse, y en ningún caso cambia
+		// su contenido congelado. Uno "para_imprimir" (un consentimiento: se
+		// firma en papel, TR-188) ya no cambia: ni se firma ni se sella en el
+		// sistema. NADA terminado vuelve a borrador (TR-188): si hay que
+		// corregir, se hace otro documento. La identidad (clínica, paciente,
+		// autor, plantilla) no cambia nunca.
 		// DELETE: solo un borrador (descartar); lo demás es historia clínica.
 		`CREATE OR REPLACE FUNCTION documentos_clinicos_candado() RETURNS trigger
 		 LANGUAGE plpgsql AS $$
@@ -91,25 +99,21 @@ func sentenciasDeDocumentos() []string {
 		     IF NEW.estado NOT IN ('borrador', 'a_firmar', 'para_imprimir') THEN
 		       RAISE EXCEPTION 'documento clínico %: un borrador solo pasa a a_firmar o para_imprimir', OLD.id;
 		     END IF;
-		     IF NEW.folio IS NOT NULL OR NEW.cadena_n IS NOT NULL OR NEW.hash_sello IS NOT NULL THEN
+		     -- El folio lo recibe al terminar un consentimiento (para_imprimir) o
+		     -- al sellar; el sello, solo al sellar.
+		     IF NEW.cadena_n IS NOT NULL OR NEW.hash_sello IS NOT NULL
+		        OR (NEW.folio IS NOT NULL AND NEW.estado <> 'para_imprimir') THEN
 		       RAISE EXCEPTION 'documento clínico %: un borrador no se sella', OLD.id;
 		     END IF;
 		     RETURN NEW;
 		   END IF;
 
-		   IF OLD.estado = 'para_imprimir' AND NEW.estado NOT IN ('para_imprimir', 'borrador') THEN
-		     RAISE EXCEPTION 'documento clínico %: un documento para imprimir se firma en papel: solo vuelve a borrador', OLD.id;
-		   END IF;
-
-		   -- OLD.estado = 'a_firmar' o 'para_imprimir'
+		   -- OLD.estado = 'a_firmar' o 'para_imprimir': terminado.
 		   IF NEW.estado = 'borrador' THEN
-		     IF EXISTS (SELECT 1 FROM documento_firmas f WHERE f.documento_id = OLD.id) THEN
-		       RAISE EXCEPTION 'documento clínico %: ya tiene firmas, no vuelve a borrador', OLD.id;
-		     END IF;
-		     IF NEW.valores IS DISTINCT FROM OLD.valores THEN
-		       RAISE EXCEPTION 'documento clínico %: se vuelve a borrador tal cual, sin cambiar datos', OLD.id;
-		     END IF;
-		     RETURN NEW;
+		     RAISE EXCEPTION 'documento clínico %: un documento terminado no vuelve a borrador: se hace otro', OLD.id;
+		   END IF;
+		   IF OLD.estado = 'para_imprimir' AND NEW.estado <> 'para_imprimir' THEN
+		     RAISE EXCEPTION 'documento clínico %: un documento para imprimir se firma en papel: no se firma ni se sella en el sistema', OLD.id;
 		   END IF;
 
 		   IF NEW.valores IS DISTINCT FROM OLD.valores
