@@ -7,6 +7,8 @@
 // "gingivectomía", "ayudará", "comunicaré", "específicas", "medicación").
 // El modelo deja renglones sin título después de los beneficios y del
 // tratamiento alternativo: son para lo que el profesional quiera agregar.
+//
+// Los datos de quien suscribe (nombre, DNI, domicilio) se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoPeriodoncia: Plantilla = {
@@ -66,17 +68,8 @@ export const consentimientoPeriodoncia: Plantilla = {
     },
     {
       id: "firmante",
-      titulo: "Quién suscribe",
+      titulo: "Tratamiento propuesto",
       campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-        },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
         { tipo: "texto_largo", id: "tratamiento_periodontal", etiqueta: "Tratamiento periodontal propuesto", requerido: true },
         {
           tipo: "texto",
@@ -182,7 +175,7 @@ export const consentimientoPeriodoncia: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "El/la que suscribe {{suscribe_nombre}}, DNI Nº {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento a la realización del tratamiento periodontal {{tratamiento_periodontal}} propuesta por el/la Dr./a {{profesional_nombre}}, MP {{profesional_matricula}}.",
+        "El/la que suscribe __________, DNI Nº __________, con domicilio en calle __________, otorgo mi consentimiento a la realización del tratamiento periodontal {{tratamiento_periodontal}} propuesta por el/la Dr./a {{profesional_nombre}}, MP {{profesional_matricula}}.",
     },
     { t: "firmas" },
   ],
@@ -212,9 +205,6 @@ export const consentimientoPeriodoncia: Plantilla = {
       { id: "medicacion_durante", pagina: 3, x: 254.5, y: 229.7, ancho: 289, texto: "{{medicacion_durante}}" },
       { id: "medicacion_post", pagina: 3, x: 223.5, y: 254.3, ancho: 322, texto: "{{medicacion_post}}" },
       { id: "observaciones", pagina: 3, x: 86, y: 317.9, ancho: 460, lineas: 5, interlineado: 14.55, texto: "{{observaciones}}" },
-      { id: "suscribe_nombre", pagina: 3, x: 176, y: 400.8, ancho: 364, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 3, x: 120, y: 425.2, ancho: 81, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 3, x: 313.5, y: 425.2, ancho: 229, texto: "{{suscribe_domicilio}}" },
       { id: "tratamiento_periodontal", pagina: 3, x: 86, y: 454.4, ancho: 386, lineas: 2, interlineado: 14.5, texto: "{{tratamiento_periodontal}}" },
       { id: "profesional", pagina: 3, x: 158.5, y: 483.4, ancho: 254, texto: "{{profesional_nombre}}, MP {{profesional_matricula}}" },
     ],

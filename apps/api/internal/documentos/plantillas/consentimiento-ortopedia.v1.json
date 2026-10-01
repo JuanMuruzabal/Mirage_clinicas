@@ -34,13 +34,6 @@
           "etiqueta": "Fecha de nacimiento",
           "requerido": true,
           "precarga": "paciente.fechaNacimiento"
-        },
-        {
-          "tipo": "texto",
-          "id": "paciente_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
         }
       ]
     },
@@ -64,17 +57,6 @@
           "tipo": "texto",
           "id": "responsable_telefono",
           "etiqueta": "Teléfono"
-        },
-        {
-          "tipo": "fecha",
-          "id": "responsable_fecha_nacimiento",
-          "etiqueta": "Fecha de nacimiento"
-        },
-        {
-          "tipo": "texto",
-          "id": "responsable_vinculo",
-          "etiqueta": "Vínculo con el paciente",
-          "requerido": true
         }
       ]
     },
@@ -182,11 +164,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "Nombre y apellido del paciente: {{paciente_nombre}}. DNI: {{paciente_dni}}. Fecha de nacimiento: {{paciente_fecha_nacimiento}}."
+      "texto": "Nombre y apellido del paciente: __________. DNI: __________. Fecha de nacimiento: __________. Firma: __________. Asentimiento: ☺ ☹"
     },
     {
       "t": "parrafo",
-      "texto": "Nombre y apellido del responsable legal: {{responsable_nombre}}. DNI: {{responsable_dni}}. Fecha de nacimiento: {{responsable_fecha_nacimiento}}. Vínculo con el paciente: {{responsable_vinculo}}."
+      "texto": "Nombre y apellido del responsable legal: __________. DNI: __________. Fecha de nacimiento: __________. Vínculo con el paciente: __________. Firma: __________."
     },
     {
       "t": "firmas"
@@ -318,63 +300,6 @@
         "y": 411.2,
         "ancho": 81,
         "texto": "{{sistema.fecha}}"
-      },
-      {
-        "id": "asentimiento_nombre",
-        "pagina": 2,
-        "x": 210,
-        "y": 475.4,
-        "ancho": 289,
-        "texto": "{{paciente_nombre}}"
-      },
-      {
-        "id": "asentimiento_dni",
-        "pagina": 2,
-        "x": 70,
-        "y": 502.3,
-        "ancho": 147,
-        "texto": "{{paciente_dni}}"
-      },
-      {
-        "id": "asentimiento_fecha_nacimiento",
-        "pagina": 2,
-        "x": 404,
-        "y": 502.3,
-        "ancho": 97,
-        "texto": "{{paciente_fecha_nacimiento}}"
-      },
-      {
-        "id": "asentimiento_responsable",
-        "pagina": 2,
-        "x": 263,
-        "y": 609.7,
-        "ancho": 237,
-        "texto": "{{responsable_nombre}}"
-      },
-      {
-        "id": "asentimiento_responsable_dni",
-        "pagina": 2,
-        "x": 67.5,
-        "y": 636.5,
-        "ancho": 145,
-        "texto": "{{responsable_dni}}"
-      },
-      {
-        "id": "responsable_fecha_nacimiento",
-        "pagina": 2,
-        "x": 401,
-        "y": 636.5,
-        "ancho": 101,
-        "texto": "{{responsable_fecha_nacimiento}}",
-        "vacio": "—"
-      },
-      {
-        "id": "responsable_vinculo",
-        "pagina": 2,
-        "x": 183,
-        "y": 663.3,
-        "ancho": 250,
-        "texto": "{{responsable_vinculo}}"
       }
     ],
     "firmas": [

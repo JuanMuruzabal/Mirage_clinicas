@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { plantillaPorId } from "@dental-mirage/documentos-clinicos";
 import { apiGetDocumento } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -19,11 +19,16 @@ export const metadata: Metadata = { title: "Documento clínico — PRISMA" };
 export default async function DocumentoPage({ params, searchParams }: PageProps<"/panel/documentos/[id]">) {
   await requireProfesional();
   const { id } = await params;
-  const { retomado } = await searchParams;
+  const { retomado, actualizado } = await searchParams;
   const token = (await getSessionToken()) ?? "";
   const res = await apiGetDocumento(token, id);
   if (!res.ok) notFound();
   const documento = res.data;
+  // Mi borrador era de una versión anterior del documento: la API lo pasó a
+  // la vigente, que es un documento nuevo (TR-189, addendum).
+  if (documento.id !== id) {
+    redirect(`/panel/documentos/${documento.id}${documento.versionActualizada ? "?actualizado=1" : ""}`);
+  }
   const plantilla = plantillaPorId(documento.plantillaId, documento.plantillaVersion);
 
   return (
@@ -54,7 +59,12 @@ export default async function DocumentoPage({ params, searchParams }: PageProps<
       </div>
 
       {documento.estado === "borrador" && documento.esMio && plantilla ? (
-        <EditorDeDocumento documento={documento} plantilla={plantilla} retomado={retomado === "1"} />
+        <EditorDeDocumento
+          documento={documento}
+          plantilla={plantilla}
+          retomado={retomado === "1"}
+          actualizado={actualizado === "1"}
+        />
       ) : (
         <VistaDeDocumento documento={documento} />
       )}

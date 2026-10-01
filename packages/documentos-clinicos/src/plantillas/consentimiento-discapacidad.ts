@@ -3,11 +3,11 @@
 // de Córdoba (Consentimiento-informado-para-discapacidad.pdf).
 //
 // El texto es el del modelo, palabra por palabra; se tocó solo la
-// ortografía ("atención odontológica", "explicó", "de acuerdo"). El
-// consentimiento se da o no se da en dos casillas del papel ("PERTINENTE
-// ___ o NO CONSIENTO ___"), que se marcan con una X (Fase 5.2). Firman el
-// paciente y, cuando corresponde, su representante legal, curador o
-// acompañante, cada uno con su aclaración.
+// ortografía ("atención odontológica", "explicó", "de acuerdo"). En el
+// sistema se completa solo la fecha y el profesional de la primera página:
+// desde "CONSIENTO ___ o NO CONSIENTO ___" hasta el final —los datos del
+// paciente, del representante, curador o acompañante y del profesional,
+// con sus firmas y aclaraciones— se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoDiscapacidad: Plantilla = {
@@ -35,53 +35,6 @@ export const consentimientoDiscapacidad: Plantilla = {
           bloqueado: true,
         },
         { tipo: "texto", id: "profesional_matricula", etiqueta: "MP", requerido: true, precarga: "profesional.matricula", bloqueado: true },
-      ],
-    },
-    {
-      id: "consentimiento",
-      titulo: "Consentimiento",
-      campos: [
-        {
-          tipo: "opcion_unica",
-          id: "consentimiento",
-          etiqueta: "Consentimiento",
-          requerido: true,
-          opciones: [
-            { valor: "consiento", etiqueta: "Consiento" },
-            { valor: "no_consiento", etiqueta: "No consiento" },
-          ],
-        },
-      ],
-    },
-    {
-      id: "paciente",
-      titulo: "Paciente",
-      campos: [
-        {
-          tipo: "texto",
-          id: "paciente_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "Va también como aclaración de su firma.",
-        },
-        { tipo: "texto", id: "paciente_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "numero", id: "paciente_edad", etiqueta: "Edad (años)", requerido: true, min: 0, max: 120 },
-        { tipo: "texto", id: "paciente_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
-      ],
-    },
-    {
-      id: "representante",
-      titulo: "Representante legal, curador o acompañante",
-      campos: [
-        {
-          tipo: "texto",
-          id: "representante_nombre",
-          etiqueta: "Nombre y apellido",
-          ayuda: "Solo si corresponde. Va también como aclaración de su firma.",
-        },
-        { tipo: "texto", id: "representante_dni", etiqueta: "DNI" },
-        { tipo: "texto", id: "representante_relacion", etiqueta: "Relación con el paciente" },
       ],
     },
   ],
@@ -132,18 +85,18 @@ export const consentimientoDiscapacidad: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE o NO CONSIENTO: {{consentimiento}}.",
+        "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE ___ o NO CONSIENTO ___",
     },
     {
       t: "parrafo",
-      texto: "Nombre del paciente: {{paciente_nombre}}. DNI: {{paciente_dni}}. Edad: {{paciente_edad}}. Domicilio: {{paciente_domicilio}}.",
+      texto: "Nombre del paciente: __________. DNI: __________. Edad: ____. Domicilio: __________.",
     },
     {
       t: "parrafo",
       texto:
-        "En caso que corresponda: nombre del representante legal/curador/acompañante: {{representante_nombre}}. DNI: {{representante_dni}}. Relación con el paciente: {{representante_relacion}}.",
+        "En caso que corresponda: nombre del representante legal/curador/acompañante: __________. DNI: __________. Relación con el paciente: __________.",
     },
-    { t: "parrafo", texto: "Nombre del profesional: {{profesional_nombre}}. M.P.: {{profesional_matricula}}." },
+    { t: "parrafo", texto: "Nombre del profesional: __________. M.P.: __________." },
     { t: "firmas" },
   ],
   firmas: [
@@ -152,9 +105,8 @@ export const consentimientoDiscapacidad: Plantilla = {
     { rol: "profesional", etiqueta: "Firma del profesional", requerida: true },
   ],
   // A4 (595,3 × 841,9 pt), dos páginas, en 11 y 10 pt con renglones de
-  // puntos. La fecha va después del "Córdoba," del papel; las casillas del
-  // consentimiento son dos tramos de guiones bajos. Cada firma de la
-  // segunda página tiene su renglón de aclaración al lado.
+  // puntos. La fecha va después del "Córdoba," del papel. La segunda página
+  // no lleva nada escrito: es la que se completa y se firma a mano.
   lamina: {
     paginas: [
       { ancho: 595.3, alto: 841.9 },
@@ -164,20 +116,6 @@ export const consentimientoDiscapacidad: Plantilla = {
       { id: "fecha", pagina: 1, x: 431, y: 119.7, ancho: 79, texto: "{{sistema.fecha}}" },
       { id: "profesional_nombre", pagina: 1, x: 108.5, y: 179.1, ancho: 129, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula", pagina: 1, x: 259, y: 179.1, ancho: 35, texto: "{{profesional_matricula}}" },
-      { id: "consiento", pagina: 1, x: 143.1, y: 750.3, ancho: 16.4, alinear: "centro", texto: "{{consentimiento=consiento}}" },
-      { id: "no_consiento", pagina: 1, x: 240.4, y: 750.3, ancho: 16.5, alinear: "centro", texto: "{{consentimiento=no_consiento}}" },
-      { id: "paciente_nombre", pagina: 2, x: 173.5, y: 228, ancho: 147, texto: "{{paciente_nombre}}" },
-      { id: "paciente_dni", pagina: 2, x: 339, y: 228, ancho: 80, texto: "{{paciente_dni}}" },
-      { id: "paciente_edad", pagina: 2, x: 444, y: 228, ancho: 23, alinear: "centro", texto: "{{paciente_edad}}" },
-      { id: "paciente_domicilio", pagina: 2, x: 124, y: 249.1, ancho: 342, texto: "{{paciente_domicilio}}" },
-      { id: "paciente_aclaracion", pagina: 2, x: 323.5, y: 312.8, ancho: 116, texto: "{{paciente_nombre}}" },
-      { id: "representante_nombre", pagina: 2, x: 311, y: 397.4, ancho: 170, texto: "{{representante_nombre}}", vacio: "—" },
-      { id: "representante_dni", pagina: 2, x: 101, y: 418.6, ancho: 220, texto: "{{representante_dni}}", vacio: "—" },
-      { id: "representante_relacion", pagina: 2, x: 184, y: 439.7, ancho: 137, texto: "{{representante_relacion}}", vacio: "—" },
-      { id: "representante_aclaracion", pagina: 2, x: 321, y: 503.3, ancho: 118, texto: "{{representante_nombre}}", vacio: "—" },
-      { id: "profesional_nombre_pie", pagina: 2, x: 182, y: 566.8, ancho: 221, texto: "{{profesional_nombre}}" },
-      { id: "profesional_matricula_pie", pagina: 2, x: 427.5, y: 566.8, ancho: 44, texto: "{{profesional_matricula}}" },
-      { id: "profesional_aclaracion", pagina: 2, x: 321, y: 609.2, ancho: 118, texto: "{{profesional_nombre}}" },
     ],
     firmas: [
       { rol: "paciente", pagina: 2, x: 85.1, y: 312.8, ancho: 126.7, alto: 38 },

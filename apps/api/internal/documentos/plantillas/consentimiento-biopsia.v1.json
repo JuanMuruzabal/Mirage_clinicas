@@ -89,30 +89,8 @@
     },
     {
       "id": "firmante",
-      "titulo": "Quién suscribe",
+      "titulo": "Profesional",
       "campos": [
-        {
-          "tipo": "texto",
-          "id": "suscribe_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "ayuda": "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos. Va también como aclaración de la firma.",
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        },
         {
           "tipo": "texto",
           "id": "profesional_nombre",
@@ -202,7 +180,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{zona}} propuesto por el Dr/a {{profesional_nombre}}."
+      "texto": "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{zona}} propuesto por el Dr/a {{profesional_nombre}}."
     },
     {
       "t": "firmas"
@@ -341,30 +319,6 @@
         "vacio": "—"
       },
       {
-        "id": "suscribe_nombre",
-        "pagina": 2,
-        "x": 169,
-        "y": 395.9,
-        "ancho": 210,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "suscribe_dni",
-        "pagina": 2,
-        "x": 423,
-        "y": 395.9,
-        "ancho": 103,
-        "texto": "{{suscribe_dni}}"
-      },
-      {
-        "id": "suscribe_domicilio",
-        "pagina": 2,
-        "x": 209,
-        "y": 409.6,
-        "ancho": 317,
-        "texto": "{{suscribe_domicilio}}"
-      },
-      {
         "id": "zona_otorga",
         "pagina": 2,
         "x": 86,
@@ -379,22 +333,6 @@
         "y": 450.8,
         "ancho": 169,
         "texto": "{{profesional_nombre}}"
-      },
-      {
-        "id": "aclaracion",
-        "pagina": 2,
-        "x": 168,
-        "y": 597.2,
-        "ancho": 180,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "dni_firma",
-        "pagina": 2,
-        "x": 139,
-        "y": 612.9,
-        "ancho": 150,
-        "texto": "{{suscribe_dni}}"
       }
     ],
     "firmas": [

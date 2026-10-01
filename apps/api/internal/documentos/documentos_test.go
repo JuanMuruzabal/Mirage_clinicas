@@ -408,9 +408,14 @@ func TestArmarCuerpo_BorradorYSellado(t *testing.T) {
 }
 
 func TestPlantillas_Registro(t *testing.T) {
+	// La última del conducto es la 2 (Fase 5.2: los datos de quien suscribe
+	// se completan a mano); la 1 se sigue leyendo para sus documentos.
 	p, ok := Ultima("consentimiento-tratamiento-conducto")
-	if !ok || p.Version != 1 {
+	if !ok || p.Version != 2 || p.Campo("suscribe_dni") != nil {
 		t.Fatalf("falta la plantilla de conducto: %+v", p)
+	}
+	if v1, ok := PorID("consentimiento-tratamiento-conducto", 1); !ok || v1.Campo("suscribe_dni") == nil {
+		t.Fatalf("la versión 1 del conducto: %v", ok)
 	}
 	if _, ok := PorID("consentimiento-tratamiento-conducto", 99); ok {
 		t.Fatal("una versión que no existe")

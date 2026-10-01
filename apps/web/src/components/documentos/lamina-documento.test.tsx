@@ -14,32 +14,32 @@ describe("las láminas de los modelos", () => {
 });
 
 describe("LaminaDocumento", () => {
-  const ortodoncia = plantillaPorId("consentimiento-ortodoncia") as Plantilla;
+  const sedoanalgesia = plantillaPorId("consentimiento-sedoanalgesia") as Plantilla;
   const imagenes = plantillaPorId("consentimiento-toma-de-imagenes") as Plantilla;
 
   it("una casilla vacía se nombra con su campo y su opción, y lleva a ese campo", () => {
     const onElegir = vi.fn();
     render(
       <LaminaDocumento
-        plantilla={ortodoncia}
-        paginas={paginasDeLaLamina(ortodoncia)!}
-        zonas={armarLamina(ortodoncia, {}, { fecha: "2026-09-29" }, "borrador")}
+        plantilla={sedoanalgesia}
+        paginas={paginasDeLaLamina(sedoanalgesia)!}
+        zonas={armarLamina(sedoanalgesia, {}, { fecha: "2026-09-29" }, "borrador")}
         editable={{ campoActivo: null, errores: {}, onElegir }}
         etiqueta="Tu documento"
       />,
     );
-    const si = screen.getByRole("button", { name: "Completar: Pido lo que quiero: Sí quiero atenderme" });
-    expect(screen.getByRole("button", { name: "Completar: Pido lo que quiero: No quiero atenderme" })).toBeInTheDocument();
-    si.click();
-    expect(onElegir).toHaveBeenCalledWith("asentimiento");
+    const hospital = screen.getByRole("button", { name: "Completar: Lugar a realizarse la intervención: Hospital" });
+    expect(screen.getByRole("button", { name: "Completar: Lugar a realizarse la intervención: Consultorio" })).toBeInTheDocument();
+    hospital.click();
+    expect(onElegir).toHaveBeenCalledWith("lugar_intervencion");
   });
 
   it("la casilla elegida se escribe con una X", () => {
     const { container } = render(
       <LaminaDocumento
-        plantilla={ortodoncia}
-        paginas={paginasDeLaLamina(ortodoncia)!}
-        zonas={armarLamina(ortodoncia, { asentimiento: "si_quiero" }, { fecha: "2026-09-29" }, "borrador")}
+        plantilla={sedoanalgesia}
+        paginas={paginasDeLaLamina(sedoanalgesia)!}
+        zonas={armarLamina(sedoanalgesia, { lugar_intervencion: "consultorio" }, { fecha: "2026-09-29" }, "borrador")}
         etiqueta="Tu documento"
       />,
     );

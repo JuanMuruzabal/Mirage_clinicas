@@ -7,6 +7,8 @@
 // "realizó"…, y un "mi circunstancias" que es "mis") y el formato de los
 // huecos: donde el papel tiene una línea para escribir, acá hay un campo.
 // Las indicaciones de este modelo son texto fijo, no un hueco.
+//
+// Los datos de quien suscribe (nombre, DNI, domicilio) se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoExtraccion: Plantilla = {
@@ -61,18 +63,8 @@ export const consentimientoExtraccion: Plantilla = {
     },
     {
       id: "firmante",
-      titulo: "Quién suscribe",
+      titulo: "Profesional",
       campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-        },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
         {
           tipo: "texto",
           id: "profesional_nombre",
@@ -159,7 +151,7 @@ export const consentimientoExtraccion: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{elementos}} propuesto por el Dr/a {{profesional_nombre}}.",
+        "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{elementos}} propuesto por el Dr/a {{profesional_nombre}}.",
     },
     { t: "firmas" },
   ],
@@ -188,9 +180,6 @@ export const consentimientoExtraccion: Plantilla = {
       { id: "proxima_consulta_mes", pagina: 2, x: 489, y: 477.4, ancho: 30, alinear: "centro", texto: "{{proxima_consulta_fecha:mes}}", vacio: "—" },
       { id: "proxima_consulta_anio", pagina: 2, x: 528, y: 477.4, ancho: 34, alinear: "centro", texto: "{{proxima_consulta_fecha:anio}}", vacio: "—" },
       { id: "proxima_consulta_hora", pagina: 2, x: 108, y: 489.4, ancho: 50, texto: "{{proxima_consulta_hora}}", vacio: "—" },
-      { id: "suscribe_nombre", pagina: 2, x: 159.5, y: 524.2, ancho: 250, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 2, x: 443.5, y: 524.2, ancho: 66, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 2, x: 174.5, y: 535.8, ancho: 348, texto: "{{suscribe_domicilio}}" },
       { id: "elementos_otorga", pagina: 2, x: 436, y: 547.3, ancho: 79, texto: "{{elementos}}" },
       { id: "profesional_nombre", pagina: 2, x: 173.5, y: 558.8, ancho: 163, texto: "{{profesional_nombre}}" },
     ],

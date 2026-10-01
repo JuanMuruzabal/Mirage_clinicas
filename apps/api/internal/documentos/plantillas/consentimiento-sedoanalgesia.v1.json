@@ -182,55 +182,6 @@
       ]
     },
     {
-      "id": "firmante",
-      "titulo": "Quién suscribe",
-      "campos": [
-        {
-          "tipo": "texto",
-          "id": "suscribe_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        }
-      ]
-    },
-    {
-      "id": "representante",
-      "titulo": "Representante legal, curador o acompañante",
-      "campos": [
-        {
-          "tipo": "texto",
-          "id": "representante_nombre",
-          "etiqueta": "Nombre y apellido",
-          "ayuda": "Solo si corresponde."
-        },
-        {
-          "tipo": "texto",
-          "id": "representante_dni",
-          "etiqueta": "DNI"
-        },
-        {
-          "tipo": "texto",
-          "id": "representante_vinculo",
-          "etiqueta": "Vínculo con el paciente"
-        }
-      ]
-    },
-    {
       "id": "profesional",
       "titulo": "Profesional odontólogo",
       "campos": [
@@ -376,11 +327,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe {{suscribe_nombre}}, DNI {{suscribe_dni}}, domicilio {{suscribe_domicilio}}."
+      "texto": "El/la que suscribe __________, DNI __________, domicilio __________."
     },
     {
       "t": "parrafo",
-      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante {{representante_nombre}}, DNI {{representante_dni}}, vínculo con el paciente {{representante_vinculo}}."
+      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante __________, DNI __________, vínculo con el paciente __________."
     },
     {
       "t": "parrafo",
@@ -671,57 +622,6 @@
         "y": 542.3,
         "ancho": 65,
         "texto": "{{profesional_matricula}}"
-      },
-      {
-        "id": "suscribe_nombre",
-        "pagina": 3,
-        "x": 164.5,
-        "y": 564.9,
-        "ancho": 235,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "suscribe_dni",
-        "pagina": 3,
-        "x": 420,
-        "y": 564.9,
-        "ancho": 88,
-        "texto": "{{suscribe_dni}}"
-      },
-      {
-        "id": "suscribe_domicilio",
-        "pagina": 3,
-        "x": 128,
-        "y": 587.3,
-        "ancho": 376,
-        "texto": "{{suscribe_domicilio}}"
-      },
-      {
-        "id": "representante_nombre",
-        "pagina": 3,
-        "x": 333.5,
-        "y": 654.9,
-        "ancho": 172,
-        "texto": "{{representante_nombre}}",
-        "vacio": "—"
-      },
-      {
-        "id": "representante_dni",
-        "pagina": 3,
-        "x": 102.5,
-        "y": 677.4,
-        "ancho": 166,
-        "texto": "{{representante_dni}}",
-        "vacio": "—"
-      },
-      {
-        "id": "representante_vinculo",
-        "pagina": 3,
-        "x": 373,
-        "y": 677.4,
-        "ancho": 132,
-        "texto": "{{representante_vinculo}}",
-        "vacio": "—"
       },
       {
         "id": "profesional_nombre",

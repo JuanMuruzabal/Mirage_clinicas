@@ -6,15 +6,12 @@
   },
   "valores": {
     "lugar": "Ejemplo de lugar",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_dni": "30111222",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_matricula": "1234",
     "matricula_de": "1234",
     "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "consecuencias_abandono": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
-    "tiempo_estimado": "Ejemplo de tiempo",
-    "asentimiento": "si_quiero"
+    "tiempo_estimado": "Ejemplo de tiempo"
   },
   "cuerpo": [
     {
@@ -35,7 +32,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Sr/Sra Ejemplo de nombre con DNI Nº 30111222 como paciente (en caso de menores o incapacitados consignar nombre y DNI del padre, madre o tutor) ha sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234 de 1234 sobre los procedimientos propios clínicos de ortodoncia y ortopedia, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
+      "texto": "Sr/Sra __________ con DNI Nº __________ como paciente (en caso de menores o incapacitados consignar nombre y DNI del padre, madre o tutor) ha sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234 de 1234 sobre los procedimientos propios clínicos de ortodoncia y ortopedia, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
     },
     {
       "t": "parrafo",
@@ -108,7 +105,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Asentimiento: pido lo que quiero. Sí quiero atenderme."
+      "texto": "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐"
     },
     {
       "t": "firmas"
@@ -125,34 +122,6 @@
           "x": 103,
           "y": 95.4,
           "texto": "Ejemplo de lugar, 27/09/2026"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_nombre",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 71,
-          "y": 216.6,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 435,
-          "y": 216.6,
-          "texto": "30111222"
         }
       ],
       "vacia": false
@@ -266,62 +235,6 @@
           "x": 43.5,
           "y": 444.2,
           "texto": "Ejemplo de profesional"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_si",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 372.97,
-          "y": 692,
-          "texto": "X"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_no",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 537,
-          "y": 692,
-          "texto": ""
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 221.65,
-          "y": 792.3,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "dni_firma",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 339.76,
-          "y": 792.3,
-          "texto": "30111222"
         }
       ],
       "vacia": false

@@ -23,42 +23,6 @@
       ]
     },
     {
-      "id": "firmante",
-      "titulo": "Quién suscribe",
-      "campos": [
-        {
-          "tipo": "texto",
-          "id": "suscribe_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "ayuda": "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "numero",
-          "id": "suscribe_edad",
-          "etiqueta": "Edad (años)",
-          "requerido": true,
-          "min": 0,
-          "max": 120
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        }
-      ]
-    },
-    {
       "id": "profesional",
       "titulo": "Profesional",
       "campos": [
@@ -123,7 +87,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Yo, {{suscribe_nombre}}, de {{suscribe_edad}} años de edad, DNI {{suscribe_dni}}, domiciliado en {{suscribe_domicilio}}, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional."
+      "texto": "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional."
     },
     {
       "t": "parrafo",
@@ -200,39 +164,6 @@
         "y": 92.4,
         "ancho": 431,
         "texto": "{{lugar}}, {{sistema.fecha}}"
-      },
-      {
-        "id": "suscribe_nombre",
-        "pagina": 1,
-        "x": 68,
-        "y": 220.5,
-        "ancho": 264,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "suscribe_edad",
-        "pagina": 1,
-        "x": 344.5,
-        "y": 220.5,
-        "ancho": 25,
-        "alinear": "centro",
-        "texto": "{{suscribe_edad}}"
-      },
-      {
-        "id": "suscribe_dni",
-        "pagina": 1,
-        "x": 452,
-        "y": 220.5,
-        "ancho": 88,
-        "texto": "{{suscribe_dni}}"
-      },
-      {
-        "id": "suscribe_domicilio",
-        "pagina": 1,
-        "x": 118.5,
-        "y": 237.3,
-        "ancho": 420,
-        "texto": "{{suscribe_domicilio}}"
       },
       {
         "id": "profesional_nombre",

@@ -8,6 +8,8 @@
 // que es "cambie"). La próxima consulta del papel es "el día …. / ….. /
 // ………….hora.": el día y el mes en sus huecos, y el año y la hora juntos en
 // el último ("2026, 16:30 hora").
+//
+// Los datos de quien suscribe (nombre, DNI, domicilio) se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoProtesisRemovible: Plantilla = {
@@ -49,18 +51,8 @@ export const consentimientoProtesisRemovible: Plantilla = {
     },
     {
       id: "firmante",
-      titulo: "Quién suscribe",
+      titulo: "Maxilares y profesional",
       campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-        },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
         {
           tipo: "opcion_unica",
           id: "maxilares",
@@ -177,7 +169,7 @@ export const consentimientoProtesisRemovible: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "El/la que suscribe {{suscribe_nombre}}, DNI Nº {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento a la colocación de una prótesis dental parcial removible en el/los maxilar/es {{maxilares}} propuesta por el/la Dr/a {{profesional_nombre}}, MP {{profesional_matricula}}.",
+        "El/la que suscribe __________, DNI Nº __________, con domicilio en calle __________, otorgo mi consentimiento a la colocación de una prótesis dental parcial removible en el/los maxilar/es {{maxilares}} propuesta por el/la Dr/a {{profesional_nombre}}, MP {{profesional_matricula}}.",
     },
     { t: "firmas" },
   ],
@@ -213,9 +205,6 @@ export const consentimientoProtesisRemovible: Plantilla = {
         minimo: 4.5,
         vacio: "—",
       },
-      { id: "suscribe_nombre", pagina: 2, x: 162, y: 590.4, ancho: 168, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 2, x: 362.5, y: 590.4, ancho: 141, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 2, x: 174.5, y: 613.4, ancho: 326, texto: "{{suscribe_domicilio}}" },
       { id: "maxilares", pagina: 2, x: 86, y: 647.9, ancho: 181, texto: "{{maxilares}}" },
       { id: "profesional_matricula", pagina: 2, x: 380, y: 647.9, ancho: 119, texto: "{{profesional_matricula}}" },
     ],

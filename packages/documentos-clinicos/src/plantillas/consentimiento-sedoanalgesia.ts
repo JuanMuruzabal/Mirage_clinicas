@@ -7,7 +7,9 @@
 // interviniente" (no tiene cuenta en PRISMA: firma en el papel, TR-188), y
 // el lugar de la intervención en tres casillas que se marcan con una X
 // (Fase 5.2). Los huecos que empiezan a mitad del renglón de su título
-// siguen en los renglones de abajo (la sangría de la zona).
+// siguen en los renglones de abajo (la sangría de la zona). Desde "El/la
+// que suscribe" —sus datos, los del representante y sus firmas— se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29);
+// los datos de los profesionales, no.
 import type { Plantilla } from "../esquema";
 
 export const consentimientoSedoanalgesia: Plantilla = {
@@ -85,24 +87,6 @@ export const consentimientoSedoanalgesia: Plantilla = {
         { tipo: "texto_largo", id: "tratamientos_alternativos", etiqueta: "Tratamientos alternativos" },
         { tipo: "texto_largo", id: "consecuencias", etiqueta: "Consecuencias de la no realización del tratamiento" },
         { tipo: "texto_largo", id: "observaciones", etiqueta: "Observaciones" },
-      ],
-    },
-    {
-      id: "firmante",
-      titulo: "Quién suscribe",
-      campos: [
-        { tipo: "texto", id: "suscribe_nombre", etiqueta: "Nombre y apellido", requerido: true, precarga: "paciente.nombreCompleto" },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
-      ],
-    },
-    {
-      id: "representante",
-      titulo: "Representante legal, curador o acompañante",
-      campos: [
-        { tipo: "texto", id: "representante_nombre", etiqueta: "Nombre y apellido", ayuda: "Solo si corresponde." },
-        { tipo: "texto", id: "representante_dni", etiqueta: "DNI" },
-        { tipo: "texto", id: "representante_vinculo", etiqueta: "Vínculo con el paciente" },
       ],
     },
     {
@@ -206,12 +190,12 @@ export const consentimientoSedoanalgesia: Plantilla = {
     },
     {
       t: "parrafo",
-      texto: "El/la que suscribe {{suscribe_nombre}}, DNI {{suscribe_dni}}, domicilio {{suscribe_domicilio}}.",
+      texto: "El/la que suscribe __________, DNI __________, domicilio __________.",
     },
     {
       t: "parrafo",
       texto:
-        "En caso que corresponda: nombre del representante legal/curador/acompañante {{representante_nombre}}, DNI {{representante_dni}}, vínculo con el paciente {{representante_vinculo}}.",
+        "En caso que corresponda: nombre del representante legal/curador/acompañante __________, DNI __________, vínculo con el paciente __________.",
     },
     {
       t: "parrafo",
@@ -275,12 +259,6 @@ export const consentimientoSedoanalgesia: Plantilla = {
       { id: "observaciones", pagina: 3, x: 86, y: 365.4, ancho: 422, sangria: 70.9, lineas: 3, interlineado: 22.5, texto: "{{observaciones}}" },
       { id: "profesional_consiente", pagina: 3, x: 367, y: 528, ancho: 143, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula_consiente", pagina: 3, x: 263.5, y: 542.3, ancho: 65, texto: "{{profesional_matricula}}" },
-      { id: "suscribe_nombre", pagina: 3, x: 164.5, y: 564.9, ancho: 235, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 3, x: 420, y: 564.9, ancho: 88, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 3, x: 128, y: 587.3, ancho: 376, texto: "{{suscribe_domicilio}}" },
-      { id: "representante_nombre", pagina: 3, x: 333.5, y: 654.9, ancho: 172, texto: "{{representante_nombre}}", vacio: "—" },
-      { id: "representante_dni", pagina: 3, x: 102.5, y: 677.4, ancho: 166, texto: "{{representante_dni}}", vacio: "—" },
-      { id: "representante_vinculo", pagina: 3, x: 373, y: 677.4, ancho: 132, texto: "{{representante_vinculo}}", vacio: "—" },
       { id: "profesional_nombre", pagina: 4, x: 250, y: 147.5, ancho: 182, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula", pagina: 4, x: 454.5, y: 147.5, ancho: 48, texto: "{{profesional_matricula}}" },
       { id: "otro_profesional", pagina: 4, x: 223, y: 214.9, ancho: 215, texto: "{{anestesista_nombre}}" },

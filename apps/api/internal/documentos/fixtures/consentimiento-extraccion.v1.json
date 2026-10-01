@@ -17,9 +17,6 @@
     "otros": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "proxima_consulta_fecha": "1984-03-07",
     "proxima_consulta_hora": "09:30",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_dni": "30111222",
-    "suscribe_domicilio": "Ejemplo de domicilio",
     "profesional_nombre": "Ejemplo de profesional"
   },
   "cuerpo": [
@@ -128,7 +125,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe Ejemplo de nombre, DNI N° 30111222, con domicilio en calle Ejemplo de domicilio, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s 11, 36, 37 propuesto por el Dr/a Ejemplo de profesional."
+      "texto": "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s 11, 36, 37 propuesto por el Dr/a Ejemplo de profesional."
     },
     {
       "t": "firmas"
@@ -305,48 +302,6 @@
           "x": 108,
           "y": 489.4,
           "texto": "09:30"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 159.5,
-          "y": 524.2,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 443.5,
-          "y": 524.2,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_domicilio",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 174.5,
-          "y": 535.8,
-          "texto": "Ejemplo de domicilio"
         }
       ],
       "vacia": false

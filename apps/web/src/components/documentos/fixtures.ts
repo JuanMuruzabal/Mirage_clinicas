@@ -2,7 +2,9 @@
 import type { DocumentoDetalle, FirmaDeDocumento, TrazoDeFirma } from "@dental-mirage/shared-types";
 import { armarCuerpo, armarLamina, plantillaPorId, plantillaSchema, type Plantilla } from "@dental-mirage/documentos-clinicos";
 
-export const conducto = plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla;
+// La versión 1: los documentos de estos tests son de esa versión (plantillaVersion: 1),
+// la que todavía pedía los datos de quien suscribe (la 2 los deja a mano, Fase 5.2).
+export const conducto = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
 
 /** Una plantilla chica con todos los tipos de campo. */
 export const todoTipo: Plantilla = plantillaSchema.parse({

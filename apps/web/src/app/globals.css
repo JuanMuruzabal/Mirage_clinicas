@@ -970,7 +970,7 @@ li > [data-pp-efecto] {
     filter 400ms ease-out;
 }
 .pila-inclina[data-inclinada] {
-  --pila-escala: 1.03;
+  --pila-escala: calc(1 + 0.03 * var(--pila-amplitud, 1));
   filter: drop-shadow(var(--pila-sombra-x, 0px) var(--pila-sombra-y, 12px) 16px rgb(47 43 38 / 0.2));
   transition:
     transform 160ms ease-out,
@@ -978,23 +978,26 @@ li > [data-pp-efecto] {
 }
 
 @keyframes pila-asoma { from { opacity: 0; } to { opacity: 0.55; } }
+/* Los giros y los cambios de tamaño de la hoja que llega se multiplican por
+   --pila-amplitud (1 / sus páginas, PilaDeModelos): en una hoja de cuatro
+   páginas, el mismo giro movía cuatro veces más su borde de abajo. */
 @keyframes pila-entra-derecha {
-  0% { transform: translateX(13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
-  40% { transform: translateX(17%) rotate(1deg) scale(0.96); opacity: 1; filter: none; }
-  72% { transform: translateX(-1.5%) rotate(-1deg) scale(1.025); }
-  88% { transform: translateX(0.4%) rotate(0.4deg) scale(0.995); }
+  0% { transform: translateX(13%) scale(calc(1 - 0.08 * var(--pila-amplitud, 1))); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(17%) rotate(calc(1deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.04 * var(--pila-amplitud, 1))); opacity: 1; filter: none; }
+  72% { transform: translateX(-1.5%) rotate(calc(-1deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.025 * var(--pila-amplitud, 1))); }
+  88% { transform: translateX(0.4%) rotate(calc(0.4deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.005 * var(--pila-amplitud, 1))); }
   100% { transform: none; opacity: 1; filter: none; }
 }
 @keyframes pila-entra-izquierda {
-  0% { transform: translateX(-13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
-  40% { transform: translateX(-17%) rotate(-1deg) scale(0.96); opacity: 1; filter: none; }
-  72% { transform: translateX(1.5%) rotate(1deg) scale(1.025); }
-  88% { transform: translateX(-0.4%) rotate(-0.4deg) scale(0.995); }
+  0% { transform: translateX(-13%) scale(calc(1 - 0.08 * var(--pila-amplitud, 1))); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(-17%) rotate(calc(-1deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.04 * var(--pila-amplitud, 1))); opacity: 1; filter: none; }
+  72% { transform: translateX(1.5%) rotate(calc(1deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.025 * var(--pila-amplitud, 1))); }
+  88% { transform: translateX(-0.4%) rotate(calc(-0.4deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.005 * var(--pila-amplitud, 1))); }
   100% { transform: none; opacity: 1; filter: none; }
 }
 @keyframes pila-entra-lejos {
-  0% { opacity: 0; transform: translateY(18px) rotate(-2deg) scale(0.94); }
-  70% { opacity: 1; transform: translateY(-4px) rotate(0.8deg) scale(1.02); }
+  0% { opacity: 0; transform: translateY(18px) rotate(calc(-2deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.06 * var(--pila-amplitud, 1))); }
+  70% { opacity: 1; transform: translateY(-4px) rotate(calc(0.8deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.02 * var(--pila-amplitud, 1))); }
   100% { opacity: 1; transform: none; }
 }
 /* La que se va arranca ENCIMA de la que entra (la escena empieza igual que
@@ -1019,11 +1022,13 @@ li > [data-pp-efecto] {
 }
 /* El vaivén de la hoja de adelante: sube y baja apenas y gira un poco en
    los tres ejes, con los ejes desfasados para que no se vea mecánico. */
+/* El giro de costado (rotateY) no depende de la altura de la hoja; el giro
+   plano y el de adelante hacia atrás sí, y van por --pila-amplitud. */
 @keyframes pila-flota {
-  0%, 100% { transform: perspective(1200px) translateY(0) rotate(-0.5deg) rotateX(1deg) rotateY(-1.5deg); }
-  25% { transform: perspective(1200px) translateY(-4px) rotate(0.2deg) rotateX(-0.4deg) rotateY(0.6deg); }
-  50% { transform: perspective(1200px) translateY(-2px) rotate(0.6deg) rotateX(-1deg) rotateY(1.5deg); }
-  75% { transform: perspective(1200px) translateY(-5px) rotate(-0.1deg) rotateX(0.5deg) rotateY(-0.4deg); }
+  0%, 100% { transform: perspective(1200px) translateY(0) rotate(calc(-0.5deg * var(--pila-amplitud, 1))) rotateX(calc(1deg * var(--pila-amplitud, 1))) rotateY(-1.5deg); }
+  25% { transform: perspective(1200px) translateY(-4px) rotate(calc(0.2deg * var(--pila-amplitud, 1))) rotateX(calc(-0.4deg * var(--pila-amplitud, 1))) rotateY(0.6deg); }
+  50% { transform: perspective(1200px) translateY(-2px) rotate(calc(0.6deg * var(--pila-amplitud, 1))) rotateX(calc(-1deg * var(--pila-amplitud, 1))) rotateY(1.5deg); }
+  75% { transform: perspective(1200px) translateY(-5px) rotate(calc(-0.1deg * var(--pila-amplitud, 1))) rotateX(calc(0.5deg * var(--pila-amplitud, 1))) rotateY(-0.4deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

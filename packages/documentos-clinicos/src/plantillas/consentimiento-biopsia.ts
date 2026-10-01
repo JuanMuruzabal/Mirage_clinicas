@@ -61,18 +61,8 @@ export const consentimientoBiopsia: Plantilla = {
     },
     {
       id: "firmante",
-      titulo: "Quién suscribe",
+      titulo: "Profesional",
       campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos. Va también como aclaración de la firma.",
-        },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
         {
           tipo: "texto",
           id: "profesional_nombre",
@@ -143,7 +133,7 @@ export const consentimientoBiopsia: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{zona}} propuesto por el Dr/a {{profesional_nombre}}.",
+        "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{zona}} propuesto por el Dr/a {{profesional_nombre}}.",
     },
     { t: "firmas" },
   ],
@@ -153,8 +143,8 @@ export const consentimientoBiopsia: Plantilla = {
   ],
   // Carta (612 × 792 pt), dos páginas; el papel está en Times de 11 pt y
   // sus renglones son puntos. La fecha de la próxima consulta son tres
-  // tramos subrayados separados por barras. Debajo de la firma del
-  // paciente, "Aclaración." y "DNI.": los datos de quien suscribe.
+  // tramos subrayados separados por barras. Los datos de quien suscribe,
+  // y la aclaración y el DNI de su firma, se completan a mano.
   lamina: {
     paginas: [
       { ancho: 612, alto: 792 },
@@ -172,13 +162,8 @@ export const consentimientoBiopsia: Plantilla = {
       { id: "proxima_consulta_mes", pagina: 2, x: 289.5, y: 356.3, ancho: 30.5, alinear: "centro", texto: "{{proxima_consulta_fecha:mes}}", vacio: "—" },
       { id: "proxima_consulta_anio", pagina: 2, x: 328, y: 356.3, ancho: 34, alinear: "centro", texto: "{{proxima_consulta_fecha:anio}}", vacio: "—" },
       { id: "proxima_consulta_hora", pagina: 2, x: 396, y: 356.3, ancho: 44, texto: "{{proxima_consulta_hora}}", vacio: "—" },
-      { id: "suscribe_nombre", pagina: 2, x: 169, y: 395.9, ancho: 210, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 2, x: 423, y: 395.9, ancho: 103, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 2, x: 209, y: 409.6, ancho: 317, texto: "{{suscribe_domicilio}}" },
       { id: "zona_otorga", pagina: 2, x: 86, y: 437.1, ancho: 185, texto: "{{zona}}" },
       { id: "profesional_nombre", pagina: 2, x: 86, y: 450.8, ancho: 169, texto: "{{profesional_nombre}}" },
-      { id: "aclaracion", pagina: 2, x: 168, y: 597.2, ancho: 180, texto: "{{suscribe_nombre}}" },
-      { id: "dni_firma", pagina: 2, x: 139, y: 612.9, ancho: 150, texto: "{{suscribe_dni}}" },
     ],
     firmas: [
       { rol: "paciente", pagina: 2, x: 113.7, y: 570, ancho: 160, alto: 38 },

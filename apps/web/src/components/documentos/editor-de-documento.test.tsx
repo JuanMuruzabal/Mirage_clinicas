@@ -154,6 +154,18 @@ describe("EditorDeDocumento", () => {
   it("si ya había un borrador de este documento para el paciente, avisa que se retomó", () => {
     render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} retomado />);
     expect(screen.getByRole("status")).toHaveTextContent("Ya tenías un borrador de este documento para Ana");
+    expect(screen.getByRole("status")).not.toHaveTextContent("versión nueva");
+  });
+
+  it("si el borrador era de una versión anterior del documento, avisa que pasó a la vigente", () => {
+    const { unmount } = render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} actualizado />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "El documento tiene una versión nueva y tu borrador pasó a esa versión, con lo que ya habías completado.",
+    );
+    expect(screen.getByRole("status")).not.toHaveTextContent("Ya tenías");
+    unmount();
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} retomado actualizado />);
+    expect(screen.getByRole("status")).toHaveTextContent(/seguís desde acá\. .* El documento tiene una versión nueva/);
   });
 
   it("tocar un dato del calco abre su sección", async () => {

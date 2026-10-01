@@ -30,6 +30,9 @@ from PIL import Image
 # (plantilla, versión) → (archivo del Colegio, páginas a mostrar, empezando en 1)
 ORIGINALES = {
     ("consentimiento-tratamiento-conducto", 1): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
+    # La versión 2 (5.2) usa el mismo PDF: cambian los datos que se completan
+    # a mano, no el modelo.
+    ("consentimiento-tratamiento-conducto", 2): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
     # Fase 5.2: los demás consentimientos. El de ortodoncia viene adentro de
     # la historia clínica de ortodoncia (sus páginas 5 y 6).
     ("consentimiento-extraccion", 1): ("Consentimiento-Informado-de-Extraccion.pdf", [1, 2]),

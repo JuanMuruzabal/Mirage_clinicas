@@ -5,9 +5,9 @@
 //
 // El texto es el del modelo, palabra por palabra; se tocó solo la
 // ortografía ("más", "úlceras", "dientes ó muelas" → "o",
-// "temporomandibular"). El asentimiento ("pido lo que quiero") es del
-// paciente menor: dos casillas, "sí quiero atenderme" y "no quiero
-// atenderme", que se marcan con una X (Fase 5.2).
+// "temporomandibular"). Los datos de quien suscribe ("Sr/Sra … con DNI Nº
+// …"), el asentimiento del menor ("sí quiero / no quiero atenderme") y la
+// aclaración y el DNI de la firma: todo eso se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoOrtodoncia: Plantilla = {
@@ -26,21 +26,6 @@ export const consentimientoOrtodoncia: Plantilla = {
       id: "lugar",
       titulo: "Lugar y fecha",
       campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
-    },
-    {
-      id: "firmante",
-      titulo: "Paciente o responsable",
-      campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "En menores o incapacitados, el nombre del padre, la madre o el tutor. Va también como aclaración de la firma.",
-        },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-      ],
     },
     {
       id: "profesional",
@@ -71,22 +56,6 @@ export const consentimientoOrtodoncia: Plantilla = {
         { tipo: "texto", id: "tiempo_estimado", etiqueta: "Tiempo estimado", requerido: true },
       ],
     },
-    {
-      id: "asentimiento",
-      titulo: "Asentimiento del paciente",
-      campos: [
-        {
-          tipo: "opcion_unica",
-          id: "asentimiento",
-          etiqueta: "Pido lo que quiero",
-          ayuda: "Lo elige el paciente menor. Si no corresponde, dejalo vacío.",
-          opciones: [
-            { valor: "si_quiero", etiqueta: "Sí quiero atenderme" },
-            { valor: "no_quiero", etiqueta: "No quiero atenderme" },
-          ],
-        },
-      ],
-    },
   ],
   cuerpo: [
     { t: "titulo", texto: "Consentimiento informado" },
@@ -100,7 +69,7 @@ export const consentimientoOrtodoncia: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "Sr/Sra {{suscribe_nombre}} con DNI Nº {{suscribe_dni}} como paciente (en caso de menores o incapacitados consignar nombre y DNI del padre, madre o tutor) ha sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}} de {{matricula_de}} sobre los procedimientos propios clínicos de ortodoncia y ortopedia, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico.",
+        "Sr/Sra __________ con DNI Nº __________ como paciente (en caso de menores o incapacitados consignar nombre y DNI del padre, madre o tutor) ha sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}} de {{matricula_de}} sobre los procedimientos propios clínicos de ortodoncia y ortopedia, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico.",
     },
     { t: "parrafo", texto: "El/la paciente ha sido informado/a y conoce los riesgos que puede comportar este tratamiento:" },
     {
@@ -151,7 +120,7 @@ export const consentimientoOrtodoncia: Plantilla = {
       texto:
         "Asimismo, entiendo que la colocación del aparato no constituye el acto final del tratamiento, sino que es necesario un proceso de contención, por lo que me comprometo a regresar a la consulta odontológica cada vez que el profesional lo requiera.",
     },
-    { t: "parrafo", texto: "Asentimiento: pido lo que quiero. {{asentimiento}}." },
+    { t: "parrafo", texto: "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐" },
     { t: "firmas" },
   ],
   firmas: [
@@ -162,9 +131,7 @@ export const consentimientoOrtodoncia: Plantilla = {
   // ortodoncia, en Arial Narrow de 12 pt. Las observaciones arrancan en el
   // renglón de su título (`sangria`); las consecuencias, en los renglones
   // de abajo del suyo, que ocupa todo el ancho. El nombre del profesional de
-  // las instrucciones va en el tramo largo del renglón de abajo. La firma del
-  // paciente comparte la línea con la aclaración y el DNI, que van arriba de
-  // su leyenda.
+  // las instrucciones va en el tramo largo del renglón de abajo.
   lamina: {
     paginas: [
       { ancho: 595.3, alto: 841.9 },
@@ -172,8 +139,6 @@ export const consentimientoOrtodoncia: Plantilla = {
     ],
     zonas: [
       { id: "lugar_fecha", pagina: 1, x: 103, y: 95.4, ancho: 302, texto: "{{lugar}}, {{sistema.fecha}}" },
-      { id: "suscribe_nombre", pagina: 1, x: 71, y: 216.6, ancho: 302, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_dni", pagina: 1, x: 435, y: 216.6, ancho: 117, texto: "{{suscribe_dni}}" },
       { id: "profesional_nombre", pagina: 1, x: 160.5, y: 246.9, ancho: 291, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula", pagina: 1, x: 470.5, y: 246.9, ancho: 81, texto: "{{profesional_matricula}}" },
       { id: "matricula_de", pagina: 1, x: 57, y: 262.1, ancho: 125, texto: "{{matricula_de}}" },
@@ -181,10 +146,6 @@ export const consentimientoOrtodoncia: Plantilla = {
       { id: "consecuencias_abandono", pagina: 2, x: 43.5, y: 354.7, ancho: 500, lineas: 2, interlineado: 17.8, texto: "{{consecuencias_abandono}}" },
       { id: "tiempo_estimado", pagina: 2, x: 124.5, y: 390.5, ancho: 176, texto: "{{tiempo_estimado}}" },
       { id: "profesional_instrucciones", pagina: 2, x: 43.5, y: 444.2, ancho: 230, texto: "{{profesional_nombre}}" },
-      { id: "asentimiento_si", pagina: 2, x: 371.4, y: 692, ancho: 9.8, alinear: "centro", texto: "{{asentimiento=si_quiero}}", vacio: "—" },
-      { id: "asentimiento_no", pagina: 2, x: 532.1, y: 692, ancho: 9.8, alinear: "centro", texto: "{{asentimiento=no_quiero}}", vacio: "—" },
-      { id: "aclaracion", pagina: 2, x: 205, y: 792.3, ancho: 120, alinear: "centro", texto: "{{suscribe_nombre}}" },
-      { id: "dni_firma", pagina: 2, x: 328, y: 792.3, ancho: 68, alinear: "centro", texto: "{{suscribe_dni}}" },
     ],
     firmas: [
       { rol: "paciente", pagina: 2, x: 39.7, y: 794.4, ancho: 160, alto: 38 },

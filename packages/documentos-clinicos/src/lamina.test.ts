@@ -17,7 +17,8 @@ import {
   type Zona,
 } from "./index";
 
-const conducto = plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla;
+// La versión 1: la que tiene los datos de quien suscribe (la 2 los deja a mano).
+const conducto = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
 const hoy = { fecha: "2026-09-28" };
 /** Una copia que se puede romper sin tocar la del registro. */
 const copia = (p: Plantilla): Plantilla => JSON.parse(JSON.stringify(p)) as Plantilla;

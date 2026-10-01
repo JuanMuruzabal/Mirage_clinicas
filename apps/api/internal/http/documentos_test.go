@@ -25,11 +25,13 @@ const plantillaConducto = "consentimiento-tratamiento-conducto"
 // plantillaHistoriaDePrueba — el circuito de firma electrónica y sellado
 // lo prueba una historia clínica de prueba: el consentimiento de conducto
 // con otro tipo. Los consentimientos se firman en papel (TR-188) y todavía
-// no hay una historia clínica real cargada (llegan en la 5.6).
+// no hay una historia clínica real cargada (llegan en la 5.6). Se copia la
+// versión 1, la que pide los datos de quien suscribe: la 2 los deja a mano
+// (Fase 5.2), y el circuito prueba la precarga de esos datos.
 const plantillaHistoriaDePrueba = "historia-de-prueba"
 
 func init() {
-	conducto, ok := documentos.Ultima(plantillaConducto)
+	conducto, ok := documentos.PorID(plantillaConducto, 1)
 	if !ok {
 		panic("falta la plantilla de conducto")
 	}
@@ -522,6 +524,77 @@ func TestDocumentos_UnSoloBorradorDelMismoDocumentoPorPaciente(t *testing.T) {
 	}
 	if suyo := e.crearDe(t, colega, plantillaConducto, e.paciente.ID); suyo.ID == primero.ID || suyo.Retomado {
 		t.Fatalf("el del colega es suyo: %+v", suyo)
+	}
+}
+
+// Un borrador de una versión anterior de su plantilla pasa a la vigente
+// (TR-189, addendum): el conducto v1 pedía los datos de quien suscribe, la
+// v2 los deja a mano. Se retoma con "Completar" o se abre desde el
+// registro, y en los dos casos sigue en la v2 con lo que ya tenía.
+func TestDocumentos_UnBorradorViejoPasaALaVersionVigente(t *testing.T) {
+	e := escenarioDeDocumentos(t, "vigente")
+	borradorV1 := func() db.DocumentoClinico {
+		t.Helper()
+		d := db.DocumentoClinico{
+			ClinicID: e.clinicID, PacienteID: e.paciente.ID, AutorUserID: e.titularID,
+			PlantillaID: plantillaConducto, PlantillaVersion: 1,
+			Valores: map[string]any{"elementos": []any{"36"}, "suscribe_nombre": "Ana Paz", "suscribe_domicilio": "Av. Colón 1240"},
+		}
+		if err := e.gdb.Create(&d).Error; err != nil {
+			t.Fatalf("borrador v1: %v", err)
+		}
+		return d
+	}
+	vigente := func(d documentoDetalleResponse, viejo db.DocumentoClinico) {
+		t.Helper()
+		if d.ID == viejo.ID.String() || d.PlantillaVersion != 2 || !d.VersionActualizada || d.Estado != db.DocumentoBorrador {
+			t.Fatalf("pasa a un borrador nuevo de la v2: %+v", d.documentoResumenResponse)
+		}
+		if _, tiene := d.Valores["suscribe_nombre"]; tiene {
+			t.Fatalf("lo que la v2 deja a mano no sigue: %v", d.Valores)
+		}
+		if piezas, _ := d.Valores["elementos"].([]any); len(piezas) != 1 || piezas[0] != "36" {
+			t.Fatalf("lo que la v2 sigue teniendo se conserva: %v", d.Valores)
+		}
+		var borradores, viejos int64
+		e.gdb.Model(&db.DocumentoClinico{}).Where("paciente_id = ? AND estado = ?", e.paciente.ID, db.DocumentoBorrador).Count(&borradores)
+		e.gdb.Model(&db.DocumentoClinico{}).Where("id = ?", viejo.ID).Count(&viejos)
+		if borradores != 1 || viejos != 0 {
+			t.Fatalf("queda un solo borrador y el viejo se descarta: %d borradores, %d viejos", borradores, viejos)
+		}
+	}
+
+	// Con "Completar".
+	viejo := borradorV1()
+	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", e.token, map[string]any{
+		"plantillaId": plantillaConducto, "pacienteId": e.paciente.ID.String(),
+	})
+	retomado := decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
+	if rec.Code != http.StatusOK || !retomado.Retomado {
+		t.Fatalf("retoma el borrador: %d %s", rec.Code, rec.Body.String())
+	}
+	vigente(retomado, viejo)
+	e.gdb.Where("id = ?", retomado.ID).Delete(&db.DocumentoClinico{})
+
+	// Abierto directo, desde el registro.
+	viejo = borradorV1()
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/"+viejo.ID.String(), e.token, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("abrir el borrador viejo: %d %s", rec.Code, rec.Body.String())
+	}
+	abierto := decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
+	vigente(abierto, viejo)
+
+	// Uno ya en la vigente se abre tal cual.
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/"+abierto.ID, e.token, nil)
+	if otra := decodificar[documentoDetalleResponse](t, rec.Body.Bytes()); rec.Code != http.StatusOK || otra.ID != abierto.ID || otra.VersionActualizada {
+		t.Fatalf("el borrador de la v2 no cambia: %d %+v", rec.Code, otra.documentoResumenResponse)
+	}
+
+	// Lo terminado no se toca nunca: es historia clínica.
+	terminado := db.DocumentoClinico{ID: uuid.New(), PlantillaID: plantillaConducto, PlantillaVersion: 1, Estado: db.DocumentoParaImprimir}
+	if d, cambio, err := borradorEnLaVersionVigente(e.gdb, terminado); err != nil || cambio || d.ID != terminado.ID {
+		t.Fatalf("un documento terminado sigue en su versión: %v %v", cambio, err)
 	}
 }
 

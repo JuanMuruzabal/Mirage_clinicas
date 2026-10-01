@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import type { Plantilla } from "@dental-mirage/documentos-clinicos";
 import { esMuestra, type ModeloDeMuestra } from "@/lib/documentos-de-muestra";
 import { paginasDelOriginal } from "@/lib/documentos-originales";
@@ -100,6 +100,12 @@ function HojaQueSale({ modelo, hoy }: { modelo: Modelo; hoy: string }) {
   return <PrimeraPagina modelo={modelo} />;
 }
 
+/** Cuántas páginas mide la hoja de adelante. */
+function paginasDelModelo(modelo: Modelo): number {
+  if (esMuestra(modelo)) return 1;
+  return Math.max(1, paginasDelOriginal(modelo.id, modelo.version).length || modelo.lamina?.paginas.length || 1);
+}
+
 /** Lo que se ve del documento elegido, en la pila o a pantalla completa. */
 export function HojaDelModelo({ modelo, hoy }: { modelo: Modelo; hoy: string }) {
   if (esMuestra(modelo)) return <HojaDeMuestra modelo={modelo} />;
@@ -111,6 +117,11 @@ export function PilaDeModelos({ enOrden, elegida, hoy }: { enOrden: Modelo[]; el
   const [cambio, setCambio] = useState<Cambio | null>(null);
   const inclinable = useRef<HTMLDivElement>(null);
   const vecinos = vecinosDe(enOrden, elegida.id);
+  // Un giro chico sobre una hoja de cuatro páginas mueve mucho su borde de
+  // abajo (sedoanalgesia se movía brusco, pedido del cliente, 2026-09-29):
+  // el vaivén, la inclinación y el levantarse se dividen por las páginas,
+  // así el borde se mueve lo mismo que en una hoja de una.
+  const paginas = paginasDelModelo(elegida);
 
   // Cambió el documento: se ajusta durante el render, no en un efecto
   // (mismo patrón que useEstadoDelServidor): con un efecto habría un frame
@@ -135,8 +146,10 @@ export function PilaDeModelos({ enOrden, elegida, hoy }: { enOrden: Modelo[]; el
     const caja = nodo.getBoundingClientRect();
     const x = (e.clientX - caja.left) / caja.width;
     const y = (e.clientY - caja.top) / caja.height;
+    // El giro de costado no depende de la altura de la hoja; el de adelante
+    // hacia atrás sí, y se divide por las páginas.
     nodo.style.setProperty("--pila-ry", `${((x - 0.5) * 12).toFixed(2)}deg`);
-    nodo.style.setProperty("--pila-rx", `${((0.5 - y) * 9).toFixed(2)}deg`);
+    nodo.style.setProperty("--pila-rx", `${(((0.5 - y) * 9) / paginas).toFixed(2)}deg`);
     // La sombra cae del lado contrario al mouse: la hoja se levanta hacia él.
     nodo.style.setProperty("--pila-sombra-x", `${((0.5 - x) * 18).toFixed(1)}px`);
     nodo.style.setProperty("--pila-sombra-y", `${(12 + (0.5 - y) * 8).toFixed(1)}px`);
@@ -180,6 +193,7 @@ export function PilaDeModelos({ enOrden, elegida, hoy }: { enOrden: Modelo[]; el
       <div
         key={elegida.id}
         className={`pila-frente relative ${cambio ? `pila-entra pila-entra--${cambio.entraDesde}` : ""}`}
+        style={{ "--pila-amplitud": String(1 / paginas) } as CSSProperties}
         onAnimationEnd={(e) => {
           // Solo la animación de llegada: el vaivén de adentro nunca termina.
           if (e.target === e.currentTarget) setCambio(null);

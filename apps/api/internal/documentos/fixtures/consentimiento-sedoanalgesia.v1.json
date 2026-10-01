@@ -24,12 +24,6 @@
     "tratamiento": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "tratamientos_alternativos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "consecuencias": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_dni": "30111222",
-    "suscribe_domicilio": "Ejemplo de domicilio",
-    "representante_nombre": "Ejemplo de nombre",
-    "representante_dni": "30111222",
-    "representante_vinculo": "Ejemplo de vínculo",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_matricula": "1234"
   },
@@ -172,11 +166,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe Ejemplo de nombre, DNI 30111222, domicilio Ejemplo de domicilio."
+      "texto": "El/la que suscribe __________, DNI __________, domicilio __________."
     },
     {
       "t": "parrafo",
-      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante Ejemplo de nombre, DNI 30111222, vínculo con el paciente Ejemplo de vínculo."
+      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante __________, DNI __________, vínculo con el paciente __________."
     },
     {
       "t": "parrafo",
@@ -577,90 +571,6 @@
           "x": 263.5,
           "y": 542.3,
           "texto": "1234"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_nombre",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 164.5,
-          "y": 564.9,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 420,
-          "y": 564.9,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_domicilio",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 128,
-          "y": 587.3,
-          "texto": "Ejemplo de domicilio"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_nombre",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 333.5,
-          "y": 654.9,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_dni",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 102.5,
-          "y": 677.4,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_vinculo",
-      "pagina": 3,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 373,
-          "y": 677.4,
-          "texto": "Ejemplo de vínculo"
         }
       ],
       "vacia": false

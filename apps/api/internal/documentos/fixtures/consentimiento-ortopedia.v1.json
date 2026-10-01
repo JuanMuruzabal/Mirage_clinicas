@@ -8,12 +8,9 @@
     "paciente_nombre": "Ejemplo de nombre",
     "paciente_edad": 0,
     "paciente_fecha_nacimiento": "1984-03-07",
-    "paciente_dni": "30111222",
     "responsable_nombre": "Ejemplo de nombre",
     "responsable_dni": "30111222",
     "responsable_telefono": "Ejemplo de teléfono",
-    "responsable_fecha_nacimiento": "1984-03-07",
-    "responsable_vinculo": "Ejemplo de vínculo",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_domicilio": "Ejemplo de domicilio",
     "tipo_tratamiento": "Ejemplo de tipo",
@@ -88,11 +85,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "Nombre y apellido del paciente: Ejemplo de nombre. DNI: 30111222. Fecha de nacimiento: 07/03/1984."
+      "texto": "Nombre y apellido del paciente: __________. DNI: __________. Fecha de nacimiento: __________. Firma: __________. Asentimiento: ☺ ☹"
     },
     {
       "t": "parrafo",
-      "texto": "Nombre y apellido del responsable legal: Ejemplo de nombre. DNI: 30111222. Fecha de nacimiento: 07/03/1984. Vínculo con el paciente: Ejemplo de vínculo."
+      "texto": "Nombre y apellido del responsable legal: __________. DNI: __________. Fecha de nacimiento: __________. Vínculo con el paciente: __________. Firma: __________."
     },
     {
       "t": "firmas"
@@ -263,104 +260,6 @@
           "x": 441,
           "y": 411.2,
           "texto": "27/09/2026"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 210,
-          "y": 475.4,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 70,
-          "y": 502.3,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_fecha_nacimiento",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 404,
-          "y": 502.3,
-          "texto": "07/03/1984"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_responsable",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 263,
-          "y": 609.7,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_responsable_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 67.5,
-          "y": 636.5,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "responsable_fecha_nacimiento",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 401,
-          "y": 636.5,
-          "texto": "07/03/1984"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "responsable_vinculo",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 183,
-          "y": 663.3,
-          "texto": "Ejemplo de vínculo"
         }
       ],
       "vacia": false

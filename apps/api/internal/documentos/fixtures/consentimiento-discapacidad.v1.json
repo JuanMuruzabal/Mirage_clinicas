@@ -6,15 +6,7 @@
   },
   "valores": {
     "profesional_nombre": "Ejemplo de profesional",
-    "profesional_matricula": "1234",
-    "consentimiento": "consiento",
-    "paciente_nombre": "Ejemplo de nombre",
-    "paciente_dni": "30111222",
-    "paciente_edad": 0,
-    "paciente_domicilio": "Ejemplo de domicilio",
-    "representante_nombre": "Ejemplo de nombre",
-    "representante_dni": "30111222",
-    "representante_relacion": "Ejemplo de relación"
+    "profesional_matricula": "1234"
   },
   "cuerpo": [
     {
@@ -63,19 +55,19 @@
     },
     {
       "t": "parrafo",
-      "texto": "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE o NO CONSIENTO: Consiento."
+      "texto": "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE ___ o NO CONSIENTO ___"
     },
     {
       "t": "parrafo",
-      "texto": "Nombre del paciente: Ejemplo de nombre. DNI: 30111222. Edad: 0. Domicilio: Ejemplo de domicilio."
+      "texto": "Nombre del paciente: __________. DNI: __________. Edad: ____. Domicilio: __________."
     },
     {
       "t": "parrafo",
-      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante: Ejemplo de nombre. DNI: 30111222. Relación con el paciente: Ejemplo de relación."
+      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante: __________. DNI: __________. Relación con el paciente: __________."
     },
     {
       "t": "parrafo",
-      "texto": "Nombre del profesional: Ejemplo de profesional. M.P.: 1234."
+      "texto": "Nombre del profesional: __________. M.P.: __________."
     },
     {
       "t": "firmas"
@@ -120,202 +112,6 @@
           "x": 259,
           "y": 179.1,
           "texto": "1234"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "consiento",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 147.97,
-          "y": 750.3,
-          "texto": "X"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "no_consiento",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 248.65,
-          "y": 750.3,
-          "texto": ""
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "paciente_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 173.5,
-          "y": 228,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "paciente_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 339,
-          "y": 228,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "paciente_edad",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 452.72,
-          "y": 228,
-          "texto": "0"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "paciente_domicilio",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 124,
-          "y": 249.1,
-          "texto": "Ejemplo de domicilio"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "paciente_aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 323.5,
-          "y": 312.8,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 311,
-          "y": 397.4,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 101,
-          "y": 418.6,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_relacion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 184,
-          "y": 439.7,
-          "texto": "Ejemplo de relación"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 321,
-          "y": 503.3,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "profesional_nombre_pie",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 182,
-          "y": 566.8,
-          "texto": "Ejemplo de profesional"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "profesional_matricula_pie",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 427.5,
-          "y": 566.8,
-          "texto": "1234"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "profesional_aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 321,
-          "y": 609.2,
-          "texto": "Ejemplo de profesional"
         }
       ],
       "vacia": false

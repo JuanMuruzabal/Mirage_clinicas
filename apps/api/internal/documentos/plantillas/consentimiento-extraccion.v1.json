@@ -90,30 +90,8 @@
     },
     {
       "id": "firmante",
-      "titulo": "Quién suscribe",
+      "titulo": "Profesional",
       "campos": [
-        {
-          "tipo": "texto",
-          "id": "suscribe_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "ayuda": "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        },
         {
           "tipo": "texto",
           "id": "profesional_nombre",
@@ -223,7 +201,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe {{suscribe_nombre}}, DNI N° {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{elementos}} propuesto por el Dr/a {{profesional_nombre}}."
+      "texto": "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s {{elementos}} propuesto por el Dr/a {{profesional_nombre}}."
     },
     {
       "t": "firmas"
@@ -358,30 +336,6 @@
         "ancho": 50,
         "texto": "{{proxima_consulta_hora}}",
         "vacio": "—"
-      },
-      {
-        "id": "suscribe_nombre",
-        "pagina": 2,
-        "x": 159.5,
-        "y": 524.2,
-        "ancho": 250,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "suscribe_dni",
-        "pagina": 2,
-        "x": 443.5,
-        "y": 524.2,
-        "ancho": 66,
-        "texto": "{{suscribe_dni}}"
-      },
-      {
-        "id": "suscribe_domicilio",
-        "pagina": 2,
-        "x": 174.5,
-        "y": 535.8,
-        "ancho": 348,
-        "texto": "{{suscribe_domicilio}}"
       },
       {
         "id": "elementos_otorga",

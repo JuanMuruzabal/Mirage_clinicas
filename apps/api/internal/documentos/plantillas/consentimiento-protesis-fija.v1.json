@@ -62,30 +62,8 @@
     },
     {
       "id": "firmante",
-      "titulo": "Quién suscribe",
+      "titulo": "Elementos y profesional",
       "campos": [
-        {
-          "tipo": "texto",
-          "id": "suscribe_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "ayuda": "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        },
-        {
-          "tipo": "texto",
-          "id": "suscribe_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        },
         {
           "tipo": "piezas",
           "id": "elementos",
@@ -191,7 +169,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe {{suscribe_nombre}}, DNI Nº {{suscribe_dni}}, con domicilio en calle {{suscribe_domicilio}}, otorgo mi consentimiento a la colocación de una prótesis fija en los elemento/s {{elementos}} propuesta por el/la Dr/a {{profesional_nombre}}, MP {{profesional_matricula}}."
+      "texto": "El/la que suscribe __________, DNI Nº __________, con domicilio en calle __________, otorgo mi consentimiento a la colocación de una prótesis fija en los elemento/s {{elementos}} propuesta por el/la Dr/a {{profesional_nombre}}, MP {{profesional_matricula}}."
     },
     {
       "t": "firmas"
@@ -297,30 +275,6 @@
         "minimo": 4.5,
         "texto": "{{proxima_consulta_fecha:anio}}, {{proxima_consulta_hora}}",
         "vacio": "—"
-      },
-      {
-        "id": "suscribe_nombre",
-        "pagina": 2,
-        "x": 157,
-        "y": 400.8,
-        "ancho": 178,
-        "texto": "{{suscribe_nombre}}"
-      },
-      {
-        "id": "suscribe_dni",
-        "pagina": 2,
-        "x": 367.5,
-        "y": 400.8,
-        "ancho": 101,
-        "texto": "{{suscribe_dni}}"
-      },
-      {
-        "id": "suscribe_domicilio",
-        "pagina": 2,
-        "x": 174.5,
-        "y": 423.7,
-        "ancho": 291,
-        "texto": "{{suscribe_domicilio}}"
       },
       {
         "id": "elementos",

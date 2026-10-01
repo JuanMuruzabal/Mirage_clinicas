@@ -9,6 +9,16 @@
       }
     ]
   },
+  "consentimiento-tratamiento-conducto@2": {
+    "archivo": "Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3300
+      }
+    ]
+  },
   "consentimiento-extraccion@1": {
     "archivo": "Consentimiento-Informado-de-Extraccion.pdf",
     "paginas": [

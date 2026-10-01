@@ -6,12 +6,6 @@
   },
   "valores": {
     "lugar": "Ejemplo de lugar",
-    "representante_nombre": "Ejemplo de nombre",
-    "representante_edad": 0,
-    "representante_dni": "30111222",
-    "representante_domicilio": "Ejemplo de domicilio",
-    "menor_nombre": "Ejemplo de nombre",
-    "menor_dni": "30111222",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_matricula": "1234",
     "diagnostico": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
@@ -19,8 +13,7 @@
     "tratamientos_alternativos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "riesgos_otros": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "beneficios": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
-    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
-    "asentimiento": "si_quiero"
+    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
   },
   "cuerpo": [
     {
@@ -41,7 +34,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Yo, Ejemplo de nombre, de 0 años de edad, DNI 30111222, domiciliado en Ejemplo de domicilio, como representante legal de Ejemplo de nombre, DNI: 30111222, he sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
+      "texto": "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, como representante legal de __________, DNI: __________, he sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
     },
     {
       "t": "parrafo",
@@ -122,11 +115,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "Por lo antes expuesto doy el consentimiento al Dr/Dra: Ejemplo de profesional, MP: 1234 a realizar el tratamiento antes expuesto al menor de edad o discapacitado Ejemplo de nombre, DNI: 30111222, según lo antes expuesto."
+      "texto": "Por lo antes expuesto doy el consentimiento al Dr/Dra: Ejemplo de profesional, MP: 1234 a realizar el tratamiento antes expuesto al menor de edad o discapacitado __________, DNI: __________, según lo antes expuesto."
     },
     {
       "t": "parrafo",
-      "texto": "Asentimiento: pido lo que quiero. Sí quiero atenderme."
+      "texto": "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐"
     },
     {
       "t": "firmas"
@@ -143,90 +136,6 @@
           "x": 250,
           "y": 114,
           "texto": "Ejemplo de lugar, 27/09/2026"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_nombre",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 61.5,
-          "y": 278.3,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_edad",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 341.22,
-          "y": 278.3,
-          "texto": "0"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_dni",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 410,
-          "y": 278.3,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "representante_domicilio",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 109.5,
-          "y": 295.5,
-          "texto": "Ejemplo de domicilio"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "menor_nombre",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 174.5,
-          "y": 312.8,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "menor_dni",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 407.5,
-          "y": 312.8,
-          "texto": "30111222"
         }
       ],
       "vacia": false
@@ -411,90 +320,6 @@
           "x": 65.5,
           "y": 605.9,
           "texto": "1234"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "menor_nombre_consiente",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 43.5,
-          "y": 625.2,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "menor_dni_consiente",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 412,
-          "y": 625.2,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_si",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 360.97,
-          "y": 761.2,
-          "texto": "X"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "asentimiento_no",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 525,
-          "y": 761.2,
-          "texto": ""
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 88,
-          "y": 806.9,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "dni_firma",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 61.5,
-          "y": 819.6,
-          "texto": "30111222"
         }
       ],
       "vacia": false

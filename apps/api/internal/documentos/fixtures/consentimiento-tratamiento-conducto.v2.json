@@ -1,0 +1,216 @@
+{
+  "plantilla": "consentimiento-tratamiento-conducto",
+  "version": 2,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "elementos": [
+      "37",
+      "11",
+      "36"
+    ],
+    "profesional_nombre": "Ejemplo de profesional",
+    "indicaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "medicacion": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "proxima_consulta_fecha": "1984-03-07"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Tratamiento de conducto"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la que suscribe __________, fecha de nacimiento __________, DNI N° __________, con domicilio __________, otorgo mi consentimiento al tratamiento de conducto en el elemento N° 11, 36, 37 propuesto por el/la Dr. Ejemplo de profesional."
+    },
+    {
+      "t": "parrafo",
+      "texto": "A propósito declaro haber sido informado y haber comprendido acabadamente la conveniencia del Tratamiento de Conducto, proceso por el cual se remueve el nervio (pulpa dental) infectado, dañado o muerto del diente, como alternativa a la extracción de dicho elemento y las consecuencias de no llevar a cabo dicho tratamiento, así como las complicaciones que pueden asociarse con el tratamiento de conducto, las cuales incluyen (aunque no se limitan) a las siguientes:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Molestias post-operatorias que pueden durar desde unas horas hasta varios días y para lo cual se administrará medicación en caso de ser necesario.",
+        "Tumefacción post-operatorio del área gingival en la vecindad del diente tratado o tumefacción facial, las cuales pueden persistir durante varios días.",
+        "Infección, para las cuales se indicará medicación.",
+        "Trismus, (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Fracaso del tratamiento. Si el tratamiento fracasa puede ser necesario un nuevo tratamiento, una intervención quirúrgica del extremo radicular (apicectomía), eliminación de la raíz afectada (radectomía) o la extracción del diente tratado.",
+        "Ruptura de los instrumentos endodónticos en el interior del conducto durante el tratamiento, doy mi consentimiento para que el profesional actúe del modo más conocido, dejar los restos en el conducto tratado o realizar una intervención quirúrgica con el fin de extraerlos, por el exclusivo interés de mi salud.",
+        "La perforación del conducto radicular con instrumentos, lo que puede requerir un tratamiento correctivo quirúrgico adicional o traer como consecuencia la pérdida o extracción prematura del diente.",
+        "Pérdida prematura del diente como consecuencia de enfermedad periodontal progresiva en el área circundante.",
+        "El diente después de tratado endodónticamente está más expuesto a posibles fracturas por lo que debe ser restaurado adecuadamente entre 8 a 15 días de transcurrida la intervención endodóntica aunque esto no garantice o prevenga las fracturas."
+      ]
+    },
+    {
+      "t": "campo",
+      "campo": "indicaciones",
+      "etiqueta": "Indicaciones",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "medicacion",
+      "etiqueta": "Medicación indicada",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Todas mis dudas han sido aclaradas y estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento. Si al momento de la intervención surgiera una situación anátomo-patológica distinta y más grave a la prevista, doy mi consentimiento para que se actúe del modo más conocido, según la ciencia y conciencia respecto a lo programado, por el exclusivo interés de mi salud."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Asimismo, doy consentimiento para la administración de anestesia local que se aplicará para la realización de dicho tratamiento y me comprometo a regresar a la próxima consulta el día 07/03/1984, hora No consigna."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 147,
+          "y": 105,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "elementos",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 165.3,
+          "texto": "11, 36, 37"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 334,
+          "y": 165.3,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "indicaciones",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 483.3,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicacion",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 579.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 591.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_dia",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 87.64,
+          "y": 700.7,
+          "texto": "07"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_mes",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 107.89,
+          "y": 700.7,
+          "texto": "03"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_anio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 127.99,
+          "y": 700.7,
+          "texto": "84"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_hora",
+      "pagina": 1,
+      "tamano": 7.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 170.51,
+          "y": 700.7,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    }
+  ]
+}

@@ -15,6 +15,13 @@ describe("las páginas del modelo original", () => {
 
   it("una plantilla, o una versión, sin original renderizado no tiene páginas", () => {
     expect(paginasDelOriginal("no-existe", 1)).toEqual([]);
-    expect(paginasDelOriginal("consentimiento-tratamiento-conducto", 2)).toEqual([]);
+    expect(paginasDelOriginal("consentimiento-tratamiento-conducto", 99)).toEqual([]);
+  });
+
+  // La v2 del conducto (TR-189, addendum) sale del mismo PDF, con sus
+  // imágenes aparte: los documentos de la v1 siguen viendo las suyas.
+  it("cada versión tiene sus páginas, en su propia carpeta", () => {
+    const [v2] = paginasDelOriginal("consentimiento-tratamiento-conducto", 2);
+    expect(v2.src).toBe("/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v2/pagina-1.w1600.webp");
   });
 });

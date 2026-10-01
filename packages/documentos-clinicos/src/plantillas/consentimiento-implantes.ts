@@ -6,6 +6,8 @@
 // ortografía ("drogas ó materiales" → "o", "témporomandibular"). El modelo
 // trae cinco renglones sin título al final de la primera página: son para
 // lo que el profesional quiera aclarar.
+//
+// Los datos de quien suscribe (Yo, … de … años, DNI …, domiciliado en …) se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoImplantes: Plantilla = {
@@ -23,24 +25,6 @@ export const consentimientoImplantes: Plantilla = {
       id: "lugar",
       titulo: "Lugar y fecha",
       campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
-    },
-    {
-      id: "firmante",
-      titulo: "Quién suscribe",
-      campos: [
-        {
-          tipo: "texto",
-          id: "suscribe_nombre",
-          etiqueta: "Nombre y apellido",
-          requerido: true,
-          precarga: "paciente.nombreCompleto",
-          ayuda: "Si firma un representante (por ejemplo, el padre o la madre de un menor), poné sus datos.",
-        },
-        // Sin unidad: el papel ya dice "años de edad" después del hueco.
-        { tipo: "numero", id: "suscribe_edad", etiqueta: "Edad (años)", requerido: true, min: 0, max: 120 },
-        { tipo: "texto", id: "suscribe_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-        { tipo: "texto", id: "suscribe_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
-      ],
     },
     {
       id: "profesional",
@@ -93,7 +77,7 @@ export const consentimientoImplantes: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "Yo, {{suscribe_nombre}}, de {{suscribe_edad}} años de edad, DNI {{suscribe_dni}}, domiciliado en {{suscribe_domicilio}}, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional.",
+        "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional.",
     },
     {
       t: "parrafo",
@@ -154,10 +138,6 @@ export const consentimientoImplantes: Plantilla = {
     ],
     zonas: [
       { id: "lugar_fecha", pagina: 1, x: 111, y: 92.4, ancho: 431, texto: "{{lugar}}, {{sistema.fecha}}" },
-      { id: "suscribe_nombre", pagina: 1, x: 68, y: 220.5, ancho: 264, texto: "{{suscribe_nombre}}" },
-      { id: "suscribe_edad", pagina: 1, x: 344.5, y: 220.5, ancho: 25, alinear: "centro", texto: "{{suscribe_edad}}" },
-      { id: "suscribe_dni", pagina: 1, x: 452, y: 220.5, ancho: 88, texto: "{{suscribe_dni}}" },
-      { id: "suscribe_domicilio", pagina: 1, x: 118.5, y: 237.3, ancho: 420, texto: "{{suscribe_domicilio}}" },
       { id: "profesional_nombre", pagina: 1, x: 215, y: 254.1, ancho: 162, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula", pagina: 1, x: 396, y: 254.1, ancho: 48, texto: "{{profesional_matricula}}" },
       { id: "aclaraciones", pagina: 1, x: 52, y: 657, ancho: 490, lineas: 5, interlineado: 20.12, texto: "{{aclaraciones}}" },

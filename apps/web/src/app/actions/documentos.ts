@@ -39,8 +39,13 @@ export async function crearDocumentoAction(plantillaId: string, pacienteId: stri
   if (!res.ok) return { error: res.error };
   revalidatePath("/panel/documentos");
   // Un solo borrador de cada documento por paciente: si ya había uno, la
-  // API lo devuelve y el editor avisa que se retomó.
-  redirect(`/panel/documentos/${res.data.id}${res.data.retomado ? "?retomado=1" : ""}`);
+  // API lo devuelve y el editor avisa que se retomó (y, si era de una
+  // versión anterior del documento, que pasó a la vigente).
+  const aviso = new URLSearchParams();
+  if (res.data.retomado) aviso.set("retomado", "1");
+  if (res.data.versionActualizada) aviso.set("actualizado", "1");
+  const query = aviso.toString();
+  redirect(`/panel/documentos/${res.data.id}${query ? `?${query}` : ""}`);
 }
 
 /** El guardado automático del editor. No revalida la página: el editor es

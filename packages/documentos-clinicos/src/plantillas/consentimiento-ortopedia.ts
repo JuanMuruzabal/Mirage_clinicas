@@ -7,10 +7,9 @@
 // "aparatología", el "SEELO" de la firma del profesional).
 //
 // Es un documento de dos partes: el consentimiento, que firma el
-// responsable legal, y el asentimiento del paciente, con sus datos y su
-// firma. El modelo repite la firma del responsable al pie del asentimiento:
-// ese renglón queda en el papel para firmarlo a mano (TR-188: los
-// consentimientos se firman en papel).
+// responsable legal, y el asentimiento del paciente. Toda la parte del
+// asentimiento —los datos del paciente y del responsable, el vínculo, las
+// caritas y las firmas— se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoOrtopedia: Plantilla = {
@@ -32,7 +31,6 @@ export const consentimientoOrtopedia: Plantilla = {
         { tipo: "texto", id: "paciente_nombre", etiqueta: "Nombre y apellido", requerido: true, precarga: "paciente.nombreCompleto" },
         { tipo: "numero", id: "paciente_edad", etiqueta: "Edad (años)", requerido: true, min: 0, max: 120 },
         { tipo: "fecha", id: "paciente_fecha_nacimiento", etiqueta: "Fecha de nacimiento", requerido: true, precarga: "paciente.fechaNacimiento" },
-        { tipo: "texto", id: "paciente_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
       ],
     },
     {
@@ -42,8 +40,6 @@ export const consentimientoOrtopedia: Plantilla = {
         { tipo: "texto", id: "responsable_nombre", etiqueta: "Nombre y apellido", requerido: true },
         { tipo: "texto", id: "responsable_dni", etiqueta: "DNI", requerido: true },
         { tipo: "texto", id: "responsable_telefono", etiqueta: "Teléfono" },
-        { tipo: "fecha", id: "responsable_fecha_nacimiento", etiqueta: "Fecha de nacimiento" },
-        { tipo: "texto", id: "responsable_vinculo", etiqueta: "Vínculo con el paciente", requerido: true },
       ],
     },
     {
@@ -118,12 +114,12 @@ export const consentimientoOrtopedia: Plantilla = {
     { t: "subtitulo", texto: "Asentimiento informado del paciente" },
     {
       t: "parrafo",
-      texto: "Nombre y apellido del paciente: {{paciente_nombre}}. DNI: {{paciente_dni}}. Fecha de nacimiento: {{paciente_fecha_nacimiento}}.",
+      texto: "Nombre y apellido del paciente: __________. DNI: __________. Fecha de nacimiento: __________. Firma: __________. Asentimiento: ☺ ☹",
     },
     {
       t: "parrafo",
       texto:
-        "Nombre y apellido del responsable legal: {{responsable_nombre}}. DNI: {{responsable_dni}}. Fecha de nacimiento: {{responsable_fecha_nacimiento}}. Vínculo con el paciente: {{responsable_vinculo}}.",
+        "Nombre y apellido del responsable legal: __________. DNI: __________. Fecha de nacimiento: __________. Vínculo con el paciente: __________. Firma: __________.",
     },
     { t: "firmas" },
   ],
@@ -134,8 +130,8 @@ export const consentimientoOrtopedia: Plantilla = {
   ],
   // A4 (595,3 × 841,9 pt), dos páginas, en Calibri de 12 pt. Los renglones
   // de la primera son guiones bajos y los de la segunda, puntos. Al lado
-  // de cada firma de la segunda página, "FECHA:" lleva el día del
-  // documento.
+  // de las dos firmas del consentimiento, "FECHA:" lleva el día del
+  // documento; el asentimiento, abajo, queda en blanco.
   lamina: {
     paginas: [
       { ancho: 595.3, alto: 841.9 },
@@ -154,21 +150,6 @@ export const consentimientoOrtopedia: Plantilla = {
       { id: "tipo_aparatologia", pagina: 2, x: 171.5, y: 141.6, ancho: 339, texto: "{{tipo_aparatologia}}" },
       { id: "fecha_responsable", pagina: 2, x: 440, y: 360.6, ancho: 85, texto: "{{sistema.fecha}}" },
       { id: "fecha_profesional", pagina: 2, x: 441, y: 411.2, ancho: 81, texto: "{{sistema.fecha}}" },
-      { id: "asentimiento_nombre", pagina: 2, x: 210, y: 475.4, ancho: 289, texto: "{{paciente_nombre}}" },
-      { id: "asentimiento_dni", pagina: 2, x: 70, y: 502.3, ancho: 147, texto: "{{paciente_dni}}" },
-      { id: "asentimiento_fecha_nacimiento", pagina: 2, x: 404, y: 502.3, ancho: 97, texto: "{{paciente_fecha_nacimiento}}" },
-      { id: "asentimiento_responsable", pagina: 2, x: 263, y: 609.7, ancho: 237, texto: "{{responsable_nombre}}" },
-      { id: "asentimiento_responsable_dni", pagina: 2, x: 67.5, y: 636.5, ancho: 145, texto: "{{responsable_dni}}" },
-      {
-        id: "responsable_fecha_nacimiento",
-        pagina: 2,
-        x: 401,
-        y: 636.5,
-        ancho: 101,
-        texto: "{{responsable_fecha_nacimiento}}",
-        vacio: "—",
-      },
-      { id: "responsable_vinculo", pagina: 2, x: 183, y: 663.3, ancho: 250, texto: "{{responsable_vinculo}}" },
     ],
     firmas: [
       { rol: "representante", pagina: 2, x: 210.1, y: 360.6, ancho: 182.8, alto: 28 },

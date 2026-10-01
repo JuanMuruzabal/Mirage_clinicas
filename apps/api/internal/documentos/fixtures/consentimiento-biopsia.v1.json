@@ -13,9 +13,6 @@
     "otros": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "proxima_consulta_fecha": "1984-03-07",
     "proxima_consulta_hora": "09:30",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_dni": "30111222",
-    "suscribe_domicilio": "Ejemplo de domicilio",
     "profesional_nombre": "Ejemplo de profesional"
   },
   "cuerpo": [
@@ -104,7 +101,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe Ejemplo de nombre, DNI N° 30111222, con domicilio en calle Ejemplo de domicilio, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s Ejemplo de zona propuesto por el Dr/a Ejemplo de profesional."
+      "texto": "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s Ejemplo de zona propuesto por el Dr/a Ejemplo de profesional."
     },
     {
       "t": "firmas"
@@ -286,48 +283,6 @@
       "vacia": false
     },
     {
-      "zona": "suscribe_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 169,
-          "y": 395.9,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 423,
-          "y": 395.9,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_domicilio",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 209,
-          "y": 409.6,
-          "texto": "Ejemplo de domicilio"
-        }
-      ],
-      "vacia": false
-    },
-    {
       "zona": "zona_otorga",
       "pagina": 2,
       "tamano": 10,
@@ -351,34 +306,6 @@
           "x": 86,
           "y": 450.8,
           "texto": "Ejemplo de profesional"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "aclaracion",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 168,
-          "y": 597.2,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "dni_firma",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 139,
-          "y": 612.9,
-          "texto": "30111222"
         }
       ],
       "vacia": false

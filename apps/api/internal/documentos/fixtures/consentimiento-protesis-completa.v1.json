@@ -11,9 +11,6 @@
     "consecuencias_otras": "Ejemplo de otras",
     "riesgos_personalizados": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "proxima_consulta_hora": "09:30",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_dni": "30111222",
-    "suscribe_domicilio": "Ejemplo de domicilio",
     "maxilares": "superior",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_matricula": "1234"
@@ -136,7 +133,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe Ejemplo de nombre, DNI Nº 30111222, con domicilio en calle Ejemplo de domicilio, otorgo mi consentimiento a la colocación de una prótesis dental completa en el/los maxilar/es Superior propuesta por el/la Dr/a Ejemplo de profesional, MP 1234."
+      "texto": "El/la que suscribe __________, DNI Nº __________, con domicilio en calle __________, otorgo mi consentimiento a la colocación de una prótesis dental completa en el/los maxilar/es Superior propuesta por el/la Dr/a Ejemplo de profesional, MP 1234."
     },
     {
       "t": "firmas"
@@ -280,48 +277,6 @@
           "x": 40,
           "y": 556.1,
           "texto": "No consigna, 09:30"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_nombre",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 124,
-          "y": 591.5,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 356,
-          "y": 591.5,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_domicilio",
-      "pagina": 2,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 138,
-          "y": 616.8,
-          "texto": "Ejemplo de domicilio"
         }
       ],
       "vacia": false

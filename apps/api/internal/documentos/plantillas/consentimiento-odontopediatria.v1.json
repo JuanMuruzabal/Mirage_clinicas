@@ -23,60 +23,6 @@
       ]
     },
     {
-      "id": "representante",
-      "titulo": "Representante legal",
-      "campos": [
-        {
-          "tipo": "texto",
-          "id": "representante_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "ayuda": "Va también como aclaración de la firma."
-        },
-        {
-          "tipo": "numero",
-          "id": "representante_edad",
-          "etiqueta": "Edad (años)",
-          "requerido": true,
-          "min": 0,
-          "max": 120
-        },
-        {
-          "tipo": "texto",
-          "id": "representante_dni",
-          "etiqueta": "DNI",
-          "requerido": true
-        },
-        {
-          "tipo": "texto",
-          "id": "representante_domicilio",
-          "etiqueta": "Domicilio",
-          "requerido": true,
-          "precarga": "paciente.domicilio"
-        }
-      ]
-    },
-    {
-      "id": "menor",
-      "titulo": "Paciente (menor de edad)",
-      "campos": [
-        {
-          "tipo": "texto",
-          "id": "menor_nombre",
-          "etiqueta": "Nombre y apellido",
-          "requerido": true,
-          "precarga": "paciente.nombreCompleto"
-        },
-        {
-          "tipo": "texto",
-          "id": "menor_dni",
-          "etiqueta": "DNI",
-          "requerido": true,
-          "precarga": "paciente.dni"
-        }
-      ]
-    },
-    {
       "id": "profesional",
       "titulo": "Profesional",
       "campos": [
@@ -140,28 +86,6 @@
           "etiqueta": "Observaciones"
         }
       ]
-    },
-    {
-      "id": "asentimiento",
-      "titulo": "Asentimiento del menor",
-      "campos": [
-        {
-          "tipo": "opcion_unica",
-          "id": "asentimiento",
-          "etiqueta": "Pido lo que quiero",
-          "ayuda": "Lo elige el menor. Si no corresponde, dejalo vacío.",
-          "opciones": [
-            {
-              "valor": "si_quiero",
-              "etiqueta": "Sí quiero atenderme"
-            },
-            {
-              "valor": "no_quiero",
-              "etiqueta": "No quiero atenderme"
-            }
-          ]
-        }
-      ]
     }
   ],
   "cuerpo": [
@@ -183,7 +107,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Yo, {{representante_nombre}}, de {{representante_edad}} años de edad, DNI {{representante_dni}}, domiciliado en {{representante_domicilio}}, como representante legal de {{menor_nombre}}, DNI: {{menor_dni}}, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
+      "texto": "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, como representante legal de __________, DNI: __________, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
     },
     {
       "t": "parrafo",
@@ -250,11 +174,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "Por lo antes expuesto doy el consentimiento al Dr/Dra: {{profesional_nombre}}, MP: {{profesional_matricula}} a realizar el tratamiento antes expuesto al menor de edad o discapacitado {{menor_nombre}}, DNI: {{menor_dni}}, según lo antes expuesto."
+      "texto": "Por lo antes expuesto doy el consentimiento al Dr/Dra: {{profesional_nombre}}, MP: {{profesional_matricula}} a realizar el tratamiento antes expuesto al menor de edad o discapacitado __________, DNI: __________, según lo antes expuesto."
     },
     {
       "t": "parrafo",
-      "texto": "Asentimiento: pido lo que quiero. {{asentimiento}}."
+      "texto": "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐"
     },
     {
       "t": "firmas"
@@ -296,55 +220,6 @@
         "y": 114,
         "ancho": 302,
         "texto": "{{lugar}}, {{sistema.fecha}}"
-      },
-      {
-        "id": "representante_nombre",
-        "pagina": 1,
-        "x": 61.5,
-        "y": 278.3,
-        "ancho": 253,
-        "texto": "{{representante_nombre}}"
-      },
-      {
-        "id": "representante_edad",
-        "pagina": 1,
-        "x": 327,
-        "y": 278.3,
-        "ancho": 34,
-        "alinear": "centro",
-        "texto": "{{representante_edad}}"
-      },
-      {
-        "id": "representante_dni",
-        "pagina": 1,
-        "x": 410,
-        "y": 278.3,
-        "ancho": 139,
-        "texto": "{{representante_dni}}"
-      },
-      {
-        "id": "representante_domicilio",
-        "pagina": 1,
-        "x": 109.5,
-        "y": 295.5,
-        "ancho": 440,
-        "texto": "{{representante_domicilio}}"
-      },
-      {
-        "id": "menor_nombre",
-        "pagina": 1,
-        "x": 174.5,
-        "y": 312.8,
-        "ancho": 208,
-        "texto": "{{menor_nombre}}"
-      },
-      {
-        "id": "menor_dni",
-        "pagina": 1,
-        "x": 407.5,
-        "y": 312.8,
-        "ancho": 97,
-        "texto": "{{menor_dni}}"
       },
       {
         "id": "profesional_nombre",
@@ -453,58 +328,6 @@
         "y": 605.9,
         "ancho": 136,
         "texto": "{{profesional_matricula}}"
-      },
-      {
-        "id": "menor_nombre_consiente",
-        "pagina": 2,
-        "x": 43.5,
-        "y": 625.2,
-        "ancho": 244,
-        "texto": "{{menor_nombre}}"
-      },
-      {
-        "id": "menor_dni_consiente",
-        "pagina": 2,
-        "x": 412,
-        "y": 625.2,
-        "ancho": 137,
-        "texto": "{{menor_dni}}"
-      },
-      {
-        "id": "asentimiento_si",
-        "pagina": 2,
-        "x": 359.4,
-        "y": 761.2,
-        "ancho": 9.8,
-        "alinear": "centro",
-        "texto": "{{asentimiento=si_quiero}}",
-        "vacio": "—"
-      },
-      {
-        "id": "asentimiento_no",
-        "pagina": 2,
-        "x": 520.1,
-        "y": 761.2,
-        "ancho": 9.8,
-        "alinear": "centro",
-        "texto": "{{asentimiento=no_quiero}}",
-        "vacio": "—"
-      },
-      {
-        "id": "aclaracion",
-        "pagina": 2,
-        "x": 88,
-        "y": 806.9,
-        "ancho": 246,
-        "texto": "{{representante_nombre}}"
-      },
-      {
-        "id": "dni_firma",
-        "pagina": 2,
-        "x": 61.5,
-        "y": 819.6,
-        "ancho": 271,
-        "texto": "{{representante_dni}}"
       }
     ],
     "firmas": [

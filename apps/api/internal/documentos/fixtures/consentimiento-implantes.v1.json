@@ -6,10 +6,6 @@
   },
   "valores": {
     "lugar": "Ejemplo de lugar",
-    "suscribe_nombre": "Ejemplo de nombre",
-    "suscribe_edad": 0,
-    "suscribe_dni": "30111222",
-    "suscribe_domicilio": "Ejemplo de domicilio",
     "profesional_nombre": "Ejemplo de profesional",
     "profesional_matricula": "1234",
     "aclaraciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
@@ -34,7 +30,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "Yo, Ejemplo de nombre, de 0 años de edad, DNI 30111222, domiciliado en Ejemplo de domicilio, he sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional."
+      "texto": "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, he sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234, de los procedimientos propios clínicos. Declaro que he sido debidamente informado y comprendo el objetivo y la naturaleza de la cirugía con implantes. Se me ha explicado y consiento en emplear un procedimiento quirúrgico para colocar los implantes por debajo de la encía y dentro del hueso, con el objetivo de reponer dientes con estabilidad similar o incluso superior a la de los naturales perdidos, obtener un anclaje para las prótesis dentales móviles, conseguir que el hueso de los maxilares mantenga su función y no pierda volumen por reabsorción, siendo de mi absoluta responsabilidad obedecer, cumpliendo los controles indicados por el profesional."
     },
     {
       "t": "parrafo",
@@ -95,62 +91,6 @@
           "x": 111,
           "y": 92.4,
           "texto": "Ejemplo de lugar, 27/09/2026"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_nombre",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 68,
-          "y": 220.5,
-          "texto": "Ejemplo de nombre"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_edad",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 354.22,
-          "y": 220.5,
-          "texto": "0"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_dni",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 452,
-          "y": 220.5,
-          "texto": "30111222"
-        }
-      ],
-      "vacia": false
-    },
-    {
-      "zona": "suscribe_domicilio",
-      "pagina": 1,
-      "tamano": 10,
-      "desborda": false,
-      "lineas": [
-        {
-          "x": 118.5,
-          "y": 237.3,
-          "texto": "Ejemplo de domicilio"
         }
       ],
       "vacia": false

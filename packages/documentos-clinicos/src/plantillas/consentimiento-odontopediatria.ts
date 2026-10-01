@@ -3,9 +3,11 @@
 // (Consentimiento-Informado-de-Odontopediatría.pdf).
 //
 // El texto es el del modelo, palabra por palabra; se tocó solo la
-// ortografía ("dio"). Lo firma el representante legal del menor, que se
-// identifica con sus datos; el menor da su asentimiento con dos casillas
-// ("sí quiero atenderme" / "no quiero atenderme", Fase 5.2) y su firma.
+// ortografía ("dio"). Lo firma el representante legal del menor. Los
+// datos del representante y del menor ("Yo, … de … años, DNI …,
+// domiciliado en …, como representante legal de … DNI …", y los del
+// final), el asentimiento del menor y la aclaración y el DNI de la firma:
+// todo eso se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
 import type { Plantilla } from "../esquema";
 
 export const consentimientoOdontopediatria: Plantilla = {
@@ -24,24 +26,6 @@ export const consentimientoOdontopediatria: Plantilla = {
       id: "lugar",
       titulo: "Lugar y fecha",
       campos: [{ tipo: "texto", id: "lugar", etiqueta: "Lugar", requerido: true, precarga: "clinica.ciudad" }],
-    },
-    {
-      id: "representante",
-      titulo: "Representante legal",
-      campos: [
-        { tipo: "texto", id: "representante_nombre", etiqueta: "Nombre y apellido", requerido: true, ayuda: "Va también como aclaración de la firma." },
-        { tipo: "numero", id: "representante_edad", etiqueta: "Edad (años)", requerido: true, min: 0, max: 120 },
-        { tipo: "texto", id: "representante_dni", etiqueta: "DNI", requerido: true },
-        { tipo: "texto", id: "representante_domicilio", etiqueta: "Domicilio", requerido: true, precarga: "paciente.domicilio" },
-      ],
-    },
-    {
-      id: "menor",
-      titulo: "Paciente (menor de edad)",
-      campos: [
-        { tipo: "texto", id: "menor_nombre", etiqueta: "Nombre y apellido", requerido: true, precarga: "paciente.nombreCompleto" },
-        { tipo: "texto", id: "menor_dni", etiqueta: "DNI", requerido: true, precarga: "paciente.dni" },
-      ],
     },
     {
       id: "profesional",
@@ -71,22 +55,6 @@ export const consentimientoOdontopediatria: Plantilla = {
         { tipo: "texto_largo", id: "observaciones", etiqueta: "Observaciones" },
       ],
     },
-    {
-      id: "asentimiento",
-      titulo: "Asentimiento del menor",
-      campos: [
-        {
-          tipo: "opcion_unica",
-          id: "asentimiento",
-          etiqueta: "Pido lo que quiero",
-          ayuda: "Lo elige el menor. Si no corresponde, dejalo vacío.",
-          opciones: [
-            { valor: "si_quiero", etiqueta: "Sí quiero atenderme" },
-            { valor: "no_quiero", etiqueta: "No quiero atenderme" },
-          ],
-        },
-      ],
-    },
   ],
   cuerpo: [
     { t: "titulo", texto: "Consentimiento informado" },
@@ -100,7 +68,7 @@ export const consentimientoOdontopediatria: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "Yo, {{representante_nombre}}, de {{representante_edad}} años de edad, DNI {{representante_dni}}, domiciliado en {{representante_domicilio}}, como representante legal de {{menor_nombre}}, DNI: {{menor_dni}}, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico.",
+        "Yo, __________, de ____ años de edad, DNI __________, domiciliado en __________, como representante legal de __________, DNI: __________, he sido informado/a por el Dr. / Dra. {{profesional_nombre}}, M.P. {{profesional_matricula}}, de los procedimientos propios clínicos en odontopediatría, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico.",
     },
     {
       t: "parrafo",
@@ -145,9 +113,9 @@ export const consentimientoOdontopediatria: Plantilla = {
     {
       t: "parrafo",
       texto:
-        "Por lo antes expuesto doy el consentimiento al Dr/Dra: {{profesional_nombre}}, MP: {{profesional_matricula}} a realizar el tratamiento antes expuesto al menor de edad o discapacitado {{menor_nombre}}, DNI: {{menor_dni}}, según lo antes expuesto.",
+        "Por lo antes expuesto doy el consentimiento al Dr/Dra: {{profesional_nombre}}, MP: {{profesional_matricula}} a realizar el tratamiento antes expuesto al menor de edad o discapacitado __________, DNI: __________, según lo antes expuesto.",
     },
-    { t: "parrafo", texto: "Asentimiento: pido lo que quiero. {{asentimiento}}." },
+    { t: "parrafo", texto: "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐" },
     { t: "firmas" },
   ],
   firmas: [
@@ -165,12 +133,6 @@ export const consentimientoOdontopediatria: Plantilla = {
     ],
     zonas: [
       { id: "lugar_fecha", pagina: 1, x: 250, y: 114, ancho: 302, texto: "{{lugar}}, {{sistema.fecha}}" },
-      { id: "representante_nombre", pagina: 1, x: 61.5, y: 278.3, ancho: 253, texto: "{{representante_nombre}}" },
-      { id: "representante_edad", pagina: 1, x: 327, y: 278.3, ancho: 34, alinear: "centro", texto: "{{representante_edad}}" },
-      { id: "representante_dni", pagina: 1, x: 410, y: 278.3, ancho: 139, texto: "{{representante_dni}}" },
-      { id: "representante_domicilio", pagina: 1, x: 109.5, y: 295.5, ancho: 440, texto: "{{representante_domicilio}}" },
-      { id: "menor_nombre", pagina: 1, x: 174.5, y: 312.8, ancho: 208, texto: "{{menor_nombre}}" },
-      { id: "menor_dni", pagina: 1, x: 407.5, y: 312.8, ancho: 97, texto: "{{menor_dni}}" },
       { id: "profesional_nombre", pagina: 1, x: 158, y: 329.9, ancho: 269, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula", pagina: 1, x: 445.5, y: 329.9, ancho: 59, texto: "{{profesional_matricula}}" },
       { id: "diagnostico", pagina: 1, x: 43.5, y: 551, ancho: 508, sangria: 51, lineas: 4, interlineado: 19.3, texto: "{{diagnostico}}" },
@@ -182,12 +144,6 @@ export const consentimientoOdontopediatria: Plantilla = {
       { id: "observaciones", pagina: 2, x: 43.5, y: 437.5, ancho: 500, sangria: 71.5, lineas: 3, interlineado: 16.55, texto: "{{observaciones}}" },
       { id: "profesional_nombre_consiente", pagina: 2, x: 284, y: 588, ancho: 267, texto: "{{profesional_nombre}}" },
       { id: "profesional_matricula_consiente", pagina: 2, x: 65.5, y: 605.9, ancho: 136, texto: "{{profesional_matricula}}" },
-      { id: "menor_nombre_consiente", pagina: 2, x: 43.5, y: 625.2, ancho: 244, texto: "{{menor_nombre}}" },
-      { id: "menor_dni_consiente", pagina: 2, x: 412, y: 625.2, ancho: 137, texto: "{{menor_dni}}" },
-      { id: "asentimiento_si", pagina: 2, x: 359.4, y: 761.2, ancho: 9.8, alinear: "centro", texto: "{{asentimiento=si_quiero}}", vacio: "—" },
-      { id: "asentimiento_no", pagina: 2, x: 520.1, y: 761.2, ancho: 9.8, alinear: "centro", texto: "{{asentimiento=no_quiero}}", vacio: "—" },
-      { id: "aclaracion", pagina: 2, x: 88, y: 806.9, ancho: 246, texto: "{{representante_nombre}}" },
-      { id: "dni_firma", pagina: 2, x: 61.5, y: 819.6, ancho: 271, texto: "{{representante_dni}}" },
     ],
     firmas: [
       { rol: "representante", pagina: 2, x: 163, y: 794.3, ancho: 175, alto: 20 },
