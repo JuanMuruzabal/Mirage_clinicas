@@ -3429,6 +3429,34 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
   5. **Un borrador de una versión anterior pasa a la vigente** (`borradorEnLaVersionVigente`): el candado de la base no deja cambiar la versión de un documento, ni siquiera de un borrador, porque es parte de su identidad. Por eso se hace un borrador nuevo en la vigente, con lo que ya estaba cargado en los campos que siguen existiendo, y se descarta el viejo. Pasa al retomarlo con "Completar" y al abrirlo desde el registro: la página redirige al borrador nuevo, y el editor avisa. Lo terminado sigue en su versión, siempre. Sin esto, un borrador de conducto de antes seguía pidiendo los datos de quien suscribe, y se terminaba con ellos.
      - *Alternativa descartada:* dejar que el trigger acepte un cambio de versión en un borrador. Se aflojaba el candado de la historia clínica por algo que se resuelve sin tocarlo.
 
+
+---
+
+## TR-190: Una migración repetida no toma locks de tabla
+
+- **Fecha:** 2026-10-01 · **Fase:** execution (arreglo de CI, durante la 5.2)
+- **Contexto:** el CI del PR #83 falló una vez con `deadlock detected (SQLSTATE 40P01)` en un `SELECT` sobre `documentos_clinicos` (`paciente_verificado_publico.go`), dentro de `TestAislamiento_ListarTurnosNoIncluyeLosDeOtraClinica`. `go test ./internal/...` corre los paquetes en paralelo contra la misma base, y cada paquete corre `RunMigrations`. El advisory lock serializa las migraciones entre sí, pero no contra los tests de otro paquete, que viven en una transacción revertida que va juntando locks sobre lo que lee. Y `RunMigrations` volvía a ejecutar en cada corrida DDL que toma locks fuertes aunque no hubiera nada que cambiar:
+  - `DROP CONSTRAINT` + `ADD CONSTRAINT` de los checks que cambiaron alguna vez (y del `EXCLUDE` de turnos);
+  - `CREATE OR REPLACE TRIGGER` del candado de documentos;
+  - `DROP INDEX` + `CREATE INDEX`;
+  - `ADD COLUMN IF NOT EXISTS`, `ALTER COLUMN … SET DEFAULT` / `DROP NOT NULL`, los `ADD CONSTRAINT` envueltos en `EXCEPTION WHEN duplicate_object` y los `CREATE INDEX IF NOT EXISTS`: Postgres toma (o espera) el lock antes de ver que no hay nada que hacer;
+  - y el AutoMigrate de GORM corría `ALTER COLUMN … TYPE char(64)` sobre las huellas de documentos: el tag decía `char(64)` y la base reporta `bpchar`.
+
+  Medido dentro de la transacción de una segunda corrida: **11 locks fuertes** sobre tablas que leen casi todos los tests. El reintento por deadlock de `RunMigrations` solo salva el caso en que la víctima es la migración. Lo mismo puede pasar en producción: el contenedor `migrate` de un deploy corre mientras la API anterior atiende.
+- **Decisión:** no tomar el lock cuando no hace falta (`internal/db/migrate_con_huella.go`).
+  1. **Lo que reemplaza algo que ya existe** (un check que cambió de valores, un trigger, un índice con otro predicado) es un `pasoConHuella`: guarda la huella sha256 de su SQL en `migraciones_por_huella`, y la corrida siguiente lo saltea si la huella es la misma **y** el objeto sigue en el catálogo. Si el SQL cambia, corre una vez, que es para lo que existía el `DROP` + `ADD`. Si alguien borró el objeto a mano, vuelve a crearlo.
+  2. **Lo que crea algo una sola vez** (una columna, una constraint, un índice, un `VALIDATE`) es un `pasoSiHaceFalta`: le pregunta primero al catálogo (`pg_attribute`, `pg_constraint`, `to_regclass`, `convalidated`), que no toma locks de tabla, y solo ejecuta si hace falta. Es el mismo criterio que ya usaba `agregarForeignKey` (`migrate_fk.go`).
+  3. **Las huellas de documentos se declaran `bpchar(64)`:** es el mismo tipo en Postgres, pero GORM ahora lo reconoce y deja de alterarlo.
+  4. El SQL y el orden de cada sentencia no cambiaron: van envueltas en un armador, dentro de la misma lista. `CREATE OR REPLACE FUNCTION` sigue corriendo siempre, porque no toma locks de tabla.
+
+  Resultado medido: una corrida repetida pasa de 11 locks fuertes a **0**, y no ejecuta ninguna sentencia de DDL. Un test del paquete `db` lo fija y nombra la sentencia que lo rompa.
+- **Alternativas consideradas:**
+  - (a) Reintentar el test ante un deadlock: tapa el síntoma, y en producción la víctima puede ser un request real.
+  - (b) Correr los paquetes de test en serie (`-p 1`): la suite pasaría a tardar varias veces más, y producción seguiría con el problema.
+  - (c) Migrar una sola vez antes de la suite: los tests de `db` necesitan migrar bases propias, y no resuelve el deploy.
+- **Qué se sacrifica:** una tabla más (`migraciones_por_huella`) y una forma más de escribir una sentencia de migración. Una base que ya existía corre cada paso con huella una vez más, la primera vez, para guardar su huella.
+- **Condición de revisión:** si se suma una sentencia de migración nueva, va envuelta en uno de los dos armadores. Una sentencia suelta que toque una tabla en cada arranque rompe el test de la regla.
+
 ---
 
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.
