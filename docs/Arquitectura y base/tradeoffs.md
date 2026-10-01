@@ -3411,6 +3411,23 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
   - En periodoncia, el tratamiento propuesto y los medicamentos no usan el tramo del título, porque su interlineado no es parejo.
   - El texto legal se transcribió a mano: el test que lo compara contra el PDF (riesgo de la §7 del documento de la fase) sigue pendiente.
 - **Condición de revisión:** si el Colegio publica una versión nueva de un modelo, va como versión nueva de la plantilla, con sus imágenes aparte (TR-187).
+- **Addendum (2026-09-29, primera ronda con el cliente sobre la 5.2) — lo que se completa a mano:**
+  1. **Lo que el papel pide de quien firma no es un campo:** no se carga ni se precarga, y en la hoja impresa queda el hueco del modelo para escribirlo de puño y letra junto a la firma (TR-188). En el texto congelado queda el renglón en blanco (`__________`). Por consentimiento:
+     - **Extracción, conducto, biopsia, periodoncia y las tres prótesis:** el nombre, el DNI y el domicilio de "El/la que suscribe". En el conducto, también su fecha de nacimiento, que va en la misma frase. En biopsia, además, la aclaración y el DNI de la firma.
+     - **Implantes:** "Yo, … de … años de edad, DNI …, domiciliado en …".
+     - **Ortodoncia:** "Sr/Sra … con DNI Nº …", el asentimiento ("sí quiero / no quiero atenderme") y la aclaración y el DNI de la firma.
+     - **Ortopedia:** toda la parte del asentimiento informado del paciente.
+     - **Odontopediatría:** los datos del representante y del menor (al principio y al final), el asentimiento y la aclaración y el DNI de la firma.
+     - **Discapacidad:** desde "CONSIENTO ___ o NO CONSIENTO ___" hasta el final, incluidos los datos del profesional de la segunda página.
+     - **Sedoanalgesia:** desde "El/la que suscribe", salvo los datos de los profesionales.
+     - **Toma de imágenes:** sin cambios.
+
+     Un test del paquete verifica que ningún consentimiento vigente tenga esos campos.
+  2. **El conducto pasa a la versión 2**, que es la 1 sin esos datos y se arma a partir de ella: estaba en producción, y la 1 se sigue leyendo para sus documentos (TR-187). Los otros trece se cambiaron en su versión 1, porque todavía no se habían mergeado.
+  3. **Las casillas del motor siguen:** las usa el lugar de la intervención de sedoanalgesia. La decisión 3 las nombraba también en el asentimiento y en "consiento / no consiento", que ahora se marcan a mano. Lo que la decisión 4 dice de precargar a quien suscribe también quedó atrás.
+  4. **La pila se movía brusco con sedoanalgesia**, que tiene cuatro páginas: un giro chico sobre una hoja tan alta mueve mucho su borde de abajo. El vaivén, la inclinación y el cambio de tamaño de la hoja de adelante se multiplican por `--pila-amplitud` (1 sobre sus páginas). El giro de costado no depende de la altura y queda igual. Medido en el navegador, el borde de abajo de sedoanalgesia se mueve 19 px sobre una hoja de 2861 px mientras flota. Extracción (dos páginas) se mueve 9,5 px sobre 1298. Las dos se mueven lo mismo en proporción.
+  5. **Un borrador de una versión anterior pasa a la vigente** (`borradorEnLaVersionVigente`): el candado de la base no deja cambiar la versión de un documento, ni siquiera de un borrador, porque es parte de su identidad. Por eso se hace un borrador nuevo en la vigente, con lo que ya estaba cargado en los campos que siguen existiendo, y se descarta el viejo. Pasa al retomarlo con "Completar" y al abrirlo desde el registro: la página redirige al borrador nuevo, y el editor avisa. Lo terminado sigue en su versión, siempre. Sin esto, un borrador de conducto de antes seguía pidiendo los datos de quien suscribe, y se terminaba con ellos.
+     - *Alternativa descartada:* dejar que el trigger acepte un cambio de versión en un borrador. Se aflojaba el candado de la historia clínica por algo que se resuelve sin tocarlo.
 
 ---
 
