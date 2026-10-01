@@ -10,8 +10,8 @@ import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
 import { conPaletaPrecargada } from "@/lib/paleta-recepcion";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
-import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import {
+  etiquetaDeRango,
   filtrosDeTab,
   parseTab,
   parseVerificacion,
@@ -166,20 +166,12 @@ export default async function TurnosPage({
   };
   // Chips de filtros activos (fotos de referencia: "Esta semana ✕",
   // "Consulta general ✕") — cada uno navega a la misma URL sin ESE
-  // filtro puntual al tocar la ✕, sin tocar los demás.
-  const rangoActivo = (["hoy", "semana", "mes"] as const).find((r) => {
-    const calculado = rangoRapidoFechas(r);
-    return desde === calculado.desde && hasta === calculado.hasta;
-  });
-  const RANGO_CHIP_LABEL: Record<"hoy" | "semana" | "mes", string> = {
-    hoy: "Hoy",
-    semana: "Esta semana",
-    mes: "Este mes",
-  };
+  // filtro puntual al tocar la ✕, sin tocar los demás. El nombre del rango
+  // sale de `etiquetaDeRango`, el mismo que usan la ficha y los documentos.
   const chips: { label: string; hrefSinEste: string }[] = [];
   if (desde || hasta) {
     chips.push({
-      label: rangoActivo ? RANGO_CHIP_LABEL[rangoActivo] : "Rango de fechas",
+      label: etiquetaDeRango(desde ?? "", hasta ?? ""),
       hrefSinEste: `/panel/turnos?estado=${tab}${querySecundaria}`,
     });
   }
