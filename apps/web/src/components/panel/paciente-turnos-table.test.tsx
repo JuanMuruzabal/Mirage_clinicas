@@ -309,6 +309,46 @@ describe("PacienteTurnosTable", () => {
     expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
   });
 
+  // Pedido del cliente (2026-09-29): como en Turnos, lo aplicado se ve en
+  // etiquetas, y cada una quita solo su filtro.
+  it("lo aplicado se ve en etiquetas que se quitan de a una, y el borrador no las muestra", async () => {
+    const user = userEvent.setup();
+    const otro = { ...turno, id: "t-2", tipoConsultaId: "tc-1", nombreContacto: "Ana", motivo: "" };
+    render(<PacienteTurnosTable turnos={[turno, otro]} tiposConsulta={tiposConsulta} vacio="" />);
+    expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();
+
+    await abrirFiltros(user);
+    await user.selectOptions(screen.getByLabelText("Tipo de consulta"), "consulta general");
+    await user.click(screen.getByRole("button", { name: "Semana" }));
+    // Todavía es un borrador: sin etiquetas hasta confirmar.
+    expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();
+    await confirmarFiltros(user);
+
+    const etiquetas = screen.getByRole("group", { name: "Filtros aplicados" });
+    expect(etiquetas).toHaveTextContent("Esta semana");
+    expect(etiquetas).toHaveTextContent("Consulta general");
+
+    // Quitar el rango deja el tipo.
+    await user.click(screen.getByRole("button", { name: "Quitar filtro: Esta semana" }));
+    expect(screen.queryByRole("button", { name: "Quitar filtro: Esta semana" })).not.toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Consulta general" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Urgencia" })).not.toBeInTheDocument();
+
+    // Y quitar el tipo vuelve a mostrar todo, sin etiquetas.
+    await user.click(screen.getByRole("button", { name: "Quitar filtro: Consulta general" }));
+    expect(screen.getByRole("cell", { name: "Urgencia" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();
+  });
+
+  it("un rango a mano se llama «Rango de fechas»", async () => {
+    const user = userEvent.setup();
+    render(<PacienteTurnosTable turnos={[turno]} tiposConsulta={tiposConsulta} vacio="" />);
+    await abrirFiltros(user);
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2030-01-01" } });
+    await confirmarFiltros(user);
+    expect(screen.getByRole("button", { name: "Quitar filtro: Rango de fechas" })).toBeInTheDocument();
+  });
+
   // El historial de la ficha muestra TODOS los turnos del paciente —es de
   // la clínica— así que cada fila tiene que decir de quién es, y los
   // ajenos no se pueden tocar (Fase 3.2.5, opción B).

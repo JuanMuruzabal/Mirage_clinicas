@@ -122,6 +122,26 @@ describe("RegistroDeDocumentos", () => {
     expect(filas()).toHaveLength(4);
   });
 
+  it("lo aplicado se ve en etiquetas, como en Turnos, y cada una quita solo su filtro", () => {
+    render(<RegistroDeDocumentos documentos={documentos} />);
+    expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();
+    const hoja = abrirFiltros();
+    fireEvent.change(within(hoja).getByRole("combobox", { name: "Documento" }), { target: { value: "consentimiento-tratamiento-conducto" } });
+    fireEvent.change(within(hoja).getByLabelText("Desde"), { target: { value: "2026-09-01" } });
+    fireEvent.click(within(hoja).getByRole("button", { name: "Ver 1 documento" }));
+    expect(filas()).toEqual([CONDUCTO]);
+
+    const etiquetas = screen.getByRole("group", { name: "Filtros aplicados" });
+    expect(etiquetas).toHaveTextContent(CONDUCTO);
+    expect(etiquetas).toHaveTextContent("Rango de fechas");
+
+    fireEvent.click(screen.getByRole("button", { name: "Quitar filtro: Rango de fechas" }));
+    expect(filas()).toEqual([CONDUCTO, CONDUCTO]);
+    fireEvent.click(screen.getByRole("button", { name: `Quitar filtro: ${CONDUCTO}` }));
+    expect(filas()).toHaveLength(4);
+    expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();
+  });
+
   it("un atajo precarga las dos fechas", () => {
     render(<RegistroDeDocumentos documentos={documentos} />);
     const hoja = abrirFiltros();
