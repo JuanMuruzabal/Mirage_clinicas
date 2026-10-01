@@ -1,0 +1,120 @@
+{
+  "plantilla": "consentimiento-discapacidad",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "profesional_nombre": "Ejemplo de profesional",
+    "profesional_matricula": "1234"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Atención odontológica de pacientes con discapacidad"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Córdoba, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Por medio de la presente, doy mi consentimiento para ser atendido por el/la Od/a Ejemplo de profesional, MP 1234 y aseguro que la información que suministre en cuanto a mis antecedentes y salud en general es real y fidedigna."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Me han explicado de forma clara y suficiente, el diagnóstico odontológico, la naturaleza de la patología que padezco, la evolución natural, objetivo del tratamiento propuesto, así como las alternativas de tratamiento, beneficios, riesgos comunes y naturales del tratamiento (posibles complicaciones que se pueden desencadenar durante o después del mismo), riesgos personalizados (por presentar problemas de salud general que incidan sobre el tratamiento), o la no realización de los mismos y sus posibles consecuencias. Se me explicó que los pacientes con discapacidad por su misma condición pueden presentar mayor riesgo y complicaciones en el tratamiento odontológico."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Acepto que debo realizar los exámenes pertinentes que se me indiquen, previos al tratamiento. Se pueden requerir interconsultas con otro/a especialista odontólogo/a o médico/a para minimizar los riesgos y lograr el propósito del tratamiento. Acepto la realización de radiografías, fotografías y otros medios de diagnóstico que sea necesario garantizándome la confidencialidad, el resguardo de mi identidad y su utilización solo con fines académicos, de investigación y/o científicos en cursos, congresos o similares."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Entiendo que se evaluarán las alternativas de tratamiento y se optará por aquella que sea más adecuada y conveniente. Los tratamientos en algunas ocasiones, entiendo que no sean ideales, ya que es más importante la función y el estado de salud, lo que conllevará a tratamientos más ajustados a la realidad de la situación que se nos presente."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Comprendo que la odontología no es una ciencia exacta y por lo tanto la garantía de los resultados está sujeta a múltiples factores."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Confío en el buen juicio y las decisión del profesional durante el tratamiento, buscando siempre el mayor beneficio, razón por la cual, si surgiese cualquier situación inesperada durante el tratamiento, autorizo al profesional a realizar el procedimiento o maniobra que estime oportuna para la resolución de dicha situación."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Se me ha informado que me darán las explicaciones pre y postoperatorias, medicación ambulatoria, según sea el caso, las cuales me comprometo a cumplir. Me comprometo a acudir a las citas y controles cuando el odontólogo/a así me lo indique, así como mantener una higiene bucal adecuada y cumplir con las instrucciones dadas."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Confirmo que me siento informado, comprendo la información, libre, sin coacción, ni manipulación, para decidir voluntariamente, con el tiempo suficiente para meditar o consultar la decisión con quien considere pertinente, de acuerdo con mis valores e intereses y me declaro competente para tomar las decisiones que correspondan."
+    },
+    {
+      "t": "parrafo",
+      "texto": "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE ___ o NO CONSIENTO ___"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nombre del paciente: __________. DNI: __________. Edad: ____. Domicilio: __________."
+    },
+    {
+      "t": "parrafo",
+      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante: __________. DNI: __________. Relación con el paciente: __________."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nombre del profesional: __________. M.P.: __________."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 431,
+          "y": 119.7,
+          "texto": "27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 108.5,
+          "y": 179.1,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 259,
+          "y": 179.1,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

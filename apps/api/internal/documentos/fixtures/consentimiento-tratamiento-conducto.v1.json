@@ -6,16 +6,16 @@
   },
   "valores": {
     "lugar": "Ejemplo de lugar",
-    "suscribe_nombre": "Ejemplo de nombre y apellido",
+    "suscribe_nombre": "Ejemplo de nombre",
     "suscribe_fecha_nacimiento": "1984-03-07",
-    "suscribe_dni": "Ejemplo de dni",
+    "suscribe_dni": "30111222",
     "suscribe_domicilio": "Ejemplo de domicilio",
     "elementos": [
       "37",
       "11",
       "36"
     ],
-    "profesional_nombre": "Ejemplo de profesional que lo propone",
+    "profesional_nombre": "Ejemplo de profesional",
     "indicaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "medicacion": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
     "proxima_consulta_fecha": "1984-03-07"
@@ -35,7 +35,7 @@
     },
     {
       "t": "parrafo",
-      "texto": "El/la que suscribe Ejemplo de nombre y apellido, fecha de nacimiento 07/03/1984, DNI N° Ejemplo de dni, con domicilio Ejemplo de domicilio, otorgo mi consentimiento al tratamiento de conducto en el elemento N° 11, 36, 37 propuesto por el/la Dr. Ejemplo de profesional que lo propone."
+      "texto": "El/la que suscribe Ejemplo de nombre, fecha de nacimiento 07/03/1984, DNI N° 30111222, con domicilio Ejemplo de domicilio, otorgo mi consentimiento al tratamiento de conducto en el elemento N° 11, 36, 37 propuesto por el/la Dr. Ejemplo de profesional."
     },
     {
       "t": "parrafo",
@@ -97,13 +97,13 @@
     {
       "zona": "suscribe_nombre",
       "pagina": 1,
-      "tamano": 9.5,
+      "tamano": 10,
       "desborda": false,
       "lineas": [
         {
           "x": 164,
           "y": 129.1,
-          "texto": "Ejemplo de nombre y apellido"
+          "texto": "Ejemplo de nombre"
         }
       ],
       "vacia": false
@@ -131,7 +131,7 @@
         {
           "x": 118,
           "y": 141.1,
-          "texto": "Ejemplo de dni"
+          "texto": "30111222"
         }
       ],
       "vacia": false
@@ -173,7 +173,7 @@
         {
           "x": 334,
           "y": 165.3,
-          "texto": "Ejemplo de profesional que lo propone"
+          "texto": "Ejemplo de profesional"
         }
       ],
       "vacia": false

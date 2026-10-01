@@ -9,10 +9,20 @@
 import { camposDe, type Campo, type Plantilla } from "./esquema";
 import type { Valor, Valores } from "./valores";
 
+// Un texto de ejemplo tiene la forma del dato real —un DNI, una
+// matrícula— o es corto: el fixture es un documento que se puede terminar,
+// así que tiene que entrar en los huecos de la lámina, y muchos son chicos
+// ("MP……", "Edad……"). Con la etiqueta entera ("Ejemplo de profesional
+// odontólogo que deriva al paciente") no entraba ni achicado (Fase 5.2).
+const ES_MATRICULA = /(^|_)(mp|matricula)(_|$)/;
+const ES_DNI = /(^|_)dni(_|$)/;
+
 function ejemploDe(campo: Campo): Valor {
   switch (campo.tipo) {
     case "texto":
-      return `Ejemplo de ${campo.etiqueta.toLowerCase()}`;
+      if (campo.precarga === "profesional.matricula" || ES_MATRICULA.test(campo.id)) return "1234";
+      if (campo.precarga === "paciente.dni" || ES_DNI.test(campo.id)) return "30111222";
+      return `Ejemplo de ${campo.etiqueta.split(/\s+/)[0].toLowerCase()}`;
     case "texto_largo":
       return "Primera línea del ejemplo.\nSegunda línea del ejemplo.";
     case "fecha":

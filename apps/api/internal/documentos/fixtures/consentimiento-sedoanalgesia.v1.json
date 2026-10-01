@@ -1,0 +1,635 @@
+{
+  "plantilla": "consentimiento-sedoanalgesia",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "paciente_nombre": "Ejemplo de nombre",
+    "paciente_edad": 0,
+    "paciente_fecha_nacimiento": "1984-03-07",
+    "responsable_nombre": "Ejemplo de nombre",
+    "responsable_dni": "30111222",
+    "responsable_telefono": "Ejemplo de teléfono",
+    "anestesista_nombre": "Ejemplo de anestesista",
+    "anestesista_mp": "1234",
+    "motivo": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "odontologo_deriva": "Ejemplo de profesional",
+    "odontologo_deriva_mp": "1234",
+    "farmacologia": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "lugar_intervencion": "hospital",
+    "institucion": "Ejemplo de nombre",
+    "diagnostico": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tratamiento": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tratamientos_alternativos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "consecuencias": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "profesional_nombre": "Ejemplo de profesional",
+    "profesional_matricula": "1234"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado para atención odontológica"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Bajo cuidados anestésicos monitoreados"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Paciente: Ejemplo de nombre. Edad: 0. Fecha de nacimiento: 07/03/1984."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Responsable legal / Tutor: Ejemplo de nombre. DNI: 30111222. Tel: Ejemplo de teléfono."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Por el presente se hace saber a Usted que tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que pudieran ocurrir. Este documento explica estas cuestiones muy importantes, léalo atentamente y consulte todas las dudas que se le planteen."
+    },
+    {
+      "t": "parrafo",
+      "texto": "La sedación consciente es una combinación de medicamentos para ayudarlo a relajarse (un sedante) y para bloquear el dolor (un anestésico) durante el procedimiento odontológico al que será sometido, bajo cuidados anestésicos monitorizados y realizado un médico anestesista matriculado. Usted verá reducida su actividad motora y refleja y mínimos cambios cardiovasculares. Puede permanecer dormido pero no inconsciente."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Anestesista actuante: Ejemplo de anestesista. MP: 1234. Póliza N°: No consigna."
+    },
+    {
+      "t": "campo",
+      "campo": "motivo",
+      "etiqueta": "Motivo por el cual se realizará este tipo de intervención",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Profesional odontólogo que deriva al paciente: Ejemplo de profesional. MP: 1234."
+    },
+    {
+      "t": "campo",
+      "campo": "farmacologia",
+      "etiqueta": "Farmacología a emplearse para la sedación",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "cardiologo",
+      "etiqueta": "Médico cardiólogo que autorice la sedación consciente",
+      "texto": "No consigna"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar a realizarse la intervención: Hospital. Nombre de la institución: Ejemplo de nombre."
+    },
+    {
+      "t": "campo",
+      "campo": "diagnostico",
+      "etiqueta": "Diagnóstico odontológico",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamiento",
+      "etiqueta": "Tratamiento al que va a ser sometido el paciente",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamientos_alternativos",
+      "etiqueta": "Tratamientos alternativos",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Riesgos que pueden ocurrir durante la intervención. Generales / a nivel sistémico:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "La medicación aplicada en la nariz puede causar ardor durante pocos segundos.",
+        "Náuseas y vómitos.",
+        "Reacciones en la piel del anestésico, picor o erupciones.",
+        "Sueño profundo que en ocasiones puede provocar problemas respiratorios, haciendo preciso el uso de oxígeno u otras ayudas para respirar, durante un período de tiempo.",
+        "Hipertensión arterial, inestabilidad o shock cardiovascular.",
+        "Reacciones alérgicas, o individuales inesperadas a los medicamentos utilizados que en ocasiones pueden ser graves y llegar a la muerte, o dejar secuelas neurológicas.",
+        "Laringoespasmo.",
+        "Apnea.",
+        "Broncoaspiración.",
+        "Riesgos relacionados con circunstancias específicas del paciente.",
+        "Cansancio pos intervención y/o somnolencia.",
+        "Dolor de cabeza persistente."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Local / odontológico:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Molestias en las zonas tratadas por las intervenciones odontológicas, y o anestesia local efectuada.",
+        "Tumefacción (hinchazón) facial, las cuales pueden persistir durante varios días.",
+        "Infección y dolor.",
+        "Trismus (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Fractura del elemento dentario y/o del hueso maxilar.",
+        "Hematomas o hemorragia (sangrado abundante).",
+        "Contacto prematuro por operatoria alta (no se puede constatar oclusión).",
+        "Pulpitis.",
+        "Sensibilidad dentaria.",
+        "Otras dependiendo del tratamiento odontológico realizado."
+      ]
+    },
+    {
+      "t": "campo",
+      "campo": "consecuencias",
+      "etiqueta": "Consecuencias de la no realización del tratamiento",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "observaciones",
+      "etiqueta": "Observaciones",
+      "texto": "No consigna"
+    },
+    {
+      "t": "parrafo",
+      "texto": "He tenido información clara y suficiente, la oportunidad de preguntar y he obtenido respuestas satisfactorias, de las ventajas e inconvenientes de la analgesia y sedación y de que en cualquier momento puedo revocar mi consentimiento, me siento libre para decidir de acuerdo a mis valores e intereses y me declaro competente para tomar la decisión que corresponda. He podido formular todas las preguntas que he creído oportunas. Asimismo doy fe que mi representado fue oído y/o dio su asentimiento a realizar el tratamiento."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Por lo antes expuesto doy el consentimiento al Odontólogo/a Ejemplo de profesional, MP 1234 a realizar el tratamiento antes expuesto."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la que suscribe __________, DNI __________, domicilio __________."
+    },
+    {
+      "t": "parrafo",
+      "texto": "En caso que corresponda: nombre del representante legal/curador/acompañante __________, DNI __________, vínculo con el paciente __________."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nombre del profesional odontólogo: Ejemplo de profesional, M.P.: 1234. Otro profesional interviniente: Ejemplo de anestesista, MP: 1234."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 145,
+          "y": 205.6,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "paciente_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 130,
+          "y": 250.5,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "paciente_edad",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 328.22,
+          "y": 250.5,
+          "texto": "0"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "paciente_fecha_nacimiento",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 444,
+          "y": 250.5,
+          "texto": "07/03/1984"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "responsable_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 200,
+          "y": 273,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "responsable_dni",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 316,
+          "y": 273,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "responsable_telefono",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 437,
+          "y": 273,
+          "texto": "Ejemplo de teléfono"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anestesista_nombre",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 181.5,
+          "y": 464.5,
+          "texto": "Ejemplo de anestesista"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anestesista_mp",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 283,
+          "y": 464.5,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anestesista_poliza",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 402.5,
+          "y": 464.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "motivo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 334,
+          "y": 486.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 509.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "odontologo_deriva",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 296.5,
+          "y": 531.9,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "odontologo_deriva_mp",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 444,
+          "y": 531.9,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "farmacologia",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 278,
+          "y": 554.3,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 576.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cardiologo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 384,
+          "y": 599.3,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lugar_hospital",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 287.82,
+          "y": 659.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lugar_centro_de_salud",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 397.4,
+          "y": 659.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lugar_consultorio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 490.05,
+          "y": 659.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "institucion",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 204.5,
+          "y": 681.3,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diagnostico",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 202,
+          "y": 726.3,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 748.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 206.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 229.43,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamientos_alternativos",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 204.3,
+          "y": 296.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 319.4,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consecuencias",
+      "pagina": 3,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 318,
+          "y": 298,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 320.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "observaciones",
+      "pagina": 3,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 156.9,
+          "y": 365.4,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "profesional_consiente",
+      "pagina": 3,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 367,
+          "y": 528,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula_consiente",
+      "pagina": 3,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 263.5,
+          "y": 542.3,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 4,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 250,
+          "y": 147.5,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 4,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 454.5,
+          "y": 147.5,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otro_profesional",
+      "pagina": 4,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 223,
+          "y": 214.9,
+          "texto": "Ejemplo de anestesista"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otro_profesional_mp",
+      "pagina": 4,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 460,
+          "y": 214.9,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

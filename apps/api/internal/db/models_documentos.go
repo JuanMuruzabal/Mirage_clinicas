@@ -65,7 +65,15 @@ type DocumentoClinico struct {
 	ContenidoCanonico *string `gorm:"column:contenido_canonico;type:text"`
 	// HashContenido — SHA-256 de ContenidoCanonico, en hex. Cada firma
 	// guarda esta misma huella: firmar es firmar ESTE contenido.
-	HashContenido *string    `gorm:"column:hash_contenido;type:char(64)"`
+	//
+	// `bpchar(64)` y no `char(64)`, en las cinco huellas de este archivo: es
+	// el MISMO tipo (Postgres crea `character(64)` con cualquiera de los
+	// dos), pero GORM compara el tag contra el nombre que reporta la base,
+	// que es `bpchar`. Con `char(64)` no coincidían y el AutoMigrate corría
+	// `ALTER COLUMN … TYPE char(64)` en CADA arranque: ACCESS EXCLUSIVE sobre
+	// documentos_clinicos y documento_firmas sin cambiar nada (deadlock de
+	// CI, PR #83 — ver migrate_con_huella.go).
+	HashContenido *string    `gorm:"column:hash_contenido;type:bpchar(64)"`
 	TerminadoEn   *time.Time `gorm:"column:terminado_en"`
 	// Folio — correlativo por paciente dentro de la clínica (Ley 26.529,
 	// art. 12: "foliada"). Se asigna al sellar.
@@ -74,8 +82,8 @@ type DocumentoClinico struct {
 	// clínica (TR-182): cada sello incluye el del documento anterior, así
 	// que alterar uno viejo rompe todos los que vienen después.
 	CadenaN      *int64     `gorm:"column:cadena_n"`
-	HashAnterior *string    `gorm:"column:hash_anterior;type:char(64)"`
-	HashSello    *string    `gorm:"column:hash_sello;type:char(64)"`
+	HashAnterior *string    `gorm:"column:hash_anterior;type:bpchar(64)"`
+	HashSello    *string    `gorm:"column:hash_sello;type:bpchar(64)"`
 	SelladoEn    *time.Time `gorm:"column:sellado_en"`
 	// Anulación — un pedido de firma que no se concretó. Si alguien ya
 	// había firmado, queda registrado con su motivo (Ley 26.529, art. 7
@@ -101,7 +109,8 @@ const (
 )
 
 // Cómo se firmó. En la 5.1 solo existe "presencial" (en el dispositivo
-// del consultorio); "vinculo" y "alerta" llegan con la 5.3.
+// del consultorio); "vinculo" y "alerta" llegan con la 5.4 (la firma a
+// distancia, que era la 5.3 antes del reorden de la fase).
 const (
 	MetodoPresencial = "presencial"
 	MetodoVinculo    = "vinculo"
@@ -138,10 +147,10 @@ type DocumentoFirma struct {
 	Trazo  TrazoDeFirma `gorm:"type:jsonb;serializer:json;not null"`
 	// HashContenido — la huella del documento que se firmó; el trigger
 	// exige que sea la del documento en ese momento.
-	HashContenido string `gorm:"column:hash_contenido;type:char(64);not null"`
+	HashContenido string `gorm:"column:hash_contenido;type:bpchar(64);not null"`
 	// HashFirma — SHA-256 de esta firma (quién, cómo, cuándo, el trazo y la
 	// huella firmada). Entra en el sello del documento.
-	HashFirma string `gorm:"column:hash_firma;type:char(64);not null"`
+	HashFirma string `gorm:"column:hash_firma;type:bpchar(64);not null"`
 	// Evidencias de la constancia (TR-184).
 	IP        *string `gorm:"type:varchar(64)"`
 	UserAgent *string `gorm:"column:user_agent;type:varchar(400)"`

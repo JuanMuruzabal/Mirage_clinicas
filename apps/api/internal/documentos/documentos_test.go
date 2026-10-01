@@ -153,7 +153,7 @@ func TestLamina_BorradorSelladoYDesborde(t *testing.T) {
 }
 
 func TestLamina_Partes(t *testing.T) {
-	casos := map[string]string{"dia": "07", "mes": "09", "anio": "2026", "anio2": "26", "otra": ""}
+	casos := map[string]string{"dia": "07", "mes": "09", "mes_nombre": "septiembre", "anio": "2026", "anio2": "26", "otra": ""}
 	for parte, esperado := range casos {
 		if got := ParteDeFecha("2026-09-07", parte); got != esperado {
 			t.Errorf("%s: %q", parte, got)
@@ -162,12 +162,81 @@ func TestLamina_Partes(t *testing.T) {
 	if ParteDeFecha("7/9/2026", "dia") != "" {
 		t.Error("una fecha mal escrita no tiene partes")
 	}
+	if ParteDeFecha("2026-13-01", "mes_nombre") != "" || ParteDeFecha("2026-01-31", "mes_nombre") != "enero" {
+		t.Error("el nombre del mes sale del número, y un mes que no existe no tiene nombre")
+	}
+	// La fecha del documento también se parte ("Córdoba ___ de ______ 20__").
+	z := Zona{ID: "f", Pagina: 1, Ancho: 300, Texto: "{{sistema.fecha:dia}} de {{sistema.fecha:mes_nombre}} de 20{{sistema.fecha:anio2}}"}
+	if texto, _ := TextoDeZona(z, &Plantilla{}, nil, Contexto{Fecha: "2026-09-28"}, TextoSellado); texto != "28 de septiembre de 2026" {
+		t.Errorf("partes de la fecha del sistema: %q", texto)
+	}
 	if AnchoEnUnidades("") != 0 || AnchoEnUnidades("\u4e00") != anchoHelveticaFalta {
 		t.Error("un carácter sin métrica usa el ancho por defecto")
 	}
 	// Una zona tan angosta que ni un carácter entra: igual avanza.
-	if got := Envolver("abc", 1, 10); len(got) != 3 {
+	if got := Envolver("abc", 1, 10, 1); len(got) != 3 {
 		t.Fatalf("corte por carácter: %v", got)
+	}
+}
+
+func TestLamina_Casillas(t *testing.T) {
+	casos := []struct {
+		valor  any
+		opcion string
+		marca  bool
+	}{
+		{"hospital", "hospital", true},
+		{"consultorio", "hospital", false},
+		{map[string]any{"respuesta": "no"}, "no", true},
+		{map[string]any{"respuesta": "si"}, "no", false},
+		{[]any{"web", "redes"}, "redes", true},
+		{[]any{"web"}, "redes", false},
+		{[]string{"web"}, "web", true},
+		{[]string{"web"}, "redes", false},
+		{nil, "x", false},
+		{12.0, "12", false},
+	}
+	for _, c := range casos {
+		if got := EstaMarcada(c.valor, c.opcion); got != c.marca {
+			t.Errorf("EstaMarcada(%v, %q) = %v", c.valor, c.opcion, got)
+		}
+	}
+
+	p, err := cargar([]byte(mustJSON(t, Plantilla{
+		ID: "casillas", Version: 1, Nombre: "Casillas", Tipo: "consentimiento", Descripcion: "x",
+		Secciones: []Seccion{{ID: "s", Titulo: "S", Campos: []Campo{{
+			Tipo: "opcion_unica", ID: "lugar", Etiqueta: "Lugar",
+			Opciones: []Opcion{{Valor: "hospital", Etiqueta: "Hospital"}, {Valor: "consultorio", Etiqueta: "Consultorio"}},
+		}}}},
+		Cuerpo: []Bloque{{T: "parrafo", Texto: "{{lugar}}"}, {T: "firmas"}},
+		Firmas: []FirmaDePlantilla{{Rol: "profesional", Etiqueta: "Profesional", Requerida: true}},
+	})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := Contexto{Fecha: "2026-09-28"}
+	hospital := Zona{ID: "h", Pagina: 1, Ancho: 12, Texto: "{{lugar=hospital}}"}
+	consultorio := Zona{ID: "c", Pagina: 1, Ancho: 12, Texto: "{{lugar=consultorio}}"}
+	valores := map[string]any{"lugar": "hospital"}
+	if texto, vacia := TextoDeZona(hospital, p, valores, ctx, TextoSellado); texto != MarcaDeCasilla || vacia {
+		t.Errorf("la casilla elegida lleva una X: %q %v", texto, vacia)
+	}
+	if texto, vacia := TextoDeZona(consultorio, p, valores, ctx, TextoSellado); texto != "" || vacia {
+		t.Errorf("la otra casilla queda en blanco, sin No consigna: %q %v", texto, vacia)
+	}
+	if _, vacia := TextoDeZona(hospital, p, nil, ctx, TextoBorrador); !vacia {
+		t.Error("sin responder, la casilla está vacía como cualquier zona")
+	}
+}
+
+func TestLamina_Sangria(t *testing.T) {
+	z := Zona{ID: "p", Pagina: 1, X: 86, Y: 300, Ancho: 400, Lineas: 3, Interlineado: 12, Sangria: 150}
+	compuesta := ComponerZona(z, strings.TrimSpace(strings.Repeat("palabra ", 40)))
+	if len(compuesta.Lineas) < 2 || compuesta.Lineas[0].X != 236 || compuesta.Lineas[1].X != 86 {
+		t.Fatalf("el primer renglón empieza corrido y los demás no: %+v", compuesta.Lineas)
+	}
+	if float64(AnchoEnUnidades(compuesta.Lineas[0].Texto))*compuesta.Tamano > 250*1000 {
+		t.Error("el primer renglón respeta su ancho más angosto")
 	}
 }
 
@@ -339,9 +408,14 @@ func TestArmarCuerpo_BorradorYSellado(t *testing.T) {
 }
 
 func TestPlantillas_Registro(t *testing.T) {
+	// La última del conducto es la 2 (Fase 5.2: los datos de quien suscribe
+	// se completan a mano); la 1 se sigue leyendo para sus documentos.
 	p, ok := Ultima("consentimiento-tratamiento-conducto")
-	if !ok || p.Version != 1 {
+	if !ok || p.Version != 2 || p.Campo("suscribe_dni") != nil {
 		t.Fatalf("falta la plantilla de conducto: %+v", p)
+	}
+	if v1, ok := PorID("consentimiento-tratamiento-conducto", 1); !ok || v1.Campo("suscribe_dni") == nil {
+		t.Fatalf("la versión 1 del conducto: %v", ok)
 	}
 	if _, ok := PorID("consentimiento-tratamiento-conducto", 99); ok {
 		t.Fatal("una versión que no existe")

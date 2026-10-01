@@ -30,6 +30,24 @@ from PIL import Image
 # (plantilla, versión) → (archivo del Colegio, páginas a mostrar, empezando en 1)
 ORIGINALES = {
     ("consentimiento-tratamiento-conducto", 1): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
+    # La versión 2 (5.2) usa el mismo PDF: cambian los datos que se completan
+    # a mano, no el modelo.
+    ("consentimiento-tratamiento-conducto", 2): ("Consentimiento-Informado-de-Tratamiento-de-Conducto.pdf", [1]),
+    # Fase 5.2: los demás consentimientos. El de ortodoncia viene adentro de
+    # la historia clínica de ortodoncia (sus páginas 5 y 6).
+    ("consentimiento-extraccion", 1): ("Consentimiento-Informado-de-Extraccion.pdf", [1, 2]),
+    ("consentimiento-biopsia", 1): ("Consentimiento-Informado-Biopsia.pdf", [1, 2]),
+    ("consentimiento-implantes", 1): ("Consentimiento-Informado-de-Implantes.pdf", [1, 2]),
+    ("consentimiento-periodoncia", 1): ("Consentimiento-Informado-de-Periodoncia.pdf", [1, 2, 3]),
+    ("consentimiento-protesis-completa", 1): ("Consentimiento-Informado-de-Protesis-Completa.pdf", [1, 2]),
+    ("consentimiento-protesis-fija", 1): ("Consentimiento-Informado-de-Protesis-Fija.pdf", [1, 2]),
+    ("consentimiento-protesis-removible", 1): ("Consentimiento-Informado-de-Protesis-Parcial-Removible.pdf", [1, 2]),
+    ("consentimiento-ortodoncia", 1): ("Historia-Clinica-para-Modulo-de-Ortodoncia.pdf", [5, 6]),
+    ("consentimiento-ortopedia", 1): ("CONSENTIMIENTO-INFORMADO-ORTOPEDIA-VERSION-TERMINADA.pdf", [1, 2]),
+    ("consentimiento-odontopediatria", 1): ("Consentimiento-Informado-de-Odontopediatría.pdf", [1, 2]),
+    ("consentimiento-discapacidad", 1): ("Consentimiento-informado-para-discapacidad.pdf", [1, 2]),
+    ("consentimiento-sedoanalgesia", 1): ("Consentimiento-sedoanalgesia-1.pdf", [1, 2, 3, 4]),
+    ("consentimiento-toma-de-imagenes", 1): ("CONSENTIMIENTO-INFORMADO-TOMA-DE-IMAGENES-60-anos-1.pdf", [1, 2]),
 }
 
 ANCHOS = (800, 1600, 2550)

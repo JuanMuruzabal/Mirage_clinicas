@@ -1,0 +1,126 @@
+// Consentimiento informado para la atención odontológica de pacientes con
+// discapacidad — modelo oficial del Colegio Odontológico de la Provincia
+// de Córdoba (Consentimiento-informado-para-discapacidad.pdf).
+//
+// El texto es el del modelo, palabra por palabra; se tocó solo la
+// ortografía ("atención odontológica", "explicó", "de acuerdo"). En el
+// sistema se completa solo la fecha y el profesional de la primera página:
+// desde "CONSIENTO ___ o NO CONSIENTO ___" hasta el final —los datos del
+// paciente, del representante, curador o acompañante y del profesional,
+// con sus firmas y aclaraciones— se completa a mano en la hoja impresa (pedido del cliente, 2026-09-29).
+import type { Plantilla } from "../esquema";
+
+export const consentimientoDiscapacidad: Plantilla = {
+  id: "consentimiento-discapacidad",
+  version: 1,
+  nombre: "Atención de pacientes con discapacidad",
+  tipo: "consentimiento",
+  descripcion:
+    "Consentimiento informado para la atención odontológica de pacientes con discapacidad, con los datos del representante legal, curador o acompañante cuando corresponde.",
+  fuente: {
+    nombre: "Colegio Odontológico de la Provincia de Córdoba",
+    url: "https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/",
+  },
+  secciones: [
+    {
+      id: "profesional",
+      titulo: "Profesional",
+      campos: [
+        {
+          tipo: "texto",
+          id: "profesional_nombre",
+          etiqueta: "Profesional",
+          requerido: true,
+          precarga: "profesional.nombreCompleto",
+          bloqueado: true,
+        },
+        { tipo: "texto", id: "profesional_matricula", etiqueta: "MP", requerido: true, precarga: "profesional.matricula", bloqueado: true },
+      ],
+    },
+  ],
+  cuerpo: [
+    { t: "titulo", texto: "Consentimiento informado" },
+    { t: "subtitulo", texto: "Atención odontológica de pacientes con discapacidad" },
+    { t: "parrafo", texto: "Córdoba, {{sistema.fecha}}." },
+    {
+      t: "parrafo",
+      texto:
+        "Por medio de la presente, doy mi consentimiento para ser atendido por el/la Od/a {{profesional_nombre}}, MP {{profesional_matricula}} y aseguro que la información que suministre en cuanto a mis antecedentes y salud en general es real y fidedigna.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Me han explicado de forma clara y suficiente, el diagnóstico odontológico, la naturaleza de la patología que padezco, la evolución natural, objetivo del tratamiento propuesto, así como las alternativas de tratamiento, beneficios, riesgos comunes y naturales del tratamiento (posibles complicaciones que se pueden desencadenar durante o después del mismo), riesgos personalizados (por presentar problemas de salud general que incidan sobre el tratamiento), o la no realización de los mismos y sus posibles consecuencias. Se me explicó que los pacientes con discapacidad por su misma condición pueden presentar mayor riesgo y complicaciones en el tratamiento odontológico.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Acepto que debo realizar los exámenes pertinentes que se me indiquen, previos al tratamiento. Se pueden requerir interconsultas con otro/a especialista odontólogo/a o médico/a para minimizar los riesgos y lograr el propósito del tratamiento. Acepto la realización de radiografías, fotografías y otros medios de diagnóstico que sea necesario garantizándome la confidencialidad, el resguardo de mi identidad y su utilización solo con fines académicos, de investigación y/o científicos en cursos, congresos o similares.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Entiendo que se evaluarán las alternativas de tratamiento y se optará por aquella que sea más adecuada y conveniente. Los tratamientos en algunas ocasiones, entiendo que no sean ideales, ya que es más importante la función y el estado de salud, lo que conllevará a tratamientos más ajustados a la realidad de la situación que se nos presente.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Comprendo que la odontología no es una ciencia exacta y por lo tanto la garantía de los resultados está sujeta a múltiples factores.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Confío en el buen juicio y las decisión del profesional durante el tratamiento, buscando siempre el mayor beneficio, razón por la cual, si surgiese cualquier situación inesperada durante el tratamiento, autorizo al profesional a realizar el procedimiento o maniobra que estime oportuna para la resolución de dicha situación.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Se me ha informado que me darán las explicaciones pre y postoperatorias, medicación ambulatoria, según sea el caso, las cuales me comprometo a cumplir. Me comprometo a acudir a las citas y controles cuando el odontólogo/a así me lo indique, así como mantener una higiene bucal adecuada y cumplir con las instrucciones dadas.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "Confirmo que me siento informado, comprendo la información, libre, sin coacción, ni manipulación, para decidir voluntariamente, con el tiempo suficiente para meditar o consultar la decisión con quien considere pertinente, de acuerdo con mis valores e intereses y me declaro competente para tomar las decisiones que correspondan.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "En tal sentido DOY MI CONSENTIMIENTO AL PROFESIONAL A REALIZAR EL TRATAMIENTO PERTINENTE ___ o NO CONSIENTO ___",
+    },
+    {
+      t: "parrafo",
+      texto: "Nombre del paciente: __________. DNI: __________. Edad: ____. Domicilio: __________.",
+    },
+    {
+      t: "parrafo",
+      texto:
+        "En caso que corresponda: nombre del representante legal/curador/acompañante: __________. DNI: __________. Relación con el paciente: __________.",
+    },
+    { t: "parrafo", texto: "Nombre del profesional: __________. M.P.: __________." },
+    { t: "firmas" },
+  ],
+  firmas: [
+    { rol: "paciente", etiqueta: "Firma del paciente", requerida: false },
+    { rol: "representante", etiqueta: "Firma del representante legal, curador o acompañante", requerida: false },
+    { rol: "profesional", etiqueta: "Firma del profesional", requerida: true },
+  ],
+  // A4 (595,3 × 841,9 pt), dos páginas, en 11 y 10 pt con renglones de
+  // puntos. La fecha va después del "Córdoba," del papel. La segunda página
+  // no lleva nada escrito: es la que se completa y se firma a mano.
+  lamina: {
+    paginas: [
+      { ancho: 595.3, alto: 841.9 },
+      { ancho: 595.3, alto: 841.9 },
+    ],
+    zonas: [
+      { id: "fecha", pagina: 1, x: 431, y: 119.7, ancho: 79, texto: "{{sistema.fecha}}" },
+      { id: "profesional_nombre", pagina: 1, x: 108.5, y: 179.1, ancho: 129, texto: "{{profesional_nombre}}" },
+      { id: "profesional_matricula", pagina: 1, x: 259, y: 179.1, ancho: 35, texto: "{{profesional_matricula}}" },
+    ],
+    firmas: [
+      { rol: "paciente", pagina: 2, x: 85.1, y: 312.8, ancho: 126.7, alto: 38 },
+      { rol: "representante", pagina: 2, x: 85.1, y: 503.3, ancho: 126.7, alto: 38 },
+      { rol: "profesional", pagina: 2, x: 85.1, y: 609.2, ancho: 126.7, alto: 38 },
+    ],
+  },
+};

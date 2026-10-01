@@ -1,0 +1,314 @@
+{
+  "plantilla": "consentimiento-biopsia",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "zona": "Ejemplo de zona",
+    "tratamientos_alternativos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "riesgos_personalizados": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "medicacion_pre": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "otros": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "proxima_consulta_fecha": "1984-03-07",
+    "proxima_consulta_hora": "09:30",
+    "profesional_nombre": "Ejemplo de profesional"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Biopsia"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Usted tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que ocurren. Este documento intenta explicarle todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, usted o su representante legal, el consentimiento informado para que pueda realizarle el procedimiento descripto a continuación."
+    },
+    {
+      "t": "parrafo",
+      "texto": "A propósito declaro haber sido informado y haber comprendido acabadamente la conveniencia y el objetivo de la biopsia Ejemplo de zona y las consecuencias de no llevar a cabo dicho procedimiento quirúrgico, que consiste en realizar una toma de material, para obtener muestras de un tejido vivo por punción o escisión de los tejidos involucrados para analizarla posteriormente, la muestra será analizada por un patólogo especialista lo cual nos brindará un diagnóstico de certeza."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Este procedimiento está indicado para lesiones que no pueden ser diagnosticadas por otros métodos, como ayuda en evolución diagnóstica de enfermedades infecciosas, micóticas y bacterianas, para determinar el tipo de tumor, en lesiones con sospecha de cáncer, cualquier lesión de aspecto clínico compatible con úlcera, ulceración, erosión, ampolla, y que no muestre evidencia de curación en 5 a 10 días, nódulos de crecimiento rápido, lesiones negras, lesiones blancas, lesiones rojas, cualquier tejido eliminado quirúrgicamente o eliminado espontáneamente."
+    },
+    {
+      "t": "campo",
+      "campo": "tratamientos_alternativos",
+      "etiqueta": "Tratamientos alternativos (riesgos, beneficios y perjuicios)",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Declaro que mi odontólogo ha examinado mi boca debidamente. Que se me ha explicado otras alternativas a este procedimiento, que se han estudiado y considerado estos métodos que se me informaron, siendo mi voluntad que se me realice el procedimiento objeto del presente consentimiento."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Riesgos, molestias y efectos adversos previsibles:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Molestias postoperatorias que puedan durar desde unas horas hasta varios días y para lo cual se administrará medicación en caso de ser necesario.",
+        "Tumefacción (hinchazón) post-operatorio del área.",
+        "Infección y dolor.",
+        "Trismus, (limitación de la apertura de la boca), que usualmente dura algunos días pero puede persistir durante un período más prolongado.",
+        "Parestesia (pérdida de la sensibilidad).",
+        "Hemorragia (sangrado abundante)."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Riesgos personalizados: además de los riesgos antes descriptos, por mis circunstancias especiales hay que esperar los siguientes riesgos: Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Medicación indicada:"
+    },
+    {
+      "t": "campo",
+      "campo": "medicacion_pre",
+      "etiqueta": "Pre quirúrgico",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "medicacion_post",
+      "etiqueta": "Post quirúrgico",
+      "texto": "No consigna"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Consecuencias de la no realización del procedimiento propuesto: la no realización de la toma de material, implica no poder brindar un diagnóstico de certeza sobre la patología que usted padece, impidiendo como consecuencia brindar un tratamiento adecuado al caso."
+    },
+    {
+      "t": "campo",
+      "campo": "otros",
+      "etiqueta": "Otros",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Todas mis dudas han sido aclaradas y estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento. Si al momento de la intervención surgiera una situación anátomo patológica distinta y más grave a la prevista, doy mi consentimiento para que se actúe del modo más conocido, según la ciencia y conciencia respecto a lo programado, por el exclusivo interés de mi salud. Asimismo, doy consentimiento para la administración de anestesia local que se aplicará para la realización de dicho tratamiento delegando al odontólogo el tipo de anestesia y me comprometo a regresar a la próxima consulta el día 07/03/1984, hora 09:30."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la que suscribe __________, DNI N° __________, con domicilio en calle __________, otorgo mi consentimiento para que se me realice la/las extracción/es del/los elemento/s Ejemplo de zona propuesto por el Dr/a Ejemplo de profesional."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 152,
+          "y": 103.6,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "zona",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 221.5,
+          "y": 193.6,
+          "texto": "Ejemplo de zona"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamientos_alternativos",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 362.4,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 375.1,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "riesgos_personalizados",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 120,
+          "y": 672.8,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 686.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicacion_pre",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 160.5,
+          "y": 82.6,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 160.5,
+          "y": 97.95,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicacion_post",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 156.5,
+          "y": 127,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "otros",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 113.5,
+          "y": 228.1,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 86,
+          "y": 240.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_dia",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 257.44,
+          "y": 356.3,
+          "texto": "07"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_mes",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 299.19,
+          "y": 356.3,
+          "texto": "03"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_anio",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 333.88,
+          "y": 356.3,
+          "texto": "1984"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "proxima_consulta_hora",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 396,
+          "y": 356.3,
+          "texto": "09:30"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "zona_otorga",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 437.1,
+          "texto": "Ejemplo de zona"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86,
+          "y": 450.8,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

@@ -367,22 +367,66 @@ describe("el registro", () => {
   });
 
   it("plantillaPorId devuelve la última versión, o la pedida", () => {
-    expect(plantillaPorId("consentimiento-tratamiento-conducto")?.version).toBe(1);
+    expect(plantillaPorId("consentimiento-tratamiento-conducto")?.version).toBe(2);
     expect(plantillaPorId("consentimiento-tratamiento-conducto", 1)?.nombre).toBe("Tratamiento de conducto");
     expect(plantillaPorId("consentimiento-tratamiento-conducto", 99)).toBeUndefined();
     expect(plantillaPorId("no-existe")).toBeUndefined();
+    // El selector ofrece una sola: la última, en el lugar de la primera.
+    const vigentes = plantillasVigentes();
+    expect(vigentes.filter((p) => p.id === "consentimiento-tratamiento-conducto").map((p) => p.version)).toEqual([2]);
+    expect(vigentes.findIndex((p) => p.id === "consentimiento-tratamiento-conducto")).toBe(1);
+  });
+
+  // Pedido del cliente (2026-09-29): los datos de quien suscribe —y, en los
+  // que los tienen, el asentimiento y las aclaraciones de las firmas— se
+  // completan a mano en la hoja impresa. No son campos: no hay nada que
+  // cargar ni que precargar.
+  it("lo que se completa a mano no es un campo de ningún consentimiento vigente", () => {
+    const aMano = /^(suscribe_|representante_(nombre|dni|domicilio|edad|relacion|vinculo)$|menor_|asentimiento$|consentimiento$)/;
+    for (const p of plantillasVigentes().filter((q) => q.tipo === "consentimiento")) {
+      const sobran = camposDe(p)
+        .map((c) => c.id)
+        .filter((id) => aMano.test(id));
+      expect(sobran, p.id).toEqual([]);
+    }
+  });
+
+  it("la versión 2 del conducto es la 1 sin los datos de quien suscribe, con su renglón en blanco", () => {
+    const v1 = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
+    const v2 = plantillaPorId("consentimiento-tratamiento-conducto", 2) as Plantilla;
+    expect(camposDe(v1).map((c) => c.id)).toContain("suscribe_dni");
+    expect(camposDe(v2).map((c) => c.id)).toEqual(camposDe(v1).map((c) => c.id).filter((id) => !id.startsWith("suscribe_")));
+    expect(v2.lamina!.zonas.map((z) => z.id)).not.toContain("suscribe_nombre");
+    const cuerpo = armarCuerpo(v2, valoresDeEjemplo(v2), contexto, "sellado");
+    const suscribe = cuerpo.find((b) => b.t === "parrafo" && b.texto.startsWith("El/la que suscribe"));
+    expect(suscribe).toMatchObject({ texto: expect.stringContaining("El/la que suscribe __________, fecha de nacimiento __________, DNI N° __________") });
+    // El resto del texto legal, idéntico.
+    expect(v2.cuerpo.filter((b) => !(b.t === "parrafo" && b.texto.includes("suscribe")))).toEqual(
+      v1.cuerpo.filter((b) => !(b.t === "parrafo" && b.texto.includes("suscribe"))),
+    );
   });
 
   it("el buscador ignora tildes y mayúsculas", () => {
     expect(normalizar(" Extracción ")).toBe("extraccion");
     expect(buscarPlantillas("CONDUCTO").map((p) => p.id)).toEqual(["consentimiento-tratamiento-conducto"]);
     expect(buscarPlantillas("consentimiento informado conducto")).toHaveLength(1);
-    expect(buscarPlantillas("ortodoncia")).toEqual([]);
+    expect(buscarPlantillas("ortodoncia").map((p) => p.id)).toContain("consentimiento-ortodoncia");
+    expect(buscarPlantillas("protesis removible").map((p) => p.id)).toEqual(["consentimiento-protesis-removible"]);
+    expect(buscarPlantillas("blanqueamiento")).toEqual([]);
     expect(buscarPlantillas("  ")).toHaveLength(plantillasVigentes().length);
   });
 
+  it("están los catorce consentimientos del Colegio, todos con su lámina, y el de COVID afuera (D6)", () => {
+    const consentimientos = plantillasVigentes().filter((p) => p.tipo === "consentimiento");
+    expect(consentimientos).toHaveLength(14);
+    expect(consentimientos.every((p) => p.lamina)).toBe(true);
+    expect(consentimientos.some((p) => normalizar(p.nombre).includes("covid"))).toBe(false);
+    // Todos se firman en papel (TR-188).
+    expect(consentimientos.every((p) => seFirmaEnPapel(p))).toBe(true);
+  });
+
   it("el consentimiento de conducto se lee con las piezas en orden y sin huecos", () => {
-    const p = plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla;
+    const p = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
     const cuerpo = armarCuerpo(p, valoresDeEjemplo(p), contexto, "sellado");
     const suscribe = cuerpo.find((b) => b.t === "parrafo" && b.texto.startsWith("El/la que suscribe"));
     expect(suscribe).toMatchObject({ texto: expect.stringContaining("en el elemento N° 11, 36, 37 propuesto") });

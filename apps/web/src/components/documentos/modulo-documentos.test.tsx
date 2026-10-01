@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { plantillaPorId, type Plantilla } from "@dental-mirage/documentos-clinicos";
 import { muestrasSiFaltan, MODELOS_PARA_LA_PILA, esMuestra } from "@/lib/documentos-de-muestra";
 import { conducto, todoTipo } from "./fixtures";
 
@@ -188,6 +189,25 @@ describe("ModuloDocumentos", () => {
     fireEvent.pointerLeave(hoja);
     expect(hoja.dataset.inclinada).toBeUndefined();
     expect(hoja.style.getPropertyValue("--pila-ry")).toBe("");
+  });
+
+  // Pedido del cliente (2026-09-29): sedoanalgesia, de cuatro páginas, se
+  // movía brusco. El vaivén y la inclinación se dividen por las páginas.
+  it("una hoja de varias páginas se mueve menos: la amplitud es 1 sobre sus páginas", () => {
+    const sedoanalgesia = plantillaPorId("consentimiento-sedoanalgesia") as Plantilla;
+    render(<ModuloDocumentos plantillas={[conducto, sedoanalgesia]} hoy="2026-09-27" />);
+    const pila = screen.getByTestId("pila-de-modelos");
+    expect((pila.querySelector(".pila-frente") as HTMLElement).style.getPropertyValue("--pila-amplitud")).toBe("1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Documento siguiente" }));
+    const frente = pila.querySelector(".pila-frente") as HTMLElement;
+    expect(frente.style.getPropertyValue("--pila-amplitud")).toBe("0.25");
+    const hoja = pila.querySelector(".pila-inclina") as HTMLElement;
+    hoja.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 1040, right: 200, bottom: 1040, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerMove(hoja, { pointerType: "mouse", clientX: 200, clientY: 260 });
+    // Hacia adelante y atrás, un cuarto; de costado, igual que en una página.
+    expect(hoja.style.getPropertyValue("--pila-rx")).toBe("0.56deg");
+    expect(hoja.style.getPropertyValue("--pila-ry")).toBe("6.00deg");
   });
 
   it("las hojas de muestra completan la pila: se recorren, van en su grupo, y no se completan", () => {

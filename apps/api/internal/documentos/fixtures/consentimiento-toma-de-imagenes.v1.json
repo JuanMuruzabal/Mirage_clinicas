@@ -1,0 +1,227 @@
+{
+  "plantilla": "consentimiento-toma-de-imagenes",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "profesional_nombre": "Ejemplo de odontóloga/o",
+    "profesional_matricula": "1234",
+    "paciente_nombre": "Ejemplo de paciente",
+    "tutor_nombre": "Ejemplo de padre,",
+    "medios": "Ejemplo de medios"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado para la toma de imágenes y difusión"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Córdoba, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Odontóloga/o: Ejemplo de odontóloga/o. MP: 1234."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Paciente: Ejemplo de paciente."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Padre, madre o tutor (en caso de ser menor de edad): Ejemplo de padre,."
+    },
+    {
+      "t": "parrafo",
+      "texto": "A través del presente autorizo al/la Odontólogo/a Ejemplo de odontóloga/o a tomar imágenes de mi cavidad bucal y/o región labial (tercio inferior facial), tanto antes, durante y luego de la finalización del tratamiento profesional que se me está realizando."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Las imágenes, sean fotografías, radiografías, filmaciones de video o similares, podrán ser utilizadas por el/la Odontólogo/a Ejemplo de odontóloga/o para documentar el seguimiento de los tratamientos, o con finalidades científicas, didácticas y/o académicas."
+    },
+    {
+      "t": "parrafo",
+      "texto": "La suscripción del presente consentimiento importa la autorización expresa al profesional no solo de la toma de las imágenes de referencia sino asimismo a su difusión por los siguientes medios y redes sociales: Ejemplo de medios."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Se deja expresa constancia que por razones de privacidad, el/la odontólogo/a no divulgará el rostro del paciente, su nombre completo ni ningún dato que permita identificarlo, salvo que el paciente lo solicite expresamente, lo cual deberá constar por escrito en este documento."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la odontólogo/a Ejemplo de odontóloga/o será responsable de la custodia y seguridad de las imágenes, adoptando las medidas necesarias para garantizar la privacidad del paciente."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Se deja constancia que el paciente no recibirá ninguna compensación o retribución económica por la autorización de toma de imágenes ni tendrá derecho alguno a reclamarla en el futuro, salvo convención en contrario que formulen por escrito las partes."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Si el paciente se arrepintiera de la presente autorización, deberá notificar fehacientemente de tal situación dejando sin efecto la presente."
+    },
+    {
+      "t": "parrafo",
+      "texto": "La suscripción del presente por parte del paciente importa su consentimiento y aceptación expresa."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "fecha_dia",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 378.14,
+          "y": 223.1,
+          "texto": "27"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_mes",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 428.32,
+          "y": 223.1,
+          "texto": "septiembre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_anio",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 511.19,
+          "y": 223.1,
+          "texto": "26"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 184,
+          "y": 257.7,
+          "texto": "Ejemplo de odontóloga/o"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 427,
+          "y": 257.7,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "paciente_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 146.5,
+          "y": 285.5,
+          "texto": "Ejemplo de paciente"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tutor_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 385,
+          "y": 313.5,
+          "texto": "Ejemplo de padre,"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_autoriza",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 324,
+          "y": 376,
+          "texto": "Ejemplo de odontóloga/o"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_utiliza",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 274,
+          "y": 472.8,
+          "texto": "Ejemplo de odontóloga/o"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medios",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 205,
+          "y": 569.6,
+          "texto": "Ejemplo de medios"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_custodia",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 175,
+          "y": 225.6,
+          "texto": "Ejemplo de odontóloga/o"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

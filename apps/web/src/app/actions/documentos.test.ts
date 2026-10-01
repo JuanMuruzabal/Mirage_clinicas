@@ -51,6 +51,10 @@ describe("acciones de documentos", () => {
     api.apiCrearDocumento.mockResolvedValue({ ok: true, data: { ...documento, retomado: true } });
     await expect(crearDocumentoAction("plantilla", "pac-1")).rejects.toThrow("REDIRECT:/panel/documentos/doc-1?retomado=1");
 
+    // Y era de una versión anterior del documento: pasó a la vigente, y el editor también lo avisa.
+    api.apiCrearDocumento.mockResolvedValue({ ok: true, data: { ...documento, retomado: true, versionActualizada: true } });
+    await expect(crearDocumentoAction("plantilla", "pac-1")).rejects.toThrow("REDIRECT:/panel/documentos/doc-1?retomado=1&actualizado=1");
+
     api.apiCrearDocumento.mockResolvedValue({ ok: false, status: 409, error: "conflicto" });
     await expect(crearDocumentoAction("plantilla", "pac-1")).resolves.toEqual({ error: "conflicto" });
   });

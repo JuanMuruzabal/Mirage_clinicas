@@ -243,7 +243,22 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		return fmt.Errorf("automigrate: %w", err)
 	}
 
-	statements := []string{
+	// Sentencias comunes (string, corren siempre) mezcladas con pasos con
+	// huella (los que REEMPLAZAN algo que ya existe: corren solo si su SQL
+	// cambió o si el objeto falta) y pasos "si hace falta" (los que CREAN
+	// algo una sola vez o fijan una propiedad de columna: corren solo si el
+	// catálogo dice que falta) — ver migrate_con_huella.go. Una sola lista
+	// porque el orden importa.
+	//
+	// Regla para lo que se sume acá (deadlock de CI, PR #83): una corrida
+	// en la que nada cambió no ejecuta ningún DDL. Un `ALTER TABLE`, un
+	// `CREATE INDEX IF NOT EXISTS` o un `ADD CONSTRAINT` dentro de un `DO …
+	// EXCEPTION` toman el lock de la tabla ANTES de ver que no hay nada que
+	// hacer, y trababan a los tests de los otros paquetes. Lo único que
+	// queda como string son las funciones (`CREATE OR REPLACE FUNCTION`, sin
+	// lock de tabla), los `UPDATE`/`INSERT` de backfill (lock de fila) y lo
+	// que ya pregunta antes de tocar (`DO $$ … IF … THEN ALTER`).
+	statements := []any{
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
 
 		// Fase 3.2.3: el código con el que una persona se ofrece para que
@@ -257,9 +272,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Único porque el código ES la identidad con la que la clínica va
 		// a cargar a alguien en su equipo (3.2.4): dos personas con el
 		// mismo código sería sumar a la equivocada.
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_codigo_invitacion
+		crearIndiceSiFalta("idx_users_codigo_invitacion",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_codigo_invitacion
 			ON users (codigo_invitacion)
-			WHERE codigo_invitacion IS NOT NULL`,
+			WHERE codigo_invitacion IS NOT NULL`),
 
 		// La matrícula identifica a UNA persona ante su colegio: dos
 		// odontólogos no pueden compartirla. Hasta hoy nada lo impedía —
@@ -297,9 +313,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// cuentas se queda con ella. Es a propósito que corte el arranque
 		// — una regla de identidad que se aplica "salvo para las filas que
 		// ya estaban mal" no es una regla.
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_matricula_unica
+		crearIndiceSiFalta("idx_matricula_unica",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_matricula_unica
 			ON professional_profiles (matricula_tipo, matricula_numero)
-			WHERE matricula_numero <> ''`,
+			WHERE matricula_numero <> ''`),
 
 		// Fase 3.2.1 (TR-137): la regla de exclusión de roles, declarada en
 		// el motor y no validada en la aplicación.
@@ -312,9 +329,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		//
 		// Mismo criterio que el no-solapamiento de turnos (spec §4.3): una
 		// regla que no se puede violar no se valida, se declara.
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_rol_excluyente
+		crearIndiceSiFalta("idx_rol_excluyente",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_rol_excluyente
 			ON clinic_member_roles (clinic_member_id)
-			WHERE rol IN ('profesional', 'recepcion')`,
+			WHERE rol IN ('profesional', 'recepcion')`),
 
 		// El traslado de `role` a la tabla vive dentro de la migración
 		// destructiva que borra la columna (migrate_destructiva.go), no acá:
@@ -353,29 +371,32 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// AutoMigrate crea checks nuevos pero NO modifica los que ya
 		// existen: el tag del modelo cambió y la base se habría quedado con
 		// el check viejo, rechazando el estado nuevo sin que nada avisara.
-		`ALTER TABLE clinic_members DROP CONSTRAINT IF EXISTS chk_clinic_members_status`,
-		`ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_members_status
-			CHECK (status IN ('active','invited','removed'))`,
+		reemplazarConstraint("clinic_members", "chk_clinic_members_status",
+			`ALTER TABLE clinic_members DROP CONSTRAINT IF EXISTS chk_clinic_members_status`,
+			`ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_members_status
+			CHECK (status IN ('active','invited','removed'))`),
 
 		// Columna generada: se recalcula sola a partir de hora_inicio/hora_fin.
 		// Con ambos NULL (turnos `pendiente`, que todavía no tienen horario
 		// asignado — spec §4.3/§4.4) da un rango vacío, que nunca conflictúa
 		// con nada — el exclusion constraint de abajo solo mira turnos
 		// `agendado` de todos modos (TR-006).
-		`ALTER TABLE turnos
+		agregarColumnaSiFalta("turnos", "rango_horario",
+			`ALTER TABLE turnos
 		   ADD COLUMN IF NOT EXISTS rango_horario tstzrange
-		   GENERATED ALWAYS AS (tstzrange(hora_inicio, hora_fin, '[)')) STORED`,
+		   GENERATED ALWAYS AS (tstzrange(hora_inicio, hora_fin, '[)')) STORED`),
 
 		// Un turno `agendado` no puede tener horario nulo (evita que termine
 		// con un rango_horario vacío que lo deje fuera del constraint por
 		// error de datos, no por diseño).
-		`DO $$ BEGIN
+		crearConstraintSiFalta("turnos", "chk_turno_agendado_horario",
+			`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_agendado_horario
 		     CHECK (
 		       estado <> 'agendado'
 		       OR (hora_inicio IS NOT NULL AND hora_fin IS NOT NULL AND hora_fin > hora_inicio)
 		     );
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// Fase 3.2.1 (TR-137): poblar el profesional de cada fila con el
 		// `owner` de su clínica, que hasta hoy era su único profesional.
@@ -435,36 +456,42 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// restricción pasa a cubrir también las viejas. Si queda alguna,
 		// sigue sin validar y la migración sigue de largo: la garantía
 		// para lo nuevo ya está puesta.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("tipos_consulta", "chk_tipo_consulta_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE tipos_consulta ADD CONSTRAINT chk_tipo_consulta_con_duenio
 		     CHECK (user_id IS NOT NULL) NOT VALID;
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-		`DO $$ BEGIN
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		crearConstraintSiFalta("horarios_atencion", "chk_horario_atencion_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_con_duenio
 		     CHECK (user_id IS NOT NULL) NOT VALID;
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-		`DO $$ BEGIN
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		crearConstraintSiFalta("bloqueos_horario", "chk_bloqueo_horario_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_con_duenio
 		     CHECK (user_id IS NOT NULL) NOT VALID;
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 		//
 		// Un bloque por tabla: dentro de un mismo bloque, la validación
 		// que falla deshace también las que ya habían pasado.
-		`DO $$ BEGIN
+		validarConstraintSiFalta("tipos_consulta", "chk_tipo_consulta_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE tipos_consulta VALIDATE CONSTRAINT chk_tipo_consulta_con_duenio;
 		 EXCEPTION WHEN check_violation THEN
 		   RAISE NOTICE 'quedan tipos de consulta sin dueño: la restricción cubre solo los nuevos';
-		 END $$`,
-		`DO $$ BEGIN
+		 END $$`),
+		validarConstraintSiFalta("horarios_atencion", "chk_horario_atencion_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_atencion VALIDATE CONSTRAINT chk_horario_atencion_con_duenio;
 		 EXCEPTION WHEN check_violation THEN
 		   RAISE NOTICE 'quedan horarios de atención sin dueño: la restricción cubre solo los nuevos';
-		 END $$`,
-		`DO $$ BEGIN
+		 END $$`),
+		validarConstraintSiFalta("bloqueos_horario", "chk_bloqueo_horario_con_duenio",
+			`DO $$ BEGIN
 		   ALTER TABLE bloqueos_horario VALIDATE CONSTRAINT chk_bloqueo_horario_con_duenio;
 		 EXCEPTION WHEN check_violation THEN
 		   RAISE NOTICE 'quedan horarios reservados sin dueño: la restricción cubre solo los nuevos';
-		 END $$`,
+		 END $$`),
 
 		// Todo turno `agendado` tiene que decir quién lo atiende, y no es
 		// una formalidad: el exclusion constraint de más abajo compara
@@ -475,10 +502,11 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		//
 		// Lo encontró el test del requisito no negociable (spec §4.3) al
 		// fallar tras mudar la constraint, no una lectura del código.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("turnos", "chk_turno_agendado_profesional",
+			`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_agendado_profesional
 		     CHECK (estado <> 'agendado' OR atendido_por_user_id IS NOT NULL);
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// La FK COMPUESTA, que es lo que hace imposible asignarle un turno a
 		// alguien que no es miembro de esa clínica. Postgres la acepta
@@ -488,11 +516,12 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// se borrara, esta constraint bloquearía la baja de cualquier
 		// profesional con historial. Se marca `status='removed'` en su
 		// lugar.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("turnos", "fk_turnos_profesional_de_la_clinica",
+			`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT fk_turnos_profesional_de_la_clinica
 		     FOREIGN KEY (clinic_id, atendido_por_user_id)
 		     REFERENCES clinic_members (clinic_id, user_id);
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// La constraint central del proyecto (spec §4.3): a nivel de base de
 		// datos, dos turnos `agendado` del mismo PROFESIONAL no pueden tener
@@ -515,8 +544,15 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// nombre, así que el ADD de abajo se saltearía en silencio por el
 		// EXCEPTION de duplicate_object y la base se quedaría con la regla
 		// equivocada, sin que nada avisara.
-		`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS sin_solapamiento_turno`,
-		`DO $$ BEGIN
+		//
+		// Con huella (deadlock de CI, PR #83): el DROP + ADD reconstruía el
+		// índice GiST entero con ACCESS EXCLUSIVE sobre `turnos`, la tabla
+		// que lee casi cualquier test, en cada arranque. Ahora corre solo si
+		// esta definición cambió o si la constraint falta — nunca queda la
+		// base sin la regla, porque si falta se crea.
+		reemplazarConstraint("turnos", "sin_solapamiento_turno",
+			`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS sin_solapamiento_turno`,
+			`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT sin_solapamiento_turno
 		     EXCLUDE USING gist (
 		       atendido_por_user_id WITH =,
@@ -526,20 +562,21 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		 EXCEPTION
 		   WHEN duplicate_object THEN NULL;
 		   WHEN duplicate_table THEN NULL;
-		 END $$`,
+		 END $$`),
 
 		// F2.3 (TR-084): un BloqueoHorario es o bien general (repite por
 		// dia_semana, con alcance/fecha_desde/fecha_hasta) o bien específico
 		// (una fecha puntual, sin dia_semana/alcance) — nunca una mezcla de
 		// campos de los dos casos ni ninguno de los dos.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("bloqueos_horario", "chk_bloqueo_horario_forma",
+			`DO $$ BEGIN
 		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_forma
 		     CHECK (
 		       (especifico = true AND fecha IS NOT NULL AND dia_semana IS NULL AND alcance IS NULL)
 		       OR
 		       (especifico = false AND fecha IS NULL AND dia_semana IS NOT NULL AND alcance IS NOT NULL)
 		     );
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// DROP + ADD (no el patrón DO $$/duplicate_object de arriba): esta
 		// constraint cambió de valores permitidos (corrección de QA,
@@ -547,40 +584,45 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// duplicate_object, una constraint ya creada con los valores VIEJOS
 		// nunca se actualizaría sola. DROP CONSTRAINT IF EXISTS ya es
 		// idempotente por sí solo.
-		`ALTER TABLE bloqueos_horario DROP CONSTRAINT IF EXISTS chk_bloqueo_horario_alcance`,
-		`ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_alcance
-		   CHECK (alcance IS NULL OR alcance IN ('semana','mes','todos','proxima_semana','proximo_mes'))`,
+		reemplazarConstraint("bloqueos_horario", "chk_bloqueo_horario_alcance",
+			`ALTER TABLE bloqueos_horario DROP CONSTRAINT IF EXISTS chk_bloqueo_horario_alcance`,
+			`ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_alcance
+		   CHECK (alcance IS NULL OR alcance IN ('semana','mes','todos','proxima_semana','proximo_mes'))`),
 
-		`DO $$ BEGIN
+		crearConstraintSiFalta("bloqueos_horario", "chk_bloqueo_horario_tipo_regla",
+			`DO $$ BEGIN
 		   ALTER TABLE bloqueos_horario ADD CONSTRAINT chk_bloqueo_horario_tipo_regla
 		     CHECK (tipo_regla = 'bloquear_horario');
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// horarios_atencion (corrección de QA, 2026-09-01): "general" es
 		// la única fila sin vigencia acotada; las demás SIEMPRE la tienen
 		// (se resuelve un rango concreto al crearlas, igual que
 		// bloqueos_horario) — nunca una mezcla de los dos casos.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("horarios_atencion", "chk_horario_atencion_forma",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_forma
 		     CHECK (
 		       (alcance = 'general' AND fecha_desde IS NULL AND fecha_hasta IS NULL)
 		       OR (alcance <> 'general' AND fecha_desde IS NOT NULL AND fecha_hasta IS NOT NULL)
 		     );
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
-		`DO $$ BEGIN
+		crearConstraintSiFalta("horarios_atencion", "chk_horario_atencion_alcance",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_alcance
 		     CHECK (alcance IN ('general','semana','mes','rango'));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// hora_desde/hora_hasta viajan siempre juntas — las dos NULL a la
 		// vez es "no trabaja" ese período (corrección de QA: "si hay un
 		// día que no trabaja el profesional, mostrar no hay horarios
 		// disponibles"), nunca una sola de las dos.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("horarios_atencion", "chk_horario_atencion_horas",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_atencion ADD CONSTRAINT chk_horario_atencion_horas
 		     CHECK ((hora_desde IS NULL) = (hora_hasta IS NULL));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// A lo sumo una fila "general" POR PROFESIONAL — el CRUD la trata
 		// como upsert (internal/http/horario_atencion.go), este índice es
@@ -597,10 +639,12 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// la 3.2.1 lo tienen nulo— y en un índice único dos NULL nunca son
 		// iguales: sin esto, una clínica vieja podría juntar varias filas
 		// generales huérfanas, que es justo lo que este índice evita.
-		`DROP INDEX IF EXISTS idx_horario_atencion_general_unico`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_por_profesional
+		borrarIndiceSiExiste("idx_horario_atencion_general_unico",
+			`DROP INDEX IF EXISTS idx_horario_atencion_general_unico`),
+		crearIndiceSiFalta("idx_horario_atencion_general_por_profesional",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_horario_atencion_general_por_profesional
 		   ON horarios_atencion (clinic_id, COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid))
-		   WHERE alcance = 'general'`,
+		   WHERE alcance = 'general'`),
 
 		// Extra 2.3.5 (docs/Arquitectura y base/implementation-plan.md §11.5, E5.1): un mismo DNI
 		// no puede tener dos fichas de Paciente dentro de la misma clínica —
@@ -620,9 +664,15 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// (no el patrón `IF NOT EXISTS` de antes, que no re-crea un índice
 		// ya existente aunque cambie el predicado — mismo criterio que
 		// chk_turnos_estado en TR-104).
-		`DROP INDEX IF EXISTS idx_paciente_dni_unico`,
-		`CREATE UNIQUE INDEX idx_paciente_dni_unico
-		   ON pacientes (clinic_id, dni) WHERE NOT en_conflicto`,
+		//
+		// Con huella (deadlock de CI, PR #83): el DROP INDEX toma ACCESS
+		// EXCLUSIVE sobre `pacientes` — fue el protagonista del deadlock del
+		// 2026-09-09 (ver el comentario de RunMigrations). Ahora el DROP +
+		// CREATE corre solo si esta definición cambió o si el índice falta.
+		reemplazarIndice("idx_paciente_dni_unico",
+			`DROP INDEX IF EXISTS idx_paciente_dni_unico`,
+			`CREATE UNIQUE INDEX idx_paciente_dni_unico
+		   ON pacientes (clinic_id, dni) WHERE NOT en_conflicto`),
 
 		// El `DELETE FROM turnos WHERE estado = 'pendiente'` que estaba acá
 		// se movió al bloque de migraciones destructivas (Fase C de la
@@ -634,10 +684,12 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// todo) — con duplicate_object, una constraint ya creada con los
 		// valores VIEJOS nunca se actualizaría sola. DROP CONSTRAINT IF
 		// EXISTS ya es idempotente por sí solo.
-		`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS chk_turnos_estado`,
-		`ALTER TABLE turnos ADD CONSTRAINT chk_turnos_estado
-		   CHECK (estado IN ('agendado', 'cancelada'))`,
-		`ALTER TABLE turnos ALTER COLUMN estado SET DEFAULT 'agendado'`,
+		reemplazarConstraint("turnos", "chk_turnos_estado",
+			`ALTER TABLE turnos DROP CONSTRAINT IF EXISTS chk_turnos_estado`,
+			`ALTER TABLE turnos ADD CONSTRAINT chk_turnos_estado
+		   CHECK (estado IN ('agendado', 'cancelada'))`),
+		fijarDefaultSiDistinto("turnos", "estado", "'agendado'::character varying",
+			`ALTER TABLE turnos ALTER COLUMN estado SET DEFAULT 'agendado'`),
 
 		// Corrección de QA (bug real encontrado en producción/QA local):
 		// idx_paciente_email_alt/idx_paciente_telefono_alt nacieron como
@@ -651,12 +703,15 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// mismo criterio que idx_paciente_dni_unico/chk_turnos_estado de
 		// arriba) para que la corrección aplique también sobre una base
 		// que ya haya creado el índice viejo.
-		`DROP INDEX IF EXISTS idx_paciente_email_alt`,
-		`CREATE UNIQUE INDEX idx_paciente_email_alt
-		   ON paciente_emails_alternativos (paciente_id, email)`,
-		`DROP INDEX IF EXISTS idx_paciente_telefono_alt`,
-		`CREATE UNIQUE INDEX idx_paciente_telefono_alt
-		   ON paciente_telefonos_alternativos (paciente_id, telefono)`,
+		// Con huella, mismo motivo que idx_paciente_dni_unico.
+		reemplazarIndice("idx_paciente_email_alt",
+			`DROP INDEX IF EXISTS idx_paciente_email_alt`,
+			`CREATE UNIQUE INDEX idx_paciente_email_alt
+		   ON paciente_emails_alternativos (paciente_id, email)`),
+		reemplazarIndice("idx_paciente_telefono_alt",
+			`DROP INDEX IF EXISTS idx_paciente_telefono_alt`,
+			`CREATE UNIQUE INDEX idx_paciente_telefono_alt
+		   ON paciente_telefonos_alternativos (paciente_id, telefono)`),
 
 		// Corrección de seguridad (Fase 2.4.1, modo simulado): el check
 		// constraint de auditoria_bloqueos_turno_publico.motivo nació con
@@ -666,9 +721,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// chk_turnos_estado más arriba (duplicate_object no alcanza:
 		// una constraint ya creada con los valores viejos nunca se
 		// actualizaría sola).
-		`ALTER TABLE auditoria_bloqueos_turno_publico DROP CONSTRAINT IF EXISTS chk_auditoria_bloqueos_turno_publico_motivo`,
-		`ALTER TABLE auditoria_bloqueos_turno_publico ADD CONSTRAINT chk_auditoria_bloqueos_turno_publico_motivo
-		   CHECK (motivo IN ('mail_muchos_dnis', 'ip_rotacion', 'dni_tipo_tope'))`,
+		reemplazarConstraint("auditoria_bloqueos_turno_publico", "chk_auditoria_bloqueos_turno_publico_motivo",
+			`ALTER TABLE auditoria_bloqueos_turno_publico DROP CONSTRAINT IF EXISTS chk_auditoria_bloqueos_turno_publico_motivo`,
+			`ALTER TABLE auditoria_bloqueos_turno_publico ADD CONSTRAINT chk_auditoria_bloqueos_turno_publico_motivo
+		   CHECK (motivo IN ('mail_muchos_dnis', 'ip_rotacion', 'dni_tipo_tope'))`),
 
 		// Fase 2.4.2 (`docs/Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx`,
 		// camino "sacar turno para otro"): teléfono del PACIENTE pasa a
@@ -678,17 +734,19 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// así que hace falta a mano. Ningún dato existente se pierde ni
 		// puede fallar: `DROP NOT NULL` es una operación segura sobre filas
 		// que ya tienen un valor (nunca NULL).
-		`ALTER TABLE pacientes ALTER COLUMN telefono DROP NOT NULL`,
+		quitarNotNullSiHaceFalta("pacientes", "telefono",
+			`ALTER TABLE pacientes ALTER COLUMN telefono DROP NOT NULL`),
 
 		// Tutor* de `turnos` (Fase 2.4.2) — snapshot paralelo, sin cambios
 		// en esta ronda (ver el comentario grande en models.go sobre por
 		// qué `Turno` tiene su propio set, independiente de PacienteTutor).
 		// Nullable: la enorme mayoría de los turnos nunca tiene tutor, el
 		// constraint solo restringe el valor CUANDO está presente.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("turnos", "chk_turno_tutor_relacion",
+			`DO $$ BEGIN
 		   ALTER TABLE turnos ADD CONSTRAINT chk_turno_tutor_relacion
 		     CHECK (tutor_relacion IS NULL OR tutor_relacion IN ('familiar','amigo','otro'));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// Ronda de correcciones (2026-09-06): un paciente puede tener más
 		// de un tutor — las 5 columnas Tutor* de `pacientes` (un único
@@ -704,10 +762,11 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// de arriba, acá NUNCA es null (cada fila ES un tutor, por
 		// definición) — el check queda sin el "IS NULL OR" que sí hace
 		// falta en las otras dos tablas.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("paciente_tutores", "chk_paciente_tutor_relacion",
+			`DO $$ BEGIN
 		   ALTER TABLE paciente_tutores ADD CONSTRAINT chk_paciente_tutor_relacion
 		     CHECK (relacion IN ('familiar','amigo','otro'));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// Tercera ronda de correcciones (2026-09-06), pedido textual del
 		// cliente: "sigue pidiendo DNI 'para otro'... sacarlo del todo, no
@@ -722,46 +781,52 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Color del nombre sobre la portada (Fase 4.4): set curado, espejo de
 		// coloresNombreValidos (internal/http/pagina_publica.go) y de
 		// COLORES_NOMBRE (apps/web/src/lib/pagina-publica/portada.ts).
-		`DO $$ BEGIN
+		crearConstraintSiFalta("paginas_publicas", "chk_pagina_publica_nombre_color",
+			`DO $$ BEGIN
 		   ALTER TABLE paginas_publicas ADD CONSTRAINT chk_pagina_publica_nombre_color
 		     CHECK (nombre_color IN ('', 'blanco', 'negro', 'dorado', 'celeste'));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// PE-8: el número de versión es secuencial POR PÁGINA — dos
 		// "Publicar" concurrentes no pueden terminar con el mismo número
 		// (publicarPaginaPublicaHandler calcula MAX(numero)+1 dentro de una
 		// transacción, pero este índice es la garantía real a nivel base).
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pagina_publica_versiones_numero
-		   ON pagina_publica_versiones (pagina_publica_id, numero)`,
+		crearIndiceSiFalta("idx_pagina_publica_versiones_numero",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_pagina_publica_versiones_numero
+		   ON pagina_publica_versiones (pagina_publica_id, numero)`),
 
 		// TR-179: el número de la campana se pide seguido (cada vez que la
 		// pantalla vuelve a tener foco, y cada minuto). Índice PARCIAL solo
 		// sobre las nuevas: las leídas crecen sin techo, y ese conteo no
 		// tiene por qué recorrerlas (TR-162: en un endpoint sondeado, el
 		// costo es por minuto y por persona).
-		`CREATE INDEX IF NOT EXISTS idx_notificaciones_nuevas
-		   ON notificaciones (user_id) WHERE leida_en IS NULL`,
+		crearIndiceSiFalta("idx_notificaciones_nuevas",
+			`CREATE INDEX IF NOT EXISTS idx_notificaciones_nuevas
+		   ON notificaciones (user_id) WHERE leida_en IS NULL`),
 
 		// PE-6: validaciones estructurales del horario del edificio. Los
 		// intervalos HH:MM y su orden se validan en el endpoint; estos CHECK
 		// impiden días fuera de rango y más de dos franjas, incluso si una
 		// escritura llegara a saltarse la API.
-		`DO $$ BEGIN
+		crearConstraintSiFalta("horarios_clinica", "chk_horarios_clinica_dia",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_clinica ADD CONSTRAINT chk_horarios_clinica_dia
 		     CHECK (dia_semana BETWEEN 0 AND 6);
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-		`DO $$ BEGIN
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		crearConstraintSiFalta("horarios_clinica", "chk_horarios_clinica_franjas",
+			`DO $$ BEGIN
 		   ALTER TABLE horarios_clinica ADD CONSTRAINT chk_horarios_clinica_franjas
 		     CHECK (CASE WHEN jsonb_typeof(franjas) = 'array' THEN
 		       jsonb_array_length(franjas) <= 2
 		       AND ((cerrado AND jsonb_array_length(franjas) = 0)
 		         OR (NOT cerrado AND jsonb_array_length(franjas) BETWEEN 1 AND 2))
 		       ELSE false END);
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-		`DO $$ BEGIN
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		crearConstraintSiFalta("clinic_members", "chk_clinic_member_aval_pagina_fecha",
+			`DO $$ BEGIN
 		   ALTER TABLE clinic_members ADD CONSTRAINT chk_clinic_member_aval_pagina_fecha
 		     CHECK (NOT aval_pagina_publica OR aval_pagina_en IS NOT NULL);
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 	}
 
 	// Migraciones de DATOS que corren UNA SOLA VEZ (Fase B de la auditoría,
@@ -775,9 +840,10 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 	// después del loop (bug real introducido y corregido el 2026-09-08, en
 	// la revisión de código de esta misma tanda): la deduplicación existe
 	// justamente para que `CREATE UNIQUE INDEX idx_paciente_dni_unico`
-	// —que está entre los statements de abajo, y se re-crea sin
-	// IF NOT EXISTS en cada corrida— no falle contra fichas duplicadas ya
-	// cargadas. Con la limpieza DESPUÉS, una base con duplicados reales
+	// —que está entre los statements de abajo, sin IF NOT EXISTS, y se
+	// re-crea cuando su definición cambia o falta (paso con huella desde el
+	// PR #83; hasta ahí, en cada corrida)— no falle contra fichas
+	// duplicadas ya cargadas. Con la limpieza DESPUÉS, una base con duplicados reales
 	// revienta en el CREATE INDEX, toda la transacción hace rollback, y
 	// como los duplicados siguen ahí el próximo arranque falla igual: el
 	// contenedor queda en un loop del que no se sale sin SQL a mano. CI no
@@ -791,16 +857,21 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 
 	// PE-2: los CHECK de tema/variante/tipografía se arman desde el catálogo
 	// embebido (ver checksDelCatalogoDeTemas), no desde una lista a mano.
-	statements = append(statements, checksDelCatalogoDeTemas()...)
+	for _, p := range checksDelCatalogoDeTemas() {
+		statements = append(statements, p)
+	}
 
 	// Fase 5.1 (TR-182): el candado de los documentos clínicos — triggers,
 	// checks e índices. Ver migrate_documentos.go.
 	statements = append(statements, sentenciasDeDocumentos()...)
 
-	for _, stmt := range statements {
-		if err := gdb.Exec(stmt).Error; err != nil {
-			return fmt.Errorf("migración cruda falló (%s): %w", stmt, err)
-		}
+	// La tabla de huellas tiene que existir antes del primer paso con
+	// huella. Va acá y no arriba de todo porque nada antes la usa.
+	if err := crearTablaDeHuellas(gdb); err != nil {
+		return err
+	}
+	if err := aplicarPasosCrudos(gdb, statements); err != nil {
+		return err
 	}
 
 	// Foreign keys — Fase C de la auditoría (ver migrate_fk.go). Van al
@@ -959,29 +1030,34 @@ func renombrarProfesionalIDaClinicID(gdb *gorm.DB) error {
 // ... EXCEPTION WHEN duplicate_object THEN NULL`: ese patrón crea la
 // constraint UNA vez y nunca más la toca, así que sumar un tema al catálogo
 // dejaba la base rechazándolo (23514) sin que nada avisara hasta el primer
-// PATCH real. Ahora cada corrida hace DROP + ADD en UN solo ALTER TABLE
-// (atómico: nunca queda un instante sin la constraint) con la lista vigente.
-// Es barato: paginas_publicas tiene una fila por clínica.
+// PATCH real. Ahora se hace DROP + ADD en UN solo ALTER TABLE (atómico:
+// nunca queda un instante sin la constraint) con la lista vigente, como
+// paso con huella (migrate_con_huella.go): solo cuando el catálogo cambió o
+// la constraint falta. Hasta el PR #83 corría en cada arranque "porque es
+// barato" — y no lo era: la tabla tiene una fila por clínica, pero el lock
+// es ACCESS EXCLUSIVE y trababa a los tests de otros paquetes (deadlock).
 //
 // "" sigue siendo válido en las tres (= sin tema elegido, default de la 4.1).
 // La relación tema↔variante no se puede expresar con un CHECK por columna:
 // la valida el handler (prismaengine.TemaEsValido).
-func checksDelCatalogoDeTemas() []string {
-	return []string{
+func checksDelCatalogoDeTemas() []pasoConHuella {
+	return []pasoConHuella{
 		checkEnCatalogo("chk_pagina_publica_tema", "tema", prismaengine.IDsDeTemas()),
 		checkEnCatalogo("chk_pagina_publica_tema_variante", "tema_variante", prismaengine.IDsDeVariantes()),
 		checkEnCatalogo("chk_pagina_publica_tema_tipografia", "tema_tipografia", prismaengine.IDsDeTipografias()),
 	}
 }
 
-func checkEnCatalogo(nombre, columna string, ids []string) string {
+// checkEnCatalogo — un paso con huella por constraint: el nombre del paso es
+// el de la constraint, y la huella cambia sola cuando cambia el catálogo.
+func checkEnCatalogo(nombre, columna string, ids []string) pasoConHuella {
 	valores := make([]string, 0, len(ids)+1)
 	valores = append(valores, "''")
 	for _, id := range ids {
 		valores = append(valores, "'"+strings.ReplaceAll(id, "'", "''")+"'")
 	}
-	return fmt.Sprintf(
+	return reemplazarConstraint("paginas_publicas", nombre, fmt.Sprintf(
 		"ALTER TABLE paginas_publicas DROP CONSTRAINT IF EXISTS %s, ADD CONSTRAINT %s CHECK (%s IN (%s))",
 		nombre, nombre, columna, strings.Join(valores, ", "),
-	)
+	))
 }

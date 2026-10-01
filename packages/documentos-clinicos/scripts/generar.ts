@@ -51,6 +51,11 @@ const CASOS_DE_COMPOSICION: { zona: Zona; texto: string }[] = [
   { zona: ZONA_PARRAFO, texto: `${LARGO}\nSegunda indicación.\n\nTercera, después de un renglón en blanco.` },
   { zona: ZONA_PARRAFO, texto: `${LARGO} ${LARGO} ${LARGO}` },
   { zona: { ...ZONA_PARRAFO, tamano: 12, minimo: 11, alinear: "centro" }, texto: LARGO },
+  // Sangría (Fase 5.2): el primer renglón, más angosto y corrido.
+  { zona: { ...ZONA_PARRAFO, sangria: 118.3 }, texto: LARGO },
+  { zona: { ...ZONA_PARRAFO, sangria: 300 }, texto: `${LARGO} ${LARGO}` },
+  { zona: { ...ZONA_PARRAFO, sangria: 200, alinear: "centro" }, texto: `Corto.\n${LARGO}` },
+  { zona: { ...ZONA_PARRAFO, sangria: 430 }, texto: "Mariajosefernandezdelacolina" },
 ];
 
 /** El día fijo de los fixtures: no depende de cuándo se corra. */

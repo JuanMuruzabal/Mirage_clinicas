@@ -1,0 +1,332 @@
+{
+  "id": "consentimiento-ortopedia",
+  "version": 1,
+  "nombre": "Ortopedia",
+  "tipo": "consentimiento",
+  "descripcion": "Consentimiento informado para tratamientos ortopédicos (ortopedia dentomaxilofacial y funcional), con el asentimiento del paciente.",
+  "fuente": {
+    "nombre": "Colegio Odontológico de la Provincia de Córdoba",
+    "url": "https://colodontcba.org.ar/informacion-general/modelo-historia-clinica/"
+  },
+  "secciones": [
+    {
+      "id": "paciente",
+      "titulo": "Paciente",
+      "campos": [
+        {
+          "tipo": "texto",
+          "id": "paciente_nombre",
+          "etiqueta": "Nombre y apellido",
+          "requerido": true,
+          "precarga": "paciente.nombreCompleto"
+        },
+        {
+          "tipo": "numero",
+          "id": "paciente_edad",
+          "etiqueta": "Edad (años)",
+          "requerido": true,
+          "min": 0,
+          "max": 120
+        },
+        {
+          "tipo": "fecha",
+          "id": "paciente_fecha_nacimiento",
+          "etiqueta": "Fecha de nacimiento",
+          "requerido": true,
+          "precarga": "paciente.fechaNacimiento"
+        }
+      ]
+    },
+    {
+      "id": "responsable",
+      "titulo": "Responsable legal o tutor",
+      "campos": [
+        {
+          "tipo": "texto",
+          "id": "responsable_nombre",
+          "etiqueta": "Nombre y apellido",
+          "requerido": true
+        },
+        {
+          "tipo": "texto",
+          "id": "responsable_dni",
+          "etiqueta": "DNI",
+          "requerido": true
+        },
+        {
+          "tipo": "texto",
+          "id": "responsable_telefono",
+          "etiqueta": "Teléfono"
+        }
+      ]
+    },
+    {
+      "id": "profesional",
+      "titulo": "Profesional",
+      "campos": [
+        {
+          "tipo": "texto",
+          "id": "profesional_nombre",
+          "etiqueta": "Profesional",
+          "requerido": true,
+          "precarga": "profesional.nombreCompleto",
+          "bloqueado": true
+        },
+        {
+          "tipo": "texto",
+          "id": "profesional_domicilio",
+          "etiqueta": "Domicilio profesional",
+          "requerido": true
+        }
+      ]
+    },
+    {
+      "id": "tratamiento",
+      "titulo": "Tratamiento",
+      "campos": [
+        {
+          "tipo": "texto",
+          "id": "tipo_tratamiento",
+          "etiqueta": "Tipo de tratamiento",
+          "requerido": true
+        },
+        {
+          "tipo": "texto",
+          "id": "tipo_aparatologia",
+          "etiqueta": "Tipo de aparatología",
+          "requerido": true
+        }
+      ]
+    }
+  ],
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Tratamientos ortopédicos"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Paciente: {{paciente_nombre}}. Edad: {{paciente_edad}}. Fecha de nacimiento: {{paciente_fecha_nacimiento}}."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Responsable legal / Tutor: {{responsable_nombre}}. DNI: {{responsable_dni}}. Tel: {{responsable_telefono}}."
+    },
+    {
+      "t": "parrafo",
+      "texto": "La Ortopedia Dentomaxilofacial y funcional es la especialidad odontológica que incluye el diagnóstico, prevención, intercepción y corrección de la maloclusión y las funciones asociadas como las anormalidades neuromusculares y esqueléticas de las estructuras orofaciales durante el crecimiento, desarrollo y maduración. En una primera fase, el tratamiento ortopédico/funcional en la cual se utiliza aparatos removibles (de quitar y poner) o fijo si el caso lo amerita."
+    },
+    {
+      "t": "parrafo",
+      "texto": "1. En este acto manifiesto que he recibido por parte del profesional {{profesional_nombre}}, con domicilio profesional en {{profesional_domicilio}}, la información necesaria, clara, precisa, adecuada y completa respecto a información referida a:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "a) Diagnóstico del estado buco-dental actual y el pronóstico de la libre evolución. Me ha explicado que mi hijo/a presenta un problema en el tamaño y la posición de los maxilares que necesitan un tratamiento ortopédico.",
+        "b) El tratamiento ortopédico propuesto con especificación de los objetivos perseguidos en las etapas estipuladas. Me ha explicado, que generalmente después de esta primera fase de tratamiento en la cual se reducirá en gran medida la maloclusión que presenta el paciente, es posible que sea necesaria en una segunda fase la colocación de aparatos fijos (Brackets). También, me ha explicado que el uso de estos aparatos puede producir úlceras o llagas.",
+        "c) Los beneficios esperados del procedimiento propuesto en cada etapa. Además, me explicó que el tratamiento de ortopedia puede ser largo, que no depende ni de la técnica empleada ni de la correcta realización de la misma, ni de factores generalmente biológicos o de respuesta del organismo totalmente impredecibles y por supuesto, si depende del número de horas de uso del aparato así como de la colaboración y el cuidado del aparato por parte del niño y que durante todo ese tiempo se deben extremar las medidas de higiene de la boca, sus dientes y su aparato para evitar mayor exposición a la caries y a la enfermedad de las encías. Además, es imprescindible que se realicen los controles periódicos del paciente como indique el profesional.",
+        "d) Los riesgos, molestias y efectos adversos previsibles los que fueron explicados de manera verbal respondiendo a todas mis inquietudes y dudas al respecto; es frecuente que se produzca mayor sensibilidad en los dientes /muelas sobre las que se apoya el aparato que normalmente desaparecerá de modo espontáneo.",
+        "e) Las consecuencias previsibles de la no realización del procedimiento propuesto o de las alternativas posibles especificadas y el no cumplimiento de las indicaciones de cuidado/higiene/activación/manipulación, etc. de la aparatología instalada."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "2. Se me han explicado detalladamente las acciones posibles a llevar a cabo como son:"
+    },
+    {
+      "t": "campo",
+      "campo": "tipo_tratamiento"
+    },
+    {
+      "t": "campo",
+      "campo": "tipo_aparatologia"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Conozco que estas acciones serán efectuadas mediante un plan de tratamiento individualizado siguiendo un protocolo establecido por el/los profesional/es del equipo de trabajo, altamente capacitados en ortopedia/ortodoncia."
+    },
+    {
+      "t": "parrafo",
+      "texto": "3. He leído y comprendido la información sobre la intervención que se realizará. Autorizo al profesional/les a realizar el tratamiento propuesto, en la fecha y hora de los turnos que me indiquen. Por la presente, también autorizo para el uso los registros de ortopedia, que incluyen fotografías tomadas en el proceso de los exámenes y tratamiento, con el propósito de docencia, investigación, educación y/o publicación científica."
+    },
+    {
+      "t": "parrafo",
+      "texto": "EXPRESO mi CONSENTIMIENTO a que se efectúe el TRATAMIENTO DE ORTOPEDIA."
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Asentimiento informado del paciente"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nombre y apellido del paciente: __________. DNI: __________. Fecha de nacimiento: __________. Firma: __________. Asentimiento: ☺ ☹"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nombre y apellido del responsable legal: __________. DNI: __________. Fecha de nacimiento: __________. Vínculo con el paciente: __________. Firma: __________."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "firmas": [
+    {
+      "rol": "representante",
+      "etiqueta": "Firma del responsable legal",
+      "requerida": true
+    },
+    {
+      "rol": "profesional",
+      "etiqueta": "Firma y sello del profesional",
+      "requerida": true
+    },
+    {
+      "rol": "asentimiento",
+      "etiqueta": "Firma del paciente (asentimiento)",
+      "requerida": false
+    }
+  ],
+  "lamina": {
+    "paginas": [
+      {
+        "ancho": 595.3,
+        "alto": 841.9
+      },
+      {
+        "ancho": 595.3,
+        "alto": 841.9
+      }
+    ],
+    "zonas": [
+      {
+        "id": "paciente_nombre",
+        "pagina": 1,
+        "x": 94,
+        "y": 121.6,
+        "ancho": 207,
+        "texto": "{{paciente_nombre}}"
+      },
+      {
+        "id": "paciente_edad",
+        "pagina": 1,
+        "x": 336,
+        "y": 121.6,
+        "ancho": 40,
+        "alinear": "centro",
+        "texto": "{{paciente_edad}}"
+      },
+      {
+        "id": "paciente_fecha_nacimiento",
+        "pagina": 1,
+        "x": 471.5,
+        "y": 121.6,
+        "ancho": 58,
+        "texto": "{{paciente_fecha_nacimiento}}"
+      },
+      {
+        "id": "responsable_nombre",
+        "pagina": 1,
+        "x": 176,
+        "y": 146.4,
+        "ancho": 130,
+        "texto": "{{responsable_nombre}}"
+      },
+      {
+        "id": "responsable_dni",
+        "pagina": 1,
+        "x": 334.5,
+        "y": 146.4,
+        "ancho": 94,
+        "texto": "{{responsable_dni}}"
+      },
+      {
+        "id": "responsable_telefono",
+        "pagina": 1,
+        "x": 453,
+        "y": 146.4,
+        "ancho": 82,
+        "texto": "{{responsable_telefono}}",
+        "vacio": "—"
+      },
+      {
+        "id": "profesional_nombre",
+        "pagina": 1,
+        "x": 384,
+        "y": 275.3,
+        "ancho": 160,
+        "texto": "{{profesional_nombre}}"
+      },
+      {
+        "id": "profesional_domicilio",
+        "pagina": 1,
+        "x": 216,
+        "y": 292.3,
+        "ancho": 309,
+        "texto": "{{profesional_domicilio}}"
+      },
+      {
+        "id": "tipo_tratamiento",
+        "pagina": 2,
+        "x": 166.5,
+        "y": 124.8,
+        "ancho": 345,
+        "texto": "{{tipo_tratamiento}}"
+      },
+      {
+        "id": "tipo_aparatologia",
+        "pagina": 2,
+        "x": 171.5,
+        "y": 141.6,
+        "ancho": 339,
+        "texto": "{{tipo_aparatologia}}"
+      },
+      {
+        "id": "fecha_responsable",
+        "pagina": 2,
+        "x": 440,
+        "y": 360.6,
+        "ancho": 85,
+        "texto": "{{sistema.fecha}}"
+      },
+      {
+        "id": "fecha_profesional",
+        "pagina": 2,
+        "x": 441,
+        "y": 411.2,
+        "ancho": 81,
+        "texto": "{{sistema.fecha}}"
+      }
+    ],
+    "firmas": [
+      {
+        "rol": "representante",
+        "pagina": 2,
+        "x": 210.1,
+        "y": 360.6,
+        "ancho": 182.8,
+        "alto": 28
+      },
+      {
+        "rol": "profesional",
+        "pagina": 2,
+        "x": 216.5,
+        "y": 411.2,
+        "ancho": 176.8,
+        "alto": 38
+      },
+      {
+        "rol": "asentimiento",
+        "pagina": 2,
+        "x": 83.4,
+        "y": 555.9,
+        "ancho": 135.6,
+        "alto": 38
+      }
+    ]
+  }
+}

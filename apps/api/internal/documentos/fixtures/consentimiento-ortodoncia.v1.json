@@ -1,0 +1,243 @@
+{
+  "plantilla": "consentimiento-ortodoncia",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "profesional_nombre": "Ejemplo de profesional",
+    "profesional_matricula": "1234",
+    "matricula_de": "1234",
+    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "consecuencias_abandono": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tiempo_estimado": "Ejemplo de tiempo"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Consentimiento informado"
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Ortodoncia"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar y fecha: Ejemplo de lugar, 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Usted tiene derecho a conocer el procedimiento al que va a ser sometido y las complicaciones más frecuentes que ocurren. Este documento intenta explicarle todas estas cuestiones, léalo atentamente y consulte todas las dudas que se le planteen. Le recordamos que por imperativo legal, tendrá que firmar, usted o su representante legal, el consentimiento informado para que pueda realizarse dicho procedimiento. A propósito declaro haber sido informado y haber comprendido acabadamente el objetivo del tratamiento de ortodoncia u ortopedia y la aparatología a utilizar."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Sr/Sra __________ con DNI Nº __________ como paciente (en caso de menores o incapacitados consignar nombre y DNI del padre, madre o tutor) ha sido informado/a por el Dr. / Dra. Ejemplo de profesional, M.P. 1234 de 1234 sobre los procedimientos propios clínicos de ortodoncia y ortopedia, que constan en el plan de tratamiento otorgando mi consentimiento para realizar las prácticas necesarias al caso clínico."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la paciente ha sido informado/a y conoce los riesgos que puede comportar este tratamiento:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Al colocar la ortodoncia puede generar en los dientes una leve reacción inflamatoria, provocando dolor temporario, que va disminuyendo progresivamente.",
+        "Si los brackets no se tratan con cuidado pueden romperse o despegarse, en cuyo caso el tratamiento sufrirá un retraso y el paciente deberá hacerse cargo de los gastos ocasionados.",
+        "Se pueden producir úlceras o llagas, etc. (lesiones de tejidos blandos).",
+        "Mayor sensibilidad en los dientes o muelas sobre los que se apoya el aparato que desaparece normalmente de modo espontáneo.",
+        "Riesgo de alergia a los materiales empleados que podría provocar su retirada y un eventual cambio en el plan de tratamiento, con posibles modificaciones de los costos, a cargo del paciente.",
+        "Riesgo de que una deficiente higiene facilite la aparición de manchas blancas permanentes (descalcificaciones), caries dental o gingivitis (encías inflamadas). Se me ha explicado con toda claridad que durante el tratamiento debo de extremar las medidas higiénicas y evitar la ingesta frecuente de productos muy azucarados.",
+        "Riesgo de que el desarrollo imprevisible de la erupción dentaria, el crecimiento de los maxilares o de respuesta de dientes o hueso a las fuerzas ortodóncicas obliguen a cambiar el plan de tratamiento, requiriendo en ocasiones extracciones de dientes definitivos para conseguir espacio y el alargamiento del tiempo de tratamiento.",
+        "Algunos pacientes son más susceptibles a que se produzca la reabsorción (acortamiento) de la raíz de uno o varios dientes y/o muelas sometidos a fuerzas ortodóncicas. Este fenómeno es infrecuente, de etiología desconocida pero imprevisible. Habitualmente esto no tiene consecuencias apreciables, pero en ocasiones puede afectar la longevidad del diente e implicaría alterar el plan de tratamiento.",
+        "Riesgo de molestias o dolor en la articulación temporomandibular debido a la modificación de la mordida. Estos problemas pueden ocurrir con o sin tratamiento de ortodoncia y en gral. son debidos a factores previos predisponentes (hiperlaxitud ligamentosa, traumatismos previos, artrosis, artritis, bruxismo, stress, etc.) y malos hábitos.",
+        "Riesgo de retracciones de la encía, no previsibles, debidas al efecto de los movimientos dentarios. También pueden aparecer agrandadas como consecuencia de la placa bacteriana.",
+        "Los dientes incluidos tienen un tratamiento más complejo y sus resultados no se pueden asegurar. Existe la posibilidad que el diente incluido dañe la raíz de los dientes vecinos hasta en ocasiones, provocar su pérdida. En ocasiones el tratamiento falla por anquilosis dental (se pega el diente al hueso y no se puede mover) que es imposible diagnosticar previo al tratamiento y que conllevaría la necesidad de extraerlo y reponerlo (estas actuaciones corresponderían a su dentista).",
+        "Existen riesgos que se produzcan modificaciones en los resultados conseguidos al finalizar el tratamiento; estos factores son difícilmente predecibles pero pueden ser paliados siguiendo las indicaciones dadas por el profesional, respecto a la utilización de contenedores y a los controles periódicos una vez terminado el tratamiento."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Recomendaciones:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Evite comer alimentos duros o comer a mordiscos una manzana, zanahoria, choclo, etc.",
+        "Prohibido comer chicle, caramelos pegajosos, turrones, etc.",
+        "Se aconseja beber zumos de naranja y comer abundante fruta, así como aportes de vitamina D para facilitar el movimiento dental.",
+        "No morder lapicera u otros cuerpos extraños (a la boca)."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Indicaciones:"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Extremar las medidas de higiene de la boca, los dientes y el aparato para evitar mayor exposición a las caries y a la enfermedad de las encías.",
+        "Concurrir a cada una de las consultas para que el profesional realice las revisiones necesarias a los fines de evitar retraso del tratamiento."
+      ]
+    },
+    {
+      "t": "campo",
+      "campo": "observaciones",
+      "etiqueta": "Observaciones, procedimientos alternativos, riesgo y beneficio",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "consecuencias_abandono",
+      "etiqueta": "Consecuencias de la no realización o abandono",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Tiempo estimado: Ejemplo de tiempo (pudiendo superar éste según evolución del caso clínico)."
+    },
+    {
+      "t": "parrafo",
+      "texto": "He leído las instrucciones de manejo, cuidado y mantenimiento que me ha entregado el Dr./a Ejemplo de profesional, y he comprendido todas las explicaciones que se me han facilitado en lenguaje claro y sencillo, he podido realizar todas las observaciones y se me han aclarado todas las dudas; por lo que estoy completamente de acuerdo con lo consignado en esta fórmula de consentimiento. La ortodoncia no es una ciencia exacta y, por ello ningún ortodoncista puede garantizar el éxito ni un resultado específico."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Asimismo, entiendo que la colocación del aparato no constituye el acto final del tratamiento, sino que es necesario un proceso de contención, por lo que me comprometo a regresar a la consulta odontológica cada vez que el profesional lo requiera."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Asentimiento: PIDO LO QUE QUIERO. SI QUIERO ATENDERME ☐ NO QUIERO ATENDERME ☐"
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar_fecha",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 103,
+          "y": 95.4,
+          "texto": "Ejemplo de lugar, 27/09/2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 160.5,
+          "y": 246.9,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_matricula",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 470.5,
+          "y": 246.9,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "matricula_de",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 57,
+          "y": 262.1,
+          "texto": "1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "observaciones",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 455,
+          "y": 283.1,
+          "texto": "Primera línea del"
+        },
+        {
+          "x": 43.5,
+          "y": 301,
+          "texto": "ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 318.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consecuencias_abandono",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 43.5,
+          "y": 354.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 43.5,
+          "y": 372.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tiempo_estimado",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 124.5,
+          "y": 390.5,
+          "texto": "Ejemplo de tiempo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesional_instrucciones",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 43.5,
+          "y": 444.2,
+          "texto": "Ejemplo de profesional"
+        }
+      ],
+      "vacia": false
+    }
+  ]
+}

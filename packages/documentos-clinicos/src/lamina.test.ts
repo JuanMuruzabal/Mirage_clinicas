@@ -5,6 +5,8 @@ import {
   camposDeZona,
   componerZona,
   envolver,
+  estaMarcada,
+  MARCA_DE_CASILLA,
   NO_CONSIGNA,
   parteDeFecha,
   plantillaPorId,
@@ -15,7 +17,8 @@ import {
   type Zona,
 } from "./index";
 
-const conducto = plantillaPorId("consentimiento-tratamiento-conducto") as Plantilla;
+// La versión 1: la que tiene los datos de quien suscribe (la 2 los deja a mano).
+const conducto = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
 const hoy = { fecha: "2026-09-28" };
 /** Una copia que se puede romper sin tocar la del registro. */
 const copia = (p: Plantilla): Plantilla => JSON.parse(JSON.stringify(p)) as Plantilla;
@@ -31,9 +34,132 @@ describe("las métricas", () => {
 });
 
 describe("las partes de una fecha", () => {
-  it("da el día, el mes, el año y el año en dos cifras", () => {
-    expect(["dia", "mes", "anio", "anio2", "otra"].map((p) => parteDeFecha("2026-09-07", p))).toEqual(["07", "09", "2026", "26", ""]);
+  it("da el día, el mes, el mes con su nombre, el año y el año en dos cifras", () => {
+    expect(["dia", "mes", "mes_nombre", "anio", "anio2", "otra"].map((p) => parteDeFecha("2026-09-07", p))).toEqual([
+      "07",
+      "09",
+      "septiembre",
+      "2026",
+      "26",
+      "",
+    ]);
+    expect(parteDeFecha("2026-01-31", "mes_nombre")).toBe("enero");
+    expect(parteDeFecha("2026-13-01", "mes_nombre")).toBe("");
     expect(parteDeFecha("7/9/2026", "dia")).toBe("");
+  });
+
+  it("también de la fecha del documento (\"Córdoba ___ de ______ 20__\")", () => {
+    const partes: Zona = { ...renglon, texto: "{{sistema.fecha:dia}} de {{sistema.fecha:mes_nombre}} de 20{{sistema.fecha:anio2}}" };
+    expect(textoDeZona(partes, conducto, {}, hoy, "sellado")).toEqual({ texto: "28 de septiembre de 2026", vacia: false });
+  });
+});
+
+describe("las casillas", () => {
+  const conCasillas = (): Plantilla => {
+    const p = copia(conducto);
+    p.secciones.push({
+      id: "casillas",
+      titulo: "Casillas",
+      campos: [
+        {
+          tipo: "opcion_unica",
+          id: "lugar_x",
+          etiqueta: "Lugar",
+          opciones: [
+            { valor: "hospital", etiqueta: "Hospital" },
+            { valor: "consultorio", etiqueta: "Consultorio" },
+          ],
+        },
+        { tipo: "si_no", id: "acepta", etiqueta: "¿Acepta?" },
+        {
+          tipo: "opcion_multiple",
+          id: "medios",
+          etiqueta: "Medios",
+          opciones: [
+            { valor: "web", etiqueta: "Web" },
+            { valor: "redes", etiqueta: "Redes" },
+          ],
+        },
+      ],
+    });
+    return p;
+  };
+
+  it("estaMarcada reconoce la opción elegida, la respuesta de un sí o no y una de varias", () => {
+    expect(estaMarcada("hospital", "hospital")).toBe(true);
+    expect(estaMarcada("consultorio", "hospital")).toBe(false);
+    expect(estaMarcada({ respuesta: "no" }, "no")).toBe(true);
+    expect(estaMarcada({ respuesta: "si" }, "no")).toBe(false);
+    expect(estaMarcada(["web", "redes"], "redes")).toBe(true);
+    expect(estaMarcada(["web"], "redes")).toBe(false);
+    expect(estaMarcada(undefined, "x")).toBe(false);
+    expect(estaMarcada(12, "12")).toBe(false);
+  });
+
+  it("la casilla elegida lleva una X y las otras quedan en blanco, sin decir No consigna", () => {
+    const p = conCasillas();
+    const hospital: Zona = { ...renglon, texto: "{{lugar_x=hospital}}" };
+    const consultorio: Zona = { ...renglon, texto: "{{lugar_x=consultorio}}" };
+    expect(textoDeZona(hospital, p, { lugar_x: "hospital" }, hoy, "sellado")).toEqual({ texto: MARCA_DE_CASILLA, vacia: false });
+    expect(textoDeZona(consultorio, p, { lugar_x: "hospital" }, hoy, "sellado")).toEqual({ texto: "", vacia: false });
+    expect(textoDeZona({ ...renglon, texto: "{{acepta=no}}" }, p, { acepta: { respuesta: "no" } }, hoy, "sellado").texto).toBe("X");
+    expect(textoDeZona({ ...renglon, texto: "{{medios=redes}}" }, p, { medios: ["redes"] }, hoy, "sellado").texto).toBe("X");
+    // Sin responder, la casilla está vacía como cualquier zona.
+    expect(textoDeZona(hospital, p, {}, hoy, "borrador").vacia).toBe(true);
+  });
+
+  it("el esquema rechaza una casilla de un campo sin opciones o de una opción que no existe", () => {
+    const sinOpciones = copia(conducto);
+    sinOpciones.lamina!.zonas[0].texto = "{{lugar=hospital}}";
+    const r1 = plantillaSchema.safeParse(sinOpciones);
+    expect(r1.success ? [] : r1.error.issues.map((i) => i.message)).toContain("la zona lugar_fecha marca una casilla de un campo sin opciones: lugar");
+
+    const p = conCasillas();
+    p.cuerpo.push({ t: "parrafo", texto: "{{lugar_x}} {{acepta}} {{medios}}" });
+    p.lamina!.zonas.push(
+      { id: "c1", pagina: 1, x: 10, y: 10, ancho: 10, texto: "{{lugar_x=quirofano}}" },
+      { id: "c2", pagina: 1, x: 10, y: 20, ancho: 10, texto: "{{acepta=tal_vez}}" },
+      { id: "c3", pagina: 1, x: 10, y: 30, ancho: 10, texto: "{{medios=web}}" },
+    );
+    const r2 = plantillaSchema.safeParse(p);
+    const mensajes = r2.success ? [] : r2.error.issues.map((i) => i.message);
+    expect(mensajes).toContain("la zona c1 marca una opción que lugar_x no tiene: quirofano");
+    expect(mensajes).toContain("la zona c2 marca una opción que acepta no tiene: tal_vez");
+    expect(mensajes.some((m) => m.startsWith("la zona c3"))).toBe(false);
+  });
+});
+
+describe("la sangría", () => {
+  const parrafo: Zona = { id: "p", pagina: 1, x: 86, y: 300, ancho: 400, lineas: 3, interlineado: 12, texto: "{{x}}" };
+
+  it("el primer renglón empieza corrido y es más angosto; los demás usan todo el ancho", () => {
+    const texto = "palabra ".repeat(40).trim();
+    const sin = componerZona(parrafo, texto);
+    const con = componerZona({ ...parrafo, sangria: 150 }, texto);
+    expect(con.lineas[0].x).toBe(236);
+    expect(con.lineas[1].x).toBe(86);
+    expect(anchoEnUnidades(con.lineas[0].texto) * con.tamano).toBeLessThanOrEqual(250 * 1000);
+    expect(con.lineas[0].texto.length).toBeLessThan(sin.lineas[0].texto.length);
+  });
+
+  it("envolver respeta el ancho del primer renglón aunque empiece con un párrafo vacío o una palabra que no entra", () => {
+    expect(envolver("uno dos tres", 1000, 10, 25)).toEqual(["uno", "dos tres"]);
+    expect(envolver("\nuno dos", 1000, 10, 1)).toEqual(["", "uno dos"]);
+    const partida = envolver("Mariajosefernandezdelacolina", 1000, 10, 40);
+    expect(anchoEnUnidades(partida[0]) * 10).toBeLessThanOrEqual(40 * 1000);
+    expect(partida.join("")).toBe("Mariajosefernandezdelacolina");
+  });
+
+  it("centra el primer renglón en su tramo corrido", () => {
+    const z = componerZona({ ...parrafo, lineas: 1, sangria: 100, alinear: "centro" }, "07");
+    expect(z.lineas[0].x).toBeCloseTo(86 + 100 + (300 - (1112 * 10) / 1000) / 2, 2);
+  });
+
+  it("el esquema rechaza una sangría que no deja lugar", () => {
+    const p = copia(conducto);
+    p.lamina!.zonas[0].sangria = p.lamina!.zonas[0].ancho;
+    const r = plantillaSchema.safeParse(p);
+    expect(r.success ? [] : r.error.issues.map((i) => i.message)).toContain("la zona lugar_fecha tiene una sangría que no deja lugar");
   });
 });
 

@@ -118,6 +118,10 @@ type documentoDetalleResponse struct {
 	// Retomado — al crear: ya había un borrador mío de este documento para
 	// este paciente, y es este (no se abrió otro).
 	Retomado bool `json:"retomado,omitempty"`
+	// VersionActualizada — ese borrador era de una versión anterior de su
+	// plantilla y se pasó a la vigente (borradorEnLaVersionVigente): es un
+	// documento nuevo, con otro id.
+	VersionActualizada bool `json:"versionActualizada,omitempty"`
 }
 
 func fechaHoraPtr(t *time.Time) *string {
@@ -470,9 +474,9 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		// paciente, se retoma ese en vez de abrir otro. Bajo el lock de la
 		// clínica, para que dos clics seguidos no creen dos.
 		var existente db.DocumentoClinico
-		retomado := false
+		retomado, actualizado := false, false
 		err = gdb.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error; err != nil {
+			if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
 				return err
 			}
 			res := tx.Scopes(soloMisDocumentos(r)).
@@ -483,7 +487,9 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			}
 			if res.RowsAffected > 0 {
 				retomado = true
-				return nil
+				var err error
+				existente, actualizado, err = borradorEnLaVersionVigente(tx, existente)
+				return err
 			}
 			if err := tx.Create(&doc).Error; err != nil {
 				return err
@@ -502,6 +508,7 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 				return
 			}
 			out.Retomado = true
+			out.VersionActualizada = actualizado
 			writeJSON(w, http.StatusOK, out)
 			return
 		}
@@ -512,6 +519,48 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusCreated, out)
 	}
+}
+
+// bloquearDocumentosDeLaClinica — el lock de la clínica para el módulo:
+// serializa lo que cuenta o reemplaza documentos (un solo borrador por
+// documento y paciente, el folio, la cadena de sellos).
+func bloquearDocumentosDeLaClinica(tx *gorm.DB, clinicID uuid.UUID) error {
+	return tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error
+}
+
+// borradorEnLaVersionVigente — un borrador de una versión anterior de su
+// plantilla pasa a la vigente (TR-189, addendum). La base no deja cambiar
+// la versión de un documento —es parte de su identidad—, así que se hace
+// uno nuevo con lo que ya estaba cargado en los campos que la vigente sigue
+// teniendo, y se descarta el viejo: un borrador todavía no es historia
+// clínica, y descartarlo es lo mismo que hace "Descartar borrador". Sin
+// esto, un borrador de antes seguía pidiendo lo que la versión nueva deja
+// para completar a mano, y se terminaba con eso. Cualquier otro estado, o
+// un borrador ya en la vigente, vuelve tal cual. Va bajo el lock de la
+// clínica.
+func borradorEnLaVersionVigente(tx *gorm.DB, doc db.DocumentoClinico) (db.DocumentoClinico, bool, error) {
+	vigente, ok := documentos.Ultima(doc.PlantillaID)
+	if doc.Estado != db.DocumentoBorrador || !ok || vigente.Version <= doc.PlantillaVersion {
+		return doc, false, nil
+	}
+	valores := map[string]any{}
+	for id, v := range doc.Valores {
+		if vigente.Campo(id) != nil {
+			valores[id] = v
+		}
+	}
+	if err := tx.Delete(&db.DocumentoClinico{}, "id = ? AND clinic_id = ? AND autor_user_id = ? AND estado = ?",
+		doc.ID, doc.ClinicID, doc.AutorUserID, db.DocumentoBorrador).Error; err != nil {
+		return doc, false, err
+	}
+	nuevo := db.DocumentoClinico{
+		ClinicID: doc.ClinicID, PacienteID: doc.PacienteID, AutorUserID: doc.AutorUserID,
+		PlantillaID: doc.PlantillaID, PlantillaVersion: vigente.Version, Valores: valores,
+	}
+	if err := tx.Create(&nuevo).Error; err != nil {
+		return doc, false, err
+	}
+	return nuevo, true, nil
 }
 
 // getDocumentoHandler — GET /documentos/{id}. Abrir un documento ya
@@ -539,11 +588,49 @@ func getDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 				return
 			}
 		}
+		// Mi borrador de una versión anterior se abre ya en la vigente: el
+		// registro lleva directo al borrador, sin pasar por "Completar".
+		// Escribe desde un GET, como /turnos/pendientes-asistencia.
+		actualizado := false
+		session, _ := sessionFromContext(r)
+		if vigente, ok := documentos.Ultima(doc.PlantillaID); ok && doc.Estado == db.DocumentoBorrador &&
+			doc.AutorUserID == session.UserID && vigente.Version > doc.PlantillaVersion {
+			err := gdb.Transaction(func(tx *gorm.DB) error {
+				if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
+					return err
+				}
+				// Bajo el lock, de nuevo: otra pestaña pudo haberlo pasado ya.
+				// Entonces está en el borrador que la reemplazó.
+				var actual db.DocumentoClinico
+				res := tx.Scopes(soloMisDocumentos(r)).
+					Where("clinic_id = ? AND paciente_id = ? AND plantilla_id = ? AND estado = ?", clinicID, doc.PacienteID, doc.PlantillaID, db.DocumentoBorrador).
+					Limit(1).Find(&actual)
+				if res.Error != nil {
+					return res.Error
+				}
+				if res.RowsAffected == 0 {
+					return gorm.ErrRecordNotFound
+				}
+				var err error
+				doc, actualizado, err = borradorEnLaVersionVigente(tx, actual)
+				return err
+			})
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				writeError(w, http.StatusNotFound, "documento no encontrado")
+				return
+			}
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "no se pudo abrir el documento")
+				return
+			}
+			actualizado = actualizado || doc.ID != docID
+		}
 		out, err := detalleDeDocumento(gdb, r, doc)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo abrir el documento")
 			return
 		}
+		out.VersionActualizada = actualizado
 		writeJSON(w, http.StatusOK, out)
 	}
 }
@@ -737,7 +824,7 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			// paciente: recibe su folio ahora (lo que se sella, al sellar).
 			// Bajo el lock de la clínica: el folio no admite dos "siguientes".
 			if destino == db.DocumentoParaImprimir {
-				if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error; err != nil {
+				if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
 					return err
 				}
 				folio, err := siguienteFolio(tx, doc.ClinicID, doc.PacienteID)
@@ -838,7 +925,7 @@ func recortar(s string, maximo int) string {
 // firmarEnElDispositivoHandler — POST /documentos/{id}/firmas: una firma
 // hecha en este mismo dispositivo, en persona (TR-184: la identidad la
 // constata el profesional, que está presente). La firma por vínculo y por
-// alerta al celular llegan en la 5.3.
+// alerta al celular llegan en la 5.4.
 //
 // Con la última firma requerida, el documento se sella en la MISMA
 // transacción: no existe un documento con todas sus firmas y sin sellar.
@@ -929,7 +1016,7 @@ func firmarEnElDispositivoHandler(gdb *gorm.DB) http.HandlerFunc {
 		err = gdb.Transaction(func(tx *gorm.DB) error {
 			// Un documento a la vez por clínica: la cadena de sellos no
 			// admite dos "siguientes" (TR-182).
-			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "documentos:"+clinicID.String()).Error; err != nil {
+			if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
 				return err
 			}
 			var yaFirmado int64

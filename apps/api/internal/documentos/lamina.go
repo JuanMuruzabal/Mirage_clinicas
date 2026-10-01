@@ -80,6 +80,7 @@ type Zona struct {
 	Tamano       float64 `json:"tamano,omitempty"`
 	Minimo       float64 `json:"minimo,omitempty"`
 	Alinear      string  `json:"alinear,omitempty"`
+	Sangria      float64 `json:"sangria,omitempty"`
 	Texto        string  `json:"texto"`
 	Vacio        string  `json:"vacio,omitempty"`
 }
@@ -124,13 +125,47 @@ const (
 	pasoTamano = 0.5
 )
 
-var marcaDeZona = regexp.MustCompile(`\{\{([a-z][a-z0-9_.]*)(?::(dia|mes|anio|anio2))?\}\}`)
+// marcaDeZona — `{{campo}}`, `{{campo:dia}}` (una parte de una fecha) o
+// `{{campo=valor}}` (la casilla de una opción). Mismo patrón que
+// MARCA_DE_ZONA de esquema.ts.
+var marcaDeZona = regexp.MustCompile(`\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio)|=([a-z0-9_]{1,40}))?\}\}`)
+
+// MarcaDeCasilla — lo que se escribe en la casilla de la opción elegida.
+const MarcaDeCasilla = "X"
+
+// EstaMarcada — si la casilla de `opcion` va marcada: la respuesta de un
+// sí o no, la opción elegida, o una de las elegidas. Mismo criterio que
+// `estaMarcada` de lamina.ts.
+func EstaMarcada(valor any, opcion string) bool {
+	switch v := valor.(type) {
+	case string:
+		return v == opcion
+	case []any:
+		for _, e := range v {
+			if s, ok := e.(string); ok && s == opcion {
+				return true
+			}
+		}
+	case []string:
+		for _, s := range v {
+			if s == opcion {
+				return true
+			}
+		}
+	case map[string]any:
+		r, _ := v["respuesta"].(string)
+		return r == opcion
+	}
+	return false
+}
 
 func redondear2(n float64) float64 { return math.Round(n*100) / 100 }
 
 var fechaISO = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})$`)
 
-// ParteDeFecha — "2026-09-07" → "07" / "09" / "2026" / "26".
+var meses = [...]string{"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"}
+
+// ParteDeFecha — "2026-09-07" → "07" / "09" / "septiembre" / "2026" / "26".
 func ParteDeFecha(iso, parte string) string {
 	m := fechaISO.FindStringSubmatch(iso)
 	if m == nil {
@@ -141,6 +176,12 @@ func ParteDeFecha(iso, parte string) string {
 		return m[3]
 	case "mes":
 		return m[2]
+	case "mes_nombre":
+		n, err := strconv.Atoi(m[2])
+		if err != nil || n < 1 || n > 12 {
+			return ""
+		}
+		return meses[n-1]
 	case "anio":
 		return m[1]
 	case "anio2":
@@ -155,8 +196,11 @@ func TextoDeZona(z Zona, p *Plantilla, valores map[string]any, ctx Contexto, mod
 	campos, cargados := 0, 0
 	texto := marcaDeZona.ReplaceAllStringFunc(z.Texto, func(m string) string {
 		partes := marcaDeZona.FindStringSubmatch(m)
-		nombre, parte := partes[1], partes[2]
+		nombre, parte, opcion := partes[1], partes[2], partes[3]
 		if nombre == "sistema.fecha" {
+			if parte != "" {
+				return ParteDeFecha(ctx.Fecha, parte)
+			}
 			return FechaComoTexto(ctx.Fecha)
 		}
 		c := p.Campo(nombre)
@@ -176,6 +220,12 @@ func TextoDeZona(z Zona, p *Plantilla, valores map[string]any, ctx Contexto, mod
 			s, _ := valor.(string)
 			return ParteDeFecha(s, parte)
 		}
+		if opcion != "" {
+			if EstaMarcada(valor, opcion) {
+				return MarcaDeCasilla
+			}
+			return ""
+		}
 		return ValorComoTexto(c, valor)
 	})
 	texto = strings.ReplaceAll(strings.ReplaceAll(texto, "\r\n", "\n"), "\r", "\n")
@@ -188,9 +238,19 @@ func cabe(texto string, tamano, ancho float64) bool {
 
 // Envolver — corta un texto en renglones que entran en `ancho` a ese
 // tamaño: por párrafo, por palabra y, si una palabra no entra sola, por
-// caracteres.
-func Envolver(texto string, ancho, tamano float64) []string {
+// caracteres. El primer renglón puede ser más angosto (`anchoPrimera`): el
+// de un hueco que empieza a mitad del renglón de su título. Mismo criterio
+// que `envolver` de lamina.ts.
+func Envolver(texto string, ancho, tamano, anchoPrimera float64) []string {
 	var lineas []string
+	// El ancho del renglón que se está armando: el que va a quedar en el
+	// lugar len(lineas).
+	anchoActual := func() float64 {
+		if len(lineas) == 0 {
+			return anchoPrimera
+		}
+		return ancho
+	}
 	for _, parrafo := range strings.Split(texto, "\n") {
 		palabras := strings.FieldsFunc(parrafo, func(r rune) bool { return r == ' ' || r == '\t' })
 		if len(palabras) == 0 {
@@ -203,7 +263,7 @@ func Envolver(texto string, ancho, tamano float64) []string {
 			if linea != "" {
 				candidata = linea + " " + palabra
 			}
-			if cabe(candidata, tamano, ancho) {
+			if cabe(candidata, tamano, anchoActual()) {
 				linea = candidata
 				continue
 			}
@@ -212,10 +272,10 @@ func Envolver(texto string, ancho, tamano float64) []string {
 			}
 			// Un carácter solo queda en su renglón aunque no entre: si no,
 			// la palabra se vaciaría y dejaría un renglón en blanco.
-			for !cabe(palabra, tamano, ancho) && utf8.RuneCountInString(palabra) > 1 {
+			for !cabe(palabra, tamano, anchoActual()) && utf8.RuneCountInString(palabra) > 1 {
 				caracteres := []rune(palabra)
 				corte := 1
-				for corte < len(caracteres) && cabe(string(caracteres[:corte+1]), tamano, ancho) {
+				for corte < len(caracteres) && cabe(string(caracteres[:corte+1]), tamano, anchoActual()) {
 					corte++
 				}
 				lineas = append(lineas, string(caracteres[:corte]))
@@ -229,7 +289,8 @@ func Envolver(texto string, ancho, tamano float64) []string {
 }
 
 // ComponerZona — el tamaño más grande (de 0,5 en 0,5 pt, hasta el mínimo)
-// con el que el texto entra en los renglones de la zona.
+// con el que el texto entra en los renglones de la zona. Con `Sangria`, el
+// primer renglón empieza así de corrido a la derecha.
 func ComponerZona(z Zona, texto string) ZonaCompuesta {
 	maximo := z.Lineas
 	if maximo == 0 {
@@ -247,24 +308,32 @@ func ComponerZona(z Zona, texto string) ZonaCompuesta {
 	if interlineado == 0 {
 		interlineado = redondear2(base * 1.2)
 	}
+	anchoPrimera := z.Ancho - z.Sangria
 	armar := func(tamano float64, lineas []string, desborda bool) ZonaCompuesta {
 		out := make([]LineaCompuesta, len(lineas))
 		for i, t := range lineas {
-			x := z.X
+			inicio, anchoDeLinea := z.X, z.Ancho
+			if i == 0 {
+				anchoDeLinea = anchoPrimera
+				if z.Sangria > 0 {
+					inicio = redondear2(z.X + z.Sangria)
+				}
+			}
+			x := inicio
 			if z.Alinear == "centro" {
-				x = redondear2(z.X + (z.Ancho-float64(AnchoEnUnidades(t))*tamano/1000)/2)
+				x = redondear2(inicio + (anchoDeLinea-float64(AnchoEnUnidades(t))*tamano/1000)/2)
 			}
 			out[i] = LineaCompuesta{X: x, Y: redondear2(z.Y + float64(i)*interlineado), Texto: t}
 		}
 		return ZonaCompuesta{Zona: z.ID, Pagina: z.Pagina, Tamano: tamano, Lineas: out, Desborda: desborda}
 	}
 	for tamano := base; tamano >= minimo-1e-9; tamano = redondear2(tamano - pasoTamano) {
-		lineas := Envolver(texto, z.Ancho, tamano)
+		lineas := Envolver(texto, z.Ancho, tamano, anchoPrimera)
 		if len(lineas) <= maximo {
 			return armar(tamano, lineas, false)
 		}
 	}
-	lineas := Envolver(texto, z.Ancho, minimo)
+	lineas := Envolver(texto, z.Ancho, minimo, anchoPrimera)
 	if len(lineas) > maximo {
 		lineas = lineas[:maximo]
 	}

@@ -340,5 +340,149 @@
         }
       ]
     }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}",
+      "sangria": 118.3
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 204.3,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos"
+        },
+        {
+          "x": 86,
+          "y": 507.46,
+          "texto": "duros o muy calientes del lado tratado."
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}",
+      "sangria": 300
+    },
+    "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado. Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": true,
+      "lineas": [
+        {
+          "x": 386,
+          "y": 483.3,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado."
+        },
+        {
+          "x": 86,
+          "y": 507.46,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos"
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}",
+      "sangria": 200,
+      "alinear": "centro"
+    },
+    "texto": "Corto.\nEnjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado.",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 9.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 390.57,
+          "y": 483.3,
+          "texto": "Corto."
+        },
+        {
+          "x": 89.37,
+          "y": 495.38,
+          "texto": "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. No"
+        },
+        {
+          "x": 92.55,
+          "y": 507.46,
+          "texto": "comer ni beber hasta que pase la anestesia; evitar alimentos duros o muy calientes del lado tratado."
+        }
+      ]
+    }
+  },
+  {
+    "zona": {
+      "id": "parrafo",
+      "pagina": 1,
+      "x": 86,
+      "y": 483.3,
+      "ancho": 435,
+      "lineas": 3,
+      "interlineado": 12.08,
+      "texto": "{{x}}",
+      "sangria": 430
+    },
+    "texto": "Mariajosefernandezdelacolina",
+    "compuesta": {
+      "zona": "parrafo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 516,
+          "y": 483.3,
+          "texto": "M"
+        },
+        {
+          "x": 86,
+          "y": 495.38,
+          "texto": "ariajosefernandezdelacolina"
+        }
+      ]
+    }
   }
 ]

@@ -3378,4 +3378,86 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ---
 
+## TR-189: Los catorce consentimientos del Colegio (Fase 5.2), y el reorden de las subfases
+
+- **Fecha:** 2026-09-29 · **Fase:** execution (Fase 5.2)
+- **Contexto:** la 5.1 dejó el motor y un solo consentimiento, el de conducto. El plan original ponía los trece restantes en la 5.4, después del PDF (5.2) y de la firma a distancia (5.3). Con TR-188 los consentimientos se imprimen y se firman a mano, así que ya no dependen ni del PDF ni de la firma a distancia. El cliente reordenó la fase: **los consentimientos pasan a ser la 5.2**, el PDF la **5.3** y la firma a distancia la **5.4**, las dos solo para las historias clínicas; de la 5.5 a la 5.8 no cambia nada. Donde un TR anterior dice "5.2 (PDF)" o "5.3 (firma a distancia)", hoy son la 5.3 y la 5.4.
+- **Decisión:**
+  1. **Los trece que faltaban, cargados como plantillas:** extracción, biopsia, implantes, periodoncia, prótesis completa, fija y parcial removible, ortodoncia, ortopedia, odontopediatría, atención de pacientes con discapacidad, sedoanalgesia y toma de imágenes. El texto es el del modelo, palabra por palabra; solo se tocó la ortografía, y cada plantilla dice qué. Cada una tiene su lámina medida sobre el PDF y sus páginas renderizadas (`renderizar-originales.py`). **El de ortodoncia sale de las páginas 5 y 6 de la historia de ortodoncia**, que lo trae adentro. **El de COVID-19 queda afuera** (D6).
+  2. **Cómo se mide una lámina:** `scripts/medir-huecos.py` lista cada hueco del PDF carácter por carácter (tramos de guiones, puntos o puntos suspensivos, y las líneas y casillas dibujadas) con el texto que tiene alrededor. La zona sigue la convención de la de conducto: un punto después de donde empieza el hueco, 1,2 pt sobre la línea de base, un par de puntos más angosta. **Después se verifica a ojo:** `lamina-de-prueba.ts` compone la lámina con valores largos y `scripts/dibujar-lamina.py` la dibuja sobre la página. Así se revisaron las catorce.
+  3. **Tres piezas nuevas del motor, iguales en TypeScript y en Go:** la paridad la prueban los fixtures de cada plantilla y los casos de composición.
+     - **Casillas** (`{{campo=valor}}`): una "X" si se eligió esa opción y nada si no, sin "No consigna". Sirven para opciones, preguntas de sí o no y opciones múltiples, y el esquema rechaza una casilla de un campo sin opciones o de una opción que no existe. Las usan el asentimiento de ortodoncia y odontopediatría, "consiento / no consiento" en discapacidad y el lugar de la intervención en sedoanalgesia.
+     - **Sangría** (`sangria`): el primer renglón empieza corrido y es más angosto. Es para los huecos que arrancan a mitad del renglón de su título ("Observaciones: ……") y siguen en los de abajo. Antes, o todos los renglones empezaban corridos, o el primero quedaba vacío.
+     - **Partes de la fecha del documento** (`{{sistema.fecha:dia}}`) y el nombre del mes (`:mes_nombre`), para el papel fechado "Córdoba ___ de ______ 20__".
+  4. **Cómo se modela cada dato:**
+     - Quien suscribe y el paciente se precargan de la ficha. El profesional y su matrícula, del perfil, bloqueados.
+     - El representante o tutor no se precarga: la ficha es del paciente.
+     - "M.P. … de …" precarga la ciudad de la clínica.
+     - Los maxilares de las prótesis y el lugar de la intervención son opciones.
+     - Los renglones sin título del modelo se llaman "Aclaraciones".
+     - En las prótesis, el día y el mes de la próxima consulta van en sus huecos, y el año y la hora juntos en el último ("2026, 16:30 hora"), que puede achicarse hasta 4,5 pt.
+  5. **Las firmas:**
+     - Cada modelo pide las suyas: representante, asentimiento del menor, y "otro profesional interviniente" para el anestesista, que no tiene cuenta.
+     - **Una firma que el papel repite se ubica una sola vez** (en ortopedia, el responsable firma dos veces): la otra queda en el papel para firmarla a mano.
+     - Como se firman en papel, los lugares de firma no dibujan nada. Están igual porque el esquema los exige y son parte del modelo.
+  6. **Los valores de ejemplo del fixture tienen la forma de un dato real** (un DNI, una matrícula) **o son cortos**: el fixture es un documento que se puede terminar, y el test de Go exige que entre en la lámina. Con la etiqueta entera ("Ejemplo de profesional odontólogo que deriva al paciente") no entraba ni achicado.
+  7. **Las hojas de muestra de la pila** (TR-188, tercera ronda) ya no aparecen: con catorce modelos, `muestrasSiFaltan` no suma ninguna. El mecanismo queda para una instalación con menos modelos.
+- **Alternativas consideradas:**
+  - (a) Una zona por renglón para los huecos que empiezan a mitad del renglón: descartada, porque un campo no puede seguir de una zona a otra.
+  - (b) Dejar vacío el primer renglón: es lo que se hacía, y desperdicia justo el renglón al lado del título.
+  - (c) Escribir la opción elegida con `{{campo}}` en vez de una casilla: el texto sería la etiqueta de la opción, no una marca.
+  - (d) Esperar al PDF y a la firma a distancia, como decía el plan: los consentimientos ya no las necesitan.
+- **Qué se sacrifica:**
+  - El diagnóstico de sedoanalgesia usa los dos renglones de la primera página, no los tres que siguen en la segunda: una zona no cruza de página.
+  - En periodoncia, el tratamiento propuesto y los medicamentos no usan el tramo del título, porque su interlineado no es parejo.
+  - El texto legal se transcribió a mano: el test que lo compara contra el PDF (riesgo de la §7 del documento de la fase) sigue pendiente.
+- **Condición de revisión:** si el Colegio publica una versión nueva de un modelo, va como versión nueva de la plantilla, con sus imágenes aparte (TR-187).
+- **Addendum (2026-09-29, primera ronda con el cliente sobre la 5.2) — lo que se completa a mano:**
+  1. **Lo que el papel pide de quien firma no es un campo:** no se carga ni se precarga, y en la hoja impresa queda el hueco del modelo para escribirlo de puño y letra junto a la firma (TR-188). En el texto congelado queda el renglón en blanco (`__________`). Por consentimiento:
+     - **Extracción, conducto, biopsia, periodoncia y las tres prótesis:** el nombre, el DNI y el domicilio de "El/la que suscribe". En el conducto, también su fecha de nacimiento, que va en la misma frase. En biopsia, además, la aclaración y el DNI de la firma.
+     - **Implantes:** "Yo, … de … años de edad, DNI …, domiciliado en …".
+     - **Ortodoncia:** "Sr/Sra … con DNI Nº …", el asentimiento ("sí quiero / no quiero atenderme") y la aclaración y el DNI de la firma.
+     - **Ortopedia:** toda la parte del asentimiento informado del paciente.
+     - **Odontopediatría:** los datos del representante y del menor (al principio y al final), el asentimiento y la aclaración y el DNI de la firma.
+     - **Discapacidad:** desde "CONSIENTO ___ o NO CONSIENTO ___" hasta el final, incluidos los datos del profesional de la segunda página.
+     - **Sedoanalgesia:** desde "El/la que suscribe", salvo los datos de los profesionales.
+     - **Toma de imágenes:** sin cambios.
+
+     Un test del paquete verifica que ningún consentimiento vigente tenga esos campos.
+  2. **El conducto pasa a la versión 2**, que es la 1 sin esos datos y se arma a partir de ella: estaba en producción, y la 1 se sigue leyendo para sus documentos (TR-187). Los otros trece se cambiaron en su versión 1, porque todavía no se habían mergeado.
+  3. **Las casillas del motor siguen:** las usa el lugar de la intervención de sedoanalgesia. La decisión 3 las nombraba también en el asentimiento y en "consiento / no consiento", que ahora se marcan a mano. Lo que la decisión 4 dice de precargar a quien suscribe también quedó atrás.
+  4. **La pila se movía brusco con sedoanalgesia**, que tiene cuatro páginas: un giro chico sobre una hoja tan alta mueve mucho su borde de abajo. El vaivén, la inclinación y el cambio de tamaño de la hoja de adelante se multiplican por `--pila-amplitud` (1 sobre sus páginas). El giro de costado no depende de la altura y queda igual. Medido en el navegador, el borde de abajo de sedoanalgesia se mueve 19 px sobre una hoja de 2861 px mientras flota. Extracción (dos páginas) se mueve 9,5 px sobre 1298. Las dos se mueven lo mismo en proporción.
+  5. **Un borrador de una versión anterior pasa a la vigente** (`borradorEnLaVersionVigente`): el candado de la base no deja cambiar la versión de un documento, ni siquiera de un borrador, porque es parte de su identidad. Por eso se hace un borrador nuevo en la vigente, con lo que ya estaba cargado en los campos que siguen existiendo, y se descarta el viejo. Pasa al retomarlo con "Completar" y al abrirlo desde el registro: la página redirige al borrador nuevo, y el editor avisa. Lo terminado sigue en su versión, siempre. Sin esto, un borrador de conducto de antes seguía pidiendo los datos de quien suscribe, y se terminaba con ellos.
+     - *Alternativa descartada:* dejar que el trigger acepte un cambio de versión en un borrador. Se aflojaba el candado de la historia clínica por algo que se resuelve sin tocarlo.
+
+
+---
+
+## TR-190: Una migración repetida no toma locks de tabla
+
+- **Fecha:** 2026-10-01 · **Fase:** execution (arreglo de CI, durante la 5.2)
+- **Contexto:** el CI del PR #83 falló una vez con `deadlock detected (SQLSTATE 40P01)` en un `SELECT` sobre `documentos_clinicos` (`paciente_verificado_publico.go`), dentro de `TestAislamiento_ListarTurnosNoIncluyeLosDeOtraClinica`. `go test ./internal/...` corre los paquetes en paralelo contra la misma base, y cada paquete corre `RunMigrations`. El advisory lock serializa las migraciones entre sí, pero no contra los tests de otro paquete, que viven en una transacción revertida que va juntando locks sobre lo que lee. Y `RunMigrations` volvía a ejecutar en cada corrida DDL que toma locks fuertes aunque no hubiera nada que cambiar:
+  - `DROP CONSTRAINT` + `ADD CONSTRAINT` de los checks que cambiaron alguna vez (y del `EXCLUDE` de turnos);
+  - `CREATE OR REPLACE TRIGGER` del candado de documentos;
+  - `DROP INDEX` + `CREATE INDEX`;
+  - `ADD COLUMN IF NOT EXISTS`, `ALTER COLUMN … SET DEFAULT` / `DROP NOT NULL`, los `ADD CONSTRAINT` envueltos en `EXCEPTION WHEN duplicate_object` y los `CREATE INDEX IF NOT EXISTS`: Postgres toma (o espera) el lock antes de ver que no hay nada que hacer;
+  - y el AutoMigrate de GORM corría `ALTER COLUMN … TYPE char(64)` sobre las huellas de documentos: el tag decía `char(64)` y la base reporta `bpchar`.
+
+  Medido dentro de la transacción de una segunda corrida: **11 locks fuertes** sobre tablas que leen casi todos los tests. El reintento por deadlock de `RunMigrations` solo salva el caso en que la víctima es la migración. Lo mismo puede pasar en producción: el contenedor `migrate` de un deploy corre mientras la API anterior atiende.
+- **Decisión:** no tomar el lock cuando no hace falta (`internal/db/migrate_con_huella.go`).
+  1. **Lo que reemplaza algo que ya existe** (un check que cambió de valores, un trigger, un índice con otro predicado) es un `pasoConHuella`: guarda la huella sha256 de su SQL en `migraciones_por_huella`, y la corrida siguiente lo saltea si la huella es la misma **y** el objeto sigue en el catálogo. Si el SQL cambia, corre una vez, que es para lo que existía el `DROP` + `ADD`. Si alguien borró el objeto a mano, vuelve a crearlo.
+  2. **Lo que crea algo una sola vez** (una columna, una constraint, un índice, un `VALIDATE`) es un `pasoSiHaceFalta`: le pregunta primero al catálogo (`pg_attribute`, `pg_constraint`, `to_regclass`, `convalidated`), que no toma locks de tabla, y solo ejecuta si hace falta. Es el mismo criterio que ya usaba `agregarForeignKey` (`migrate_fk.go`).
+  3. **Las huellas de documentos se declaran `bpchar(64)`:** es el mismo tipo en Postgres, pero GORM ahora lo reconoce y deja de alterarlo.
+  4. El SQL y el orden de cada sentencia no cambiaron: van envueltas en un armador, dentro de la misma lista. `CREATE OR REPLACE FUNCTION` sigue corriendo siempre, porque no toma locks de tabla.
+
+  Resultado medido: una corrida repetida pasa de 11 locks fuertes a **0**, y no ejecuta ninguna sentencia de DDL. Un test del paquete `db` lo fija y nombra la sentencia que lo rompa.
+- **Alternativas consideradas:**
+  - (a) Reintentar el test ante un deadlock: tapa el síntoma, y en producción la víctima puede ser un request real.
+  - (b) Correr los paquetes de test en serie (`-p 1`): la suite pasaría a tardar varias veces más, y producción seguiría con el problema.
+  - (c) Migrar una sola vez antes de la suite: los tests de `db` necesitan migrar bases propias, y no resuelve el deploy.
+- **Qué se sacrifica:** una tabla más (`migraciones_por_huella`) y una forma más de escribir una sentencia de migración. Una base que ya existía corre cada paso con huella una vez más, la primera vez, para guardar su huella.
+- **Condición de revisión:** si se suma una sentencia de migración nueva, va envuelta en uno de los dos armadores. Una sentencia suelta que toque una tabla en cada arranque rompe el test de la regla.
+
+---
+
 Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado (ver `docs/Arquitectura y base/implementation-plan.md` sección 5, columna "Depende de") debe re-estimarse antes de arrancarlo, no a mitad de sprint.

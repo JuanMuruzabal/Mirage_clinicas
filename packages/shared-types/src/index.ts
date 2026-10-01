@@ -1025,6 +1025,9 @@ export interface DocumentoDetalle extends DocumentoResumen {
   /** Al crear: ya había un borrador mío de este documento para este
    *  paciente, y es este (no se abrió otro). */
   retomado?: boolean;
+  /** Ese borrador era de una versión anterior de su plantilla y pasó a la
+   *  vigente, con lo que ya tenía: es un documento nuevo, con otro id. */
+  versionActualizada?: boolean;
 }
 
 export interface PacienteConDocumentos {

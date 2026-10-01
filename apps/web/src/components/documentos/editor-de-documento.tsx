@@ -57,12 +57,16 @@ export function EditorDeDocumento({
   documento,
   plantilla,
   retomado = false,
+  actualizado = false,
 }: {
   documento: DocumentoDetalle;
   plantilla: Plantilla;
   /** Se pidió uno nuevo y ya había un borrador de este documento para este
    *  paciente: se abrió ese (un solo borrador por documento y paciente). */
   retomado?: boolean;
+  /** Ese borrador era de una versión anterior del documento y pasó a la
+   *  vigente, con lo que ya tenía (TR-189, addendum). */
+  actualizado?: boolean;
 }) {
   const router = useRouter();
   const [valores, setValores] = useState<Valores>(() => (documento.valores ?? {}) as Valores);
@@ -199,9 +203,15 @@ export function EditorDeDocumento({
 
   return (
     <div className="flex flex-col gap-4">
-      {retomado && (
+      {(retomado || actualizado) && (
         <p role="status" className="rounded-card border border-linea bg-marfil px-4 py-3 text-sm text-grafito shadow-soft">
-          Ya tenías un borrador de este documento para {documento.paciente.nombre}: seguís desde acá. Hay un solo borrador de cada documento por paciente.
+          {retomado && (
+            <>Ya tenías un borrador de este documento para {documento.paciente.nombre}: seguís desde acá. Hay un solo borrador de cada documento por paciente.</>
+          )}
+          {retomado && actualizado && " "}
+          {actualizado && (
+            <>El documento tiene una versión nueva y tu borrador pasó a esa versión, con lo que ya habías completado.</>
+          )}
         </p>
       )}
       {/* En el celular, una cosa por vez (TR-172). Todo es CSS: el HTML del
