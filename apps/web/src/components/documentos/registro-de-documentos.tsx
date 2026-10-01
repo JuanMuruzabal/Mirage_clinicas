@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import { normalizar } from "@dental-mirage/documentos-clinicos";
 import { IconSearch } from "@/components/icons";
+import { FiltrosAplicados, type FiltroAplicado } from "@/components/panel/filtros-aplicados";
 import { FiltrosSheet } from "@/components/panel/filtros-sheet";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
 import { diaEnCordoba, nombreConTipo } from "@/lib/documentos";
-import { RANGOS_RAPIDOS } from "@/lib/turnos-filtros";
+import { etiquetaDeRango, RANGOS_RAPIDOS } from "@/lib/turnos-filtros";
 import { TablaDeDocumentos } from "./tablas-de-documentos";
 
 // RegistroDeDocumentos — los documentos clínicos de un paciente con sus
@@ -67,6 +68,25 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
   // Un rango de fechas cuenta como UN filtro, igual que en Turnos.
   const activeCount = (filtros.plantilla !== "todos" ? 1 : 0) + (filtros.desde || filtros.hasta ? 1 : 0);
   const hayBorrador = borrador.plantilla !== "todos" || borrador.desde !== "" || borrador.hasta !== "";
+
+  // Las etiquetas de lo ya aplicado, como en Turnos: cada una quita solo su
+  // filtro (pedido del cliente, 2026-09-29). La búsqueda no lleva etiqueta:
+  // ya se ve en su campo.
+  const filtrosAplicados: FiltroAplicado[] = [];
+  if (filtros.plantilla !== "todos") {
+    filtrosAplicados.push({
+      clave: "documento",
+      etiqueta: modelos.find((m) => m.id === filtros.plantilla)?.nombre ?? "Documento",
+      quitar: () => setFiltros({ ...filtros, plantilla: "todos" }),
+    });
+  }
+  if (filtros.desde || filtros.hasta) {
+    filtrosAplicados.push({
+      clave: "rango",
+      etiqueta: etiquetaDeRango(filtros.desde, filtros.hasta),
+      quitar: () => setFiltros({ ...filtros, desde: "", hasta: "" }),
+    });
+  }
 
   if (documentos.length === 0) {
     return <TablaDeDocumentos documentos={[]} vacio="Todavía no hay documentos para este paciente." />;
@@ -145,6 +165,8 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
           </div>
         </FiltrosSheet>
       </div>
+
+      <FiltrosAplicados filtros={filtrosAplicados} />
 
       <TablaDeDocumentos documentos={filtrados} vacio="Ningún documento coincide con la búsqueda o los filtros." />
     </div>
