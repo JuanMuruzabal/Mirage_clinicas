@@ -3504,7 +3504,7 @@ Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado
   - Cada descarga cuesta armar el PDF en la API; con una lámina de una a cuatro páginas es chico, y no hay goroutines ni consultas nuevas.
   - **La verificación pública del código no existe todavía:** hoy solo un profesional con acceso ve el documento. Exponerla revela que un documento existe (Ley 25.326) y necesita una decisión de producto aparte.
 - **Condición de revisión:** si hace falta archivo a largo plazo con retención bloqueada (5.8), ahí sí se guarda una copia, en un bucket aparte, y se vuelve a mirar este TR; o si el generador cambia seguido y hay que fijar el aspecto de lo ya entregado.
-- **Pendiente:** `scripts/qa-entorno-dev.sh` está desactualizado respecto de TR-137 y TR-146 y va en un PR aparte.
+- **Pendiente:** `scripts/qa-entorno-dev.sh` está desactualizado respecto de TR-137 y TR-146 y va en un PR aparte. *(Nota 2026-10-02: resuelto en `fix/qa-entorno-dev`; el script volvió a pasar entero.)*
 
 - **Addendum (2026-10-02) — La descarga en el celular:**
   1. **El problema** (prueba de la 5.3 desplegada, desde un iPhone): "Descargar PDF" era un `<a href>` a una respuesta `Content-Disposition: attachment`, y iOS no la descarga: en Safari abría el PDF en una página aparte, y en la app instalada en la pantalla de inicio, en una vista previa sin salida.

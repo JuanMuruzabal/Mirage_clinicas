@@ -541,6 +541,8 @@ Queda como script reusable: `scripts/qa-entorno-dev.sh`, pensado para correrse a
 
 Resultado de la corrida del 2026-09-09: **17 de 17**.
 
+*Nota 2026-10-02: el script quedó viejo con TR-137 (`clinic_id`) y TR-146 (el wizard por tipo y profesional), y se puso al día ese día: hoy son 21 ok, 0 fallas, con la limpieza en una sola transacción. Lo de arriba describe la corrida de entonces.*
+
 | Qué se verificó | Resultado |
 |---|---|
 | Alta completa de profesional (registro → perfil → clínica) | ✅ |

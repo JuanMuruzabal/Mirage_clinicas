@@ -759,6 +759,8 @@ Sobre el último: es el único ítem del informe que **no arregla nada** — no 
 
 Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y optimizacion/` con el estado del sistema — para comparar contra la ronda siguiente y ver qué mejoró, qué empeoró y qué apareció nuevo. El primero se hace al cerrar la Fase C.
 
+`scripts/qa-entorno-dev.sh` (QA del entorno real, contra los contenedores) se puso al día el 2026-10-02: había quedado viejo desde TR-137 y TR-146. Hoy pasa entero (21 ok, 0 fallas) y su limpieza es transaccional.
+
 ### 12.5 Ronda de optimización post-Fase 3 (2026-09-22)
 
 Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161 y TR-162, con sus addenda; la fuga de privacidad del wizard, como addendum de TR-147.
