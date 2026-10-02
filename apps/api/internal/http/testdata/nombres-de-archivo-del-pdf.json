@@ -1,0 +1,15 @@
+{
+  "_comentario": "Tabla de paridad de nombreDeArchivoDelPDF: la leen TestNombreDeArchivoDelPDF_Paridad (Go, documentos_pdf_nombre_test.go) y pdf-de-documentos.test.ts (Vitest, apps/web/src/lib). Go pone el nombre en el Content-Disposition y TypeScript lo sugiere al 'Guardar como' antes de tener la respuesta: tienen que dar lo mismo. Un caso nuevo va acá, no en uno solo de los dos tests.",
+  "casos": [
+    { "caso": "acentos y eñes", "tipo": "historia_clinica", "plantillaNombre": "Odontología general — Niños/Ñandú", "folio": 12, "esperado": "historia-clinica-odontologia-general-ninos-nandu-folio-12.pdf" },
+    { "caso": "mayúsculas acentuadas y diéresis", "tipo": "consentimiento", "plantillaNombre": "EXTRACCIÓN DE PIEZA — PINGÜINO ÁÉÍÓÚÜÑ", "folio": 4, "esperado": "consentimiento-informado-extraccion-de-pieza-pinguino-aeiouun-folio-4.pdf" },
+    { "caso": "consentimiento con folio", "tipo": "consentimiento", "plantillaNombre": "Tratamiento de conducto", "folio": 3, "esperado": "consentimiento-informado-tratamiento-de-conducto-folio-3.pdf" },
+    { "caso": "consentimiento sin folio", "tipo": "consentimiento", "plantillaNombre": "Tratamiento de conducto", "folio": null, "esperado": "consentimiento-informado-tratamiento-de-conducto-sin-folio.pdf" },
+    { "caso": "historia clínica sellada", "tipo": "historia_clinica", "plantillaNombre": "Odontología general", "folio": 1, "esperado": "historia-clinica-odontologia-general-folio-1.pdf" },
+    { "caso": "anexo", "tipo": "anexo", "plantillaNombre": "  Revisión   GENERAL  ", "folio": 27, "esperado": "anexo-revision-general-folio-27.pdf" },
+    { "caso": "nombre con símbolos", "tipo": "consentimiento", "plantillaNombre": "Extracción (pieza 3.6) + ¡Urgente! & 50% / \"cirugía\"", "folio": 7, "esperado": "consentimiento-informado-extraccion-pieza-3-6-urgente-50-cirugia-folio-7.pdf" },
+    { "caso": "letra acentuada que no está en la tabla", "tipo": "anexo", "plantillaNombre": "Über Ëxtra çà", "folio": null, "esperado": "anexo-uber-xtra-sin-folio.pdf" },
+    { "caso": "tipo desconocido: el nombre solo", "tipo": "otro", "plantillaNombre": "Ficha libre", "folio": 9, "esperado": "ficha-libre-folio-9.pdf" },
+    { "caso": "sin nada ASCII", "tipo": "otro", "plantillaNombre": "¿¿ — ¡¡", "folio": null, "esperado": "documento-sin-folio.pdf" }
+  ]
+}

@@ -83,7 +83,7 @@ describe("ModuloDocumentos", () => {
 
   it("en el celular, el modelo se abre a pantalla completa, y se puede acercar", async () => {
     render(<ModuloDocumentos plantillas={plantillas} hoy="2026-09-27" />);
-    fireEvent.click(screen.getByRole("button", { name: "Ver en pantalla completa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pantalla completa" }));
     const capa = await screen.findByRole("dialog", { name: "Tratamiento de conducto" });
     expect(capa.querySelector("img")).toHaveAttribute("alt", "Tratamiento de conducto: modelo original del Colegio");
     expect(screen.getByRole("button", { name: "Cerrar" })).toHaveFocus();
@@ -228,7 +228,7 @@ describe("ModuloDocumentos", () => {
   it("a pantalla completa, una hoja de muestra se ve igual", async () => {
     render(<ModuloDocumentos plantillas={[conducto]} muestras={muestrasSiFaltan(1)} hoy="2026-09-27" />);
     fireEvent.click(screen.getByRole("button", { name: "Documento siguiente" }));
-    fireEvent.click(screen.getByRole("button", { name: "Ver en pantalla completa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pantalla completa" }));
     const capa = await screen.findByRole("dialog", { name: "Modelo de muestra 1" });
     expect(capa.querySelector("[aria-label='Modelo de muestra 1: hoja de muestra']")).not.toBeNull();
   });
