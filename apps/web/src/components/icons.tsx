@@ -377,3 +377,25 @@ export function IconBell({ className }: IconProps) {
     </svg>
   );
 }
+
+// IconPrinter / IconDownload — "Imprimir" y "Descargar PDF" de un
+// documento clínico terminado (Fase 5.3). Mismo trazo que el resto del set.
+export function IconPrinter({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M5.5 7.5V3h9v4.5" />
+      <path d="M5.5 14.5H4a1.5 1.5 0 0 1-1.5-1.5V9A1.5 1.5 0 0 1 4 7.5h12A1.5 1.5 0 0 1 17.5 9v4a1.5 1.5 0 0 1-1.5 1.5h-1.5" />
+      <path d="M5.5 11.5h9V17h-9z" />
+    </svg>
+  );
+}
+
+export function IconDownload({ className }: IconProps) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M10 3v9.5" />
+      <path d="M6.25 9 10 12.75 13.75 9" />
+      <path d="M3.5 13.5v1.75A1.75 1.75 0 0 0 5.25 17h9.5a1.75 1.75 0 0 0 1.75-1.75V13.5" />
+    </svg>
+  );
+}
