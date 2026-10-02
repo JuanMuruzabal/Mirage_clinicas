@@ -64,6 +64,29 @@ describe("IP del visitante hacia la API (Fase 3.1.1)", () => {
     expect(cabeceras["X-Prisma-Bff-Auth"]).toBe("secreto-compartido");
   });
 
+  // Fase 5.3: la descarga del PDF no pasa por `request`, arma su propio
+  // fetch; igual tiene que llevar la IP, porque queda en la auditoría del
+  // documento ("exportado") con desde dónde se hizo.
+  it("la descarga del PDF de un documento también manda la IP y el secreto, con la sesión", async () => {
+    vi.stubEnv("BFF_SHARED_SECRET", "secreto-compartido");
+    conXForwardedFor("201.235.14.7");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { apiDescargarPDFDocumento } = await importarApi();
+    await apiDescargarPDFDocumento("tok", "doc-1");
+
+    const cabeceras = cabecerasDelFetch(fetchMock);
+    expect(cabeceras["X-Prisma-Client-IP"]).toBe("201.235.14.7");
+    expect(cabeceras["X-Prisma-Bff-Auth"]).toBe("secreto-compartido");
+    expect(cabeceras.Authorization).toBe("Bearer tok");
+  });
+
   // El primero lo pone el navegador y se puede inventar; los del final son
   // saltos de infraestructura. Si tomáramos el primero, cualquiera elegiría
   // su IP mandando su propio X-Forwarded-For.

@@ -164,14 +164,13 @@ describe("ModuloDocumentos", () => {
     const sola = screen.getByTestId("pila-de-modelos");
     expect(sola.querySelectorAll(".pila-hoja")).toHaveLength(0);
     expect(sola).not.toHaveClass("px-[14%]");
-    expect(sola.querySelector(".pila-flota")).toBeNull();
   });
 
-  it("con pila, la hoja de adelante flota y se inclina hacia el mouse, no hacia el dedo", () => {
+  it("con pila, la hoja de adelante se inclina hacia el mouse, no hacia el dedo", () => {
     render(<ModuloDocumentos plantillas={plantillas} hoy="2026-09-27" />);
     const pila = screen.getByTestId("pila-de-modelos");
     expect(pila).toHaveClass("px-[14%]");
-    expect(pila.querySelector(".pila-frente .pila-flota .pila-inclina")).not.toBeNull();
+    expect(pila.querySelector(".pila-frente .pila-inclina")).not.toBeNull();
     const hoja = pila.querySelector(".pila-inclina") as HTMLElement;
     hoja.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 260, right: 200, bottom: 260, x: 0, y: 0, toJSON: () => ({}) });
 
@@ -191,22 +190,18 @@ describe("ModuloDocumentos", () => {
     expect(hoja.style.getPropertyValue("--pila-ry")).toBe("");
   });
 
-  // Pedido del cliente (2026-09-29): sedoanalgesia, de cuatro páginas, se
-  // movía brusco. El vaivén y la inclinación se dividen por las páginas.
-  it("una hoja de varias páginas se mueve menos: la amplitud es 1 sobre sus páginas", () => {
+  // Desde 2026-10-02 la pila muestra una página por vez: una hoja de varias
+  // páginas (sedoanalgesia tiene cuatro) se inclina igual que una de una.
+  it("una hoja de varias páginas se inclina como una de una", () => {
     const sedoanalgesia = plantillaPorId("consentimiento-sedoanalgesia") as Plantilla;
     render(<ModuloDocumentos plantillas={[conducto, sedoanalgesia]} hoy="2026-09-27" />);
     const pila = screen.getByTestId("pila-de-modelos");
-    expect((pila.querySelector(".pila-frente") as HTMLElement).style.getPropertyValue("--pila-amplitud")).toBe("1");
 
     fireEvent.click(screen.getByRole("button", { name: "Documento siguiente" }));
-    const frente = pila.querySelector(".pila-frente") as HTMLElement;
-    expect(frente.style.getPropertyValue("--pila-amplitud")).toBe("0.25");
     const hoja = pila.querySelector(".pila-inclina") as HTMLElement;
-    hoja.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 1040, right: 200, bottom: 1040, x: 0, y: 0, toJSON: () => ({}) });
-    fireEvent.pointerMove(hoja, { pointerType: "mouse", clientX: 200, clientY: 260 });
-    // Hacia adelante y atrás, un cuarto; de costado, igual que en una página.
-    expect(hoja.style.getPropertyValue("--pila-rx")).toBe("0.56deg");
+    hoja.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 260, right: 200, bottom: 260, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.pointerMove(hoja, { pointerType: "mouse", clientX: 200, clientY: 0 });
+    expect(hoja.style.getPropertyValue("--pila-rx")).toBe("4.50deg");
     expect(hoja.style.getPropertyValue("--pila-ry")).toBe("6.00deg");
   });
 

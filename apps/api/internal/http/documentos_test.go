@@ -613,14 +613,16 @@ func TestDocumentos_UnConsentimientoSeFirmaEnPapel(t *testing.T) {
 		t.Fatalf("terminado, queda para imprimir, con folio 1 y sin firmas pendientes: %+v", d)
 	}
 
-	// No se firma en el sistema.
+	// No se firma en el sistema. El 409 lo nombra como la pantalla: "listo
+	// para imprimir o descargar" (Fase 5.3).
+	const mensajeParaImprimir = "este documento está listo para imprimir o descargar y se firma a mano, en papel: no se puede editar ni firmar en el sistema"
 	rec := e.firmar(t, e.token, d.ID, map[string]any{"rol": "profesional"})
-	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "papel") {
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), mensajeParaImprimir) {
 		t.Fatalf("firmar un consentimiento: %d %s", rec.Code, rec.Body.String())
 	}
-	// Ni se guarda encima.
-	if rec := doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores}); rec.Code != http.StatusConflict {
-		t.Fatalf("guardar sobre uno para imprimir: %d", rec.Code)
+	// Ni se guarda encima, con el mismo mensaje.
+	if rec := doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores}); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), mensajeParaImprimir) {
+		t.Fatalf("guardar sobre uno para imprimir: %d %s", rec.Code, rec.Body.String())
 	}
 
 	// Imprimirlo queda en la auditoría.

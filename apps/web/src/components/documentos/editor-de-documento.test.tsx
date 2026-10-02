@@ -38,6 +38,13 @@ async function terminarConfirmando(boton = "Terminar y pasar a firmas", confirma
   });
 }
 
+/** Las secciones cerradas siguen montadas (se pliegan con una animación),
+ *  pero inertes. jsdom no saca lo inerte del árbol de accesibilidad: se
+ *  mira el atributo. */
+function enSeccionCerrada(el: HTMLElement): boolean {
+  return el.closest("[inert]") !== null;
+}
+
 async function esperarGuardado() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
@@ -146,8 +153,8 @@ describe("EditorDeDocumento", () => {
         plantilla={conducto}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
-    expect(await screen.findByRole("dialog", { name: "¿Terminar el documento?" })).toHaveTextContent(/listo para imprimir/);
+    fireEvent.click(screen.getByRole("button", { name: "Terminar documento" }));
+    expect(await screen.findByRole("dialog", { name: "¿Terminar el documento?" })).toHaveTextContent(/listo para imprimir o descargar/);
     expect(screen.getByRole("button", { name: "Sí, terminar" })).toBeInTheDocument();
   });
 
@@ -170,11 +177,11 @@ describe("EditorDeDocumento", () => {
 
   it("tocar un dato del calco abre su sección", async () => {
     render(<EditorDeDocumento documento={borrador({ nombre: "Ana" })} plantilla={todoTipo} />);
-    expect(screen.queryByRole("radiogroup", { name: "Higiene" })).not.toBeInTheDocument();
+    expect(enSeccionCerrada(screen.getByRole("radiogroup", { name: "Higiene" }))).toBe(true);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Completar: Higiene" }));
     });
-    expect(screen.getByRole("radiogroup", { name: "Higiene" })).toBeInTheDocument();
+    expect(enSeccionCerrada(screen.getByRole("radiogroup", { name: "Higiene" }))).toBe(false);
     expect(screen.getByRole("button", { name: /Clínica/ })).toHaveAttribute("aria-expanded", "true");
   });
 
@@ -182,9 +189,10 @@ describe("EditorDeDocumento", () => {
     render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} />);
     expect(screen.getByText("0 de 1 obligatorios")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Datos/ }));
-    expect(screen.queryByRole("textbox", { name: /^Nombre/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Datos/ })).toHaveAttribute("aria-expanded", "false");
+    expect(enSeccionCerrada(screen.getByRole("textbox", { name: /^Nombre/ }))).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Clínica/ }));
-    expect(screen.getByRole("group", { name: "Hábitos" })).toBeInTheDocument();
+    expect(enSeccionCerrada(screen.getByRole("group", { name: "Hábitos" }))).toBe(false);
   });
 
   it("con lámina, el documento es la página original con lo cargado encima, y tocar un renglón abre su campo", async () => {
@@ -227,7 +235,7 @@ describe("EditorDeDocumento", () => {
     );
     expect(screen.getByRole("button", { name: "Completar: Indicaciones" })).toHaveClass("bg-terracota/15");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Terminar para imprimir" }));
+      fireEvent.click(screen.getByRole("button", { name: "Terminar documento" }));
     });
     expect(acciones.terminarDocumentoAction).not.toHaveBeenCalled();
     expect(screen.getByText("No entra en el espacio del documento: acortalo.")).toBeInTheDocument();
@@ -251,7 +259,7 @@ describe("EditorDeDocumento", () => {
 
   it("un consentimiento se termina para imprimir: se firma a mano", () => {
     render(<EditorDeDocumento documento={borrador({ lugar: "Córdoba" })} plantilla={conducto} />);
-    expect(screen.getByRole("button", { name: "Terminar para imprimir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Terminar documento" })).toBeInTheDocument();
     expect(screen.getByText(/se firma a mano, en papel/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Terminar y pasar a firmas" })).not.toBeInTheDocument();
   });

@@ -27,4 +27,8 @@ describe("documentos (ayudantes)", () => {
   it("cada estado tiene su nombre", () => {
     expect(ETIQUETA_DE_ESTADO.sellado).toBe("Firmado y sellado");
   });
+
+  it("un consentimiento terminado está listo para imprimir o descargar (Fase 5.3)", () => {
+    expect(ETIQUETA_DE_ESTADO.para_imprimir).toBe("Listo para imprimir o descargar");
+  });
 });
