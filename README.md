@@ -235,7 +235,8 @@ Otros que no tienen atajo:
   desde la raíz y con `pnpm run build:web` hecho:
   `PRISMA_DEMO_PLANTILLAS=1 pnpm dlx @lhci/cli@0.15.1 autorun`.
 - **QA del entorno real:** `scripts/qa-entorno-dev.sh`, contra los
-  contenedores levantados con `docker compose up -d --build`.
+  contenedores levantados con `docker compose up -d --build`. Pasa entero
+  (0 fallas) y borra al final, en una transacción, todo lo que creó.
 
 ## Tests
 
