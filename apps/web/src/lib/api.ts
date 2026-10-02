@@ -2128,6 +2128,45 @@ export function apiRegistrarImpresionDocumento(token: string, id: string): Promi
   return request<null>(`/documentos/${id}/impresion`, { method: "POST", headers: conSesion(token) });
 }
 
+export type DescargaDePDF =
+  | { ok: true; datos: ArrayBuffer; contentDisposition: string | null; cacheControl: string | null }
+  | { ok: false; status: number; error: string };
+
+/** El PDF de un documento terminado (Fase 5.3), generado por la API en cada
+ *  pedido: los bytes y los headers con los que la API lo sirve (el nombre
+ *  del archivo, attachment o inline, y el Cache-Control), para que la ruta
+ *  /panel/documentos/[id]/pdf los pase. Con `paraImprimir` la API lo sirve
+ *  inline (para abrirlo en el navegador e imprimirlo). Lleva la IP del
+ *  visitante: la descarga queda en la auditoría del documento
+ *  ("exportado"), con desde dónde se hizo. */
+export async function apiDescargarPDFDocumento(token: string, id: string, paraImprimir = false): Promise<DescargaDePDF> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/documentos/${encodeURIComponent(id)}/pdf${paraImprimir ? "?para=imprimir" : ""}`, {
+      headers: { ...(await cabecerasDeIP()), ...conSesion(token) },
+      cache: "no-store",
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    });
+  } catch {
+    return { ok: false, status: 502, error: "No se pudo conectar con el servidor. Probá de nuevo en un momento." };
+  }
+  if (!res.ok) {
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      // Sin cuerpo JSON.
+    }
+    return { ok: false, status: res.status, error: isErrorBody(body) ? body.error : "No se pudo descargar el PDF." };
+  }
+  return {
+    ok: true,
+    datos: await res.arrayBuffer(),
+    contentDisposition: res.headers.get("Content-Disposition"),
+    cacheControl: res.headers.get("Cache-Control"),
+  };
+}
+
 export interface FirmaPayload {
   rol: string;
   nombre?: string;

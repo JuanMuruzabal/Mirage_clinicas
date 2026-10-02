@@ -19,12 +19,14 @@ const PARRAFOS = [
   [98, 100, 90, 45],
 ];
 
-export function HojaDeMuestra({ modelo, decorativa = false }: { modelo: ModeloDeMuestra; decorativa?: boolean }) {
+// `llenar` — toma el alto de su caja en vez de la proporción carta: detrás
+// de la hoja de adelante, en la pila, mide lo mismo que ella.
+export function HojaDeMuestra({ modelo, decorativa = false, llenar = false }: { modelo: ModeloDeMuestra; decorativa?: boolean; llenar?: boolean }) {
   return (
     <div
       role={decorativa ? undefined : "img"}
       aria-label={decorativa ? undefined : `${modelo.nombre}: hoja de muestra`}
-      className="@container flex aspect-[8.5/11] w-full flex-col overflow-hidden rounded-[4px] border border-linea bg-white shadow-soft"
+      className={`@container flex ${llenar ? "h-full" : "aspect-[8.5/11]"} w-full flex-col overflow-hidden rounded-[4px] border border-linea bg-white shadow-soft`}
     >
       <div className={`h-[2.4cqw] ${TONOS[modelo.tono]}`} />
       <div className="flex flex-1 flex-col gap-[4cqw] px-[9cqw] py-[8cqw]">

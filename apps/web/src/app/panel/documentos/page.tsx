@@ -45,16 +45,21 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
         plantillaInicial={primero(params.plantilla)}
         paciente={paciente?.ok ? { id: paciente.data.id, nombre: paciente.data.nombre, apellido: paciente.data.apellido } : undefined}
         hoy={hoyEnCordoba()}
+        // `enCurso` y `abajo` llevan `key` aunque no son una lista acá: en
+        // desarrollo, un elemento que viaja del servidor al cliente como prop
+        // llega todavía sin resolver, y ModuloDocumentos lo dibuja entre sus
+        // hijos estáticos; React no lo da por validado y avisa que falta la
+        // `key` ("It was passed a child from DocumentosPage").
         enCurso={
           enCurso.ok && enCurso.data.length > 0 ? (
-            <section className="flex flex-col gap-3">
+            <section key="en-curso" className="flex flex-col gap-3">
               <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Tus documentos en curso</h2>
               <TablaDeDocumentos documentos={enCurso.data} conPaciente compacta vacio="" />
             </section>
           ) : undefined
         }
         abajo={
-          <section className="flex flex-col gap-3">
+          <section key="pacientes-con-documentos" className="flex flex-col gap-3">
             <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Pacientes con documentos clínicos</h2>
             {pacientes.ok ? (
               <TablaPacientesConDocumentos pacientes={pacientes.data} />

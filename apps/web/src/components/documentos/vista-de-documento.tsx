@@ -6,6 +6,7 @@ import { plantillaPorId, type FirmaDePlantilla } from "@dental-mirage/documentos
 import Link from "next/link";
 import { registrarImpresionAction } from "@/app/actions/documentos";
 import { contenidoCongelado, fechaYHora, huellaCorta } from "@/lib/documentos";
+import { rutaDelPDF, tienePDF } from "./acciones-de-pdf";
 import { CalcoCongelado } from "./calco";
 import { FirmarDialogo } from "./firmar-dialogo";
 import { ImpresionDelDocumento } from "./impresion-del-documento";
@@ -23,6 +24,14 @@ import { PantallaCompleta } from "./pantalla-completa";
 // pantalla ofrece imprimirlo, y lo que sale por la impresora es la misma
 // hoja, a su tamaño de papel (`ImpresionDelDocumento`).
 //
+// Un documento terminado tiene PDF (Fase 5.3), que la API genera en cada
+// pedido: el consentimiento ofrece descargarlo junto a "Imprimir", y una
+// historia sellada lo descarga o lo abre en una pestaña nueva para
+// imprimirlo (su PDF lleva las firmas y la constancia). La excepción la
+// dice la API (`tienePDF`): uno sellado en la 5.1, antes de que se
+// congelara la composición de la lámina, se ve acá en su versión de texto,
+// pero no tiene PDF — sería la página del Colegio en blanco.
+//
 // Terminado, un documento no se edita más (TR-188): no hay "volver a
 // editar". Si hay que corregir algo, se hace otro.
 //
@@ -39,6 +48,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
 
   const aFirmar = documento.estado === "a_firmar";
   const paraImprimir = documento.estado === "para_imprimir";
+  const conPDF = tienePDF(documento);
   const puedeFirmar = aFirmar && documento.esMio;
   const profesionalNombre = `${contenido.profesional.nombre} ${contenido.profesional.apellido}`.trim();
   // La versión que se firmó, no la última: su lámina y su página.
@@ -119,6 +129,46 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               </dl>
             </section>
           )}
+          {documento.estado === "sellado" && !conPDF && (
+            <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Sin PDF</h3>
+              <p className="mt-1 text-sm text-grafito/80">
+                Este documento se selló antes de que existiera la lámina: se ve en pantalla, pero no tiene PDF.
+              </p>
+            </section>
+          )}
+          {documento.estado === "sellado" && conPDF && (
+            // El PDF (Fase 5.3): la lámina sellada más la hoja de constancia de
+            // las firmas. Un <a> y no un <Link>: es una ruta que devuelve un
+            // archivo, no una pantalla.
+            <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">PDF del documento</h3>
+              <p className="mt-1 text-sm text-grafito/80">
+                El documento sellado, con la constancia de cómo, cuándo y desde dónde se hizo cada firma. Cada descarga e impresión queda registrada.
+              </p>
+              <a
+                href={rutaDelPDF(documento.id)}
+                className="mt-3 block w-full rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-sm font-semibold text-marfil hover:brightness-95"
+              >
+                Descargar PDF
+              </a>
+              <a
+                href={rutaDelPDF(documento.id, true)}
+                target="_blank"
+                rel="noopener"
+                aria-label="Imprimir (abre el PDF en una pestaña nueva)"
+                className="mt-2 block w-full rounded-full border border-linea bg-hueso px-5 py-2.5 text-center text-sm font-semibold text-salvia-oscuro hover:bg-arena"
+              >
+                Imprimir
+              </a>
+              {documento.codigoVerificacion && (
+                <p className="mt-3 text-xs text-grafito/75">
+                  Código de verificación:{" "}
+                  <span className="font-[family-name:var(--font-mono)] text-sm text-grafito">{documento.codigoVerificacion}</span>
+                </p>
+              )}
+            </section>
+          )}
           {documento.estado === "anulado" && (
             <section className="rounded-card border border-linea bg-arena p-4 text-sm text-grafito">
               <h3 className="font-[family-name:var(--font-display)] text-lg font-medium">Anulado</h3>
@@ -128,7 +178,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
 
           {paraImprimir ? (
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Listo para imprimir</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Listo para imprimir o descargar</h3>
               <p className="mt-1 text-sm text-grafito/80">
                 Este consentimiento se firma a mano. Imprimilo y que lo firmen el paciente —o quien lo represente— y el profesional: el papel firmado es el
                 documento legal, y se guarda con la historia clínica del paciente.
@@ -140,6 +190,14 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               >
                 Imprimir
               </button>
+              {conPDF && (
+                <a
+                  href={rutaDelPDF(documento.id)}
+                  className="mt-2 block w-full rounded-full border border-linea bg-hueso px-5 py-2.5 text-center text-sm font-semibold text-salvia-oscuro hover:bg-arena"
+                >
+                  Descargar PDF
+                </a>
+              )}
               <p className="mt-3 text-xs text-grafito/75">
                 {documento.esMio ? "Ya no se puede editar." : `Lo hizo ${documento.autorNombre}.`} Si hay que corregir algo,{" "}
                 <Link

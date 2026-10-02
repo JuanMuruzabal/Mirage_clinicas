@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   armarLamina,
@@ -16,6 +16,7 @@ import {
 import type { DocumentoDetalle, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
 import { descartarBorradorAction, guardarBorradorAction, terminarDocumentoAction } from "@/app/actions/documentos";
 import { Dialogo } from "@/components/dialogo";
+import { IconChevronDown } from "@/components/icons";
 import { CalcoEnVivo } from "./calco";
 import { CampoDeDocumento, idDelCampo } from "./campo-de-documento";
 import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
@@ -31,6 +32,21 @@ function erroresPorCampo(errores: ErrorDeCampoDeDocumento[] | undefined): Record
   return mapa;
 }
 
+/** La transición más larga de un elemento, en milisegundos ("0.3s, 150ms"
+ *  → 300). Cero con "reducir movimiento" (las clases son `motion-safe:`) y
+ *  en jsdom, que no calcula estilos. */
+function duracionDeTransicion(el: HTMLElement): number {
+  const ms = getComputedStyle(el)
+    .transitionDuration.split(",")
+    .map((d) => (d.trim().endsWith("ms") ? parseFloat(d) : parseFloat(d) * 1000))
+    .filter((n) => Number.isFinite(n));
+  return ms.length > 0 ? Math.max(...ms) : 0;
+}
+
+/** Ir a un campo: lo resuelve un efecto, después del render que abre su
+ *  sección. `vuelta` hace que tocar dos veces el mismo dato lo repita. */
+type PedidoDeFoco = { campoId: string; seccionId: string | null; vuelta: number };
+
 // EditorDeDocumento — completar un borrador (Fase 5.1, R4–R6 del brief).
 //
 // A la izquierda, el sidebar con los campos de la plantilla, sección por
@@ -42,6 +58,12 @@ function erroresPorCampo(errores: ErrorDeCampoDeDocumento[] | undefined): Record
 // página, TR-173). En el celular, una cosa por vez: Completar o Ver
 // documento (TR-172). La hoja se puede ver a pantalla completa, en el
 // celular y en la computadora.
+//
+// Las secciones se despliegan y se pliegan con una animación (filas de
+// grilla 0fr→1fr, el mismo patrón que la tarjeta de notificación): por eso
+// los campos de una sección cerrada quedan MONTADOS pero inertes —no se
+// alcanzan con Tab ni con un lector de pantalla—. Con "reducir movimiento"
+// se abren y se cierran sin animar.
 //
 // Un consentimiento se firma a mano (TR-188): terminarlo lo deja listo para
 // imprimir, no "a firmar".
@@ -80,6 +102,9 @@ export function EditorDeDocumento({
   const [vista, setVista] = useState<"completar" | "documento">("completar");
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const [confirmarTerminar, setConfirmarTerminar] = useState(false);
+  const [pedidoDeFoco, setPedidoDeFoco] = useState<PedidoDeFoco | null>(null);
+  const idBase = useId();
+  const idDelCuerpo = (seccionId: string) => `${idBase}-seccion-${seccionId}`;
   const hoy = documento.hoy ?? "";
   const paginasDeLamina = paginasDeLaLamina(plantilla);
   const enPapel = seFirmaEnPapel(plantilla);
@@ -149,13 +174,50 @@ export function EditorDeDocumento({
     if (seccion) setSeccionAbierta(seccion.id);
     setCampoActivo(campoId);
     setVista("completar");
-    // Después de que la sección se abra y el campo exista.
-    requestAnimationFrame(() => {
-      const control = document.getElementById(idDelCampo(campoId)) ?? document.querySelector<HTMLElement>(`[data-campo="${campoId}"] button`);
-      control?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      control?.focus({ preventScroll: true });
-    });
+    setPedidoDeFoco((p) => ({ campoId, seccionId: seccion?.id ?? null, vuelta: (p?.vuelta ?? 0) + 1 }));
   }
+
+  // El campo existe siempre, pero mientras su sección está cerrada es inerte
+  // (no acepta el foco) y mide 0 de alto. Por eso, en dos tiempos:
+  // - el foco, apenas el render que abre la sección le saca el `inert`
+  //   (este efecto corre después de ese commit), sin scrollear: a mitad de
+  //   la animación el campo todavía no está donde va a quedar;
+  // - el scroll, cuando la sección terminó de desplegarse (`transitionend`
+  //   de su contenedor, con un respaldo por si el evento no llega). Si ya
+  //   estaba abierta, o sin movimiento, enseguida.
+  useEffect(() => {
+    if (!pedidoDeFoco) return;
+    const { campoId, seccionId } = pedidoDeFoco;
+    const control =
+      document.getElementById(idDelCampo(campoId)) ?? document.querySelector<HTMLElement>(`[data-campo="${campoId}"] button`);
+    control?.focus({ preventScroll: true });
+    const scrollear = () => control?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+    const cuerpo = seccionId ? document.getElementById(`${idBase}-seccion-${seccionId}`) : null;
+    const interior = cuerpo?.firstElementChild as HTMLElement | null | undefined;
+    // Todavía desplegándose: lo que tiene adentro es más alto que lo que muestra.
+    const desplegandose = !!interior && interior.scrollHeight - interior.clientHeight > 1;
+    const duracion = cuerpo ? duracionDeTransicion(cuerpo) : 0;
+    if (!cuerpo || !desplegandose || duracion === 0) {
+      scrollear();
+      return;
+    }
+    let hecho = false;
+    const terminar = () => {
+      if (hecho) return;
+      hecho = true;
+      scrollear();
+    };
+    const alTerminar = (e: TransitionEvent) => {
+      if (e.target === cuerpo && e.propertyName === "grid-template-rows") terminar();
+    };
+    cuerpo.addEventListener("transitionend", alTerminar);
+    const respaldo = window.setTimeout(terminar, duracion + 50);
+    return () => {
+      cuerpo.removeEventListener("transitionend", alTerminar);
+      window.clearTimeout(respaldo);
+    };
+  }, [pedidoDeFoco, idBase]);
 
   // Primero lo que falta o no entra; si está todo, la confirmación.
   function pedirTerminar() {
@@ -249,10 +311,15 @@ export function EditorDeDocumento({
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
         {/* Pegada debajo del header fijo, no a 1rem del borde de la ventana:
             ahí el header la tapaba y "Quién suscribe" desaparecía al hacer
-            scroll (mismo cálculo que el editor de la página, TR-173). */}
+            scroll (mismo cálculo que el editor de la página, TR-173).
+            La barra de desplazamiento es discreta (`.scrollbar-discreta`) y
+            su canal queda reservado (`scrollbar-gutter: stable`): sin eso,
+            al desplegar una sección la barra aparece a mitad de la animación
+            y el formulario se corre de costado. El `pr-1` separa las
+            tarjetas del canal. */}
         <aside
           aria-label="Datos del documento"
-          className={`${vista === "completar" ? "flex" : "hidden"} min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1`}
+          className={`${vista === "completar" ? "flex" : "hidden"} scrollbar-discreta min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex lg:max-h-[calc(100dvh-var(--header-height)-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-gutter:stable]`}
         >
           {plantilla.secciones.map((seccion) => {
             const abierta = seccion.id === seccionAbierta;
@@ -265,32 +332,51 @@ export function EditorDeDocumento({
                   <button
                     type="button"
                     aria-expanded={abierta}
+                    aria-controls={idDelCuerpo(seccion.id)}
                     onClick={() => setSeccionAbierta(abierta ? "" : seccion.id)}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                   >
                     <span className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{seccion.titulo}</span>
-                    <span className={`text-xs font-medium ${conError ? "text-terracota-oscuro" : "text-grafito/75"}`}>
-                      {conError
-                        ? "Revisar"
-                        : obligatorios.length > 0
-                          ? `${completos} de ${obligatorios.length} obligatorios`
-                          : "Opcional"}
+                    <span className="flex flex-shrink-0 items-center gap-2">
+                      <span className={`text-xs font-medium ${conError ? "text-terracota-oscuro" : "text-grafito/75"}`}>
+                        {conError
+                          ? "Revisar"
+                          : obligatorios.length > 0
+                            ? `${completos} de ${obligatorios.length} obligatorios`
+                            : "Opcional"}
+                      </span>
+                      <IconChevronDown
+                        className={`h-4 w-4 flex-shrink-0 text-grafito/60 motion-safe:transition-transform motion-safe:duration-300 ${
+                          abierta ? "rotate-180" : ""
+                        }`}
+                      />
                     </span>
                   </button>
                 </h3>
-                {abierta && (
-                  <div className="flex flex-col gap-4 border-t border-linea px-4 py-4">
-                    {seccion.campos.map((campo) => (
-                      <CampoDeDocumento
-                        key={campo.id}
-                        campo={campo}
-                        valor={valores[campo.id]}
-                        error={errores[campo.id]}
-                        onCambio={(v) => cambiar(campo.id, v)}
-                      />
-                    ))}
+                {/* grid-rows 0fr→1fr: se despliega a la altura de su contenido
+                    sin medirlo. El borde y el padding van ADENTRO del
+                    overflow-hidden: afuera, la sección cerrada dejaría una
+                    línea y un hueco. */}
+                <div
+                  id={idDelCuerpo(seccion.id)}
+                  className={`grid motion-safe:transition-[grid-template-rows] motion-safe:duration-300 ${
+                    abierta ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden" inert={!abierta}>
+                    <div className="flex flex-col gap-4 border-t border-linea px-4 py-4">
+                      {seccion.campos.map((campo) => (
+                        <CampoDeDocumento
+                          key={campo.id}
+                          campo={campo}
+                          valor={valores[campo.id]}
+                          error={errores[campo.id]}
+                          onCambio={(v) => cambiar(campo.id, v)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                )}
+                </div>
               </section>
             );
           })}
@@ -310,11 +396,11 @@ export function EditorDeDocumento({
               disabled={terminando}
               className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
             >
-              {terminando ? "Terminando…" : enPapel ? "Terminar para imprimir" : "Terminar y pasar a firmas"}
+              {terminando ? "Terminando…" : enPapel ? "Terminar documento" : "Terminar y pasar a firmas"}
             </button>
             <p className="text-xs text-grafito/75">
               {enPapel
-                ? "Al terminar, queda listo para imprimir —se firma a mano, en papel— y ya no se puede editar."
+                ? "Al terminar, queda listo para imprimir o descargar —se firma a mano, en papel— y ya no se puede editar."
                 : "Al terminar, el texto del documento queda fijo y pasa a firmas: ya no se puede editar."}
             </p>
             <button
@@ -352,7 +438,7 @@ export function EditorDeDocumento({
           titulo="¿Terminar el documento?"
           descripcion={
             enPapel
-              ? "Queda listo para imprimir y ya no se puede editar. Revisá que esté todo bien: si después hay que corregir algo, vas a tener que hacer otro."
+              ? "Queda listo para imprimir o descargar y ya no se puede editar. Revisá que esté todo bien: si después hay que corregir algo, vas a tener que hacer otro."
               : "El texto queda fijo, pasa a firmas y ya no se puede editar. Revisá que esté todo bien: si después hay que corregir algo, vas a tener que hacer otro."
           }
           onCerrar={() => setConfirmarTerminar(false)}

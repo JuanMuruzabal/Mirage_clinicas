@@ -1007,6 +1007,10 @@ export interface DocumentoResumen {
   anuladoEn?: string;
   /** La huella (SHA-256) del contenido congelado, desde que se terminó. */
   hashContenido?: string;
+  /** Se le puede pedir el PDF: terminado (sellado o para imprimir) y con la
+   *  composición de la lámina congelada. Uno sellado en la 5.1, antes de
+   *  que existiera, no la trae: se ve en pantalla, pero no tiene PDF. */
+  tienePDF: boolean;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {
@@ -1018,6 +1022,9 @@ export interface DocumentoDetalle extends DocumentoResumen {
   contenido?: unknown;
   hashAnterior?: string;
   hashSello?: string;
+  /** Solo en un documento sellado: el código corto impreso en su PDF
+   *  ("XXXX-XXXX"), derivado del sello (Fase 5.3). */
+  codigoVerificacion?: string;
   cadenaN?: number;
   motivoAnulacion?: string;
   firmas: FirmaDeDocumento[];
