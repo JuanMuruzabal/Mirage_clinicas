@@ -283,6 +283,7 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 - **Qué lleva cada uno.** Un **sellado**: la lámina, las firmas en su renglón, la constancia de cada firma y el **código de verificación** (derivado del sello, `XXXX-XXXX`) en el pie, que lleva además folio y hoja. Un **consentimiento terminado**: solo la lámina, sin firmas, constancia ni código (se firma en papel y no tiene sello), con pie "Folio N · Hoja i de n".
 - **Todo documento terminado ofrece "Imprimir" y "Descargar PDF"** —en la pantalla del documento y en cada fila terminada de las listas—; `?para=imprimir` lo sirve `inline`. Cada exportación válida deja un evento `exportado` (`pdf` o `impresión`), con sesión, permiso y la misma regla de alcance que el resto del módulo.
 - **Los sellados de la 5.1 anteriores a la lámina no tienen PDF** (su contenido no trae la composición): se ven en pantalla y la API responde 409 (`tienePDF`).
+- **En el celular, "Descargar PDF" guarda el archivo, no lo abre aparte** (*2026-10-02, addendum de TR-191*): un `<a href>` a una respuesta `attachment` abre el PDF en el visor del iPhone. Un fetch a la ruta del BFF y, según dónde corre, descarga normal en el navegador o selector de archivo / hoja de compartir en la app instalada.
 - **Subfase 5.3 implementada.**
 
 ### 4.7 Permisos, aislamiento y privacidad
