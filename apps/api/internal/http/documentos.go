@@ -34,6 +34,9 @@ import (
 //	POST   /documentos/{id}/firmas      una firma en este dispositivo;
 //	                                    con la última requerida, se sella
 //	POST   /documentos/{id}/impresion   deja constancia de que se imprimió
+//	GET    /documentos/{id}/pdf         el PDF de un documento terminado,
+//	                                    generado en el momento (Fase 5.3,
+//	                                    documentos_pdf.go)
 //
 // Lo que ninguno de estos handlers decide: que un documento sellado no se
 // toque. Eso lo hacen los triggers de la base (db/migrate_documentos.go).
@@ -52,6 +55,7 @@ func registrarDocumentosRoutes(r chi.Router, gdb *gorm.DB) {
 		r.Post("/documentos/{id}/terminar", terminarDocumentoHandler(gdb))
 		r.Post("/documentos/{id}/firmas", firmarEnElDispositivoHandler(gdb))
 		r.Post("/documentos/{id}/impresion", impresionDeDocumentoHandler(gdb))
+		r.Get("/documentos/{id}/pdf", descargarPDFHandler(gdb))
 		r.Get("/pacientes/{id}/documentos", documentosDePacienteHandler(gdb))
 	})
 }
@@ -86,6 +90,10 @@ type documentoResumenResponse struct {
 	// HashContenido — la huella del contenido congelado, desde que se
 	// terminó: la columna "Huella" del registro del paciente.
 	HashContenido *string `json:"hashContenido,omitempty"`
+	// TienePDF — se le puede pedir el PDF (documentos.TienePDF): terminado,
+	// y con la composición de la lámina congelada. Uno sellado en la 5.1,
+	// antes de que existiera, no la trae: se ve en pantalla, sin PDF.
+	TienePDF bool `json:"tienePDF"`
 }
 
 type firmaResponse struct {
@@ -108,13 +116,16 @@ type documentoDetalleResponse struct {
 	// Contenido — el documento congelado, tal cual se firmó (JSON
 	// canónico). Desde "a firmar", es lo que se muestra: no se vuelve a
 	// armar con la plantilla, se lee lo congelado.
-	Contenido        json.RawMessage `json:"contenido,omitempty"`
-	HashAnterior     *string         `json:"hashAnterior,omitempty"`
-	HashSello        *string         `json:"hashSello,omitempty"`
-	CadenaN          *int64          `json:"cadenaN,omitempty"`
-	MotivoAnulacion  *string         `json:"motivoAnulacion,omitempty"`
-	Firmas           []firmaResponse `json:"firmas"`
-	FirmasPendientes []string        `json:"firmasPendientes"`
+	Contenido    json.RawMessage `json:"contenido,omitempty"`
+	HashAnterior *string         `json:"hashAnterior,omitempty"`
+	HashSello    *string         `json:"hashSello,omitempty"`
+	// CodigoVerificacion — el código corto impreso en el PDF (Fase 5.3),
+	// derivado del sello: solo en un documento sellado.
+	CodigoVerificacion string          `json:"codigoVerificacion,omitempty"`
+	CadenaN            *int64          `json:"cadenaN,omitempty"`
+	MotivoAnulacion    *string         `json:"motivoAnulacion,omitempty"`
+	Firmas             []firmaResponse `json:"firmas"`
+	FirmasPendientes   []string        `json:"firmasPendientes"`
 	// Retomado — al crear: ya había un borrador mío de este documento para
 	// este paciente, y es este (no se abrió otro).
 	Retomado bool `json:"retomado,omitempty"`
@@ -165,9 +176,10 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 	out := make([]documentoResumenResponse, len(docs))
 	for i, d := range docs {
 		p := pacientes[d.PacienteID]
-		nombre, tipo := d.PlantillaID, ""
+		nombre, tipo, tienePDF := d.PlantillaID, "", false
 		if plantilla, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion); ok {
 			nombre, tipo = plantilla.Nombre, plantilla.Tipo
+			tienePDF = documentos.TienePDF(d, plantilla)
 		}
 		out[i] = documentoResumenResponse{
 			ID: d.ID.String(), PlantillaID: d.PlantillaID, PlantillaVersion: d.PlantillaVersion,
@@ -177,7 +189,7 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 			EsMio: session != nil && d.AutorUserID == session.UserID, Folio: d.Folio,
 			CreadoEn: clock.In(d.CreatedAt).Format(time.RFC3339), ActualizadoEn: clock.In(d.UpdatedAt).Format(time.RFC3339),
 			TerminadoEn: fechaHoraPtr(d.TerminadoEn), SelladoEn: fechaHoraPtr(d.SelladoEn), AnuladoEn: fechaHoraPtr(d.AnuladoEn),
-			HashContenido: d.HashContenido,
+			HashContenido: d.HashContenido, TienePDF: tienePDF,
 		}
 	}
 	return out, nil
@@ -193,6 +205,9 @@ func detalleDeDocumento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico) (do
 		HashAnterior:             d.HashAnterior, HashSello: d.HashSello,
 		CadenaN: d.CadenaN, MotivoAnulacion: d.MotivoAnulacion,
 		Firmas: []firmaResponse{}, FirmasPendientes: []string{},
+	}
+	if d.Estado == db.DocumentoSellado && d.HashSello != nil {
+		out.CodigoVerificacion = documentos.CodigoDeVerificacion(*d.HashSello)
 	}
 	if d.Estado == db.DocumentoBorrador {
 		out.Valores = d.Valores
@@ -658,7 +673,7 @@ func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID u
 		case db.DocumentoAFirmar:
 			writeError(w, http.StatusConflict, "este documento ya se terminó y espera firmas: no se puede editar")
 		case db.DocumentoParaImprimir:
-			writeError(w, http.StatusConflict, "este documento está listo para imprimir y se firma a mano, en papel: no se puede editar ni firmar en el sistema")
+			writeError(w, http.StatusConflict, "este documento está listo para imprimir o descargar y se firma a mano, en papel: no se puede editar ni firmar en el sistema")
 		default:
 			writeError(w, http.StatusConflict, "este documento todavía no se terminó")
 		}

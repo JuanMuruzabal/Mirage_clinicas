@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
-import { borrador, sellado } from "./fixtures";
+import { aFirmar, borrador, paraImprimir, sellado } from "./fixtures";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
+
+beforeEach(() => vi.clearAllMocks());
 
 const { TablaDeDocumentos, TablaPacientesConDocumentos, EstadoDeDocumento } = await import("./tablas-de-documentos");
 const { DocumentosDeLaFicha } = await import("./documentos-de-la-ficha");
@@ -70,6 +73,80 @@ describe("TablaDeDocumentos", () => {
     expect(screen.getByText("Esperando firmas")).toBeInTheDocument();
     rerender(<EstadoDeDocumento estado="anulado" />);
     expect(screen.getByText("Anulado")).toBeInTheDocument();
+    rerender(<EstadoDeDocumento estado="para_imprimir" />);
+    expect(screen.getByText("Listo para imprimir o descargar")).toBeInTheDocument();
+    expect(screen.queryByText("Listo para imprimir")).not.toBeInTheDocument();
+  });
+
+  it("sin `partible`, el chip va siempre en una línea", () => {
+    render(<EstadoDeDocumento estado="para_imprimir" />);
+    const chip = screen.getByText("Listo para imprimir o descargar");
+    expect(chip).toHaveClass("whitespace-nowrap", "rounded-full");
+    expect(chip).not.toHaveClass("md:whitespace-nowrap", "max-md:rounded-[0.75rem]", "max-md:leading-snug");
+  });
+
+  it("con `partible`, en el celular se parte en renglones y desde md va en una línea", () => {
+    render(<EstadoDeDocumento estado="para_imprimir" partible />);
+    const chip = screen.getByText("Listo para imprimir o descargar");
+    expect(chip).toHaveClass("md:whitespace-nowrap", "max-md:rounded-[0.75rem]", "max-md:leading-snug", "rounded-full");
+    expect(chip.className.split(/\s+/)).not.toContain("whitespace-nowrap");
+  });
+
+  it("la celda de estado de la tabla usa el chip partible", () => {
+    render(<TablaDeDocumentos documentos={[paraImprimir()]} vacio="nada" />);
+    const chip = screen.getByText("Listo para imprimir o descargar");
+    expect(chip.closest("td")).not.toBeNull();
+    expect(chip).toHaveClass("md:whitespace-nowrap");
+    expect(chip.className.split(/\s+/)).not.toContain("whitespace-nowrap");
+  });
+});
+
+describe("TablaDeDocumentos: el PDF de cada fila terminada (Fase 5.3)", () => {
+  const nombre = "Consentimiento informado: Tratamiento de conducto";
+
+  it("una fila para imprimir y una sellada llevan Imprimir y Descargar PDF; un borrador y uno a firmar, no", () => {
+    render(
+      <TablaDeDocumentos
+        documentos={[
+          paraImprimir({ id: "doc-papel" }),
+          resumen({ id: "doc-sellado" }),
+          { ...borrador(), id: "doc-borrador" },
+          aFirmar([], { id: "doc-a-firmar" }),
+        ]}
+        conPaciente
+        vacio="nada"
+      />,
+    );
+    const filas = screen.getAllByRole("row").slice(1);
+    expect(filas).toHaveLength(4);
+    const [papel, sellada, enBorrador, porFirmar] = filas;
+
+    for (const [fila, id] of [
+      [papel, "doc-papel"],
+      [sellada, "doc-sellado"],
+    ] as const) {
+      const imprimir = within(fila).getByRole("link", { name: `Imprimir ${nombre} (se abre en una pestaña nueva)` });
+      expect(imprimir).toHaveAttribute("href", `/panel/documentos/${id}/pdf?para=imprimir`);
+      expect(imprimir).toHaveAttribute("target", "_blank");
+      expect(within(fila).getByRole("link", { name: `Descargar PDF de ${nombre}` })).toHaveAttribute("href", `/panel/documentos/${id}/pdf`);
+    }
+    for (const fila of [enBorrador, porFirmar]) {
+      expect(within(fila).queryByRole("link", { name: /^Imprimir/ })).not.toBeInTheDocument();
+      expect(within(fila).queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
+      // Solo el link al documento.
+      expect(within(fila).getAllByRole("link").every((l) => !(l.getAttribute("href") ?? "").includes("/pdf"))).toBe(true);
+    }
+  });
+
+  it("los links del PDF no navegan la fila; el resto de la fila sí", () => {
+    render(<TablaDeDocumentos documentos={[paraImprimir({ id: "doc-papel" })]} vacio="nada" />);
+    const fila = screen.getAllByRole("row")[1];
+    fireEvent.click(within(fila).getByRole("link", { name: `Descargar PDF de ${nombre}` }));
+    fireEvent.click(within(fila).getByRole("link", { name: /^Imprimir/ }));
+    expect(pushMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(fila).getAllByRole("cell")[0]);
+    expect(pushMock).toHaveBeenCalledWith("/panel/documentos/doc-papel");
   });
 });
 

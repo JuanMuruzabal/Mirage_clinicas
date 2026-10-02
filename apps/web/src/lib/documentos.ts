@@ -42,7 +42,7 @@ export function contenidoCongelado(valor: unknown): ContenidoCongelado | null {
 export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
   borrador: "Borrador",
   a_firmar: "Esperando firmas",
-  para_imprimir: "Listo para imprimir",
+  para_imprimir: "Listo para imprimir o descargar",
   sellado: "Firmado y sellado",
   anulado: "Anulado",
 };

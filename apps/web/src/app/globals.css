@@ -533,6 +533,46 @@ body {
   border-radius: 9999px;
 }
 
+/* Scrollbar discreta: la de `.scrollbar-fina` (fina, `arena`), pero casi
+   invisible hasta que el mouse está sobre la caja o el foco adentro
+   (Fase 5.3, pedido del 2026-10-02 para la columna de secciones del editor
+   de documentos: con varias secciones abiertas aparecía la nativa, gris y
+   ancha, al lado del formulario). Sigue ahí para quien la busca: al pasar
+   el mouse o al tabular hacia adentro, el thumb toma el color.
+   Dos caminos, como en `.scrollbar-fina`: Firefox —y Chrome/Edge desde la
+   121, que con `scrollbar-color` puesto IGNORAN los `::-webkit-scrollbar*`—
+   van por `scrollbar-color`; Safari, por los pseudo-elementos.
+   No se suma a `.scrollbar-fina`: esa la usan otras pantallas, donde la
+   barra tiene que verse siempre. */
+.scrollbar-discreta {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-discreta:hover,
+.scrollbar-discreta:focus-within {
+  scrollbar-color: var(--color-arena) transparent;
+}
+
+.scrollbar-discreta::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-discreta::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-discreta::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.scrollbar-discreta:hover::-webkit-scrollbar-thumb,
+.scrollbar-discreta:focus-within::-webkit-scrollbar-thumb {
+  background: var(--color-arena);
+}
+
 /* El ojo duplicado en los campos de contraseña (corrección de QA del
    2026-09-13, reportado dos veces).
    La primera vez lo atribuí al tilde de "coinciden" y lo moví abajo del
@@ -926,9 +966,11 @@ li > [data-pp-efecto] {
    - Al cambiar, las dos hojas se separan hacia los costados y se cruzan a
      mitad de camino; ahí la que se va pasa atrás. La nueva llega al frente
      con un rebote, como una carta de Balatro (la referencia del cliente).
-   - Adelante, la hoja flota con un vaivén lento y se inclina hacia el mouse
-     (`.pila-flota` y `.pila-inclina`, capas separadas porque cada una tiene
-     su transform).
+   - Adelante, la hoja se inclina hacia el mouse (`.pila-inclina`, una capa
+     aparte de la que llega al frente porque cada una tiene su transform).
+     Quieta el resto del tiempo: el vaivén que la movía sola se sacó a
+     pedido del cliente (2026-10-02), y con él la escala de movimiento por
+     cantidad de páginas — la pila muestra una página por vez.
    Ningún desplazamiento pasa del margen de la pila (14 % de cada lado): nada
    se recorta ni aparece un scroll de costado a mitad de la animación. */
 /* Centro y no borde de arriba: al achicarse, las de atrás quedan centradas
@@ -959,9 +1001,6 @@ li > [data-pp-efecto] {
 .pila-sale--derecha { animation-name: pila-sale-derecha; }
 .pila-sale--lejos { animation-name: pila-sale-lejos; }
 
-.pila-flota {
-  animation: pila-flota 7s ease-in-out infinite;
-}
 .pila-inclina {
   transform: perspective(900px) rotateX(var(--pila-rx, 0deg)) rotateY(var(--pila-ry, 0deg)) scale(var(--pila-escala, 1));
   /* Al soltar vuelve con un resorte (la curva pasa de 1). */
@@ -970,7 +1009,7 @@ li > [data-pp-efecto] {
     filter 400ms ease-out;
 }
 .pila-inclina[data-inclinada] {
-  --pila-escala: calc(1 + 0.03 * var(--pila-amplitud, 1));
+  --pila-escala: 1.03;
   filter: drop-shadow(var(--pila-sombra-x, 0px) var(--pila-sombra-y, 12px) 16px rgb(47 43 38 / 0.2));
   transition:
     transform 160ms ease-out,
@@ -978,26 +1017,23 @@ li > [data-pp-efecto] {
 }
 
 @keyframes pila-asoma { from { opacity: 0; } to { opacity: 0.55; } }
-/* Los giros y los cambios de tamaño de la hoja que llega se multiplican por
-   --pila-amplitud (1 / sus páginas, PilaDeModelos): en una hoja de cuatro
-   páginas, el mismo giro movía cuatro veces más su borde de abajo. */
 @keyframes pila-entra-derecha {
-  0% { transform: translateX(13%) scale(calc(1 - 0.08 * var(--pila-amplitud, 1))); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
-  40% { transform: translateX(17%) rotate(calc(1deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.04 * var(--pila-amplitud, 1))); opacity: 1; filter: none; }
-  72% { transform: translateX(-1.5%) rotate(calc(-1deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.025 * var(--pila-amplitud, 1))); }
-  88% { transform: translateX(0.4%) rotate(calc(0.4deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.005 * var(--pila-amplitud, 1))); }
+  0% { transform: translateX(13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(17%) rotate(1deg) scale(0.96); opacity: 1; filter: none; }
+  72% { transform: translateX(-1.5%) rotate(-1deg) scale(1.025); }
+  88% { transform: translateX(0.4%) rotate(0.4deg) scale(0.995); }
   100% { transform: none; opacity: 1; filter: none; }
 }
 @keyframes pila-entra-izquierda {
-  0% { transform: translateX(-13%) scale(calc(1 - 0.08 * var(--pila-amplitud, 1))); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
-  40% { transform: translateX(-17%) rotate(calc(-1deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.04 * var(--pila-amplitud, 1))); opacity: 1; filter: none; }
-  72% { transform: translateX(1.5%) rotate(calc(1deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.025 * var(--pila-amplitud, 1))); }
-  88% { transform: translateX(-0.4%) rotate(calc(-0.4deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.005 * var(--pila-amplitud, 1))); }
+  0% { transform: translateX(-13%) scale(0.92); opacity: 0.55; filter: brightness(0.92) saturate(0.8); }
+  40% { transform: translateX(-17%) rotate(-1deg) scale(0.96); opacity: 1; filter: none; }
+  72% { transform: translateX(1.5%) rotate(1deg) scale(1.025); }
+  88% { transform: translateX(-0.4%) rotate(-0.4deg) scale(0.995); }
   100% { transform: none; opacity: 1; filter: none; }
 }
 @keyframes pila-entra-lejos {
-  0% { opacity: 0; transform: translateY(18px) rotate(calc(-2deg * var(--pila-amplitud, 1))) scale(calc(1 - 0.06 * var(--pila-amplitud, 1))); }
-  70% { opacity: 1; transform: translateY(-4px) rotate(calc(0.8deg * var(--pila-amplitud, 1))) scale(calc(1 + 0.02 * var(--pila-amplitud, 1))); }
+  0% { opacity: 0; transform: translateY(18px) rotate(-2deg) scale(0.94); }
+  70% { opacity: 1; transform: translateY(-4px) rotate(0.8deg) scale(1.02); }
   100% { opacity: 1; transform: none; }
 }
 /* La que se va arranca ENCIMA de la que entra (la escena empieza igual que
@@ -1020,24 +1056,13 @@ li > [data-pp-efecto] {
   from { z-index: 1; opacity: 1; transform: none; }
   to { z-index: 1; opacity: 0; transform: scale(0.92); }
 }
-/* El vaivén de la hoja de adelante: sube y baja apenas y gira un poco en
-   los tres ejes, con los ejes desfasados para que no se vea mecánico. */
-/* El giro de costado (rotateY) no depende de la altura de la hoja; el giro
-   plano y el de adelante hacia atrás sí, y van por --pila-amplitud. */
-@keyframes pila-flota {
-  0%, 100% { transform: perspective(1200px) translateY(0) rotate(calc(-0.5deg * var(--pila-amplitud, 1))) rotateX(calc(1deg * var(--pila-amplitud, 1))) rotateY(-1.5deg); }
-  25% { transform: perspective(1200px) translateY(-4px) rotate(calc(0.2deg * var(--pila-amplitud, 1))) rotateX(calc(-0.4deg * var(--pila-amplitud, 1))) rotateY(0.6deg); }
-  50% { transform: perspective(1200px) translateY(-2px) rotate(calc(0.6deg * var(--pila-amplitud, 1))) rotateX(calc(-1deg * var(--pila-amplitud, 1))) rotateY(1.5deg); }
-  75% { transform: perspective(1200px) translateY(-5px) rotate(calc(-0.1deg * var(--pila-amplitud, 1))) rotateX(calc(0.5deg * var(--pila-amplitud, 1))) rotateY(-0.4deg); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   /* Sin desplazarse: la hoja nueva aparece con un fundido sobre la que se
-     va, que se desvanece en su lugar, y la de adelante queda quieta
-     (TR-180: un fundido no es movimiento; flotar e inclinarse, sí). */
+     va, que se desvanece en su lugar, y la de adelante no se inclina
+     (TR-180: un fundido no es movimiento; inclinarse, sí). */
   .pila-frente.pila-entra { animation-name: despliegue-fundido; }
   .pila-sale.pila-sale { animation-name: pila-sale-fundido; }
-  .pila-flota { animation: none; }
   .pila-inclina,
   .pila-inclina[data-inclinada] {
     transform: none;

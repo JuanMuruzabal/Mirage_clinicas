@@ -56,6 +56,58 @@ describe("VistaDeDocumento", () => {
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
+  it("sellado: el PDF se descarga por la ruta del BFF, con su código de verificación", () => {
+    render(<VistaDeDocumento documento={{ ...sellado(), codigoVerificacion: "04HM-ASW9" }} />);
+    expect(screen.getByRole("heading", { name: "PDF del documento" })).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Descargar PDF" });
+    expect(link).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
+    expect(screen.getByText(/Código de verificación/)).toBeInTheDocument();
+    expect(screen.getByText("04HM-ASW9")).toBeInTheDocument();
+  });
+
+  it("sellado sin código (respuesta vieja): el link igual está, sin código", () => {
+    render(<VistaDeDocumento documento={sellado()} />);
+    expect(screen.getByRole("link", { name: "Descargar PDF" })).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
+    expect(screen.queryByText(/Código de verificación/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["a firmar", () => aFirmar([], { codigoVerificacion: "04HM-ASW9" })],
+    ["anulado", () => ({ ...aFirmar(), estado: "anulado" as const, motivoAnulacion: "x", codigoVerificacion: "04HM-ASW9" })],
+  ])("%s: ni PDF ni código de verificación", (_, documento) => {
+    render(<VistaDeDocumento documento={documento()} />);
+    expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "PDF del documento" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Código de verificación/)).not.toBeInTheDocument();
+    expect(screen.queryByText("04HM-ASW9")).not.toBeInTheDocument();
+  });
+
+  it("sellado: Imprimir abre el PDF en una pestaña nueva (inline), junto a Descargar PDF", () => {
+    render(<VistaDeDocumento documento={{ ...sellado(), codigoVerificacion: "04HM-ASW9" }} />);
+    const imprimir = screen.getByRole("link", { name: "Imprimir (abre el PDF en una pestaña nueva)" });
+    expect(imprimir).toHaveTextContent("Imprimir");
+    expect(imprimir).toHaveAttribute("href", "/panel/documentos/doc-1/pdf?para=imprimir");
+    expect(imprimir).toHaveAttribute("target", "_blank");
+    expect(imprimir).toHaveAttribute("rel", "noopener");
+    // Un sellado no se imprime desde la pantalla: no hay botón que llame a window.print.
+    expect(screen.queryByRole("button", { name: "Imprimir" })).not.toBeInTheDocument();
+    // El PDF se genera en cada pedido: nada dice que "queda guardado".
+    const bloque = screen.getByRole("heading", { name: "PDF del documento" }).closest("section") as HTMLElement;
+    expect(bloque.textContent).not.toMatch(/guardad/i);
+  });
+
+  it("para imprimir: junto al Imprimir de la hoja, Descargar PDF; sin el bloque ni el código de un sellado", () => {
+    render(<VistaDeDocumento documento={conLamina(paraImprimir({ codigoVerificacion: "04HM-ASW9" }))} />);
+    expect(screen.getByRole("button", { name: "Imprimir" })).toBeInTheDocument();
+    const descargar = screen.getByRole("link", { name: "Descargar PDF" });
+    expect(descargar).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
+    expect(descargar).not.toHaveAttribute("target");
+    // El Imprimir de un consentimiento es la hoja en la página, no el PDF en otra pestaña.
+    expect(screen.queryByRole("link", { name: /Imprimir/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "PDF del documento" })).not.toBeInTheDocument();
+    expect(screen.queryByText("04HM-ASW9")).not.toBeInTheDocument();
+  });
+
   it("anulado: dice por qué", () => {
     render(<VistaDeDocumento documento={{ ...aFirmar(), estado: "anulado", motivoAnulacion: "El paciente decidió no hacerlo." }} />);
     expect(screen.getByText("El paciente decidió no hacerlo.")).toBeInTheDocument();
@@ -158,7 +210,7 @@ describe("FirmarDialogo", () => {
     // IntersectionObserver de vitest.setup, que usa el <Link> de la vista.
     const imprimir = vi.spyOn(window, "print").mockImplementation(() => {});
     render(<VistaDeDocumento documento={conLamina(paraImprimir())} />);
-    expect(screen.getByRole("heading", { name: "Listo para imprimir" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Listo para imprimir o descargar" })).toBeInTheDocument();
     expect(screen.getByText(/se firma a mano/)).toBeInTheDocument();
     // Nada de firmar en la pantalla.
     expect(screen.queryByRole("heading", { name: "Firmas" })).not.toBeInTheDocument();

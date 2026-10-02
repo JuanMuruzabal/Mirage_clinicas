@@ -105,6 +105,7 @@ const base = {
   autorUserId: "user-1",
   autorNombre: "Lucía Gómez",
   esMio: true,
+  tienePDF: false,
   creadoEn: "2026-09-27T10:00:00-03:00",
   actualizadoEn: "2026-09-27T10:05:00-03:00",
   firmas: [],
@@ -166,7 +167,7 @@ export function conLamina(documento: DocumentoDetalle): DocumentoDetalle {
 
 /** Un consentimiento terminado: se firma a mano (TR-188). */
 export function paraImprimir(extra: Partial<DocumentoDetalle> = {}): DocumentoDetalle {
-  return { ...aFirmar(), estado: "para_imprimir", firmasPendientes: [], ...extra };
+  return { ...aFirmar(), estado: "para_imprimir", firmasPendientes: [], tienePDF: true, ...extra };
 }
 
 export function sellado(): DocumentoDetalle {
@@ -178,5 +179,6 @@ export function sellado(): DocumentoDetalle {
     selladoEn: "2026-09-27T14:06:00-03:00",
     hashSello: "ffff0000aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777",
     firmasPendientes: [],
+    tienePDF: true,
   };
 }

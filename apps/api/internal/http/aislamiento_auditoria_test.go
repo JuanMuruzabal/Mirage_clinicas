@@ -28,8 +28,8 @@ var archivosDelPanel = []string{
 	// cuesta nada. Es para mañana: el día que alguien les agregue una
 	// consulta directa, esta auditoría la tiene que ver.
 	"turnos_contadores.go", "pacientes_contadores.go",
-	// Documentos clínicos (Fase 5.1, TR-186).
-	"documentos.go",
+	// Documentos clínicos (Fase 5.1, TR-186), y su PDF (Fase 5.3).
+	"documentos.go", "documentos_pdf.go",
 }
 
 // TestAislamiento_NingunaConsultaDelPanelSinAcotar — la regla de

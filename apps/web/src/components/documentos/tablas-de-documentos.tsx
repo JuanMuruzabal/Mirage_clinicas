@@ -3,6 +3,7 @@ import type { DocumentoResumen, PacienteConDocumentos } from "@dental-mirage/sha
 import { CajaDeTabla } from "@/components/panel/caja-de-tabla";
 import { ClickableTableRow } from "@/components/panel/clickable-table-row";
 import { CHIP_DE_ESTADO, ETIQUETA_DE_ESTADO, fechaCorta, huellaCorta, nombreConTipo } from "@/lib/documentos";
+import { AccionesDePDF, tienePDF } from "./acciones-de-pdf";
 
 // Las tablas del módulo de documentos (Fase 5.1). Misma caja que el resto
 // del panel: en el celular muestra cuatro filas enteras antes del scroll
@@ -13,9 +14,18 @@ const CAJA =
 const FILA_CABECERA = "border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/70 md:border-b-[0.5px]";
 const FILA = "border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]";
 
-export function EstadoDeDocumento({ estado }: { estado: DocumentoResumen["estado"] }) {
+// En la celda de una tabla, en el celular, el chip puede partirse en dos
+// renglones (`partible`): "Listo para imprimir o descargar" en una sola
+// línea no entra junto al folio y al documento, y empujaba la tabla de
+// costado. Desde `md` hay lugar y va en una línea, como en el encabezado del
+// documento.
+export function EstadoDeDocumento({ estado, partible = false }: { estado: DocumentoResumen["estado"]; partible?: boolean }) {
   return (
-    <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${CHIP_DE_ESTADO[estado]}`}>
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+        partible ? "max-md:rounded-[0.75rem] max-md:leading-snug md:whitespace-nowrap" : "whitespace-nowrap"
+      } ${CHIP_DE_ESTADO[estado]}`}
+    >
       {ETIQUETA_DE_ESTADO[estado]}
     </span>
   );
@@ -108,6 +118,9 @@ export function TablaDeDocumentos({
                     Huella {huellaCorta(d.hashContenido)}
                   </p>
                 )}
+                {/* Un documento terminado se imprime o se descarga desde la
+                    misma fila, sin abrirlo (Fase 5.3). */}
+                {tienePDF(d) && <AccionesDePDF id={d.id} nombre={nombreConTipo(d)} />}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">
@@ -130,7 +143,7 @@ export function TablaDeDocumentos({
                 </td>
               )}
               <td className="px-4 py-3">
-                <EstadoDeDocumento estado={d.estado} />
+                <EstadoDeDocumento estado={d.estado} partible />
               </td>
             </ClickableTableRow>
           ))}

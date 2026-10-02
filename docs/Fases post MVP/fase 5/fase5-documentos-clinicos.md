@@ -18,7 +18,7 @@ El brief lo dice en mayúsculas y tiene razón: es la fase **más sensible** del
 | R6 | Ver el documento **completándose en vivo** (un calco editable) y, aparte, la **previsualización del original** | §4.3 |
 | R7 | Terminado, la instancia se agrega al paciente y queda **inmodificable por ningún método** | §4.1, §4.5 |
 | R8 | Debajo del selector, una **tabla de pacientes** (nombre y DNI) que lleva al **registro de instancias** de cada uno; lo mismo el botón hoy desactivado de la ficha | §4.3 |
-| R9 | **Exportar a PDF**, y que quede almacenada en la app | §4.6 |
+| R9 | **Exportar a PDF**, y que quede almacenada en la app (*decidido el 2026-10-02: el PDF se descarga en el momento y no se guarda; lo que queda almacenado es el documento, TR-191*) | §4.6 |
 | R10 | Cumplir las **leyes argentinas** durante todo el proceso | §3 (decisiones), §5 |
 | R11 | Un sistema de **firma digital** conforme a la normativa | §3 (D1), §4.5 |
 | R12 | Firma del paciente: **un vínculo** para firmar con el dedo en su celular, o **una alerta al celular del profesional** que abre lo mismo | §4.5 |
@@ -272,18 +272,18 @@ La pantalla de firma **muestra el documento entero** —firmar un consentimiento
 
 1. `hash_sello = SHA-256(hash_contenido + huellas de las firmas + hash_anterior)`, donde `hash_anterior` es el sello del documento anterior **de la misma clínica** (bajo un `pg_advisory_xact_lock` por clínica). Es una **cadena**: alterar un documento viejo rompe todos los sellos que vienen después, y se nota.
 2. Se asigna el **folio** (correlativo por paciente, art. 12).
-3. Se genera el **PDF**, se guarda (§4.6) y se registra su huella.
-4. Se genera un **código de verificación** corto, impreso en el PDF.
+3. Queda el **código de verificación** corto, derivado del sello, que se imprime en el PDF (§4.6). El PDF no se genera acá ni se guarda: se arma en cada descarga (TR-191).
 
 **"Inmodificable por ningún método", dicho con precisión.** Dentro de la app no hay ningún camino: no existe endpoint que edite o borre un sellado, y la base rechaza el `UPDATE`/`DELETE` con un trigger, aunque venga de SQL crudo (hay un test que lo intenta). Lo que ningún software puede impedir es que alguien con acceso de administrador a la base desactive un trigger. Para eso está la cadena: la alteración queda **a la vista**. Y para que ni siquiera se pueda reescribir la cadena entera sin que se note, el sello más reciente de cada clínica se **ancla afuera** una vez por día (§6, subfase 5.8): un sello de tiempo de una autoridad externa (RFC 3161) y la copia del PDF en un bucket con retención bloqueada.
 
 ### 4.6 El PDF
 
-- **Se genera en el backend (Go), una sola vez, al sellar.** Lo produce el mismo proceso que sella, en la misma transacción que registra su huella. Generarlo en la web obligaría a la API a confiar en un PDF que no puede verificar. Un motor genérico recorre la plantilla y el contenido: títulos, texto legal, campos, tablas, el odontograma (misma geometría que el SVG), el genograma y las firmas redibujadas desde sus trazos. La librería (que escriba UTF-8 con fuentes TTF embebidas, dibuje vectores y, si se puede, produzca PDF/A para archivo a largo plazo) se elige con una prueba corta al empezar la subfase 5.2.
-- **Es la lámina** (*corregido el 2026-09-28, TR-187 decisión 14*): la página original del Colegio con la composición **congelada** al terminar dibujada encima, en Helvetica —fuente base de PDF, con las mismas métricas con las que se compuso—, y las firmas en su renglón. No se vuelve a componer: se dibuja lo que se firmó. La API necesita para eso las páginas del original de su lado (la imagen, o la página del PDF si el Colegio autoriza versionarlo).
-- **Se guarda aparte de las fotos de la página pública**: un storage propio (prefijo o bucket distinto en R2, solo `Save` y `Open`, **sin `Delete`**), con nombres que **no** calzan con `storage.NombreValido`. Así nunca los sirve la ruta pública `/uploads` ni los toca la limpieza diaria de fotos huérfanas (TR-174).
-- **Se descarga solo por la API**, con sesión, permiso y un evento `exportado` en la auditoría.
-- **Un consentimiento no pasa por acá** (TR-188): se imprime desde el navegador —"Guardar como PDF" también sirve—, y la API solo deja el evento `exportado` ("impresión").
+- **Se genera en el backend (Go), en cada descarga, y no se guarda** (*corregido el 2026-10-02, TR-191, que revierte TR-185*). `GET /documentos/{id}/pdf` lo arma con un escritor propio (`internal/pdf`: Helvetica y Courier base 14, JPEG sin recomprimir, Flate) y es **determinista**: mismos bytes en cada descarga, con la fecha tomada del sellado (o de cuando se terminó) y el `/ID` derivado de la huella. Por eso guardarlo no agrega prueba: el documento legal es lo sellado, que ya es inmutable, y el PDF es su representación. No hay storage, tabla ni configuración de PDF.
+- **Es la lámina** (*TR-187 decisión 14*): la página original del Colegio con la composición **congelada** al terminar dibujada encima, en Helvetica —con las mismas métricas con las que se compuso—. No se vuelve a componer: se dibuja lo que se firmó. Los originales van **embebidos en la API** como JPEG a 200 dpi (gris salvo las páginas con color), generados con `scripts/originales-para-la-api.py`.
+- **Qué lleva cada uno.** Un **sellado**: la lámina, las firmas en su renglón, la constancia de cada firma y el **código de verificación** (derivado del sello, `XXXX-XXXX`) en el pie, que lleva además folio y hoja. Un **consentimiento terminado**: solo la lámina, sin firmas, constancia ni código (se firma en papel y no tiene sello), con pie "Folio N · Hoja i de n".
+- **Todo documento terminado ofrece "Imprimir" y "Descargar PDF"** —en la pantalla del documento y en cada fila terminada de las listas—; `?para=imprimir` lo sirve `inline`. Cada exportación válida deja un evento `exportado` (`pdf` o `impresión`), con sesión, permiso y la misma regla de alcance que el resto del módulo.
+- **Los sellados de la 5.1 anteriores a la lámina no tienen PDF** (su contenido no trae la composición): se ven en pantalla y la API responde 409 (`tienePDF`).
+- **Subfase 5.3 implementada.**
 
 ### 4.7 Permisos, aislamiento y privacidad
 
@@ -312,7 +312,7 @@ Un documento sellado no se toca, pero la vida sigue:
 | **Ley 26.529, art. 5 a 7** (mod. Ley 26.742) | Consentimiento con información sobre procedimiento, riesgos, beneficios, alternativas y consecuencias de no hacerlo; **por escrito** en procedimientos invasivos o con riesgo | Las plantillas son los modelos del cliente, con esos apartados; el paciente ve el documento entero antes de firmar |
 | **Ley 26.529, art. 10** | El consentimiento es **revocable**; se deja constancia | Plantilla de revocación (§4.8) |
 | **Ley 26.529, art. 12** | Historia clínica **cronológica, foliada y completa** | Folio correlativo por paciente, registro en orden cronológico, registro de prestaciones como evolución (D3) |
-| **Ley 26.529, art. 13** | Historia informatizada: **integridad, autenticidad, inalterabilidad, perdurabilidad y recuperabilidad**; accesos restringidos, almacenamiento no reescribible, control de modificación de campos | Estados con trigger, cadena de sellos, auditoría, storage sin borrado con retención, PDF/A si la librería lo permite (§4.1, §4.5, §4.6) |
+| **Ley 26.529, art. 13** | Historia informatizada: **integridad, autenticidad, inalterabilidad, perdurabilidad y recuperabilidad**; accesos restringidos, almacenamiento no reescribible, control de modificación de campos | Estados con trigger, cadena de sellos, auditoría, y en la 5.8 copia con retención bloqueada y PDF/A si hace falta (§4.1, §4.5, §4.6) |
 | **Ley 26.529, art. 14** | El paciente es el **titular**; copia autenticada en **48 horas** | Copia completa en PDF con constancia (§4.8) |
 | **Ley 26.529, art. 15** (mod. Ley 26.812) | Datos del paciente y del profesional; **registro odontológico estandarizado en sistema dígito dos, con marcas y colores** | Bloques de datos precargados, odontograma FDI (§4.4) |
 | **Ley 26.529, art. 17** | Historia **única por establecimiento** | Los documentos son del paciente de la clínica (D4) |
@@ -345,7 +345,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 |---|---|---|
 | **5.1 Cimientos** | Tablas, triggers de inmutabilidad y auditoría; paquete `documentos-clinicos` con el motor, los tipos de campo básicos y el generador a Go; validación en el backend; la pantalla del módulo (selector, original, tabla de pacientes, borradores); el editor con sidebar y calco en vivo; el registro del paciente y el bloque de la ficha; la protección de fichas con documentos. **Primer documento de punta a punta: consentimiento de tratamiento de conducto**, con firma en este dispositivo y sellado | D4, D7 |
 | **5.2 Consentimientos** — *reordenada el 2026-09-29, era la 5.4 (TR-189)* | Los trece restantes (incluido el de ortodoncia), con casillas para el asentimiento y las opciones del papel. Se imprimen y se firman a mano (TR-188) | 5.1, D6 |
-| **5.3 PDF** | Generación en Go al sellar, storage propio sin borrado, descarga con auditoría, código de verificación, constancia de firma. Solo para lo que se sella: un consentimiento se imprime desde la pantalla (TR-188) | 5.1 |
+| **5.3 PDF** ✅ | El PDF se arma en Go en cada descarga y no se guarda (TR-191): sellados y consentimientos para imprimir, descarga con auditoría, código de verificación, constancia de firma. Sin storage | 5.1 |
 | **5.4 Firma a distancia** — *solo historias clínicas (TR-188)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil | 5.2, D1, D2 |
 | **5.5 Odontograma** | El componente (editor, calco y PDF), permanentes y temporarios, las dos leyendas | 5.3, D5 |
 | **5.6 Historias clínicas** | General, PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma) | 5.5 |
@@ -359,7 +359,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 - Un documento sellado **no se puede modificar ni borrar** desde la app ni con SQL directo (test), y alterar uno a mano en la base **se detecta** al verificar la cadena (test).
 - Una ficha con documentos **no se borra** por ningún camino automático (un test por cada uno de los cuatro).
 - Recepción y administrador de página reciben **403** en todo el módulo; un profesional sin el paciente en su lista, **404**.
-- El PDF de un documento sellado es **siempre el mismo** (su huella coincide con la registrada) y se descarga solo con sesión.
+- El PDF de un documento terminado es **siempre el mismo** (mismo SHA-256 en dos descargas) y se descarga solo con sesión, dejando un evento `exportado`.
 - Un vínculo de firma **vence**, se usa **una sola vez** y no abre ningún otro documento.
 - Las plantillas (las diecinueve del Colegio y las dos propias) generan su JSON sin diferencias en CI, y cada una tiene un test que la completa, la sella y genera su PDF.
 - Cobertura ≥ 80 % en los dos lados, como siempre.
@@ -374,6 +374,6 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | Se pierde un documento | Sin borrado en ningún nivel; backups de diez años; bucket con retención bloqueada (5.8) |
 | Un vínculo de firma se filtra | Un uso, vence en 24 h, solo esa firma, muestra un solo documento; sin código al mail (D2) quien lo tenga puede firmar, así que conviene mandarlo desde la app al teléfono de la ficha |
 | El editor genérico queda corto para una plantilla rara | Los tipos de campo son extensibles: una herramienta nueva (como el cefalograma) es un tipo más del motor, no un editor aparte |
-| Generar PDFs consume memoria en la instancia de Render | Se genera una vez por documento, al sellar; nunca en cada descarga |
+| Generar PDFs consume memoria en la instancia de Render | Escritor propio, sin librería ni navegador: una lámina de una a cuatro páginas con JPEG sin recomprimir. Se arma en cada descarga (TR-191) |
 | El trabajo de cargar 19 plantillas a mano tiene errores de tipeo en el texto legal | Test que compara el texto de cada plantilla con el del PDF original (extraído una vez) y marca diferencias |
 | El Colegio objeta el uso de sus modelos | Se publicaron para uso de los odontólogos y cada plantilla cita la fuente; avisarle antes de producción (final de §3) |

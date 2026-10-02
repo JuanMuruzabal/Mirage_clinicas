@@ -56,6 +56,8 @@ const CONDUCTO = "Consentimiento informado: Tratamiento de conducto";
 function filas(): string[] {
   return within(screen.getByRole("table"))
     .getAllByRole("link")
+    // Los links del PDF de cada fila terminada no son documentos.
+    .filter((l) => !(l.getAttribute("href") ?? "").includes("/pdf"))
     .map((l) => l.textContent ?? "");
 }
 
