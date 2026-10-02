@@ -3,7 +3,7 @@ import type { DocumentoResumen, PacienteConDocumentos } from "@dental-mirage/sha
 import { CajaDeTabla } from "@/components/panel/caja-de-tabla";
 import { ClickableTableRow } from "@/components/panel/clickable-table-row";
 import { CHIP_DE_ESTADO, ETIQUETA_DE_ESTADO, fechaCorta, huellaCorta, nombreConTipo } from "@/lib/documentos";
-import { AccionesDePDF, tienePDF } from "./acciones-de-pdf";
+import { AccionesDePDF, nombreDeArchivoDelPDF, tienePDF } from "./acciones-de-pdf";
 
 // Las tablas del módulo de documentos (Fase 5.1). Misma caja que el resto
 // del panel: en el celular muestra cuatro filas enteras antes del scroll
@@ -120,7 +120,7 @@ export function TablaDeDocumentos({
                 )}
                 {/* Un documento terminado se imprime o se descarga desde la
                     misma fila, sin abrirlo (Fase 5.3). */}
-                {tienePDF(d) && <AccionesDePDF id={d.id} nombre={nombreConTipo(d)} />}
+                {tienePDF(d) && <AccionesDePDF id={d.id} nombre={nombreConTipo(d)} nombreDeArchivo={nombreDeArchivoDelPDF(d)} />}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">

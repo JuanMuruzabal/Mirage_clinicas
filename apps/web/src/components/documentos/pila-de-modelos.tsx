@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import type { Plantilla } from "@dental-mirage/documentos-clinicos";
 import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons";
@@ -27,7 +27,8 @@ import { OriginalDelColegio } from "./original-del-colegio";
 // Muestra UNA página por vez (2026-10-02): un modelo de varias páginas
 // (sedoanalgesia tiene cuatro) era una hoja altísima. Arriba, un control
 // para pasar de página; al cambiar de documento vuelve a la 1. La pantalla
-// completa del celular sigue mostrando todas, una debajo de la otra.
+// completa del celular sigue mostrando todas, una debajo de la otra, y su
+// botón va en la misma barra que el control (`accionesDelCelular`).
 //
 // Al cambiar, las hojas se barajan: la de adelante va a su lugar en la pila
 // y la nueva viene al frente desde el suyo, así se ve de dónde viene cada una.
@@ -137,27 +138,46 @@ export function HojaDelModelo({ modelo, hoy, pagina }: { modelo: Modelo; hoy: st
 
 // El control para pasar de página, arriba de la hoja: mismo dibujo que el
 // carrusel de documentos (marfil, borde de línea, flechas apagadas en los
-// extremos).
+// extremos). En el celular dice "1 de 4", para que entre en la misma fila
+// que "Pantalla completa"; "Página" sigue ahí para el lector de pantalla
+// (`aria-live` lee "Página 1 de 4").
 function PasarPagina({ pagina, total, onCambiar }: { pagina: number; total: number; onCambiar: (n: number) => void }) {
   const flecha = `flex min-h-10 min-w-10 items-center justify-center px-2 text-grafito/70 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40 disabled:hover:bg-transparent ${CLASE_TACTIL}`;
   return (
-    <div className="mb-3 flex justify-center">
-      <div role="group" aria-label="Páginas del modelo" className="flex items-stretch overflow-hidden rounded-card border border-linea bg-marfil shadow-soft">
-        <button type="button" aria-label="Página anterior" disabled={pagina <= 1} onClick={() => onCambiar(pagina - 1)} className={flecha}>
-          <IconChevronLeft className="h-5 w-5" />
-        </button>
-        <p aria-live="polite" className="flex items-center border-x border-linea px-4 text-[13px] font-medium text-grafito tabular-nums">
-          Página {pagina} de {total}
-        </p>
-        <button type="button" aria-label="Página siguiente" disabled={pagina >= total} onClick={() => onCambiar(pagina + 1)} className={flecha}>
-          <IconChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+    <div role="group" aria-label="Páginas del modelo" className="flex items-stretch overflow-hidden rounded-card border border-linea bg-marfil shadow-soft">
+      <button type="button" aria-label="Página anterior" disabled={pagina <= 1} onClick={() => onCambiar(pagina - 1)} className={flecha}>
+        <IconChevronLeft className="h-5 w-5" />
+      </button>
+      <p aria-live="polite" className="flex items-center whitespace-nowrap border-x border-linea px-3 text-[13px] font-medium text-grafito tabular-nums lg:px-4">
+        {/* Un solo span: como hijos directos de un flex, "Página " y el
+            número serían dos ítems y el espacio entre ellos se perdería. */}
+        <span>
+          <span className="max-lg:sr-only">Página </span>
+          {pagina} de {total}
+        </span>
+      </p>
+      <button type="button" aria-label="Página siguiente" disabled={pagina >= total} onClick={() => onCambiar(pagina + 1)} className={flecha}>
+        <IconChevronRight className="h-5 w-5" />
+      </button>
     </div>
   );
 }
 
-export function PilaDeModelos({ enOrden, elegida, hoy }: { enOrden: Modelo[]; elegida: Modelo; hoy: string }) {
+export function PilaDeModelos({
+  enOrden,
+  elegida,
+  hoy,
+  accionesDelCelular,
+}: {
+  enOrden: Modelo[];
+  elegida: Modelo;
+  hoy: string;
+  /** Lo que va al lado del control de páginas, en la misma barra, solo por
+   *  debajo de lg (la pantalla completa del celular). La pila lo esconde
+   *  desde lg, y con un modelo de una sola página esconde la barra entera:
+   *  así en la computadora no queda una barra vacía con su margen. */
+  accionesDelCelular?: ReactNode;
+}) {
   const [mostrada, setMostrada] = useState(elegida);
   const [cambio, setCambio] = useState<Cambio | null>(null);
   const [pagina, setPagina] = useState(1);
@@ -220,7 +240,12 @@ export function PilaDeModelos({ enOrden, elegida, hoy }: { enOrden: Modelo[]; el
 
   return (
     <div>
-      {paginas > 1 && <PasarPagina pagina={pagina} total={paginas} onCambiar={setPagina} />}
+      {(paginas > 1 || accionesDelCelular) && (
+        <div className={`mb-3 flex items-stretch justify-center gap-2 ${paginas > 1 ? "" : "lg:hidden"}`}>
+          {paginas > 1 && <PasarPagina pagina={pagina} total={paginas} onCambiar={setPagina} />}
+          {accionesDelCelular && <div className="flex lg:hidden">{accionesDelCelular}</div>}
+        </div>
+      )}
       <div className={`relative overflow-x-clip ${hayPila ? "px-[14%] pt-2 pb-4" : ""}`} data-testid="pila-de-modelos">
         {vecinos.anterior && (
           <div key={`anterior-${vecinos.anterior.id}`} aria-hidden="true" className={`${cajaDeAtras} pila-hoja pila-hoja--izquierda`}>

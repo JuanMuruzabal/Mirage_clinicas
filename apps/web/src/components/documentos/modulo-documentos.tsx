@@ -107,13 +107,19 @@ export function ModuloDocumentos({
             el documento lo nombra el carrusel de al lado. */}
         <section aria-label={`Vista de ${elegida.nombre}`} className="min-w-0">
           {/* En el celular la hoja entra al ancho de la pantalla y la letra
-              queda chica (pedido del cliente, 2026-09-28). */}
-          <div className="mb-3 flex justify-end lg:hidden">
-            <PantallaCompleta titulo={elegida.nombre}>
-              <HojaDelModelo modelo={elegida} hoy={hoy} />
-            </PantallaCompleta>
-          </div>
-          <PilaDeModelos enOrden={enOrden} elegida={elegida} hoy={hoy} />
+              queda chica (pedido del cliente, 2026-09-28): la pantalla
+              completa, en la misma barra que el control de páginas
+              (2026-10-02). La pila la muestra solo por debajo de lg. */}
+          <PilaDeModelos
+            enOrden={enOrden}
+            elegida={elegida}
+            hoy={hoy}
+            accionesDelCelular={
+              <PantallaCompleta titulo={elegida.nombre} etiqueta="Pantalla completa" variante="en-barra">
+                <HojaDelModelo modelo={elegida} hoy={hoy} />
+              </PantallaCompleta>
+            }
+          />
         </section>
       </div>
 

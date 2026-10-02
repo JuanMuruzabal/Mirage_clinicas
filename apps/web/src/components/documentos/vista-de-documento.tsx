@@ -5,9 +5,10 @@ import type { DocumentoDetalle } from "@dental-mirage/shared-types";
 import { plantillaPorId, type FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
 import Link from "next/link";
 import { registrarImpresionAction } from "@/app/actions/documentos";
-import { contenidoCongelado, fechaYHora, huellaCorta } from "@/lib/documentos";
-import { rutaDelPDF, tienePDF } from "./acciones-de-pdf";
+import { contenidoCongelado, fechaYHora, huellaCorta, nombreConTipo } from "@/lib/documentos";
+import { nombreDeArchivoDelPDF, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
 import { CalcoCongelado } from "./calco";
+import { BotonDescargarPDF } from "./descargar-pdf";
 import { FirmarDialogo } from "./firmar-dialogo";
 import { ImpresionDelDocumento } from "./impresion-del-documento";
 import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
@@ -139,19 +140,20 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
           )}
           {documento.estado === "sellado" && conPDF && (
             // El PDF (Fase 5.3): la lámina sellada más la hoja de constancia de
-            // las firmas. Un <a> y no un <Link>: es una ruta que devuelve un
-            // archivo, no una pantalla.
+            // las firmas. "Imprimir" es un <a> y no un <Link>: es una ruta que
+            // devuelve un archivo, no una pantalla. "Descargar PDF" baja el
+            // archivo y lo guarda según el dispositivo (`BotonDescargarPDF`).
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
               <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">PDF del documento</h3>
               <p className="mt-1 text-sm text-grafito/80">
                 El documento sellado, con la constancia de cómo, cuándo y desde dónde se hizo cada firma. Cada descarga e impresión queda registrada.
               </p>
-              <a
-                href={rutaDelPDF(documento.id)}
+              <BotonDescargarPDF
+                id={documento.id}
+                nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
+                titulo={nombreConTipo(documento)}
                 className="mt-3 block w-full rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-sm font-semibold text-marfil hover:brightness-95"
-              >
-                Descargar PDF
-              </a>
+              />
               <a
                 href={rutaDelPDF(documento.id, true)}
                 target="_blank"
@@ -191,12 +193,12 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                 Imprimir
               </button>
               {conPDF && (
-                <a
-                  href={rutaDelPDF(documento.id)}
+                <BotonDescargarPDF
+                  id={documento.id}
+                  nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
+                  titulo={nombreConTipo(documento)}
                   className="mt-2 block w-full rounded-full border border-linea bg-hueso px-5 py-2.5 text-center text-sm font-semibold text-salvia-oscuro hover:bg-arena"
-                >
-                  Descargar PDF
-                </a>
+                />
               )}
               <p className="mt-3 text-xs text-grafito/75">
                 {documento.esMio ? "Ya no se puede editar." : `Lo hizo ${documento.autorNombre}.`} Si hay que corregir algo,{" "}

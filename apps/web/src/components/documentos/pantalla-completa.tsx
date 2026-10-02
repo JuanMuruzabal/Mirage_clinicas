@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 
 const sinSuscripcion = () => () => {};
 
@@ -16,14 +17,28 @@ const sinSuscripcion = () => () => {};
 // para nada que no sea un video. Es una capa fija, con el foco adentro,
 // Escape para salir y el foco de vuelta al botón al cerrar (el mismo
 // criterio que `Dialogo`).
+//
+// `variante="en-barra"`: el botón como par del control de páginas de la
+// pila de modelos (pedido del cliente, 2026-10-02: en el celular, los dos
+// en la misma barra) — su mismo alto, radio y tamaño de letra.
+const ASPECTO = {
+  suelto: "min-h-11 rounded-full px-4 text-sm",
+  "en-barra": `min-h-10 rounded-card px-3 text-[13px] ${CLASE_TACTIL}`,
+} as const;
+
 export function PantallaCompleta({
   titulo,
   children,
+  etiqueta = "Ver en pantalla completa",
+  variante = "suelto",
   className = "",
 }: {
   titulo: string;
   /** Lo que se ve a pantalla completa. */
   children: ReactNode;
+  /** Lo que dice el botón. */
+  etiqueta?: string;
+  variante?: keyof typeof ASPECTO;
   className?: string;
 }) {
   const [abierta, setAbierta] = useState(false);
@@ -32,12 +47,12 @@ export function PantallaCompleta({
       <button
         type="button"
         onClick={() => setAbierta(true)}
-        className={`inline-flex min-h-11 items-center gap-2 rounded-full border border-linea bg-marfil px-4 text-sm font-medium text-grafito shadow-soft hover:border-salvia ${className}`}
+        className={`inline-flex items-center gap-2 whitespace-nowrap border border-linea bg-marfil font-medium text-grafito shadow-soft hover:border-salvia ${ASPECTO[variante]} ${className}`}
       >
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
           <path d="M3 8V3h5M17 8V3h-5M3 12v5h5M17 12v5h-5" />
         </svg>
-        Ver en pantalla completa
+        {etiqueta}
       </button>
       {abierta && (
         <Capa titulo={titulo} onCerrar={() => setAbierta(false)}>
