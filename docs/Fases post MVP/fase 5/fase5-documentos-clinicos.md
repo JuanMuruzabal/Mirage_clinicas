@@ -140,7 +140,7 @@ Alternativa más estricta: cada profesional ve solo lo suyo.
 
 ### D5 — Qué se dibuja para prótesis fija y removible
 
-La leyenda de los modelos tiene una caja vacía al lado de "PRÓTESIS FIJA" y otra al lado de "PRÓTESIS REMOVIBLE": el símbolo no está. Propuesta a confirmar con el odontólogo: **fija**, una barra que une las piezas pilares con un trazo vertical en cada extremo (⊓); **removible**, la misma barra en línea de trazos. Las dos toman el color: rojo si existe, azul si hay que hacerla.
+La leyenda de los modelos tiene una caja vacía al lado de "PRÓTESIS FIJA" y otra al lado de "PRÓTESIS REMOVIBLE": el símbolo no está. Propuesta, **implementada en la 5.5 y a confirmar con el odontólogo en su QA**: **fija**, una barra continua que une las dos piezas pilares con un trazo corto hacia cada pilar (⊓); **removible**, la misma barra en línea de trazos. Las dos van del lado de AFUERA de su fila (la superior arriba de los recuadros, la inferior debajo, en el hueco entre la pieza y su número impreso) y toman el color: rojo si existe, azul si hay que hacerla. Solo la leyenda general las lleva.
 
 ### D6 — Cuáles primero, y si el de COVID entra
 
@@ -240,13 +240,21 @@ El brief pide "un editor único por documento". La forma de dárselo sin escribi
 
 ### 4.4 El odontograma
 
-Un componente SVG propio, accesible con teclado, que se usa igual en el editor, en el calco y (con la misma geometría) en el PDF.
+Un tipo de campo del motor (`odontograma`), que se usa igual en el editor y en la lámina, con la misma composición en la pantalla y en el PDF (TR-192).
 
-- **Dentición**: permanente, temporaria o las dos (la historia general muestra ambas; odontopediatría separa "Temporarios" y "Permanentes").
-- **Caras**: vestibular, lingual/palatina, mesial, distal y oclusal/incisal. Mesial siempre mira a la línea media, así que se invierte entre cuadrantes; la cara de arriba del cuadrado es vestibular en el maxilar superior y lingual en el inferior (**a confirmar con el odontólogo en la QA**).
-- **Uso**: se elige **color** (rojo = existente / realizado, azul = requerido / a realizar) y **herramienta** (cara, X, corona, prótesis fija, prótesis removible y, en pediatría, sellador y T), y se toca la pieza o la cara. Tocar de nuevo borra. La leyenda está siempre a la vista, con los rótulos exactos de cada modelo.
-- **Cantidad de dientes existentes**: se sugiere sola (piezas sin X) y se puede corregir.
-- **Guarda datos, no un dibujo**: `{ "16": { "caras": { "O": "rojo" }, "marcas": [{ "tipo": "corona", "color": "azul" }] } }` más las prótesis como tramos (`desde`/`hasta`). Así el odontograma de un documento viejo se puede leer como punto de partida del siguiente.
+- **Dentición**: permanente, temporaria o las dos (la historia general muestra ambas; odontopediatría separa "Temporarios" y "Permanentes"). Son 32, 20 o 52 piezas en notación FDI.
+- **Caras**: vestibular, lingual/palatina, mesial, distal y oclusal/incisal. Mesial siempre mira a la línea media, así que se invierte entre cuadrantes; la cara de arriba del cuadrado es vestibular en el maxilar superior y lingual en el inferior (**a confirmar con el odontólogo en la QA de la 5.5**).
+- **Uso**: se elige **color** (rojo = existente / realizado, azul = requerido / a realizar) y **herramienta**, y se toca la pieza o la cara. Tocar de nuevo borra. La leyenda está siempre a la vista, con los rótulos exactos de cada modelo. La leyenda `general` admite cara, `x`, corona y prótesis (fija o removible); la `pediatrica`, cara, `x`, corona, sellador y traumatizado, sin prótesis.
+- **Cantidad de dientes existentes** (`existentes: true` en el campo): se sugiere sola (32 menos las piezas permanentes con `x`) y se puede corregir.
+- **Las prótesis van del lado de afuera de su fila** (corregido en la QA de la 5.5): a `0,075·Lm` del borde (`SEPARACION_DE_LA_BARRA` / `SeparacionDeLaBarra`). Hacia la oclusión una prótesis arriba y otra abajo en las mismas columnas quedaban encimadas, y con `0,14·Lm` la barra pisaba los números impresos.
+- **En la computadora el control entra entero en la columna del editor** (piezas de ~19 px a 1440, solo CSS); con el dedo sigue con piezas de 44 px y scroll dentro de su caja.
+- **Un valor con basura no cuenta como vacío** y se rechaza (misma regla en TypeScript y en Go, tabla compartida `testdata/odontograma.json`).
+- **A confirmar con el odontólogo en la QA:** el dibujo de las prótesis (D5), qué cara va arriba en cada maxilar, la sugerencia de 32 existentes con el odontograma vacío y el tamaño de las piezas con mouse.
+- **El valor guarda datos, no un dibujo**: `{ piezas: { "16": { caras: { O: "rojo" }, marcas: { corona: "rojo" } } }, protesis: [{ tipo: "fija", desde: "23", hasta: "13", color: "rojo" }], existentes: 28 }`. Así el odontograma de un documento viejo se puede leer como punto de partida del siguiente. Está vacío si no hay ninguna pieza con una cara o una marca, ningún tramo de prótesis y `existentes` sin valor.
+- **El texto** que se congela en el cuerpo agrupa por color (rojo y azul, con los rótulos de cada leyenda), después las prótesis y los dientes existentes.
+- **Las figuras**: en la lámina, cada pieza se ubica por su recuadro medido sobre la página (`lamina.odontogramas`: pieza, esquina y lado, en puntos del PDF). `armarFiguras` compone caras (polígonos achicados hacia su centroide), coronas (círculos), `x` (dos líneas), selladores (contorno triangular), traumatizado (una "T") y prótesis (barra y dos trazos), todo en puntos y redondeado a dos decimales; se congelan en el contenido (`figuras`) y la pantalla y el PDF las dibujan sin recomponer. Sellado y sin odontograma cargado, la caja dice "No consigna" (Decreto 1089/2012, art. 15).
+- **Medir cada historia**: una plantilla con odontograma necesita los recuadros de todas sus piezas, medidos con `scripts/medir-odontograma.py`, que los detecta por píxeles sobre la imagen del modelo.
+- **Casillas de caracteres**: la matrícula y el Nº de afiliado van un carácter por casilla, como en el papel (`zona.casillas`).
 
 ### 4.5 Firma, sellado y la prueba de que nadie tocó nada
 
@@ -347,13 +355,13 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | **5.1 Cimientos** | Tablas, triggers de inmutabilidad y auditoría; paquete `documentos-clinicos` con el motor, los tipos de campo básicos y el generador a Go; validación en el backend; la pantalla del módulo (selector, original, tabla de pacientes, borradores); el editor con sidebar y calco en vivo; el registro del paciente y el bloque de la ficha; la protección de fichas con documentos. **Primer documento de punta a punta: consentimiento de tratamiento de conducto**, con firma en este dispositivo y sellado | D4, D7 |
 | **5.2 Consentimientos** — *reordenada el 2026-09-29, era la 5.4 (TR-189)* | Los trece restantes (incluido el de ortodoncia), con casillas para el asentimiento y las opciones del papel. Se imprimen y se firman a mano (TR-188) | 5.1, D6 |
 | **5.3 PDF** ✅ | El PDF se arma en Go en cada descarga y no se guarda (TR-191): sellados y consentimientos para imprimir, descarga con auditoría, código de verificación, constancia de firma. Sin storage | 5.1 |
-| **5.4 Firma a distancia** — *solo historias clínicas (TR-188)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil | 5.2, D1, D2 |
-| **5.5 Odontograma** | El componente (editor, calco y PDF), permanentes y temporarios, las dos leyendas | 5.3, D5 |
-| **5.6 Historias clínicas** | General, PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma) | 5.5 |
+| **5.5 Odontograma + Historia Clínica General** — *reordenada el 2026-10-03, estaba después de la 5.4 (TR-192)* | El odontograma completo (tipo de campo, editor, lámina y PDF, con las figuras congeladas), permanentes y temporarios, las dos leyendas, casillas de caracteres; y la Historia Clínica General de punta a punta (se firma en el dispositivo del consultorio) | 5.3, D5 |
+| **5.6 Historias clínicas** | PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma); sobre el odontograma y `medir-odontograma.py` de la 5.5 | 5.5 |
+| **5.4 Firma a distancia** — *solo historias clínicas (TR-188); pasó después de la 5.6 (TR-192)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil. **La rúbrica se usa con solo la sesión iniciada** ("Firmar como Dr. X"), sin código al mail; la constancia dice que es la evidencia más débil | 5.6, D1, D2 |
 | **5.7 Evolución y copias** | Registro de prestaciones como asientos sellados (D3), enmiendas, revocación, copia completa para el paciente | 5.6, D3 |
 | **5.8 Anclaje y cierre** | Sello de tiempo externo diario de la cadena, bucket con retención bloqueada, verificación de la cadena, revisión legal, QA en dispositivos reales, documentación | 5.7 |
 
-**El camino crítico** cambió con TR-188: los consentimientos se imprimen y se firman a mano, así que les alcanza la 5.1 y están todos desde la 5.2. Para las historias clínicas sigue siendo 5.3 (PDF) → 5.4 (firma a distancia): hasta que no se puede sellar, exportar y firmar a distancia, una historia clínica no sirve en un consultorio. Las plantillas se suman solas sobre el motor; una herramienta nueva (el odontograma, el cefalograma) es un tipo de campo más.
+**El camino crítico** cambió con TR-188 y otra vez con TR-192: los consentimientos se imprimen y se firman a mano, así que les alcanza la 5.1 y están todos desde la 5.2. Para las historias clínicas, el PDF ya está (5.3) y sigue 5.5 (odontograma y Historia General, que ya se firma en el consultorio) → 5.6 (las otras tres historias) → 5.4 (firma a distancia): es solo para historias y no tiene sentido antes de que existan. Las plantillas se suman solas sobre el motor; una herramienta nueva (el odontograma, el cefalograma) es un tipo de campo más.
 
 ### Criterios de aceptación de la fase
 
