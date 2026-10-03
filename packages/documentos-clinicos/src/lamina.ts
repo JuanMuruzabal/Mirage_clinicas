@@ -17,10 +17,10 @@
 // documento; la vista sellada y el PDF dibujan esa composición congelada,
 // no la recalculan. El fixture que genera este paquete verifica que Go
 // componga byte a byte lo mismo que la pantalla.
-import { campoPorId, MARCA_DE_CASILLA, MARCA_DE_ZONA, type Plantilla, type Zona } from "./esquema";
-import { anchoEnUnidades } from "./metricas";
+import { campoPorId, MARCA_DE_CASILLA, MARCA_DE_ZONA, SIN_DATO, type Plantilla, type Zona } from "./esquema";
+import { anchoEnUnidades, redondear2 } from "./metricas";
 import { NO_CONSIGNA, type Contexto, type Modo } from "./texto";
-import { fechaComoTexto, estaVacio, valorComoTexto, type ErrorDeCampo, type Valores } from "./valores";
+import { esObjeto, fechaComoTexto, estaVacio, valorComoTexto, type ErrorDeCampo, type Valores } from "./valores";
 
 export interface LineaCompuesta {
   x: number;
@@ -41,10 +41,6 @@ export interface ZonaCompuesta {
 
 export const TAMANO_BASE = 10;
 const PASO = 0.5;
-
-function redondear2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -76,6 +72,11 @@ export function estaMarcada(valor: unknown, opcion: string): boolean {
   return false;
 }
 
+/** La aclaración de un sí o no (`{{campo:detalle}}`), sin el "Sí". */
+function detalleDe(valor: unknown): string {
+  return esObjeto(valor) && typeof valor.detalle === "string" ? valor.detalle.trim() : "";
+}
+
 /** El texto de una zona con los valores adentro, y si está vacía (ningún
  *  campo de la zona cargado; la fecha del sistema no cuenta). Un campo
  *  vacío en una zona que tiene otros cargados queda en blanco en un
@@ -95,8 +96,11 @@ export function textoDeZona(
     if (!campo) return "";
     campos += 1;
     const valor = valores[nombre];
-    if (estaVacio(campo, valor)) return modo === "sellado" ? NO_CONSIGNA : "";
+    // Una aclaración vacía cuenta como un campo sin cargar.
+    const detalle = parte === "detalle" ? detalleDe(valor) : null;
+    if (estaVacio(campo, valor) || detalle === "") return modo === "sellado" ? NO_CONSIGNA : "";
     cargados += 1;
+    if (detalle !== null) return detalle;
     if (parte) return typeof valor === "string" ? parteDeFecha(valor, parte) : "";
     if (opcion) return estaMarcada(valor, opcion) ? MARCA_DE_CASILLA : "";
     return valorComoTexto(campo, valor);
@@ -149,10 +153,25 @@ export function envolver(texto: string, ancho: number, tamano: number, anchoPrim
   return lineas;
 }
 
+/** Una fila de casillas (Fase 5.5): cada carácter centrado en la suya, al
+ *  tamaño de la zona, sin achicar ni cortar. Un espacio deja su casilla
+ *  en blanco; lo que no entra en las casillas desborda. */
+function componerCasillas(zona: Zona, casillas: NonNullable<Zona["casillas"]>, texto: string): Omit<ZonaCompuesta, "vacia"> {
+  const tamano = zona.tamano ?? TAMANO_BASE;
+  const caracteres = [...texto];
+  const lineas = caracteres.slice(0, casillas.cantidad).flatMap((c, i) => {
+    if (c === " ") return [];
+    const ancho = (anchoEnUnidades(c) * tamano) / 1000;
+    return [{ x: redondear2(zona.x + i * casillas.paso + (casillas.paso - ancho) / 2), y: zona.y, texto: c }];
+  });
+  return { zona: zona.id, pagina: zona.pagina, tamano, lineas, desborda: caracteres.length > casillas.cantidad };
+}
+
 /** Compone el texto de una zona: el tamaño más grande (de 0,5 en 0,5 pt,
  *  hasta el mínimo) con el que entra en sus líneas. Con `sangria`, la
  *  primera línea empieza así de corrida a la derecha (Fase 5.2). */
 export function componerZona(zona: Zona, texto: string): Omit<ZonaCompuesta, "vacia"> {
+  if (zona.casillas) return componerCasillas(zona, zona.casillas, texto);
   const maximoDeLineas = zona.lineas ?? 1;
   const base = zona.tamano ?? TAMANO_BASE;
   const minimo = zona.minimo ?? redondear2(base * 0.6);
@@ -189,8 +208,15 @@ export function armarLamina(plantilla: Plantilla, valores: Valores, contexto: Co
   if (!plantilla.lamina) return [];
   return plantilla.lamina.zonas.map((zona) => {
     const { texto, vacia } = textoDeZona(zona, plantilla, valores, contexto, modo);
+    const tamano = zona.tamano ?? TAMANO_BASE;
     if (vacia && modo === "borrador") {
-      return { zona: zona.id, pagina: zona.pagina, tamano: zona.tamano ?? TAMANO_BASE, lineas: [], desborda: false, vacia: true };
+      return { zona: zona.id, pagina: zona.pagina, tamano, lineas: [], desborda: false, vacia: true };
+    }
+    // Unas casillas vacías no se llenan de a una letra: una sola línea al
+    // principio de la fila.
+    if (vacia && zona.casillas) {
+      const lineas = [{ x: zona.x, y: zona.y, texto: zona.vacio ?? SIN_DATO }];
+      return { zona: zona.id, pagina: zona.pagina, tamano, lineas, desborda: false, vacia: true };
     }
     return { ...componerZona(zona, vacia ? (zona.vacio ?? NO_CONSIGNA) : texto), vacia };
   });

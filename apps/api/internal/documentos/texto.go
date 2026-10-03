@@ -12,6 +12,9 @@ const (
 	NoConsigna = "No consigna"
 	// Hueco — lo que dice en un borrador.
 	Hueco = "____"
+	// SinDato — lo que dice un hueco chico vacío en un documento terminado:
+	// una fila de casillas, la cantidad de dientes existentes.
+	SinDato = "—"
 )
 
 // ModoTexto — "borrador" o "sellado".

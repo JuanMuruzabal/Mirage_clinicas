@@ -43,6 +43,7 @@ func TestTexto_CoincideConElDeTypeScript(t *testing.T) {
 				Valores   map[string]any  `json:"valores"`
 				Cuerpo    json.RawMessage `json:"cuerpo"`
 				Lamina    json.RawMessage `json:"lamina"`
+				Figuras   json.RawMessage `json:"figuras"`
 			}
 			if err := json.Unmarshal(datos, &fx); err != nil {
 				t.Fatal(err)
@@ -72,6 +73,127 @@ func TestTexto_CoincideConElDeTypeScript(t *testing.T) {
 			if !reflect.DeepEqual(laminaGo, laminaTS) {
 				t.Fatalf("Go y TypeScript componen distinto la lámina.\nGo: %s\nTS: %s", lamina, fx.Lamina)
 			}
+			mismoCanonico(t, "las figuras", ArmarFiguras(p, fx.Valores, TextoSellado), fx.Figuras)
+		})
+	}
+}
+
+// mismoCanonico — Go y TypeScript dan el mismo JSON canónico (el que se
+// hashea al sellar). Una lista vacía y una nula valen lo mismo.
+func mismoCanonico(t *testing.T, que string, enGo any, enTS json.RawMessage) {
+	t.Helper()
+	a, errA := Canonico(enGo)
+	b, errB := Canonico(enTS)
+	if errA != nil || errB != nil {
+		t.Fatalf("%s: no se pudo canonizar: %v %v", que, errA, errB)
+	}
+	vacio := func(x []byte) bool { return string(x) == "null" || string(x) == "[]" }
+	if string(a) != string(b) && (!vacio(a) || !vacio(b)) {
+		t.Fatalf("Go y TypeScript dan distinto %s.\nGo: %s\nTS: %s", que, a, b)
+	}
+}
+
+func leerComposicion(t *testing.T, nombre string, destino any) {
+	t.Helper()
+	datos, err := composicion.ReadFile("composicion/" + nombre)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(datos, destino); err != nil {
+		t.Fatalf("%s: %v", nombre, err)
+	}
+}
+
+// Los odontogramas que armó el paquete de TypeScript para ejercitar cada
+// rama de las figuras (caras, marcas, prótesis, dientes existentes, vacío
+// en borrador y terminado): el texto y las figuras tienen que salir iguales.
+func TestFiguras_CoincidenConLasDeTypeScript(t *testing.T) {
+	var casos []struct {
+		Nombre    string          `json:"nombre"`
+		Plantilla json.RawMessage `json:"plantilla"`
+		Valores   map[string]any  `json:"valores"`
+		Modo      ModoTexto       `json:"modo"`
+		Texto     string          `json:"texto"`
+		Figuras   json.RawMessage `json:"figuras"`
+	}
+	leerComposicion(t, "figuras.json", &casos)
+	if len(casos) == 0 {
+		t.Fatal("no hay casos de figuras")
+	}
+	for _, c := range casos {
+		t.Run(c.Nombre, func(t *testing.T) {
+			p, err := cargar(c.Plantilla)
+			if err != nil {
+				t.Fatal(err)
+			}
+			campo := p.Campos()[0]
+			if texto := ValorComoTexto(campo, c.Valores[campo.ID]); texto != c.Texto {
+				t.Fatalf("Go y TypeScript leen distinto el odontograma.\nGo: %q\nTS: %q", texto, c.Texto)
+			}
+			mismoCanonico(t, "las figuras", ArmarFiguras(p, c.Valores, c.Modo), c.Figuras)
+		})
+	}
+}
+
+// Cuándo un odontograma está vacío, y el mensaje con que se rechaza lo que
+// no lo está: un valor roto no puede pasar por vacío y guardarse sin validar.
+func TestOdontogramaVacio_CoincideConElDeTypeScript(t *testing.T) {
+	var casos []struct {
+		Nombre  string          `json:"nombre"`
+		Campo   json.RawMessage `json:"campo"`
+		Valor   json.RawMessage `json:"valor"`
+		Vacio   bool            `json:"vacio"`
+		Mensaje *string         `json:"mensaje"`
+	}
+	leerComposicion(t, "odontograma-vacio.json", &casos)
+	if len(casos) == 0 {
+		t.Fatal("no hay casos de vacío")
+	}
+	for _, c := range casos {
+		t.Run(c.Nombre, func(t *testing.T) {
+			p := plantillaConCampo(t, c.Campo)
+			campo := p.Campos()[0]
+			valor := valorCrudo(t, c.Valor)
+			if vacio := EstaVacio(campo, valor); vacio != c.Vacio {
+				t.Fatalf("vacío: Go %v, TypeScript %v", vacio, c.Vacio)
+			}
+			mensaje := ""
+			if errs := Validar(p, map[string]any{campo.ID: valor}, Estricto); len(errs) > 0 {
+				mensaje = errs[0].Mensaje
+			}
+			esperado := ""
+			if c.Mensaje != nil {
+				esperado = *c.Mensaje
+			}
+			if mensaje != esperado {
+				t.Fatalf("mensaje: Go %q, TypeScript %q", mensaje, esperado)
+			}
+		})
+	}
+}
+
+// `{{campo:detalle}}`: solo la aclaración de un sí o no, y una aclaración
+// vacía cuenta como un campo sin cargar.
+func TestDetalle_CoincideConElDeTypeScript(t *testing.T) {
+	var casos []struct {
+		Nombre    string          `json:"nombre"`
+		Plantilla json.RawMessage `json:"plantilla"`
+		Valores   map[string]any  `json:"valores"`
+		Contexto  Contexto        `json:"contexto"`
+		Modo      ModoTexto       `json:"modo"`
+		Lamina    json.RawMessage `json:"lamina"`
+	}
+	leerComposicion(t, "detalle.json", &casos)
+	if len(casos) == 0 {
+		t.Fatal("no hay casos de detalle")
+	}
+	for _, c := range casos {
+		t.Run(c.Nombre, func(t *testing.T) {
+			p, err := cargar(c.Plantilla)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mismoCanonico(t, "la lámina", ArmarLamina(p, c.Valores, c.Contexto, c.Modo), c.Lamina)
 		})
 	}
 }

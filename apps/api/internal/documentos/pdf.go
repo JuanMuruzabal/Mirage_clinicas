@@ -85,7 +85,9 @@ type FuenteDelPDF struct {
 // Colores del PDF. La tinta es la misma que la de la lámina en pantalla
 // (TINTA de apps/web/src/components/documentos/lamina-documento.tsx).
 var (
-	colorTinta      = pdf.ColorHex("#16181d")
+	colorTinta      = pdf.ColorHex(HexTinta)
+	colorRojo       = pdf.ColorHex(HexRojo)
+	colorAzul       = pdf.ColorHex(HexAzul)
 	colorSecundario = pdf.ColorHex("#5c6068")
 	colorPie        = pdf.ColorHex("#3a3d44")
 	colorFondoPie   = pdf.ColorHex("#ffffff")
@@ -323,6 +325,12 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 				pag.Texto(pdf.Helvetica, z.Tamano, l.X, l.Y, l.Texto, colorTinta)
 			}
 		}
+		// Los odontogramas, también congelados.
+		for _, figura := range contenido.Figuras {
+			if figura.Pagina == numero {
+				dibujarFigura(pag, figura)
+			}
+		}
 		// Un consentimiento se firma a mano sobre la hoja impresa: sus
 		// renglones de firma quedan vacíos.
 		if sellado {
@@ -418,6 +426,70 @@ func dibujarFirma(pag *pdf.Pagina, lugar LugarDeFirma, trazo db.TrazoDeFirma) {
 			pag.Camino(c, pdf.Estilo{Grosor: grosorDeFirma, Trazo: &colorTinta, Redondo: true})
 		}
 	})
+}
+
+// --- Las figuras del odontograma -----------------------------------------
+
+// guionesDeRemovible — el trazo de una prótesis removible: 3 pt de guion y
+// 2 de hueco.
+var guionesDeRemovible = []float64{3, 2}
+
+func colorDeFigura(nombre string) pdf.Color {
+	switch nombre {
+	case "rojo":
+		return colorRojo
+	case "azul":
+		return colorAzul
+	}
+	return colorTinta
+}
+
+func caminoCerrado(puntos [][2]float64) *pdf.Camino {
+	c := &pdf.Camino{}
+	for i, p := range puntos {
+		if i == 0 {
+			c.MoverA(p[0], p[1])
+		} else {
+			c.LineaA(p[0], p[1])
+		}
+	}
+	c.Cerrar()
+	return c
+}
+
+// dibujarFigura — una figura congelada, tal cual. Una línea continua lleva
+// extremos redondos, como las firmas; la discontinua no, porque los
+// extremos redondos taparían los huecos.
+func dibujarFigura(pag *pdf.Pagina, f Figura) {
+	switch f.Tipo {
+	case "poligono":
+		relleno := colorDeFigura(f.Relleno)
+		pag.Camino(caminoCerrado(f.Puntos), pdf.Estilo{Relleno: &relleno})
+	case "contorno":
+		color := colorDeFigura(f.Color)
+		pag.Camino(caminoCerrado(f.Puntos), pdf.Estilo{Grosor: f.Grosor, Trazo: &color})
+	case "linea":
+		if f.Desde == nil || f.Hasta == nil {
+			return
+		}
+		color := colorDeFigura(f.Color)
+		c := &pdf.Camino{}
+		c.MoverA(f.Desde[0], f.Desde[1])
+		c.LineaA(f.Hasta[0], f.Hasta[1])
+		estilo := pdf.Estilo{Grosor: f.Grosor, Trazo: &color, Redondo: !f.Discontinua}
+		if f.Discontinua {
+			estilo.Discontinua = guionesDeRemovible
+		}
+		pag.Camino(c, estilo)
+	case "circulo":
+		if f.Centro == nil {
+			return
+		}
+		color := colorDeFigura(f.Color)
+		pag.Camino(pdf.Circulo(f.Centro[0], f.Centro[1], f.Radio), pdf.Estilo{Grosor: f.Grosor, Trazo: &color})
+	case "texto":
+		pag.Texto(pdf.Helvetica, f.Tamano, f.X, f.Y, f.Texto, colorDeFigura(f.Color))
+	}
 }
 
 // --- La hoja de constancia ---------------------------------------------

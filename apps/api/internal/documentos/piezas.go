@@ -33,6 +33,7 @@ func concatenar(tramos ...[]string) []string {
 var (
 	piezasPermanentes = concatenar(tramo(1, 8, 1), tramo(2, 1, 8), tramo(4, 8, 1), tramo(3, 1, 8))
 	piezasTemporarias = concatenar(tramo(5, 5, 1), tramo(6, 1, 5), tramo(8, 5, 1), tramo(7, 1, 5))
+	piezasDeAmbas     = concatenar(piezasPermanentes, piezasTemporarias)
 )
 
 // PiezasDe — las piezas de una dentición: "permanente", "temporaria" o
@@ -44,7 +45,7 @@ func PiezasDe(denticion string) []string {
 	case "temporaria":
 		return piezasTemporarias
 	}
-	return concatenar(piezasPermanentes, piezasTemporarias)
+	return piezasDeAmbas
 }
 
 // EsPiezaValida — ¿es una pieza de esa dentición?

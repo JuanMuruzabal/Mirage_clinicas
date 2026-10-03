@@ -63,11 +63,17 @@ func EsFechaValida(v string) bool {
 	return dia <= diasDelMes
 }
 
-// EstaVacio — nada, texto en blanco, lista vacía o SI/NO sin respuesta.
+// EstaVacio — nada, texto en blanco, lista vacía, SI/NO sin respuesta u
+// odontograma sin nada marcado.
 func EstaVacio(c *Campo, valor any) bool {
-	switch v := valor.(type) {
-	case nil:
+	if valor == nil {
 		return true
+	}
+	// Antes que el texto y la lista: un "" o un [] no es un odontograma vacío.
+	if c.Tipo == "odontograma" {
+		return odontogramaVacio(c, valor)
+	}
+	switch v := valor.(type) {
 	case string:
 		return strings.TrimSpace(v) == ""
 	case []any:
@@ -216,6 +222,8 @@ func errorDeTipo(c *Campo, valor any) string {
 				return fmt.Sprintf("%s no es una pieza dentaria válida.", p)
 			}
 		}
+	case "odontograma":
+		return errorDeOdontograma(c, valor)
 	default:
 		return "Este tipo de campo no existe."
 	}
@@ -352,13 +360,12 @@ func ValorComoTexto(c *Campo, valor any) string {
 		return strings.Join(etiquetas, ", ")
 	case "piezas":
 		lista, _ := textos(valor)
-		orden := map[string]int{}
-		for i, p := range PiezasDe(denticionDe(c)) {
-			orden[p] = i
-		}
+		orden := indicesDe(PiezasDe(denticionDe(c)))
 		ordenadas := append([]string(nil), lista...)
 		sort.SliceStable(ordenadas, func(i, j int) bool { return orden[ordenadas[i]] < orden[ordenadas[j]] })
 		return strings.Join(ordenadas, ", ")
+	case "odontograma":
+		return odontogramaComoTexto(c, valor)
 	}
 	return ""
 }

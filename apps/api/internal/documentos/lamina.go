@@ -83,6 +83,15 @@ type Zona struct {
 	Sangria      float64 `json:"sangria,omitempty"`
 	Texto        string  `json:"texto"`
 	Vacio        string  `json:"vacio,omitempty"`
+	// Casillas — un carácter por casilla (un Nº de matrícula o de afiliado).
+	Casillas *Casillas `json:"casillas,omitempty"`
+}
+
+// Casillas — cuántas casillas tiene la zona y cada cuántos puntos empieza
+// la siguiente.
+type Casillas struct {
+	Cantidad int     `json:"cantidad"`
+	Paso     float64 `json:"paso"`
 }
 
 // LugarDeFirma — dónde firma cada rol.
@@ -97,9 +106,10 @@ type LugarDeFirma struct {
 
 // Lamina — las páginas, las zonas y los lugares de firma de una plantilla.
 type Lamina struct {
-	Paginas []PaginaDeLamina `json:"paginas"`
-	Zonas   []Zona           `json:"zonas"`
-	Firmas  []LugarDeFirma   `json:"firmas"`
+	Paginas      []PaginaDeLamina      `json:"paginas"`
+	Zonas        []Zona                `json:"zonas"`
+	Firmas       []LugarDeFirma        `json:"firmas"`
+	Odontogramas []OdontogramaDeLamina `json:"odontogramas,omitempty"`
 }
 
 // LineaCompuesta — un renglón ya ubicado: su línea de base empieza en X, Y.
@@ -125,10 +135,18 @@ const (
 	pasoTamano = 0.5
 )
 
-// marcaDeZona — `{{campo}}`, `{{campo:dia}}` (una parte de una fecha) o
-// `{{campo=valor}}` (la casilla de una opción). Mismo patrón que
-// MARCA_DE_ZONA de esquema.ts.
-var marcaDeZona = regexp.MustCompile(`\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio)|=([a-z0-9_]{1,40}))?\}\}`)
+// marcaDeZona — `{{campo}}`, `{{campo:dia}}` (una parte de una fecha),
+// `{{campo:detalle}}` (solo la aclaración de un sí o no) o `{{campo=valor}}`
+// (la casilla de una opción). Mismo patrón que MARCA_DE_ZONA de esquema.ts.
+var marcaDeZona = regexp.MustCompile(`\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio|detalle)|=([a-z0-9_]{1,40}))?\}\}`)
+
+// detalleDe — la aclaración de un sí o no, sin el "Sí". Mismo criterio que
+// `detalleDe` de lamina.ts.
+func detalleDe(valor any) string {
+	v, _ := valor.(map[string]any)
+	s, _ := v["detalle"].(string)
+	return strings.TrimSpace(s)
+}
 
 // MarcaDeCasilla — lo que se escribe en la casilla de la opción elegida.
 const MarcaDeCasilla = "X"
@@ -209,13 +227,22 @@ func TextoDeZona(z Zona, p *Plantilla, valores map[string]any, ctx Contexto, mod
 		}
 		campos++
 		valor := valores[nombre]
-		if EstaVacio(c, valor) {
+		// Una aclaración vacía cuenta como un campo sin cargar.
+		conDetalle := parte == "detalle"
+		detalle := ""
+		if conDetalle {
+			detalle = detalleDe(valor)
+		}
+		if EstaVacio(c, valor) || (conDetalle && detalle == "") {
 			if modo == TextoSellado {
 				return NoConsigna
 			}
 			return ""
 		}
 		cargados++
+		if conDetalle {
+			return detalle
+		}
 		if parte != "" {
 			s, _ := valor.(string)
 			return ParteDeFecha(s, parte)
@@ -288,18 +315,48 @@ func Envolver(texto string, ancho, tamano, anchoPrimera float64) []string {
 	return lineas
 }
 
+func tamanoDeZona(z Zona) float64 {
+	if z.Tamano == 0 {
+		return tamanoBase
+	}
+	return z.Tamano
+}
+
+// componerCasillas — cada carácter centrado en su casilla, al tamaño de la
+// zona y sin cortar. Un espacio ocupa su casilla sin escribir nada; lo que
+// no tiene casilla desborda.
+func componerCasillas(z Zona, texto string) ZonaCompuesta {
+	tamano := tamanoDeZona(z)
+	caracteres := []rune(texto)
+	desborda := len(caracteres) > z.Casillas.Cantidad
+	if desborda {
+		caracteres = caracteres[:z.Casillas.Cantidad]
+	}
+	lineas := []LineaCompuesta{}
+	for i, r := range caracteres {
+		if r == ' ' {
+			continue
+		}
+		ancho := float64(AnchoEnUnidades(string(r))) * tamano / 1000
+		x := redondear2(z.X + float64(i)*z.Casillas.Paso + (z.Casillas.Paso-ancho)/2)
+		lineas = append(lineas, LineaCompuesta{X: x, Y: z.Y, Texto: string(r)})
+	}
+	return ZonaCompuesta{Zona: z.ID, Pagina: z.Pagina, Tamano: tamano, Lineas: lineas, Desborda: desborda}
+}
+
 // ComponerZona — el tamaño más grande (de 0,5 en 0,5 pt, hasta el mínimo)
 // con el que el texto entra en los renglones de la zona. Con `Sangria`, el
-// primer renglón empieza así de corrido a la derecha.
+// primer renglón empieza así de corrido a la derecha. Con `Casillas`, va
+// un carácter por casilla.
 func ComponerZona(z Zona, texto string) ZonaCompuesta {
+	if z.Casillas != nil {
+		return componerCasillas(z, texto)
+	}
 	maximo := z.Lineas
 	if maximo == 0 {
 		maximo = 1
 	}
-	base := z.Tamano
-	if base == 0 {
-		base = tamanoBase
-	}
+	base := tamanoDeZona(z)
 	minimo := z.Minimo
 	if minimo == 0 {
 		minimo = redondear2(base * 0.6)
@@ -351,11 +408,18 @@ func ArmarLamina(p *Plantilla, valores map[string]any, ctx Contexto, modo ModoTe
 	for _, z := range p.Lamina.Zonas {
 		texto, vacia := TextoDeZona(z, p, valores, ctx, modo)
 		if vacia && modo == TextoBorrador {
-			tamano := z.Tamano
-			if tamano == 0 {
-				tamano = tamanoBase
+			out = append(out, ZonaCompuesta{Zona: z.ID, Pagina: z.Pagina, Tamano: tamanoDeZona(z), Lineas: []LineaCompuesta{}, Vacia: true})
+			continue
+		}
+		// Unas casillas vacías llevan una raya al principio, en un renglón
+		// normal: "No consigna" repartido de a una letra no se leería.
+		if vacia && z.Casillas != nil {
+			marca := z.Vacio
+			if marca == "" {
+				marca = SinDato
 			}
-			out = append(out, ZonaCompuesta{Zona: z.ID, Pagina: z.Pagina, Tamano: tamano, Lineas: []LineaCompuesta{}, Vacia: true})
+			linea := LineaCompuesta{X: z.X, Y: z.Y, Texto: marca}
+			out = append(out, ZonaCompuesta{Zona: z.ID, Pagina: z.Pagina, Tamano: tamanoDeZona(z), Lineas: []LineaCompuesta{linea}, Vacia: true})
 			continue
 		}
 		if vacia {

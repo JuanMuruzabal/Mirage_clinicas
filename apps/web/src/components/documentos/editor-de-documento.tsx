@@ -3,7 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  armarFiguras,
   armarLamina,
+  campoPorId,
   estaVacio,
   seccionDelCampo,
   seFirmaEnPapel,
@@ -103,6 +105,7 @@ export function EditorDeDocumento({
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const [confirmarTerminar, setConfirmarTerminar] = useState(false);
   const [pedidoDeFoco, setPedidoDeFoco] = useState<PedidoDeFoco | null>(null);
+  const [odontogramaAbierto, setOdontogramaAbierto] = useState<string | null>(null);
   const idBase = useId();
   const idDelCuerpo = (seccionId: string) => `${idBase}-seccion-${seccionId}`;
   const hoy = documento.hoy ?? "";
@@ -119,6 +122,7 @@ export function EditorDeDocumento({
   // su renglón: se avisa mientras se escribe, pero el borrador se guarda
   // igual (terminar es lo que no lo deja pasar).
   const zonas = useMemo(() => armarLamina(plantilla, valores, { fecha: hoy }, "borrador"), [plantilla, valores, hoy]);
+  const figuras = useMemo(() => armarFiguras(plantilla, valores, "borrador"), [plantilla, valores]);
   const erroresDeLamina = useMemo(() => erroresPorCampo(validarLamina(plantilla, valores, { fecha: hoy })), [plantilla, valores, hoy]);
   const errores = { ...erroresDeLamina, ...erroresAlTerminar, ...erroresDelServidor, ...erroresLocales };
 
@@ -173,6 +177,13 @@ export function EditorDeDocumento({
     const seccion = seccionDelCampo(plantilla, campoId);
     if (seccion) setSeccionAbierta(seccion.id);
     setCampoActivo(campoId);
+    // El odontograma se completa en su pantalla emergente: tocarlo en la
+    // hoja, o un error al terminar, la abre sin cambiar de vista. Al
+    // cerrarla, el foco vuelve a lo que la abrió.
+    if (campoPorId(plantilla, campoId)?.tipo === "odontograma") {
+      setOdontogramaAbierto(campoId);
+      return;
+    }
     setVista("completar");
     setPedidoDeFoco((p) => ({ campoId, seccionId: seccion?.id ?? null, vuelta: (p?.vuelta ?? 0) + 1 }));
   }
@@ -300,7 +311,7 @@ export function EditorDeDocumento({
       {paginasDeLamina && (
         <div className="hidden justify-end lg:flex">
           <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`}>
-            <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} etiqueta="Tu documento" />
+            <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} figuras={figuras} etiqueta="Tu documento" />
           </PantallaCompleta>
         </div>
       )}
@@ -364,7 +375,7 @@ export function EditorDeDocumento({
                   }`}
                 >
                   <div className="overflow-hidden" inert={!abierta}>
-                    <div className="flex flex-col gap-4 border-t border-linea px-4 py-4">
+                    <div className="flex min-w-0 flex-col gap-4 border-t border-linea px-4 py-4">
                       {seccion.campos.map((campo) => (
                         <CampoDeDocumento
                           key={campo.id}
@@ -372,6 +383,8 @@ export function EditorDeDocumento({
                           valor={valores[campo.id]}
                           error={errores[campo.id]}
                           onCambio={(v) => cambiar(campo.id, v)}
+                          odontogramaAbierto={odontogramaAbierto === campo.id}
+                          onOdontogramaAbierto={(abierto) => setOdontogramaAbierto(abierto ? campo.id : null)}
                         />
                       ))}
                     </div>
@@ -417,13 +430,14 @@ export function EditorDeDocumento({
           {paginasDeLamina ? (
             <>
               <PantallaCompleta titulo={`${plantilla.nombre}: tu documento`} className="self-end lg:hidden">
-                <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} etiqueta="Tu documento" />
+                <LaminaDocumento plantilla={plantilla} paginas={paginasDeLamina} zonas={zonas} figuras={figuras} etiqueta="Tu documento" />
               </PantallaCompleta>
               <LaminaDocumento
                 plantilla={plantilla}
                 paginas={paginasDeLamina}
                 zonas={zonas}
-                editable={{ campoActivo, errores, onElegir: irAlCampo }}
+                figuras={figuras}
+                editable={{ campoActivo, errores, onElegir: irAlCampo, valores }}
                 etiqueta="Tu documento"
               />
             </>

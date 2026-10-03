@@ -57,7 +57,10 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
   const paginasDeLamina = contenido.lamina ? paginasDeLaLamina(plantilla) : null;
   const etiquetaDeLaHoja =
     documento.estado === "sellado" ? "Documento sellado" : paraImprimir ? "Documento para imprimir" : "Documento para firmar";
-  const conLamina = plantilla && paginasDeLamina && contenido.lamina ? { plantilla, paginas: paginasDeLamina, zonas: contenido.lamina } : null;
+  const conLamina =
+    plantilla && paginasDeLamina && contenido.lamina
+      ? { plantilla, paginas: paginasDeLamina, zonas: contenido.lamina, figuras: contenido.figuras }
+      : null;
 
   function imprimir() {
     // Queda en la auditoría; si eso falla, la impresión sigue igual.
@@ -92,6 +95,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
       plantilla={conLamina.plantilla}
       paginas={conLamina.paginas}
       zonas={conLamina.zonas}
+      figuras={conLamina.figuras}
       firmas={documento.firmas}
       etiqueta={etiquetaDeLaHoja}
     />
@@ -281,6 +285,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               plantilla={conLamina.plantilla}
               paginas={conLamina.paginas}
               zonas={conLamina.zonas}
+              figuras={conLamina.figuras}
               etiqueta="Documento para imprimir"
               paraImprimir
             />

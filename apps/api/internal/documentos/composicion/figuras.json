@@ -1,0 +1,5073 @@
+[
+  {
+    "nombre": "todas las caras: superiores e inferiores, de la derecha y de la izquierda, permanentes y temporarias",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "V": "rojo",
+              "L": "azul",
+              "M": "rojo",
+              "D": "azul",
+              "O": "rojo"
+            }
+          },
+          "21": {
+            "caras": {
+              "O": "azul",
+              "D": "rojo",
+              "M": "azul",
+              "L": "rojo",
+              "V": "azul"
+            }
+          },
+          "36": {
+            "caras": {
+              "V": "rojo",
+              "L": "azul",
+              "M": "rojo",
+              "D": "azul",
+              "O": "rojo"
+            }
+          },
+          "44": {
+            "caras": {
+              "O": "azul",
+              "D": "rojo",
+              "M": "azul",
+              "L": "rojo",
+              "V": "azul"
+            }
+          },
+          "55": {
+            "caras": {
+              "O": "azul",
+              "D": "rojo",
+              "M": "azul",
+              "L": "rojo",
+              "V": "azul"
+            }
+          },
+          "62": {
+            "caras": {
+              "V": "rojo",
+              "L": "azul",
+              "M": "rojo",
+              "D": "azul",
+              "O": "rojo"
+            }
+          },
+          "73": {
+            "caras": {
+              "O": "azul",
+              "D": "rojo",
+              "M": "azul",
+              "L": "rojo",
+              "V": "azul"
+            }
+          },
+          "84": {
+            "caras": {
+              "V": "rojo",
+              "L": "azul",
+              "M": "rojo",
+              "D": "azul",
+              "O": "rojo"
+            }
+          }
+        }
+      }
+    },
+    "modo": "borrador",
+    "texto": "Rojo, prestaciones existentes: 16 (caras vestibular, mesial y oclusal), 21 (caras palatina y distal), 44 (caras lingual y distal), 36 (caras vestibular, mesial y oclusal), 55 (caras palatina y distal), 62 (caras vestibular, mesial y incisal), 84 (caras vestibular, mesial y oclusal), 73 (caras lingual y distal). Azul, prestaciones requeridas: 16 (caras palatina y distal), 21 (caras vestibular, mesial y incisal), 44 (caras vestibular, mesial y oclusal), 36 (caras lingual y distal), 55 (caras vestibular, mesial y oclusal), 62 (caras palatina y distal), 84 (caras lingual y distal), 73 (caras vestibular, mesial y incisal).",
+    "figuras": [
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            73.39,
+            101.78
+          ],
+          [
+            88.31,
+            101.78
+          ],
+          [
+            83.98,
+            106.1
+          ],
+          [
+            77.72,
+            106.1
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            73.39,
+            119.02
+          ],
+          [
+            77.72,
+            114.7
+          ],
+          [
+            83.98,
+            114.7
+          ],
+          [
+            88.31,
+            119.02
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            89.47,
+            102.94
+          ],
+          [
+            89.47,
+            117.86
+          ],
+          [
+            85.15,
+            113.53
+          ],
+          [
+            85.15,
+            107.27
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            72.23,
+            102.94
+          ],
+          [
+            76.55,
+            107.27
+          ],
+          [
+            76.55,
+            113.53
+          ],
+          [
+            72.23,
+            117.86
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            77.72,
+            107.27
+          ],
+          [
+            83.98,
+            107.27
+          ],
+          [
+            83.98,
+            113.53
+          ],
+          [
+            77.72,
+            113.53
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            203.59,
+            101.78
+          ],
+          [
+            218.51,
+            101.78
+          ],
+          [
+            214.18,
+            106.1
+          ],
+          [
+            207.92,
+            106.1
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            203.59,
+            119.02
+          ],
+          [
+            207.92,
+            114.7
+          ],
+          [
+            214.18,
+            114.7
+          ],
+          [
+            218.51,
+            119.02
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            202.43,
+            102.94
+          ],
+          [
+            206.75,
+            107.27
+          ],
+          [
+            206.75,
+            113.53
+          ],
+          [
+            202.43,
+            117.86
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            219.67,
+            102.94
+          ],
+          [
+            219.67,
+            117.86
+          ],
+          [
+            215.35,
+            113.53
+          ],
+          [
+            215.35,
+            107.27
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            207.92,
+            107.27
+          ],
+          [
+            214.18,
+            107.27
+          ],
+          [
+            214.18,
+            113.53
+          ],
+          [
+            207.92,
+            113.53
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            116.75,
+            149.19
+          ],
+          [
+            120.97,
+            144.97
+          ],
+          [
+            127.08,
+            144.97
+          ],
+          [
+            131.3,
+            149.19
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            116.75,
+            132.36
+          ],
+          [
+            131.3,
+            132.36
+          ],
+          [
+            127.08,
+            136.58
+          ],
+          [
+            120.97,
+            136.58
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            132.44,
+            133.5
+          ],
+          [
+            132.44,
+            148.05
+          ],
+          [
+            128.22,
+            143.83
+          ],
+          [
+            128.22,
+            137.72
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            115.61,
+            133.5
+          ],
+          [
+            119.83,
+            137.72
+          ],
+          [
+            119.83,
+            143.83
+          ],
+          [
+            115.61,
+            148.05
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            120.97,
+            137.72
+          ],
+          [
+            127.08,
+            137.72
+          ],
+          [
+            127.08,
+            143.83
+          ],
+          [
+            120.97,
+            143.83
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            312.05,
+            149.89
+          ],
+          [
+            316.27,
+            145.67
+          ],
+          [
+            322.38,
+            145.67
+          ],
+          [
+            326.6,
+            149.89
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            312.05,
+            133.06
+          ],
+          [
+            326.6,
+            133.06
+          ],
+          [
+            322.38,
+            137.28
+          ],
+          [
+            316.27,
+            137.28
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            310.91,
+            134.2
+          ],
+          [
+            315.13,
+            138.42
+          ],
+          [
+            315.13,
+            144.53
+          ],
+          [
+            310.91,
+            148.75
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            327.74,
+            134.2
+          ],
+          [
+            327.74,
+            148.75
+          ],
+          [
+            323.52,
+            144.53
+          ],
+          [
+            323.52,
+            138.42
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            316.27,
+            138.42
+          ],
+          [
+            322.38,
+            138.42
+          ],
+          [
+            322.38,
+            144.53
+          ],
+          [
+            316.27,
+            144.53
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            95.01,
+            171.9
+          ],
+          [
+            109.19,
+            171.9
+          ],
+          [
+            105.08,
+            176.02
+          ],
+          [
+            99.12,
+            176.02
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            95.01,
+            188.3
+          ],
+          [
+            99.12,
+            184.18
+          ],
+          [
+            105.08,
+            184.18
+          ],
+          [
+            109.19,
+            188.3
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            110.3,
+            173.01
+          ],
+          [
+            110.3,
+            187.19
+          ],
+          [
+            106.18,
+            183.08
+          ],
+          [
+            106.18,
+            177.12
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            93.9,
+            173.01
+          ],
+          [
+            98.02,
+            177.12
+          ],
+          [
+            98.02,
+            183.08
+          ],
+          [
+            93.9,
+            187.19
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            99.12,
+            177.12
+          ],
+          [
+            105.08,
+            177.12
+          ],
+          [
+            105.08,
+            183.08
+          ],
+          [
+            99.12,
+            183.08
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            225.21,
+            171.9
+          ],
+          [
+            239.39,
+            171.9
+          ],
+          [
+            235.28,
+            176.02
+          ],
+          [
+            229.32,
+            176.02
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            225.21,
+            188.3
+          ],
+          [
+            229.32,
+            184.18
+          ],
+          [
+            235.28,
+            184.18
+          ],
+          [
+            239.39,
+            188.3
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            224.1,
+            173.01
+          ],
+          [
+            228.22,
+            177.12
+          ],
+          [
+            228.22,
+            183.08
+          ],
+          [
+            224.1,
+            187.19
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            240.5,
+            173.01
+          ],
+          [
+            240.5,
+            187.19
+          ],
+          [
+            236.38,
+            183.08
+          ],
+          [
+            236.38,
+            177.12
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            229.32,
+            177.12
+          ],
+          [
+            235.28,
+            177.12
+          ],
+          [
+            235.28,
+            183.08
+          ],
+          [
+            229.32,
+            183.08
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            116.75,
+            220.09
+          ],
+          [
+            120.97,
+            215.87
+          ],
+          [
+            127.08,
+            215.87
+          ],
+          [
+            131.3,
+            220.09
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            116.75,
+            203.26
+          ],
+          [
+            131.3,
+            203.26
+          ],
+          [
+            127.08,
+            207.48
+          ],
+          [
+            120.97,
+            207.48
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            132.44,
+            204.4
+          ],
+          [
+            132.44,
+            218.95
+          ],
+          [
+            128.22,
+            214.73
+          ],
+          [
+            128.22,
+            208.62
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            115.61,
+            204.4
+          ],
+          [
+            119.83,
+            208.62
+          ],
+          [
+            119.83,
+            214.73
+          ],
+          [
+            115.61,
+            218.95
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            120.97,
+            208.62
+          ],
+          [
+            127.08,
+            208.62
+          ],
+          [
+            127.08,
+            214.73
+          ],
+          [
+            120.97,
+            214.73
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            246.95,
+            220.09
+          ],
+          [
+            251.17,
+            215.87
+          ],
+          [
+            257.28,
+            215.87
+          ],
+          [
+            261.5,
+            220.09
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            246.95,
+            203.26
+          ],
+          [
+            261.5,
+            203.26
+          ],
+          [
+            257.28,
+            207.48
+          ],
+          [
+            251.17,
+            207.48
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            245.81,
+            204.4
+          ],
+          [
+            250.03,
+            208.62
+          ],
+          [
+            250.03,
+            214.73
+          ],
+          [
+            245.81,
+            218.95
+          ]
+        ],
+        "relleno": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            262.64,
+            204.4
+          ],
+          [
+            262.64,
+            218.95
+          ],
+          [
+            258.42,
+            214.73
+          ],
+          [
+            258.42,
+            208.62
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            251.17,
+            208.62
+          ],
+          [
+            257.28,
+            208.62
+          ],
+          [
+            257.28,
+            214.73
+          ],
+          [
+            251.17,
+            214.73
+          ]
+        ],
+        "relleno": "azul"
+      }
+    ]
+  },
+  {
+    "nombre": "todas las marcas, después de las caras y de la más grande a la más chica",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "pediatrica"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "piezas": {
+          "11": {
+            "marcas": {
+              "traumatizado": "azul"
+            }
+          },
+          "54": {
+            "caras": {
+              "O": "rojo"
+            },
+            "marcas": {
+              "traumatizado": "rojo",
+              "sellador": "rojo",
+              "x": "azul",
+              "corona": "rojo"
+            }
+          },
+          "71": {
+            "marcas": {
+              "x": "azul",
+              "corona": "rojo"
+            }
+          },
+          "85": {
+            "marcas": {
+              "sellador": "rojo"
+            }
+          }
+        }
+      }
+    },
+    "modo": "sellado",
+    "texto": "Rojo, trabajos realizados: 54 (cara oclusal; corona; sellador; traumatizada), 85 (sellador), 71 (corona). Azul, trabajos a realizar: 11 (traumatizada), 54 (a extraer, extraída o ausente), 71 (a extraer, extraída o ausente).",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 184.79,
+        "y": 115.85,
+        "tamano": 14.2,
+        "texto": "T",
+        "color": "azul"
+      },
+      {
+        "tipo": "poligono",
+        "pagina": 1,
+        "puntos": [
+          [
+            120.97,
+            177.97
+          ],
+          [
+            127.08,
+            177.97
+          ],
+          [
+            127.08,
+            184.08
+          ],
+          [
+            120.97,
+            184.08
+          ]
+        ],
+        "relleno": "rojo"
+      },
+      {
+        "tipo": "circulo",
+        "pagina": 1,
+        "centro": [
+          124.03,
+          181.03
+        ],
+        "radio": 11.01,
+        "color": "rojo",
+        "grosor": 1.1
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          116.57,
+          173.57
+        ],
+        "hasta": [
+          131.48,
+          188.48
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          131.48,
+          173.57
+        ],
+        "hasta": [
+          116.57,
+          188.48
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "contorno",
+        "pagina": 1,
+        "puntos": [
+          [
+            124.03,
+            174.81
+          ],
+          [
+            130.24,
+            186.71
+          ],
+          [
+            117.81,
+            186.71
+          ]
+        ],
+        "color": "rojo",
+        "grosor": 1.1
+      },
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 119.69,
+        "y": 186,
+        "tamano": 14.2,
+        "texto": "T",
+        "color": "rojo"
+      },
+      {
+        "tipo": "contorno",
+        "pagina": 1,
+        "puntos": [
+          [
+            102.1,
+            204.7
+          ],
+          [
+            108.16,
+            216.29
+          ],
+          [
+            96.05,
+            216.29
+          ]
+        ],
+        "color": "rojo",
+        "grosor": 1.1
+      },
+      {
+        "tipo": "circulo",
+        "pagina": 1,
+        "centro": [
+          211.05,
+          211.9
+        ],
+        "radio": 11.28,
+        "color": "rojo",
+        "grosor": 1.1
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          203.41,
+          204.26
+        ],
+        "hasta": [
+          218.69,
+          219.54
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          218.69,
+          204.26
+        ],
+        "hasta": [
+          203.41,
+          219.54
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      }
+    ]
+  },
+  {
+    "nombre": "prótesis fijas y removibles, arriba y abajo, en el orden del texto",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "protesis": [
+          {
+            "tipo": "removible",
+            "desde": "46",
+            "hasta": "43",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "34",
+            "hasta": "31",
+            "color": "azul"
+          },
+          {
+            "tipo": "removible",
+            "desde": "15",
+            "hasta": "17",
+            "color": "azul"
+          },
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "28",
+            "hasta": "26",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "24",
+            "hasta": "25",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "52",
+            "hasta": "62",
+            "color": "azul"
+          },
+          {
+            "tipo": "removible",
+            "desde": "83",
+            "hasta": "81",
+            "color": "azul"
+          }
+        ]
+      }
+    },
+    "modo": "sellado",
+    "texto": "Prótesis: fija en rojo, de 13 a 23; fija en rojo, de 24 a 25; fija en rojo, de 26 a 28; fija en azul, de 31 a 34; fija en azul, de 52 a 62; removible en rojo, de 46 a 43; removible en azul, de 17 a 15; removible en azul, de 83 a 81.",
+    "figuras": [
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          145.95,
+          110.64
+        ],
+        "hasta": [
+          254.23,
+          110.64
+        ],
+        "color": "rojo",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          276.15,
+          110.53
+        ],
+        "hasta": [
+          297.4,
+          110.53
+        ],
+        "color": "rojo",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          319.33,
+          110.76
+        ],
+        "hasta": [
+          362.5,
+          110.76
+        ],
+        "color": "rojo",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          211.05,
+          141.35
+        ],
+        "hasta": [
+          276.15,
+          141.35
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          167.2,
+          180.45
+        ],
+        "hasta": [
+          232.3,
+          180.45
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          80.85,
+          141.35
+        ],
+        "hasta": [
+          145.95,
+          141.35
+        ],
+        "color": "rojo",
+        "grosor": 1.4,
+        "discontinua": true
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          58.93,
+          110.76
+        ],
+        "hasta": [
+          102.1,
+          110.76
+        ],
+        "color": "azul",
+        "grosor": 1.4,
+        "discontinua": true
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          145.95,
+          211.09
+        ],
+        "hasta": [
+          189.13,
+          211.09
+        ],
+        "color": "azul",
+        "grosor": 1.4,
+        "discontinua": true
+      }
+    ]
+  },
+  {
+    "nombre": "dientes existentes con valor, en una caja con tamaño propio",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "denticion": "permanente",
+              "leyenda": "general",
+              "existentes": true
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              }
+            ],
+            "existentes": {
+              "x": 400.15,
+              "y": 190.6,
+              "ancho": 44.3,
+              "tamano": 9
+            }
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "existentes": 27
+      }
+    },
+    "modo": "sellado",
+    "texto": "Dientes existentes: 27.",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 417.3,
+        "y": 190.6,
+        "tamano": 9,
+        "texto": "27",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "dientes existentes sin valor, terminado",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general",
+              "existentes": true
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ],
+            "existentes": {
+              "x": 400.15,
+              "y": 190.6,
+              "ancho": 44.3
+            }
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "piezas": {
+          "47": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        }
+      }
+    },
+    "modo": "sellado",
+    "texto": "Azul, prestaciones requeridas: 47 (ausente o a extraer).",
+    "figuras": [
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          51.47,
+          134.02
+        ],
+        "hasta": [
+          66.38,
+          148.93
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          66.38,
+          134.02
+        ],
+        "hasta": [
+          51.47,
+          148.93
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 417.3,
+        "y": 190.6,
+        "tamano": 10,
+        "texto": "—",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "dientes existentes sin valor, borrador",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general",
+              "existentes": true
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ],
+            "existentes": {
+              "x": 400.15,
+              "y": 190.6,
+              "ancho": 44.3
+            }
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "piezas": {
+          "47": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        }
+      }
+    },
+    "modo": "borrador",
+    "texto": "Azul, prestaciones requeridas: 47 (ausente o a extraer).",
+    "figuras": [
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          51.47,
+          134.02
+        ],
+        "hasta": [
+          66.38,
+          148.93
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      },
+      {
+        "tipo": "linea",
+        "pagina": 1,
+        "desde": [
+          66.38,
+          134.02
+        ],
+        "hasta": [
+          51.47,
+          148.93
+        ],
+        "color": "azul",
+        "grosor": 1.4
+      }
+    ]
+  },
+  {
+    "nombre": "vacío y terminado, con la caja de existentes",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general",
+              "existentes": true
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ],
+            "existentes": {
+              "x": 400.15,
+              "y": 190.6,
+              "ancho": 44.3
+            }
+          }
+        ]
+      }
+    },
+    "valores": {},
+    "modo": "sellado",
+    "texto": "",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 417.3,
+        "y": 190.6,
+        "tamano": 10,
+        "texto": "—",
+        "color": "tinta"
+      },
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 171.96,
+        "y": 164.65,
+        "tamano": 10,
+        "texto": "No consigna",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "vacío en borrador",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "general",
+              "existentes": true
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ],
+            "existentes": {
+              "x": 400.15,
+              "y": 190.6,
+              "ancho": 44.3
+            }
+          }
+        ]
+      }
+    },
+    "valores": {},
+    "modo": "borrador",
+    "texto": "",
+    "figuras": []
+  },
+  {
+    "nombre": "vacío y terminado: una pieza con caras y marcas vacías no cuenta",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "denticion": "permanente",
+              "leyenda": "general"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valores": {
+      "odontograma": {
+        "piezas": {
+          "11": {
+            "caras": {},
+            "marcas": {}
+          }
+        },
+        "protesis": []
+      }
+    },
+    "modo": "sellado",
+    "texto": "",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 171.96,
+        "y": 129.55,
+        "tamano": 10,
+        "texto": "No consigna",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "solo temporarias, vacío y terminado",
+    "plantilla": {
+      "id": "odontograma-de-prueba",
+      "version": 1,
+      "nombre": "Odontograma de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un odontograma solo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "denticion": "temporaria",
+              "leyenda": "pediatrica"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Odontograma"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valores": {},
+    "modo": "sellado",
+    "texto": "",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 171.96,
+        "y": 199.73,
+        "tamano": 10,
+        "texto": "No consigna",
+        "color": "tinta"
+      }
+    ]
+  }
+]

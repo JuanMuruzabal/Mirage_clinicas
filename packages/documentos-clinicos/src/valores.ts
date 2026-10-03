@@ -10,13 +10,14 @@
 // La API es la que manda; esta copia existe para que la pantalla marque el
 // error en el campo antes de mandar nada.
 import { camposDe, type Campo, type Plantilla } from "./esquema";
+import { errorDeOdontograma, odontogramaVacio, textoDeOdontograma, type ValorOdontograma } from "./odontograma";
 import { esPiezaValida, piezasDe } from "./piezas";
 
 export interface RespuestaSiNo {
   respuesta: "si" | "no";
   detalle?: string;
 }
-export type Valor = string | number | string[] | RespuestaSiNo;
+export type Valor = string | number | string[] | RespuestaSiNo | ValorOdontograma;
 export type Valores = Record<string, Valor>;
 
 export type ModoDeValidacion = "tolerante" | "estricto";
@@ -33,7 +34,7 @@ export const LARGO_DETALLE = 1000;
 const FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-function esObjeto(v: unknown): v is Record<string, unknown> {
+export function esObjeto(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
@@ -49,6 +50,8 @@ export function esFechaValida(v: string): boolean {
 
 export function estaVacio(campo: Campo, valor: unknown): boolean {
   if (valor === undefined || valor === null) return true;
+  // Antes que el texto y la lista: un "" o un [] no es un odontograma vacío.
+  if (campo.tipo === "odontograma") return odontogramaVacio(campo, valor);
   if (typeof valor === "string") return valor.trim() === "";
   if (Array.isArray(valor)) return valor.length === 0;
   // Un SI/NO sin respuesta está vacío; con una respuesta que no es "si" ni
@@ -108,6 +111,8 @@ function errorDeTipo(campo: Campo, valor: unknown): string | null {
       const invalida = valor.find((p) => !esPiezaValida(p as string, denticion));
       return invalida === undefined ? null : `${invalida} no es una pieza dentaria válida.`;
     }
+    case "odontograma":
+      return errorDeOdontograma(campo, valor);
   }
 }
 
@@ -193,6 +198,8 @@ export function valorComoTexto(campo: Campo, valor: unknown): string {
       const orden = piezasDe(campo.denticion ?? "ambas");
       return [...(valor as string[])].sort((a, b) => orden.indexOf(a) - orden.indexOf(b)).join(", ");
     }
+    case "odontograma":
+      return textoDeOdontograma(campo, valor as ValorOdontograma);
   }
 }
 

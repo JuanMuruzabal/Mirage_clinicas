@@ -3,6 +3,7 @@ import type { DocumentoResumen, EstadoDocumento } from "@dental-mirage/shared-ty
 import {
   ETIQUETA_DE_TIPO,
   type BloqueArmado,
+  type Figura,
   type FirmaDePlantilla,
   type TipoDePlantilla,
   type ZonaCompuesta,
@@ -28,6 +29,9 @@ export interface ContenidoCongelado {
    *  se dibuja, tal cual lo congeló la API. Falta en una plantilla sin
    *  lámina (entonces se lee `cuerpo` en el calco). */
   lamina?: ZonaCompuesta[];
+  /** Lo dibujado en el odontograma, tal cual lo congeló la API (Fase 5.5).
+   *  Falta en un documento sin odontograma. */
+  figuras?: Figura[];
 }
 
 /** Lee el contenido congelado que manda la API, o null si no tiene la

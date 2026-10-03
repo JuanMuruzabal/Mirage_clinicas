@@ -8,6 +8,7 @@
 // antes de exportar a Go: una plantilla con una marca a un campo que no
 // existe no llega nunca a la API.
 import { z } from "zod";
+import { piezasDe } from "./piezas";
 
 /** De dónde se precarga un campo al crear el documento. Lo resuelve la
  *  API (tiene la ficha, el perfil y la clínica); acá solo se nombra. */
@@ -23,6 +24,8 @@ export const PRECARGAS = [
   "paciente.email",
   "profesional.nombreCompleto",
   "profesional.matricula",
+  /** Solo el número, sin "MP": lo que va en las casillas del papel. */
+  "profesional.matriculaNumero",
   "clinica.nombre",
   "clinica.ciudad",
 ] as const;
@@ -59,11 +62,22 @@ export const MARCA = /\{\{([a-z][a-z0-9_.]*)\}\}/g;
  *  "Córdoba ___ de ______ 20__"). Para una casilla del
  *  papel ("CONSIENTO ___ o NO CONSIENTO ___", "☐ Hospital"),
  *  `{{campo=valor}}`: una "X" si se eligió esa opción, nada si no (Fase
- *  5.2). Grupo 1: el campo; 2: la parte de la fecha; 3: la opción. */
-export const MARCA_DE_ZONA = /\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio)|=([a-z0-9_]{1,40}))?\}\}/g;
+ *  5.2). Para el renglón de la aclaración de un sí o no, `{{campo:detalle}}`:
+ *  solo lo aclarado, sin "Sí" (Fase 5.5). Grupo 1: el campo; 2: la parte
+ *  (de la fecha, o `detalle`); 3: la opción. */
+export const MARCA_DE_ZONA = /\{\{([a-z][a-z0-9_.]*)(?::(dia|mes_nombre|mes|anio2|anio|detalle)|=([a-z0-9_]{1,40}))?\}\}/g;
 
 /** Lo que se escribe en la casilla de la opción elegida. */
 export const MARCA_DE_CASILLA = "X";
+
+/** Lo que dice un hueco chico vacío en un documento terminado: una fila
+ *  de casillas, la cantidad de dientes existentes. */
+export const SIN_DATO = "—";
+
+/** Qué herramientas y qué rótulos lleva un odontograma (Fase 5.5): la
+ *  historia general (con prótesis) o la de odontopediatría (con sellador
+ *  y traumatizado). */
+export const LEYENDAS_DE_ODONTOGRAMA = ["general", "pediatrica"] as const;
 
 /** Los valores que se pueden marcar en una casilla de un campo: las
  *  opciones, o "si"/"no" para una pregunta de sí o no. */
@@ -87,6 +101,7 @@ const base = {
 };
 
 const opcion = z.object({ valor: z.string().regex(/^[a-z0-9_]{1,40}$/), etiqueta: z.string().min(1).max(120) }).strict();
+const denticion = z.enum(["permanente", "temporaria", "ambas"]).optional();
 
 export const campoSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("texto"), ...base }).strict(),
@@ -114,11 +129,15 @@ export const campoSchema = z.discriminatedUnion("tipo", [
     .strict(),
   z.object({ tipo: z.literal("opcion_unica"), ...base, opciones: z.array(opcion).min(2).max(20) }).strict(),
   z.object({ tipo: z.literal("opcion_multiple"), ...base, opciones: z.array(opcion).min(2).max(30) }).strict(),
+  z.object({ tipo: z.literal("piezas"), ...base, denticion }).strict(),
   z
     .object({
-      tipo: z.literal("piezas"),
+      tipo: z.literal("odontograma"),
       ...base,
-      denticion: z.enum(["permanente", "temporaria", "ambas"]).optional(),
+      denticion,
+      leyenda: z.enum(LEYENDAS_DE_ODONTOGRAMA),
+      /** Pide la "Cantidad de dientes existentes" del papel. */
+      existentes: z.boolean().optional(),
     })
     .strict(),
 ]);
@@ -180,6 +199,10 @@ export const zonaSchema = z
      *  arranca a mitad del renglón de su título ("Observaciones: ……") y
      *  sigue en los renglones enteros de abajo (Fase 5.2). */
     sangria: z.number().positive().max(2000).optional(),
+    /** Una fila de casillas de a un carácter ("Nº de Matrícula", "Nº
+     *  AFIL"): cada carácter va centrado en la suya, sin achicar ni cortar
+     *  (Fase 5.5). `paso` es el ancho de cada casilla. */
+    casillas: z.object({ cantidad: z.number().int().min(1).max(40), paso: z.number().positive().max(2000) }).strict().optional(),
     /** Lo que se escribe, con marcas (`{{lugar}}, {{sistema.fecha}}`). */
     texto: z.string().min(1).max(500),
     /** Lo que dice la zona vacía en un documento terminado ("No consigna"
@@ -203,14 +226,38 @@ export const lugarDeFirmaSchema = z
   .strict();
 export type LugarDeFirma = z.infer<typeof lugarDeFirmaSchema>;
 
+/** El recuadro de una pieza del odontograma en el papel: su esquina de
+ *  arriba a la izquierda y su lado. */
+export const recuadroDePiezaSchema = z
+  .object({ pieza: z.string(), x: punto, y: punto, lado: z.number().positive().max(200) })
+  .strict();
+export type RecuadroDePieza = z.infer<typeof recuadroDePiezaSchema>;
+
+/** Dónde está cada pieza de un campo odontograma (Fase 5.5) y, si lo pide,
+ *  la caja de la cantidad de dientes existentes (`y`: la línea de base). */
+export const odontogramaDeLaminaSchema = z
+  .object({
+    campo: idDeCampo,
+    pagina: z.number().int().min(1),
+    piezas: z.array(recuadroDePiezaSchema).min(1),
+    existentes: z
+      .object({ x: punto, y: punto, ancho: z.number().positive().max(2000), tamano: z.number().min(4).max(24).optional() })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type OdontogramaDeLamina = z.infer<typeof odontogramaDeLaminaSchema>;
+
 export const laminaSchema = z
   .object({
     paginas: z.array(z.object({ ancho: z.number().positive(), alto: z.number().positive() }).strict()).min(1).max(20),
     zonas: z.array(zonaSchema).min(1),
     firmas: z.array(lugarDeFirmaSchema).min(1),
+    odontogramas: z.array(odontogramaDeLaminaSchema).min(1).optional(),
   })
   .strict();
 export type Lamina = z.infer<typeof laminaSchema>;
+type PaginaDeLamina = Lamina["paginas"][number];
 
 function marcasDe(textoConMarcas: string): string[] {
   return [...textoConMarcas.matchAll(MARCA)].map((m) => m[1]);
@@ -221,6 +268,61 @@ export function marcasDelBloque(bloque: Bloque): string[] {
   if (bloque.t === "lista") return bloque.items.flatMap(marcasDe);
   if (bloque.t === "campo" || bloque.t === "firmas") return [];
   return marcasDe(bloque.texto);
+}
+
+/** Una fila de casillas ocupa un solo renglón y entra en la página. */
+function problemasDeCasillas(zona: Zona, pagina: PaginaDeLamina | undefined): string[] {
+  if (!zona.casillas) return [];
+  const problemas: string[] = [];
+  if ((zona.lineas ?? 1) !== 1) problemas.push(`la zona ${zona.id} tiene casillas en más de un renglón`);
+  if (pagina && zona.x + zona.casillas.cantidad * zona.casillas.paso > pagina.ancho) {
+    problemas.push(`las casillas de la zona ${zona.id} se salen de la página`);
+  }
+  return problemas;
+}
+
+/** Exactamente un recuadro por pieza de la dentición, todos dentro de la
+ *  página. */
+function problemasDeRecuadros(o: OdontogramaDeLamina, esperadas: readonly string[], pagina: PaginaDeLamina): string[] {
+  const problemas: string[] = [];
+  const vistas = new Set<string>();
+  for (const r of o.piezas) {
+    if (vistas.has(r.pieza)) problemas.push(`el odontograma ${o.campo} repite la pieza ${r.pieza}`);
+    else if (!esperadas.includes(r.pieza)) problemas.push(`el odontograma ${o.campo} ubica una pieza que no es de su dentición: ${r.pieza}`);
+    vistas.add(r.pieza);
+    if (r.x + r.lado > pagina.ancho || r.y + r.lado > pagina.alto) {
+      problemas.push(`la pieza ${r.pieza} del odontograma ${o.campo} se sale de la página`);
+    }
+  }
+  const faltan = esperadas.filter((p) => !vistas.has(p));
+  if (faltan.length > 0) problemas.push(`el odontograma ${o.campo} no ubica las piezas ${faltan.join(", ")}`);
+  return problemas;
+}
+
+/** La caja de los dientes existentes está si y solo si el campo la pide. */
+function problemasDeExistentes(o: OdontogramaDeLamina, pide: boolean, pagina: PaginaDeLamina): string[] {
+  if (!o.existentes) return pide ? [`el odontograma ${o.campo} no ubica la cantidad de dientes existentes`] : [];
+  if (!pide) return [`el odontograma ${o.campo} ubica una cantidad de dientes existentes que el campo no pide`];
+  const { x, y, ancho } = o.existentes;
+  return x + ancho > pagina.ancho || y > pagina.alto ? [`la cantidad de dientes existentes del odontograma ${o.campo} se sale de la página`] : [];
+}
+
+/** `:detalle` va solo sobre un sí o no; las partes de una fecha, solo sobre
+ *  una fecha. */
+function problemaDeParte(zona: string, nombre: string, parte: string | undefined, tipo: Campo["tipo"]): string | null {
+  if (!parte) return null;
+  if (parte === "detalle") return tipo === "si_no" ? null : `la zona ${zona} pide la aclaración de un campo que no es sí o no: ${nombre}`;
+  return tipo === "fecha" ? null : `la zona ${zona} parte un campo que no es fecha: ${nombre}`;
+}
+
+function problemasDelOdontograma(o: OdontogramaDeLamina, campo: Campo | undefined, paginas: PaginaDeLamina[]): string[] {
+  if (campo?.tipo !== "odontograma") return [`la lámina ubica un odontograma en un campo que no lo es: ${o.campo}`];
+  const pagina = paginas[o.pagina - 1];
+  if (!pagina) return [`el odontograma ${o.campo} está en una página que no existe`];
+  return [
+    ...problemasDeRecuadros(o, piezasDe(campo.denticion ?? "ambas"), pagina),
+    ...problemasDeExistentes(o, campo.existentes === true, pagina),
+  ];
 }
 
 export const plantillaSchema = z
@@ -301,17 +403,19 @@ export const plantillaSchema = z
         if ((z0.minimo ?? 0) > (z0.tamano ?? 10)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} tiene un mínimo mayor que su tamaño` });
         }
+        for (const message of problemasDeCasillas(z0, pagina)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
         for (const m of z0.texto.matchAll(MARCA_DE_ZONA)) {
           const nombre = m[1];
-          if ((VARIABLES_DEL_SISTEMA as readonly string[]).includes(nombre)) continue;
-          const campo = campos.find((c) => c.id === nombre);
-          if (!campo) {
+          const delSistema = (VARIABLES_DEL_SISTEMA as readonly string[]).includes(nombre);
+          const campo = delSistema ? undefined : campos.find((c) => c.id === nombre);
+          if (!delSistema && !campo) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} marca un campo que no existe: ${nombre}` });
             continue;
           }
-          if (m[2] && campo.tipo !== "fecha") {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} parte un campo que no es fecha: ${nombre}` });
-          }
+          // La única variable del sistema es la fecha del documento.
+          const problema = problemaDeParte(z0.id, nombre, m[2], campo?.tipo ?? "fecha");
+          if (problema) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problema });
+          if (!campo) continue;
           if (m[3]) {
             const marcables = opcionesMarcables(campo);
             if (!marcables) {
@@ -322,6 +426,14 @@ export const plantillaSchema = z
           }
           enLaLamina.add(nombre);
         }
+      }
+      const odontogramas = new Set<string>();
+      for (const o of l.odontogramas ?? []) {
+        if (odontogramas.has(o.campo)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `odontograma repetido: ${o.campo}` });
+        odontogramas.add(o.campo);
+        enLaLamina.add(o.campo);
+        const campo = campos.find((c) => c.id === o.campo);
+        for (const message of problemasDelOdontograma(o, campo, l.paginas)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
       }
       // Igual que con el cuerpo: lo que se carga tiene que verse en el papel.
       for (const id of ids) {

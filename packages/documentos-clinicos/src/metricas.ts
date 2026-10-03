@@ -16,4 +16,11 @@ export function anchoEnUnidades(texto: string): number {
   return total;
 }
 
+/** La composición (las líneas de la lámina y las figuras del odontograma)
+ *  redondea a dos decimales, igual que `redondear2` de internal/documentos
+ *  (Go). */
+export function redondear2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export { metricas as METRICAS_HELVETICA };

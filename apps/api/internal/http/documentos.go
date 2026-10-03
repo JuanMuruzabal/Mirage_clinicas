@@ -420,6 +420,7 @@ func datosDePrecarga(paciente db.Paciente, perfil db.ProfessionalProfile, clinic
 		"paciente.email":              textoPtr(paciente.Email),
 		"profesional.nombreCompleto":  strings.TrimSpace(perfil.Nombre + " " + perfil.Apellido),
 		"profesional.matricula":       matriculaLegible(perfil),
+		"profesional.matriculaNumero": perfil.MatriculaNumero,
 		"clinica.nombre":              clinica.Nombre,
 		"clinica.ciudad":              textoPtr(clinica.Ciudad),
 	}
@@ -818,6 +819,7 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			Cuerpo:      documentos.ArmarCuerpo(plantilla, doc.Valores, contexto, documentos.TextoSellado),
 			Firmas:      plantilla.Firmas,
 			Lamina:      documentos.ArmarLamina(plantilla, doc.Valores, contexto, documentos.TextoSellado),
+			Figuras:     documentos.ArmarFiguras(plantilla, doc.Valores, documentos.TextoSellado),
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")

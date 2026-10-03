@@ -1,0 +1,7564 @@
+{
+  "validacion": [
+    {
+      "nombre": "no es un objeto: un texto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": "hola",
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "no es un objeto: una lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": [
+        "16"
+      ],
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "otra": 1
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "piezas no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": [
+          "16"
+        ],
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "protesis no es una lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": {
+          "tipo": "fija"
+        },
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "una pieza que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "99": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "99 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "una temporaria en un odontograma permanente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "denticion": "permanente",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "55": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "55 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "una permanente en un odontograma temporario",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "16 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "las piezas en orden lexicográfico: 100 antes que 11",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "11": {
+            "caras": {
+              "Z": "rojo"
+            }
+          },
+          "100": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "100 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "las piezas en orden lexicográfico: 11 antes que 21",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "21": {
+            "caras": {
+              "Z": "rojo"
+            }
+          },
+          "11": {
+            "marcas": {
+              "sellador": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La marca sellador no va en este odontograma."
+    },
+    {
+      "nombre": "una pieza que no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": "rojo"
+        },
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "una pieza con una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "rojo"
+            },
+            "notas": "x"
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "caras que no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": [
+              "O"
+            ]
+          }
+        },
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "marcas que no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": "x"
+          }
+        },
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "una cara que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "Q": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una cara que no existe."
+    },
+    {
+      "nombre": "una cara en minúscula no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "o": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una cara que no existe."
+    },
+    {
+      "nombre": "el sellador no va en la general",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "sellador": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La marca sellador no va en este odontograma."
+    },
+    {
+      "nombre": "traumatizado no va en la general",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "traumatizado": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La marca traumatizado no va en este odontograma."
+    },
+    {
+      "nombre": "una marca que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "puente": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La marca puente no va en este odontograma."
+    },
+    {
+      "nombre": "las marcas en orden lexicográfico",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "traumatizado": "rojo",
+              "sellador": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La marca sellador no va en este odontograma."
+    },
+    {
+      "nombre": "la pediátrica admite sellador y traumatizado",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "55": {
+            "marcas": {
+              "sellador": "azul",
+              "traumatizado": "rojo",
+              "corona": "azul"
+            }
+          },
+          "54": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "un color de cara que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "verde"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay un color que no es rojo ni azul."
+    },
+    {
+      "nombre": "un color de marca que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "negro"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay un color que no es rojo ni azul."
+    },
+    {
+      "nombre": "un color que no es texto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": 1
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay un color que no es rojo ni azul."
+    },
+    {
+      "nombre": "la pediátrica no lleva prótesis",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "55",
+            "hasta": "53",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Este odontograma no lleva prótesis."
+    },
+    {
+      "nombre": "la pediátrica no lleva prótesis, aunque el tramo esté mal",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "protesis": [
+          1
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Este odontograma no lleva prótesis."
+    },
+    {
+      "nombre": "dieciséis tramos sin superponerse se aceptan",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "18",
+            "hasta": "17",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "16",
+            "hasta": "15",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "14",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "12",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "21",
+            "hasta": "22",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "24",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "25",
+            "hasta": "26",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "27",
+            "hasta": "28",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "48",
+            "hasta": "47",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "46",
+            "hasta": "45",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "44",
+            "hasta": "43",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "42",
+            "hasta": "41",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "31",
+            "hasta": "32",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "33",
+            "hasta": "34",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "35",
+            "hasta": "36",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "37",
+            "hasta": "38",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "diecisiete tramos son demasiados",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay demasiadas prótesis."
+    },
+    {
+      "nombre": "un tramo que no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          "13-23"
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "un tramo sin color",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "un tramo con una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo",
+            "nota": "x"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "un tipo que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "puente",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una prótesis de un tipo que no existe."
+    },
+    {
+      "nombre": "desde no es una pieza",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "19",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "19 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "hasta no es una pieza",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "99",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "99 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "primero se mira desde",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "98",
+            "hasta": "99",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "98 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "una temporaria en una prótesis de un odontograma permanente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "denticion": "permanente",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "53",
+            "hasta": "63",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "53 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "desde igual a hasta",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une al menos dos piezas."
+    },
+    {
+      "nombre": "arriba y abajo",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "43",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une piezas de la misma arcada."
+    },
+    {
+      "nombre": "permanente y temporaria de la misma arcada",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "53",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une piezas de la misma arcada."
+    },
+    {
+      "nombre": "un color de prótesis que no existe",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "verde"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay un color que no es rojo ni azul."
+    },
+    {
+      "nombre": "los tramos en el orden de la lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "puente",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une al menos dos piezas."
+    },
+    {
+      "nombre": "dos prótesis que comparten un pilar se superponen",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "removible",
+            "desde": "21",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "una prótesis dentro del rango de otra se superpone, aunque se cargue al revés",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "12",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "dos prótesis vecinas que no comparten piezas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "21",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "las mismas piezas en filas distintas no se superponen",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "removible",
+            "desde": "43",
+            "hasta": "33",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "cada tramo se valida antes que la superposición",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "14",
+            "hasta": "14",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une al menos dos piezas."
+    },
+    {
+      "nombre": "una ausente (X roja) no lleva caras",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "azul"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "una ausente no lleva otra marca, aunque sea roja",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "rojo",
+              "corona": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "en la pediátrica, una extraída tampoco lleva sellador",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "55": {
+            "marcas": {
+              "x": "rojo",
+              "sellador": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 55 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "una a extraer (X azul) no lleva caras azules",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "caras": {
+              "M": "azul"
+            },
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 26 se va a extraer: no lleva prestaciones requeridas."
+    },
+    {
+      "nombre": "una a extraer no lleva marcas azules",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "marcas": {
+              "x": "azul",
+              "corona": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 26 se va a extraer: no lleva prestaciones requeridas."
+    },
+    {
+      "nombre": "una a extraer sí lleva lo existente (rojo)",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "caras": {
+              "O": "rojo"
+            },
+            "marcas": {
+              "x": "azul",
+              "corona": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "los conflictos de una pieza van antes que la forma de la siguiente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "17": {
+            "caras": {
+              "Z": "rojo"
+            }
+          },
+          "16": {
+            "caras": {
+              "V": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "la forma de una pieza va antes que su conflicto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "Z": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una cara que no existe."
+    },
+    {
+      "nombre": "los conflictos de las piezas van antes que las prótesis",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "V": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "un pilar ausente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 13 está ausente: no puede ser pilar."
+    },
+    {
+      "nombre": "un pilar a extraer, en una prótesis azul",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "11": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "removible",
+            "desde": "13",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 11 se va a extraer: no puede ser pilar."
+    },
+    {
+      "nombre": "un pilar a extraer, en una prótesis roja, sí",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "11": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "las piezas intermedias sí pueden faltar",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "12": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "de los pilares, primero desde",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          },
+          "11": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "11",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 11 está ausente: no puede ser pilar."
+    },
+    {
+      "nombre": "la superposición va antes que los pilares",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "12",
+            "hasta": "21",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "los pilares, en el orden del array",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "33": {
+            "marcas": {
+              "x": "rojo"
+            }
+          },
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "43",
+            "hasta": "33",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 33 está ausente: no puede ser pilar."
+    },
+    {
+      "nombre": "las piezas antes que las prótesis",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "Q": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "puente",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una cara que no existe."
+    },
+    {
+      "nombre": "las prótesis antes que los existentes",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "puente",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ],
+        "existentes": 99
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una prótesis de un tipo que no existe."
+    },
+    {
+      "nombre": "existentes en un campo que no los lleva",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general"
+      },
+      "valor": {
+        "existentes": 20
+      },
+      "modo": "tolerante",
+      "mensaje": "Este odontograma no lleva la cantidad de dientes existentes."
+    },
+    {
+      "nombre": "existentes negativo",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": -1
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 52."
+    },
+    {
+      "nombre": "existentes de más, ambas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 53
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 52."
+    },
+    {
+      "nombre": "existentes de más, permanente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "denticion": "permanente",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 33
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 32."
+    },
+    {
+      "nombre": "existentes de más, temporaria",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 21
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 20."
+    },
+    {
+      "nombre": "existentes no entero",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 2.5
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 52."
+    },
+    {
+      "nombre": "existentes como texto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": "20"
+      },
+      "modo": "tolerante",
+      "mensaje": "La cantidad de dientes existentes tiene que ser un número entero entre 0 y 52."
+    },
+    {
+      "nombre": "existentes en cero",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 0
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "existentes en el máximo",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 52
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "existentes en el máximo permanente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "denticion": "permanente",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 32
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "el ejemplo del contrato",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "rojo",
+              "M": "rojo"
+            },
+            "marcas": {
+              "corona": "rojo"
+            }
+          },
+          "26": {
+            "marcas": {
+              "x": "azul"
+            }
+          },
+          "36": {
+            "caras": {
+              "D": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ],
+        "existentes": 28
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "vacío y opcional",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {},
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "obligatorio y vacío",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true,
+        "requerido": true
+      },
+      "valor": {},
+      "modo": "estricto",
+      "mensaje": "Este dato es obligatorio."
+    },
+    {
+      "nombre": "obligatorio con piezas sin caras ni marcas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true,
+        "requerido": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {},
+            "marcas": {}
+          }
+        }
+      },
+      "modo": "estricto",
+      "mensaje": "Este dato es obligatorio."
+    },
+    {
+      "nombre": "obligatorio y vacío en un borrador",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true,
+        "requerido": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {},
+            "marcas": {}
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "obligatorio con solo los existentes",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true,
+        "requerido": true
+      },
+      "valor": {
+        "existentes": 30
+      },
+      "modo": "estricto",
+      "mensaje": null
+    },
+    {
+      "nombre": "vacío con basura, en un borrador: una pieza que no existe, sin nada",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "99": {}
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "99 no es una pieza de este odontograma."
+    },
+    {
+      "nombre": "vacío con basura, en un borrador: caras no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": "V"
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "vacío con basura, en un borrador: una pieza con una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "raices": {}
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    },
+    {
+      "nombre": "vacío con basura, en un borrador: protesis no es una lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": {}
+      },
+      "modo": "tolerante",
+      "mensaje": "El odontograma no tiene la forma esperada."
+    }
+  ],
+  "vacio": [
+    {
+      "nombre": "sin valor",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": null,
+      "vacio": true
+    },
+    {
+      "nombre": "un objeto vacío",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {},
+      "vacio": true
+    },
+    {
+      "nombre": "piezas vacías",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {}
+      },
+      "vacio": true
+    },
+    {
+      "nombre": "una pieza sin caras ni marcas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {},
+            "marcas": {}
+          }
+        }
+      },
+      "vacio": true
+    },
+    {
+      "nombre": "una pieza sin nada",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {}
+        }
+      },
+      "vacio": true
+    },
+    {
+      "nombre": "prótesis vacías",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": []
+      },
+      "vacio": true
+    },
+    {
+      "nombre": "una cara",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "rojo"
+            }
+          }
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "una marca",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "un tramo",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "existentes en cero",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 0
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: un texto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": "hola",
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": [],
+      "vacio": false
+    },
+    {
+      "nombre": "basura: un número",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": 0,
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "otra": {}
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: piezas no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": []
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una pieza que no existe, sin nada",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "99": {}
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una pieza con una clave de más",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "raices": {}
+          }
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: caras no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": "V"
+          }
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: marcas no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": []
+          }
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una pieza que no es un objeto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": "rojo"
+        }
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: protesis no es una lista",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": {}
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: existentes como texto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": "tres"
+      },
+      "vacio": false
+    },
+    {
+      "nombre": "basura: una temporaria sin nada en un odontograma permanente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true,
+        "denticion": "permanente"
+      },
+      "valor": {
+        "piezas": {
+          "55": {}
+        }
+      },
+      "vacio": false
+    }
+  ],
+  "texto": [
+    {
+      "nombre": "el ejemplo del contrato",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "rojo",
+              "M": "rojo"
+            },
+            "marcas": {
+              "corona": "rojo"
+            }
+          },
+          "26": {
+            "marcas": {
+              "x": "azul"
+            }
+          },
+          "36": {
+            "caras": {
+              "D": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ],
+        "existentes": 28
+      },
+      "texto": "Rojo, prestaciones existentes: 16 (caras mesial y oclusal; corona). Azul, prestaciones requeridas: 26 (ausente o a extraer), 36 (cara distal). Prótesis: fija en rojo, de 13 a 23. Dientes existentes: 28."
+    },
+    {
+      "nombre": "vacío",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {},
+      "texto": ""
+    },
+    {
+      "nombre": "palatina arriba y lingual abajo",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "46": {
+            "caras": {
+              "L": "azul"
+            }
+          },
+          "16": {
+            "caras": {
+              "L": "azul"
+            }
+          },
+          "55": {
+            "caras": {
+              "L": "azul"
+            }
+          },
+          "75": {
+            "caras": {
+              "L": "azul"
+            }
+          }
+        }
+      },
+      "texto": "Azul, prestaciones requeridas: 16 (cara palatina), 46 (cara lingual), 55 (cara palatina), 75 (cara lingual)."
+    },
+    {
+      "nombre": "oclusal en las posteriores e incisal en las anteriores",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "52": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "11": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "44": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "14": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "41": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "55": {
+            "caras": {
+              "O": "rojo"
+            }
+          },
+          "13": {
+            "caras": {
+              "O": "rojo"
+            }
+          }
+        }
+      },
+      "texto": "Rojo, prestaciones existentes: 14 (cara oclusal), 13 (cara incisal), 11 (cara incisal), 44 (cara oclusal), 41 (cara incisal), 55 (cara oclusal), 52 (cara incisal)."
+    },
+    {
+      "nombre": "una, dos, tres y cinco caras",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "36": {
+            "caras": {
+              "O": "azul",
+              "D": "azul",
+              "M": "azul",
+              "L": "azul",
+              "V": "azul"
+            }
+          },
+          "26": {
+            "caras": {
+              "D": "azul",
+              "O": "azul",
+              "V": "azul"
+            }
+          },
+          "21": {
+            "caras": {
+              "M": "azul",
+              "V": "azul"
+            }
+          },
+          "11": {
+            "caras": {
+              "D": "azul"
+            }
+          }
+        }
+      },
+      "texto": "Azul, prestaciones requeridas: 11 (cara distal), 21 (caras vestibular y mesial), 26 (caras vestibular, distal y oclusal), 36 (caras vestibular, lingual, mesial, distal y oclusal)."
+    },
+    {
+      "nombre": "una pieza en los dos colores",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "rojo",
+              "M": "azul"
+            },
+            "marcas": {
+              "x": "azul",
+              "corona": "rojo"
+            }
+          }
+        }
+      },
+      "texto": "Rojo, prestaciones existentes: 16 (cara oclusal; corona). Azul, prestaciones requeridas: 16 (cara mesial; ausente o a extraer)."
+    },
+    {
+      "nombre": "la leyenda pediátrica",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "75": {
+            "marcas": {
+              "x": "azul"
+            }
+          },
+          "61": {
+            "caras": {
+              "V": "rojo"
+            },
+            "marcas": {
+              "traumatizado": "rojo"
+            }
+          },
+          "55": {
+            "marcas": {
+              "sellador": "azul"
+            }
+          }
+        }
+      },
+      "texto": "Rojo, trabajos realizados: 61 (cara vestibular; traumatizada). Azul, trabajos a realizar: 55 (sellador), 75 (a extraer, extraída o ausente)."
+    },
+    {
+      "nombre": "las cuatro marcas en su orden",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "54": {
+            "marcas": {
+              "traumatizado": "rojo",
+              "sellador": "rojo",
+              "corona": "rojo",
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "texto": "Rojo, trabajos realizados: 54 (a extraer, extraída o ausente; corona; sellador; traumatizada)."
+    },
+    {
+      "nombre": "las prótesis ordenadas por tipo, color y piezas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "removible",
+            "desde": "36",
+            "hasta": "34",
+            "color": "azul"
+          },
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "removible",
+            "desde": "45",
+            "hasta": "47",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "21",
+            "hasta": "23",
+            "color": "azul"
+          },
+          {
+            "tipo": "fija",
+            "desde": "15",
+            "hasta": "17",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "21",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "texto": "Prótesis: fija en rojo, de 17 a 15; fija en rojo, de 13 a 21; fija en rojo, de 13 a 23; fija en azul, de 21 a 23; removible en rojo, de 47 a 45; removible en azul, de 34 a 36."
+    },
+    {
+      "nombre": "solo los existentes",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "existentes": 0
+      },
+      "texto": "Dientes existentes: 0."
+    },
+    {
+      "nombre": "solo azul y existentes",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "48": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        },
+        "existentes": 31
+      },
+      "texto": "Azul, prestaciones requeridas: 48 (ausente o a extraer). Dientes existentes: 31."
+    }
+  ],
+  "figuras": [
+    {
+      "nombre": "las cinco caras en una pieza de cada cuadrante",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "36": {
+              "caras": {
+                "V": "rojo",
+                "L": "azul",
+                "M": "rojo",
+                "D": "azul",
+                "O": "rojo"
+              }
+            },
+            "16": {
+              "caras": {
+                "V": "rojo",
+                "L": "azul",
+                "M": "rojo",
+                "D": "azul",
+                "O": "rojo"
+              }
+            },
+            "46": {
+              "caras": {
+                "V": "rojo",
+                "L": "azul",
+                "M": "rojo",
+                "D": "azul",
+                "O": "rojo"
+              }
+            },
+            "26": {
+              "caras": {
+                "V": "rojo",
+                "L": "azul",
+                "M": "rojo",
+                "D": "azul",
+                "O": "rojo"
+              }
+            }
+          },
+          "existentes": 28
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              145.8,
+              200.52
+            ],
+            [
+              162.2,
+              200.52
+            ],
+            [
+              157.44,
+              205.28
+            ],
+            [
+              150.56,
+              205.28
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              145.8,
+              219.48
+            ],
+            [
+              150.56,
+              214.72
+            ],
+            [
+              157.44,
+              214.72
+            ],
+            [
+              162.2,
+              219.48
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              163.48,
+              201.8
+            ],
+            [
+              163.48,
+              218.2
+            ],
+            [
+              158.72,
+              213.44
+            ],
+            [
+              158.72,
+              206.56
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              144.52,
+              201.8
+            ],
+            [
+              149.28,
+              206.56
+            ],
+            [
+              149.28,
+              213.44
+            ],
+            [
+              144.52,
+              218.2
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              150.56,
+              206.56
+            ],
+            [
+              157.44,
+              206.56
+            ],
+            [
+              157.44,
+              213.44
+            ],
+            [
+              150.56,
+              213.44
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              397.8,
+              200.52
+            ],
+            [
+              414.2,
+              200.52
+            ],
+            [
+              409.44,
+              205.28
+            ],
+            [
+              402.56,
+              205.28
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              397.8,
+              219.48
+            ],
+            [
+              402.56,
+              214.72
+            ],
+            [
+              409.44,
+              214.72
+            ],
+            [
+              414.2,
+              219.48
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              396.52,
+              201.8
+            ],
+            [
+              401.28,
+              206.56
+            ],
+            [
+              401.28,
+              213.44
+            ],
+            [
+              396.52,
+              218.2
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              415.48,
+              201.8
+            ],
+            [
+              415.48,
+              218.2
+            ],
+            [
+              410.72,
+              213.44
+            ],
+            [
+              410.72,
+              206.56
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              402.56,
+              206.56
+            ],
+            [
+              409.44,
+              206.56
+            ],
+            [
+              409.44,
+              213.44
+            ],
+            [
+              402.56,
+              213.44
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              145.8,
+              259.48
+            ],
+            [
+              150.56,
+              254.72
+            ],
+            [
+              157.44,
+              254.72
+            ],
+            [
+              162.2,
+              259.48
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              145.8,
+              240.52
+            ],
+            [
+              162.2,
+              240.52
+            ],
+            [
+              157.44,
+              245.28
+            ],
+            [
+              150.56,
+              245.28
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              163.48,
+              241.8
+            ],
+            [
+              163.48,
+              258.2
+            ],
+            [
+              158.72,
+              253.44
+            ],
+            [
+              158.72,
+              246.56
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              144.52,
+              241.8
+            ],
+            [
+              149.28,
+              246.56
+            ],
+            [
+              149.28,
+              253.44
+            ],
+            [
+              144.52,
+              258.2
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              150.56,
+              246.56
+            ],
+            [
+              157.44,
+              246.56
+            ],
+            [
+              157.44,
+              253.44
+            ],
+            [
+              150.56,
+              253.44
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              397.8,
+              259.48
+            ],
+            [
+              402.56,
+              254.72
+            ],
+            [
+              409.44,
+              254.72
+            ],
+            [
+              414.2,
+              259.48
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              397.8,
+              240.52
+            ],
+            [
+              414.2,
+              240.52
+            ],
+            [
+              409.44,
+              245.28
+            ],
+            [
+              402.56,
+              245.28
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              396.52,
+              241.8
+            ],
+            [
+              401.28,
+              246.56
+            ],
+            [
+              401.28,
+              253.44
+            ],
+            [
+              396.52,
+              258.2
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              415.48,
+              241.8
+            ],
+            [
+              415.48,
+              258.2
+            ],
+            [
+              410.72,
+              253.44
+            ],
+            [
+              410.72,
+              246.56
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              402.56,
+              246.56
+            ],
+            [
+              409.44,
+              246.56
+            ],
+            [
+              409.44,
+              253.44
+            ],
+            [
+              402.56,
+              253.44
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 464.44,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "28",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "anteriores y posteriores, y la caja de existentes con su tamaño",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40,
+                "tamano": 12
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "11": {
+              "caras": {
+                "O": "azul",
+                "V": "azul"
+              }
+            },
+            "41": {
+              "caras": {
+                "L": "rojo"
+              }
+            }
+          },
+          "existentes": 7
+        }
+      },
+      "modo": "borrador",
+      "figuras": [
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              255.8,
+              200.52
+            ],
+            [
+              272.2,
+              200.52
+            ],
+            [
+              267.44,
+              205.28
+            ],
+            [
+              260.56,
+              205.28
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              260.56,
+              206.56
+            ],
+            [
+              267.44,
+              206.56
+            ],
+            [
+              267.44,
+              213.44
+            ],
+            [
+              260.56,
+              213.44
+            ]
+          ],
+          "relleno": "azul"
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              255.8,
+              240.52
+            ],
+            [
+              272.2,
+              240.52
+            ],
+            [
+              267.44,
+              245.28
+            ],
+            [
+              260.56,
+              245.28
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 466.66,
+          "y": 300.0,
+          "tamano": 12,
+          "texto": "7",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "corona, x y caras: primero las caras, después corona y x",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "15": {
+              "marcas": {
+                "x": "azul",
+                "corona": "rojo"
+              },
+              "caras": {
+                "O": "rojo"
+              }
+            },
+            "18": {
+              "marcas": {
+                "corona": "rojo"
+              }
+            },
+            "17": {
+              "marcas": {
+                "x": "azul"
+              }
+            }
+          }
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "circulo",
+          "pagina": 1,
+          "centro": [
+            110.0,
+            210.0
+          ],
+          "radio": 12.4,
+          "color": "rojo",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            123.6,
+            201.6
+          ],
+          "hasta": [
+            140.4,
+            218.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            140.4,
+            201.6
+          ],
+          "hasta": [
+            123.6,
+            218.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              172.56,
+              206.56
+            ],
+            [
+              179.44,
+              206.56
+            ],
+            [
+              179.44,
+              213.44
+            ],
+            [
+              172.56,
+              213.44
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "circulo",
+          "pagina": 1,
+          "centro": [
+            176.0,
+            210.0
+          ],
+          "radio": 12.4,
+          "color": "rojo",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            167.6,
+            201.6
+          ],
+          "hasta": [
+            184.4,
+            218.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            184.4,
+            201.6
+          ],
+          "hasta": [
+            167.6,
+            218.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 465.0,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "—",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "sellador, traumatizado y las cuatro marcas pediátricas",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "temporaria",
+                "leyenda": "pediatrica"
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "55",
+                  "x": 100,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "54",
+                  "x": 122,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "53",
+                  "x": 144,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "52",
+                  "x": 166,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "51",
+                  "x": 188,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "61",
+                  "x": 220,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "62",
+                  "x": 242,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "63",
+                  "x": 264,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "64",
+                  "x": 286,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "65",
+                  "x": 308,
+                  "y": 300,
+                  "lado": 20
+                },
+                {
+                  "pieza": "85",
+                  "x": 100,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "84",
+                  "x": 122,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "83",
+                  "x": 144,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "82",
+                  "x": 166,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "81",
+                  "x": 188,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "71",
+                  "x": 220,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "72",
+                  "x": 242,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "73",
+                  "x": 264,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "74",
+                  "x": 286,
+                  "y": 340,
+                  "lado": 20
+                },
+                {
+                  "pieza": "75",
+                  "x": 308,
+                  "y": 340,
+                  "lado": 20
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "55": {
+              "marcas": {
+                "sellador": "azul"
+              }
+            },
+            "61": {
+              "caras": {
+                "V": "rojo"
+              },
+              "marcas": {
+                "traumatizado": "rojo"
+              }
+            },
+            "75": {
+              "marcas": {
+                "x": "azul"
+              }
+            },
+            "84": {
+              "marcas": {
+                "traumatizado": "rojo",
+                "sellador": "rojo",
+                "x": "azul",
+                "corona": "rojo"
+              }
+            }
+          }
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "contorno",
+          "pagina": 1,
+          "puntos": [
+            [
+              110.0,
+              303.0
+            ],
+            [
+              117.0,
+              316.4
+            ],
+            [
+              103.0,
+              316.4
+            ]
+          ],
+          "color": "azul",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "poligono",
+          "pagina": 1,
+          "puntos": [
+            [
+              221.8,
+              300.52
+            ],
+            [
+              238.2,
+              300.52
+            ],
+            [
+              233.44,
+              305.28
+            ],
+            [
+              226.56,
+              305.28
+            ]
+          ],
+          "relleno": "rojo"
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 225.11,
+          "y": 315.6,
+          "tamano": 16.0,
+          "texto": "T",
+          "color": "rojo"
+        },
+        {
+          "tipo": "circulo",
+          "pagina": 1,
+          "centro": [
+            132.0,
+            350.0
+          ],
+          "radio": 12.4,
+          "color": "rojo",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            123.6,
+            341.6
+          ],
+          "hasta": [
+            140.4,
+            358.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            140.4,
+            341.6
+          ],
+          "hasta": [
+            123.6,
+            358.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "contorno",
+          "pagina": 1,
+          "puntos": [
+            [
+              132.0,
+              343.0
+            ],
+            [
+              139.0,
+              356.4
+            ],
+            [
+              125.0,
+              356.4
+            ]
+          ],
+          "color": "rojo",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 127.11,
+          "y": 355.6,
+          "tamano": 16.0,
+          "texto": "T",
+          "color": "rojo"
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            309.6,
+            341.6
+          ],
+          "hasta": [
+            326.4,
+            358.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            326.4,
+            341.6
+          ],
+          "hasta": [
+            309.6,
+            358.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        }
+      ]
+    },
+    {
+      "nombre": "prótesis fija superior, en borrador sin existentes",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "protesis": [
+            {
+              "tipo": "fija",
+              "desde": "23",
+              "hasta": "13",
+              "color": "rojo"
+            }
+          ]
+        }
+      },
+      "modo": "borrador",
+      "figuras": [
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            220,
+            210
+          ],
+          "hasta": [
+            341,
+            210
+          ],
+          "color": "rojo",
+          "grosor": 1.4
+        }
+      ]
+    },
+    {
+      "nombre": "prótesis removible inferior",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "protesis": [
+            {
+              "tipo": "removible",
+              "desde": "33",
+              "hasta": "43",
+              "color": "azul"
+            }
+          ],
+          "existentes": 30
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            220,
+            250
+          ],
+          "hasta": [
+            341,
+            250
+          ],
+          "color": "azul",
+          "grosor": 1.4,
+          "discontinua": true
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 464.44,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "30",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "las prótesis van después de las piezas y en el orden del texto",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "36": {
+              "marcas": {
+                "x": "azul"
+              }
+            }
+          },
+          "protesis": [
+            {
+              "tipo": "removible",
+              "desde": "33",
+              "hasta": "43",
+              "color": "azul"
+            },
+            {
+              "tipo": "fija",
+              "desde": "45",
+              "hasta": "47",
+              "color": "azul"
+            },
+            {
+              "tipo": "removible",
+              "desde": "15",
+              "hasta": "17",
+              "color": "rojo"
+            },
+            {
+              "tipo": "fija",
+              "desde": "23",
+              "hasta": "13",
+              "color": "rojo"
+            }
+          ]
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            397.6,
+            241.6
+          ],
+          "hasta": [
+            414.4,
+            258.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            414.4,
+            241.6
+          ],
+          "hasta": [
+            397.6,
+            258.4
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            220,
+            210
+          ],
+          "hasta": [
+            341,
+            210
+          ],
+          "color": "rojo",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            132,
+            250
+          ],
+          "hasta": [
+            176,
+            250
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            132,
+            210
+          ],
+          "hasta": [
+            176,
+            210
+          ],
+          "color": "rojo",
+          "grosor": 1.4,
+          "discontinua": true
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            220,
+            250
+          ],
+          "hasta": [
+            341,
+            250
+          ],
+          "color": "azul",
+          "grosor": 1.4,
+          "discontinua": true
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 465.0,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "—",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "vacío en sellado: No consigna",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general"
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "valores": {},
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 252.21,
+          "y": 233.5,
+          "tamano": 10,
+          "texto": "No consigna",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "vacío en borrador: nada",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general"
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "valores": {},
+      "modo": "borrador",
+      "figuras": []
+    },
+    {
+      "nombre": "vacío con piezas sin caras ni marcas, en sellado",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general"
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "16": {
+              "caras": {},
+              "marcas": {}
+            }
+          }
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 252.21,
+          "y": 233.5,
+          "tamano": 10,
+          "texto": "No consigna",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "existentes sin valor en sellado: una raya",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "21": {
+              "marcas": {
+                "corona": "rojo"
+              }
+            }
+          }
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "circulo",
+          "pagina": 1,
+          "centro": [
+            296.0,
+            210.0
+          ],
+          "radio": 12.4,
+          "color": "rojo",
+          "grosor": 1.1
+        },
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 465.0,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "—",
+          "color": "tinta"
+        }
+      ]
+    },
+    {
+      "nombre": "existentes sin valor en borrador: nada",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "piezas": {
+            "21": {
+              "marcas": {
+                "corona": "rojo"
+              }
+            }
+          }
+        }
+      },
+      "modo": "borrador",
+      "figuras": [
+        {
+          "tipo": "circulo",
+          "pagina": 1,
+          "centro": [
+            296.0,
+            210.0
+          ],
+          "radio": 12.4,
+          "color": "rojo",
+          "grosor": 1.1
+        }
+      ]
+    },
+    {
+      "nombre": "existentes en cero",
+      "plantilla": {
+        "id": "odontograma-de-prueba",
+        "version": 1,
+        "nombre": "Odontograma de prueba",
+        "tipo": "historia_clinica",
+        "descripcion": "Un odontograma con una geometría de prueba.",
+        "fuente": {
+          "nombre": "Tests",
+          "url": "https://example.com/modelo"
+        },
+        "secciones": [
+          {
+            "id": "examen",
+            "titulo": "Examen",
+            "campos": [
+              {
+                "tipo": "odontograma",
+                "id": "odonto",
+                "etiqueta": "Odontograma",
+                "denticion": "permanente",
+                "leyenda": "general",
+                "existentes": true
+              }
+            ]
+          }
+        ],
+        "cuerpo": [
+          {
+            "t": "campo",
+            "campo": "odonto"
+          },
+          {
+            "t": "firmas"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "etiqueta": "Profesional",
+            "requerida": true
+          }
+        ],
+        "lamina": {
+          "paginas": [
+            {
+              "ancho": 595,
+              "alto": 842
+            }
+          ],
+          "zonas": [
+            {
+              "id": "pie",
+              "pagina": 1,
+              "x": 50,
+              "y": 800,
+              "ancho": 120,
+              "texto": "Firma del profesional"
+            }
+          ],
+          "firmas": [
+            {
+              "rol": "profesional",
+              "pagina": 1,
+              "x": 300,
+              "y": 790,
+              "ancho": 150,
+              "alto": 40
+            }
+          ],
+          "odontogramas": [
+            {
+              "campo": "odonto",
+              "pagina": 1,
+              "piezas": [
+                {
+                  "pieza": "18",
+                  "x": 100,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "17",
+                  "x": 122,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "16",
+                  "x": 144,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "15",
+                  "x": 166,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "14",
+                  "x": 188,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "13",
+                  "x": 210,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "12",
+                  "x": 232,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "11",
+                  "x": 254,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "21",
+                  "x": 286,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "22",
+                  "x": 308,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "23",
+                  "x": 330,
+                  "y": 199,
+                  "lado": 22
+                },
+                {
+                  "pieza": "24",
+                  "x": 352,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "25",
+                  "x": 374,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "26",
+                  "x": 396,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "27",
+                  "x": 418,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "28",
+                  "x": 440,
+                  "y": 200,
+                  "lado": 20
+                },
+                {
+                  "pieza": "48",
+                  "x": 100,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "47",
+                  "x": 122,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "46",
+                  "x": 144,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "45",
+                  "x": 166,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "44",
+                  "x": 188,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "43",
+                  "x": 210,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "42",
+                  "x": 232,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "41",
+                  "x": 254,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "31",
+                  "x": 286,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "32",
+                  "x": 308,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "33",
+                  "x": 330,
+                  "y": 239,
+                  "lado": 22
+                },
+                {
+                  "pieza": "34",
+                  "x": 352,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "35",
+                  "x": 374,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "36",
+                  "x": 396,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "37",
+                  "x": 418,
+                  "y": 240,
+                  "lado": 20
+                },
+                {
+                  "pieza": "38",
+                  "x": 440,
+                  "y": 240,
+                  "lado": 20
+                }
+              ],
+              "existentes": {
+                "x": 450,
+                "y": 300,
+                "ancho": 40
+              }
+            }
+          ]
+        }
+      },
+      "valores": {
+        "odonto": {
+          "existentes": 0
+        }
+      },
+      "modo": "sellado",
+      "figuras": [
+        {
+          "tipo": "texto",
+          "pagina": 1,
+          "x": 467.22,
+          "y": 300.0,
+          "tamano": 10,
+          "texto": "0",
+          "color": "tinta"
+        }
+      ]
+    }
+  ]
+}

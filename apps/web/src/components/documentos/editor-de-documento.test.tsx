@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { plantillaPorId, type Plantilla } from "@dental-mirage/documentos-clinicos";
 import { borrador, conducto, todoTipo } from "./fixtures";
 
 const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
@@ -291,5 +292,36 @@ describe("EditorDeDocumento", () => {
     fireEvent.click(screen.getByRole("button", { name: "Descartar borrador" }));
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
     expect(acciones.descartarBorradorAction).toHaveBeenCalledWith("doc-1");
+  });
+});
+
+// QA de la 5.5: el odontograma se completa en una pantalla emergente, que
+// abre tanto el botón del formulario como tocarlo en la hoja.
+describe("EditorDeDocumento con un odontograma", () => {
+  const general = plantillaPorId("historia-clinica-general", 1) as Plantilla;
+  const documento = () => ({ ...borrador(), plantillaId: general.id, plantillaVersion: 1 });
+
+  it("tocar el odontograma en la hoja abre su pantalla emergente, y Listo la cierra", async () => {
+    render(<EditorDeDocumento documento={documento()} plantilla={general} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const enLaHoja = screen.getAllByRole("button", { name: /^Completar: Odontograma/ });
+    expect(enLaHoja.length).toBeGreaterThan(0);
+    await act(async () => {
+      fireEvent.click(enLaHoja[0]);
+    });
+    const dialogo = screen.getByRole("dialog", { name: "Odontograma" });
+    expect(within(dialogo).getAllByRole("button", { name: /^Pieza \d\d$/ }).length).toBeGreaterThan(0);
+    await act(async () => {
+      fireEvent.click(within(dialogo).getByRole("button", { name: "Listo" }));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("el botón Abrir odontograma del formulario abre la misma pantalla", async () => {
+    render(<EditorDeDocumento documento={documento()} plantilla={general} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Abrir odontograma" }));
+    });
+    expect(screen.getByRole("dialog", { name: "Odontograma" })).toBeInTheDocument();
   });
 });
