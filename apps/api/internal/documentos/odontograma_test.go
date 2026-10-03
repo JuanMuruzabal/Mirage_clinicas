@@ -189,6 +189,11 @@ func TestOdontograma_Figuras(t *testing.T) {
 				t.Fatal(err)
 			}
 			valores, _ := valorCrudo(t, c.Valores).(map[string]any)
+			// Un caso de figuras es algo que la API congelaría: tiene que
+			// pasar la validación estricta, sin conflictos.
+			if errs := Validar(p, valores, Estricto); len(errs) != 0 {
+				t.Fatalf("el caso no es un valor válido: %+v", errs)
+			}
 			modo := TextoBorrador
 			if c.Modo == "sellado" {
 				modo = TextoSellado

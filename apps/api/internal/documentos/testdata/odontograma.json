@@ -426,8 +426,12 @@
             "marcas": {
               "sellador": "azul",
               "traumatizado": "rojo",
-              "x": "rojo",
               "corona": "azul"
+            }
+          },
+          "54": {
+            "marcas": {
+              "x": "rojo"
             }
           }
         }
@@ -538,7 +542,7 @@
       "mensaje": "Este odontograma no lleva prótesis."
     },
     {
-      "nombre": "dieciséis tramos se aceptan",
+      "nombre": "dieciséis tramos sin superponerse se aceptan",
       "campo": {
         "tipo": "odontograma",
         "id": "odonto",
@@ -550,98 +554,98 @@
         "protesis": [
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "18",
+            "hasta": "17",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "16",
+            "hasta": "15",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "14",
+            "hasta": "13",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "12",
+            "hasta": "11",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "21",
+            "hasta": "22",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "23",
+            "hasta": "24",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "25",
+            "hasta": "26",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "27",
+            "hasta": "28",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "48",
+            "hasta": "47",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "46",
+            "hasta": "45",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "44",
+            "hasta": "43",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "42",
+            "hasta": "41",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "31",
+            "hasta": "32",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "33",
+            "hasta": "34",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "35",
+            "hasta": "36",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "13",
-            "hasta": "23",
+            "desde": "37",
+            "hasta": "38",
             "color": "rojo"
           }
         ]
@@ -1060,6 +1064,601 @@
       },
       "modo": "tolerante",
       "mensaje": "Una prótesis une al menos dos piezas."
+    },
+    {
+      "nombre": "dos prótesis que comparten un pilar se superponen",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "removible",
+            "desde": "21",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "una prótesis dentro del rango de otra se superpone, aunque se cargue al revés",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "23",
+            "hasta": "13",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "12",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "dos prótesis vecinas que no comparten piezas",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "21",
+            "hasta": "23",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "las mismas piezas en filas distintas no se superponen",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "removible",
+            "desde": "43",
+            "hasta": "33",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "cada tramo se valida antes que la superposición",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "23",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "14",
+            "hasta": "14",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Una prótesis une al menos dos piezas."
+    },
+    {
+      "nombre": "una ausente (X roja) no lleva caras",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "O": "azul"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "una ausente no lleva otra marca, aunque sea roja",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "marcas": {
+              "x": "rojo",
+              "corona": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "en la pediátrica, una extraída tampoco lleva sellador",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "pediatrica",
+        "denticion": "temporaria"
+      },
+      "valor": {
+        "piezas": {
+          "55": {
+            "marcas": {
+              "x": "rojo",
+              "sellador": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 55 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "una a extraer (X azul) no lleva caras azules",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "caras": {
+              "M": "azul"
+            },
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 26 se va a extraer: no lleva prestaciones requeridas."
+    },
+    {
+      "nombre": "una a extraer no lleva marcas azules",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "marcas": {
+              "x": "azul",
+              "corona": "azul"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 26 se va a extraer: no lleva prestaciones requeridas."
+    },
+    {
+      "nombre": "una a extraer sí lleva lo existente (rojo)",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "26": {
+            "caras": {
+              "O": "rojo"
+            },
+            "marcas": {
+              "x": "azul",
+              "corona": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "los conflictos de una pieza van antes que la forma de la siguiente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "17": {
+            "caras": {
+              "Z": "rojo"
+            }
+          },
+          "16": {
+            "caras": {
+              "V": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "la forma de una pieza va antes que su conflicto",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "Z": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        }
+      },
+      "modo": "tolerante",
+      "mensaje": "Hay una cara que no existe."
+    },
+    {
+      "nombre": "los conflictos de las piezas van antes que las prótesis",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "16": {
+            "caras": {
+              "V": "rojo"
+            },
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 16 está ausente: no lleva prestaciones."
+    },
+    {
+      "nombre": "un pilar ausente",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 13 está ausente: no puede ser pilar."
+    },
+    {
+      "nombre": "un pilar a extraer, en una prótesis azul",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "11": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "removible",
+            "desde": "13",
+            "hasta": "11",
+            "color": "azul"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 11 se va a extraer: no puede ser pilar."
+    },
+    {
+      "nombre": "un pilar a extraer, en una prótesis roja, sí",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "11": {
+            "marcas": {
+              "x": "azul"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "las piezas intermedias sí pueden faltar",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "12": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": null
+    },
+    {
+      "nombre": "de los pilares, primero desde",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          },
+          "11": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "11",
+            "hasta": "13",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 11 está ausente: no puede ser pilar."
+    },
+    {
+      "nombre": "la superposición va antes que los pilares",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "12",
+            "hasta": "21",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "Esa prótesis se superpone con otra."
+    },
+    {
+      "nombre": "los pilares, en el orden del array",
+      "campo": {
+        "tipo": "odontograma",
+        "id": "odonto",
+        "etiqueta": "Odontograma",
+        "leyenda": "general",
+        "existentes": true
+      },
+      "valor": {
+        "piezas": {
+          "33": {
+            "marcas": {
+              "x": "rojo"
+            }
+          },
+          "13": {
+            "marcas": {
+              "x": "rojo"
+            }
+          }
+        },
+        "protesis": [
+          {
+            "tipo": "fija",
+            "desde": "43",
+            "hasta": "33",
+            "color": "rojo"
+          },
+          {
+            "tipo": "fija",
+            "desde": "13",
+            "hasta": "11",
+            "color": "rojo"
+          }
+        ]
+      },
+      "modo": "tolerante",
+      "mensaje": "La pieza 33 está ausente: no puede ser pilar."
     },
     {
       "nombre": "las piezas antes que las prótesis",
@@ -3632,8 +4231,8 @@
           "piezas": {
             "15": {
               "marcas": {
-                "x": "rojo",
-                "corona": "azul"
+                "x": "azul",
+                "corona": "rojo"
               },
               "caras": {
                 "O": "rojo"
@@ -3724,7 +4323,7 @@
             210.0
           ],
           "radio": 12.4,
-          "color": "azul",
+          "color": "rojo",
           "grosor": 1.1
         },
         {
@@ -3738,7 +4337,7 @@
             184.4,
             218.4
           ],
-          "color": "rojo",
+          "color": "azul",
           "grosor": 1.4
         },
         {
@@ -3752,7 +4351,7 @@
             167.6,
             218.4
           ],
-          "color": "rojo",
+          "color": "azul",
           "grosor": 1.4
         },
         {
@@ -3991,7 +4590,7 @@
               "marcas": {
                 "traumatizado": "rojo",
                 "sellador": "rojo",
-                "x": "rojo",
+                "x": "azul",
                 "corona": "rojo"
               }
             }
@@ -4074,7 +4673,7 @@
             140.4,
             358.4
           ],
-          "color": "rojo",
+          "color": "azul",
           "grosor": 1.4
         },
         {
@@ -4088,7 +4687,7 @@
             123.6,
             358.4
           ],
-          "color": "rojo",
+          "color": "azul",
           "grosor": 1.4
         },
         {
@@ -4445,44 +5044,16 @@
         {
           "tipo": "linea",
           "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
           "desde": [
-            220.0,
-            197.35
+            220,
+            210
           ],
           "hasta": [
-            341.0,
-            197.35
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
-          "desde": [
-            220.0,
-            197.35
+            341,
+            210
           ],
-          "hasta": [
-            220.0,
-            200.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
           "color": "rojo",
-          "grosor": 1.4,
-          "desde": [
-            341.0,
-            197.35
-          ],
-          "hasta": [
-            341.0,
-            199.0
-          ]
+          "grosor": 1.4
         }
       ]
     },
@@ -4782,47 +5353,17 @@
         {
           "tipo": "linea",
           "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "discontinua": true,
           "desde": [
-            220.0,
-            262.65
+            220,
+            250
           ],
           "hasta": [
-            341.0,
-            262.65
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
+            341,
+            250
+          ],
           "color": "azul",
           "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            220.0,
-            262.65
-          ],
-          "hasta": [
-            220.0,
-            260.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            341.0,
-            262.65
-          ],
-          "hasta": [
-            341.0,
-            261.0
-          ]
+          "discontinua": true
         },
         {
           "tipo": "texto",
@@ -5183,176 +5724,60 @@
         {
           "tipo": "linea",
           "pagina": 1,
+          "desde": [
+            220,
+            210
+          ],
+          "hasta": [
+            341,
+            210
+          ],
+          "color": "rojo",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            132,
+            250
+          ],
+          "hasta": [
+            176,
+            250
+          ],
+          "color": "azul",
+          "grosor": 1.4
+        },
+        {
+          "tipo": "linea",
+          "pagina": 1,
+          "desde": [
+            132,
+            210
+          ],
+          "hasta": [
+            176,
+            210
+          ],
           "color": "rojo",
           "grosor": 1.4,
-          "desde": [
-            220.0,
-            197.35
-          ],
-          "hasta": [
-            341.0,
-            197.35
-          ]
+          "discontinua": true
         },
         {
           "tipo": "linea",
           "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
           "desde": [
-            220.0,
-            197.35
+            220,
+            250
           ],
           "hasta": [
-            220.0,
-            200.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
-          "desde": [
-            341.0,
-            197.35
+            341,
+            250
           ],
-          "hasta": [
-            341.0,
-            199.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
           "color": "azul",
           "grosor": 1.4,
-          "desde": [
-            132.0,
-            261.5
-          ],
-          "hasta": [
-            176.0,
-            261.5
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "desde": [
-            132.0,
-            261.5
-          ],
-          "hasta": [
-            132.0,
-            260.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "desde": [
-            176.0,
-            261.5
-          ],
-          "hasta": [
-            176.0,
-            260.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            132.0,
-            198.5
-          ],
-          "hasta": [
-            176.0,
-            198.5
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            132.0,
-            198.5
-          ],
-          "hasta": [
-            132.0,
-            200.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "rojo",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            176.0,
-            198.5
-          ],
-          "hasta": [
-            176.0,
-            200.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            220.0,
-            262.65
-          ],
-          "hasta": [
-            341.0,
-            262.65
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            220.0,
-            262.65
-          ],
-          "hasta": [
-            220.0,
-            260.0
-          ]
-        },
-        {
-          "tipo": "linea",
-          "pagina": 1,
-          "color": "azul",
-          "grosor": 1.4,
-          "discontinua": true,
-          "desde": [
-            341.0,
-            262.65
-          ],
-          "hasta": [
-            341.0,
-            261.0
-          ]
+          "discontinua": true
         },
         {
           "tipo": "texto",

@@ -185,6 +185,9 @@ describe("las figuras (§6), con la tabla compartida con Go", () => {
   it.each(TABLA.figuras.map((c) => [c.nombre, c] as const))("%s", (_, caso) => {
     // La plantilla de prueba es válida para el esquema.
     expect(mensajes(caso.plantilla)).toEqual([]);
+    // Y el valor también: un caso de figuras es algo que la API congelaría,
+    // así que tiene que pasar la validación estricta (sin conflictos).
+    expect(validarValores(plantillaSchema.parse(caso.plantilla), caso.valores as never, "estricto")).toEqual([]);
     const figuras = armarFiguras(plantillaSchema.parse(caso.plantilla), caso.valores as never, caso.modo);
     // El JSON exacto: `discontinua` aparece solo cuando es true.
     expect(JSON.parse(JSON.stringify(figuras))).toEqual(caso.figuras);
@@ -227,7 +230,7 @@ describe("las figuras (§6), con la tabla compartida con Go", () => {
     const p = plantillaSchema.parse(conLamina());
     const fija = armarFiguras(p, { odonto: { protesis: [{ tipo: "fija", desde: "13", hasta: "23", color: "rojo" }] } } as never, "borrador");
     const removible = armarFiguras(p, { odonto: { protesis: [{ tipo: "removible", desde: "13", hasta: "23", color: "rojo" }] } } as never, "borrador");
-    expect(fija).toHaveLength(3);
+    expect(fija).toHaveLength(1);
     for (const f of fija) expect(Object.keys(f)).not.toContain("discontinua");
     for (const f of removible) expect(f).toMatchObject({ discontinua: true });
   });

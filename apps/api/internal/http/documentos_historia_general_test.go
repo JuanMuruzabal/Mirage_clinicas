@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
@@ -292,5 +293,105 @@ func TestDocumentos_HistoriaGeneralRechazaUnOdontogramaConBasura(t *testing.T) {
 		if crudo, _ := json.Marshal(v); strings.Contains(string(crudo), "hola") || strings.Contains(string(crudo), `"99"`) {
 			t.Fatalf("un valor rechazado quedó guardado: %s", crudo)
 		}
+	}
+}
+
+// Las cinco reglas de conflicto del odontograma (QA de la 5.5): guardar un
+// borrador de la Historia General que las rompe responde 422 con el mensaje
+// exacto, y un valor coherente que se les parece se guarda.
+func TestDocumentos_HistoriaGeneralRechazaLosConflictosDelOdontograma(t *testing.T) {
+	p, ok := documentos.Ultima(plantillaHistoriaGeneral)
+	if !ok {
+		t.Fatal("falta la plantilla historia-clinica-general")
+	}
+	odonto := campoDeTipo(t, p, "odontograma")
+	e := escenarioDeDocumentos(t, "hcg-conflictos")
+	d := e.crearDe(t, e.token, plantillaHistoriaGeneral, e.paciente.ID)
+
+	pieza := func(numero string, caras, marcas map[string]any) map[string]any {
+		contenido := map[string]any{}
+		if caras != nil {
+			contenido["caras"] = caras
+		}
+		if marcas != nil {
+			contenido["marcas"] = marcas
+		}
+		return map[string]any{"piezas": map[string]any{numero: contenido}}
+	}
+	tramo := func(tipo, desde, hasta, color string) map[string]any {
+		return map[string]any{"tipo": tipo, "desde": desde, "hasta": hasta, "color": color}
+	}
+	guardar := func(t *testing.T, valor any) *httptest.ResponseRecorder {
+		t.Helper()
+		valores := map[string]any{}
+		for k, v := range d.Valores {
+			valores[k] = v
+		}
+		valores[odonto] = valor
+		return doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores})
+	}
+
+	casos := []struct {
+		nombre  string
+		valor   any
+		mensaje string
+	}{
+		{"ausente con una cara", pieza("16", map[string]any{"O": "rojo"}, map[string]any{"x": "rojo"}),
+			"La pieza 16 está ausente: no lleva prestaciones."},
+		{"ausente con una corona roja", pieza("16", nil, map[string]any{"x": "rojo", "corona": "rojo"}),
+			"La pieza 16 está ausente: no lleva prestaciones."},
+		{"a extraer con una cara azul", pieza("26", map[string]any{"M": "azul"}, map[string]any{"x": "azul"}),
+			"La pieza 26 se va a extraer: no lleva prestaciones requeridas."},
+		{"a extraer con una corona azul", pieza("26", nil, map[string]any{"x": "azul", "corona": "azul"}),
+			"La pieza 26 se va a extraer: no lleva prestaciones requeridas."},
+		{"pilar ausente", map[string]any{
+			"piezas":   map[string]any{"13": map[string]any{"marcas": map[string]any{"x": "rojo"}}},
+			"protesis": []any{tramo("fija", "13", "11", "rojo")},
+		}, "La pieza 13 está ausente: no puede ser pilar."},
+		{"pilar a extraer en una prótesis requerida", map[string]any{
+			"piezas":   map[string]any{"11": map[string]any{"marcas": map[string]any{"x": "azul"}}},
+			"protesis": []any{tramo("removible", "13", "11", "azul")},
+		}, "La pieza 11 se va a extraer: no puede ser pilar."},
+		{"dos prótesis que se superponen", map[string]any{
+			"protesis": []any{tramo("fija", "13", "11", "rojo"), tramo("fija", "12", "22", "azul")},
+		}, "Esa prótesis se superpone con otra."},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			rec := guardar(t, c.valor)
+			cuerpo := decodificar[struct {
+				Errores []documentos.ErrorDeCampo `json:"errores"`
+			}](t, rec.Body.Bytes())
+			if rec.Code != http.StatusUnprocessableEntity || len(cuerpo.Errores) != 1 ||
+				cuerpo.Errores[0].Campo != odonto || cuerpo.Errores[0].Mensaje != c.mensaje {
+				t.Fatalf("esperaba 422 %q: %d %s", c.mensaje, rec.Code, rec.Body.String())
+			}
+		})
+	}
+
+	// Lo que se les parece pero es coherente se guarda.
+	validos := []struct {
+		nombre string
+		valor  any
+	}{
+		{"a extraer con lo existente en rojo", pieza("26", map[string]any{"O": "rojo"}, map[string]any{"x": "azul", "corona": "rojo"})},
+		{"pilar a extraer en una prótesis existente", map[string]any{
+			"piezas":   map[string]any{"11": map[string]any{"marcas": map[string]any{"x": "azul"}}},
+			"protesis": []any{tramo("fija", "13", "11", "rojo")},
+		}},
+		{"una pieza intermedia ausente", map[string]any{
+			"piezas":   map[string]any{"12": map[string]any{"marcas": map[string]any{"x": "rojo"}}},
+			"protesis": []any{tramo("fija", "13", "11", "rojo")},
+		}},
+		{"prótesis vecinas y en filas distintas", map[string]any{
+			"protesis": []any{tramo("fija", "13", "11", "rojo"), tramo("removible", "21", "23", "azul"), tramo("fija", "43", "41", "azul")},
+		}},
+	}
+	for _, c := range validos {
+		t.Run(c.nombre, func(t *testing.T) {
+			if rec := guardar(t, c.valor); rec.Code != http.StatusOK {
+				t.Fatalf("esperaba 200: %d %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
