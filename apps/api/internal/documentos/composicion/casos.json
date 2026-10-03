@@ -484,5 +484,157 @@
         }
       ]
     }
+  },
+  {
+    "zona": {
+      "id": "casillas",
+      "pagina": 1,
+      "x": 420.6,
+      "y": 205.35,
+      "ancho": 97.5,
+      "casillas": {
+        "cantidad": 5,
+        "paso": 19.5
+      },
+      "texto": "{{x}}"
+    },
+    "texto": "4512",
+    "compuesta": {
+      "zona": "casillas",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [
+        {
+          "x": 427.57,
+          "y": 205.35,
+          "texto": "4"
+        },
+        {
+          "x": 447.07,
+          "y": 205.35,
+          "texto": "5"
+        },
+        {
+          "x": 466.57,
+          "y": 205.35,
+          "texto": "1"
+        },
+        {
+          "x": 486.07,
+          "y": 205.35,
+          "texto": "2"
+        }
+      ],
+      "desborda": false
+    }
+  },
+  {
+    "zona": {
+      "id": "casillas",
+      "pagina": 1,
+      "x": 420.6,
+      "y": 205.35,
+      "ancho": 97.5,
+      "casillas": {
+        "cantidad": 5,
+        "paso": 19.5
+      },
+      "texto": "{{x}}",
+      "tamano": 9
+    },
+    "texto": "Ñ 4W",
+    "compuesta": {
+      "zona": "casillas",
+      "pagina": 1,
+      "tamano": 9,
+      "lineas": [
+        {
+          "x": 427.1,
+          "y": 205.35,
+          "texto": "Ñ"
+        },
+        {
+          "x": 466.85,
+          "y": 205.35,
+          "texto": "4"
+        },
+        {
+          "x": 484.6,
+          "y": 205.35,
+          "texto": "W"
+        }
+      ],
+      "desborda": false
+    }
+  },
+  {
+    "zona": {
+      "id": "casillas",
+      "pagina": 1,
+      "x": 420.6,
+      "y": 205.35,
+      "ancho": 97.5,
+      "casillas": {
+        "cantidad": 5,
+        "paso": 19.5
+      },
+      "texto": "{{x}}"
+    },
+    "texto": "1234567",
+    "compuesta": {
+      "zona": "casillas",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [
+        {
+          "x": 427.57,
+          "y": 205.35,
+          "texto": "1"
+        },
+        {
+          "x": 447.07,
+          "y": 205.35,
+          "texto": "2"
+        },
+        {
+          "x": 466.57,
+          "y": 205.35,
+          "texto": "3"
+        },
+        {
+          "x": 486.07,
+          "y": 205.35,
+          "texto": "4"
+        },
+        {
+          "x": 505.57,
+          "y": 205.35,
+          "texto": "5"
+        }
+      ],
+      "desborda": true
+    }
+  },
+  {
+    "zona": {
+      "id": "casillas",
+      "pagina": 1,
+      "x": 420.6,
+      "y": 205.35,
+      "ancho": 97.5,
+      "casillas": {
+        "cantidad": 5,
+        "paso": 19.5
+      },
+      "texto": "{{x}}"
+    },
+    "texto": "",
+    "compuesta": {
+      "zona": "casillas",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [],
+      "desborda": false
+    }
   }
 ]

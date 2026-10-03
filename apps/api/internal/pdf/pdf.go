@@ -235,6 +235,25 @@ func (c *Camino) Cerrar() {
 	c.ops = append(c.ops, func(*Pagina) string { return "h" })
 }
 
+// kappa — la distancia a los puntos de control de un cuarto de círculo
+// hecho con una Bézier cúbica, en radios: 4/3·(√2 − 1).
+const kappa = 0.5522847498307936
+
+// Circulo — un círculo de centro (cx, cy), hecho con cuatro Bézier
+// cúbicas: la aproximación de siempre, con un error menor al 0,03 % del
+// radio.
+func Circulo(cx, cy, radio float64) *Camino {
+	k := kappa * radio
+	c := &Camino{}
+	c.MoverA(cx+radio, cy)
+	c.CurvaA(cx+radio, cy+k, cx+k, cy+radio, cx, cy+radio)
+	c.CurvaA(cx-k, cy+radio, cx-radio, cy+k, cx-radio, cy)
+	c.CurvaA(cx-radio, cy-k, cx-k, cy-radio, cx, cy-radio)
+	c.CurvaA(cx+k, cy-radio, cx+radio, cy-k, cx+radio, cy)
+	c.Cerrar()
+	return c
+}
+
 // Estilo — cómo se pinta un camino. Sin Trazo ni Relleno, no se ve.
 type Estilo struct {
 	Grosor  float64
@@ -242,6 +261,9 @@ type Estilo struct {
 	Relleno *Color
 	// Redondo — extremos y uniones redondas (los de una birome).
 	Redondo bool
+	// Discontinua — el trazo en guiones: largo del guion, del hueco, y así
+	// (en puntos). Vacío, el trazo es continuo.
+	Discontinua []float64
 }
 
 // Camino — pinta un camino.
@@ -252,6 +274,9 @@ func (p *Pagina) Camino(c *Camino, e Estilo) {
 	p.escribir("q")
 	if e.Trazo != nil {
 		p.escribir(num(e.Grosor), "w", e.Trazo.trazo())
+		if len(e.Discontinua) > 0 {
+			p.escribir(patronDeGuiones(e.Discontinua), "0 d")
+		}
 	}
 	if e.Relleno != nil {
 		p.escribir(e.Relleno.relleno())
@@ -280,6 +305,15 @@ func (p *Pagina) Recortado(x, y, ancho, alto float64, dibujar func()) {
 	p.escribir("q", num(x), num(p.yPDF(y+alto)), num(ancho), num(alto), "re W n")
 	dibujar()
 	p.escribir("Q")
+}
+
+// patronDeGuiones — "[3 2]": el arreglo del operador d de PDF.
+func patronDeGuiones(largos []float64) string {
+	partes := make([]string, len(largos))
+	for i, l := range largos {
+		partes[i] = num(l)
+	}
+	return "[" + strings.Join(partes, " ") + "]"
 }
 
 func (p *Pagina) fallar(err error) {

@@ -20,11 +20,12 @@ import { consentimientoSedoanalgesia } from "./plantillas/consentimiento-sedoana
 import { consentimientoTomaDeImagenes } from "./plantillas/consentimiento-toma-de-imagenes";
 import { consentimientoTratamientoConducto } from "./plantillas/consentimiento-tratamiento-conducto";
 import { consentimientoTratamientoConductoV2 } from "./plantillas/consentimiento-tratamiento-conducto-v2";
+import { historiaClinicaGeneral } from "./plantillas/historia-clinica-general";
 
 // El orden es el del selector dentro de cada grupo (Fase 5.2): los
 // consentimientos en el orden de la tabla de la fase (§2.2). El de
 // COVID-19 queda afuera (D6): pide que se conteste "de puño y letra" y
-// responde a un protocolo de 2020.
+// responde a un protocolo de 2020. Las historias clínicas, desde la 5.5.
 const DEFINICIONES: Plantilla[] = [
   consentimientoExtraccion,
   consentimientoTratamientoConducto,
@@ -40,6 +41,7 @@ const DEFINICIONES: Plantilla[] = [
   consentimientoDiscapacidad,
   consentimientoSedoanalgesia,
   consentimientoTomaDeImagenes,
+  historiaClinicaGeneral,
   // Versiones anteriores: los documentos que las usaron se siguen leyendo
   // con la suya (TR-187). El selector ofrece la última.
   consentimientoTratamientoConductoV2,

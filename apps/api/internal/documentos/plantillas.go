@@ -63,6 +63,9 @@ type Campo struct {
 	Detalle   *Detalle `json:"detalle,omitempty"`
 	Opciones  []Opcion `json:"opciones,omitempty"`
 	Denticion string   `json:"denticion,omitempty"`
+	// Leyenda y Existentes — los de un odontograma (odontograma.go).
+	Leyenda    string `json:"leyenda,omitempty"`
+	Existentes bool   `json:"existentes,omitempty"`
 }
 
 // Seccion — un grupo de campos del sidebar.

@@ -8,6 +8,7 @@ import {
   type RespuestaSiNo,
   type Valor,
 } from "@dental-mirage/documentos-clinicos";
+import { CampoOdontograma } from "./campo-odontograma";
 
 // Un campo del documento en el sidebar del editor (Fase 5.1). Cada tipo de
 // la plantilla tiene su control; el valor que devuelve es el que guarda la
@@ -281,13 +282,16 @@ export function CampoDeDocumento({
       control = <SelectorDePiezas denticion={campo.denticion ?? "ambas"} valor={lista} onCambio={(p) => onCambio(p.length ? p : undefined)} />;
       break;
     }
+    case "odontograma":
+      control = <CampoOdontograma campo={campo} valor={valor} onCambio={onCambio} idFoco={id} etiquetaId={`${id}-etiqueta`} describedBy={describedBy} />;
+      break;
   }
 
-  const agrupado = campo.tipo === "si_no" || campo.tipo === "opcion_unica" || campo.tipo === "opcion_multiple" || campo.tipo === "piezas";
+  const agrupado = ["si_no", "opcion_unica", "opcion_multiple", "piezas", "odontograma"].includes(campo.tipo);
   const Etiqueta = agrupado ? "p" : "label";
 
   return (
-    <div className="flex flex-col gap-1.5" data-campo={campo.id}>
+    <div className="flex min-w-0 flex-col gap-1.5" data-campo={campo.id}>
       <Etiqueta
         id={`${id}-etiqueta`}
         {...(agrupado ? {} : { htmlFor: id })}

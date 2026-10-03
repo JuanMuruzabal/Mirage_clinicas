@@ -75,6 +75,9 @@ type ContenidoCongelado struct {
 	// ve y lo que irá al PDF, congelado como se vio (TR-187). Sin lámina
 	// (una plantilla sin original), se omite y la huella no cambia.
 	Lamina []ZonaCompuesta `json:"lamina,omitempty"`
+	// Figuras — los odontogramas compuestos sobre la página (Fase 5.5).
+	// Con omitempty, un documento sin odontograma conserva su huella.
+	Figuras []Figura `json:"figuras,omitempty"`
 }
 
 // LimpiarValores — saca los campos vacíos: el contenido congelado guarda lo

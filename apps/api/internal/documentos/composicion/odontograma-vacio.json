@@ -1,0 +1,93 @@
+[
+  {
+    "nombre": "un objeto sin nada",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": {},
+    "vacio": true,
+    "mensaje": null
+  },
+  {
+    "nombre": "piezas con caras y marcas sin claves, prótesis vacía",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": {
+      "piezas": {
+        "11": {
+          "caras": {},
+          "marcas": {}
+        },
+        "55": {}
+      },
+      "protesis": []
+    },
+    "vacio": true,
+    "mensaje": null
+  },
+  {
+    "nombre": "basura: una clave que no es del odontograma",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": {
+      "notas": "sin nada"
+    },
+    "vacio": false,
+    "mensaje": "El odontograma no tiene la forma esperada."
+  },
+  {
+    "nombre": "basura: una pieza que no es un objeto",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": {
+      "piezas": {
+        "16": "rojo"
+      }
+    },
+    "vacio": false,
+    "mensaje": "El odontograma no tiene la forma esperada."
+  },
+  {
+    "nombre": "basura: una pieza que no existe, aunque esté vacía",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": {
+      "piezas": {
+        "99": {}
+      }
+    },
+    "vacio": false,
+    "mensaje": "99 no es una pieza de este odontograma."
+  },
+  {
+    "nombre": "basura: un texto vacío no es un odontograma",
+    "campo": {
+      "tipo": "odontograma",
+      "id": "odontograma",
+      "etiqueta": "Odontograma",
+      "leyenda": "general"
+    },
+    "valor": "",
+    "vacio": false,
+    "mensaje": "El odontograma no tiene la forma esperada."
+  }
+]

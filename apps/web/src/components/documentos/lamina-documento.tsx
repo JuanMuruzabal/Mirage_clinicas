@@ -3,10 +3,15 @@
 import {
   campoPorId,
   camposDeZona,
+  COLORES_DE_FIGURA,
+  estaVacio,
   MARCA_DE_ZONA,
   seccionDelCampo,
   TAMANO_BASE,
+  type Figura,
+  type OdontogramaDeLamina,
   type Plantilla,
+  type Valores,
   type Zona,
   type ZonaCompuesta,
 } from "@dental-mirage/documentos-clinicos";
@@ -44,6 +49,64 @@ interface Editable {
   campoActivo: string | null;
   errores: Record<string, string>;
   onElegir: (campoId: string) => void;
+  /** Lo cargado: dice si un odontograma está vacío (sus figuras no
+   *  dicen de qué campo son). */
+  valores?: Valores;
+}
+
+/** Los guiones de una prótesis removible, en puntos: los mismos del PDF
+ *  (`guionesDeRemovible`, Go). Una línea continua lleva los extremos
+ *  redondos como allá; la discontinua no, o taparían los huecos. */
+const GUIONES_DE_REMOVIBLE = "3 2";
+
+const puntosSvg = (puntos: [number, number][]) => puntos.map((p) => p.join(",")).join(" ");
+
+/** Una figura del odontograma, en puntos del papel, tal cual llega: la
+ *  composición es del paquete (armarFiguras) o la congelada de la API. */
+function FiguraSvg({ figura: f }: { figura: Figura }) {
+  switch (f.tipo) {
+    case "poligono":
+      return <polygon points={puntosSvg(f.puntos)} fill={COLORES_DE_FIGURA[f.relleno]} />;
+    case "contorno":
+      return <polygon points={puntosSvg(f.puntos)} fill="none" stroke={COLORES_DE_FIGURA[f.color]} strokeWidth={f.grosor} />;
+    case "linea":
+      return (
+        <line
+          x1={f.desde[0]}
+          y1={f.desde[1]}
+          x2={f.hasta[0]}
+          y2={f.hasta[1]}
+          stroke={COLORES_DE_FIGURA[f.color]}
+          strokeWidth={f.grosor}
+          strokeLinecap={f.discontinua ? undefined : "round"}
+          strokeDasharray={f.discontinua ? GUIONES_DE_REMOVIBLE : undefined}
+        />
+      );
+    case "circulo":
+      return <circle cx={f.centro[0]} cy={f.centro[1]} r={f.radio} fill="none" stroke={COLORES_DE_FIGURA[f.color]} strokeWidth={f.grosor} />;
+    case "texto":
+      return (
+        <text x={f.x} y={f.y} fontSize={f.tamano} fill={COLORES_DE_FIGURA[f.color]} style={{ whiteSpace: "pre" }}>
+          {f.texto}
+        </text>
+      );
+  }
+}
+
+/** La caja que envuelve los recuadros de un odontograma, en puntos. */
+function cajaDeOdontograma(o: OdontogramaDeLamina) {
+  const x = Math.min(...o.piezas.map((p) => p.x));
+  const y = Math.min(...o.piezas.map((p) => p.y));
+  const ancho = Math.max(...o.piezas.map((p) => p.x + p.lado)) - x;
+  const alto = Math.max(...o.piezas.map((p) => p.y + p.lado)) - y;
+  return { x, y, ancho, alto };
+}
+
+/** La caja de "Cantidad de dientes existentes": como una zona de un
+ *  renglón, desde la altura de las cifras hasta la línea de base. */
+function cajaDeExistentes(e: NonNullable<OdontogramaDeLamina["existentes"]>) {
+  const tamano = e.tamano ?? TAMANO_BASE;
+  return { x: e.x - 1, y: e.y - tamano * 0.8, ancho: e.ancho + 2, alto: tamano * 1.05 };
 }
 
 /** Las páginas con las que se puede dibujar la lámina de una plantilla, o
@@ -108,10 +171,63 @@ function porcentaje(valor: number, total: number): string {
   return `${(valor / total) * 100}%`;
 }
 
+const sinExistentes = (v: unknown) => typeof v !== "object" || v === null || !("existentes" in v);
+
+interface Caja {
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+}
+
+/** Un dato de la hoja que lleva a su campo: lo vacío se ve teñido; lo
+ *  activo, marcado; lo que no entra o está mal, en terracota. */
+function BotonDeZona({
+  datos,
+  nombre,
+  caja,
+  medidas,
+  estado,
+  onElegir,
+}: {
+  datos: Record<`data-${string}`, string>;
+  nombre: string;
+  caja: Caja;
+  medidas: { ancho: number; alto: number };
+  estado: { conError: boolean; activo: boolean; vacia: boolean };
+  onElegir: () => void;
+}) {
+  return (
+    <button
+      {...datos}
+      type="button"
+      aria-label={`Completar: ${nombre}`}
+      title={nombre}
+      onClick={onElegir}
+      style={{
+        left: porcentaje(caja.x, medidas.ancho),
+        top: porcentaje(caja.y, medidas.alto),
+        width: porcentaje(caja.ancho, medidas.ancho),
+        height: porcentaje(caja.alto, medidas.alto),
+      }}
+      className={`absolute rounded-[2px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-salvia-oscuro ${
+        estado.conError
+          ? "bg-terracota/15 ring-1 ring-terracota-oscuro"
+          : estado.activo
+            ? "bg-salvia/20 ring-1 ring-salvia-oscuro"
+            : estado.vacia
+              ? "bg-salvia/15 hover:bg-salvia/25"
+              : "hover:bg-salvia/10"
+      }`}
+    />
+  );
+}
+
 export function LaminaDocumento({
   plantilla,
   paginas,
   zonas,
+  figuras = [],
   editable,
   firmas = [],
   etiqueta,
@@ -120,6 +236,9 @@ export function LaminaDocumento({
   plantilla: Plantilla;
   paginas: PaginaOriginal[];
   zonas: ZonaCompuesta[];
+  /** Lo dibujado en el odontograma: en un borrador, lo que arma la
+   *  pantalla en vivo; desde "a firmar", lo congelado. */
+  figuras?: Figura[];
   editable?: Editable;
   firmas?: FirmaEnLamina[];
   /** Cómo se nombra la hoja ("Tu documento", "Documento sellado"). */
@@ -177,6 +296,11 @@ export function LaminaDocumento({
               className="pointer-events-none absolute inset-0 h-full w-full"
               style={{ fontFamily: FAMILIA_DE_LAMINA, fontKerning: "none" }}
             >
+              {figuras
+                .filter((f) => f.pagina === numero)
+                .map((f, j) => (
+                  <FiguraSvg key={`figura-${j}`} figura={f} />
+                ))}
               {escritas.flatMap((z) =>
                 z.lineas.map((l, j) => (
                   <text key={`${z.zona}-${j}`} x={l.x} y={l.y} fontSize={z.tamano} fill={TINTA} style={{ whiteSpace: "pre" }}>
@@ -224,36 +348,60 @@ export function LaminaDocumento({
                   const campos = camposDeZona(zona);
                   if (campos.length === 0) return null;
                   const compuesta = compuestaDe.get(zona.id);
-                  const activo = editable.campoActivo !== null && campos.includes(editable.campoActivo);
-                  const conError = Boolean(compuesta?.desborda) || campos.some((c) => editable.errores[c]);
-                  const vacia = compuesta?.vacia ?? true;
-                  const caja = cajaDeZona(zona);
                   const nombre = etiquetaDeZona(plantilla, zona);
                   return (
-                    <button
+                    <BotonDeZona
                       key={zona.id}
-                      type="button"
-                      data-zona={zona.id}
-                      aria-label={`Completar: ${nombre}`}
-                      title={nombre}
-                      onClick={() => editable.onElegir(campos[0])}
-                      style={{
-                        left: porcentaje(caja.x, medidas.ancho),
-                        top: porcentaje(caja.y, medidas.alto),
-                        width: porcentaje(caja.ancho, medidas.ancho),
-                        height: porcentaje(caja.alto, medidas.alto),
+                      datos={{ "data-zona": zona.id }}
+                      nombre={nombre}
+                      caja={cajaDeZona(zona)}
+                      medidas={medidas}
+                      estado={{
+                        conError: Boolean(compuesta?.desborda) || campos.some((c) => editable.errores[c]),
+                        activo: editable.campoActivo !== null && campos.includes(editable.campoActivo),
+                        vacia: compuesta?.vacia ?? true,
                       }}
-                      className={`absolute rounded-[2px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-salvia-oscuro ${
-                        conError
-                          ? "bg-terracota/15 ring-1 ring-terracota-oscuro"
-                          : activo
-                            ? "bg-salvia/20 ring-1 ring-salvia-oscuro"
-                            : vacia
-                              ? "bg-salvia/15 hover:bg-salvia/25"
-                              : "hover:bg-salvia/10"
-                      }`}
+                      onElegir={() => editable.onElegir(campos[0])}
                     />
                   );
+                })}
+            {editable &&
+              (lamina.odontogramas ?? [])
+                .filter((o) => o.pagina === numero)
+                .flatMap((o) => {
+                  const campo = campoPorId(plantilla, o.campo);
+                  const nombre = campo?.etiqueta ?? o.campo;
+                  const estado = {
+                    conError: Boolean(editable.errores[o.campo]),
+                    activo: editable.campoActivo === o.campo,
+                    vacia: campo && editable.valores ? estaVacio(campo, editable.valores[o.campo]) : false,
+                  };
+                  const elegir = () => editable.onElegir(o.campo);
+                  const botones = [
+                    <BotonDeZona
+                      key={o.campo}
+                      datos={{ "data-odontograma": o.campo }}
+                      nombre={nombre}
+                      caja={cajaDeOdontograma(o)}
+                      medidas={medidas}
+                      estado={estado}
+                      onElegir={elegir}
+                    />,
+                  ];
+                  if (o.existentes) {
+                    botones.push(
+                      <BotonDeZona
+                        key={`${o.campo}-existentes`}
+                        datos={{ "data-odontograma": `${o.campo}-existentes` }}
+                        nombre={`${nombre}: cantidad de dientes existentes`}
+                        caja={cajaDeExistentes(o.existentes)}
+                        medidas={medidas}
+                        estado={{ ...estado, vacia: editable.valores ? sinExistentes(editable.valores[o.campo]) : false }}
+                        onElegir={elegir}
+                      />,
+                    );
+                  }
+                  return botones;
                 })}
           </figure>
         );

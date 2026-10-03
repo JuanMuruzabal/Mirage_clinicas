@@ -1,0 +1,714 @@
+[
+  {
+    "nombre": "sí con aclaración",
+    "plantilla": {
+      "id": "detalle-de-prueba",
+      "version": 1,
+      "nombre": "Aclaración de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un sí o no con aclaración, para los casos de `{{campo:detalle}}`.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "salud",
+          "titulo": "Salud",
+          "campos": [
+            {
+              "tipo": "si_no",
+              "id": "medicacion",
+              "etiqueta": "¿Toma medicación?",
+              "detalle": {
+                "etiqueta": "¿Cuál?",
+                "cuando": "si"
+              }
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "medicacion"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "respuesta",
+            "pagina": 1,
+            "x": 60,
+            "y": 100,
+            "ancho": 200,
+            "texto": "{{medicacion}}"
+          },
+          {
+            "id": "detalle",
+            "pagina": 1,
+            "x": 60,
+            "y": 112,
+            "ancho": 200,
+            "texto": "{{medicacion:detalle}}"
+          },
+          {
+            "id": "detalle_con_rotulo",
+            "pagina": 1,
+            "x": 60,
+            "y": 124,
+            "ancho": 200,
+            "texto": "Cuál: {{medicacion:detalle}}",
+            "vacio": "—"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ]
+      }
+    },
+    "valores": {
+      "medicacion": {
+        "respuesta": "si",
+        "detalle": "  Enalapril 10 mg  "
+      }
+    },
+    "contexto": {
+      "fecha": "2026-09-27"
+    },
+    "modo": "sellado",
+    "lamina": [
+      {
+        "zona": "respuesta",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 100,
+            "texto": "Sí (Enalapril 10 mg)"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 112,
+            "texto": "Enalapril 10 mg"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle_con_rotulo",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 124,
+            "texto": "Cuál: Enalapril 10 mg"
+          }
+        ],
+        "vacia": false
+      }
+    ]
+  },
+  {
+    "nombre": "no con aclaración",
+    "plantilla": {
+      "id": "detalle-de-prueba",
+      "version": 1,
+      "nombre": "Aclaración de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un sí o no con aclaración, para los casos de `{{campo:detalle}}`.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "salud",
+          "titulo": "Salud",
+          "campos": [
+            {
+              "tipo": "si_no",
+              "id": "medicacion",
+              "etiqueta": "¿Toma medicación?",
+              "detalle": {
+                "etiqueta": "¿Cuál?",
+                "cuando": "si"
+              }
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "medicacion"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "respuesta",
+            "pagina": 1,
+            "x": 60,
+            "y": 100,
+            "ancho": 200,
+            "texto": "{{medicacion}}"
+          },
+          {
+            "id": "detalle",
+            "pagina": 1,
+            "x": 60,
+            "y": 112,
+            "ancho": 200,
+            "texto": "{{medicacion:detalle}}"
+          },
+          {
+            "id": "detalle_con_rotulo",
+            "pagina": 1,
+            "x": 60,
+            "y": 124,
+            "ancho": 200,
+            "texto": "Cuál: {{medicacion:detalle}}",
+            "vacio": "—"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ]
+      }
+    },
+    "valores": {
+      "medicacion": {
+        "respuesta": "no",
+        "detalle": "Ya no"
+      }
+    },
+    "contexto": {
+      "fecha": "2026-09-27"
+    },
+    "modo": "sellado",
+    "lamina": [
+      {
+        "zona": "respuesta",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 100,
+            "texto": "No (Ya no)"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 112,
+            "texto": "Ya no"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle_con_rotulo",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 124,
+            "texto": "Cuál: Ya no"
+          }
+        ],
+        "vacia": false
+      }
+    ]
+  },
+  {
+    "nombre": "sí con la aclaración en blanco, terminado",
+    "plantilla": {
+      "id": "detalle-de-prueba",
+      "version": 1,
+      "nombre": "Aclaración de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un sí o no con aclaración, para los casos de `{{campo:detalle}}`.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "salud",
+          "titulo": "Salud",
+          "campos": [
+            {
+              "tipo": "si_no",
+              "id": "medicacion",
+              "etiqueta": "¿Toma medicación?",
+              "detalle": {
+                "etiqueta": "¿Cuál?",
+                "cuando": "si"
+              }
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "medicacion"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "respuesta",
+            "pagina": 1,
+            "x": 60,
+            "y": 100,
+            "ancho": 200,
+            "texto": "{{medicacion}}"
+          },
+          {
+            "id": "detalle",
+            "pagina": 1,
+            "x": 60,
+            "y": 112,
+            "ancho": 200,
+            "texto": "{{medicacion:detalle}}"
+          },
+          {
+            "id": "detalle_con_rotulo",
+            "pagina": 1,
+            "x": 60,
+            "y": 124,
+            "ancho": 200,
+            "texto": "Cuál: {{medicacion:detalle}}",
+            "vacio": "—"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ]
+      }
+    },
+    "valores": {
+      "medicacion": {
+        "respuesta": "si",
+        "detalle": "   "
+      }
+    },
+    "contexto": {
+      "fecha": "2026-09-27"
+    },
+    "modo": "sellado",
+    "lamina": [
+      {
+        "zona": "respuesta",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 100,
+            "texto": "Sí"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 112,
+            "texto": "No consigna"
+          }
+        ],
+        "vacia": true
+      },
+      {
+        "zona": "detalle_con_rotulo",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 124,
+            "texto": "—"
+          }
+        ],
+        "vacia": true
+      }
+    ]
+  },
+  {
+    "nombre": "sí sin aclaración, borrador",
+    "plantilla": {
+      "id": "detalle-de-prueba",
+      "version": 1,
+      "nombre": "Aclaración de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un sí o no con aclaración, para los casos de `{{campo:detalle}}`.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "salud",
+          "titulo": "Salud",
+          "campos": [
+            {
+              "tipo": "si_no",
+              "id": "medicacion",
+              "etiqueta": "¿Toma medicación?",
+              "detalle": {
+                "etiqueta": "¿Cuál?",
+                "cuando": "si"
+              }
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "medicacion"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "respuesta",
+            "pagina": 1,
+            "x": 60,
+            "y": 100,
+            "ancho": 200,
+            "texto": "{{medicacion}}"
+          },
+          {
+            "id": "detalle",
+            "pagina": 1,
+            "x": 60,
+            "y": 112,
+            "ancho": 200,
+            "texto": "{{medicacion:detalle}}"
+          },
+          {
+            "id": "detalle_con_rotulo",
+            "pagina": 1,
+            "x": 60,
+            "y": 124,
+            "ancho": 200,
+            "texto": "Cuál: {{medicacion:detalle}}",
+            "vacio": "—"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ]
+      }
+    },
+    "valores": {
+      "medicacion": {
+        "respuesta": "si"
+      }
+    },
+    "contexto": {
+      "fecha": "2026-09-27"
+    },
+    "modo": "borrador",
+    "lamina": [
+      {
+        "zona": "respuesta",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 100,
+            "texto": "Sí"
+          }
+        ],
+        "vacia": false
+      },
+      {
+        "zona": "detalle",
+        "pagina": 1,
+        "tamano": 10,
+        "lineas": [],
+        "desborda": false,
+        "vacia": true
+      },
+      {
+        "zona": "detalle_con_rotulo",
+        "pagina": 1,
+        "tamano": 10,
+        "lineas": [],
+        "desborda": false,
+        "vacia": true
+      }
+    ]
+  },
+  {
+    "nombre": "sin respuesta, terminado",
+    "plantilla": {
+      "id": "detalle-de-prueba",
+      "version": 1,
+      "nombre": "Aclaración de prueba",
+      "tipo": "historia_clinica",
+      "descripcion": "Un sí o no con aclaración, para los casos de `{{campo:detalle}}`.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "salud",
+          "titulo": "Salud",
+          "campos": [
+            {
+              "tipo": "si_no",
+              "id": "medicacion",
+              "etiqueta": "¿Toma medicación?",
+              "detalle": {
+                "etiqueta": "¿Cuál?",
+                "cuando": "si"
+              }
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "medicacion"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "respuesta",
+            "pagina": 1,
+            "x": 60,
+            "y": 100,
+            "ancho": 200,
+            "texto": "{{medicacion}}"
+          },
+          {
+            "id": "detalle",
+            "pagina": 1,
+            "x": 60,
+            "y": 112,
+            "ancho": 200,
+            "texto": "{{medicacion:detalle}}"
+          },
+          {
+            "id": "detalle_con_rotulo",
+            "pagina": 1,
+            "x": 60,
+            "y": 124,
+            "ancho": 200,
+            "texto": "Cuál: {{medicacion:detalle}}",
+            "vacio": "—"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ]
+      }
+    },
+    "valores": {},
+    "contexto": {
+      "fecha": "2026-09-27"
+    },
+    "modo": "sellado",
+    "lamina": [
+      {
+        "zona": "respuesta",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 100,
+            "texto": "No consigna"
+          }
+        ],
+        "vacia": true
+      },
+      {
+        "zona": "detalle",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 112,
+            "texto": "No consigna"
+          }
+        ],
+        "vacia": true
+      },
+      {
+        "zona": "detalle_con_rotulo",
+        "pagina": 1,
+        "tamano": 10,
+        "desborda": false,
+        "lineas": [
+          {
+            "x": 60,
+            "y": 124,
+            "texto": "—"
+          }
+        ],
+        "vacia": true
+      }
+    ]
+  }
+]
