@@ -155,12 +155,17 @@ export function CampoDeDocumento({
   valor,
   error,
   onCambio,
+  odontogramaAbierto,
+  onOdontogramaAbierto,
 }: {
   campo: Campo;
   valor: unknown;
   error?: string;
   /** `undefined` borra el valor. */
   onCambio: (valor: Valor | undefined) => void;
+  /** La pantalla emergente de un odontograma, cuando la maneja el editor. */
+  odontogramaAbierto?: boolean;
+  onOdontogramaAbierto?: (abierto: boolean) => void;
 }) {
   const id = idDelCampo(campo.id);
   const idAyuda = useId();
@@ -283,7 +288,18 @@ export function CampoDeDocumento({
       break;
     }
     case "odontograma":
-      control = <CampoOdontograma campo={campo} valor={valor} onCambio={onCambio} idFoco={id} etiquetaId={`${id}-etiqueta`} describedBy={describedBy} />;
+      control = (
+        <CampoOdontograma
+          campo={campo}
+          valor={valor}
+          onCambio={onCambio}
+          id={id}
+          etiquetaId={`${id}-etiqueta`}
+          describedBy={describedBy}
+          abierto={odontogramaAbierto}
+          onAbierto={onOdontogramaAbierto}
+        />
+      );
       break;
   }
 

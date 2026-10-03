@@ -341,7 +341,9 @@ func opcional[T any](m map[string]any, clave string) (T, bool) {
 }
 
 // errorDeOdontograma — el primer error del valor, en el orden del
-// contrato: la forma, las piezas, las prótesis y los dientes existentes.
+// contrato: la forma, las piezas (cada una, su forma y sus conflictos), las
+// prótesis (cada una, la superposición y los pilares) y los dientes
+// existentes.
 func errorDeOdontograma(c *Campo, valor any) string {
 	v, ok := valor.(map[string]any)
 	if !ok || !soloClaves(v, clavesDelValor...) {
@@ -356,8 +358,11 @@ func errorDeOdontograma(c *Campo, valor any) string {
 		if msg := errorDePieza(c, pieza, piezas[pieza]); msg != "" {
 			return msg
 		}
+		if msg := conflictoDePieza(pieza, leerPieza(piezas[pieza])); msg != "" {
+			return msg
+		}
 	}
-	if msg := errorDeProtesis(c, tramos); msg != "" {
+	if msg := errorDeProtesis(c, tramos, piezas); msg != "" {
 		return msg
 	}
 	if n, existe := v["existentes"]; existe {
@@ -408,7 +413,39 @@ func sonColoresDeOdontograma(m map[string]any) bool {
 	return true
 }
 
-func errorDeProtesis(c *Campo, tramos []any) string {
+// conflictoDePieza — una pieza ausente (X roja) no lleva nada más; una que
+// se va a extraer (X azul), nada azul. Igual que `conflictoDePieza` en el
+// paquete.
+func conflictoDePieza(pieza string, p piezaMarcada) string {
+	otras := slices.Collect(maps.Values(p.caras))
+	for marca, color := range p.marcas {
+		if marca != "x" {
+			otras = append(otras, color)
+		}
+	}
+	switch {
+	case p.marcas["x"] == "rojo" && len(otras) > 0:
+		return fmt.Sprintf("La pieza %s está ausente: no lleva prestaciones.", pieza)
+	case p.marcas["x"] == "azul" && slices.Contains(otras, "azul"):
+		return fmt.Sprintf("La pieza %s se va a extraer: no lleva prestaciones requeridas.", pieza)
+	}
+	return ""
+}
+
+// conflictoDePilar — una prótesis no se apoya en una pieza ausente, ni una
+// por hacer (azul) en una que se va a extraer. Las intermedias sí pueden
+// faltar: es lo que la prótesis reemplaza.
+func conflictoDePilar(pieza string, p piezaMarcada, color string) string {
+	switch {
+	case p.marcas["x"] == "rojo":
+		return fmt.Sprintf("La pieza %s está ausente: no puede ser pilar.", pieza)
+	case p.marcas["x"] == "azul" && color == "azul":
+		return fmt.Sprintf("La pieza %s se va a extraer: no puede ser pilar.", pieza)
+	}
+	return ""
+}
+
+func errorDeProtesis(c *Campo, tramos []any, piezas map[string]any) string {
 	switch {
 	case len(tramos) == 0:
 		return ""
@@ -422,7 +459,35 @@ func errorDeProtesis(c *Campo, tramos []any) string {
 			return msg
 		}
 	}
+	indices := indicesDe(PiezasDe(denticionDe(c)))
+	leidos := make([]tramoDeProtesis, 0, len(tramos))
+	for _, crudo := range tramos {
+		t, _ := leerTramo(crudo, indices)
+		for _, anterior := range leidos {
+			if t.seSuperponeCon(anterior) {
+				return "Esa prótesis se superpone con otra."
+			}
+		}
+		leidos = append(leidos, t)
+	}
+	for _, crudo := range tramos {
+		t := objetoDe(crudo)
+		color, _ := t["color"].(string)
+		for _, extremo := range []string{t["desde"].(string), t["hasta"].(string)} {
+			if msg := conflictoDePilar(extremo, leerPieza(piezas[extremo]), color); msg != "" {
+				return msg
+			}
+		}
+	}
 	return ""
+}
+
+// seSuperponeCon — si dos prótesis comparten alguna pieza (pilares
+// incluidos): en el papel van por el mismo centro de la fila y se
+// encimarían. Cada fila es un tramo contiguo del orden de la dentición, así
+// que alcanza con que sus rangos se toquen. Igual que `seSuperponen`.
+func (a tramoDeProtesis) seSuperponeCon(b tramoDeProtesis) bool {
+	return filaDe(a.primera) == filaDe(b.primera) && a.iPrimera <= b.iSegunda && b.iPrimera <= a.iSegunda
 }
 
 func errorDeTramo(c *Campo, valor any) string {
@@ -667,32 +732,15 @@ func figurasDePieza(pagina int, r RecuadroDePieza, p piezaMarcada) []Figura {
 	return figuras
 }
 
-// SeparacionDeLaBarra — cuánto se separa la barra de una prótesis de su fila,
-// en lados de pieza. Igual que SEPARACION_DE_LA_BARRA en el paquete.
-const SeparacionDeLaBarra = 0.075
-
-// figurasDeTramo — la barra de una prótesis por fuera de la fila (arriba de
-// la superior, abajo de la inferior) y un trazo hasta cada pieza: hacia la
-// oclusión se encimaban una fija arriba y una removible abajo.
+// figurasDeTramo — una línea por el centro de la fila, de pilar a pilar (la
+// removible, discontinua), como en el papel. Dos prótesis no comparten
+// piezas (lo rechaza la validación), así que no se enciman.
 func figurasDeTramo(pagina int, a, b RecuadroDePieza, t tramoDeProtesis) []Figura {
 	if b.X < a.X {
 		a, b = b, a
 	}
-	x1 := a.X + a.Lado/2
-	x2 := b.X + b.Lado/2
-	separacion := SeparacionDeLaBarra * math.Max(a.Lado, b.Lado)
-	finA, finB := a.Y+a.Lado, b.Y+b.Lado
-	yb := math.Max(finA, finB) + separacion
-	if esSuperior(t.primera) {
-		finA, finB = a.Y, b.Y
-		yb = math.Min(finA, finB) - separacion
-	}
-	discontinua := t.tipo == "removible"
-	return []Figura{
-		linea(pagina, x1, yb, x2, yb, t.color, discontinua),
-		linea(pagina, x1, yb, x1, finA, t.color, discontinua),
-		linea(pagina, x2, yb, x2, finB, t.color, discontinua),
-	}
+	yc := redondear2((a.Y + a.Lado/2 + (b.Y + b.Lado/2)) / 2)
+	return []Figura{linea(pagina, a.X+a.Lado/2, yc, b.X+b.Lado/2, yc, t.color, t.tipo == "removible")}
 }
 
 func figuraDeExistentes(od OdontogramaDeLamina, v map[string]any, modo ModoTexto) (Figura, bool) {

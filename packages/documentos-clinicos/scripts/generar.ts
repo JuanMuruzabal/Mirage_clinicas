@@ -166,7 +166,8 @@ const CASOS_DE_FIGURAS: CasoDeFiguras[] = [
     modo: "sellado",
     valor: {
       piezas: {
-        "54": { caras: { O: "azul" }, marcas: { traumatizado: "rojo", sellador: "azul", x: "rojo", corona: "azul" } },
+        // Las cuatro en una pieza: con la X azul (a extraer), lo demás es lo existente.
+        "54": { caras: { O: "rojo" }, marcas: { traumatizado: "rojo", sellador: "rojo", x: "azul", corona: "rojo" } },
         "11": { marcas: { traumatizado: "azul" } },
         "85": { marcas: { sellador: "rojo" } },
         "71": { marcas: { x: "azul", corona: "rojo" } },
@@ -183,8 +184,8 @@ const CASOS_DE_FIGURAS: CasoDeFiguras[] = [
         { tipo: "fija", desde: "34", hasta: "31", color: "azul" },
         { tipo: "removible", desde: "15", hasta: "17", color: "azul" },
         { tipo: "fija", desde: "23", hasta: "13", color: "rojo" },
-        { tipo: "fija", desde: "12", hasta: "11", color: "rojo" },
-        { tipo: "fija", desde: "11", hasta: "13", color: "rojo" },
+        { tipo: "fija", desde: "28", hasta: "26", color: "rojo" },
+        { tipo: "fija", desde: "24", hasta: "25", color: "rojo" },
         { tipo: "fija", desde: "52", hasta: "62", color: "azul" },
         { tipo: "removible", desde: "83", hasta: "81", color: "azul" },
       ],

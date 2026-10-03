@@ -3460,39 +3460,11 @@
       "pagina": 2,
       "desde": [
         147.29,
-        283.11
+        293.65
       ],
       "hasta": [
         261.11,
-        283.11
-      ],
-      "color": "rojo",
-      "grosor": 1.4
-    },
-    {
-      "tipo": "linea",
-      "pagina": 2,
-      "desde": [
-        147.29,
-        283.11
-      ],
-      "hasta": [
-        147.29,
-        284.47
-      ],
-      "color": "rojo",
-      "grosor": 1.4
-    },
-    {
-      "tipo": "linea",
-      "pagina": 2,
-      "desde": [
-        261.11,
-        283.11
-      ],
-      "hasta": [
-        261.11,
-        284.71
+        293.65
       ],
       "color": "rojo",
       "grosor": 1.4

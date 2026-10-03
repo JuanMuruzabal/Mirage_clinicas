@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   armarFiguras,
   armarLamina,
+  campoPorId,
   estaVacio,
   seccionDelCampo,
   seFirmaEnPapel,
@@ -104,6 +105,7 @@ export function EditorDeDocumento({
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const [confirmarTerminar, setConfirmarTerminar] = useState(false);
   const [pedidoDeFoco, setPedidoDeFoco] = useState<PedidoDeFoco | null>(null);
+  const [odontogramaAbierto, setOdontogramaAbierto] = useState<string | null>(null);
   const idBase = useId();
   const idDelCuerpo = (seccionId: string) => `${idBase}-seccion-${seccionId}`;
   const hoy = documento.hoy ?? "";
@@ -175,6 +177,13 @@ export function EditorDeDocumento({
     const seccion = seccionDelCampo(plantilla, campoId);
     if (seccion) setSeccionAbierta(seccion.id);
     setCampoActivo(campoId);
+    // El odontograma se completa en su pantalla emergente: tocarlo en la
+    // hoja, o un error al terminar, la abre sin cambiar de vista. Al
+    // cerrarla, el foco vuelve a lo que la abrió.
+    if (campoPorId(plantilla, campoId)?.tipo === "odontograma") {
+      setOdontogramaAbierto(campoId);
+      return;
+    }
     setVista("completar");
     setPedidoDeFoco((p) => ({ campoId, seccionId: seccion?.id ?? null, vuelta: (p?.vuelta ?? 0) + 1 }));
   }
@@ -374,6 +383,8 @@ export function EditorDeDocumento({
                           valor={valores[campo.id]}
                           error={errores[campo.id]}
                           onCambio={(v) => cambiar(campo.id, v)}
+                          odontogramaAbierto={odontogramaAbierto === campo.id}
+                          onOdontogramaAbierto={(abierto) => setOdontogramaAbierto(abierto ? campo.id : null)}
                         />
                       ))}
                     </div>

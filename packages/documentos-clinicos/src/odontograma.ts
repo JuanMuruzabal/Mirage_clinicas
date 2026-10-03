@@ -158,9 +158,38 @@ function errorDePieza(pieza: unknown, leyenda: LeyendaDeOdontograma): string | n
   return [...Object.values(caras), ...Object.values(marcas)].every(esColor) ? null : COLOR;
 }
 
+// --- Los conflictos lógicos: lo que el papel no admite ------------------
+// Una pieza ausente (X roja) no lleva nada más; una que se va a extraer
+// (X azul) no lleva nada por hacer (azul). Y una prótesis no se apoya en
+// una pieza ausente, ni una por hacer en una que se va a extraer: las
+// piezas INTERMEDIAS sí pueden faltar, es lo que la prótesis reemplaza.
+// El editor los usa también, para no dejar hacerlos.
+
+/** El conflicto de una pieza ya validada, o null. */
+export function conflictoDePieza(pieza: string, contenido: PiezaOdontograma | undefined): string | null {
+  const x = contenido?.marcas?.x;
+  if (!x) return null;
+  const otras = [...Object.values(contenido?.caras ?? {}), ...MARCAS_DE_PIEZA.filter((m) => m !== "x").map((m) => contenido?.marcas?.[m])].filter(
+    (c) => c !== undefined,
+  );
+  if (x === "rojo" && otras.length > 0) return `La pieza ${pieza} está ausente: no lleva prestaciones.`;
+  if (x === "azul" && otras.includes("azul")) return `La pieza ${pieza} se va a extraer: no lleva prestaciones requeridas.`;
+  return null;
+}
+
+/** Si una pieza puede ser pilar de una prótesis de ese color, o por qué no. */
+export function conflictoDePilar(pieza: string, contenido: PiezaOdontograma | undefined, color: ColorOdontograma): string | null {
+  const x = contenido?.marcas?.x;
+  if (x === "rojo") return `La pieza ${pieza} está ausente: no puede ser pilar.`;
+  if (x === "azul" && color === "azul") return `La pieza ${pieza} se va a extraer: no puede ser pilar.`;
+  return null;
+}
+
 function errorDePiezas(piezas: Record<string, unknown>, validas: readonly string[], leyenda: LeyendaDeOdontograma): string | null {
   for (const pieza of Object.keys(piezas).sort()) {
-    const error = validas.includes(pieza) ? errorDePieza(piezas[pieza], leyenda) : piezaAjena(pieza);
+    const error = validas.includes(pieza)
+      ? (errorDePieza(piezas[pieza], leyenda) ?? conflictoDePieza(pieza, piezas[pieza] as PiezaOdontograma))
+      : piezaAjena(pieza);
     if (error) return error;
   }
   return null;
@@ -177,12 +206,39 @@ function errorDeTramo(tramo: unknown, validas: readonly string[]): string | null
   return esColor(tramo.color) ? null : COLOR;
 }
 
-function errorDeProtesis(protesis: unknown[], validas: readonly string[], leyenda: LeyendaDeOdontograma): string | null {
+export const PROTESIS_SUPERPUESTA = "Esa prótesis se superpone con otra.";
+
+function rangoEn(orden: readonly string[], { desde, hasta }: TramoDeProtesis): [number, number] {
+  const [i, j] = [orden.indexOf(desde), orden.indexOf(hasta)];
+  return i <= j ? [i, j] : [j, i];
+}
+
+/** Si dos prótesis comparten alguna pieza (pilares incluidos): en el papel
+ *  van por el mismo centro de la fila y se encimarían. Cada fila es un tramo
+ *  contiguo de `orden`, así que alcanza con que sus rangos se toquen. */
+export function seSuperponen(a: TramoDeProtesis, b: TramoDeProtesis, orden: readonly string[]): boolean {
+  if (filaDe(a.desde) !== filaDe(b.desde)) return false;
+  const [[a1, a2], [b1, b2]] = [rangoEn(orden, a), rangoEn(orden, b)];
+  return a1 <= b2 && b1 <= a2;
+}
+
+function errorDeProtesis(
+  protesis: unknown[],
+  validas: readonly string[],
+  leyenda: LeyendaDeOdontograma,
+  piezas: Record<string, PiezaOdontograma | undefined>,
+): string | null {
   if (protesis.length === 0) return null;
   if (!llevaProtesis(leyenda)) return "Este odontograma no lleva prótesis.";
   if (protesis.length > MAXIMO_DE_TRAMOS) return "Hay demasiadas prótesis.";
   for (const tramo of protesis) {
     const error = errorDeTramo(tramo, validas);
+    if (error) return error;
+  }
+  const tramos = protesis as TramoDeProtesis[];
+  if (tramos.some((t, i) => tramos.slice(0, i).some((anterior) => seSuperponen(t, anterior, validas)))) return PROTESIS_SUPERPUESTA;
+  for (const { desde, hasta, color } of tramos) {
+    const error = conflictoDePilar(desde, piezas[desde], color) ?? conflictoDePilar(hasta, piezas[hasta], color);
     if (error) return error;
   }
   return null;
@@ -196,8 +252,10 @@ function errorDeExistentes(campo: CampoOdontograma, existentes: unknown, total: 
 }
 
 /** El primer error del valor, en el orden del contrato: la forma, las
- *  piezas (por clave, en orden lexicográfico), las prótesis (en el orden
- *  del array) y los dientes existentes. */
+ *  piezas (por clave, en orden lexicográfico; cada una, después de su
+ *  forma, sus conflictos), las prótesis (en el orden del array: cada una,
+ *  después la superposición y después los pilares) y los dientes
+ *  existentes. */
 export function errorDeOdontograma(campo: CampoOdontograma, valor: unknown): string | null {
   if (!esObjeto(valor) || Object.keys(valor).some((k) => !CLAVES_DEL_VALOR.includes(k))) return FORMA;
   const { piezas = {}, protesis = [], existentes } = valor;
@@ -205,7 +263,7 @@ export function errorDeOdontograma(campo: CampoOdontograma, valor: unknown): str
   const validas = piezasDe(campo.denticion ?? "ambas");
   return (
     errorDePiezas(piezas, validas, campo.leyenda) ??
-    errorDeProtesis(protesis, validas, campo.leyenda) ??
+    errorDeProtesis(protesis, validas, campo.leyenda, piezas as Record<string, PiezaOdontograma | undefined>) ??
     errorDeExistentes(campo, existentes, validas.length)
   );
 }
@@ -382,28 +440,15 @@ function figurasDePieza(pieza: string, contenido: PiezaOdontograma, r: RecuadroD
   return [...caras, ...marcas];
 }
 
-/** Cuánto se separa la barra de una prótesis de su fila, en lados de pieza:
- *  lo justo para no pisar los números impresos que hay del lado de afuera. */
-const SEPARACION_DE_LA_BARRA = 0.075;
-
-/** La barra de una prótesis, del lado de AFUERA de su fila (arriba de una
- *  superior, abajo de una inferior), con un trazo hacia cada punta: hacia la
- *  oclusión se encimaban una fija arriba y una removible abajo. */
+/** Una prótesis es una línea por el centro de su fila, de pilar a pilar (la
+ *  removible, discontinua): como se dibuja a mano en el papel. Dos prótesis
+ *  no comparten piezas (lo rechaza la validación), así que no se enciman. */
 function figurasDeTramo({ tramo, primera, segunda }: TramoOrdenado, recuadros: Map<string, RecuadroDePieza>, pagina: number): Figura[] {
   const [r1, r2] = [recuadros.get(primera), recuadros.get(segunda)];
   if (!r1 || !r2) return [];
   const [a, b] = r1.x <= r2.x ? [r1, r2] : [r2, r1];
-  const [x1, x2] = [a.x + a.lado / 2, b.x + b.lado / 2];
-  const separacion = SEPARACION_DE_LA_BARRA * Math.max(a.lado, b.lado);
-  const superior = esSuperior(primera);
-  const [bordeA, bordeB] = superior ? [a.y, b.y] : [a.y + a.lado, b.y + b.lado];
-  const yb = superior ? Math.min(bordeA, bordeB) - separacion : Math.max(bordeA, bordeB) + separacion;
-  const discontinua = tramo.tipo === "removible";
-  return [
-    linea(pagina, [x1, yb], [x2, yb], tramo.color, discontinua),
-    linea(pagina, [x1, yb], [x1, bordeA], tramo.color, discontinua),
-    linea(pagina, [x2, yb], [x2, bordeB], tramo.color, discontinua),
-  ];
+  const yc = redondear2((a.y + a.lado / 2 + (b.y + b.lado / 2)) / 2);
+  return [linea(pagina, [a.x + a.lado / 2, yc], [b.x + b.lado / 2, yc], tramo.color, tramo.tipo === "removible")];
 }
 
 function figurasDeExistentes(o: OdontogramaDeLamina, existentes: unknown, modo: Modo): Figura[] {

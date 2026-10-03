@@ -1794,13 +1794,13 @@
           },
           "54": {
             "caras": {
-              "O": "azul"
+              "O": "rojo"
             },
             "marcas": {
               "traumatizado": "rojo",
-              "sellador": "azul",
-              "x": "rojo",
-              "corona": "azul"
+              "sellador": "rojo",
+              "x": "azul",
+              "corona": "rojo"
             }
           },
           "71": {
@@ -1818,7 +1818,7 @@
       }
     },
     "modo": "sellado",
-    "texto": "Rojo, trabajos realizados: 54 (a extraer, extraída o ausente; traumatizada), 85 (sellador), 71 (corona). Azul, trabajos a realizar: 11 (traumatizada), 54 (cara oclusal; corona; sellador), 71 (a extraer, extraída o ausente).",
+    "texto": "Rojo, trabajos realizados: 54 (cara oclusal; corona; sellador; traumatizada), 85 (sellador), 71 (corona). Azul, trabajos a realizar: 11 (traumatizada), 54 (a extraer, extraída o ausente), 71 (a extraer, extraída o ausente).",
     "figuras": [
       {
         "tipo": "texto",
@@ -1850,7 +1850,7 @@
             184.08
           ]
         ],
-        "relleno": "azul"
+        "relleno": "rojo"
       },
       {
         "tipo": "circulo",
@@ -1860,7 +1860,7 @@
           181.03
         ],
         "radio": 11.01,
-        "color": "azul",
+        "color": "rojo",
         "grosor": 1.1
       },
       {
@@ -1874,7 +1874,7 @@
           131.48,
           188.48
         ],
-        "color": "rojo",
+        "color": "azul",
         "grosor": 1.4
       },
       {
@@ -1888,7 +1888,7 @@
           116.57,
           188.48
         ],
-        "color": "rojo",
+        "color": "azul",
         "grosor": 1.4
       },
       {
@@ -1908,7 +1908,7 @@
             186.71
           ]
         ],
-        "color": "azul",
+        "color": "rojo",
         "grosor": 1.1
       },
       {
@@ -2401,14 +2401,14 @@
           },
           {
             "tipo": "fija",
-            "desde": "12",
-            "hasta": "11",
+            "desde": "28",
+            "hasta": "26",
             "color": "rojo"
           },
           {
             "tipo": "fija",
-            "desde": "11",
-            "hasta": "13",
+            "desde": "24",
+            "hasta": "25",
             "color": "rojo"
           },
           {
@@ -2427,60 +2427,18 @@
       }
     },
     "modo": "sellado",
-    "texto": "Prótesis: fija en rojo, de 13 a 11; fija en rojo, de 13 a 23; fija en rojo, de 12 a 11; fija en azul, de 31 a 34; fija en azul, de 52 a 62; removible en rojo, de 46 a 43; removible en azul, de 17 a 15; removible en azul, de 83 a 81.",
+    "texto": "Prótesis: fija en rojo, de 13 a 23; fija en rojo, de 24 a 25; fija en rojo, de 26 a 28; fija en azul, de 31 a 34; fija en azul, de 52 a 62; removible en rojo, de 46 a 43; removible en azul, de 17 a 15; removible en azul, de 83 a 81.",
     "figuras": [
       {
         "tipo": "linea",
         "pagina": 1,
         "desde": [
           145.95,
-          100.64
-        ],
-        "hasta": [
-          189.13,
-          100.64
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          145.95,
-          100.64
-        ],
-        "hasta": [
-          145.95,
-          102
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          189.13,
-          100.64
-        ],
-        "hasta": [
-          189.13,
-          102
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          145.95,
-          99.94
+          110.64
         ],
         "hasta": [
           254.23,
-          99.94
+          110.64
         ],
         "color": "rojo",
         "grosor": 1.4
@@ -2489,12 +2447,12 @@
         "tipo": "linea",
         "pagina": 1,
         "desde": [
-          145.95,
-          99.94
+          276.15,
+          110.53
         ],
         "hasta": [
-          145.95,
-          102
+          297.4,
+          110.53
         ],
         "color": "rojo",
         "grosor": 1.4
@@ -2503,54 +2461,12 @@
         "tipo": "linea",
         "pagina": 1,
         "desde": [
-          254.23,
-          99.94
+          319.33,
+          110.76
         ],
         "hasta": [
-          254.23,
-          101.3
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          167.2,
-          99.97
-        ],
-        "hasta": [
-          189.13,
-          99.97
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          167.2,
-          99.97
-        ],
-        "hasta": [
-          167.2,
-          101.3
-        ],
-        "color": "rojo",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          189.13,
-          99.97
-        ],
-        "hasta": [
-          189.13,
-          102
+          362.5,
+          110.76
         ],
         "color": "rojo",
         "grosor": 1.4
@@ -2560,39 +2476,11 @@
         "pagina": 1,
         "desde": [
           211.05,
-          152.17
+          141.35
         ],
         "hasta": [
           276.15,
-          152.17
-        ],
-        "color": "azul",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          211.05,
-          152.17
-        ],
-        "hasta": [
-          211.05,
-          150.1
-        ],
-        "color": "azul",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          276.15,
-          152.17
-        ],
-        "hasta": [
-          276.15,
-          150.8
+          141.35
         ],
         "color": "azul",
         "grosor": 1.4
@@ -2602,39 +2490,11 @@
         "pagina": 1,
         "desde": [
           167.2,
-          170.15
+          180.45
         ],
         "hasta": [
           232.3,
-          170.15
-        ],
-        "color": "azul",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          167.2,
-          170.15
-        ],
-        "hasta": [
-          167.2,
-          172.15
-        ],
-        "color": "azul",
-        "grosor": 1.4
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          232.3,
-          170.15
-        ],
-        "hasta": [
-          232.3,
-          171.45
+          180.45
         ],
         "color": "azul",
         "grosor": 1.4
@@ -2644,41 +2504,11 @@
         "pagina": 1,
         "desde": [
           80.85,
-          152.17
+          141.35
         ],
         "hasta": [
           145.95,
-          152.17
-        ],
-        "color": "rojo",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          80.85,
-          152.17
-        ],
-        "hasta": [
-          80.85,
-          150.1
-        ],
-        "color": "rojo",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          145.95,
-          152.17
-        ],
-        "hasta": [
-          145.95,
-          150.8
+          141.35
         ],
         "color": "rojo",
         "grosor": 1.4,
@@ -2689,41 +2519,11 @@
         "pagina": 1,
         "desde": [
           58.93,
-          100.67
+          110.76
         ],
         "hasta": [
           102.1,
-          100.67
-        ],
-        "color": "azul",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          58.93,
-          100.67
-        ],
-        "hasta": [
-          58.93,
-          102
-        ],
-        "color": "azul",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          102.1,
-          100.67
-        ],
-        "hasta": [
-          102.1,
-          102
+          110.76
         ],
         "color": "azul",
         "grosor": 1.4,
@@ -2734,41 +2534,11 @@
         "pagina": 1,
         "desde": [
           145.95,
-          221.67
+          211.09
         ],
         "hasta": [
           189.13,
-          221.67
-        ],
-        "color": "azul",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          145.95,
-          221.67
-        ],
-        "hasta": [
-          145.95,
-          220.3
-        ],
-        "color": "azul",
-        "grosor": 1.4,
-        "discontinua": true
-      },
-      {
-        "tipo": "linea",
-        "pagina": 1,
-        "desde": [
-          189.13,
-          221.67
-        ],
-        "hasta": [
-          189.13,
-          219.85
+          211.09
         ],
         "color": "azul",
         "grosor": 1.4,
