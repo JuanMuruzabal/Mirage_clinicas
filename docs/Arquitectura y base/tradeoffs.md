@@ -3553,8 +3553,15 @@ Si el cliente responde distinto a alguna de estas decisiones, el sprint afectado
   - **La plantilla:** `historia-clinica-general` v1 tiene 112 campos en 16 secciones y 203 zonas. El odontograma tiene 52 recuadros, con un lado de mediana de 18,13 pt. La firma del profesional va en el margen inferior derecho de la página 2, con el rótulo "Firma del profesional".
   - **Los tests:** el paquete tiene 259 (99,4 % de cobertura), la web 2135 (87,5 %) y Go con `-race` pasa los 18 paquetes (83,2 %). Los PDF de los documentos existentes siguen idénticos byte a byte (31 huellas).
   - **La QA en contenedores:** `scripts/qa-entorno-dev.sh` dio 21/21; la Historia General se completó y se selló con folio 5, y su PDF de 3 páginas dio el mismo SHA-256 en tres descargas.
-- **Lo que no se pudo calcar del papel** (9 puntos que reportó la plantilla al medirse; estos son los tres más visibles):
-  - Tres huecos de menos de 70 pt que arrancan en el renglón de abajo.
-  - "¿Ha tenido dolor?" con una sola casilla.
-  - Las casillas vacías se escriben con "—" (`SIN_DATO`).
+- **Lo que no se pudo calcar del papel** (9 puntos, más dos decisiones del mismo tipo):
+  1. La aclaración de un SI/NO ("¿cuál?", "¿de qué?") se escribe sola con `{{campo:detalle}}`: quedó resuelto en esta ronda, no es una limitación.
+  2. Las sub-preguntas que no aclaran el sí son campos aparte: "¿sanos?", "¿está controlado? / ¿con qué?", "¿se protege con alguna medicación?", "¿está en tratamiento?", "¿Cuándo?" y "¿al morder siente altos los dientes?"; "¿Está controlado?" es una opción única Sí/No porque la aclaración no entraba en su hueco de 16 pt.
+  3. Los huecos chicos que se responden marcando llevan una X: "a la anestesia / a la penicilina", "¿labios? ¿lengua? ¿paladar…?" y "¿Se puso hielo? ¿calor?" son opciones múltiples.
+  4. "¿Ha tenido dolor?" tiene una sola casilla en el papel: se marca la X del sí y con "no" queda en blanco.
+  5. Los huecos de menos de unos 70 pt, que el motor cortaría letra por letra, hacen que tres respuestas arranquen en el renglón de abajo: "medicamentos que consume habitualmente" (63 pt), "derivación" (61 pt) y "recibió algún tratamiento" (45 pt); "medicamentos de los últimos 5 años" tampoco usa su hueco de 18 pt.
+  6. En "Dr/a MP……" se escribe "nombre, matrícula" con los campos del odontólogo.
+  7. "Aclaración" y "DNI Nº" debajo de la firma repiten los datos de quien suscribe.
+  8. Una casilla o un hueco chico sin cargar dice "—" en el sellado, porque "No consigna" no entra.
+  9. El plan de la obra social no está en el papel y no se pide.
+  - Decisiones del mismo tipo: la firma del profesional va en el margen inferior de la página 2, porque el papel no tiene renglón para ella; y los "Continúa en anexo Nº" son números del 1 al 999.
 - **Para la QA con el odontólogo:** el dibujo de las prótesis (D5), qué cara va arriba en cada maxilar, la sugerencia de 32 existentes con el odontograma vacío y el tamaño de las piezas con mouse (las caras de una pieza de 19 px son chicas; queda el selector de caras con nombre, con Enter o clic fuera de las caras).
