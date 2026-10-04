@@ -434,3 +434,52 @@ func TestDocumentos_HistoriaGeneralRechazaLosConflictosDelOdontograma(t *testing
 		})
 	}
 }
+
+// Fase 5.6a: la General v2 solo mueve el bloque del profesional. Un
+// borrador de la v1 se retoma en la v2 con lo que ya tenía, igual que el
+// conducto (TR-189, addendum); lo terminado sigue en su versión.
+func TestDocumentos_UnBorradorDeLaGeneralV1PasaALaV2(t *testing.T) {
+	e := escenarioDeDocumentos(t, "general-v2")
+	if p, ok := documentos.Ultima(plantillaHistoriaGeneral); !ok || p.Version != 2 {
+		t.Fatalf("la vigente de la General tiene que ser la 2: %+v", p)
+	}
+	viejo := db.DocumentoClinico{
+		ClinicID: e.clinicID, PacienteID: e.paciente.ID, AutorUserID: e.titularID,
+		PlantillaID: plantillaHistoriaGeneral, PlantillaVersion: 1,
+		Valores: map[string]any{"lugar": "Villa Allende"},
+	}
+	if err := e.gdb.Create(&viejo).Error; err != nil {
+		t.Fatalf("borrador v1: %v", err)
+	}
+	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", e.token, map[string]any{
+		"plantillaId": plantillaHistoriaGeneral, "pacienteId": e.paciente.ID.String(),
+	})
+	d := decodificar[documentoDetalleResponse](t, rec.Body.Bytes())
+	if rec.Code != http.StatusOK || !d.Retomado {
+		t.Fatalf("retoma el borrador: %d %s", rec.Code, rec.Body.String())
+	}
+	if d.ID == viejo.ID.String() || d.PlantillaVersion != 2 || !d.VersionActualizada || d.Estado != db.DocumentoBorrador {
+		t.Fatalf("pasa a un borrador nuevo de la v2: %+v", d.documentoResumenResponse)
+	}
+	if d.Valores["lugar"] != "Villa Allende" {
+		t.Fatalf("lo cargado en la v1 se conserva: %v", d.Valores)
+	}
+	var borradores, viejos int64
+	e.gdb.Model(&db.DocumentoClinico{}).Where("paciente_id = ? AND estado = ?", e.paciente.ID, db.DocumentoBorrador).Count(&borradores)
+	e.gdb.Model(&db.DocumentoClinico{}).Where("id = ?", viejo.ID).Count(&viejos)
+	if borradores != 1 || viejos != 0 {
+		t.Fatalf("queda un solo borrador y el viejo se descarta: %d borradores, %d viejos", borradores, viejos)
+	}
+
+	// Abierto de nuevo, ya está en la vigente: no cambia.
+	rec = doJSONAuth(t, e.router, http.MethodGet, "/documentos/"+d.ID, e.token, nil)
+	if otra := decodificar[documentoDetalleResponse](t, rec.Body.Bytes()); rec.Code != http.StatusOK || otra.ID != d.ID || otra.VersionActualizada || otra.PlantillaVersion != 2 {
+		t.Fatalf("el borrador de la v2 no cambia: %d %+v", rec.Code, otra.documentoResumenResponse)
+	}
+
+	// Una General v1 terminada sigue en la v1.
+	terminado := db.DocumentoClinico{PlantillaID: plantillaHistoriaGeneral, PlantillaVersion: 1, Estado: db.DocumentoSellado}
+	if t2, cambio, err := borradorEnLaVersionVigente(e.gdb, terminado); err != nil || cambio || t2.PlantillaVersion != 1 {
+		t.Fatalf("un documento terminado sigue en su versión: %v %v", cambio, err)
+	}
+}
