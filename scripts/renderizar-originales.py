@@ -50,6 +50,9 @@ ORIGINALES = {
     ("consentimiento-toma-de-imagenes", 1): ("CONSENTIMIENTO-INFORMADO-TOMA-DE-IMAGENES-60-anos-1.pdf", [1, 2]),
     # Fase 5.5: la historia clínica general, con el odontograma.
     ("historia-clinica-general", 1): ("Historia-Clinica-General.pdf", [1, 2]),
+    # Fase 5.6a: la de personas con discapacidad. La página 3 (prestaciones)
+    # es la 5.7 y la 4 está en blanco.
+    ("historia-clinica-pcd", 1): ("HC-PcD.pdf", [1, 2]),
 }
 
 ANCHOS = (800, 1600, 2550)

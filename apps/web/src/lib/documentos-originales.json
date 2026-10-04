@@ -243,5 +243,20 @@
         "alto": 3607
       }
     ]
+  },
+  "historia-clinica-pcd@1": {
+    "archivo": "HC-PcD.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3606
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3606
+      }
+    ]
   }
 }

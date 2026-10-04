@@ -84,10 +84,14 @@ MISMAS_PAGINAS = {
 DPI = 200
 CALIDAD = 80
 
-# Diferencia entre canales por encima de la cual un píxel tiene color. En los
-# modelos en blanco y negro la diferencia medida es 0 (a lo sumo 4); en un
-# color real pasa de 60.
-UMBRAL_DE_COLOR = 24
+# Diferencia entre canales por encima de la cual un píxel tiene color. Es
+# alta a propósito: un modelo escaneado en blanco y negro tiene ruido de
+# croma alrededor del texto negro (el JPEG del escaneo tiñe los bordes), que
+# llega a una diferencia de ~70 en unos pocos píxeles (la página 2 de la
+# historia clínica para PcD: 3809 píxeles pasan 24, solo 22 pasan 60). Un
+# color real pasa de 60 en miles: el más tenue, el logo de Ortopedia, tiene
+# 2593 píxeles entre 60 y 70; el violeta de Sedoanalgesia, más de 500.000.
+UMBRAL_DE_COLOR = 60
 # Fracción mínima de píxeles con color para que la página cuente como en
 # color: uno de cada diez mil (en el WebP de 2550 px de la web, sobre el que
 # se mide, unos 840 píxeles, un punto de 1 mm²). Menos que eso es ruido, no
