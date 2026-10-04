@@ -1,12 +1,12 @@
 {
-  "id": "historia-clinica-pcd",
-  "version": 1,
-  "nombre": "Historia clínica general para PcD",
+  "id": "historia-clinica-general",
+  "version": 2,
+  "nombre": "Historia clínica general",
   "tipo": "historia_clinica",
-  "descripcion": "Historia clínica general para personas con discapacidad: datos del paciente, discapacidad y cuidados, cuestionario de salud con tenor de declaración jurada, historia odontológica, odontograma, diagnóstico, plan de tratamiento y consentimiento.",
+  "descripcion": "Datos del paciente, cuestionario de salud con tenor de declaración jurada, historia odontológica, odontograma, diagnóstico, plan de tratamiento y consentimiento.",
   "fuente": {
     "nombre": "Colegio Odontológico de la Provincia de Córdoba",
-    "url": "https://colodontcba.org.ar/wp-content/uploads/HC-PcD.pdf"
+    "url": "https://colodontcba.org.ar/wp-content/uploads/Docs/Historia-Clinica-General.pdf"
   },
   "secciones": [
     {
@@ -51,27 +51,15 @@
         },
         {
           "tipo": "texto",
-          "id": "dni",
-          "etiqueta": "DNI",
-          "precarga": "paciente.dni"
+          "id": "afiliado",
+          "etiqueta": "Nº de afiliado",
+          "precarga": "paciente.obraSocialAfiliado"
         },
         {
           "tipo": "texto",
           "id": "obra_social",
           "etiqueta": "Obra social",
           "precarga": "paciente.obraSocial"
-        },
-        {
-          "tipo": "texto",
-          "id": "plan_obra_social",
-          "etiqueta": "Plan",
-          "precarga": "paciente.obraSocialPlan"
-        },
-        {
-          "tipo": "texto",
-          "id": "afiliado",
-          "etiqueta": "Número de afiliado",
-          "precarga": "paciente.obraSocialAfiliado"
         },
         {
           "tipo": "fecha",
@@ -89,52 +77,24 @@
         },
         {
           "tipo": "texto",
+          "id": "estado_civil",
+          "etiqueta": "Estado civil"
+        },
+        {
+          "tipo": "texto",
           "id": "nacionalidad",
           "etiqueta": "Nacionalidad"
         },
         {
-          "tipo": "opcion_unica",
-          "id": "grupo_sanguineo",
-          "etiqueta": "Grupo sanguíneo",
-          "opciones": [
-            {
-              "valor": "0_pos",
-              "etiqueta": "0+"
-            },
-            {
-              "valor": "0_neg",
-              "etiqueta": "0−"
-            },
-            {
-              "valor": "a_pos",
-              "etiqueta": "A+"
-            },
-            {
-              "valor": "a_neg",
-              "etiqueta": "A−"
-            },
-            {
-              "valor": "b_pos",
-              "etiqueta": "B+"
-            },
-            {
-              "valor": "b_neg",
-              "etiqueta": "B−"
-            },
-            {
-              "valor": "ab_pos",
-              "etiqueta": "AB+"
-            },
-            {
-              "valor": "ab_neg",
-              "etiqueta": "AB−"
-            }
-          ]
+          "tipo": "texto",
+          "id": "dni",
+          "etiqueta": "Nº de documento",
+          "precarga": "paciente.dni"
         },
         {
           "tipo": "texto",
-          "id": "estado_civil",
-          "etiqueta": "Estado civil"
+          "id": "telefono",
+          "etiqueta": "Teléfono"
         },
         {
           "tipo": "texto",
@@ -207,54 +167,37 @@
       ]
     },
     {
-      "id": "discapacidad",
-      "titulo": "Discapacidad y cuidados",
+      "id": "salud",
+      "titulo": "Salud y medicación",
       "campos": [
         {
           "tipo": "si_no",
-          "id": "movilidad_asistida",
-          "etiqueta": "¿Necesita movilidad asistida?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "silla_ruedas",
-          "etiqueta": "¿Utiliza silla de ruedas?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "diagnostico_medico",
-          "etiqueta": "¿Posee un diagnóstico médico?",
+          "id": "enfermedad",
+          "etiqueta": "¿Sufre de alguna enfermedad?",
           "detalle": {
-            "etiqueta": "Diagnóstico médico",
+            "etiqueta": "¿De qué?",
+            "cuando": "si"
+          }
+        },
+        {
+          "tipo": "si_no",
+          "id": "tratamiento_medico",
+          "etiqueta": "¿Hace algún tratamiento médico?",
+          "detalle": {
+            "etiqueta": "¿Cuál?",
             "cuando": "si"
           }
         },
         {
           "tipo": "texto_largo",
-          "id": "medicacion_administrada",
-          "etiqueta": "Medicación administrada"
+          "id": "medicamentos_habituales",
+          "etiqueta": "¿Qué medicamentos consume habitualmente?"
         },
         {
-          "tipo": "texto",
-          "id": "peso_talla",
-          "etiqueta": "Peso y talla"
+          "tipo": "texto_largo",
+          "id": "medicamentos_5_anios",
+          "etiqueta": "¿Qué medicamentos ha consumido en los últimos 5 años?"
         },
-        {
-          "tipo": "texto",
-          "id": "centro_dia",
-          "etiqueta": "¿Asiste a algún centro de día?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "movimientos_involuntarios",
-          "etiqueta": "¿Antecedente de movimientos involuntarios?"
-        }
-      ]
-    },
-    {
-      "id": "salud",
-      "titulo": "Deporte, alergias y cicatrización",
-      "campos": [
         {
           "tipo": "si_no",
           "id": "deporte",
@@ -264,7 +207,13 @@
           "tipo": "si_no",
           "id": "deporte_malestar",
           "etiqueta": "¿Nota algún malestar al realizarlo?"
-        },
+        }
+      ]
+    },
+    {
+      "id": "alergias",
+      "titulo": "Alergias y cicatrización",
+      "campos": [
         {
           "tipo": "si_no",
           "id": "alergico",
@@ -293,7 +242,7 @@
         {
           "tipo": "texto_largo",
           "id": "cicatrizacion",
-          "etiqueta": "Cuando se lastima, ¿cicatriza bien? ¿Sangra mucho?"
+          "etiqueta": "Cuando le sacan una muela o se lastima, ¿cicatriza bien? ¿Sangra mucho?"
         },
         {
           "tipo": "si_no",
@@ -304,6 +253,11 @@
           "tipo": "si_no",
           "id": "fiebre_reumatica",
           "etiqueta": "¿Antecedentes de fiebre reumática?"
+        },
+        {
+          "tipo": "texto",
+          "id": "fiebre_reumatica_proteccion",
+          "etiqueta": "¿Se protege con alguna medicación?"
         }
       ]
     },
@@ -317,9 +271,24 @@
           "etiqueta": "¿Es diabético?"
         },
         {
-          "tipo": "texto",
+          "tipo": "opcion_unica",
           "id": "diabetes_controlada",
-          "etiqueta": "¿Está controlado?"
+          "etiqueta": "¿Está controlado?",
+          "opciones": [
+            {
+              "valor": "si",
+              "etiqueta": "Sí"
+            },
+            {
+              "valor": "no",
+              "etiqueta": "No"
+            }
+          ]
+        },
+        {
+          "tipo": "texto",
+          "id": "diabetes_con_que",
+          "etiqueta": "¿Con qué?"
         },
         {
           "tipo": "si_no",
@@ -333,16 +302,16 @@
         {
           "tipo": "si_no",
           "id": "aspirina",
-          "etiqueta": "¿Toma seguido aspirina o ibuprofeno?",
+          "etiqueta": "¿Toma seguido aspirina o anticoagulantes?",
           "detalle": {
             "etiqueta": "¿Con qué frecuencia?",
             "cuando": "si"
           }
         },
         {
-          "tipo": "texto",
-          "id": "presion_arterial",
-          "etiqueta": "Valores de presión arterial"
+          "tipo": "si_no",
+          "id": "presion_alta",
+          "etiqueta": "¿Tiene presión alta?"
         },
         {
           "tipo": "si_no",
@@ -363,11 +332,6 @@
           "tipo": "si_no",
           "id": "ulcera",
           "etiqueta": "¿Úlcera gástrica?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "boton_gastrico",
-          "etiqueta": "¿Botón gástrico?"
         },
         {
           "tipo": "si_no",
@@ -418,12 +382,8 @@
         },
         {
           "tipo": "si_no",
-          "id": "ets",
-          "etiqueta": "¿Ha tenido enfermedades de transmisión sexual?",
-          "detalle": {
-            "etiqueta": "¿Cuál?",
-            "cuando": "si"
-          }
+          "id": "sifilis",
+          "etiqueta": "¿Ha tenido sífilis o gonorrea?"
         },
         {
           "tipo": "si_no",
@@ -434,15 +394,6 @@
           "tipo": "si_no",
           "id": "transfusiones",
           "etiqueta": "¿Tuvo transfusiones?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "internado",
-          "etiqueta": "¿Estuvo internado?",
-          "detalle": {
-            "etiqueta": "Motivo",
-            "cuando": "si"
-          }
         },
         {
           "tipo": "si_no",
@@ -499,85 +450,103 @@
         {
           "tipo": "texto",
           "id": "homeopatia",
-          "etiqueta": "¿Realiza algún tipo de tratamiento homeopático, acupuntura u otros?"
+          "etiqueta": "¿Realiza algún tratamiento homeopático, acupuntura u otros?"
         },
         {
           "tipo": "texto",
-          "id": "medico_cabecera",
-          "etiqueta": "Médico de cabecera"
-        },
-        {
-          "tipo": "si_no",
-          "id": "informe_medico",
-          "etiqueta": "¿Adjunta informe médico?"
-        },
-        {
-          "tipo": "si_no",
-          "id": "cud",
-          "etiqueta": "¿Presenta el Certificado Único de Discapacidad?"
+          "id": "medico_clinico",
+          "etiqueta": "Médico clínico"
         },
         {
           "tipo": "texto",
           "id": "derivacion",
           "etiqueta": "Clínica u hospital en caso de hacer falta derivación"
-        },
-        {
-          "tipo": "texto",
-          "id": "asa",
-          "etiqueta": "ASA tipo"
         }
       ]
     },
     {
       "id": "consulta",
-      "titulo": "Consulta y experiencia odontológica",
+      "titulo": "Consulta y dolor",
       "campos": [
         {
           "tipo": "texto_largo",
           "id": "motivo_consulta",
-          "etiqueta": "Motivo de la consulta"
+          "etiqueta": "¿Por qué asistió a la consulta?"
         },
         {
           "tipo": "si_no",
-          "id": "experiencia_previa",
-          "etiqueta": "¿Tiene experiencia odontológica previa?"
+          "id": "consulto_otro",
+          "etiqueta": "¿Consultó antes con algún otro profesional?"
         },
         {
           "tipo": "si_no",
-          "id": "intervencion_quirurgica",
-          "etiqueta": "¿Antecedente de intervención quirúrgica?"
+          "id": "tomo_medicamento",
+          "etiqueta": "¿Tomó algún medicamento?",
+          "detalle": {
+            "etiqueta": "Nombre de los medicamentos",
+            "cuando": "si"
+          }
+        },
+        {
+          "tipo": "texto",
+          "id": "medicamento_desde",
+          "etiqueta": "¿Desde cuándo?"
         },
         {
           "tipo": "si_no",
-          "id": "anestesia_general",
-          "etiqueta": "¿Con anestesia general?"
+          "id": "medicamento_resultados",
+          "etiqueta": "¿Obtuvo resultados?"
         },
-        {
-          "tipo": "si_no",
-          "id": "sedacion",
-          "etiqueta": "¿Con sedación consciente o similar?"
-        }
-      ]
-    },
-    {
-      "id": "dolor",
-      "titulo": "Dolor y medicación",
-      "campos": [
         {
           "tipo": "si_no",
           "id": "dolor",
           "etiqueta": "¿Ha tenido dolor?"
         },
         {
-          "tipo": "texto_largo",
-          "id": "dolor_tipo",
-          "etiqueta": "¿De qué tipo?"
-        },
-        {
           "tipo": "opcion_multiple",
-          "id": "dolor_localizacion",
-          "etiqueta": "¿Localizado o irradiado?",
+          "id": "dolor_tipo",
+          "etiqueta": "¿De qué tipo?",
           "opciones": [
+            {
+              "valor": "suave",
+              "etiqueta": "Suave"
+            },
+            {
+              "valor": "moderado",
+              "etiqueta": "Moderado"
+            },
+            {
+              "valor": "intenso",
+              "etiqueta": "Intenso"
+            },
+            {
+              "valor": "temporario",
+              "etiqueta": "Temporario"
+            },
+            {
+              "valor": "intermitente",
+              "etiqueta": "Intermitente"
+            },
+            {
+              "valor": "continuo",
+              "etiqueta": "Continuo"
+            },
+            {
+              "valor": "espontaneo",
+              "etiqueta": "Espontáneo"
+            },
+            {
+              "valor": "provocado",
+              "etiqueta": "Provocado"
+            },
+            {
+              "valor": "al_frio",
+              "etiqueta": "Al frío"
+            },
+            {
+              "valor": "al_calor",
+              "etiqueta": "Al calor"
+            },
             {
               "valor": "localizado",
               "etiqueta": "Localizado"
@@ -600,8 +569,8 @@
         },
         {
           "tipo": "texto_largo",
-          "id": "tomo_medicacion",
-          "etiqueta": "¿Tomó alguna medicación?"
+          "id": "dolor_calma",
+          "etiqueta": "¿Puede calmarlo con algo?"
         }
       ]
     },
@@ -663,11 +632,6 @@
           "tipo": "texto",
           "id": "dificultad_tragar",
           "etiqueta": "¿Para tragar los alimentos?"
-        },
-        {
-          "tipo": "texto",
-          "id": "dificultad_expectorar",
-          "etiqueta": "¿Tiene dificultad para tragar y/o expectorar?"
         }
       ]
     },
@@ -675,6 +639,45 @@
       "id": "lesiones",
       "titulo": "Lesiones",
       "campos": [
+        {
+          "tipo": "opcion_multiple",
+          "id": "anormal_en",
+          "etiqueta": "¿Ha observado algo anormal en…?",
+          "opciones": [
+            {
+              "valor": "labios",
+              "etiqueta": "Labios"
+            },
+            {
+              "valor": "lengua",
+              "etiqueta": "Lengua"
+            },
+            {
+              "valor": "paladar",
+              "etiqueta": "Paladar"
+            },
+            {
+              "valor": "piso_de_boca",
+              "etiqueta": "Piso de boca"
+            },
+            {
+              "valor": "carrillos",
+              "etiqueta": "Carrillos"
+            },
+            {
+              "valor": "rebordes",
+              "etiqueta": "Rebordes"
+            },
+            {
+              "valor": "trigono",
+              "etiqueta": "Trígono"
+            },
+            {
+              "valor": "retromolar",
+              "etiqueta": "Retromolar"
+            }
+          ]
+        },
         {
           "tipo": "si_no",
           "id": "manchas",
@@ -696,7 +699,7 @@
           "etiqueta": "¿Ampollas?"
         },
         {
-          "tipo": "texto",
+          "tipo": "texto_largo",
           "id": "lesiones_otras",
           "etiqueta": "Otras lesiones"
         },
@@ -713,7 +716,7 @@
     },
     {
       "id": "signos",
-      "titulo": "Oclusión e higiene",
+      "titulo": "Otros signos e higiene",
       "campos": [
         {
           "tipo": "si_no",
@@ -731,52 +734,33 @@
         },
         {
           "tipo": "texto",
-          "id": "trauma_oclusal",
-          "etiqueta": "Trauma oclusal"
+          "id": "dientes_altos",
+          "etiqueta": "¿Al morder siente altos los dientes?"
         },
         {
           "tipo": "si_no",
-          "id": "ruidos",
-          "etiqueta": "¿Ruidos o chasquidos?"
-        },
-        {
-          "tipo": "texto",
-          "id": "tipo_mordida",
-          "etiqueta": "Tipo de mordida"
-        },
-        {
-          "tipo": "texto",
-          "id": "frecuencia_cepillado",
-          "etiqueta": "Frecuencia de cepillado"
+          "id": "cara_hinchada",
+          "etiqueta": "¿Ha tenido la cara hinchada?"
         },
         {
           "tipo": "opcion_multiple",
-          "id": "cepillo",
-          "etiqueta": "¿Con qué se higieniza?",
+          "id": "hinchazon_aplico",
+          "etiqueta": "¿Se puso…?",
           "opciones": [
             {
-              "valor": "manual",
-              "etiqueta": "Cepillo manual"
+              "valor": "hielo",
+              "etiqueta": "Hielo"
             },
             {
-              "valor": "electrico",
-              "etiqueta": "Cepillo eléctrico"
-            },
-            {
-              "valor": "hilo_dental",
-              "etiqueta": "Hilo dental"
+              "valor": "calor",
+              "etiqueta": "Calor"
             }
           ]
         },
         {
           "tipo": "texto",
-          "id": "cepillo_otro",
-          "etiqueta": "Otro"
-        },
-        {
-          "tipo": "si_no",
-          "id": "se_cepilla_solo",
-          "etiqueta": "¿Se cepilla solo?"
+          "id": "hinchazon_otros",
+          "etiqueta": "¿Otros?"
         },
         {
           "tipo": "texto",
@@ -845,7 +829,7 @@
     },
     {
       "id": "diagnostico",
-      "titulo": "Diagnóstico, plan y estudios",
+      "titulo": "Diagnóstico y plan",
       "campos": [
         {
           "tipo": "texto_largo",
@@ -882,13 +866,8 @@
           "etiqueta": "Observaciones"
         },
         {
-          "tipo": "texto_largo",
-          "id": "estudios",
-          "etiqueta": "Estudios radiográficos y/o complementarios"
-        },
-        {
           "tipo": "numero",
-          "id": "estudios_anexo",
+          "id": "observaciones_anexo",
           "etiqueta": "Continúa en anexo Nº",
           "min": 1,
           "max": 999
@@ -925,7 +904,7 @@
   "cuerpo": [
     {
       "t": "titulo",
-      "texto": "Historia clínica general para PcD"
+      "texto": "Historia clínica general"
     },
     {
       "t": "parrafo",
@@ -937,15 +916,11 @@
     },
     {
       "t": "parrafo",
-      "texto": "Paciente: {{paciente_nombre}}. DNI: {{dni}}."
+      "texto": "Paciente: {{paciente_nombre}}. Nº de afiliado: {{afiliado}}."
     },
     {
       "t": "parrafo",
-      "texto": "Obra social: {{obra_social}}. Plan: {{plan_obra_social}}. Número de afiliado: {{afiliado}}."
-    },
-    {
-      "t": "parrafo",
-      "texto": "Fecha de nacimiento: {{fecha_nacimiento}}. Edad: {{edad}}. Nacionalidad: {{nacionalidad}}. Grupo sanguíneo: {{grupo_sanguineo}}. Estado civil: {{estado_civil}}. Cel.: {{celular}}."
+      "texto": "Obra social: {{obra_social}}. Fecha de nacimiento: {{fecha_nacimiento}}. Tel.: {{telefono}}. Edad: {{edad}}. Estado civil: {{estado_civil}}. Nacionalidad: {{nacionalidad}}. Nº de documento: {{dni}}. Cel.: {{celular}}."
     },
     {
       "t": "parrafo",
@@ -965,45 +940,37 @@
         "¿Padre con vida? {{padre_vive}}. Enfermedad que padece o padeció: {{padre_enfermedad}}.",
         "¿Madre con vida? {{madre_vive}}. Enfermedad que padece o padeció: {{madre_enfermedad}}.",
         "¿Hermanos? {{hermanos}}. ¿Sanos? {{hermanos_sanos}}.",
-        "¿Posee un diagnóstico médico? {{diagnostico_medico}}.",
-        "Medicación administrada: {{medicacion_administrada}}.",
-        "Peso y talla: {{peso_talla}}.",
-        "¿Asiste a algún centro de día? {{centro_dia}}.",
+        "¿Sufre de alguna enfermedad? {{enfermedad}}.",
+        "¿Hace algún tratamiento médico? {{tratamiento_medico}}.",
+        "¿Qué medicamentos consume habitualmente? {{medicamentos_habituales}}.",
+        "¿Qué medicamentos ha consumido en los últimos 5 años? {{medicamentos_5_anios}}.",
         "¿Realiza algún deporte? {{deporte}}. ¿Nota algún malestar al realizarlo? {{deporte_malestar}}.",
         "¿Es alérgico a alguna droga? {{alergico}}. ¿A cuáles? {{alergias}}. Otras: {{alergias_otras}}.",
-        "Cuando se lastima, ¿cicatriza bien? ¿Sangra mucho? {{cicatrizacion}}.",
+        "Cuando le sacan una muela o se lastima, ¿cicatriza bien? ¿Sangra mucho? {{cicatrizacion}}.",
         "¿Tiene problema de colágeno (hiperlaxitud)? {{colageno}}.",
-        "¿Antecedentes de fiebre reumática? {{fiebre_reumatica}}.",
-        "¿Es diabético? {{diabetico}}. ¿Está controlado? {{diabetes_controlada}}.",
+        "¿Antecedentes de fiebre reumática? {{fiebre_reumatica}}. ¿Se protege con alguna medicación? {{fiebre_reumatica_proteccion}}.",
+        "¿Es diabético? {{diabetico}}. ¿Está controlado? {{diabetes_controlada}}. ¿Con qué? {{diabetes_con_que}}.",
         "¿Tiene algún problema cardíaco? {{cardiaco}}.",
-        "¿Toma seguido aspirina y/o ibuprofeno? {{aspirina}}.",
-        "Valores de presión arterial: {{presion_arterial}}.",
+        "¿Toma seguido aspirina y/o anticoagulante? {{aspirina}}.",
+        "¿Tiene presión alta? {{presion_alta}}.",
         "¿Chagas? {{chagas}}. ¿Está en tratamiento? {{chagas_tratamiento}}.",
         "¿Tiene problemas renales? {{renales}}.",
         "¿Úlcera gástrica? {{ulcera}}.",
-        "¿Botón gástrico? {{boton_gastrico}}.",
         "¿Tuvo hepatitis? {{hepatitis}}. ¿De qué tipo? {{hepatitis_tipo}}.",
         "¿Tiene algún problema hepático? {{hepatico}}.",
         "¿Tuvo convulsiones? {{convulsiones}}.",
         "¿Es epiléptico? {{epileptico}}.",
-        "¿Antecedente de movimientos involuntarios? {{movimientos_involuntarios}}.",
-        "¿Necesita movilidad asistida? {{movilidad_asistida}}.",
-        "¿Utiliza silla de ruedas? {{silla_ruedas}}.",
-        "¿Ha tenido enfermedades de transmisión sexual? {{ets}}.",
+        "¿Ha tenido sífilis o gonorrea? {{sifilis}}.",
         "¿Otra enfermedad infecto-contagiosa? {{infecto}}.",
         "¿Tuvo transfusiones? {{transfusiones}}.",
-        "¿Estuvo internado? {{internado}}.",
         "¿Fue operado alguna vez? {{operado}}. ¿Cuándo? {{operado_cuando}}.",
         "¿Tiene algún problema respiratorio? {{respiratorio}}.",
         "¿Fuma? {{fuma}}.",
         "¿Está embarazada? {{embarazada}}.",
         "¿Hay alguna otra enfermedad o recomendación de su médico que quiera dejar constancia? {{otra_enfermedad}}.",
         "¿Realiza algún tipo de tratamiento homeopático, acupuntura, otros? {{homeopatia}}.",
-        "Médico de cabecera: {{medico_cabecera}}.",
-        "¿Adjunta informe médico? {{informe_medico}}.",
-        "¿Presenta el Certificado Único de Discapacidad? {{cud}}.",
-        "Clínica/Hospital en caso de hacer falta derivación: {{derivacion}}.",
-        "ASA tipo: {{asa}}."
+        "Médico clínico: {{medico_clinico}}.",
+        "Clínica/Hospital en caso de hacer falta derivación: {{derivacion}}."
       ]
     },
     {
@@ -1013,26 +980,20 @@
     {
       "t": "lista",
       "items": [
-        "Motivo de la consulta: {{motivo_consulta}}.",
-        "¿Tiene experiencia odontológica previa? {{experiencia_previa}}.",
-        "¿Antecedente de intervención quirúrgica? {{intervencion_quirurgica}}. ¿Con anestesia general? {{anestesia_general}}. ¿Con sedación consciente o similar? {{sedacion}}.",
-        "¿Ha tenido dolor? {{dolor}}. ¿De qué tipo? {{dolor_tipo}}.",
-        "¿Localizado o irradiado? {{dolor_localizacion}}. Localizado, ¿dónde? {{dolor_donde}}. Irradiado, ¿hacia dónde? {{dolor_hacia_donde}}.",
-        "¿Tomó alguna medicación? {{tomo_medicacion}}.",
+        "¿Por qué asistió a la consulta? {{motivo_consulta}}.",
+        "¿Consultó antes con algún otro profesional? {{consulto_otro}}.",
+        "¿Tomó algún medicamento? {{tomo_medicamento}}. ¿Desde cuándo? {{medicamento_desde}}. ¿Obtuvo resultados? {{medicamento_resultados}}.",
+        "¿Ha tenido dolor? {{dolor}}. ¿De qué tipo? {{dolor_tipo}}. Localizado, ¿dónde? {{dolor_donde}}. Irradiado, ¿hacia dónde? {{dolor_hacia_donde}}.",
+        "¿Puede calmarlo con algo? {{dolor_calma}}.",
         "¿Sufrió algún golpe en los dientes? {{golpe}}. ¿Cuándo? {{golpe_cuando}}. ¿Cómo se produjo? {{golpe_como}}.",
         "¿Se le fracturó algún diente? {{fractura}}. ¿Recibió algún tratamiento? {{fractura_tratamiento}}.",
         "¿Tiene dificultad para hablar? {{dificultad_hablar}}. ¿Para masticar? {{dificultad_masticar}}. ¿Para abrir la boca? {{dificultad_abrir}}. ¿Para tragar los alimentos? {{dificultad_tragar}}.",
-        "¿Tiene dificultad para tragar y/o expectorar? {{dificultad_expectorar}}.",
+        "¿Ha observado algo anormal en los labios, lengua, paladar, piso de boca, carrillos, rebordes, trígono o retromolar? {{anormal_en}}.",
         "¿Qué tipo de lesiones presenta? Manchas: {{manchas}}. Abultamiento de los tejidos: {{abultamiento}}. Ulceraciones: {{ulceraciones}}. Ampollas: {{ampollas}}. Otros: {{lesiones_otras}}.",
         "¿Le sangran las encías? {{encias_sangran}}.",
         "¿Sale pus de algún lugar de su boca? {{pus}}.",
-        "¿Tiene movilidad en sus dientes? {{movilidad}}.",
-        "Trauma oclusal: {{trauma_oclusal}}.",
-        "¿Ruidos o chasquidos? {{ruidos}}.",
-        "Tipo de mordida: {{tipo_mordida}}.",
-        "Frecuencia de cepillado: {{frecuencia_cepillado}}.",
-        "Cepillo manual, eléctrico, hilo dental: {{cepillo}}. Otro: {{cepillo_otro}}.",
-        "¿Se cepilla solo? {{se_cepilla_solo}}.",
+        "¿Tiene movilidad en sus dientes? {{movilidad}}. ¿Al morder siente altos los dientes? {{dientes_altos}}.",
+        "¿Ha tenido la cara hinchada? {{cara_hinchada}}. ¿Se puso hielo o calor? {{hinchazon_aplico}}. ¿Otros? {{hinchazon_otros}}.",
         "Momentos de azúcar diario: {{momentos_azucar}}. Índice de placa: {{indice_placa}}.",
         "Estado de la higiene bucal: {{higiene}}."
       ]
@@ -1074,12 +1035,8 @@
       "campo": "observaciones"
     },
     {
-      "t": "campo",
-      "campo": "estudios"
-    },
-    {
       "t": "parrafo",
-      "texto": "Continúa en anexo Nº {{estudios_anexo}}."
+      "texto": "Continúa en anexo Nº {{observaciones_anexo}}."
     },
     {
       "t": "parrafo",
@@ -1108,13 +1065,12 @@
   "lamina": {
     "paginas": [
       {
-        "ancho": 595.6,
-        "alto": 842
+        "ancho": 595.3,
+        "alto": 841.9
       },
       {
-        "ancho": 595.6,
-        "alto": 842,
-        "escala": 0.93
+        "ancho": 595.3,
+        "alto": 841.9
       }
     ],
     "zonas": [
@@ -1122,7 +1078,7 @@
         "id": "lugar",
         "pagina": 1,
         "x": 271.5,
-        "y": 112.1,
+        "y": 95.8,
         "ancho": 191.9,
         "tamano": 9,
         "texto": "{{lugar}}"
@@ -1131,8 +1087,8 @@
         "id": "fecha_dia",
         "pagina": 1,
         "x": 492.5,
-        "y": 112.1,
-        "ancho": 16,
+        "y": 95.8,
+        "ancho": 16.5,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{sistema.fecha:dia}}"
@@ -1141,8 +1097,8 @@
         "id": "fecha_mes",
         "pagina": 1,
         "x": 512.5,
-        "y": 112.1,
-        "ancho": 15,
+        "y": 95.8,
+        "ancho": 15.5,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{sistema.fecha:mes}}"
@@ -1151,8 +1107,8 @@
         "id": "fecha_anio",
         "pagina": 1,
         "x": 533.5,
-        "y": 112.1,
-        "ancho": 19.5,
+        "y": 95.8,
+        "ancho": 22,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{sistema.fecha:anio}}"
@@ -1160,20 +1116,20 @@
       {
         "id": "odontologo",
         "pagina": 1,
-        "x": 98,
-        "y": 140.8,
+        "x": 97,
+        "y": 124.2,
         "ancho": 355,
         "texto": "{{odontologo}}"
       },
       {
         "id": "matricula",
         "pagina": 1,
-        "x": 458.28,
-        "y": 148.7,
-        "ancho": 89.5,
+        "x": 458.7,
+        "y": 132.9,
+        "ancho": 88.4,
         "casillas": {
           "cantidad": 5,
-          "paso": 17.9
+          "paso": 17.68
         },
         "texto": "{{matricula}}"
       },
@@ -1181,150 +1137,140 @@
         "id": "paciente_nombre",
         "pagina": 1,
         "x": 84,
-        "y": 183,
+        "y": 166,
         "ancho": 200,
         "texto": "{{paciente_nombre}}"
       },
       {
-        "id": "dni",
+        "id": "afiliado",
         "pagina": 1,
-        "x": 321.28,
-        "y": 186.8,
-        "ancho": 228.16,
+        "x": 321.27,
+        "y": 170.5,
+        "ancho": 226.56,
         "casillas": {
           "cantidad": 16,
-          "paso": 14.26
+          "paso": 14.16
         },
-        "texto": "{{dni}}"
+        "texto": "{{afiliado}}"
       },
       {
         "id": "obra_social",
         "pagina": 1,
-        "x": 68.1,
-        "y": 213.9,
-        "ancho": 200.2,
-        "tamano": 8,
+        "x": 63.7,
+        "y": 196.7,
+        "ancho": 302,
+        "tamano": 9,
         "texto": "{{obra_social}}"
-      },
-      {
-        "id": "plan_obra_social",
-        "pagina": 1,
-        "x": 286.8,
-        "y": 213.9,
-        "ancho": 55.4,
-        "tamano": 8,
-        "minimo": 5,
-        "texto": "{{plan_obra_social}}"
-      },
-      {
-        "id": "afiliado",
-        "pagina": 1,
-        "x": 397.4,
-        "y": 213.9,
-        "ancho": 141.7,
-        "tamano": 8,
-        "texto": "{{afiliado}}"
       },
       {
         "id": "fecha_nacimiento",
         "pagina": 1,
-        "x": 48.9,
-        "y": 224.2,
-        "ancho": 141.3,
-        "tamano": 8,
+        "x": 387.4,
+        "y": 196.7,
+        "ancho": 61.8,
+        "tamano": 9,
         "texto": "{{fecha_nacimiento}}"
+      },
+      {
+        "id": "telefono",
+        "pagina": 1,
+        "x": 463.6,
+        "y": 196.7,
+        "ancho": 92.7,
+        "tamano": 9,
+        "texto": "{{telefono}}",
+        "vacio": "—"
       },
       {
         "id": "edad",
         "pagina": 1,
-        "x": 211.3,
-        "y": 224.2,
-        "ancho": 33.9,
-        "tamano": 8,
+        "x": 46.8,
+        "y": 209.7,
+        "ancho": 35,
+        "tamano": 9,
         "texto": "{{edad}}",
-        "vacio": "—"
-      },
-      {
-        "id": "nacionalidad",
-        "pagina": 1,
-        "x": 288.9,
-        "y": 224.2,
-        "ancho": 163.3,
-        "tamano": 8,
-        "texto": "{{nacionalidad}}"
-      },
-      {
-        "id": "grupo_sanguineo",
-        "pagina": 1,
-        "x": 509.8,
-        "y": 224.2,
-        "ancho": 30.6,
-        "tamano": 8,
-        "texto": "{{grupo_sanguineo}}",
         "vacio": "—"
       },
       {
         "id": "estado_civil",
         "pagina": 1,
-        "x": 69.6,
-        "y": 237.1,
-        "ancho": 200,
-        "tamano": 8,
+        "x": 126.9,
+        "y": 209.7,
+        "ancho": 82,
+        "tamano": 9,
         "texto": "{{estado_civil}}"
+      },
+      {
+        "id": "nacionalidad",
+        "pagina": 1,
+        "x": 253.6,
+        "y": 209.7,
+        "ancho": 78.2,
+        "tamano": 9,
+        "texto": "{{nacionalidad}}"
+      },
+      {
+        "id": "dni",
+        "pagina": 1,
+        "x": 367.3,
+        "y": 209.7,
+        "ancho": 77.9,
+        "tamano": 9,
+        "texto": "{{dni}}"
       },
       {
         "id": "celular",
         "pagina": 1,
-        "x": 286.5,
-        "y": 237.1,
-        "ancho": 254.8,
-        "tamano": 8,
+        "x": 460.4,
+        "y": 209.7,
+        "ancho": 96.7,
+        "tamano": 9,
         "texto": "{{celular}}"
       },
       {
         "id": "domicilio",
         "pagina": 1,
-        "x": 170.5,
-        "y": 250.1,
-        "ancho": 375.2,
-        "tamano": 8,
+        "x": 162.4,
+        "y": 222.5,
+        "ancho": 395.8,
+        "tamano": 9,
         "texto": "{{domicilio}}"
       },
       {
         "id": "profesion",
         "pagina": 1,
-        "x": 91.2,
-        "y": 263,
-        "ancho": 136,
-        "tamano": 8,
+        "x": 92.8,
+        "y": 235.5,
+        "ancho": 139.5,
+        "tamano": 9,
         "texto": "{{profesion}}"
       },
       {
         "id": "titular",
         "pagina": 1,
-        "x": 251.2,
-        "y": 263,
-        "ancho": 63.9,
-        "tamano": 8,
-        "minimo": 5,
-        "texto": "{{titular}}"
+        "x": 256.8,
+        "y": 235.5,
+        "ancho": 66,
+        "tamano": 9,
+        "texto": "{{titular}}",
+        "vacio": "—"
       },
       {
         "id": "lugar_trabajo",
         "pagina": 1,
-        "x": 380.8,
-        "y": 263,
-        "ancho": 93.9,
-        "tamano": 8,
+        "x": 378.6,
+        "y": 235.5,
+        "ancho": 96.4,
+        "tamano": 9,
         "texto": "{{lugar_trabajo}}"
       },
       {
         "id": "jerarquia",
         "pagina": 1,
-        "x": 507.2,
-        "y": 263,
-        "ancho": 47,
-        "tamano": 8,
+        "x": 508.2,
+        "y": 235.5,
+        "ancho": 48.4,
+        "tamano": 9,
         "minimo": 5,
         "texto": "{{jerarquia}}",
         "vacio": "—"
@@ -1332,10 +1278,10 @@
       {
         "id": "padre_vive_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 297.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 275.4,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{padre_vive=si}}",
         "vacio": "—"
@@ -1343,10 +1289,10 @@
       {
         "id": "padre_vive_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 297.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 275.4,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{padre_vive=no}}",
         "vacio": "—"
@@ -1355,21 +1301,21 @@
         "id": "padre_enfermedad",
         "pagina": 1,
         "x": 36.4,
-        "y": 308.8,
-        "ancho": 248.1,
+        "y": 286.7,
+        "ancho": 246.6,
         "lineas": 2,
-        "interlineado": 9.8,
+        "interlineado": 10.3,
         "tamano": 9,
-        "sangria": 140.5,
+        "sangria": 141.6,
         "texto": "{{padre_enfermedad}}"
       },
       {
         "id": "madre_vive_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 331,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 308.8,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{madre_vive=si}}",
         "vacio": "—"
@@ -1377,10 +1323,10 @@
       {
         "id": "madre_vive_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 331,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 308.8,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{madre_vive=no}}",
         "vacio": "—"
@@ -1389,21 +1335,21 @@
         "id": "madre_enfermedad",
         "pagina": 1,
         "x": 36.4,
-        "y": 342,
-        "ancho": 248.1,
+        "y": 320,
+        "ancho": 246.6,
         "lineas": 2,
-        "interlineado": 10,
+        "interlineado": 10.4,
         "tamano": 9,
-        "sangria": 140.5,
+        "sangria": 141.6,
         "texto": "{{madre_enfermedad}}"
       },
       {
         "id": "hermanos_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 364.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 342.1,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hermanos=si}}",
         "vacio": "—"
@@ -1411,10 +1357,10 @@
       {
         "id": "hermanos_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 364.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 342.1,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hermanos=no}}",
         "vacio": "—"
@@ -1422,83 +1368,103 @@
       {
         "id": "hermanos_sanos",
         "pagina": 1,
-        "x": 70.7,
-        "y": 375,
-        "ancho": 211.4,
+        "x": 68,
+        "y": 353.3,
+        "ancho": 215.2,
         "tamano": 9,
         "texto": "{{hermanos_sanos}}"
       },
       {
-        "id": "diagnostico_medico_si",
+        "id": "enfermedad_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 387.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 365.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{diagnostico_medico=si}}",
+        "texto": "{{enfermedad=si}}",
         "vacio": "—"
       },
       {
-        "id": "diagnostico_medico_no",
+        "id": "enfermedad_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 387.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 365.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{diagnostico_medico=no}}",
+        "texto": "{{enfermedad=no}}",
         "vacio": "—"
       },
       {
-        "id": "diagnostico_medico_detalle",
+        "id": "enfermedad_detalle",
         "pagina": 1,
-        "x": 137.1,
-        "y": 398.1,
-        "ancho": 144.2,
+        "x": 69,
+        "y": 376.4,
+        "ancho": 212.7,
         "tamano": 9,
-        "texto": "{{diagnostico_medico:detalle}}"
+        "texto": "{{enfermedad:detalle}}"
       },
       {
-        "id": "medicacion_administrada",
+        "id": "tratamiento_medico_si",
+        "pagina": 1,
+        "x": 245.4,
+        "y": 388.1,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{tratamiento_medico=si}}",
+        "vacio": "—"
+      },
+      {
+        "id": "tratamiento_medico_no",
+        "pagina": 1,
+        "x": 277.2,
+        "y": 388.1,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{tratamiento_medico=no}}",
+        "vacio": "—"
+      },
+      {
+        "id": "tratamiento_medico_detalle",
+        "pagina": 1,
+        "x": 60.5,
+        "y": 399.4,
+        "ancho": 222.7,
+        "tamano": 9,
+        "texto": "{{tratamiento_medico:detalle}}"
+      },
+      {
+        "id": "medicamentos_habituales",
         "pagina": 1,
         "x": 36.4,
-        "y": 408.3,
-        "ancho": 250.6,
-        "lineas": 5,
-        "interlineado": 10.35,
-        "tamano": 9,
-        "sangria": 106.9,
-        "texto": "{{medicacion_administrada}}"
-      },
-      {
-        "id": "peso_talla",
-        "pagina": 1,
-        "x": 86,
-        "y": 460.1,
-        "ancho": 201,
-        "tamano": 9,
-        "texto": "{{peso_talla}}"
-      },
-      {
-        "id": "centro_dia",
-        "pagina": 1,
-        "x": 36.4,
-        "y": 470.5,
-        "ancho": 249.7,
+        "y": 420.1,
+        "ancho": 246.6,
         "lineas": 2,
         "interlineado": 10.3,
         "tamano": 9,
-        "sangria": 116.7,
-        "texto": "{{centro_dia}}"
+        "texto": "{{medicamentos_habituales}}"
+      },
+      {
+        "id": "medicamentos_5_anios",
+        "pagina": 1,
+        "x": 36.4,
+        "y": 451.1,
+        "ancho": 243.5,
+        "lineas": 2,
+        "interlineado": 10.4,
+        "tamano": 9,
+        "texto": "{{medicamentos_5_anios}}"
       },
       {
         "id": "deporte_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 492.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 473.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{deporte=si}}",
         "vacio": "—"
@@ -1506,10 +1472,10 @@
       {
         "id": "deporte_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 492.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 473.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{deporte=no}}",
         "vacio": "—"
@@ -1517,10 +1483,10 @@
       {
         "id": "deporte_malestar_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 505.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 485.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{deporte_malestar=si}}",
         "vacio": "—"
@@ -1528,10 +1494,10 @@
       {
         "id": "deporte_malestar_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 505.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 485.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{deporte_malestar=no}}",
         "vacio": "—"
@@ -1539,10 +1505,10 @@
       {
         "id": "alergico_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 518.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 498.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{alergico=si}}",
         "vacio": "—"
@@ -1550,10 +1516,10 @@
       {
         "id": "alergico_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 518.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 498.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{alergico=no}}",
         "vacio": "—"
@@ -1561,9 +1527,9 @@
       {
         "id": "alergias_anestesia",
         "pagina": 1,
-        "x": 91.6,
-        "y": 529,
-        "ancho": 21,
+        "x": 91,
+        "y": 509.9,
+        "ancho": 14,
         "tamano": 8,
         "alinear": "centro",
         "texto": "{{alergias=anestesia}}",
@@ -1572,9 +1538,9 @@
       {
         "id": "alergias_penicilina",
         "pagina": 1,
-        "x": 173.5,
-        "y": 529,
-        "ancho": 17.9,
+        "x": 164.4,
+        "y": 509.9,
+        "ancho": 15.1,
         "tamano": 8,
         "alinear": "centro",
         "texto": "{{alergias=penicilina}}",
@@ -1583,31 +1549,31 @@
       {
         "id": "alergias_otras",
         "pagina": 1,
-        "x": 215.7,
-        "y": 529,
-        "ancho": 68,
-        "tamano": 8,
-        "minimo": 5,
+        "x": 202.9,
+        "y": 509.9,
+        "ancho": 77.8,
+        "tamano": 9,
         "texto": "{{alergias_otras}}"
       },
       {
         "id": "cicatrizacion",
         "pagina": 1,
         "x": 36.4,
-        "y": 549.9,
-        "ancho": 245.6,
+        "y": 530.5,
+        "ancho": 246.6,
         "lineas": 2,
-        "interlineado": 10,
+        "interlineado": 10.3,
         "tamano": 9,
+        "sangria": 64.6,
         "texto": "{{cicatrizacion}}"
       },
       {
         "id": "colageno_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 572.3,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 552.7,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{colageno=si}}",
         "vacio": "—"
@@ -1615,10 +1581,10 @@
       {
         "id": "colageno_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 572.3,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 552.7,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{colageno=no}}",
         "vacio": "—"
@@ -1626,10 +1592,10 @@
       {
         "id": "fiebre_reumatica_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 585.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 565.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fiebre_reumatica=si}}",
         "vacio": "—"
@@ -1637,21 +1603,30 @@
       {
         "id": "fiebre_reumatica_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 585.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 565.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fiebre_reumatica=no}}",
         "vacio": "—"
       },
       {
+        "id": "fiebre_reumatica_proteccion",
+        "pagina": 1,
+        "x": 179.9,
+        "y": 576.5,
+        "ancho": 102.9,
+        "tamano": 9,
+        "texto": "{{fiebre_reumatica_proteccion}}"
+      },
+      {
         "id": "diabetico_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 598.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 588.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{diabetico=si}}",
         "vacio": "—"
@@ -1659,10 +1634,10 @@
       {
         "id": "diabetico_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 598.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 588.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{diabetico=no}}",
         "vacio": "—"
@@ -1670,19 +1645,30 @@
       {
         "id": "diabetes_controlada",
         "pagina": 1,
-        "x": 104.6,
-        "y": 608.9,
-        "ancho": 175.2,
+        "x": 104.9,
+        "y": 599.5,
+        "ancho": 16.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{diabetes_controlada}}",
+        "vacio": "—"
+      },
+      {
+        "id": "diabetes_con_que",
+        "pagina": 1,
+        "x": 159.9,
+        "y": 599.5,
+        "ancho": 122.9,
         "tamano": 9,
-        "texto": "{{diabetes_controlada}}"
+        "texto": "{{diabetes_con_que}}"
       },
       {
         "id": "cardiaco_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 621.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 611.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{cardiaco=si}}",
         "vacio": "—"
@@ -1690,10 +1676,10 @@
       {
         "id": "cardiaco_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 621.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 611.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{cardiaco=no}}",
         "vacio": "—"
@@ -1702,7 +1688,7 @@
         "id": "cardiaco_detalle",
         "pagina": 1,
         "x": 58,
-        "y": 631.9,
+        "y": 622.6,
         "ancho": 225.2,
         "tamano": 9,
         "texto": "{{cardiaco:detalle}}"
@@ -1710,10 +1696,10 @@
       {
         "id": "aspirina_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 644.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 634.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{aspirina=si}}",
         "vacio": "—"
@@ -1721,10 +1707,10 @@
       {
         "id": "aspirina_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 644.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 634.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{aspirina=no}}",
         "vacio": "—"
@@ -1732,28 +1718,41 @@
       {
         "id": "aspirina_detalle",
         "pagina": 1,
-        "x": 119.3,
-        "y": 654.8,
-        "ancho": 164.9,
+        "x": 117.4,
+        "y": 645.5,
+        "ancho": 167.8,
         "tamano": 9,
         "texto": "{{aspirina:detalle}}"
       },
       {
-        "id": "presion_arterial",
+        "id": "presion_alta_si",
         "pagina": 1,
-        "x": 142.5,
-        "y": 667.1,
-        "ancho": 132.9,
-        "tamano": 9,
-        "texto": "{{presion_arterial}}"
+        "x": 245.4,
+        "y": 657.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{presion_alta=si}}",
+        "vacio": "—"
+      },
+      {
+        "id": "presion_alta_no",
+        "pagina": 1,
+        "x": 277.2,
+        "y": 657.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{presion_alta=no}}",
+        "vacio": "—"
       },
       {
         "id": "chagas_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 679.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 669.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{chagas=si}}",
         "vacio": "—"
@@ -1761,10 +1760,10 @@
       {
         "id": "chagas_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 679.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 669.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{chagas=no}}",
         "vacio": "—"
@@ -1772,19 +1771,19 @@
       {
         "id": "chagas_tratamiento",
         "pagina": 1,
-        "x": 119.6,
-        "y": 690.1,
-        "ancho": 160.2,
+        "x": 120.9,
+        "y": 681.1,
+        "ancho": 160.3,
         "tamano": 9,
         "texto": "{{chagas_tratamiento}}"
       },
       {
         "id": "renales_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 702.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 693,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{renales=si}}",
         "vacio": "—"
@@ -1792,10 +1791,10 @@
       {
         "id": "renales_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 702.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 693,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{renales=no}}",
         "vacio": "—"
@@ -1803,10 +1802,10 @@
       {
         "id": "ulcera_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 714.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 705.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ulcera=si}}",
         "vacio": "—"
@@ -1814,43 +1813,21 @@
       {
         "id": "ulcera_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 714.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 705.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ulcera=no}}",
         "vacio": "—"
       },
       {
-        "id": "boton_gastrico_si",
-        "pagina": 1,
-        "x": 245.8,
-        "y": 726.3,
-        "ancho": 4.4,
-        "tamano": 5.5,
-        "alinear": "centro",
-        "texto": "{{boton_gastrico=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "boton_gastrico_no",
-        "pagina": 1,
-        "x": 273.6,
-        "y": 726.3,
-        "ancho": 4.4,
-        "tamano": 5.5,
-        "alinear": "centro",
-        "texto": "{{boton_gastrico=no}}",
-        "vacio": "—"
-      },
-      {
         "id": "hepatitis_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 737.9,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 718.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatitis=si}}",
         "vacio": "—"
@@ -1858,43 +1835,43 @@
       {
         "id": "hepatitis_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 737.9,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 718.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatitis=no}}",
         "vacio": "—"
       },
       {
-        "id": "hepatitis_tipo_a",
+        "id": "hepatitis_a",
         "pagina": 1,
-        "x": 128.6,
-        "y": 750.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 96.9,
+        "y": 730.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatitis_tipo=a}}",
         "vacio": "—"
       },
       {
-        "id": "hepatitis_tipo_b",
+        "id": "hepatitis_b",
         "pagina": 1,
-        "x": 152.7,
-        "y": 750.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 126.3,
+        "y": 730.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatitis_tipo=b}}",
         "vacio": "—"
       },
       {
-        "id": "hepatitis_tipo_c",
+        "id": "hepatitis_c",
         "pagina": 1,
-        "x": 176.1,
-        "y": 750.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 153.7,
+        "y": 730.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatitis_tipo=c}}",
         "vacio": "—"
@@ -1902,10 +1879,10 @@
       {
         "id": "hepatico_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 763.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 743.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatico=si}}",
         "vacio": "—"
@@ -1913,10 +1890,10 @@
       {
         "id": "hepatico_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 763.5,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 743.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{hepatico=no}}",
         "vacio": "—"
@@ -1924,19 +1901,19 @@
       {
         "id": "hepatico_detalle",
         "pagina": 1,
-        "x": 63.4,
-        "y": 774.1,
-        "ancho": 218.7,
+        "x": 60.5,
+        "y": 754.8,
+        "ancho": 222.7,
         "tamano": 9,
         "texto": "{{hepatico:detalle}}"
       },
       {
         "id": "convulsiones_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 786.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 766.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{convulsiones=si}}",
         "vacio": "—"
@@ -1944,10 +1921,10 @@
       {
         "id": "convulsiones_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 786.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 766.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{convulsiones=no}}",
         "vacio": "—"
@@ -1955,10 +1932,10 @@
       {
         "id": "epileptico_si",
         "pagina": 1,
-        "x": 244.8,
-        "y": 799.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 779.1,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{epileptico=si}}",
         "vacio": "—"
@@ -1966,10 +1943,10 @@
       {
         "id": "epileptico_no",
         "pagina": 1,
-        "x": 273.7,
-        "y": 799.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 779.1,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{epileptico=no}}",
         "vacio": "—"
@@ -1977,116 +1954,41 @@
       {
         "id": "epileptico_detalle",
         "pagina": 1,
-        "x": 120.6,
-        "y": 809.8,
-        "ancho": 161.9,
+        "x": 122,
+        "y": 790.5,
+        "ancho": 161.7,
         "tamano": 9,
         "texto": "{{epileptico:detalle}}"
       },
       {
-        "id": "movimientos_involuntarios_si",
+        "id": "sifilis_si",
         "pagina": 1,
-        "x": 250.3,
-        "y": 822.3,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 245.4,
+        "y": 802.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{movimientos_involuntarios=si}}",
+        "texto": "{{sifilis=si}}",
         "vacio": "—"
       },
       {
-        "id": "movimientos_involuntarios_no",
+        "id": "sifilis_no",
         "pagina": 1,
-        "x": 279.3,
-        "y": 822.3,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 277.2,
+        "y": 802.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{movimientos_involuntarios=no}}",
+        "texto": "{{sifilis=no}}",
         "vacio": "—"
-      },
-      {
-        "id": "movilidad_asistida_si",
-        "pagina": 1,
-        "x": 522.9,
-        "y": 281.1,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{movilidad_asistida=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "movilidad_asistida_no",
-        "pagina": 1,
-        "x": 551.8,
-        "y": 281.1,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{movilidad_asistida=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "silla_ruedas_si",
-        "pagina": 1,
-        "x": 522.9,
-        "y": 294.3,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{silla_ruedas=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "silla_ruedas_no",
-        "pagina": 1,
-        "x": 551.8,
-        "y": 294.3,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{silla_ruedas=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "ets_si",
-        "pagina": 1,
-        "x": 522.9,
-        "y": 307.6,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{ets=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "ets_no",
-        "pagina": 1,
-        "x": 551.8,
-        "y": 307.6,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{ets=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "ets_detalle",
-        "pagina": 1,
-        "x": 330.6,
-        "y": 321,
-        "ancho": 222.7,
-        "tamano": 9,
-        "texto": "{{ets:detalle}}"
       },
       {
         "id": "infecto_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 335,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 259.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{infecto=si}}",
         "vacio": "—"
@@ -2094,10 +1996,10 @@
       {
         "id": "infecto_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 335,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 259.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{infecto=no}}",
         "vacio": "—"
@@ -2105,10 +2007,10 @@
       {
         "id": "transfusiones_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 347.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 272.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{transfusiones=si}}",
         "vacio": "—"
@@ -2116,52 +2018,21 @@
       {
         "id": "transfusiones_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 347.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 272.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{transfusiones=no}}",
         "vacio": "—"
       },
       {
-        "id": "internado_si",
-        "pagina": 1,
-        "x": 523.6,
-        "y": 360.4,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{internado=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "internado_no",
-        "pagina": 1,
-        "x": 552.7,
-        "y": 360.4,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{internado=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "internado_detalle",
-        "pagina": 1,
-        "x": 335.3,
-        "y": 371.2,
-        "ancho": 211.2,
-        "tamano": 9,
-        "texto": "{{internado:detalle}}"
-      },
-      {
         "id": "operado_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 383.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 285.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{operado=si}}",
         "vacio": "—"
@@ -2169,10 +2040,10 @@
       {
         "id": "operado_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 383.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 285.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{operado=no}}",
         "vacio": "—"
@@ -2180,28 +2051,28 @@
       {
         "id": "operado_detalle",
         "pagina": 1,
-        "x": 344.3,
-        "y": 394.6,
-        "ancho": 223.5,
+        "x": 341.5,
+        "y": 296.4,
+        "ancho": 212.7,
         "tamano": 9,
         "texto": "{{operado:detalle}}"
       },
       {
         "id": "operado_cuando",
         "pagina": 1,
-        "x": 345.6,
-        "y": 404.6,
-        "ancho": 223.1,
+        "x": 345.5,
+        "y": 306.9,
+        "ancho": 207.8,
         "tamano": 9,
         "texto": "{{operado_cuando}}"
       },
       {
         "id": "respiratorio_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 417,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 318.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{respiratorio=si}}",
         "vacio": "—"
@@ -2209,10 +2080,10 @@
       {
         "id": "respiratorio_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 417,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 318.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{respiratorio=no}}",
         "vacio": "—"
@@ -2220,19 +2091,19 @@
       {
         "id": "respiratorio_detalle",
         "pagina": 1,
-        "x": 334.3,
-        "y": 427.6,
-        "ancho": 235.8,
+        "x": 333,
+        "y": 329.8,
+        "ancho": 232.8,
         "tamano": 9,
         "texto": "{{respiratorio:detalle}}"
       },
       {
         "id": "fuma_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 439.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 341.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fuma=si}}",
         "vacio": "—"
@@ -2240,10 +2111,10 @@
       {
         "id": "fuma_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 439.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 341.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fuma=no}}",
         "vacio": "—"
@@ -2251,10 +2122,10 @@
       {
         "id": "embarazada_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 452.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 354.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{embarazada=si}}",
         "vacio": "—"
@@ -2262,10 +2133,10 @@
       {
         "id": "embarazada_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 452.7,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 354.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{embarazada=no}}",
         "vacio": "—"
@@ -2273,19 +2144,19 @@
       {
         "id": "embarazada_detalle",
         "pagina": 1,
-        "x": 391.1,
-        "y": 463.6,
-        "ancho": 178,
+        "x": 392,
+        "y": 365.5,
+        "ancho": 172.9,
         "tamano": 9,
         "texto": "{{embarazada:detalle}}"
       },
       {
         "id": "otra_enfermedad_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 486.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 517.9,
+        "y": 387.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{otra_enfermedad=si}}",
         "vacio": "—"
@@ -2293,10 +2164,10 @@
       {
         "id": "otra_enfermedad_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 486.1,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 549.7,
+        "y": 387.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{otra_enfermedad=no}}",
         "vacio": "—"
@@ -2304,11 +2175,11 @@
       {
         "id": "otra_enfermedad_detalle",
         "pagina": 1,
-        "x": 309,
-        "y": 497,
-        "ancho": 263.2,
+        "x": 308.9,
+        "y": 398.8,
+        "ancho": 256.7,
         "lineas": 2,
-        "interlineado": 10.4,
+        "interlineado": 10.3,
         "tamano": 9,
         "sangria": 21.6,
         "texto": "{{otra_enfermedad:detalle}}"
@@ -2316,276 +2187,309 @@
       {
         "id": "homeopatia",
         "pagina": 1,
-        "x": 309,
-        "y": 528.3,
+        "x": 308.9,
+        "y": 429.9,
         "ancho": 261.5,
         "tamano": 9,
         "texto": "{{homeopatia}}"
       },
       {
-        "id": "medico_cabecera",
+        "id": "medico_clinico",
         "pagina": 1,
-        "x": 397.1,
-        "y": 538.6,
-        "ancho": 171.4,
+        "x": 371,
+        "y": 440.2,
+        "ancho": 198.4,
         "tamano": 9,
-        "texto": "{{medico_cabecera}}"
-      },
-      {
-        "id": "informe_medico_si",
-        "pagina": 1,
-        "x": 522.9,
-        "y": 551.6,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{informe_medico=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "informe_medico_no",
-        "pagina": 1,
-        "x": 551.7,
-        "y": 551.6,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{informe_medico=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "cud_si",
-        "pagina": 1,
-        "x": 522.9,
-        "y": 565.4,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{cud=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "cud_no",
-        "pagina": 1,
-        "x": 551.8,
-        "y": 565.4,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{cud=no}}",
-        "vacio": "—"
+        "texto": "{{medico_clinico}}"
       },
       {
         "id": "derivacion",
         "pagina": 1,
-        "x": 309,
-        "y": 587,
-        "ancho": 259,
+        "x": 308.9,
+        "y": 461,
+        "ancho": 261.5,
         "tamano": 9,
         "texto": "{{derivacion}}"
       },
       {
-        "id": "asa",
-        "pagina": 1,
-        "x": 355.4,
-        "y": 597.3,
-        "ancho": 214.1,
-        "tamano": 9,
-        "texto": "{{asa}}"
-      },
-      {
         "id": "motivo_consulta",
         "pagina": 1,
-        "x": 309,
-        "y": 644.5,
+        "x": 308.9,
+        "y": 508.1,
         "ancho": 258.2,
         "lineas": 2,
-        "interlineado": 10.3,
+        "interlineado": 10.4,
         "tamano": 9,
-        "sangria": 84.4,
+        "sangria": 117.5,
         "texto": "{{motivo_consulta}}"
       },
       {
-        "id": "experiencia_previa_si",
+        "id": "consulto_otro_si",
         "pagina": 1,
-        "x": 522.9,
-        "y": 664.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 526.9,
+        "y": 540.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{experiencia_previa=si}}",
+        "texto": "{{consulto_otro=si}}",
         "vacio": "—"
       },
       {
-        "id": "experiencia_previa_no",
+        "id": "consulto_otro_no",
         "pagina": 1,
-        "x": 551.8,
-        "y": 664.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 558.7,
+        "y": 540.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{experiencia_previa=no}}",
+        "texto": "{{consulto_otro=no}}",
         "vacio": "—"
       },
       {
-        "id": "intervencion_quirurgica_si",
+        "id": "tomo_medicamento_si",
         "pagina": 1,
-        "x": 521.9,
-        "y": 677,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 526.9,
+        "y": 553.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{intervencion_quirurgica=si}}",
+        "texto": "{{tomo_medicamento=si}}",
         "vacio": "—"
       },
       {
-        "id": "intervencion_quirurgica_no",
+        "id": "tomo_medicamento_no",
         "pagina": 1,
-        "x": 550.9,
-        "y": 677,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 558.7,
+        "y": 553.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{intervencion_quirurgica=no}}",
+        "texto": "{{tomo_medicamento=no}}",
         "vacio": "—"
       },
       {
-        "id": "anestesia_general_si",
+        "id": "tomo_medicamento_detalle",
         "pagina": 1,
-        "x": 521.8,
-        "y": 687.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 308.9,
+        "y": 564.5,
+        "ancho": 257,
+        "lineas": 2,
+        "interlineado": 10.3,
+        "tamano": 9,
+        "sangria": 119.5,
+        "texto": "{{tomo_medicamento:detalle}}"
+      },
+      {
+        "id": "medicamento_desde",
+        "pagina": 1,
+        "x": 374.5,
+        "y": 585.2,
+        "ancho": 191.9,
+        "tamano": 9,
+        "texto": "{{medicamento_desde}}"
+      },
+      {
+        "id": "medicamento_resultados_si",
+        "pagina": 1,
+        "x": 526.9,
+        "y": 597,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{anestesia_general=si}}",
+        "texto": "{{medicamento_resultados=si}}",
         "vacio": "—"
       },
       {
-        "id": "anestesia_general_no",
+        "id": "medicamento_resultados_no",
         "pagina": 1,
-        "x": 550.8,
-        "y": 687.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 558.7,
+        "y": 597,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{anestesia_general=no}}",
-        "vacio": "—"
-      },
-      {
-        "id": "sedacion_si",
-        "pagina": 1,
-        "x": 520.9,
-        "y": 698.2,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{sedacion=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "sedacion_no",
-        "pagina": 1,
-        "x": 549.8,
-        "y": 698.2,
-        "ancho": 5.2,
-        "tamano": 7,
-        "alinear": "centro",
-        "texto": "{{sedacion=no}}",
+        "texto": "{{medicamento_resultados=no}}",
         "vacio": "—"
       },
       {
         "id": "dolor_si",
         "pagina": 1,
-        "x": 516.4,
-        "y": 718.4,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 377.3,
+        "y": 609.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{dolor=si}}",
         "vacio": "—"
       },
       {
-        "id": "dolor_no",
+        "id": "dolor_suave",
         "pagina": 1,
-        "x": 541.6,
-        "y": 718.4,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 495.8,
+        "y": 609.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{dolor=no}}",
+        "texto": "{{dolor_tipo=suave}}",
         "vacio": "—"
       },
       {
-        "id": "dolor_tipo",
+        "id": "dolor_moderado",
         "pagina": 1,
-        "x": 309,
-        "y": 727.8,
-        "ancho": 259,
-        "lineas": 2,
-        "interlineado": 9.8,
-        "tamano": 9,
-        "sangria": 51.1,
-        "texto": "{{dolor_tipo}}"
+        "x": 554.7,
+        "y": 609.6,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=moderado}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_intenso",
+        "pagina": 1,
+        "x": 340.8,
+        "y": 622.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=intenso}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_temporario",
+        "pagina": 1,
+        "x": 407.7,
+        "y": 622.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=temporario}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_intermitente",
+        "pagina": 1,
+        "x": 486.2,
+        "y": 622.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=intermitente}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_continuo",
+        "pagina": 1,
+        "x": 557.1,
+        "y": 622.3,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=continuo}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_espontaneo",
+        "pagina": 1,
+        "x": 361.8,
+        "y": 634.9,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=espontaneo}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_provocado",
+        "pagina": 1,
+        "x": 440.8,
+        "y": 634.9,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=provocado}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_al_frio",
+        "pagina": 1,
+        "x": 492.8,
+        "y": 634.9,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=al_frio}}",
+        "vacio": "—"
+      },
+      {
+        "id": "dolor_al_calor",
+        "pagina": 1,
+        "x": 557.7,
+        "y": 634.9,
+        "ancho": 6.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{dolor_tipo=al_calor}}",
+        "vacio": "—"
       },
       {
         "id": "dolor_localizado",
         "pagina": 1,
-        "x": 354.6,
-        "y": 749.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 354.3,
+        "y": 647.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{dolor_localizacion=localizado}}",
+        "texto": "{{dolor_tipo=localizado}}",
         "vacio": "—"
       },
       {
         "id": "dolor_donde",
         "pagina": 1,
-        "x": 401.6,
-        "y": 749.9,
-        "ancho": 149.4,
+        "x": 420.4,
+        "y": 647.9,
+        "ancho": 149.5,
         "tamano": 9,
         "texto": "{{dolor_donde}}"
       },
       {
         "id": "dolor_irradiado",
         "pagina": 1,
-        "x": 356.7,
-        "y": 762.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 346.8,
+        "y": 660.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{dolor_localizacion=irradiado}}",
+        "texto": "{{dolor_tipo=irradiado}}",
         "vacio": "—"
       },
       {
         "id": "dolor_hacia_donde",
         "pagina": 1,
-        "x": 427.5,
-        "y": 762.5,
-        "ancho": 143,
+        "x": 414.4,
+        "y": 660.6,
+        "ancho": 151.9,
         "tamano": 9,
         "texto": "{{dolor_hacia_donde}}"
       },
       {
-        "id": "tomo_medicacion",
+        "id": "dolor_calma",
         "pagina": 1,
-        "x": 309,
-        "y": 773.3,
-        "ancho": 258.2,
+        "x": 308.9,
+        "y": 671.4,
+        "ancho": 256,
         "lineas": 2,
-        "interlineado": 10.3,
+        "interlineado": 10.4,
         "tamano": 9,
-        "sangria": 100.5,
-        "texto": "{{tomo_medicacion}}"
+        "sangria": 106.5,
+        "texto": "{{dolor_calma}}"
       },
       {
         "id": "golpe_si",
         "pagina": 1,
-        "x": 528.7,
-        "y": 796.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 526.9,
+        "y": 693.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{golpe=si}}",
         "vacio": "—"
@@ -2593,10 +2497,10 @@
       {
         "id": "golpe_no",
         "pagina": 1,
-        "x": 562.4,
-        "y": 796.6,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 558.7,
+        "y": 693.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{golpe=no}}",
         "vacio": "—"
@@ -2604,120 +2508,197 @@
       {
         "id": "golpe_cuando",
         "pagina": 1,
-        "x": 343.6,
-        "y": 807.2,
+        "x": 343.5,
+        "y": 704.8,
         "ancho": 55.4,
-        "tamano": 8,
-        "minimo": 5,
+        "tamano": 9,
         "texto": "{{golpe_cuando}}"
       },
       {
         "id": "golpe_como",
         "pagina": 1,
-        "x": 309,
-        "y": 807.2,
-        "ancho": 258.2,
+        "x": 308.9,
+        "y": 704.8,
+        "ancho": 257.5,
         "lineas": 2,
-        "interlineado": 10.5,
+        "interlineado": 10.3,
         "tamano": 9,
-        "sangria": 167.7,
+        "sangria": 168.5,
         "texto": "{{golpe_como}}"
       },
       {
         "id": "fractura_si",
-        "pagina": 2,
-        "x": 253.8,
-        "y": 55.2,
-        "ancho": 5.2,
-        "tamano": 7,
+        "pagina": 1,
+        "x": 526.9,
+        "y": 726.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fractura=si}}",
         "vacio": "—"
       },
       {
         "id": "fractura_no",
-        "pagina": 2,
-        "x": 36.8,
-        "y": 68.4,
-        "ancho": 5.2,
-        "tamano": 7,
+        "pagina": 1,
+        "x": 558.7,
+        "y": 726.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{fractura=no}}",
         "vacio": "—"
       },
       {
         "id": "fractura_detalle",
-        "pagina": 2,
-        "x": 58,
-        "y": 79,
-        "ancho": 215.5,
+        "pagina": 1,
+        "x": 330.5,
+        "y": 738.1,
+        "ancho": 85.5,
         "tamano": 9,
         "texto": "{{fractura:detalle}}"
       },
       {
         "id": "fractura_tratamiento",
-        "pagina": 2,
-        "x": 36.4,
-        "y": 89.8,
-        "ancho": 250,
+        "pagina": 1,
+        "x": 308.9,
+        "y": 748.5,
+        "ancho": 259,
         "lineas": 2,
-        "interlineado": 10.3,
+        "interlineado": 10.4,
         "tamano": 9,
-        "sangria": 108.3,
         "texto": "{{fractura_tratamiento}}"
       },
       {
         "id": "dificultad_hablar",
-        "pagina": 2,
-        "x": 154.2,
-        "y": 110.4,
-        "ancho": 133,
+        "pagina": 1,
+        "x": 424.8,
+        "y": 769.2,
+        "ancho": 141.6,
         "tamano": 9,
         "texto": "{{dificultad_hablar}}"
       },
       {
         "id": "dificultad_masticar",
-        "pagina": 2,
-        "x": 101.2,
-        "y": 120.9,
-        "ancho": 181.6,
+        "pagina": 1,
+        "x": 371,
+        "y": 779.5,
+        "ancho": 196.9,
         "tamano": 9,
         "texto": "{{dificultad_masticar}}"
       },
       {
         "id": "dificultad_abrir",
-        "pagina": 2,
-        "x": 116.8,
-        "y": 131.2,
-        "ancho": 169.1,
+        "pagina": 1,
+        "x": 384,
+        "y": 789.9,
+        "ancho": 182.7,
         "tamano": 9,
         "texto": "{{dificultad_abrir}}"
       },
       {
         "id": "dificultad_tragar",
-        "pagina": 2,
-        "x": 145.7,
-        "y": 141.5,
-        "ancho": 140.4,
+        "pagina": 1,
+        "x": 415.4,
+        "y": 800.3,
+        "ancho": 150.9,
         "tamano": 9,
         "texto": "{{dificultad_tragar}}"
       },
       {
-        "id": "dificultad_expectorar",
+        "id": "anormal_labios",
         "pagina": 2,
-        "x": 38.2,
-        "y": 162.3,
-        "ancho": 248.5,
-        "tamano": 9,
-        "texto": "{{dificultad_expectorar}}"
+        "x": 206,
+        "y": 58.8,
+        "ancho": 14,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=labios}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_lengua",
+        "pagina": 2,
+        "x": 70,
+        "y": 69.1,
+        "ancho": 22.9,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=lengua}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_paladar",
+        "pagina": 2,
+        "x": 133,
+        "y": 69.1,
+        "ancho": 18,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=paladar}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_piso_de_boca",
+        "pagina": 2,
+        "x": 209.5,
+        "y": 69.1,
+        "ancho": 14,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=piso_de_boca}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_carrillos",
+        "pagina": 2,
+        "x": 74,
+        "y": 79.5,
+        "ancho": 17.5,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=carrillos}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_rebordes",
+        "pagina": 2,
+        "x": 136.9,
+        "y": 79.5,
+        "ancho": 27.9,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=rebordes}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_trigono",
+        "pagina": 2,
+        "x": 193,
+        "y": 79.5,
+        "ancho": 27,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=trigono}}",
+        "vacio": "—"
+      },
+      {
+        "id": "anormal_retromolar",
+        "pagina": 2,
+        "x": 268.4,
+        "y": 79.5,
+        "ancho": 25.4,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{anormal_en=retromolar}}",
+        "vacio": "—"
       },
       {
         "id": "manchas_si",
         "pagina": 2,
-        "x": 239.5,
-        "y": 184.9,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 254.4,
+        "y": 101.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{manchas=si}}",
         "vacio": "—"
@@ -2725,10 +2706,10 @@
       {
         "id": "manchas_no",
         "pagina": 2,
-        "x": 265.5,
-        "y": 184.9,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 286.2,
+        "y": 101.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{manchas=no}}",
         "vacio": "—"
@@ -2736,10 +2717,10 @@
       {
         "id": "abultamiento_si",
         "pagina": 2,
-        "x": 239.5,
-        "y": 197.6,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 254.4,
+        "y": 114.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{abultamiento=si}}",
         "vacio": "—"
@@ -2747,10 +2728,10 @@
       {
         "id": "abultamiento_no",
         "pagina": 2,
-        "x": 265.5,
-        "y": 197.6,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 286.2,
+        "y": 114.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{abultamiento=no}}",
         "vacio": "—"
@@ -2758,10 +2739,10 @@
       {
         "id": "ulceraciones_si",
         "pagina": 2,
-        "x": 239.5,
-        "y": 210.2,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 254.4,
+        "y": 126.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ulceraciones=si}}",
         "vacio": "—"
@@ -2769,10 +2750,10 @@
       {
         "id": "ulceraciones_no",
         "pagina": 2,
-        "x": 265.5,
-        "y": 210.2,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 286.2,
+        "y": 126.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ulceraciones=no}}",
         "vacio": "—"
@@ -2780,10 +2761,10 @@
       {
         "id": "ampollas_si",
         "pagina": 2,
-        "x": 239.5,
-        "y": 223.3,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 254.4,
+        "y": 139.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ampollas=si}}",
         "vacio": "—"
@@ -2791,10 +2772,10 @@
       {
         "id": "ampollas_no",
         "pagina": 2,
-        "x": 265.5,
-        "y": 223.3,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 286.2,
+        "y": 139.5,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{ampollas=no}}",
         "vacio": "—"
@@ -2802,19 +2783,22 @@
       {
         "id": "lesiones_otras",
         "pagina": 2,
-        "x": 328.3,
-        "y": 221.4,
-        "ancho": 203.9,
+        "x": 36.4,
+        "y": 150.9,
+        "ancho": 261.5,
+        "lineas": 2,
+        "interlineado": 10.3,
         "tamano": 9,
+        "sangria": 27.1,
         "texto": "{{lesiones_otras}}"
       },
       {
         "id": "encias_sangran_si",
         "pagina": 2,
-        "x": 224,
-        "y": 234.1,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 254.4,
+        "y": 172.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{encias_sangran=si}}",
         "vacio": "—"
@@ -2822,10 +2806,10 @@
       {
         "id": "encias_sangran_no",
         "pagina": 2,
-        "x": 246.7,
-        "y": 234.1,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 286.2,
+        "y": 172.9,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{encias_sangran=no}}",
         "vacio": "—"
@@ -2833,19 +2817,19 @@
       {
         "id": "encias_sangran_detalle",
         "pagina": 2,
-        "x": 75.2,
-        "y": 244.4,
-        "ancho": 182.9,
+        "x": 73.4,
+        "y": 184.2,
+        "ancho": 220.4,
         "tamano": 9,
         "texto": "{{encias_sangran:detalle}}"
       },
       {
         "id": "pus_si",
         "pagina": 2,
-        "x": 496.6,
-        "y": 53.2,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 526.9,
+        "y": 60.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{pus=si}}",
         "vacio": "—"
@@ -2853,10 +2837,10 @@
       {
         "id": "pus_no",
         "pagina": 2,
-        "x": 522.6,
-        "y": 53.2,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 558.7,
+        "y": 60.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{pus=no}}",
         "vacio": "—"
@@ -2864,8 +2848,8 @@
       {
         "id": "pus_detalle",
         "pagina": 2,
-        "x": 348.5,
-        "y": 63,
+        "x": 354,
+        "y": 71.4,
         "ancho": 213.9,
         "tamano": 9,
         "texto": "{{pus:detalle}}"
@@ -2873,10 +2857,10 @@
       {
         "id": "movilidad_si",
         "pagina": 2,
-        "x": 520.6,
-        "y": 75.8,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 526.9,
+        "y": 83.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{movilidad=si}}",
         "vacio": "—"
@@ -2884,133 +2868,81 @@
       {
         "id": "movilidad_no",
         "pagina": 2,
-        "x": 544,
-        "y": 75.8,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 558.7,
+        "y": 83.3,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{movilidad=no}}",
         "vacio": "—"
       },
       {
-        "id": "trauma_oclusal",
+        "id": "dientes_altos",
         "pagina": 2,
-        "x": 365.2,
-        "y": 88.8,
-        "ancho": 191.9,
+        "x": 447.9,
+        "y": 94.5,
+        "ancho": 119.9,
         "tamano": 9,
-        "texto": "{{trauma_oclusal}}"
+        "texto": "{{dientes_altos}}"
       },
       {
-        "id": "ruidos_si",
+        "id": "cara_hinchada_si",
         "pagina": 2,
-        "x": 519.5,
-        "y": 102.3,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 526.9,
+        "y": 106.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{ruidos=si}}",
+        "texto": "{{cara_hinchada=si}}",
         "vacio": "—"
       },
       {
-        "id": "ruidos_no",
+        "id": "cara_hinchada_no",
         "pagina": 2,
-        "x": 545.7,
-        "y": 102.3,
-        "ancho": 3.9,
-        "tamano": 5.5,
+        "x": 558.7,
+        "y": 106.2,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
-        "texto": "{{ruidos=no}}",
+        "texto": "{{cara_hinchada=no}}",
         "vacio": "—"
       },
       {
-        "id": "tipo_mordida",
+        "id": "hinchazon_hielo",
         "pagina": 2,
-        "x": 368.7,
-        "y": 115.2,
-        "ancho": 182.9,
+        "x": 367.5,
+        "y": 117.5,
+        "ancho": 27.4,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{hinchazon_aplico=hielo}}",
+        "vacio": "—"
+      },
+      {
+        "id": "hinchazon_calor",
+        "pagina": 2,
+        "x": 419.5,
+        "y": 117.5,
+        "ancho": 27.4,
+        "tamano": 8,
+        "alinear": "centro",
+        "texto": "{{hinchazon_aplico=calor}}",
+        "vacio": "—"
+      },
+      {
+        "id": "hinchazon_otros",
+        "pagina": 2,
+        "x": 475.4,
+        "y": 117.5,
+        "ancho": 92,
         "tamano": 9,
-        "texto": "{{tipo_mordida}}"
-      },
-      {
-        "id": "frecuencia_cepillado",
-        "pagina": 2,
-        "x": 399.2,
-        "y": 126.4,
-        "ancho": 162.4,
-        "tamano": 9,
-        "texto": "{{frecuencia_cepillado}}"
-      },
-      {
-        "id": "cepillo_manual",
-        "pagina": 2,
-        "x": 363.8,
-        "y": 136.7,
-        "ancho": 18.6,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "{{cepillo=manual}}",
-        "vacio": "—"
-      },
-      {
-        "id": "cepillo_electrico",
-        "pagina": 2,
-        "x": 417.7,
-        "y": 136.7,
-        "ancho": 16,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "{{cepillo=electrico}}",
-        "vacio": "—"
-      },
-      {
-        "id": "cepillo_hilo_dental",
-        "pagina": 2,
-        "x": 476.8,
-        "y": 136.7,
-        "ancho": 21,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "{{cepillo=hilo_dental}}",
-        "vacio": "—"
-      },
-      {
-        "id": "cepillo_otro",
-        "pagina": 2,
-        "x": 515.3,
-        "y": 136.7,
-        "ancho": 45.4,
-        "tamano": 8,
-        "minimo": 5,
-        "texto": "{{cepillo_otro}}"
-      },
-      {
-        "id": "se_cepilla_solo_si",
-        "pagina": 2,
-        "x": 518.8,
-        "y": 149.5,
-        "ancho": 3.9,
-        "tamano": 5.5,
-        "alinear": "centro",
-        "texto": "{{se_cepilla_solo=si}}",
-        "vacio": "—"
-      },
-      {
-        "id": "se_cepilla_solo_no",
-        "pagina": 2,
-        "x": 545,
-        "y": 149.5,
-        "ancho": 3.9,
-        "tamano": 5.5,
-        "alinear": "centro",
-        "texto": "{{se_cepilla_solo=no}}",
-        "vacio": "—"
+        "texto": "{{hinchazon_otros}}"
       },
       {
         "id": "momentos_azucar",
         "pagina": 2,
-        "x": 414.2,
-        "y": 160.1,
+        "x": 420,
+        "y": 127.8,
         "ancho": 146.9,
         "tamano": 9,
         "texto": "{{momentos_azucar}}"
@@ -3018,19 +2950,19 @@
       {
         "id": "indice_placa",
         "pagina": 2,
-        "x": 366.4,
-        "y": 170.5,
-        "ancho": 194.4,
+        "x": 371.9,
+        "y": 138.1,
+        "ancho": 194.5,
         "tamano": 9,
         "texto": "{{indice_placa}}"
       },
       {
         "id": "higiene_muy_bueno",
         "pagina": 2,
-        "x": 366,
-        "y": 201.1,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 355.8,
+        "y": 170.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{higiene=muy_bueno}}",
         "vacio": "—"
@@ -3038,10 +2970,10 @@
       {
         "id": "higiene_bueno",
         "pagina": 2,
-        "x": 408.7,
-        "y": 201.1,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 402.8,
+        "y": 170.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{higiene=bueno}}",
         "vacio": "—"
@@ -3049,10 +2981,10 @@
       {
         "id": "higiene_deficiente",
         "pagina": 2,
-        "x": 473,
-        "y": 201.1,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 463.6,
+        "y": 170.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{higiene=deficiente}}",
         "vacio": "—"
@@ -3060,10 +2992,10 @@
       {
         "id": "higiene_malo",
         "pagina": 2,
-        "x": 539.8,
-        "y": 201.1,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 504.1,
+        "y": 170.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{higiene=malo}}",
         "vacio": "—"
@@ -3071,10 +3003,10 @@
       {
         "id": "sarro_si",
         "pagina": 2,
-        "x": 216.3,
-        "y": 501.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 219.1,
+        "y": 450.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{sarro=si}}",
         "vacio": "—"
@@ -3082,10 +3014,10 @@
       {
         "id": "sarro_no",
         "pagina": 2,
-        "x": 247.1,
-        "y": 501.8,
-        "ancho": 5.2,
-        "tamano": 7,
+        "x": 251,
+        "y": 450.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{sarro=no}}",
         "vacio": "—"
@@ -3093,10 +3025,10 @@
       {
         "id": "periodontal_si",
         "pagina": 2,
-        "x": 400.4,
-        "y": 502.2,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 402.5,
+        "y": 450.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{periodontal=si}}",
         "vacio": "—"
@@ -3104,10 +3036,10 @@
       {
         "id": "periodontal_no",
         "pagina": 2,
-        "x": 425.6,
-        "y": 502.2,
-        "ancho": 4.4,
-        "tamano": 5.5,
+        "x": 434.3,
+        "y": 450.6,
+        "ancho": 6.5,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{periodontal=no}}",
         "vacio": "—"
@@ -3116,10 +3048,10 @@
         "id": "diagnostico",
         "pagina": 2,
         "x": 32.1,
-        "y": 535.6,
+        "y": 484.8,
         "ancho": 409.7,
         "lineas": 4,
-        "interlineado": 9.73,
+        "interlineado": 9.67,
         "tamano": 8,
         "minimo": 5,
         "texto": "{{diagnostico}}"
@@ -3127,9 +3059,9 @@
       {
         "id": "diagnostico_anexo",
         "pagina": 2,
-        "x": 543.5,
-        "y": 574.3,
-        "ancho": 19,
+        "x": 543.4,
+        "y": 523.4,
+        "ancho": 20,
         "tamano": 8,
         "alinear": "centro",
         "texto": "{{diagnostico_anexo}}",
@@ -3138,10 +3070,10 @@
       {
         "id": "plan_fecha_dia",
         "pagina": 2,
-        "x": 125,
-        "y": 587,
-        "ancho": 11.9,
-        "tamano": 7,
+        "x": 125.3,
+        "y": 542.7,
+        "ancho": 13,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{plan_fecha:dia}}",
         "vacio": "—"
@@ -3149,10 +3081,10 @@
       {
         "id": "plan_fecha_mes",
         "pagina": 2,
-        "x": 140.9,
-        "y": 587,
-        "ancho": 12,
-        "tamano": 7,
+        "x": 141.3,
+        "y": 542.7,
+        "ancho": 13,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{plan_fecha:mes}}",
         "vacio": "—"
@@ -3160,10 +3092,10 @@
       {
         "id": "plan_fecha_anio",
         "pagina": 2,
-        "x": 156.8,
-        "y": 587,
-        "ancho": 17,
-        "tamano": 7,
+        "x": 157,
+        "y": 542.7,
+        "ancho": 18,
+        "tamano": 8,
         "alinear": "centro",
         "texto": "{{plan_fecha:anio}}",
         "vacio": "—"
@@ -3172,10 +3104,10 @@
         "id": "plan",
         "pagina": 2,
         "x": 32.1,
-        "y": 596.9,
+        "y": 552.5,
         "ancho": 409.7,
         "lineas": 4,
-        "interlineado": 9.6,
+        "interlineado": 9.63,
         "tamano": 8,
         "minimo": 5,
         "texto": "{{plan}}"
@@ -3184,8 +3116,8 @@
         "id": "plan_anexo",
         "pagina": 2,
         "x": 543.4,
-        "y": 635.5,
-        "ancho": 19,
+        "y": 591.1,
+        "ancho": 20,
         "tamano": 8,
         "alinear": "centro",
         "texto": "{{plan_anexo}}",
@@ -3195,42 +3127,30 @@
         "id": "observaciones",
         "pagina": 2,
         "x": 32.1,
-        "y": 654.8,
+        "y": 610.4,
         "ancho": 409.7,
-        "lineas": 3,
-        "interlineado": 9.65,
+        "lineas": 4,
+        "interlineado": 9.67,
         "tamano": 8,
         "minimo": 5,
         "texto": "{{observaciones}}"
       },
       {
-        "id": "estudios",
-        "pagina": 2,
-        "x": 32.1,
-        "y": 693.3,
-        "ancho": 410.2,
-        "lineas": 2,
-        "interlineado": 8.2,
-        "tamano": 8,
-        "minimo": 5,
-        "texto": "{{estudios}}"
-      },
-      {
-        "id": "estudios_anexo",
+        "id": "observaciones_anexo",
         "pagina": 2,
         "x": 543.4,
-        "y": 693.5,
-        "ancho": 19,
+        "y": 649.1,
+        "ancho": 20,
         "tamano": 8,
         "alinear": "centro",
-        "texto": "{{estudios_anexo}}",
+        "texto": "{{observaciones_anexo}}",
         "vacio": "—"
       },
       {
         "id": "suscribe_nombre",
         "pagina": 2,
-        "x": 90.4,
-        "y": 743.2,
+        "x": 91.1,
+        "y": 682.8,
         "ancho": 124.8,
         "tamano": 8,
         "texto": "{{suscribe_nombre}}"
@@ -3238,37 +3158,36 @@
       {
         "id": "suscribe_dni",
         "pagina": 2,
-        "x": 238.6,
-        "y": 743.2,
-        "ancho": 98,
+        "x": 239.5,
+        "y": 682.8,
+        "ancho": 97.9,
         "tamano": 8,
         "texto": "{{suscribe_dni}}"
       },
       {
         "id": "suscribe_domicilio",
         "pagina": 2,
-        "x": 406.5,
-        "y": 743.2,
-        "ancho": 150.8,
+        "x": 407.9,
+        "y": 682.8,
+        "ancho": 150.7,
         "tamano": 8,
         "texto": "{{suscribe_domicilio}}"
       },
       {
         "id": "consiente_profesional",
         "pagina": 2,
-        "x": 426,
-        "y": 759.2,
-        "ancho": 137,
-        "tamano": 7,
-        "minimo": 4.5,
+        "x": 428.3,
+        "y": 698.9,
+        "ancho": 131,
+        "tamano": 8,
         "texto": "{{odontologo}}, {{matricula}}"
       },
       {
         "id": "aclaracion",
         "pagina": 2,
-        "x": 242.5,
-        "y": 816.7,
-        "ancho": 135.5,
+        "x": 242.1,
+        "y": 756.4,
+        "ancho": 135.4,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{suscribe_nombre}}"
@@ -3276,67 +3195,37 @@
       {
         "id": "aclaracion_dni",
         "pagina": 2,
-        "x": 444.3,
-        "y": 816.7,
-        "ancho": 111,
+        "x": 443.8,
+        "y": 756.4,
+        "ancho": 110.9,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{suscribe_dni}}"
       },
       {
-        "id": "rotulo_firma_paciente",
-        "pagina": 2,
-        "x": 31.4,
-        "y": 829,
-        "ancho": 142.6,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "Firma del paciente o tutor"
-      },
-      {
-        "id": "rotulo_aclaracion",
-        "pagina": 2,
-        "x": 241.5,
-        "y": 829,
-        "ancho": 137.5,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "aclaración"
-      },
-      {
-        "id": "rotulo_dni",
-        "pagina": 2,
-        "x": 443.3,
-        "y": 829,
-        "ancho": 113,
-        "tamano": 8,
-        "alinear": "centro",
-        "texto": "DNI Nº"
-      },
-      {
         "id": "renglon_firma_profesional",
         "pagina": 2,
-        "x": 208,
-        "y": 868,
-        "ancho": 168,
-        "tamano": 8.84,
-        "texto": "…………………………………………………"
+        "x": 232,
+        "y": 808,
+        "ancho": 156,
+        "tamano": 9.17,
+        "texto": "……………………………………………"
       },
       {
         "id": "renglon_aclaracion_profesional",
         "pagina": 2,
-        "x": 388,
-        "y": 868,
-        "ancho": 168,
-        "tamano": 8.84,
-        "texto": "…………………………………………………"
+        "x": 400,
+        "y": 808,
+        "ancho": 156,
+        "tamano": 9.17,
+        "texto": "……………………………………………"
       },
       {
         "id": "aclaracion_profesional",
         "pagina": 2,
-        "x": 389,
-        "y": 866.8,
-        "ancho": 166,
+        "x": 401,
+        "y": 806.8,
+        "ancho": 154,
         "tamano": 9,
         "alinear": "centro",
         "texto": "{{odontologo}}"
@@ -3344,9 +3233,9 @@
       {
         "id": "rotulo_firma_profesional",
         "pagina": 2,
-        "x": 208,
-        "y": 878,
-        "ancho": 168,
+        "x": 232,
+        "y": 818,
+        "ancho": 156,
         "tamano": 8,
         "alinear": "centro",
         "texto": "Firma del profesional"
@@ -3354,9 +3243,9 @@
       {
         "id": "rotulo_aclaracion_profesional",
         "pagina": 2,
-        "x": 388,
-        "y": 878,
-        "ancho": 168,
+        "x": 400,
+        "y": 818,
+        "ancho": 156,
         "tamano": 8,
         "alinear": "centro",
         "texto": "Aclaración"
@@ -3366,18 +3255,18 @@
       {
         "rol": "paciente",
         "pagina": 2,
-        "x": 31.4,
-        "y": 817.9,
-        "ancho": 142.6,
-        "alto": 46
+        "x": 31,
+        "y": 756,
+        "ancho": 143,
+        "alto": 40
       },
       {
         "rol": "profesional",
         "pagina": 2,
-        "x": 208,
-        "y": 868,
-        "ancho": 168,
-        "alto": 34
+        "x": 232,
+        "y": 808,
+        "ancho": 156,
+        "alto": 32
       }
     ],
     "odontogramas": [
@@ -3387,320 +3276,320 @@
         "piezas": [
           {
             "pieza": "18",
-            "x": 27,
-            "y": 333.12,
-            "lado": 19.44
+            "x": 33.77,
+            "y": 283.99,
+            "lado": 18.13
           },
           {
             "pieza": "17",
-            "x": 49.09,
-            "y": 333.12,
-            "lado": 19.44
+            "x": 54.54,
+            "y": 284.11,
+            "lado": 18.13
           },
           {
             "pieza": "16",
-            "x": 71.29,
-            "y": 333.48,
-            "lado": 19.2
+            "x": 75.37,
+            "y": 284.41,
+            "lado": 18.01
           },
           {
             "pieza": "15",
-            "x": 93.38,
-            "y": 333.48,
-            "lado": 19.68
+            "x": 96.14,
+            "y": 284.29,
+            "lado": 18.25
           },
           {
             "pieza": "14",
-            "x": 115.94,
-            "y": 333.48,
-            "lado": 19.68
+            "x": 117.04,
+            "y": 284.05,
+            "lado": 18.49
           },
           {
             "pieza": "13",
-            "x": 138.87,
-            "y": 333.6,
-            "lado": 19.44
+            "x": 138.23,
+            "y": 284.47,
+            "lado": 18.13
           },
           {
             "pieza": "12",
-            "x": 160.95,
-            "y": 333.6,
-            "lado": 19.44
+            "x": 159.06,
+            "y": 284.53,
+            "lado": 18.01
           },
           {
             "pieza": "11",
-            "x": 183.16,
-            "y": 333.48,
-            "lado": 19.68
+            "x": 180.01,
+            "y": 284.47,
+            "lado": 18.13
           },
           {
             "pieza": "21",
-            "x": 215.2,
-            "y": 333.6,
-            "lado": 19.44
+            "x": 209.54,
+            "y": 284.47,
+            "lado": 18.37
           },
           {
             "pieza": "22",
-            "x": 237.65,
-            "y": 333.72,
-            "lado": 19.68
+            "x": 230.91,
+            "y": 284.71,
+            "lado": 18.13
           },
           {
             "pieza": "23",
-            "x": 260.33,
-            "y": 334.08,
-            "lado": 19.44
+            "x": 252.04,
+            "y": 284.71,
+            "lado": 18.13
           },
           {
             "pieza": "24",
-            "x": 282.78,
-            "y": 334.2,
-            "lado": 19.2
+            "x": 272.81,
+            "y": 284.83,
+            "lado": 18.13
           },
           {
             "pieza": "25",
-            "x": 304.86,
-            "y": 334.2,
-            "lado": 19.2
+            "x": 293.52,
+            "y": 284.77,
+            "lado": 18.25
           },
           {
             "pieza": "26",
-            "x": 327.43,
-            "y": 334.2,
-            "lado": 19.2
+            "x": 314.41,
+            "y": 285.01,
+            "lado": 18.01
           },
           {
             "pieza": "27",
-            "x": 349.63,
-            "y": 333.6,
-            "lado": 19.44
+            "x": 335.36,
+            "y": 284.47,
+            "lado": 18.13
           },
           {
             "pieza": "28",
-            "x": 371.36,
-            "y": 333.48,
-            "lado": 19.68
+            "x": 355.77,
+            "y": 284.47,
+            "lado": 18.13
           },
           {
             "pieza": "48",
-            "x": 27.6,
-            "y": 361.8,
-            "lado": 19.2
+            "x": 34.37,
+            "y": 310.77,
+            "lado": 18.13
           },
           {
             "pieza": "47",
-            "x": 49.69,
-            "y": 361.8,
-            "lado": 19.2
+            "x": 55.08,
+            "y": 310.95,
+            "lado": 18.01
           },
           {
             "pieza": "46",
-            "x": 71.65,
-            "y": 361.92,
-            "lado": 19.44
+            "x": 76.1,
+            "y": 311.07,
+            "lado": 18.01
           },
           {
             "pieza": "45",
-            "x": 94.22,
-            "y": 361.92,
-            "lado": 19.44
+            "x": 96.93,
+            "y": 311.13,
+            "lado": 18.13
           },
           {
             "pieza": "44",
-            "x": 116.78,
-            "y": 361.92,
-            "lado": 19.44
+            "x": 118.06,
+            "y": 311.13,
+            "lado": 18.13
           },
           {
             "pieza": "43",
-            "x": 139.35,
-            "y": 361.92,
-            "lado": 19.44
+            "x": 138.95,
+            "y": 311.13,
+            "lado": 18.13
           },
           {
             "pieza": "42",
-            "x": 161.55,
-            "y": 362.28,
-            "lado": 19.2
+            "x": 159.84,
+            "y": 311.37,
+            "lado": 17.89
           },
           {
             "pieza": "41",
-            "x": 184.12,
-            "y": 362.28,
-            "lado": 19.2
+            "x": 180.73,
+            "y": 311.37,
+            "lado": 18.13
           },
           {
             "pieza": "31",
-            "x": 215.2,
-            "y": 362.4,
-            "lado": 19.44
+            "x": 209.6,
+            "y": 311.31,
+            "lado": 18.25
           },
           {
             "pieza": "32",
-            "x": 237.77,
-            "y": 362.4,
-            "lado": 19.44
+            "x": 230.67,
+            "y": 311.13,
+            "lado": 18.37
           },
           {
             "pieza": "33",
-            "x": 260.33,
-            "y": 362.4,
-            "lado": 19.44
+            "x": 251.8,
+            "y": 311.62,
+            "lado": 18.13
           },
           {
             "pieza": "34",
-            "x": 282.78,
-            "y": 362.52,
-            "lado": 19.2
+            "x": 272.87,
+            "y": 311.68,
+            "lado": 18.01
           },
           {
             "pieza": "35",
-            "x": 304.98,
-            "y": 362.88,
-            "lado": 19.44
+            "x": 293.58,
+            "y": 311.62,
+            "lado": 18.13
           },
           {
             "pieza": "36",
-            "x": 327.31,
-            "y": 362.64,
-            "lado": 19.44
+            "x": 314.41,
+            "y": 311.68,
+            "lado": 18.01
           },
           {
             "pieza": "37",
-            "x": 349.75,
-            "y": 362.76,
-            "lado": 19.68
+            "x": 335.6,
+            "y": 311.86,
+            "lado": 18.13
           },
           {
             "pieza": "38",
-            "x": 371.72,
-            "y": 362.88,
-            "lado": 19.44
+            "x": 355.95,
+            "y": 311.68,
+            "lado": 18.25
           },
           {
             "pieza": "55",
-            "x": 94.58,
-            "y": 415.8,
-            "lado": 19.68
+            "x": 96.99,
+            "y": 361.52,
+            "lado": 18.49
           },
           {
             "pieza": "54",
-            "x": 117.26,
-            "y": 416.16,
-            "lado": 19.44
+            "x": 118.24,
+            "y": 361.4,
+            "lado": 18.25
           },
           {
             "pieza": "53",
-            "x": 139.83,
-            "y": 416.16,
-            "lado": 19.44
+            "x": 139.37,
+            "y": 361.64,
+            "lado": 18.01
           },
           {
             "pieza": "52",
-            "x": 161.91,
-            "y": 416.16,
-            "lado": 19.44
+            "x": 160.02,
+            "y": 361.64,
+            "lado": 18.25
           },
           {
             "pieza": "51",
-            "x": 184.12,
-            "y": 416.04,
-            "lado": 19.68
+            "x": 180.97,
+            "y": 361.58,
+            "lado": 18.37
           },
           {
             "pieza": "61",
-            "x": 214.6,
-            "y": 416.28,
-            "lado": 19.68
+            "x": 209.24,
+            "y": 361.88,
+            "lado": 18.25
           },
           {
             "pieza": "62",
-            "x": 237.41,
-            "y": 416.52,
-            "lado": 19.68
+            "x": 230.43,
+            "y": 361.82,
+            "lado": 18.37
           },
           {
             "pieza": "63",
-            "x": 259.85,
-            "y": 416.64,
-            "lado": 19.44
+            "x": 251.56,
+            "y": 361.82,
+            "lado": 18.37
           },
           {
             "pieza": "64",
-            "x": 282.3,
-            "y": 416.76,
-            "lado": 19.2
+            "x": 272.63,
+            "y": 362.12,
+            "lado": 18.01
           },
           {
             "pieza": "65",
-            "x": 304.5,
-            "y": 416.64,
-            "lado": 19.44
+            "x": 293.4,
+            "y": 362.24,
+            "lado": 18.01
           },
           {
             "pieza": "85",
-            "x": 93.74,
-            "y": 444.96,
-            "lado": 19.44
+            "x": 96.39,
+            "y": 388.55,
+            "lado": 18.25
           },
           {
             "pieza": "84",
-            "x": 116.54,
-            "y": 445.2,
-            "lado": 19.44
+            "x": 117.46,
+            "y": 388.61,
+            "lado": 18.37
           },
           {
             "pieza": "83",
-            "x": 138.99,
-            "y": 445.32,
-            "lado": 19.2
+            "x": 138.47,
+            "y": 388.73,
+            "lado": 18.13
           },
           {
             "pieza": "82",
-            "x": 161.43,
-            "y": 445.44,
-            "lado": 19.44
+            "x": 159.36,
+            "y": 388.97,
+            "lado": 18.13
           },
           {
             "pieza": "81",
-            "x": 183.64,
-            "y": 445.32,
-            "lado": 19.68
+            "x": 180.25,
+            "y": 388.97,
+            "lado": 18.13
           },
           {
             "pieza": "71",
-            "x": 214.72,
-            "y": 445.44,
-            "lado": 19.44
+            "x": 209.54,
+            "y": 389.21,
+            "lado": 18.13
           },
           {
             "pieza": "72",
-            "x": 237.41,
-            "y": 445.8,
-            "lado": 19.68
+            "x": 230.49,
+            "y": 389.15,
+            "lado": 18.25
           },
           {
             "pieza": "73",
-            "x": 259.85,
-            "y": 445.92,
-            "lado": 19.44
+            "x": 251.56,
+            "y": 389.45,
+            "lado": 18.13
           },
           {
             "pieza": "74",
-            "x": 282.42,
-            "y": 445.92,
-            "lado": 19.44
+            "x": 272.57,
+            "y": 389.33,
+            "lado": 18.13
           },
           {
             "pieza": "75",
-            "x": 304.5,
-            "y": 445.92,
-            "lado": 19.44
+            "x": 293.34,
+            "y": 389.45,
+            "lado": 18.13
           }
         ],
         "existentes": {
-          "x": 536.6,
-          "y": 462,
+          "x": 509.5,
+          "y": 404.8,
           "ancho": 29.8,
           "tamano": 10
         }

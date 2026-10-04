@@ -24,10 +24,12 @@
 //   - los rótulos de la firma del paciente ("Firma del paciente o tutor",
 //     "aclaración", "DNI Nº") el modelo los pasó al principio de la página 3:
 //     acá van debajo de sus renglones, en la página 2;
-//   - la firma del profesional no tiene renglón en el papel: va en el lugar
-//     libre entre el consentimiento y los renglones del paciente, a la
-//     derecha, con su rótulo.
-import type { Plantilla, Zona } from "../esquema";
+//   - la firma del profesional no tiene renglón en el papel: va debajo de
+//     la fila del paciente, a la derecha, con su aclaración al lado, cada
+//     una sobre un renglón de puntos como los del papel. Abajo quedaban 11 pt
+//     hasta el borde, así que la página 2 se dibuja al 93 % (`escala`) para
+//     dejarle lugar.
+import type { LugarDeFirma, Plantilla, Zona } from "../esquema";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -176,6 +178,22 @@ function rotulo(
     texto,
   };
 }
+
+// El bloque del profesional: la firma (208–376) y la aclaración (388–556),
+// debajo de los rótulos del paciente (que terminan en 831) y hasta donde
+// terminan sus renglones. Cada lugar mide 168 × 34 en el original: al 93 %,
+// en la hoja, 156 × 32, como en la historia clínica general. Su renglón son
+// 19 puntos suspensivos a 8,84 pt (167,96 pt, el ancho del lugar), el
+// carácter de los renglones del papel.
+const RENGLON_DEL_PROFESIONAL = "…".repeat(19);
+const ZONAS_DEL_PROFESIONAL: Zona[] = [
+  { id: "renglon_firma_profesional", pagina: 2, x: 208, y: 868, ancho: 168, tamano: 8.84, texto: RENGLON_DEL_PROFESIONAL },
+  { id: "renglon_aclaracion_profesional", pagina: 2, x: 388, y: 868, ancho: 168, tamano: 8.84, texto: RENGLON_DEL_PROFESIONAL },
+  hueco("aclaracion_profesional", 2, 868, 388, 556, "{{odontologo}}", { alinear: "centro" }),
+  rotulo("rotulo_firma_profesional", 878, 208, 376, "Firma del profesional"),
+  rotulo("rotulo_aclaracion_profesional", 878, 388, 556, "Aclaración"),
+];
+const FIRMA_DEL_PROFESIONAL: LugarDeFirma = { rol: "profesional", pagina: 2, x: 208, y: 868, ancho: 168, alto: 34 };
 
 // Un hueco corto: arranca a 8 pt y se achica hasta 5 para que entre.
 const ACHICABLE = { tamano: 8, minimo: 5 } as const;
@@ -995,7 +1013,10 @@ export const historiaClinicaPcd: Plantilla = {
   lamina: {
     paginas: [
       { ancho: 595.6, alto: 842 },
-      { ancho: 595.6, alto: 842 },
+      // Al 93 %: la franja libre de abajo (y hasta 905 en coordenadas del
+      // original) lleva el bloque del profesional, que termina en 880 —818 en
+      // la hoja—, por encima del pie de página del PDF (desde 823).
+      { ancho: 595.6, alto: 842, escala: 0.93 },
     ],
     zonas: [
       // Encabezado.
@@ -1294,14 +1315,9 @@ export const historiaClinicaPcd: Plantilla = {
       rotulo("rotulo_firma_paciente", 829, 31.4, 174.0, "Firma del paciente o tutor"),
       rotulo("rotulo_aclaracion", 829, 241.5, 379.0, "aclaración"),
       rotulo("rotulo_dni", 829, 443.3, 556.3, "DNI Nº"),
-      // El papel no tiene renglón para la firma del profesional: su rótulo,
-      // debajo de su lugar.
-      rotulo("rotulo_firma_profesional", 800, 400, 556, "Firma del profesional"),
+      ...ZONAS_DEL_PROFESIONAL,
     ],
-    firmas: [
-      { rol: "paciente", pagina: 2, x: 31.4, y: 817.9, ancho: 142.6, alto: 46 },
-      { rol: "profesional", pagina: 2, x: 400, y: 792, ancho: 156, alto: 28 },
-    ],
+    firmas: [{ rol: "paciente", pagina: 2, x: 31.4, y: 817.9, ancho: 142.6, alto: 46 }, FIRMA_DEL_PROFESIONAL],
     odontogramas: [
       {
         campo: "odontograma",

@@ -308,43 +308,12 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	for i, medidas := range lamina.Paginas {
 		numero := i + 1
 		pag := doc.Pagina(medidas.Ancho, medidas.Alto)
-		// Sin el original embebido (una plantilla de prueba), la página va en
-		// blanco con la composición encima: no es un error.
-		if jpeg, ok := PaginaOriginal(f.Plantilla.ID, f.Plantilla.Version, numero); ok {
-			pag.Imagen(jpeg, 0, 0, medidas.Ancho, medidas.Alto)
-		}
-		// La composición CONGELADA, tal cual: nunca se recompone.
-		for _, z := range contenido.Lamina {
-			if z.Pagina != numero {
-				continue
-			}
-			for _, l := range z.Lineas {
-				if l.Texto == "" {
-					continue
-				}
-				pag.Texto(pdf.Helvetica, z.Tamano, l.X, l.Y, l.Texto, colorTinta)
-			}
-		}
-		// Los odontogramas, también congelados.
-		for _, figura := range contenido.Figuras {
-			if figura.Pagina == numero {
-				dibujarFigura(pag, figura)
-			}
-		}
-		// Un consentimiento se firma a mano sobre la hoja impresa: sus
-		// renglones de firma quedan vacíos.
-		if sellado {
-			for _, lugar := range lamina.Firmas {
-				if lugar.Pagina != numero {
-					continue
-				}
-				for _, firma := range f.Firmas {
-					if firma.Rol == lugar.Rol {
-						dibujarFirma(pag, lugar, firma.Trazo)
-					}
-				}
-			}
-		}
+		// Una página con escala se dibuja entera —el original y todo lo de
+		// encima— más chica, arriba y centrada; el pie no, va en la hoja.
+		escala, dx := medidas.encuadre()
+		pag.Escalado(escala, dx, 0, func() {
+			dibujarPaginaDeLamina(pag, f, contenido, numero, sellado)
+		})
 		pie(pag, numero)
 	}
 
@@ -361,6 +330,51 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	}
 
 	return doc.Bytes()
+}
+
+// dibujarPaginaDeLamina — la página `numero` de la lámina, en coordenadas del
+// original: la imagen, la composición y las figuras congeladas, y las firmas
+// si el documento está sellado.
+func dibujarPaginaDeLamina(pag *pdf.Pagina, f FuenteDelPDF, contenido ContenidoCongelado, numero int, sellado bool) {
+	lamina := f.Plantilla.Lamina
+	medidas := lamina.Paginas[numero-1]
+	// Sin el original embebido (una plantilla de prueba), la página va en
+	// blanco con la composición encima: no es un error.
+	if jpeg, ok := PaginaOriginal(f.Plantilla.ID, f.Plantilla.Version, numero); ok {
+		pag.Imagen(jpeg, 0, 0, medidas.Ancho, medidas.Alto)
+	}
+	// La composición CONGELADA, tal cual: nunca se recompone.
+	for _, z := range contenido.Lamina {
+		if z.Pagina != numero {
+			continue
+		}
+		for _, l := range z.Lineas {
+			if l.Texto == "" {
+				continue
+			}
+			pag.Texto(pdf.Helvetica, z.Tamano, l.X, l.Y, l.Texto, colorTinta)
+		}
+	}
+	// Los odontogramas, también congelados.
+	for _, figura := range contenido.Figuras {
+		if figura.Pagina == numero {
+			dibujarFigura(pag, figura)
+		}
+	}
+	// Un consentimiento se firma a mano sobre la hoja impresa: sus
+	// renglones de firma quedan vacíos.
+	if sellado {
+		for _, lugar := range lamina.Firmas {
+			if lugar.Pagina != numero {
+				continue
+			}
+			for _, firma := range f.Firmas {
+				if firma.Rol == lugar.Rol {
+					dibujarFirma(pag, lugar, firma.Trazo)
+				}
+			}
+		}
+	}
 }
 
 // --- Las firmas sobre la lámina ---------------------------------------

@@ -307,6 +307,20 @@ func (p *Pagina) Recortado(x, y, ancho, alto float64, dibujar func()) {
 	p.escribir("Q")
 }
 
+// Escalado — dibuja lo de `dibujar` con cada punto (x, y) llevado a
+// (dx + escala·x, dy + escala·y), y los tamaños, grosores y recortes
+// multiplicados por la escala. Con escala 1 y sin corrimiento no escribe
+// nada: el contenido sale idéntico a dibujarlo directo.
+func (p *Pagina) Escalado(escala, dx, dy float64, dibujar func()) {
+	if escala == 1 && dx == 0 && dy == 0 {
+		dibujar()
+		return
+	}
+	p.escribir("q", num(escala), "0 0", num(escala), num(dx), num(p.alto-dy-escala*p.alto), "cm")
+	dibujar()
+	p.escribir("Q")
+}
+
 // patronDeGuiones — "[3 2]": el arreglo del operador d de PDF.
 func patronDeGuiones(largos []float64) string {
 	partes := make([]string, len(largos))
