@@ -420,7 +420,7 @@ func TestEscalado_EscribeLaMatrizYCierraElEstado(t *testing.T) {
 	linea := strings.Index(resto, "10 822 m")
 	cierre := strings.Index(resto, "\nQ\n")
 	afuera := strings.Index(resto, "0 842 m")
-	if linea < 0 || cierre < 0 || afuera < 0 || !(linea < cierre && cierre < afuera) {
+	if linea < 0 || cierre < 0 || afuera < 0 || linea >= cierre || cierre >= afuera {
 		t.Fatalf("lo de adentro tiene que ir entre la matriz y su Q, y lo de afuera después: %q", pag)
 	}
 }
