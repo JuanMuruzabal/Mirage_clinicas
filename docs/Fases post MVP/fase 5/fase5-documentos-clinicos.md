@@ -43,6 +43,8 @@ Diecinueve archivos, que dan **veinte plantillas posibles** —el consentimiento
 
 > **Nota (5.6a):** la página 3 de la Historia clínica para PcD es una tabla de prestaciones: no va en la plantilla de la historia sino en el registro de prestaciones (5.7). Los rótulos de la firma, que el modelo pasa a esa página, se escriben debajo de los renglones de la página 2.
 
+> **Nota (5.6a, firma del profesional):** el profesional firma debajo del paciente, con su aclaración, en un bloque propio de cada historia. Para hacer lugar en la página 2 de la PcD, cada página de la lámina admite una `escala` (0,8 a 1) que se aplica solo al dibujar; la General pasó a la versión 2 por el mismo bloque (TR-192, addendum). Pendiente para la QA con el odontólogo: la matrícula de más de 5 caracteres.
+
 ### 2.2 Consentimientos informados
 
 Todos tienen la misma forma: **texto legal fijo**, unos pocos **huecos** que completa el profesional y un **bloque de firmas**. Lo que cambia entre uno y otro es el texto y qué huecos trae.
