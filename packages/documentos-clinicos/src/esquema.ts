@@ -248,16 +248,37 @@ export const odontogramaDeLaminaSchema = z
   .strict();
 export type OdontogramaDeLamina = z.infer<typeof odontogramaDeLaminaSchema>;
 
+/** El tamaño de una página del original, en puntos. Con `escala` (Fase
+ *  5.6a), el original se dibuja más chico —arriba y centrado— y deja una
+ *  franja libre abajo: todo lo de la lámina se sigue midiendo sobre el
+ *  original y se escala con él, así que en esa franja `y` llega hasta
+ *  `alto / escala`. */
+export const paginaDeLaminaSchema = z
+  .object({ ancho: z.number().positive(), alto: z.number().positive(), escala: z.number().min(0.8).max(1).optional() })
+  .strict();
+
 export const laminaSchema = z
   .object({
-    paginas: z.array(z.object({ ancho: z.number().positive(), alto: z.number().positive() }).strict()).min(1).max(20),
+    paginas: z.array(paginaDeLaminaSchema).min(1).max(20),
     zonas: z.array(zonaSchema).min(1),
     firmas: z.array(lugarDeFirmaSchema).min(1),
     odontogramas: z.array(odontogramaDeLaminaSchema).min(1).optional(),
   })
   .strict();
 export type Lamina = z.infer<typeof laminaSchema>;
-type PaginaDeLamina = Lamina["paginas"][number];
+export type PaginaDeLamina = z.infer<typeof paginaDeLaminaSchema>;
+
+/** Dónde se dibuja una página escalada sobre su hoja: un punto (x, y) del
+ *  original va a (dx + escala·x, escala·y). Mismo cálculo que `encuadre` de
+ *  internal/documentos (Go). */
+export function encuadreDePagina(pagina: PaginaDeLamina): { escala: number; dx: number } {
+  const escala = pagina.escala ?? 1;
+  return { escala, dx: (pagina.ancho * (1 - escala)) / 2 };
+}
+
+/** Hasta dónde llega `y` en coordenadas del original: el alto de la hoja,
+ *  más la franja que deja libre la escala. */
+const altoUtil = (pagina: PaginaDeLamina) => pagina.alto / (pagina.escala ?? 1);
 
 function marcasDe(textoConMarcas: string): string[] {
   return [...textoConMarcas.matchAll(MARCA)].map((m) => m[1]);
@@ -290,7 +311,7 @@ function problemasDeRecuadros(o: OdontogramaDeLamina, esperadas: readonly string
     if (vistas.has(r.pieza)) problemas.push(`el odontograma ${o.campo} repite la pieza ${r.pieza}`);
     else if (!esperadas.includes(r.pieza)) problemas.push(`el odontograma ${o.campo} ubica una pieza que no es de su dentición: ${r.pieza}`);
     vistas.add(r.pieza);
-    if (r.x + r.lado > pagina.ancho || r.y + r.lado > pagina.alto) {
+    if (r.x + r.lado > pagina.ancho || r.y + r.lado > altoUtil(pagina)) {
       problemas.push(`la pieza ${r.pieza} del odontograma ${o.campo} se sale de la página`);
     }
   }
@@ -304,7 +325,7 @@ function problemasDeExistentes(o: OdontogramaDeLamina, pide: boolean, pagina: Pa
   if (!o.existentes) return pide ? [`el odontograma ${o.campo} no ubica la cantidad de dientes existentes`] : [];
   if (!pide) return [`el odontograma ${o.campo} ubica una cantidad de dientes existentes que el campo no pide`];
   const { x, y, ancho } = o.existentes;
-  return x + ancho > pagina.ancho || y > pagina.alto ? [`la cantidad de dientes existentes del odontograma ${o.campo} se sale de la página`] : [];
+  return x + ancho > pagina.ancho || y > altoUtil(pagina) ? [`la cantidad de dientes existentes del odontograma ${o.campo} se sale de la página`] : [];
 }
 
 /** `:detalle` va solo sobre un sí o no; las partes de una fecha, solo sobre
@@ -394,7 +415,7 @@ export const plantillaSchema = z
         const pagina = l.paginas[z0.pagina - 1];
         if (!pagina) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} está en una página que no existe` });
-        } else if (z0.x + z0.ancho > pagina.ancho || z0.y > pagina.alto) {
+        } else if (z0.x + z0.ancho > pagina.ancho || z0.y > altoUtil(pagina)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la zona ${z0.id} se sale de la página` });
         }
         if (z0.sangria !== undefined && z0.sangria >= z0.ancho) {
@@ -444,7 +465,12 @@ export const plantillaSchema = z
         if (lugares.has(f.rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `lugar de firma repetido: ${f.rol}` });
         lugares.add(f.rol);
         if (!roles.has(f.rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la lámina ubica una firma que la plantilla no pide: ${f.rol}` });
-        if (!l.paginas[f.pagina - 1]) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la firma ${f.rol} está en una página que no existe` });
+        const pagina = l.paginas[f.pagina - 1];
+        if (!pagina) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la firma ${f.rol} está en una página que no existe` });
+        } else if (f.x + f.ancho > pagina.ancho || f.y > altoUtil(pagina)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la firma ${f.rol} se sale de la página` });
+        }
       }
       for (const rol of roles) {
         if (!lugares.has(rol)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `la lámina no ubica la firma ${rol}` });

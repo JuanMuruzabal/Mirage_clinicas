@@ -4,7 +4,9 @@ verificar a ojo que cada dato cae en su renglón (Fase 5.2, TR-189).
 El texto de cada zona va en azul (rojo si no entra), el recuadro de cada
 zona en rojo tenue y el lugar de cada firma en verde. Las figuras del
 odontograma (Fase 5.5) van con sus colores, y el recuadro medido de cada
-pieza en gris. La lámina compuesta sale de
+pieza en gris. Una página con `escala` (Fase 5.6a) se dibuja como en el PDF:
+el original más chico, arriba y centrado, con todo lo de encima escalado.
+La lámina compuesta sale de
 `packages/documentos-clinicos/scripts/lamina-de-prueba.ts`.
 
 Uso (necesita PyMuPDF y Pillow; en Windows usa Arial, que tiene los mismos
@@ -23,10 +25,10 @@ ESCALA = 2.0
 FUENTES = [r"C:\Windows\Fonts\arial.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "/Library/Fonts/Arial.ttf"]
 
 
-def fuente(tamano: float):
+def fuente(pixeles: float):
     for ruta in FUENTES:
         if os.path.exists(ruta):
-            return ImageFont.truetype(ruta, max(1, round(tamano * ESCALA)))
+            return ImageFont.truetype(ruta, max(1, round(pixeles)))
     return ImageFont.load_default()
 
 
@@ -34,14 +36,36 @@ def fuente(tamano: float):
 COLORES = {"rojo": (0xD0, 0x20, 0x2E), "azul": (0x1F, 0x4F, 0xBF), "tinta": (0x16, 0x18, 0x1D)}
 
 
-def punto(p):
-    return (p[0] * ESCALA, p[1] * ESCALA)
+class Hoja:
+    """Lleva un punto del original a la imagen: ESCALA píxeles por punto, por
+    la escala de la página, corrida para quedar centrada (`encuadreDePagina`)."""
+
+    def __init__(self, pagina):
+        escala = pagina.get("escala", 1)
+        self.k = ESCALA * escala
+        self.dx = ESCALA * pagina["ancho"] * (1 - escala) / 2
+
+    def punto(self, p):
+        return (self.dx + p[0] * self.k, p[1] * self.k)
+
+    def caja(self, x0, y0, x1, y1):
+        return [*self.punto((x0, y0)), *self.punto((x1, y1))]
 
 
-def dibujar_linea_discontinua(d, desde, hasta, color, grosor):
-    (x0, y0), (x1, y1) = punto(desde), punto(hasta)
+def fondo(pagina_pdf, hoja):
+    """La página original, más chica si la lámina la escala, sobre una hoja
+    blanca de su tamaño."""
+    pix = pagina_pdf.get_pixmap(matrix=pymupdf.Matrix(hoja.k, hoja.k), alpha=False)
+    original = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+    img = Image.new("RGB", (round(pagina_pdf.rect.width * ESCALA), round(pagina_pdf.rect.height * ESCALA)), "white")
+    img.paste(original, (round(hoja.dx), 0))
+    return img
+
+
+def dibujar_linea_discontinua(d, hoja, desde, hasta, color, grosor):
+    (x0, y0), (x1, y1) = hoja.punto(desde), hoja.punto(hasta)
     largo = max(((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5, 1e-6)
-    tramo = 3 * ESCALA
+    tramo = 3 * hoja.k
     t = 0.0
     while t < largo:
         a, b = t / largo, min(t + tramo, largo) / largo
@@ -49,24 +73,24 @@ def dibujar_linea_discontinua(d, desde, hasta, color, grosor):
         t += 2 * tramo
 
 
-def dibujar_figura(d, f):
+def dibujar_figura(d, hoja, f):
     if f["tipo"] == "poligono":
-        d.polygon([punto(p) for p in f["puntos"]], fill=COLORES[f["relleno"]] + (200,))
+        d.polygon([hoja.punto(p) for p in f["puntos"]], fill=COLORES[f["relleno"]] + (200,))
         return
     color = COLORES[f["color"]] + (255,)
     if f["tipo"] == "texto":
-        d.text(punto((f["x"], f["y"])), f["texto"], font=fuente(f["tamano"]), fill=color, anchor="ls")
+        d.text(hoja.punto((f["x"], f["y"])), f["texto"], font=fuente(f["tamano"] * hoja.k), fill=color, anchor="ls")
         return
-    grosor = max(1, round(f["grosor"] * ESCALA))
+    grosor = max(1, round(f["grosor"] * hoja.k))
     if f["tipo"] == "contorno":
-        d.polygon([punto(p) for p in f["puntos"]], outline=color, width=grosor)
+        d.polygon([hoja.punto(p) for p in f["puntos"]], outline=color, width=grosor)
     elif f["tipo"] == "circulo":
-        (cx, cy), r = punto(f["centro"]), f["radio"] * ESCALA
+        (cx, cy), r = hoja.punto(f["centro"]), f["radio"] * hoja.k
         d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=grosor)
     elif f.get("discontinua"):
-        dibujar_linea_discontinua(d, f["desde"], f["hasta"], color, grosor)
+        dibujar_linea_discontinua(d, hoja, f["desde"], f["hasta"], color, grosor)
     else:
-        d.line([punto(f["desde"]), punto(f["hasta"])], fill=color, width=grosor)
+        d.line([hoja.punto(f["desde"]), hoja.punto(f["hasta"])], fill=color, width=grosor)
 
 
 def main() -> None:
@@ -79,26 +103,27 @@ def main() -> None:
     salida = sys.argv[4] if len(sys.argv) > 4 else "."
     lamina = datos["lamina"]
     for i, numero in enumerate(paginas, start=1):
-        pix = pdf[numero - 1].get_pixmap(matrix=pymupdf.Matrix(ESCALA, ESCALA), alpha=False)
-        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        hoja = Hoja(lamina["paginas"][i - 1])
+        img = fondo(pdf[numero - 1], hoja)
         d = ImageDraw.Draw(img, "RGBA")
         for zona in (z for z in lamina["zonas"] if z["pagina"] == i):
             base = zona.get("tamano", 10)
             alto = (zona.get("lineas", 1) - 1) * zona.get("interlineado", base * 1.2) + base * 1.05
             x, y = zona["x"] - 1, zona["y"] - base * 0.8
-            d.rectangle([x * ESCALA, y * ESCALA, (x + zona["ancho"] + 2) * ESCALA, (y + alto) * ESCALA], outline=(220, 40, 40, 110), width=1)
+            d.rectangle(hoja.caja(x, y, x + zona["ancho"] + 2, y + alto), outline=(220, 40, 40, 110), width=1)
         for z in (z for z in datos["compuesta"] if z["pagina"] == i):
             color = (200, 30, 30, 255) if z["desborda"] else (20, 60, 200, 255)
             for linea in z["lineas"]:
-                d.text((linea["x"] * ESCALA, linea["y"] * ESCALA), linea["texto"], font=fuente(z["tamano"]), fill=color, anchor="ls")
+                d.text(hoja.punto((linea["x"], linea["y"])), linea["texto"], font=fuente(z["tamano"] * hoja.k), fill=color, anchor="ls")
         for o in (o for o in lamina.get("odontogramas", []) if o["pagina"] == i):
             for r in o["piezas"]:
-                d.rectangle([r["x"] * ESCALA, r["y"] * ESCALA, (r["x"] + r["lado"]) * ESCALA, (r["y"] + r["lado"]) * ESCALA], outline=(120, 120, 120, 160), width=1)
+                d.rectangle(hoja.caja(r["x"], r["y"], r["x"] + r["lado"], r["y"] + r["lado"]), outline=(120, 120, 120, 160), width=1)
         for f in (f for f in datos.get("figuras", []) if f["pagina"] == i):
-            dibujar_figura(d, f)
+            dibujar_figura(d, hoja, f)
         for f in (f for f in lamina["firmas"] if f["pagina"] == i):
-            d.rectangle([f["x"] * ESCALA, (f["y"] - f["alto"]) * ESCALA, (f["x"] + f["ancho"]) * ESCALA, f["y"] * ESCALA], outline=(20, 150, 60, 200), width=2)
-            d.text((f["x"] * ESCALA + 4, (f["y"] - f["alto"]) * ESCALA + 4), f["rol"], font=fuente(9), fill=(20, 150, 60, 255))
+            x0, y0, x1, y1 = hoja.caja(f["x"], f["y"] - f["alto"], f["x"] + f["ancho"], f["y"])
+            d.rectangle([x0, y0, x1, y1], outline=(20, 150, 60, 200), width=2)
+            d.text((x0 + 4, y0 + 4), f["rol"], font=fuente(9 * ESCALA), fill=(20, 150, 60, 255))
         ruta = os.path.join(salida, f"{datos['plantilla']}-p{i}.png")
         img.save(ruta)
         print(ruta)

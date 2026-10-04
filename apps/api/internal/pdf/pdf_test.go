@@ -380,3 +380,57 @@ func TestCamino_EstilosYRecorte(t *testing.T) {
 		t.Errorf("un camino sin estilo o nil no debería dibujar nada: %q", pag)
 	}
 }
+
+// --- Escalado (Fase 5.6a) -------------------------------------------------
+
+func TestEscalado_ConEscalaUnoNoEscribeNada(t *testing.T) {
+	tinta := Color{0, 0, 0}
+	directo := generar(t, func(d *Documento) {
+		p := d.Pagina(595.6, 842)
+		p.Linea(10, 20, 30, 40, 1, tinta)
+	})
+	escalado := generar(t, func(d *Documento) {
+		p := d.Pagina(595.6, 842)
+		p.Escalado(1, 0, 0, func() { p.Linea(10, 20, 30, 40, 1, tinta) })
+	})
+	if !bytes.Equal(directo, escalado) {
+		t.Fatal("con escala 1 y sin corrimiento, Escalado cambió los bytes del PDF")
+	}
+	if strings.Contains(string(contenidos(t, escalado)[0]), " cm") {
+		t.Fatal("con escala 1 no tiene que haber una matriz")
+	}
+}
+
+func TestEscalado_EscribeLaMatrizYCierraElEstado(t *testing.T) {
+	tinta := Color{0, 0, 0}
+	datos := generar(t, func(d *Documento) {
+		p := d.Pagina(595.6, 842)
+		p.Escalado(0.93, 595.6*(1-0.93)/2, 0, func() { p.Linea(10, 20, 30, 40, 1, tinta) })
+		p.Linea(0, 0, 1, 1, 1, tinta) // afuera: sin escalar
+	})
+	pag := string(contenidos(t, datos)[0])
+	// ty = alto − dy − escala·alto = 842 − 783,06 = 58,94: así un punto
+	// (x, y) desde arriba termina en (dx + e·x, dy + e·y) desde arriba.
+	matriz := "q 0.93 0 0 0.93 20.846 58.94 cm\n"
+	i := strings.Index(pag, matriz)
+	if i < 0 {
+		t.Fatalf("falta la matriz %q en %q", matriz, pag)
+	}
+	resto := pag[i+len(matriz):]
+	linea := strings.Index(resto, "10 822 m")
+	cierre := strings.Index(resto, "\nQ\n")
+	afuera := strings.Index(resto, "0 842 m")
+	if linea < 0 || cierre < 0 || afuera < 0 || linea >= cierre || cierre >= afuera {
+		t.Fatalf("lo de adentro tiene que ir entre la matriz y su Q, y lo de afuera después: %q", pag)
+	}
+}
+
+func TestEscalado_ConCorrimientoVerticalSinEscala(t *testing.T) {
+	datos := generar(t, func(d *Documento) {
+		p := d.Pagina(100, 200)
+		p.Escalado(1, 5, 10, func() {})
+	})
+	if pag := string(contenidos(t, datos)[0]); !strings.Contains(pag, "q 1 0 0 1 5 -10 cm\nQ") {
+		t.Fatalf("un corrimiento solo también va en la matriz: %q", pag)
+	}
+}

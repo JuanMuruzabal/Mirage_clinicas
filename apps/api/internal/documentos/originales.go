@@ -10,7 +10,7 @@ import (
 // scripts/originales-para-la-api.py desde las imágenes que ya usa la web:
 // la versión vigente de cada plantilla con lámina, más las versiones viejas
 // con documentos terminados (el consentimiento de conducto v1, que se selló
-// antes de TR-188). Cada página va en escala de grises si el original es en
+// antes de TR-188, y la historia clínica general v1). Cada página va en escala de grises si el original es en
 // blanco y negro, y en color si no, a 200 dpi del tamaño de la página: el PDF
 // la dibuja a página completa, en puntos, sea cual sea su resolución.
 //
@@ -33,6 +33,8 @@ type versionDePlantilla struct {
 //   - El consentimiento de conducto v2 sale del mismo PDF del Colegio y de la
 //     misma página que el v1: la v2 solo cambió los campos de la plantilla
 //     (TR-189), no el papel.
+//   - La historia clínica general v2 dibuja sobre las páginas de la v1: solo
+//     movió el bloque de la firma del profesional (Fase 5.6a).
 //
 // Es la misma tabla que MISMAS_PAGINAS en scripts/originales-para-la-api.py,
 // que no copia estas versiones y comprueba en el manifiesto de la web que de
@@ -40,6 +42,7 @@ type versionDePlantilla struct {
 // sale de las dos tablas y el script le copia sus páginas.
 var mismasPaginas = map[versionDePlantilla]versionDePlantilla{
 	{"consentimiento-tratamiento-conducto", 2}: {"consentimiento-tratamiento-conducto", 1},
+	{"historia-clinica-general", 2}:            {"historia-clinica-general", 1},
 }
 
 // PaginaOriginal — el JPEG de la página n (desde 1) de la lámina de esa

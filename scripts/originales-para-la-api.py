@@ -39,10 +39,13 @@ terminados:
     TR-188, el consentimiento de conducto se firmaba y se sellaba en el
     sistema, y hay documentos de esa versión sellados (en las bases de
     desarrollo y de QA) que piden su PDF sobre la página que se firmó.
+  - historia-clinica-general, versión 1: se sella en el sistema desde la
+    5.5, y la v2 (5.6a) solo movió el bloque de la firma del profesional.
 
 UNA VERSIÓN QUE REUSA LAS PÁGINAS DE OTRA no se copia: el consentimiento de
 conducto v2 sale del mismo PDF del Colegio y de la misma página que el v1
-(la v2 solo cambió los campos, TR-189), así que embeberla de nuevo serían
+(la v2 solo cambió los campos, TR-189), y la historia clínica general v2,
+de las mismas páginas que la v1, así que embeberlas de nuevo serían
 los mismos bytes dos veces en el binario. Va en MISMAS_PAGINAS, y la API la
 resuelve con la tabla mismasPaginas de internal/documentos/originales.go:
 las dos tablas tienen que decir lo mismo. El script comprueba en el
@@ -73,21 +76,26 @@ ORIGEN = os.path.join(RAIZ, "apps", "web", "public", "documentos-clinicos", "ori
 DESTINO = os.path.join(RAIZ, "apps", "api", "internal", "documentos", "originales")
 
 # Versiones viejas con documentos terminados (ver arriba).
-VERSIONES_VIEJAS = {("consentimiento-tratamiento-conducto", 1)}
+VERSIONES_VIEJAS = {("consentimiento-tratamiento-conducto", 1), ("historia-clinica-general", 1)}
 
 # Versiones que se dibujan sobre las páginas de otra versión (ver arriba).
 # Misma tabla que mismasPaginas en internal/documentos/originales.go.
 MISMAS_PAGINAS = {
     ("consentimiento-tratamiento-conducto", 2): ("consentimiento-tratamiento-conducto", 1),
+    ("historia-clinica-general", 2): ("historia-clinica-general", 1),
 }
 
 DPI = 200
 CALIDAD = 80
 
-# Diferencia entre canales por encima de la cual un píxel tiene color. En los
-# modelos en blanco y negro la diferencia medida es 0 (a lo sumo 4); en un
-# color real pasa de 60.
-UMBRAL_DE_COLOR = 24
+# Diferencia entre canales por encima de la cual un píxel tiene color. Es
+# alta a propósito: un modelo escaneado en blanco y negro tiene ruido de
+# croma alrededor del texto negro (el JPEG del escaneo tiñe los bordes), que
+# llega a una diferencia de ~70 en unos pocos píxeles (la página 2 de la
+# historia clínica para PcD: 3809 píxeles pasan 24, solo 22 pasan 60). Un
+# color real pasa de 60 en miles: el más tenue, el logo de Ortopedia, tiene
+# 2593 píxeles entre 60 y 70; el violeta de Sedoanalgesia, más de 500.000.
+UMBRAL_DE_COLOR = 60
 # Fracción mínima de píxeles con color para que la página cuente como en
 # color: uno de cada diez mil (en el WebP de 2550 px de la web, sobre el que
 # se mide, unos 840 píxeles, un punto de 1 mm²). Menos que eso es ruido, no

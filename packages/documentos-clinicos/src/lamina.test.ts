@@ -4,6 +4,7 @@ import {
   armarLamina,
   camposDeZona,
   componerZona,
+  encuadreDePagina,
   envolver,
   estaMarcada,
   MARCA_DE_CASILLA,
@@ -319,4 +320,163 @@ describe("el esquema de la lámina", () => {
     expect(conLamina((l) => (l.firmas = l.firmas.slice(1)))).toContain("la lámina no ubica la firma paciente");
     expect(conLamina((l) => (l.firmas[0].pagina = 2))).toContain("la firma paciente está en una página que no existe");
   });
+});
+
+// Fase 5.6a: una página puede dibujarse más chica dentro de su hoja para
+// dejar una franja libre abajo (el bloque del profesional).
+describe("la escala de una página", () => {
+  const pcd = plantillaPorId("historia-clinica-pcd") as Plantilla;
+  const general2 = plantillaPorId("historia-clinica-general", 2) as Plantilla;
+
+  function errores(p: Plantilla): string[] {
+    const r = plantillaSchema.safeParse(p);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  }
+
+  it("encuadreDePagina: sin escala no corre nada; con escala centra a lo ancho", () => {
+    expect(encuadreDePagina({ ancho: 595.6, alto: 842 })).toEqual({ escala: 1, dx: 0 });
+    expect(encuadreDePagina({ ancho: 595.6, alto: 842, escala: 1 })).toEqual({ escala: 1, dx: 0 });
+    const e = encuadreDePagina({ ancho: 595.6, alto: 842, escala: 0.93 });
+    expect(e.escala).toBe(0.93);
+    expect(e.dx).toBeCloseTo(20.846, 3);
+    // El borde derecho del original queda a la misma distancia del de la hoja.
+    expect(e.dx + e.escala * 595.6 + e.dx).toBeCloseTo(595.6, 9);
+  });
+
+  it("rechaza una escala fuera de 0,8–1", () => {
+    for (const escala of [0.79, 1.01, 0, -1]) {
+      const p = copia(conducto);
+      p.lamina!.paginas[0].escala = escala;
+      expect(plantillaSchema.safeParse(p).success, String(escala)).toBe(false);
+    }
+    for (const escala of [0.8, 0.93, 1]) {
+      const p = copia(conducto);
+      p.lamina!.paginas[0].escala = escala;
+      expect(errores(p), String(escala)).toEqual([]);
+    }
+  });
+
+  it("una zona puede ir en la franja libre (alto < y ≤ alto/escala), no más abajo", () => {
+    const p = copia(conducto);
+    const pagina = p.lamina!.paginas[0];
+    const zona = p.lamina!.zonas.find((z) => z.pagina === 1)!;
+    zona.y = pagina.alto + 40; // en la franja que dejaría una escala de 0,9
+    expect(errores(p)).toContain(`la zona ${zona.id} se sale de la página`);
+    pagina.escala = 0.9;
+    expect(errores(p)).toEqual([]);
+    zona.y = pagina.alto / 0.9;
+    expect(errores(p)).toEqual([]);
+    zona.y = pagina.alto / 0.9 + 0.5;
+    expect(errores(p)).toContain(`la zona ${zona.id} se sale de la página`);
+  });
+
+  it("una pieza del odontograma y la caja de existentes también", () => {
+    const p = copia(pcd);
+    const o = p.lamina!.odontogramas![0];
+    const pagina = p.lamina!.paginas[o.pagina - 1];
+    expect(pagina.escala).toBe(0.93);
+    const util = pagina.alto / 0.93;
+    const pieza = o.piezas[0];
+    const yOriginal = pieza.y;
+    pieza.y = util - pieza.lado; // justo en el borde de la franja
+    expect(errores(p)).toEqual([]);
+    pieza.y = util - pieza.lado + 1;
+    expect(errores(p)).toContain(`la pieza ${pieza.pieza} del odontograma ${o.campo} se sale de la página`);
+    pieza.y = yOriginal;
+    o.existentes!.y = util;
+    expect(errores(p)).toEqual([]);
+    o.existentes!.y = util + 1;
+    expect(errores(p)).toContain(`la cantidad de dientes existentes del odontograma ${o.campo} se sale de la página`);
+    // Sin escala, una pieza en la franja se sale.
+    o.existentes!.y = 400;
+    pieza.y = pagina.alto - pieza.lado + 1;
+    delete pagina.escala;
+    expect(errores(p)).toContain(`la pieza ${pieza.pieza} del odontograma ${o.campo} se sale de la página`);
+  });
+
+  it("un lugar de firma en la franja libre es válido", () => {
+    const p = copia(pcd);
+    const firma = p.lamina!.firmas.find((f) => f.rol === "profesional")!;
+    expect(firma.y).toBeGreaterThan(842);
+    firma.y = 842 / 0.93;
+    expect(errores(p)).toEqual([]);
+  });
+
+  it("un lugar de firma más abajo de la franja libre, o más ancho que la página, se sale", () => {
+    const p = copia(pcd);
+    const firma = p.lamina!.firmas.find((f) => f.rol === "profesional")!;
+    const { x, y } = firma;
+    firma.y = 842 / 0.93 + 0.5;
+    expect(errores(p)).toContain("la firma profesional se sale de la página");
+    firma.y = y;
+    firma.x = 595.6 - firma.ancho + 0.5;
+    expect(errores(p)).toContain("la firma profesional se sale de la página");
+    firma.x = x;
+    expect(errores(p)).toEqual([]);
+  });
+
+  for (const [nombre, plantilla] of [
+    ["PcD", pcd],
+    ["General v2", general2],
+  ] as const) {
+    describe(`el bloque del profesional de la ${nombre}`, () => {
+      const l = plantilla.lamina!;
+      const pagina = l.paginas[1];
+      const escala = pagina.escala ?? 1;
+      const paciente = l.firmas.find((f) => f.rol === "paciente")!;
+      const profesional = l.firmas.find((f) => f.rol === "profesional")!;
+      const zona = (id: string) => l.zonas.find((z) => z.id === id)!;
+      const rotulosDelPaciente = l.zonas.filter(
+        (z) => z.pagina === 2 && z.id.startsWith("rotulo_") && !z.id.endsWith("_profesional"),
+      );
+
+      it("va debajo de la fila de firmas del paciente, a la derecha, en la página 2", () => {
+        expect(paciente.pagina).toBe(2);
+        expect(profesional.pagina).toBe(2);
+        // El lugar del trazo empieza debajo de la fila del paciente y de sus
+        // rótulos (los de la PcD son zonas; los de la General, del papel).
+        expect(profesional.y - profesional.alto).toBeGreaterThan(Math.max(paciente.y, ...rotulosDelPaciente.map((z) => z.y)));
+        expect(profesional.x).toBeGreaterThan(paciente.x + paciente.ancho);
+        expect(profesional.x + profesional.ancho).toBeLessThanOrEqual(pagina.ancho);
+      });
+
+      it("firma y aclaración lado a lado, cada una con su renglón y su rótulo", () => {
+        const rf = zona("renglon_firma_profesional");
+        const ra = zona("renglon_aclaracion_profesional");
+        expect(rf.y).toBe(ra.y);
+        expect(rf.x + rf.ancho).toBeLessThan(ra.x);
+        expect(rf).toMatchObject({ x: profesional.x, y: profesional.y, ancho: profesional.ancho });
+        expect(zona("aclaracion_profesional").texto).toBe("{{odontologo}}");
+        expect(zona("aclaracion_profesional").x).toBeGreaterThanOrEqual(ra.x);
+        expect(zona("rotulo_firma_profesional").texto).toBe("Firma del profesional");
+        expect(zona("rotulo_aclaracion_profesional").texto).toBe("Aclaración");
+        expect(zona("rotulo_firma_profesional").y).toBeGreaterThan(rf.y);
+      });
+
+      it("en la hoja mide 156 × 32 y termina por encima del pie del PDF (823)", () => {
+        expect(profesional.ancho * escala).toBeCloseTo(156, 0);
+        expect(profesional.alto * escala).toBeCloseTo(32, 0);
+        expect(zona("rotulo_firma_profesional").y * escala).toBeLessThan(823);
+        expect(zona("rotulo_aclaracion_profesional").y * escala).toBeLessThan(823);
+      });
+
+      it("los renglones de puntos entran a su tamaño, sin achicarse ni desbordar", () => {
+        for (const id of ["renglon_firma_profesional", "renglon_aclaracion_profesional"]) {
+          const z = zona(id);
+          const c = componerZona(z, z.texto);
+          expect(c, id).toMatchObject({ desborda: false, tamano: z.tamano });
+          expect(c.lineas).toHaveLength(1);
+          // Llenan el ancho del lugar casi exacto (no queda un hueco visible).
+          expect((anchoEnUnidades(c.lineas[0].texto) * c.tamano) / 1000).toBeGreaterThan(z.ancho - 1);
+        }
+        // Terminada, con el nombre del odontólogo, ninguna zona del bloque desborda.
+        const compuestas = armarLamina(plantilla, { odontologo: "María de los Ángeles Fernández" }, hoy, "sellado");
+        for (const c of compuestas.filter((z) => z.zona.endsWith("_profesional"))) {
+          expect(c.desborda, c.zona).toBe(false);
+        }
+        const renglon = compuestas.find((c) => c.zona === "renglon_firma_profesional")!;
+        expect(renglon.tamano).toBe(zona("renglon_firma_profesional").tamano);
+      });
+    });
+  }
 });

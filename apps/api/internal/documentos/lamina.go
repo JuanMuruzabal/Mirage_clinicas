@@ -62,10 +62,23 @@ func AnchoEnUnidades(texto string) int {
 	return total
 }
 
-// PaginaDeLamina — el tamaño de una página del original, en puntos.
+// PaginaDeLamina — el tamaño de una página del original, en puntos. Con
+// Escala (Fase 5.6a), el original se dibuja más chico, arriba y centrado, y
+// todo lo de la lámina se escala con él (ver `paginaDeLaminaSchema`).
 type PaginaDeLamina struct {
-	Ancho float64 `json:"ancho"`
-	Alto  float64 `json:"alto"`
+	Ancho  float64 `json:"ancho"`
+	Alto   float64 `json:"alto"`
+	Escala float64 `json:"escala,omitempty"`
+}
+
+// encuadre — la escala de la página y cuánto se corre a la derecha para
+// quedar centrada: un punto (x, y) del original va a (dx + escala·x,
+// escala·y). Mismo cálculo que `encuadreDePagina` de esquema.ts.
+func (p PaginaDeLamina) encuadre() (escala, dx float64) {
+	if p.Escala == 0 {
+		return 1, 0
+	}
+	return p.Escala, p.Ancho * (1 - p.Escala) / 2
 }
 
 // Zona — dónde va un dato sobre la página (ver `zonaSchema`).

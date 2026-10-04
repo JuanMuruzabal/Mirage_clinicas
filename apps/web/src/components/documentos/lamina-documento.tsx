@@ -4,6 +4,7 @@ import {
   campoPorId,
   camposDeZona,
   COLORES_DE_FIGURA,
+  encuadreDePagina,
   estaVacio,
   MARCA_DE_ZONA,
   seccionDelCampo,
@@ -180,6 +181,12 @@ interface Caja {
   alto: number;
 }
 
+/** Una caja medida sobre el original, llevada a la hoja de una página con
+ *  escala (Fase 5.6a): el original va más chico, arriba y centrado. */
+function enLaHoja(caja: Caja, { escala, dx }: { escala: number; dx: number }): Caja {
+  return { x: dx + escala * caja.x, y: escala * caja.y, ancho: escala * caja.ancho, alto: escala * caja.alto };
+}
+
 /** Un dato de la hoja que lleva a su campo: lo vacío se ve teñido; lo
  *  activo, marcado; lo que no entra o está mal, en terracota. */
 function BotonDeZona({
@@ -257,6 +264,7 @@ export function LaminaDocumento({
         const imagen = paginas[i];
         const escritas = zonas.filter((z) => z.pagina === numero);
         const firmadas = lamina.firmas.filter((f) => f.pagina === numero);
+        const encuadre = encuadreDePagina(medidas);
         return (
           <figure
             key={numero}
@@ -288,7 +296,12 @@ export function LaminaDocumento({
               height={imagen.alto}
               loading={numero === 1 || paraImprimir ? "eager" : "lazy"}
               alt=""
-              className="absolute inset-0 h-full w-full select-none"
+              className="absolute top-0 select-none"
+              style={{
+                left: porcentaje(encuadre.dx, medidas.ancho),
+                width: `${encuadre.escala * 100}%`,
+                height: `${encuadre.escala * 100}%`,
+              }}
               draggable={false}
             />
             <svg
@@ -296,49 +309,51 @@ export function LaminaDocumento({
               className="pointer-events-none absolute inset-0 h-full w-full"
               style={{ fontFamily: FAMILIA_DE_LAMINA, fontKerning: "none" }}
             >
-              {figuras
-                .filter((f) => f.pagina === numero)
-                .map((f, j) => (
-                  <FiguraSvg key={`figura-${j}`} figura={f} />
-                ))}
-              {escritas.flatMap((z) =>
-                z.lineas.map((l, j) => (
-                  <text key={`${z.zona}-${j}`} x={l.x} y={l.y} fontSize={z.tamano} fill={TINTA} style={{ whiteSpace: "pre" }}>
-                    {l.texto}
-                  </text>
-                )),
-              )}
-              {firmadas.map((lugar) => {
-                const firma = firmas.find((f) => f.rol === lugar.rol);
-                if (!firma) return null;
-                const r = recuadroDelTrazo(firma.trazo);
-                const escala = Math.min(lugar.ancho / r.ancho, lugar.alto / r.alto);
-                return (
-                  <svg
-                    key={lugar.rol}
-                    x={lugar.x}
-                    y={lugar.y - lugar.alto}
-                    width={lugar.ancho}
-                    height={lugar.alto}
-                    viewBox={`${r.x} ${r.y} ${r.ancho} ${r.alto}`}
-                    preserveAspectRatio="xMidYMax meet"
-                    role="img"
-                    aria-label={`Firma de ${firma.nombre}`}
-                  >
-                    {firma.trazo.trazos.map((puntos, k) => (
-                      <path
-                        key={k}
-                        d={caminoDelTrazo(puntos)}
-                        fill="none"
-                        stroke={TINTA}
-                        strokeWidth={GROSOR_DE_FIRMA / escala}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    ))}
+              <g transform={encuadre.escala === 1 ? undefined : `translate(${encuadre.dx} 0) scale(${encuadre.escala})`}>
+                {figuras
+                  .filter((f) => f.pagina === numero)
+                  .map((f, j) => (
+                    <FiguraSvg key={`figura-${j}`} figura={f} />
+                  ))}
+                {escritas.flatMap((z) =>
+                  z.lineas.map((l, j) => (
+                    <text key={`${z.zona}-${j}`} x={l.x} y={l.y} fontSize={z.tamano} fill={TINTA} style={{ whiteSpace: "pre" }}>
+                      {l.texto}
+                    </text>
+                  )),
+                )}
+                {firmadas.map((lugar) => {
+                  const firma = firmas.find((f) => f.rol === lugar.rol);
+                  if (!firma) return null;
+                  const r = recuadroDelTrazo(firma.trazo);
+                  const escala = Math.min(lugar.ancho / r.ancho, lugar.alto / r.alto);
+                  return (
+                    <svg
+                      key={lugar.rol}
+                      x={lugar.x}
+                      y={lugar.y - lugar.alto}
+                      width={lugar.ancho}
+                      height={lugar.alto}
+                      viewBox={`${r.x} ${r.y} ${r.ancho} ${r.alto}`}
+                      preserveAspectRatio="xMidYMax meet"
+                      role="img"
+                      aria-label={`Firma de ${firma.nombre}`}
+                    >
+                      {firma.trazo.trazos.map((puntos, k) => (
+                        <path
+                          key={k}
+                          d={caminoDelTrazo(puntos)}
+                          fill="none"
+                          stroke={TINTA}
+                          strokeWidth={GROSOR_DE_FIRMA / escala}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      ))}
                   </svg>
-                );
-              })}
+                  );
+                })}
+              </g>
             </svg>
 
             {editable &&
@@ -354,7 +369,7 @@ export function LaminaDocumento({
                       key={zona.id}
                       datos={{ "data-zona": zona.id }}
                       nombre={nombre}
-                      caja={cajaDeZona(zona)}
+                      caja={enLaHoja(cajaDeZona(zona), encuadre)}
                       medidas={medidas}
                       estado={{
                         conError: Boolean(compuesta?.desborda) || campos.some((c) => editable.errores[c]),
@@ -382,7 +397,7 @@ export function LaminaDocumento({
                       key={o.campo}
                       datos={{ "data-odontograma": o.campo }}
                       nombre={nombre}
-                      caja={cajaDeOdontograma(o)}
+                      caja={enLaHoja(cajaDeOdontograma(o), encuadre)}
                       medidas={medidas}
                       estado={estado}
                       onElegir={elegir}
@@ -394,7 +409,7 @@ export function LaminaDocumento({
                         key={`${o.campo}-existentes`}
                         datos={{ "data-odontograma": `${o.campo}-existentes` }}
                         nombre={`${nombre}: cantidad de dientes existentes`}
-                        caja={cajaDeExistentes(o.existentes)}
+                        caja={enLaHoja(cajaDeExistentes(o.existentes), encuadre)}
                         medidas={medidas}
                         estado={{ ...estado, vacia: editable.valores ? sinExistentes(editable.valores[o.campo]) : false }}
                         onElegir={elegir}

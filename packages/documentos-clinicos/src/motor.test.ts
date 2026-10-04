@@ -406,6 +406,34 @@ describe("el registro", () => {
     );
   });
 
+  it("la versión 2 de la historia clínica general es la 1 con otro bloque del profesional", () => {
+    const v1 = plantillaPorId("historia-clinica-general", 1) as Plantilla;
+    const v2 = plantillaPorId("historia-clinica-general", 2) as Plantilla;
+    expect(plantillaPorId("historia-clinica-general")?.version).toBe(2);
+    expect(plantillasVigentes().filter((p) => p.id === "historia-clinica-general").map((p) => p.version)).toEqual([2]);
+    // Mismo texto, mismos campos, mismas firmas pedidas y mismas páginas.
+    expect(v2.cuerpo).toEqual(v1.cuerpo);
+    expect(camposDe(v2)).toEqual(camposDe(v1));
+    expect(v2.firmas).toEqual(v1.firmas);
+    expect(v2.lamina!.paginas).toEqual(v1.lamina!.paginas);
+    expect(v2.lamina!.odontogramas).toEqual(v1.lamina!.odontogramas);
+    expect(armarCuerpo(v2, valoresDeEjemplo(v2), contexto, "sellado")).toEqual(armarCuerpo(v1, valoresDeEjemplo(v1), contexto, "sellado"));
+    // La lámina cambia solo en el bloque del profesional.
+    const bloque = (id: string) =>
+      ["renglon_firma_profesional", "renglon_aclaracion_profesional", "aclaracion_profesional", "rotulo_firma_profesional", "rotulo_aclaracion_profesional"].includes(id);
+    expect(v2.lamina!.zonas.filter((z) => !bloque(z.id))).toEqual(v1.lamina!.zonas.filter((z) => !bloque(z.id)));
+    expect(v2.lamina!.firmas.filter((f) => f.rol !== "profesional")).toEqual(v1.lamina!.firmas.filter((f) => f.rol !== "profesional"));
+    expect(v2.lamina!.firmas.find((f) => f.rol === "profesional")).not.toEqual(v1.lamina!.firmas.find((f) => f.rol === "profesional"));
+    expect(
+      v2.lamina!.zonas
+        .filter((z) => bloque(z.id))
+        .map((z) => z.id)
+        .sort(),
+    ).toEqual(["aclaracion_profesional", "renglon_aclaracion_profesional", "renglon_firma_profesional", "rotulo_aclaracion_profesional", "rotulo_firma_profesional"]);
+    // La 1 queda como estaba: armar la 2 no la tocó.
+    expect(v1.lamina!.zonas.some((z) => z.id === "renglon_firma_profesional")).toBe(false);
+  });
+
   it("el buscador ignora tildes y mayúsculas", () => {
     expect(normalizar(" Extracción ")).toBe("extraccion");
     expect(buscarPlantillas("CONDUCTO").map((p) => p.id)).toEqual(["consentimiento-tratamiento-conducto"]);

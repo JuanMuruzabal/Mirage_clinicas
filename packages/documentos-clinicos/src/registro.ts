@@ -21,6 +21,8 @@ import { consentimientoTomaDeImagenes } from "./plantillas/consentimiento-toma-d
 import { consentimientoTratamientoConducto } from "./plantillas/consentimiento-tratamiento-conducto";
 import { consentimientoTratamientoConductoV2 } from "./plantillas/consentimiento-tratamiento-conducto-v2";
 import { historiaClinicaGeneral } from "./plantillas/historia-clinica-general";
+import { historiaClinicaGeneralV2 } from "./plantillas/historia-clinica-general-v2";
+import { historiaClinicaPcd } from "./plantillas/historia-clinica-pcd";
 
 // El orden es el del selector dentro de cada grupo (Fase 5.2): los
 // consentimientos en el orden de la tabla de la fase (§2.2). El de
@@ -42,9 +44,11 @@ const DEFINICIONES: Plantilla[] = [
   consentimientoSedoanalgesia,
   consentimientoTomaDeImagenes,
   historiaClinicaGeneral,
+  historiaClinicaPcd,
   // Versiones anteriores: los documentos que las usaron se siguen leyendo
   // con la suya (TR-187). El selector ofrece la última.
   consentimientoTratamientoConductoV2,
+  historiaClinicaGeneralV2,
 ];
 
 /** Todas, validadas al importar: una plantilla rota no llega a la

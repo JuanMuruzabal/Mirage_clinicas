@@ -175,3 +175,81 @@ describe("LaminaDocumento con un odontograma (Fase 5.5)", () => {
     expect(screen.queryByRole("button", { name: /Odontograma/ })).toBeNull();
   });
 });
+
+// Fase 5.6a: una página con `escala` dibuja el original más chico, arriba y
+// centrado, y lo de encima (texto, figuras, firmas y cajas para tocar) se
+// lleva con él. La página 2 de la Historia clínica para PcD va al 93 %.
+describe("LaminaDocumento con una página escalada (Fase 5.6a)", () => {
+  const pcd = plantillaPorId("historia-clinica-pcd") as Plantilla;
+  const sinEscala: Plantilla = {
+    ...pcd,
+    lamina: { ...pcd.lamina!, paginas: pcd.lamina!.paginas.map(({ ancho, alto }) => ({ ancho, alto })) },
+  };
+  const ctx = { fecha: "2026-10-04" };
+  const dibujar = (plantilla: Plantilla) =>
+    render(
+      <LaminaDocumento
+        plantilla={plantilla}
+        paginas={paginasDeLaLamina(pcd)!}
+        zonas={armarLamina(plantilla, { odontologo: "Lucía Gómez" }, ctx, "borrador")}
+        editable={{ campoActivo: null, errores: {}, onElegir: vi.fn(), valores: {} }}
+        etiqueta="Tu documento"
+      />,
+    );
+  const enLaPagina = (container: HTMLElement, n: number) => container.querySelectorAll("figure")[n - 1];
+  const pct = (v: string) => Number.parseFloat(v);
+
+  it("la página escalada lleva su <g transform>; la que no, ninguno", () => {
+    const { container } = dibujar(pcd);
+    expect(pcd.lamina!.paginas[1].escala).toBe(0.93);
+    expect(enLaPagina(container, 1).querySelector("g[transform]")).toBeNull();
+    const g = enLaPagina(container, 2).querySelector("g[transform]")!;
+    const m = /^translate\(([\d.]+) 0\) scale\(([\d.]+)\)$/.exec(g.getAttribute("transform")!);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeCloseTo((595.6 * (1 - 0.93)) / 2, 6);
+    expect(Number(m![2])).toBe(0.93);
+    // Lo escrito va adentro del grupo: el nombre del odontólogo en la aclaración.
+    expect([...g.querySelectorAll("text")].map((t) => t.textContent)).toContain("Lucía Gómez");
+  });
+
+  it("la imagen del original va más chica, arriba y centrada", () => {
+    const { container } = dibujar(pcd);
+    const img1 = enLaPagina(container, 1).querySelector("img")!;
+    const img2 = enLaPagina(container, 2).querySelector("img")!;
+    expect(pct(img1.style.left)).toBe(0);
+    expect(img1.style.width).toBe("100%");
+    expect(pct(img2.style.left)).toBeCloseTo(3.5, 6);
+    expect(pct(img2.style.width)).toBeCloseTo(93, 6);
+    expect(pct(img2.style.height)).toBeCloseTo(93, 6);
+  });
+
+  it("sin escala no hay transform en ninguna página", () => {
+    const { container } = dibujar(sinEscala);
+    expect(container.querySelectorAll("g[transform]")).toHaveLength(0);
+  });
+
+  it("las cajas para tocar de la página escalada se corren con ella; las de la otra no", () => {
+    const cajas = (plantilla: Plantilla) => {
+      const { unmount } = dibujar(plantilla);
+      const estilo = (nombre: string) => {
+        const s = screen.getByRole("button", { name: nombre }).style;
+        return { left: pct(s.left), top: pct(s.top), width: pct(s.width), height: pct(s.height) };
+      };
+      const r = {
+        odontograma: estilo("Completar: Odontograma"),
+        primera: estilo(screen.getAllByRole("button")[0].getAttribute("aria-label")!),
+      };
+      unmount();
+      return r;
+    };
+    const escalada = cajas(pcd);
+    const original = cajas(sinEscala);
+    // El odontograma está en la página 2: (dx + e·x, e·y), y su tamaño por e.
+    expect(escalada.odontograma.left).toBeCloseTo(3.5 + 0.93 * original.odontograma.left, 6);
+    expect(escalada.odontograma.top).toBeCloseTo(0.93 * original.odontograma.top, 6);
+    expect(escalada.odontograma.width).toBeCloseTo(0.93 * original.odontograma.width, 6);
+    expect(escalada.odontograma.height).toBeCloseTo(0.93 * original.odontograma.height, 6);
+    // La primera caja es de la página 1, sin escala: no se mueve.
+    expect(escalada.primera).toEqual(original.primera);
+  });
+});

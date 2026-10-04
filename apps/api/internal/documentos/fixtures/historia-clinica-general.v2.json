@@ -1,0 +1,3538 @@
+{
+  "plantilla": "historia-clinica-general",
+  "version": 2,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "lugar": "Ejemplo de lugar",
+    "odontologo": "Ejemplo de odontólogo",
+    "matricula": "1234",
+    "paciente_nombre": "Ejemplo de paciente",
+    "afiliado": "40123456",
+    "obra_social": "Ejemplo de obra",
+    "fecha_nacimiento": "1984-03-07",
+    "estado_civil": "Ejemplo de estado",
+    "nacionalidad": "Ejemplo de nacionalidad",
+    "dni": "30111222",
+    "celular": "Ejemplo de celular",
+    "domicilio": "Ejemplo de domicilio",
+    "profesion": "Ejemplo de profesión",
+    "lugar_trabajo": "Ejemplo de lugar",
+    "jerarquia": "Ejemplo de jerarquía",
+    "padre_vive": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "madre_vive": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "madre_enfermedad": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "hermanos": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "enfermedad": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "tratamiento_medico": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "medicamentos_habituales": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "deporte": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "deporte_malestar": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "alergico": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "alergias_otras": "Ejemplo de otras",
+    "cicatrizacion": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "colageno": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "fiebre_reumatica_proteccion": "Ejemplo de ¿se",
+    "diabetico": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "diabetes_controlada": "si",
+    "cardiaco": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "aspirina": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "presion_alta": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "chagas_tratamiento": "Ejemplo de ¿está",
+    "renales": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "ulcera": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "hepatitis_tipo": [
+      "b",
+      "a"
+    ],
+    "hepatico": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "convulsiones": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "sifilis": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "infecto": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "transfusiones": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "operado_cuando": "Ejemplo de ¿cuándo?",
+    "respiratorio": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "fuma": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "otra_enfermedad": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "homeopatia": "Ejemplo de ¿realiza",
+    "medico_clinico": "Ejemplo de médico",
+    "motivo_consulta": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "consulto_otro": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "tomo_medicamento": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "medicamento_resultados": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "dolor": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "dolor_tipo": [
+      "moderado",
+      "suave"
+    ],
+    "dolor_hacia_donde": "Ejemplo de irradiado:",
+    "dolor_calma": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "golpe": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "golpe_como": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "fractura": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "fractura_tratamiento": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "dificultad_masticar": "Ejemplo de ¿para",
+    "dificultad_abrir": "Ejemplo de ¿para",
+    "dificultad_tragar": "Ejemplo de ¿para",
+    "manchas": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "abultamiento": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "ulceraciones": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "lesiones_otras": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "encias_sangran": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "pus": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "dientes_altos": "Ejemplo de ¿al",
+    "cara_hinchada": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "hinchazon_aplico": [
+      "calor",
+      "hielo"
+    ],
+    "momentos_azucar": "Ejemplo de momentos",
+    "indice_placa": "Ejemplo de índice",
+    "higiene": "muy_bueno",
+    "odontograma": {
+      "piezas": {
+        "16": {
+          "caras": {
+            "O": "rojo",
+            "M": "rojo"
+          },
+          "marcas": {
+            "corona": "rojo"
+          }
+        },
+        "26": {
+          "marcas": {
+            "x": "azul"
+          }
+        },
+        "36": {
+          "caras": {
+            "D": "azul"
+          }
+        }
+      },
+      "protesis": [
+        {
+          "tipo": "fija",
+          "desde": "23",
+          "hasta": "13",
+          "color": "rojo"
+        }
+      ],
+      "existentes": 28
+    },
+    "periodontal": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "diagnostico": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "diagnostico_anexo": 1,
+    "plan": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "plan_anexo": 1,
+    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "suscribe_nombre": "Ejemplo de nombre",
+    "suscribe_dni": "30111222",
+    "suscribe_domicilio": "Ejemplo de domicilio"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Historia clínica general"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Lugar: Ejemplo de lugar. Fecha: 27/09/2026."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Odontólogo: Ejemplo de odontólogo. Nº de matrícula: 1234."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Paciente: Ejemplo de paciente. Nº de afiliado: 40123456."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Obra social: Ejemplo de obra. Fecha de nacimiento: 07/03/1984. Tel.: No consigna. Edad: No consigna. Estado civil: Ejemplo de estado. Nacionalidad: Ejemplo de nacionalidad. Nº de documento: 30111222. Cel.: Ejemplo de celular."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Domicilio (calle, núm., barrio, localidad): Ejemplo de domicilio."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Profesión/Actividad: Ejemplo de profesión. Titular: No consigna. Lugar de trabajo: Ejemplo de lugar. Jerarquía: Ejemplo de jerarquía."
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Este cuestionario tiene el tenor de una “Declaración Jurada”"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "¿Padre con vida? Sí (detalle de ejemplo). Enfermedad que padece o padeció: No consigna.",
+        "¿Madre con vida? Sí (detalle de ejemplo). Enfermedad que padece o padeció: Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Hermanos? Sí (detalle de ejemplo). ¿Sanos? No consigna.",
+        "¿Sufre de alguna enfermedad? Sí (detalle de ejemplo).",
+        "¿Hace algún tratamiento médico? Sí (detalle de ejemplo).",
+        "¿Qué medicamentos consume habitualmente? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Qué medicamentos ha consumido en los últimos 5 años? No consigna.",
+        "¿Realiza algún deporte? Sí (detalle de ejemplo). ¿Nota algún malestar al realizarlo? Sí (detalle de ejemplo).",
+        "¿Es alérgico a alguna droga? Sí (detalle de ejemplo). ¿A cuáles? No consigna. Otras: Ejemplo de otras.",
+        "Cuando le sacan una muela o se lastima, ¿cicatriza bien? ¿Sangra mucho? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Tiene problema de colágeno (hiperlaxitud)? Sí (detalle de ejemplo).",
+        "¿Antecedentes de fiebre reumática? No consigna. ¿Se protege con alguna medicación? Ejemplo de ¿se.",
+        "¿Es diabético? Sí (detalle de ejemplo). ¿Está controlado? Sí. ¿Con qué? No consigna.",
+        "¿Tiene algún problema cardíaco? Sí (detalle de ejemplo).",
+        "¿Toma seguido aspirina y/o anticoagulante? Sí (detalle de ejemplo).",
+        "¿Tiene presión alta? Sí (detalle de ejemplo).",
+        "¿Chagas? No consigna. ¿Está en tratamiento? Ejemplo de ¿está.",
+        "¿Tiene problemas renales? Sí (detalle de ejemplo).",
+        "¿Úlcera gástrica? Sí (detalle de ejemplo).",
+        "¿Tuvo hepatitis? No consigna. ¿De qué tipo? A, B.",
+        "¿Tiene algún problema hepático? Sí (detalle de ejemplo).",
+        "¿Tuvo convulsiones? Sí (detalle de ejemplo).",
+        "¿Es epiléptico? No consigna.",
+        "¿Ha tenido sífilis o gonorrea? Sí (detalle de ejemplo).",
+        "¿Otra enfermedad infecto-contagiosa? Sí (detalle de ejemplo).",
+        "¿Tuvo transfusiones? Sí (detalle de ejemplo).",
+        "¿Fue operado alguna vez? No consigna. ¿Cuándo? Ejemplo de ¿cuándo?.",
+        "¿Tiene algún problema respiratorio? Sí (detalle de ejemplo).",
+        "¿Fuma? Sí (detalle de ejemplo).",
+        "¿Está embarazada? No consigna.",
+        "¿Hay alguna otra enfermedad o recomendación de su médico que quiera dejar constancia? Sí (detalle de ejemplo).",
+        "¿Realiza algún tipo de tratamiento homeopático, acupuntura, otros? Ejemplo de ¿realiza.",
+        "Médico clínico: Ejemplo de médico.",
+        "Clínica/Hospital en caso de hacer falta derivación: No consigna."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Historia clínica odontológica"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "¿Por qué asistió a la consulta? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Consultó antes con algún otro profesional? Sí (detalle de ejemplo).",
+        "¿Tomó algún medicamento? Sí (detalle de ejemplo). ¿Desde cuándo? No consigna. ¿Obtuvo resultados? Sí (detalle de ejemplo).",
+        "¿Ha tenido dolor? Sí (detalle de ejemplo). ¿De qué tipo? Suave, Moderado. Localizado, ¿dónde? No consigna. Irradiado, ¿hacia dónde? Ejemplo de irradiado:.",
+        "¿Puede calmarlo con algo? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Sufrió algún golpe en los dientes? Sí (detalle de ejemplo). ¿Cuándo? No consigna. ¿Cómo se produjo? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Se le fracturó algún diente? Sí (detalle de ejemplo). ¿Recibió algún tratamiento? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Tiene dificultad para hablar? No consigna. ¿Para masticar? Ejemplo de ¿para. ¿Para abrir la boca? Ejemplo de ¿para. ¿Para tragar los alimentos? Ejemplo de ¿para.",
+        "¿Ha observado algo anormal en los labios, lengua, paladar, piso de boca, carrillos, rebordes, trígono o retromolar? No consigna.",
+        "¿Qué tipo de lesiones presenta? Manchas: Sí (detalle de ejemplo). Abultamiento de los tejidos: Sí (detalle de ejemplo). Ulceraciones: Sí (detalle de ejemplo). Ampollas: No consigna. Otros: Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "¿Le sangran las encías? Sí (detalle de ejemplo).",
+        "¿Sale pus de algún lugar de su boca? Sí (detalle de ejemplo).",
+        "¿Tiene movilidad en sus dientes? No consigna. ¿Al morder siente altos los dientes? Ejemplo de ¿al.",
+        "¿Ha tenido la cara hinchada? Sí (detalle de ejemplo). ¿Se puso hielo o calor? Hielo, Calor. ¿Otros? No consigna.",
+        "Momentos de azúcar diario: Ejemplo de momentos. Índice de placa: Ejemplo de índice.",
+        "Estado de la higiene bucal: Muy bueno."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "Declaro que he contestado todas las preguntas con honestidad y según mi conocimiento. Asimismo, he sido informado que los datos suministrados quedan reservados en la presente Historia Clínica y amparados en secreto profesional."
+    },
+    {
+      "t": "campo",
+      "campo": "odontograma",
+      "etiqueta": "Odontograma",
+      "texto": "Rojo, prestaciones existentes: 16 (caras mesial y oclusal; corona). Azul, prestaciones requeridas: 26 (ausente o a extraer), 36 (cara distal). Prótesis: fija en rojo, de 13 a 23. Dientes existentes: 28."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Estado bucal general: presencia de sarro: No consigna. Enfermedad periodontal: Sí (detalle de ejemplo)."
+    },
+    {
+      "t": "campo",
+      "campo": "diagnostico",
+      "etiqueta": "Diagnóstico presuntivo",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Continúa en anexo Nº 1."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Plan de tratamiento. Fecha: No consigna."
+    },
+    {
+      "t": "campo",
+      "campo": "plan",
+      "etiqueta": "Plan de tratamiento",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Continúa en anexo Nº 1."
+    },
+    {
+      "t": "campo",
+      "campo": "observaciones",
+      "etiqueta": "Observaciones",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Continúa en anexo Nº No consigna."
+    },
+    {
+      "t": "parrafo",
+      "texto": "He comprendido todas las explicaciones que se me han facilitado en el lenguaje claro y sencillo, he podido realizar todas las observaciones y se me han aclarado todas las dudas; por lo que estoy completamente de acuerdo con el tratamiento que se me va a realizar."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El/la que suscribe Ejemplo de nombre, DNI Nº 30111222, con domicilio en calle Ejemplo de domicilio, otorgo mi consentimiento para realizar el tratamiento necesario para rehabilitar mi salud bucodental propuesta por el/la Dr/a Ejemplo de odontólogo, MP 1234."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "lugar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 271.5,
+          "y": 95.8,
+          "texto": "Ejemplo de lugar"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_dia",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 495.75,
+          "y": 95.8,
+          "texto": "27"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_mes",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 515.25,
+          "y": 95.8,
+          "texto": "09"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_anio",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 534.49,
+          "y": 95.8,
+          "texto": "2026"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "odontologo",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 97,
+          "y": 124.2,
+          "texto": "Ejemplo de odontólogo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "matricula",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [
+        {
+          "x": 464.76,
+          "y": 132.9,
+          "texto": "1"
+        },
+        {
+          "x": 482.44,
+          "y": 132.9,
+          "texto": "2"
+        },
+        {
+          "x": 500.12,
+          "y": 132.9,
+          "texto": "3"
+        },
+        {
+          "x": 517.8,
+          "y": 132.9,
+          "texto": "4"
+        }
+      ],
+      "desborda": false,
+      "vacia": false
+    },
+    {
+      "zona": "paciente_nombre",
+      "pagina": 1,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 84,
+          "y": 166,
+          "texto": "Ejemplo de paciente"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "afiliado",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [
+        {
+          "x": 325.57,
+          "y": 170.5,
+          "texto": "4"
+        },
+        {
+          "x": 339.73,
+          "y": 170.5,
+          "texto": "0"
+        },
+        {
+          "x": 353.89,
+          "y": 170.5,
+          "texto": "1"
+        },
+        {
+          "x": 368.05,
+          "y": 170.5,
+          "texto": "2"
+        },
+        {
+          "x": 382.21,
+          "y": 170.5,
+          "texto": "3"
+        },
+        {
+          "x": 396.37,
+          "y": 170.5,
+          "texto": "4"
+        },
+        {
+          "x": 410.53,
+          "y": 170.5,
+          "texto": "5"
+        },
+        {
+          "x": 424.69,
+          "y": 170.5,
+          "texto": "6"
+        }
+      ],
+      "desborda": false,
+      "vacia": false
+    },
+    {
+      "zona": "obra_social",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 63.7,
+          "y": 196.7,
+          "texto": "Ejemplo de obra"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_nacimiento",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 387.4,
+          "y": 196.7,
+          "texto": "07/03/1984"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "telefono",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 463.6,
+          "y": 196.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "edad",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 46.8,
+          "y": 209.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "estado_civil",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 126.9,
+          "y": 209.7,
+          "texto": "Ejemplo de estado"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "nacionalidad",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 253.6,
+          "y": 209.7,
+          "texto": "Ejemplo de nacionalidad"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dni",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 367.3,
+          "y": 209.7,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "celular",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 460.4,
+          "y": 209.7,
+          "texto": "Ejemplo de celular"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "domicilio",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 162.4,
+          "y": 222.5,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "profesion",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 92.8,
+          "y": 235.5,
+          "texto": "Ejemplo de profesión"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "titular",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 256.8,
+          "y": 235.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lugar_trabajo",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 378.6,
+          "y": 235.5,
+          "texto": "Ejemplo de lugar"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "jerarquia",
+      "pagina": 1,
+      "tamano": 5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 508.2,
+          "y": 235.5,
+          "texto": "Ejemplo de jerarquía"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "padre_vive_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 275.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "padre_vive_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 275.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "padre_enfermedad",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 178,
+          "y": 286.7,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "madre_vive_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 308.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "madre_vive_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 308.8,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "madre_enfermedad",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 178,
+          "y": 320,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 36.4,
+          "y": 330.4,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hermanos_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 342.1,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hermanos_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 342.1,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hermanos_sanos",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 68,
+          "y": 353.3,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "enfermedad_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 365.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "enfermedad_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 365.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "enfermedad_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 69,
+          "y": 376.4,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento_medico_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 388.1,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento_medico_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 388.1,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tratamiento_medico_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 60.5,
+          "y": 399.4,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicamentos_habituales",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 36.4,
+          "y": 420.1,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 36.4,
+          "y": 430.4,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicamentos_5_anios",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 36.4,
+          "y": 451.1,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "deporte_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 473.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "deporte_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 473.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "deporte_malestar_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 485.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "deporte_malestar_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 485.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alergico_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 498.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alergico_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 498.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alergias_anestesia",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 94,
+          "y": 509.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "alergias_penicilina",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 167.95,
+          "y": 509.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "alergias_otras",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 202.9,
+          "y": 509.9,
+          "texto": "Ejemplo de otras"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cicatrizacion",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 101,
+          "y": 530.5,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 36.4,
+          "y": 540.8,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "colageno_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 552.7,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "colageno_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 552.7,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fiebre_reumatica_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 244.65,
+          "y": 565.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fiebre_reumatica_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 276.45,
+          "y": 565.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fiebre_reumatica_proteccion",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 179.9,
+          "y": 576.5,
+          "texto": "Ejemplo de ¿se"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diabetico_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 588.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diabetico_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 588.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diabetes_controlada",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 109.37,
+          "y": 599.5,
+          "texto": "Sí"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diabetes_con_que",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 159.9,
+          "y": 599.5,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "cardiaco_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 611.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cardiaco_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 611.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cardiaco_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 58,
+          "y": 622.6,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aspirina_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 634.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aspirina_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 634.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aspirina_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 117.4,
+          "y": 645.5,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "presion_alta_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 657.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "presion_alta_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 657.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "chagas_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 244.65,
+          "y": 669.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "chagas_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 276.45,
+          "y": 669.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "chagas_tratamiento",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 120.9,
+          "y": 681.1,
+          "texto": "Ejemplo de ¿está"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "renales_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 693,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "renales_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 693,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "ulcera_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 705.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "ulcera_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 705.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatitis_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 244.65,
+          "y": 718.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "hepatitis_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 276.45,
+          "y": 718.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "hepatitis_a",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 97.48,
+          "y": 730.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatitis_b",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 126.88,
+          "y": 730.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatitis_c",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 156.95,
+          "y": 730.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatico_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 743.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatico_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 743.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hepatico_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 60.5,
+          "y": 754.8,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "convulsiones_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 766.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "convulsiones_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 766.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "epileptico_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 244.65,
+          "y": 779.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "epileptico_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 276.45,
+          "y": 779.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "epileptico_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 122,
+          "y": 790.5,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "sifilis_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 245.98,
+          "y": 802.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "sifilis_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 280.45,
+          "y": 802.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "infecto_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 518.48,
+          "y": 259.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "infecto_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 552.95,
+          "y": 259.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "transfusiones_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 518.48,
+          "y": 272.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "transfusiones_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 552.95,
+          "y": 272.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "operado_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 517.15,
+          "y": 285.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "operado_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 548.95,
+          "y": 285.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "operado_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 341.5,
+          "y": 296.4,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "operado_cuando",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 345.5,
+          "y": 306.9,
+          "texto": "Ejemplo de ¿cuándo?"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "respiratorio_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 518.48,
+          "y": 318.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "respiratorio_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 552.95,
+          "y": 318.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "respiratorio_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 333,
+          "y": 329.8,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fuma_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 518.48,
+          "y": 341.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fuma_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 552.95,
+          "y": 341.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "embarazada_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 517.15,
+          "y": 354.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "embarazada_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 548.95,
+          "y": 354.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "embarazada_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 392,
+          "y": 365.5,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "otra_enfermedad_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 518.48,
+          "y": 387.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otra_enfermedad_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 552.95,
+          "y": 387.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otra_enfermedad_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 330.5,
+          "y": 398.8,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "homeopatia",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 308.9,
+          "y": 429.9,
+          "texto": "Ejemplo de ¿realiza"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medico_clinico",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 371,
+          "y": 440.2,
+          "texto": "Ejemplo de médico"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "derivacion",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 308.9,
+          "y": 461,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "motivo_consulta",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 426.4,
+          "y": 508.1,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 308.9,
+          "y": 518.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consulto_otro_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 540.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consulto_otro_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 540.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tomo_medicamento_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 553.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tomo_medicamento_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 553.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tomo_medicamento_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 428.4,
+          "y": 564.5,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicamento_desde",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 374.5,
+          "y": 585.2,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "medicamento_resultados_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 597,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medicamento_resultados_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 597,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 377.88,
+          "y": 609.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_suave",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 496.38,
+          "y": 609.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_moderado",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 555.28,
+          "y": 609.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_intenso",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 344.05,
+          "y": 622.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_temporario",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 410.95,
+          "y": 622.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_intermitente",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 489.45,
+          "y": 622.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_continuo",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 560.35,
+          "y": 622.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_espontaneo",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 365.05,
+          "y": 634.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_provocado",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 444.05,
+          "y": 634.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_al_frio",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 496.05,
+          "y": 634.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_al_calor",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 560.95,
+          "y": 634.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_localizado",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 357.55,
+          "y": 647.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_donde",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 420.4,
+          "y": 647.9,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "dolor_irradiado",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 350.05,
+          "y": 660.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_hacia_donde",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 414.4,
+          "y": 660.6,
+          "texto": "Ejemplo de irradiado:"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dolor_calma",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 415.4,
+          "y": 671.4,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 308.9,
+          "y": 681.8,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "golpe_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 693.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "golpe_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 693.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "golpe_cuando",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 343.5,
+          "y": 704.8,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "golpe_como",
+      "pagina": 1,
+      "tamano": 7.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 477.4,
+          "y": 704.8,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 308.9,
+          "y": 715.1,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fractura_si",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 726.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fractura_no",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 726.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fractura_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 330.5,
+          "y": 738.1,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fractura_tratamiento",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 308.9,
+          "y": 748.5,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 308.9,
+          "y": 758.9,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dificultad_hablar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 424.8,
+          "y": 769.2,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "dificultad_masticar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 371,
+          "y": 779.5,
+          "texto": "Ejemplo de ¿para"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dificultad_abrir",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 384,
+          "y": 789.9,
+          "texto": "Ejemplo de ¿para"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dificultad_tragar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 415.4,
+          "y": 800.3,
+          "texto": "Ejemplo de ¿para"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anormal_labios",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 209,
+          "y": 58.8,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_lengua",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 77.45,
+          "y": 69.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_paladar",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 138,
+          "y": 69.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_piso_de_boca",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 212.5,
+          "y": 69.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_carrillos",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 78.75,
+          "y": 79.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_rebordes",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 146.85,
+          "y": 79.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_trigono",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 202.5,
+          "y": 79.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "anormal_retromolar",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 277.1,
+          "y": 79.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "manchas_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 254.98,
+          "y": 101.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "manchas_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 289.45,
+          "y": 101.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "abultamiento_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 254.98,
+          "y": 114.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "abultamiento_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 289.45,
+          "y": 114.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "ulceraciones_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 254.98,
+          "y": 126.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "ulceraciones_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 289.45,
+          "y": 126.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "ampollas_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 253.65,
+          "y": 139.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "ampollas_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 285.45,
+          "y": 139.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lesiones_otras",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 63.5,
+          "y": 150.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 36.4,
+          "y": 161.2,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "encias_sangran_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 254.98,
+          "y": 172.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "encias_sangran_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 289.45,
+          "y": 172.9,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "encias_sangran_detalle",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 73.4,
+          "y": 184.2,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pus_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 60.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pus_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 60.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pus_detalle",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 354,
+          "y": 71.4,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "movilidad_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 526.15,
+          "y": 83.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "movilidad_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 557.95,
+          "y": 83.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "dientes_altos",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 447.9,
+          "y": 94.5,
+          "texto": "Ejemplo de ¿al"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cara_hinchada_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 527.48,
+          "y": 106.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cara_hinchada_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 561.95,
+          "y": 106.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hinchazon_hielo",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 378.53,
+          "y": 117.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hinchazon_calor",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 430.53,
+          "y": 117.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hinchazon_otros",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 475.4,
+          "y": 117.5,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "momentos_azucar",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 420,
+          "y": 127.8,
+          "texto": "Ejemplo de momentos"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "indice_placa",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 371.9,
+          "y": 138.1,
+          "texto": "Ejemplo de índice"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "higiene_muy_bueno",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 356.38,
+          "y": 170.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "higiene_bueno",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 406.05,
+          "y": 170.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "higiene_deficiente",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 466.85,
+          "y": 170.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "higiene_malo",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 507.35,
+          "y": 170.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "sarro_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 218.35,
+          "y": 450.6,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "sarro_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 250.25,
+          "y": 450.6,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "periodontal_si",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 403.08,
+          "y": 450.6,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "periodontal_no",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 437.55,
+          "y": 450.6,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diagnostico",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 32.1,
+          "y": 484.8,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 32.1,
+          "y": 494.47,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "diagnostico_anexo",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 551.18,
+          "y": 523.4,
+          "texto": "1"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "plan_fecha_dia",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 127.8,
+          "y": 542.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "plan_fecha_mes",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 143.8,
+          "y": 542.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "plan_fecha_anio",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 162,
+          "y": 542.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "plan",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 32.1,
+          "y": 552.5,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 32.1,
+          "y": 562.13,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "plan_anexo",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 551.18,
+          "y": 591.1,
+          "texto": "1"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "observaciones",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 32.1,
+          "y": 610.4,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 32.1,
+          "y": 620.07,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "observaciones_anexo",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 549.4,
+          "y": 649.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "suscribe_nombre",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 91.1,
+          "y": 682.8,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_dni",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 239.5,
+          "y": 682.8,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "suscribe_domicilio",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 407.9,
+          "y": 682.8,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "consiente_profesional",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 428.3,
+          "y": 698.9,
+          "texto": "Ejemplo de odontólogo, 1234"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 270.78,
+          "y": 756.4,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion_dni",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 479.23,
+          "y": 756.4,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "renglon_firma_profesional",
+      "pagina": 2,
+      "tamano": 9.17,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 232,
+          "y": 808,
+          "texto": "……………………………………………"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "renglon_aclaracion_profesional",
+      "pagina": 2,
+      "tamano": 9.17,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 400,
+          "y": 808,
+          "texto": "……………………………………………"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion_profesional",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 431.97,
+          "y": 806.8,
+          "texto": "Ejemplo de odontólogo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "rotulo_firma_profesional",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.66,
+          "y": 818,
+          "texto": "Firma del profesional"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "rotulo_aclaracion_profesional",
+      "pagina": 2,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 459.33,
+          "y": 818,
+          "texto": "Aclaración"
+        }
+      ],
+      "vacia": false
+    }
+  ],
+  "figuras": [
+    {
+      "tipo": "poligono",
+      "pagina": 2,
+      "puntos": [
+        [
+          92.91,
+          286.03
+        ],
+        [
+          92.91,
+          300.8
+        ],
+        [
+          88.63,
+          296.52
+        ],
+        [
+          88.63,
+          290.31
+        ]
+      ],
+      "relleno": "rojo"
+    },
+    {
+      "tipo": "poligono",
+      "pagina": 2,
+      "puntos": [
+        [
+          81.27,
+          290.31
+        ],
+        [
+          87.48,
+          290.31
+        ],
+        [
+          87.48,
+          296.52
+        ],
+        [
+          81.27,
+          296.52
+        ]
+      ],
+      "relleno": "rojo"
+    },
+    {
+      "tipo": "circulo",
+      "pagina": 2,
+      "centro": [
+        84.38,
+        293.42
+      ],
+      "radio": 11.17,
+      "color": "rojo",
+      "grosor": 1.1
+    },
+    {
+      "tipo": "linea",
+      "pagina": 2,
+      "desde": [
+        315.85,
+        286.45
+      ],
+      "hasta": [
+        330.98,
+        301.58
+      ],
+      "color": "azul",
+      "grosor": 1.4
+    },
+    {
+      "tipo": "linea",
+      "pagina": 2,
+      "desde": [
+        330.98,
+        286.45
+      ],
+      "hasta": [
+        315.85,
+        301.58
+      ],
+      "color": "azul",
+      "grosor": 1.4
+    },
+    {
+      "tipo": "poligono",
+      "pagina": 2,
+      "puntos": [
+        [
+          331.95,
+          313.3
+        ],
+        [
+          331.95,
+          328.07
+        ],
+        [
+          327.67,
+          323.79
+        ],
+        [
+          327.67,
+          317.58
+        ]
+      ],
+      "relleno": "azul"
+    },
+    {
+      "tipo": "linea",
+      "pagina": 2,
+      "desde": [
+        147.29,
+        293.65
+      ],
+      "hasta": [
+        261.11,
+        293.65
+      ],
+      "color": "rojo",
+      "grosor": 1.4
+    },
+    {
+      "tipo": "texto",
+      "pagina": 2,
+      "x": 518.84,
+      "y": 404.8,
+      "tamano": 10,
+      "texto": "28",
+      "color": "tinta"
+    }
+  ]
+}
