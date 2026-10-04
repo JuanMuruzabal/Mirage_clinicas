@@ -41,6 +41,8 @@ Diecinueve archivos, que dan **veinte plantillas posibles** —el consentimiento
 | **Anexo de odontopediatría** | 2 | Peso, talla, edad en años y meses, grado escolar, actitud del niño y de los padres; **genograma**; embarazo, parto, alimentación; cepillado, flúor, hábitos; examen de tejidos blandos y duros (dentición primaria/mixta/permanente, anomalías), traumatismos; diagnóstico con derivación, plan presuntivo, aparatología | **Genograma** (dibujo), odontograma pediátrico con **sellador (△)** y **traumatizado (T)** | Representante legal + profesional |
 | **Registro de prestaciones** (Anexo) | 1 | Una tabla: fecha y hora, tratamiento realizado e indicaciones, **debe / haber / saldo**, profesional actuante, próximo turno, **firma del paciente en cada fila**; folio | — | Paciente, **por fila** |
 
+> **Nota (5.6a):** la página 3 de la Historia clínica para PcD es una tabla de prestaciones: no va en la plantilla de la historia sino en el registro de prestaciones (5.7). Los rótulos de la firma, que el modelo pasa a esa página, se escriben debajo de los renglones de la página 2.
+
 ### 2.2 Consentimientos informados
 
 Todos tienen la misma forma: **texto legal fijo**, unos pocos **huecos** que completa el profesional y un **bloque de firmas**. Lo que cambia entre uno y otro es el texto y qué huecos trae.
@@ -357,7 +359,7 @@ Una rama y un PR a `dev` por subfase; el merge lo hace el cliente. Cada una deja
 | **5.2 Consentimientos** — *reordenada el 2026-09-29, era la 5.4 (TR-189)* | Los trece restantes (incluido el de ortodoncia), con casillas para el asentimiento y las opciones del papel. Se imprimen y se firman a mano (TR-188) | 5.1, D6 |
 | **5.3 PDF** ✅ | El PDF se arma en Go en cada descarga y no se guarda (TR-191): sellados y consentimientos para imprimir, descarga con auditoría, código de verificación, constancia de firma. Sin storage | 5.1 |
 | **5.5 Odontograma + Historia Clínica General** — *reordenada el 2026-10-03, estaba después de la 5.4 (TR-192)* | El odontograma completo (tipo de campo, editor, lámina y PDF, con las figuras congeladas), permanentes y temporarios, las dos leyendas, casillas de caracteres; y la Historia Clínica General de punta a punta (se firma en el dispositivo del consultorio) | 5.3, D5 |
-| **5.6 Historias clínicas** | PcD, ortodoncia (cefalogramas, VTO, análisis facial y funcional) y anexo de odontopediatría (genograma); sobre el odontograma y `medir-odontograma.py` de la 5.5 | 5.5 |
+| **5.6 Historias clínicas**, en tres rondas con su PR cada una | **5.6a PcD ✅** (páginas 1 y 2; TR-192, addendum 2026-10-04) · 5.6b anexo de odontopediatría (genograma) · 5.6c ortodoncia (cefalogramas, VTO, análisis facial y funcional); sobre el odontograma y `medir-odontograma.py` de la 5.5 | 5.5 |
 | **5.4 Firma a distancia** — *solo historias clínicas (TR-188); pasó después de la 5.6 (TR-192)* | Vínculo al celular del paciente (sin código, D2), alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica del profesional en su perfil. **La rúbrica se usa con solo la sesión iniciada** ("Firmar como Dr. X"), sin código al mail; la constancia dice que es la evidencia más débil | 5.6, D1, D2 |
 | **5.7 Evolución y copias** | Registro de prestaciones como asientos sellados (D3), enmiendas, revocación, copia completa para el paciente | 5.6, D3 |
 | **5.8 Anclaje y cierre** | Sello de tiempo externo diario de la cadena, bucket con retención bloqueada, verificación de la cadena, revisión legal, QA en dispositivos reales, documentación | 5.7 |
