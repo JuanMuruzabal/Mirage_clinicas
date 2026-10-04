@@ -45,11 +45,11 @@ func campoConPrecarga(p *documentos.Plantilla, precarga string) string {
 
 // valoresDeEjemploDeLaHistoria — los del fixture que genera el paquete de
 // TypeScript: válidos para terminar y que entran en la lámina.
-func valoresDeEjemploDeLaHistoria(t *testing.T) map[string]any {
+func valoresDeEjemploDeLaHistoria(t *testing.T, plantilla string) map[string]any {
 	t.Helper()
-	datos, err := os.ReadFile("../documentos/fixtures/historia-clinica-general.v1.json")
+	datos, err := os.ReadFile("../documentos/fixtures/" + plantilla + ".v1.json")
 	if err != nil {
-		t.Fatalf("el fixture de la historia general: %v", err)
+		t.Fatalf("el fixture de %s: %v", plantilla, err)
 	}
 	var fx struct {
 		Valores map[string]any `json:"valores"`
@@ -65,13 +65,35 @@ const odontogramaDeEjemplo = `{"piezas":{"16":{"caras":{"O":"rojo","M":"rojo"},"
 
 const textoDelOdontogramaDeEjemplo = "Rojo, prestaciones existentes: 16 (caras mesial y oclusal; corona). Azul, prestaciones requeridas: 26 (ausente o a extraer), 36 (cara distal). Prótesis: fija en rojo, de 13 a 23. Dientes existentes: 28."
 
-func TestDocumentos_HistoriaClinicaGeneralDePuntaAPunta(t *testing.T) {
-	p, ok := documentos.Ultima(plantillaHistoriaGeneral)
+// Las historias clínicas con odontograma: la General (5.5) y la de PcD
+// (5.6a) recorren el mismo circuito; lo que cambia es la plantilla, su
+// fixture y cuántas páginas de lámina lleva el PDF.
+var historiasConOdontograma = []struct {
+	plantilla string
+	prefijo   string
+	paginas   int // de lámina; el PDF suma la constancia
+}{
+	{plantillaHistoriaGeneral, "hcg", 0}, // 0: las que declare la plantilla
+	{plantillaHistoriaPcD, "hpcd", 2},
+}
+
+const plantillaHistoriaPcD = "historia-clinica-pcd"
+
+func TestDocumentos_HistoriaClinicaDePuntaAPunta(t *testing.T) {
+	for _, h := range historiasConOdontograma {
+		t.Run(h.plantilla, func(t *testing.T) {
+			historiaDePuntaAPunta(t, h.plantilla, h.prefijo, h.paginas)
+		})
+	}
+}
+
+func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int) {
+	p, ok := documentos.Ultima(plantilla)
 	if !ok {
-		t.Fatal("falta la plantilla historia-clinica-general")
+		t.Fatalf("falta la plantilla %s", plantilla)
 	}
 	odonto := campoDeTipo(t, p, "odontograma")
-	e := escenarioDeDocumentos(t, "hcg")
+	e := escenarioDeDocumentos(t, prefijo)
 
 	// Una matrícula corta, que entra en sus casillas, y un número de afiliado.
 	if err := e.gdb.Model(&db.ProfessionalProfile{}).Where("user_id = ?", e.titularID).
@@ -83,13 +105,13 @@ func TestDocumentos_HistoriaClinicaGeneralDePuntaAPunta(t *testing.T) {
 	}
 
 	// Crear: lo precargado, con la matrícula SIN el tipo (va en casillas).
-	d := e.crearDe(t, e.token, plantillaHistoriaGeneral, e.paciente.ID)
+	d := e.crearDe(t, e.token, plantilla, e.paciente.ID)
 	if d.Estado != db.DocumentoBorrador {
 		t.Fatalf("un documento nuevo es un borrador: %+v", d.documentoResumenResponse)
 	}
 	matricula := campoConPrecarga(p, "profesional.matriculaNumero")
 	if matricula == "" {
-		t.Fatal("la historia general no precarga profesional.matriculaNumero")
+		t.Fatalf("%s no precarga profesional.matriculaNumero", plantilla)
 	}
 	if d.Valores[matricula] != "4321" {
 		t.Errorf("la matrícula precargada es solo el número: %v", d.Valores[matricula])
@@ -120,7 +142,7 @@ func TestDocumentos_HistoriaClinicaGeneralDePuntaAPunta(t *testing.T) {
 	}
 
 	// Completo con los valores de ejemplo y el odontograma del contrato.
-	for clave, valor := range valoresDeEjemploDeLaHistoria(t) {
+	for clave, valor := range valoresDeEjemploDeLaHistoria(t, plantilla) {
 		if clave == matricula {
 			continue // la precargada
 		}
@@ -182,7 +204,16 @@ func TestDocumentos_HistoriaClinicaGeneralDePuntaAPunta(t *testing.T) {
 	// El PDF: sale, y dos descargas dan los mismos bytes.
 	code, _, pdf := descargarPDF(e, t, e.token, d.ID)
 	if code != http.StatusOK || !bytes.HasPrefix(pdf, []byte("%PDF-")) {
-		t.Fatalf("el PDF de la historia general: %d %.200s", code, pdf)
+		t.Fatalf("el PDF de %s: %d %.200s", plantilla, code, pdf)
+	}
+	// Una página por cada una de la lámina, más la constancia.
+	if paginas == 0 {
+		paginas = len(p.Lamina.Paginas)
+	} else if len(p.Lamina.Paginas) != paginas {
+		t.Errorf("%s declara %d páginas de lámina, se esperaban %d", plantilla, len(p.Lamina.Paginas), paginas)
+	}
+	if got := bytes.Count(pdf, []byte("/Type /Page /Parent")); got != paginas+1 {
+		t.Errorf("el PDF de %s tiene %d páginas, se esperaban %d de lámina más la constancia", plantilla, got, paginas)
 	}
 	if _, _, otra := descargarPDF(e, t, e.token, d.ID); !bytes.Equal(pdf, otra) {
 		t.Fatal("dos descargas del mismo documento dieron bytes distintos")
@@ -191,24 +222,32 @@ func TestDocumentos_HistoriaClinicaGeneralDePuntaAPunta(t *testing.T) {
 
 // Un odontograma vacío en una historia terminada: "No consigna" en el
 // texto y en el dibujo (Decreto 1089/2012, art. 15).
-func TestDocumentos_HistoriaGeneralConElOdontogramaVacio(t *testing.T) {
-	p, ok := documentos.Ultima(plantillaHistoriaGeneral)
+func TestDocumentos_HistoriaConElOdontogramaVacio(t *testing.T) {
+	for _, h := range historiasConOdontograma {
+		t.Run(h.plantilla, func(t *testing.T) {
+			historiaConElOdontogramaVacio(t, h.plantilla, h.prefijo+"-vacio")
+		})
+	}
+}
+
+func historiaConElOdontogramaVacio(t *testing.T, plantilla, prefijo string) {
+	p, ok := documentos.Ultima(plantilla)
 	if !ok {
-		t.Fatal("falta la plantilla historia-clinica-general")
+		t.Fatalf("falta la plantilla %s", plantilla)
 	}
 	odonto := campoDeTipo(t, p, "odontograma")
 	if c := p.Campo(odonto); c.Requerido {
-		t.Skip("el odontograma de la historia general es obligatorio: no se termina vacío")
+		t.Skipf("el odontograma de %s es obligatorio: no se termina vacío", plantilla)
 	}
-	e := escenarioDeDocumentos(t, "hcg-vacio")
+	e := escenarioDeDocumentos(t, prefijo)
 	if err := e.gdb.Model(&db.ProfessionalProfile{}).Where("user_id = ?", e.titularID).
 		Updates(map[string]any{"matricula_tipo": "provincial", "matricula_numero": "4321"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	d := e.crearDe(t, e.token, plantillaHistoriaGeneral, e.paciente.ID)
+	d := e.crearDe(t, e.token, plantilla, e.paciente.ID)
 	valores := d.Valores
 	matricula := campoConPrecarga(p, "profesional.matriculaNumero")
-	for clave, valor := range valoresDeEjemploDeLaHistoria(t) {
+	for clave, valor := range valoresDeEjemploDeLaHistoria(t, plantilla) {
 		if clave != matricula {
 			valores[clave] = valor
 		}
