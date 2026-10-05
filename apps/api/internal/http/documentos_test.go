@@ -30,6 +30,12 @@ const plantillaConducto = "consentimiento-tratamiento-conducto"
 // (Fase 5.2), y el circuito prueba la precarga de esos datos.
 const plantillaHistoriaDePrueba = "historia-de-prueba"
 
+// plantillaAnexoDePrueba — el vínculo entre un anexo y su historia (5.6b) lo
+// prueba un anexo de prueba, la misma copia con tipo anexo: odontopediatría
+// pasó a ser una historia propia y ninguna plantilla real es anexo todavía
+// (llegan con el registro de prestaciones de la 5.7).
+const plantillaAnexoDePrueba = "anexo-de-prueba"
+
 func init() {
 	conducto, ok := documentos.PorID(plantillaConducto, 1)
 	if !ok {
@@ -40,6 +46,13 @@ func init() {
 	historia.Nombre = "Historia de prueba"
 	historia.Tipo = "historia_clinica"
 	if err := documentos.RegistrarPlantillaDePrueba(historia); err != nil {
+		panic(err)
+	}
+	anexo := *conducto
+	anexo.ID = plantillaAnexoDePrueba
+	anexo.Nombre = "Anexo de prueba"
+	anexo.Tipo = documentos.TipoAnexo
+	if err := documentos.RegistrarPlantillaDePrueba(anexo); err != nil {
 		panic(err)
 	}
 }
@@ -92,9 +105,13 @@ func (e escenarioDocs) crear(t *testing.T, token string, pacienteID uuid.UUID) d
 
 func (e escenarioDocs) crearDe(t *testing.T, token, plantillaID string, pacienteID uuid.UUID) documentoDetalleResponse {
 	t.Helper()
-	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", token, map[string]any{
-		"plantillaId": plantillaID, "pacienteId": pacienteID.String(),
-	})
+	cuerpo := map[string]any{"plantillaId": plantillaID, "pacienteId": pacienteID.String()}
+	// Un anexo pertenece a una historia clínica del paciente (5.6b): la de
+	// prueba, en borrador.
+	if p, ok := documentos.Ultima(plantillaID); ok && p.Tipo == documentos.TipoAnexo {
+		cuerpo["historiaId"] = e.crear(t, token, pacienteID).ID
+	}
+	rec := doJSONAuth(t, e.router, http.MethodPost, "/documentos", token, cuerpo)
 	// 201 si es nuevo; 200 si retoma mi borrador del mismo documento.
 	if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
 		t.Fatalf("crear documento: status=%d body=%s", rec.Code, rec.Body.String())

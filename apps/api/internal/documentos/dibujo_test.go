@@ -14,7 +14,7 @@ import (
 )
 
 // El dibujo (Fase 5.6b): la validación, cuándo está vacío, cómo se lleva al
-// recuadro del papel y el PDF del Anexo de odontopediatría con su genograma.
+// recuadro del papel y el PDF de la Historia clínica de odontopediatría con su genograma.
 // La tabla de casos (testdata/dibujo.json) la comparte con dibujo.test.ts
 // del paquete: los mismos valores dan el mismo mensaje en los dos lados.
 
@@ -45,11 +45,11 @@ func (c casoDeDibujo) valor(t *testing.T) any {
 	return map[string]any{"ancho": c.Generado.Ancho, "alto": c.Generado.Alto, "trazos": trazos}
 }
 
-func anexoDeOdontopediatria(t *testing.T) *Plantilla {
+func historiaDeOdontopediatria(t *testing.T) *Plantilla {
 	t.Helper()
-	p, ok := Ultima("anexo-odontopediatria")
+	p, ok := Ultima("historia-clinica-odontopediatria")
 	if !ok {
-		t.Fatal("falta la plantilla anexo-odontopediatria")
+		t.Fatal("falta la plantilla historia-clinica-odontopediatria")
 	}
 	return p
 }
@@ -68,10 +68,10 @@ func TestDibujo_TablaCompartidaConTypeScript(t *testing.T) {
 	if len(tabla.Casos) < 20 {
 		t.Fatalf("la tabla del dibujo tiene %d casos", len(tabla.Casos))
 	}
-	p := anexoDeOdontopediatria(t)
+	p := historiaDeOdontopediatria(t)
 	campo := p.Campo("genograma")
 	if campo == nil || campo.Tipo != "dibujo" {
-		t.Fatalf("el genograma del anexo: %+v", campo)
+		t.Fatalf("el genograma de odontopediatría: %+v", campo)
 	}
 	for _, c := range tabla.Casos {
 		t.Run(c.Nombre, func(t *testing.T) {
@@ -214,7 +214,7 @@ func TestDibujo_Figuras(t *testing.T) {
 }
 
 func TestDibujo_ValorComoTexto(t *testing.T) {
-	p := anexoDeOdontopediatria(t)
+	p := historiaDeOdontopediatria(t)
 	if got := ValorComoTexto(p.Campo("genograma"), valorCrudo(t, json.RawMessage(`{"ancho":400,"alto":200,"trazos":[[[1,1]]]}`))); got != DibujoConsignado {
 		t.Fatalf("el genograma como texto: %q", got)
 	}
@@ -270,7 +270,7 @@ func TestEdadAl(t *testing.T) {
 }
 
 func TestPrecargar_LaEdadSoloSiElCampoLaAdmite(t *testing.T) {
-	p := anexoDeOdontopediatria(t)
+	p := historiaDeOdontopediatria(t)
 	anios, meses := "", ""
 	for _, c := range p.Campos() {
 		switch c.Precarga {
@@ -281,7 +281,7 @@ func TestPrecargar_LaEdadSoloSiElCampoLaAdmite(t *testing.T) {
 		}
 	}
 	if anios == "" || meses == "" {
-		t.Fatal("el anexo no precarga la edad")
+		t.Fatal("odontopediatría no precarga la edad")
 	}
 	casos := []struct {
 		nombre           string
@@ -343,8 +343,8 @@ func numPDF(v float64) string {
 	return strings.TrimSuffix(strings.TrimRight(strconv.FormatFloat(v, 'f', 3, 64), "0"), ".")
 }
 
-func TestGenerarPDF_AnexoConElGenograma(t *testing.T) {
-	p := anexoDeOdontopediatria(t)
+func TestGenerarPDF_OdontopediatriaConElGenograma(t *testing.T) {
+	p := historiaDeOdontopediatria(t)
 	datos, err := fixtures.ReadFile(fmt.Sprintf("fixtures/%s.v%d.json", p.ID, p.Version))
 	if err != nil {
 		t.Fatal(err)
@@ -357,7 +357,7 @@ func TestGenerarPDF_AnexoConElGenograma(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, ok := fx.Valores["genograma"]; !ok {
-		t.Fatal("el fixture del anexo no trae el genograma")
+		t.Fatal("el fixture de odontopediatría no trae el genograma")
 	}
 	// Un trazo más, de un solo punto: en el PDF es un segmento de 0,1.
 	genograma := fx.Valores["genograma"].(map[string]any)
@@ -394,7 +394,7 @@ func TestGenerarPDF_AnexoConElGenograma(t *testing.T) {
 
 	uno, otro := generarPDF(t, armar(fx.Valores)), generarPDF(t, armar(fx.Valores))
 	if !bytes.Equal(uno, otro) {
-		t.Fatal("dos generaciones del anexo con el genograma dieron bytes distintos")
+		t.Fatal("dos generaciones de odontopediatría con el genograma dieron bytes distintos")
 	}
 	paginas := paginasDelPDF(t, uno)
 	recuadro := p.Lamina.Dibujos[0]

@@ -78,7 +78,7 @@ const odontogramaDeEjemplo = `{"piezas":{"16":{"caras":{"O":"rojo","M":"rojo"},"
 const textoDelOdontogramaDeEjemplo = "Rojo, prestaciones existentes: 16 (caras mesial y oclusal; corona). Azul, prestaciones requeridas: 26 (ausente o a extraer), 36 (cara distal). Prótesis: fija en rojo, de 13 a 23. Dientes existentes: 28."
 
 // Las historias clínicas con odontograma: la General (5.5), la de PcD
-// (5.6a) y el Anexo de odontopediatría (5.6b) recorren el mismo circuito; lo
+// (5.6a) y la de odontopediatría (5.6b) recorren el mismo circuito; lo
 // que cambia es la plantilla, su fixture, cuántas páginas de lámina lleva el
 // PDF, quién firma por el paciente y, en la pediátrica, el odontograma.
 var historiasConOdontograma = []struct {
@@ -93,13 +93,13 @@ var historiasConOdontograma = []struct {
 }{
 	{plantillaHistoriaGeneral, "hcg", 0, "", ""}, // 0: las que declare la plantilla
 	{plantillaHistoriaPcD, "hpcd", 2, "", ""},
-	{plantillaAnexoOdontopediatria, "aodp", 2, db.FirmaRepresentante, odontogramaPediatricoDeEjemplo},
+	{plantillaHistoriaOdontopediatria, "hodp", 2, db.FirmaRepresentante, odontogramaPediatricoDeEjemplo},
 }
 
-const plantillaAnexoOdontopediatria = "anexo-odontopediatria"
+const plantillaHistoriaOdontopediatria = "historia-clinica-odontopediatria"
 
 // odontogramaPediatricoDeEjemplo — con piezas de las dos denticiones: dos
-// caras rojas, un sellador y una pieza a extraer (el anexo no cuenta los
+// caras rojas, un sellador y una pieza a extraer (odontopediatría no cuenta los
 // dientes existentes).
 const odontogramaPediatricoDeEjemplo = `{"piezas":{"55":{"caras":{"O":"rojo","M":"rojo"}},"16":{"marcas":{"sellador":"azul"}},"75":{"marcas":{"x":"azul"}}}}`
 
@@ -146,9 +146,9 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int,
 	if d.Estado != db.DocumentoBorrador {
 		t.Fatalf("un documento nuevo es un borrador: %+v", d.documentoResumenResponse)
 	}
-	// El anexo no tiene matrícula (en su papel no hay dónde).
+	// Odontopediatría no tiene matrícula (en su papel no hay dónde).
 	matricula := campoConPrecarga(p, "profesional.matriculaNumero")
-	if matricula == "" && plantilla != plantillaAnexoOdontopediatria {
+	if matricula == "" && plantilla != plantillaHistoriaOdontopediatria {
 		t.Fatalf("%s no precarga profesional.matriculaNumero", plantilla)
 	}
 	if matricula != "" && d.Valores[matricula] != "4321" {
@@ -227,7 +227,7 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int,
 			t.Errorf("la primera figura es la cara M roja de la 16: %+v", primera)
 		}
 	} else {
-		// En el anexo la 16 (un sellador azul) va antes que las caras rojas de la 55.
+		// En odontopediatría la 16 (un sellador azul) va antes que las caras rojas de la 55.
 		caras := 0
 		for _, f := range contenido.Figuras {
 			if f.Tipo == "poligono" && f.Relleno == "rojo" {
@@ -247,7 +247,7 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int,
 	if !strings.Contains(string(textoCompleto), textoEsperado) {
 		t.Errorf("el cuerpo congelado no lee el odontograma (%q): %s", textoEsperado, textoCompleto)
 	}
-	// Un dibujo (el genograma del anexo) va congelado como trazos, después
+	// Un dibujo (el genograma de odontopediatría) va congelado como trazos, después
 	// de las figuras del odontograma, y el cuerpo dice que está en la hoja.
 	if dibujo := campoConTipo(p, "dibujo"); dibujo != "" {
 		trazos := 0
@@ -569,12 +569,12 @@ func TestDocumentos_UnBorradorDeLaGeneralV1PasaALaV2(t *testing.T) {
 	}
 }
 
-// El genograma del anexo: un dibujo roto no se guarda (422 con el mensaje
+// El genograma de odontopediatría: un dibujo roto no se guarda (422 con el mensaje
 // del campo, el mismo que la pantalla); uno sin trazos sí, y cuenta como
 // vacío.
-func TestDocumentos_AnexoRechazaUnGenogramaRoto(t *testing.T) {
-	e := escenarioDeDocumentos(t, "aodp-genograma")
-	d := e.crearDe(t, e.token, plantillaAnexoOdontopediatria, e.paciente.ID)
+func TestDocumentos_OdontopediatriaRechazaUnGenogramaRoto(t *testing.T) {
+	e := escenarioDeDocumentos(t, "hodp-genograma")
+	d := e.crearDe(t, e.token, plantillaHistoriaOdontopediatria, e.paciente.ID)
 	casos := []struct {
 		valor   any
 		mensaje string

@@ -293,6 +293,22 @@ describe("EditorDeDocumento", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
     expect(acciones.descartarBorradorAction).toHaveBeenCalledWith("doc-1");
   });
+
+  it("si la API no deja descartar (una historia con anexos, 5.6b), lo dice en el diálogo, que queda abierto", async () => {
+    acciones.descartarBorradorAction.mockResolvedValue({ error: "esta historia tiene anexos: no se puede descartar" });
+    render(<EditorDeDocumento documento={borrador()} plantilla={todoTipo} />);
+    fireEvent.click(screen.getByRole("button", { name: "Descartar borrador" }));
+    const dialogo = await screen.findByRole("dialog", { name: "¿Descartar este borrador?" });
+    await act(async () => {
+      fireEvent.click(within(dialogo).getByRole("button", { name: "Descartar" }));
+    });
+    expect(within(dialogo).getByRole("alert")).toHaveTextContent("esta historia tiene anexos");
+    // Cerrarlo y volver a abrirlo arranca sin el error.
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Seguir editando" }));
+    fireEvent.click(screen.getByRole("button", { name: "Descartar borrador" }));
+    const otraVez = await screen.findByRole("dialog", { name: "¿Descartar este borrador?" });
+    expect(within(otraVez).queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 // QA de la 5.5: el odontograma se completa en una pantalla emergente, que
@@ -326,21 +342,21 @@ describe("EditorDeDocumento con un odontograma", () => {
   });
 });
 
-// Fase 5.6b: el genograma del anexo se completa en su pantalla emergente,
+// Fase 5.6b: el genograma de odontopediatría se completa en su pantalla emergente,
 // que abren el botón del formulario y tocarlo en la hoja; lo dibujado se
 // guarda solo, como cualquier otro campo.
 describe("EditorDeDocumento con un dibujo", () => {
-  const anexo = plantillaPorId("anexo-odontopediatria") as Plantilla;
-  const documento = () => ({ ...borrador(), plantillaId: anexo.id, plantillaVersion: anexo.version });
+  const historia = plantillaPorId("historia-clinica-odontopediatria") as Plantilla;
+  const documento = () => ({ ...borrador(), plantillaId: historia.id, plantillaVersion: historia.version });
 
   it("tocar el genograma en la hoja abre su pantalla emergente, con el lienzo de la forma del recuadro", async () => {
-    render(<EditorDeDocumento documento={documento()} plantilla={anexo} />);
+    render(<EditorDeDocumento documento={documento()} plantilla={historia} />);
     expect(screen.queryByRole("dialog")).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Completar: Genograma" }));
     });
     const dialogo = screen.getByRole("dialog", { name: "Genograma" });
-    const recuadro = anexo.lamina!.dibujos![0];
+    const recuadro = historia.lamina!.dibujos![0];
     const alto = Math.round(1000 / (recuadro.ancho / recuadro.alto));
     expect(within(dialogo).getByRole("application", { name: "Genograma" }).style.aspectRatio).toBe("1000 / " + alto);
     await act(async () => {
@@ -351,7 +367,7 @@ describe("EditorDeDocumento con un dibujo", () => {
 
   it("lo dibujado se guarda solo, aunque se cierre con Escape", async () => {
     acciones.guardarBorradorAction.mockResolvedValue({ ok: true, documento: borrador() });
-    render(<EditorDeDocumento documento={documento()} plantilla={anexo} />);
+    render(<EditorDeDocumento documento={documento()} plantilla={historia} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Abrir genograma" }));
     });

@@ -122,6 +122,31 @@ func TestDocumentos_UnBorradorSeEditaYSeDescarta(t *testing.T) {
 	debeAndar(t, "descartar un borrador", e.gdb.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, d.ID).Error)
 }
 
+// La historia de un anexo (5.6b) es parte de su identidad: no se pone, no se
+// cambia ni se saca después de crearlo, ni en un borrador.
+func TestDocumentos_LaHistoriaDeUnAnexoNoCambia(t *testing.T) {
+	e := nuevoEscenarioDocumento(t)
+	historia, otra := e.documento(t), e.documento(t)
+	anexo := db.DocumentoClinico{
+		ClinicID: e.clinica.ID, PacienteID: e.paciente.ID, AutorUserID: e.autor.ID,
+		PlantillaID: "anexo-de-prueba", PlantillaVersion: 1, AnexoDe: &historia.ID,
+	}
+	debeAndar(t, "crear un anexo", e.gdb.Create(&anexo).Error)
+	debeFallar(t, e.gdb, "cambiarle la historia a un anexo en borrador", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET anexo_de = ? WHERE id = ?`, otra.ID, anexo.ID).Error
+	})
+	debeFallar(t, e.gdb, "sacarle la historia a un anexo", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET anexo_de = NULL WHERE id = ?`, anexo.ID).Error
+	})
+	debeFallar(t, e.gdb, "ponerle historia a un documento que no la tenía", func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE documentos_clinicos SET anexo_de = ? WHERE id = ?`, historia.ID, otra.ID).Error
+	})
+	debeFallar(t, e.gdb, "borrar una historia con anexos", func(tx *gorm.DB) error {
+		return tx.Exec(`DELETE FROM documentos_clinicos WHERE id = ?`, historia.ID).Error
+	})
+	debeAndar(t, "editar el anexo sin tocar su historia", e.gdb.Exec(`UPDATE documentos_clinicos SET valores = '{"x":1}' WHERE id = ?`, anexo.ID).Error)
+}
+
 // Un consentimiento terminado queda "para imprimir" (TR-188): se firma a
 // mano, así que en la base no se firma ni se sella; recibe su folio al
 // terminarse, y ya no cambia ni vuelve a borrador.

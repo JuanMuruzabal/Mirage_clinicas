@@ -1,6 +1,6 @@
 // El dibujo (Fase 5.6b): la validación con sus topes y su orden, cuándo está
 // vacío, cómo se lleva al recuadro del papel, las reglas del esquema y la
-// plantilla del Anexo de odontopediatría, que es la que lo usa.
+// plantilla de la Historia clínica de odontopediatría, que es la que lo usa.
 //
 // Los mensajes los comparte con Go: composicion/dibujo-invalido.json (que
 // genera `pnpm documentos:generar`) los lleva al test de la API.
@@ -188,8 +188,8 @@ interface CasoCompartido {
 // "vacío" y el mismo mensaje en la pantalla y en la API.
 describe("la tabla compartida con Go (testdata/dibujo.json)", () => {
   const casos = (tablaCompartida as { casos: CasoCompartido[] }).casos;
-  // El genograma del anexo: un campo dibujo opcional, como el de la tabla.
-  const p = plantillaPorId("anexo-odontopediatria") as Plantilla;
+  // El genograma de odontopediatría: un campo dibujo opcional, como el de la tabla.
+  const p = plantillaPorId("historia-clinica-odontopediatria") as Plantilla;
   const campo = camposDe(p).find((c) => c.id === "genograma") as Campo;
   const valorDe = (c: CasoCompartido): unknown =>
     c.generado
@@ -352,7 +352,7 @@ describe("el valor de un dibujo en el texto y en la validación", () => {
   });
 
   it("validarValores devuelve el mensaje del dibujo, en los dos modos", () => {
-    const p = plantillaPorId("anexo-odontopediatria") as Plantilla;
+    const p = plantillaPorId("historia-clinica-odontopediatria") as Plantilla;
     for (const modo of ["tolerante", "estricto"] as const) {
       const errores = validarValores(p, { genograma: dibujo([[[9999, 1]]]) as unknown as Valor }, modo);
       expect(errores.find((e) => e.campo === "genograma")?.mensaje, modo).toBe(FUERA);
@@ -450,24 +450,24 @@ describe("las reglas del esquema para los dibujos", () => {
   });
 });
 
-describe("el Anexo de odontopediatría", () => {
-  const anexo = plantillaPorId("anexo-odontopediatria") as Plantilla;
-  const campos = camposDe(anexo);
+describe("la Historia clínica de odontopediatría", () => {
+  const historia = plantillaPorId("historia-clinica-odontopediatria") as Plantilla;
+  const campos = camposDe(historia);
   const contexto = { fecha: "2026-10-04" };
 
-  it("está en el registro, es un anexo y es válido", () => {
-    expect(anexo).toBeDefined();
-    expect(anexo).toMatchObject({ tipo: "anexo", version: 1 });
-    expect(plantillaSchema.safeParse(anexo).success).toBe(true);
+  it("está en el registro, es una historia clínica y es válida", () => {
+    expect(historia).toBeDefined();
+    expect(historia).toMatchObject({ tipo: "historia_clinica", version: 1 });
+    expect(plantillaSchema.safeParse(historia).success).toBe(true);
   });
 
   it("el genograma es un campo dibujo con un recuadro dentro de su página", () => {
     const genograma = campos.find((c) => c.id === "genograma");
     expect(genograma?.tipo).toBe("dibujo");
-    const recuadros = anexo.lamina!.dibujos!.filter((d) => d.campo === "genograma");
+    const recuadros = historia.lamina!.dibujos!.filter((d) => d.campo === "genograma");
     expect(recuadros).toHaveLength(1);
     const [r] = recuadros;
-    const pagina = anexo.lamina!.paginas[r.pagina - 1];
+    const pagina = historia.lamina!.paginas[r.pagina - 1];
     expect(r.x + r.ancho).toBeLessThanOrEqual(pagina.ancho);
     expect(r.y + r.alto).toBeLessThanOrEqual(pagina.alto / (pagina.escala ?? 1));
   });
@@ -477,15 +477,15 @@ describe("el Anexo de odontopediatría", () => {
     expect(odontogramas).toHaveLength(1);
     expect(odontogramas[0]).toMatchObject({ denticion: "ambas", leyenda: "pediatrica" });
     // Un recuadro por cada pieza de las dos denticiones.
-    expect(anexo.lamina!.odontogramas![0].piezas).toHaveLength(52);
+    expect(historia.lamina!.odontogramas![0].piezas).toHaveLength(52);
   });
 
   it("lo firman el representante legal y el profesional, los dos obligatorios", () => {
-    expect(anexo.firmas.map((f) => [f.rol, f.requerida])).toEqual([
+    expect(historia.firmas.map((f) => [f.rol, f.requerida])).toEqual([
       ["representante", true],
       ["profesional", true],
     ]);
-    expect(anexo.lamina!.firmas.map((f) => f.rol).sort()).toEqual(["profesional", "representante"]);
+    expect(historia.lamina!.firmas.map((f) => f.rol).sort()).toEqual(["profesional", "representante"]);
   });
 
   it("precarga la edad en años y en meses", () => {
@@ -495,19 +495,19 @@ describe("el Anexo de odontopediatría", () => {
   });
 
   it("el ejemplo es válido, trae el genograma y entra en la lámina", () => {
-    const valores = valoresDeEjemplo(anexo);
+    const valores = valoresDeEjemplo(historia);
     expect(valores.genograma).toEqual(dibujoDeEjemplo());
-    expect(validarValores(anexo, valores, "estricto")).toEqual([]);
-    expect(validarLamina(anexo, valores, contexto)).toEqual([]);
+    expect(validarValores(historia, valores, "estricto")).toEqual([]);
+    expect(validarLamina(historia, valores, contexto)).toEqual([]);
   });
 
   it("el genograma del ejemplo se compone después del odontograma, dentro de su recuadro", () => {
-    const figuras = armarFiguras(anexo, valoresDeEjemplo(anexo), "sellado");
+    const figuras = armarFiguras(historia, valoresDeEjemplo(historia), "sellado");
     const trazos = figuras.filter((f) => f.tipo === "trazo");
     expect(trazos).toHaveLength(dibujoDeEjemplo().trazos.length);
     // Todos los trazos van al final.
     expect(figuras.slice(-trazos.length).every((f) => f.tipo === "trazo")).toBe(true);
-    const r = anexo.lamina!.dibujos![0];
+    const r = historia.lamina!.dibujos![0];
     for (const f of trazos) {
       if (f.tipo !== "trazo") continue;
       expect(f.pagina).toBe(r.pagina);
@@ -521,15 +521,15 @@ describe("el Anexo de odontopediatría", () => {
   });
 
   it("el cuerpo lee el genograma: dibujado o No consigna", () => {
-    const valores = valoresDeEjemplo(anexo);
-    const conDibujo = JSON.stringify(armarCuerpo(anexo, valores, contexto, "sellado"));
+    const valores = valoresDeEjemplo(historia);
+    const conDibujo = JSON.stringify(armarCuerpo(historia, valores, contexto, "sellado"));
     expect(conDibujo).toContain(DIBUJO_CONSIGNADO);
     const sinDibujo: Valores = { ...valores };
     delete sinDibujo.genograma;
-    const figuras = armarFiguras(anexo, sinDibujo, "sellado");
+    const figuras = armarFiguras(historia, sinDibujo, "sellado");
     expect(figuras.filter((f) => f.tipo === "trazo")).toEqual([]);
-    expect(figuras.filter((f) => f.tipo === "texto" && f.texto === "No consigna" && f.pagina === anexo.lamina!.dibujos![0].pagina).length).toBeGreaterThan(0);
-    expect(JSON.stringify(armarCuerpo(anexo, sinDibujo, contexto, "sellado"))).not.toContain(DIBUJO_CONSIGNADO);
+    expect(figuras.filter((f) => f.tipo === "texto" && f.texto === "No consigna" && f.pagina === historia.lamina!.dibujos![0].pagina).length).toBeGreaterThan(0);
+    expect(JSON.stringify(armarCuerpo(historia, sinDibujo, contexto, "sellado"))).not.toContain(DIBUJO_CONSIGNADO);
   });
 
   it("con valores largos, solo desbordan campos de texto: nunca una fecha, un número, una casilla, el odontograma o el genograma", () => {
@@ -539,9 +539,9 @@ describe("el Anexo de odontopediatría", () => {
       if (c.tipo === "texto") largos[c.id] = `${c.etiqueta} de prueba`;
       else if (c.tipo === "texto_largo") largos[c.id] = LARGO;
     }
-    const ejemplo = valoresDeEjemplo(anexo);
+    const ejemplo = valoresDeEjemplo(historia);
     const valores = { ...ejemplo, ...largos };
-    const desbordan = validarLamina(anexo, valores, contexto).map((e) => e.campo);
+    const desbordan = validarLamina(historia, valores, contexto).map((e) => e.campo);
     const tipos = new Set(desbordan.map((id) => campos.find((c) => c.id === id)?.tipo));
     for (const tipo of tipos) expect(["texto", "texto_largo"]).toContain(tipo);
     expect(desbordan).not.toContain("genograma");

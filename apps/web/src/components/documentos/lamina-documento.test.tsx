@@ -254,18 +254,18 @@ describe("LaminaDocumento con una página escalada (Fase 5.6a)", () => {
   });
 });
 
-// Fase 5.6b: el genograma del Anexo de odontopediatría. Sus trazos son
+// Fase 5.6b: el genograma de la Historia clínica de odontopediatría. Sus trazos son
 // figuras "trazo" y su recuadro, una caja tocable que lleva al campo.
 describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
-  const anexo = plantillaPorId("anexo-odontopediatria") as Plantilla;
-  const recuadro = anexo.lamina!.dibujos![0];
+  const historia = plantillaPorId("historia-clinica-odontopediatria") as Plantilla;
+  const recuadro = historia.lamina!.dibujos![0];
   const ctx = { fecha: "2026-10-04" };
   const dibujar = (figuras: Figura[], extra: Partial<Parameters<typeof LaminaDocumento>[0]> = {}) =>
     render(
       <LaminaDocumento
-        plantilla={anexo}
-        paginas={paginasDeLaLamina(anexo)!}
-        zonas={armarLamina(anexo, {}, ctx, "borrador")}
+        plantilla={historia}
+        paginas={paginasDeLaLamina(historia)!}
+        zonas={armarLamina(historia, {}, ctx, "borrador")}
         figuras={figuras}
         etiqueta="Tu documento"
         {...extra}
@@ -291,7 +291,7 @@ describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
 
   it("dibuja los trazos que arma el paquete, en la página del recuadro", () => {
     const valores = { genograma: { ancho: 1000, alto: 375, trazos: [[[0, 0], [1000, 375]], [[500, 100]]] } };
-    const figuras = armarFiguras(anexo, valores as never, "borrador");
+    const figuras = armarFiguras(historia, valores as never, "borrador");
     expect(figuras.map((f) => f.tipo)).toEqual(["trazo", "trazo"]);
     const { container } = dibujar(figuras);
     expect(enLaPagina(container, recuadro.pagina).querySelectorAll("path")).toHaveLength(2);
@@ -326,7 +326,7 @@ describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
 
   it("la caja ocupa el recuadro, corrida con la escala de su página", () => {
     dibujar([], { editable: { campoActivo: null, errores: {}, onElegir: vi.fn(), valores: {} } });
-    const pagina = anexo.lamina!.paginas[recuadro.pagina - 1];
+    const pagina = historia.lamina!.paginas[recuadro.pagina - 1];
     const escala = pagina.escala ?? 1;
     const dx = ((1 - escala) * pagina.ancho) / 2;
     const s = screen.getByRole("button", { name: "Completar: Genograma" }).style;
