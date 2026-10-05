@@ -325,3 +325,46 @@ describe("EditorDeDocumento con un odontograma", () => {
     expect(screen.getByRole("dialog", { name: "Odontograma" })).toBeInTheDocument();
   });
 });
+
+// Fase 5.6b: el genograma del anexo se completa en su pantalla emergente,
+// que abren el botón del formulario y tocarlo en la hoja; lo dibujado se
+// guarda solo, como cualquier otro campo.
+describe("EditorDeDocumento con un dibujo", () => {
+  const anexo = plantillaPorId("anexo-odontopediatria") as Plantilla;
+  const documento = () => ({ ...borrador(), plantillaId: anexo.id, plantillaVersion: anexo.version });
+
+  it("tocar el genograma en la hoja abre su pantalla emergente, con el lienzo de la forma del recuadro", async () => {
+    render(<EditorDeDocumento documento={documento()} plantilla={anexo} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Completar: Genograma" }));
+    });
+    const dialogo = screen.getByRole("dialog", { name: "Genograma" });
+    const recuadro = anexo.lamina!.dibujos![0];
+    const alto = Math.round(1000 / (recuadro.ancho / recuadro.alto));
+    expect(within(dialogo).getByRole("application", { name: "Genograma" }).style.aspectRatio).toBe("1000 / " + alto);
+    await act(async () => {
+      fireEvent.click(within(dialogo).getByRole("button", { name: "Listo" }));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lo dibujado se guarda solo, aunque se cierre con Escape", async () => {
+    acciones.guardarBorradorAction.mockResolvedValue({ ok: true, documento: borrador() });
+    render(<EditorDeDocumento documento={documento()} plantilla={anexo} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Abrir genograma" }));
+    });
+    const lienzo = screen.getByRole("application", { name: "Genograma" });
+    fireEvent.pointerDown(lienzo, { clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(lienzo, { clientX: 40, clientY: 30, pointerId: 1 });
+    fireEvent.pointerUp(lienzo, { pointerId: 1 });
+    await act(async () => {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await esperarGuardado();
+    const guardado = acciones.guardarBorradorAction.mock.lastCall?.[1] as Record<string, unknown>;
+    expect(guardado.genograma).toMatchObject({ ancho: 1000, trazos: [[[10, 10], [40, 30]]] });
+  });
+});

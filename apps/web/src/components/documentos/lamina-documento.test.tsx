@@ -253,3 +253,91 @@ describe("LaminaDocumento con una página escalada (Fase 5.6a)", () => {
     expect(escalada.primera).toEqual(original.primera);
   });
 });
+
+// Fase 5.6b: el genograma del Anexo de odontopediatría. Sus trazos son
+// figuras "trazo" y su recuadro, una caja tocable que lleva al campo.
+describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
+  const anexo = plantillaPorId("anexo-odontopediatria") as Plantilla;
+  const recuadro = anexo.lamina!.dibujos![0];
+  const ctx = { fecha: "2026-10-04" };
+  const dibujar = (figuras: Figura[], extra: Partial<Parameters<typeof LaminaDocumento>[0]> = {}) =>
+    render(
+      <LaminaDocumento
+        plantilla={anexo}
+        paginas={paginasDeLaLamina(anexo)!}
+        zonas={armarLamina(anexo, {}, ctx, "borrador")}
+        figuras={figuras}
+        etiqueta="Tu documento"
+        {...extra}
+      />,
+    );
+  const enLaPagina = (container: HTMLElement, n: number) => container.querySelectorAll("figure")[n - 1];
+
+  it("un trazo es un camino abierto, con su color, su grosor y puntas redondas", () => {
+    const { container } = dibujar([
+      { tipo: "trazo", pagina: recuadro.pagina, puntos: [[30, 310], [40.5, 320.25], [60, 315]], color: "tinta", grosor: 0.8 },
+      { tipo: "trazo", pagina: recuadro.pagina, puntos: [[100, 350]], color: "tinta", grosor: 0.8 },
+    ]);
+    const caminos = [...enLaPagina(container, recuadro.pagina).querySelectorAll("path")];
+    expect(caminos.map((c) => c.getAttribute("d"))).toEqual(["M30 310 L40.5 320.25 L60 315", "M100 350 l0.1 0"]);
+    for (const c of caminos) {
+      expect(c.getAttribute("fill")).toBe("none");
+      expect(c.getAttribute("stroke")).toBe(COLORES_DE_FIGURA.tinta);
+      expect(c.getAttribute("stroke-width")).toBe("0.8");
+      expect(c.getAttribute("stroke-linecap")).toBe("round");
+      expect(c.getAttribute("stroke-linejoin")).toBe("round");
+    }
+  });
+
+  it("dibuja los trazos que arma el paquete, en la página del recuadro", () => {
+    const valores = { genograma: { ancho: 1000, alto: 375, trazos: [[[0, 0], [1000, 375]], [[500, 100]]] } };
+    const figuras = armarFiguras(anexo, valores as never, "borrador");
+    expect(figuras.map((f) => f.tipo)).toEqual(["trazo", "trazo"]);
+    const { container } = dibujar(figuras);
+    expect(enLaPagina(container, recuadro.pagina).querySelectorAll("path")).toHaveLength(2);
+    const otra = recuadro.pagina === 1 ? 2 : 1;
+    expect(enLaPagina(container, otra).querySelectorAll("path")).toHaveLength(0);
+  });
+
+  it("la caja del genograma lleva al campo, y se marca vacía, activa o con error", () => {
+    const onElegir = vi.fn();
+    const { container, unmount } = dibujar([], { editable: { campoActivo: null, errores: {}, onElegir, valores: {} } });
+    const caja = screen.getByRole("button", { name: "Completar: Genograma" });
+    expect(caja).toHaveAttribute("data-dibujo", "genograma");
+    expect(enLaPagina(container, recuadro.pagina).contains(caja)).toBe(true);
+    expect(caja.className).toContain("bg-salvia/15");
+    caja.click();
+    expect(onElegir).toHaveBeenCalledWith("genograma");
+    unmount();
+
+    const conTrazos = { genograma: { ancho: 1000, alto: 375, trazos: [[[1, 1]]] } };
+    const clase = (editable: Parameters<typeof LaminaDocumento>[0]["editable"]) => {
+      const r = dibujar([], { editable });
+      const c = screen.getByRole("button", { name: "Completar: Genograma" }).className;
+      r.unmount();
+      return c;
+    };
+    const base = { campoActivo: null, errores: {}, onElegir: vi.fn() };
+    expect(clase({ ...base, valores: conTrazos as never })).not.toContain("bg-salvia/15");
+    expect(clase({ ...base, valores: { genograma: { ancho: 1000, alto: 375, trazos: [] } } as never })).toContain("bg-salvia/15");
+    expect(clase({ ...base, campoActivo: "genograma" })).toContain("bg-salvia/20");
+    expect(clase({ ...base, errores: { genograma: "Hay un punto fuera del lienzo." } })).toContain("ring-terracota-oscuro");
+  });
+
+  it("la caja ocupa el recuadro, corrida con la escala de su página", () => {
+    dibujar([], { editable: { campoActivo: null, errores: {}, onElegir: vi.fn(), valores: {} } });
+    const pagina = anexo.lamina!.paginas[recuadro.pagina - 1];
+    const escala = pagina.escala ?? 1;
+    const dx = ((1 - escala) * pagina.ancho) / 2;
+    const s = screen.getByRole("button", { name: "Completar: Genograma" }).style;
+    expect(Number.parseFloat(s.left)).toBeCloseTo(((dx + escala * recuadro.x) / pagina.ancho) * 100, 4);
+    expect(Number.parseFloat(s.width)).toBeCloseTo(((escala * recuadro.ancho) / pagina.ancho) * 100, 4);
+    expect(Number.parseFloat(s.height)).toBeCloseTo(((escala * recuadro.alto) / pagina.alto) * 100, 4);
+  });
+
+  it("sin editable no hay caja del genograma", () => {
+    const { container } = dibujar([]);
+    expect(screen.queryByRole("button", { name: "Completar: Genograma" })).toBeNull();
+    expect(container.querySelector("[data-dibujo]")).toBeNull();
+  });
+});

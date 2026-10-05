@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"dental-mirage/api/internal/clock"
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/documentos"
 )
@@ -31,6 +33,16 @@ func campoDeTipo(t *testing.T, p *documentos.Plantilla, tipo string) string {
 		}
 	}
 	t.Fatalf("la plantilla %s no tiene un campo %s", p.ID, tipo)
+	return ""
+}
+
+// campoConTipo — el id del primer campo de ese tipo, o "" si no hay.
+func campoConTipo(p *documentos.Plantilla, tipo string) string {
+	for _, c := range p.Campos() {
+		if c.Tipo == tipo {
+			return c.ID
+		}
+	}
 	return ""
 }
 
@@ -65,29 +77,49 @@ const odontogramaDeEjemplo = `{"piezas":{"16":{"caras":{"O":"rojo","M":"rojo"},"
 
 const textoDelOdontogramaDeEjemplo = "Rojo, prestaciones existentes: 16 (caras mesial y oclusal; corona). Azul, prestaciones requeridas: 26 (ausente o a extraer), 36 (cara distal). Prótesis: fija en rojo, de 13 a 23. Dientes existentes: 28."
 
-// Las historias clínicas con odontograma: la General (5.5) y la de PcD
-// (5.6a) recorren el mismo circuito; lo que cambia es la plantilla, su
-// fixture y cuántas páginas de lámina lleva el PDF.
+// Las historias clínicas con odontograma: la General (5.5), la de PcD
+// (5.6a) y el Anexo de odontopediatría (5.6b) recorren el mismo circuito; lo
+// que cambia es la plantilla, su fixture, cuántas páginas de lámina lleva el
+// PDF, quién firma por el paciente y, en la pediátrica, el odontograma.
 var historiasConOdontograma = []struct {
 	plantilla string
 	prefijo   string
 	paginas   int // de lámina; el PDF suma la constancia
+	// firmaDelPaciente — el rol de quien firma por el paciente ("" = paciente).
+	firmaDelPaciente string
+	// odontograma — uno válido para su leyenda y dentición ("" = el de
+	// ejemplo, el de la leyenda general).
+	odontograma string
 }{
-	{plantillaHistoriaGeneral, "hcg", 0}, // 0: las que declare la plantilla
-	{plantillaHistoriaPcD, "hpcd", 2},
+	{plantillaHistoriaGeneral, "hcg", 0, "", ""}, // 0: las que declare la plantilla
+	{plantillaHistoriaPcD, "hpcd", 2, "", ""},
+	{plantillaAnexoOdontopediatria, "aodp", 2, db.FirmaRepresentante, odontogramaPediatricoDeEjemplo},
 }
+
+const plantillaAnexoOdontopediatria = "anexo-odontopediatria"
+
+// odontogramaPediatricoDeEjemplo — con piezas de las dos denticiones: dos
+// caras rojas, un sellador y una pieza a extraer (el anexo no cuenta los
+// dientes existentes).
+const odontogramaPediatricoDeEjemplo = `{"piezas":{"55":{"caras":{"O":"rojo","M":"rojo"}},"16":{"marcas":{"sellador":"azul"}},"75":{"marcas":{"x":"azul"}}}}`
 
 const plantillaHistoriaPcD = "historia-clinica-pcd"
 
 func TestDocumentos_HistoriaClinicaDePuntaAPunta(t *testing.T) {
 	for _, h := range historiasConOdontograma {
 		t.Run(h.plantilla, func(t *testing.T) {
-			historiaDePuntaAPunta(t, h.plantilla, h.prefijo, h.paginas)
+			historiaDePuntaAPunta(t, h.plantilla, h.prefijo, h.paginas, h.firmaDelPaciente, h.odontograma)
 		})
 	}
 }
 
-func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int) {
+func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int, firmaDelPaciente, odontograma string) {
+	if firmaDelPaciente == "" {
+		firmaDelPaciente = db.FirmaPaciente
+	}
+	if odontograma == "" {
+		odontograma = odontogramaDeEjemplo
+	}
 	p, ok := documentos.Ultima(plantilla)
 	if !ok {
 		t.Fatalf("falta la plantilla %s", plantilla)
@@ -103,18 +135,31 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int)
 	if err := e.gdb.Model(&db.Paciente{}).Where("id = ?", e.paciente.ID).Update("obra_social_afiliado", "998877").Error; err != nil {
 		t.Fatal(err)
 	}
+	// Una fecha de nacimiento, para la edad de odontopediatría.
+	nacimiento := clock.Today().AddDate(-7, -3, -2).Format("2006-01-02")
+	if err := e.gdb.Model(&db.Paciente{}).Where("id = ?", e.paciente.ID).Update("fecha_nacimiento", nacimiento).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	// Crear: lo precargado, con la matrícula SIN el tipo (va en casillas).
 	d := e.crearDe(t, e.token, plantilla, e.paciente.ID)
 	if d.Estado != db.DocumentoBorrador {
 		t.Fatalf("un documento nuevo es un borrador: %+v", d.documentoResumenResponse)
 	}
+	// El anexo no tiene matrícula (en su papel no hay dónde).
 	matricula := campoConPrecarga(p, "profesional.matriculaNumero")
-	if matricula == "" {
+	if matricula == "" && plantilla != plantillaAnexoOdontopediatria {
 		t.Fatalf("%s no precarga profesional.matriculaNumero", plantilla)
 	}
-	if d.Valores[matricula] != "4321" {
+	if matricula != "" && d.Valores[matricula] != "4321" {
 		t.Errorf("la matrícula precargada es solo el número: %v", d.Valores[matricula])
+	}
+	// La edad, en años y meses cumplidos, como números.
+	if anios, meses := campoConPrecarga(p, "paciente.edadAnios"), campoConPrecarga(p, "paciente.edadMeses"); anios != "" || meses != "" {
+		quieroA, quieroM := documentos.EdadAl(nacimiento, clock.Today())
+		if fmt.Sprint(d.Valores[anios]) != quieroA || fmt.Sprint(d.Valores[meses]) != quieroM || quieroA != "7" {
+			t.Errorf("la edad precargada: %v años %v meses, se esperaba %s y %s", d.Valores[anios], d.Valores[meses], quieroA, quieroM)
+		}
 	}
 	if afiliado := campoConPrecarga(p, "paciente.obraSocialAfiliado"); afiliado == "" || d.Valores[afiliado] != "998877" {
 		t.Errorf("el afiliado precargado (%s): %v", afiliado, d.Valores[afiliado])
@@ -134,10 +179,15 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int)
 		cuerpo.Errores[0].Campo != odonto || cuerpo.Errores[0].Mensaje != "99 no es una pieza de este odontograma." {
 		t.Fatalf("odontograma inválido: %d %s", rec.Code, rec.Body.String())
 	}
-	// Ni una prótesis que une las dos arcadas.
+	// Ni una prótesis que une las dos arcadas (la pediátrica no lleva
+	// prótesis: la rechaza antes).
 	valores[odonto] = map[string]any{"protesis": []any{map[string]any{"tipo": "fija", "desde": "13", "hasta": "43", "color": "rojo"}}}
 	rec = doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores})
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Una prótesis une piezas de la misma arcada.") {
+	mensajeDeProtesis := "Una prótesis une piezas de la misma arcada."
+	if p.Campo(odonto).Leyenda == "pediatrica" {
+		mensajeDeProtesis = "Este odontograma no lleva prótesis."
+	}
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), mensajeDeProtesis) {
 		t.Fatalf("prótesis entre arcadas: %d %s", rec.Code, rec.Body.String())
 	}
 
@@ -149,7 +199,7 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int)
 		valores[clave] = valor
 	}
 	var ejemplo map[string]any
-	_ = json.Unmarshal([]byte(odontogramaDeEjemplo), &ejemplo)
+	_ = json.Unmarshal([]byte(odontograma), &ejemplo)
 	valores[odonto] = ejemplo
 	d = e.guardar(t, e.token, d.ID, valores)
 	if !reflect.DeepEqual(d.Valores[odonto], ejemplo) {
@@ -158,7 +208,7 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int)
 
 	// Terminar: a firmar, con las figuras en el contenido congelado.
 	d = e.terminar(t, e.token, d.ID)
-	if d.Estado != db.DocumentoAFirmar || strings.Join(d.FirmasPendientes, ",") != "paciente,profesional" {
+	if d.Estado != db.DocumentoAFirmar || strings.Join(d.FirmasPendientes, ",") != firmaDelPaciente+",profesional" {
 		t.Fatalf("una historia clínica terminada espera sus firmas: %s %v", d.Estado, d.FirmasPendientes)
 	}
 	contenido := decodificar[documentos.ContenidoCongelado](t, d.Contenido)
@@ -172,18 +222,53 @@ func historiaDePuntaAPunta(t *testing.T, plantilla, prefijo string, paginas int)
 	if !bytes.Equal(esperadas, congeladas) {
 		t.Fatalf("las figuras congeladas no son las del odontograma.\ncongeladas: %s\n  armadas: %s", congeladas, esperadas)
 	}
-	if primera := contenido.Figuras[0]; primera.Tipo != "poligono" || primera.Relleno != "rojo" {
-		t.Errorf("la primera figura es la cara M roja de la 16: %+v", primera)
+	if odontograma == odontogramaDeEjemplo {
+		if primera := contenido.Figuras[0]; primera.Tipo != "poligono" || primera.Relleno != "rojo" {
+			t.Errorf("la primera figura es la cara M roja de la 16: %+v", primera)
+		}
+	} else {
+		// En el anexo la 16 (un sellador azul) va antes que las caras rojas de la 55.
+		caras := 0
+		for _, f := range contenido.Figuras {
+			if f.Tipo == "poligono" && f.Relleno == "rojo" {
+				caras++
+			}
+		}
+		if caras != 2 {
+			t.Errorf("las dos caras rojas de la 55: %d polígonos rojos", caras)
+		}
 	}
 	// Y el texto del cuerpo lo dice.
 	textoCompleto, _ := json.Marshal(contenido.Cuerpo)
-	if !strings.Contains(string(textoCompleto), textoDelOdontogramaDeEjemplo) {
-		t.Errorf("el cuerpo congelado no lee el odontograma: %s", textoCompleto)
+	textoEsperado := textoDelOdontogramaDeEjemplo
+	if odontograma != odontogramaDeEjemplo {
+		textoEsperado = documentos.ValorComoTexto(p.Campo(odonto), ejemplo)
+	}
+	if !strings.Contains(string(textoCompleto), textoEsperado) {
+		t.Errorf("el cuerpo congelado no lee el odontograma (%q): %s", textoEsperado, textoCompleto)
+	}
+	// Un dibujo (el genograma del anexo) va congelado como trazos, después
+	// de las figuras del odontograma, y el cuerpo dice que está en la hoja.
+	if dibujo := campoConTipo(p, "dibujo"); dibujo != "" {
+		trazos := 0
+		for i, f := range contenido.Figuras {
+			if f.Tipo == "trazo" {
+				trazos++
+			} else if trazos > 0 {
+				t.Fatalf("la figura %d (%s) va después de un trazo: los dibujos van al final", i, f.Tipo)
+			}
+		}
+		if quiero := len(contenido.Valores[dibujo].(map[string]any)["trazos"].([]any)); trazos != quiero || quiero == 0 {
+			t.Errorf("el genograma congeló %d trazos, tiene %d", trazos, quiero)
+		}
+		if !strings.Contains(string(textoCompleto), documentos.DibujoConsignado) {
+			t.Errorf("el cuerpo congelado no dice que el dibujo está en la hoja: %s", textoCompleto)
+		}
 	}
 
 	// Firmar en el dispositivo: el paciente (o su tutor) y el profesional.
-	if rec := e.firmar(t, e.token, d.ID, map[string]any{"rol": "paciente", "nombre": "Ana Paz", "dni": "30111222"}); rec.Code != http.StatusOK {
-		t.Fatalf("firma del paciente: %d %s", rec.Code, rec.Body.String())
+	if rec := e.firmar(t, e.token, d.ID, map[string]any{"rol": firmaDelPaciente, "nombre": "Ana Paz", "dni": "30111222"}); rec.Code != http.StatusOK {
+		t.Fatalf("firma de %s: %d %s", firmaDelPaciente, rec.Code, rec.Body.String())
 	}
 	rec = e.firmar(t, e.token, d.ID, map[string]any{"rol": "profesional"})
 	if rec.Code != http.StatusOK {
@@ -481,5 +566,40 @@ func TestDocumentos_UnBorradorDeLaGeneralV1PasaALaV2(t *testing.T) {
 	terminado := db.DocumentoClinico{PlantillaID: plantillaHistoriaGeneral, PlantillaVersion: 1, Estado: db.DocumentoSellado}
 	if t2, cambio, err := borradorEnLaVersionVigente(e.gdb, terminado); err != nil || cambio || t2.PlantillaVersion != 1 {
 		t.Fatalf("un documento terminado sigue en su versión: %v %v", cambio, err)
+	}
+}
+
+// El genograma del anexo: un dibujo roto no se guarda (422 con el mensaje
+// del campo, el mismo que la pantalla); uno sin trazos sí, y cuenta como
+// vacío.
+func TestDocumentos_AnexoRechazaUnGenogramaRoto(t *testing.T) {
+	e := escenarioDeDocumentos(t, "aodp-genograma")
+	d := e.crearDe(t, e.token, plantillaAnexoOdontopediatria, e.paciente.ID)
+	casos := []struct {
+		valor   any
+		mensaje string
+	}{
+		{map[string]any{"ancho": 400, "alto": 200, "trazos": []any{[]any{[]any{401, 10}}}}, "Hay un punto fuera del lienzo."},
+		{map[string]any{"ancho": 10, "alto": 200, "trazos": []any{}}, "El lienzo tiene que medir entre 50 y 4000 de cada lado."},
+		{map[string]any{"ancho": 400, "alto": 200, "trazos": []any{[]any{}}}, "Hay un trazo sin puntos."},
+		{"un genograma", "El dibujo no tiene la forma esperada."},
+	}
+	for _, c := range casos {
+		valores := d.Valores
+		valores["genograma"] = c.valor
+		rec := doJSONAuth(t, e.router, http.MethodPatch, "/documentos/"+d.ID, e.token, map[string]any{"valores": valores})
+		cuerpo := decodificar[struct {
+			Errores []documentos.ErrorDeCampo `json:"errores"`
+		}](t, rec.Body.Bytes())
+		if rec.Code != http.StatusUnprocessableEntity || len(cuerpo.Errores) != 1 ||
+			cuerpo.Errores[0].Campo != "genograma" || cuerpo.Errores[0].Mensaje != c.mensaje {
+			t.Fatalf("genograma %v: %d %s", c.valor, rec.Code, rec.Body.String())
+		}
+	}
+	valores := d.Valores
+	valores["genograma"] = map[string]any{"ancho": 400, "alto": 200, "trazos": []any{}}
+	guardado := e.guardar(t, e.token, d.ID, valores)
+	if _, ok := guardado.Valores["genograma"]; !ok {
+		t.Fatalf("un genograma sin trazos es un valor válido: %v", guardado.Valores)
 	}
 }

@@ -123,6 +123,16 @@ describe("las filas y el foco", () => {
     ]);
   });
 
+  it("en el pediátrico las temporarias van arriba, y el foco pasa de ellas a las permanentes", () => {
+    const filas = filasDe("ambas", true);
+    expect(filas.map((f) => f.id)).toEqual(["sup-temp", "inf-temp", "sup-perm", "inf-perm"]);
+    expect(filas[0].piezas[0]).toBe("55");
+    expect(moverFoco(filas, "55", "ArrowUp")).toBe("55");
+    expect(moverFoco(filas, "85", "ArrowDown")).toBe("15");
+    expect(moverFoco(filas, "15", "ArrowUp")).toBe("85");
+    expect(filasDe("temporaria", true).map((f) => f.id)).toEqual(["sup-temp", "inf-temp"]);
+  });
+
   it("las flechas, Inicio y Fin", () => {
     const filas = filasDe("ambas");
     expect(moverFoco(filas, "18", "ArrowLeft")).toBe("18");
