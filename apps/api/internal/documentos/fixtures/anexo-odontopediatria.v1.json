@@ -1,0 +1,2598 @@
+{
+  "plantilla": "anexo-odontopediatria",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "paciente_nombre": "Ejemplo de paciente",
+    "afiliado": "40123456",
+    "obra_social": "Ejemplo de obra",
+    "fecha_nacimiento": "1984-03-07",
+    "dni": "30111222",
+    "telefono": "Ejemplo de teléfono",
+    "domicilio": "Ejemplo de domicilio",
+    "talla": "Ejemplo de talla",
+    "edad_anios": 0,
+    "edad_meses": 0,
+    "motivo_consulta": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "actitud_nino": "Ejemplo de actitud",
+    "actitud_padres": "Ejemplo de actitud",
+    "medico_telefono": "Ejemplo de teléfono",
+    "medico_domicilio": "Ejemplo de domicilio",
+    "centro_asistencial": "Ejemplo de centro",
+    "genograma": {
+      "ancho": 780,
+      "alto": 290,
+      "trazos": [
+        [
+          [
+            300,
+            60
+          ],
+          [
+            360,
+            60
+          ],
+          [
+            360,
+            120
+          ],
+          [
+            300,
+            120
+          ],
+          [
+            300,
+            60
+          ]
+        ],
+        [
+          [
+            510,
+            90
+          ],
+          [
+            505.98,
+            105
+          ],
+          [
+            495,
+            115.98
+          ],
+          [
+            480,
+            120
+          ],
+          [
+            465,
+            115.98
+          ],
+          [
+            454.02,
+            105
+          ],
+          [
+            450,
+            90
+          ],
+          [
+            454.02,
+            75
+          ],
+          [
+            465,
+            64.02
+          ],
+          [
+            480,
+            60
+          ],
+          [
+            495,
+            64.02
+          ],
+          [
+            505.98,
+            75
+          ],
+          [
+            510,
+            90
+          ]
+        ],
+        [
+          [
+            360,
+            90
+          ],
+          [
+            450,
+            90
+          ]
+        ],
+        [
+          [
+            405,
+            90
+          ],
+          [
+            405,
+            200
+          ]
+        ]
+      ]
+    },
+    "nacimiento": "a_termino",
+    "parto": "normal",
+    "alimentacion_natural": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "alimentacion_mixta": "Ejemplo de comienzo",
+    "dieta": "completa",
+    "dieta_por_que": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "tipo_azucar": "Ejemplo de ¿qué",
+    "experiencia_previa": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "informacion_preventiva": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "pasta_dental": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "cepillado": "1",
+    "otro_elemento": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "chupete": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "chupete_hasta": "Ejemplo de edad",
+    "digital": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "otros_objetos": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "deglucion_atipica": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "interposicion_lingual": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "fonacion": "correcta",
+    "labios": "competentes",
+    "labios_lesiones": "Ejemplo de labios:",
+    "frenillos_estado": "normal",
+    "mucosa_lesiones": "Ejemplo de mucosa:",
+    "tejido_gingival": "Ejemplo de tejido",
+    "lengua_normal": "Ejemplo de lengua",
+    "lengua_macroglosia": "Ejemplo de lengua",
+    "lengua_geografica": "Ejemplo de lengua",
+    "lengua_glositis": "Ejemplo de lengua",
+    "observaciones_blandos": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "denticion": "primaria",
+    "agenesias": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "macrodoncia": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "microdoncia": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "hipocalcificacion": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "pigmentacion_endogena": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "pigmentacion_exogena": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "germinados": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "conoides": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "anomalias_otras": {
+      "respuesta": "si",
+      "detalle": "detalle de ejemplo"
+    },
+    "odontograma": {
+      "piezas": {
+        "55": {
+          "marcas": {
+            "sellador": "azul"
+          }
+        },
+        "61": {
+          "caras": {
+            "V": "rojo"
+          },
+          "marcas": {
+            "traumatizado": "rojo"
+          }
+        },
+        "75": {
+          "marcas": {
+            "x": "azul"
+          }
+        }
+      }
+    },
+    "diagnostico": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "derivacion": "Ejemplo de el",
+    "plan": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "observaciones": "Primera línea del ejemplo.\nSegunda línea del ejemplo.",
+    "aclaracion": "Ejemplo de nombre",
+    "aclaracion_dni": "30111222"
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Anexo de odontopediatría"
+    },
+    {
+      "t": "parrafo",
+      "texto": "Paciente: Ejemplo de paciente. Nº de afiliado: 40123456. Obra social: Ejemplo de obra. Fecha de nacimiento: 07/03/1984."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Nacionalidad: No consigna. Nº de documento: 30111222. Tel.: Ejemplo de teléfono. Domicilio (calle, núm., barrio, localidad): Ejemplo de domicilio."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Peso: No consigna. Talla: Ejemplo de talla. Edad en años: 0. Meses: 0. Grado escolar: No consigna."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Motivo de la consulta: Primera línea del ejemplo.\nSegunda línea del ejemplo.."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Actitud del niño: Ejemplo de actitud. Actitud de los padres: Ejemplo de actitud."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Médico actuante: No consigna. Tel.: Ejemplo de teléfono. Domicilio: Ejemplo de domicilio. Centro asistencial: Ejemplo de centro."
+    },
+    {
+      "t": "campo",
+      "campo": "genograma",
+      "etiqueta": "Genograma",
+      "texto": "Dibujo consignado en la hoja"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Embarazo normal: No consigna.",
+        "Nacimiento: A término. Parto: Normal."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Alimentación del recién nacido"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Natural: Sí (detalle de ejemplo).",
+        "Artificial: No consigna."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Nutrición y dieta"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Comienzo de la alimentación mixta: Ejemplo de comienzo.",
+        "Dieta actual del niño: Completa. ¿Por qué? Primera línea del ejemplo.\nSegunda línea del ejemplo..",
+        "Momentos de azúcar: No consigna.",
+        "¿Qué tipo de azúcar consume? Ejemplo de ¿qué."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Antecedentes odontológicos"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "¿Tuvo experiencia odontológica previa? Sí (detalle de ejemplo).",
+        "¿Recibió información de medidas preventivas? Sí (detalle de ejemplo).",
+        "¿Han seguido las instrucciones y medidas impartidas por su odontólogo? No consigna.",
+        "¿Usa pasta dentífrica? Sí (detalle de ejemplo).",
+        "¿Cuántas veces se cepilla al día? 1 vez.",
+        "¿Usa otro elemento de higiene oral? Sí (detalle de ejemplo).",
+        "¿Recibió baño de flúor? No consigna."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Hábitos"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Succión, chupete: Sí (detalle de ejemplo). ¿Hasta qué edad? Ejemplo de edad.",
+        "Digital: Sí (detalle de ejemplo).",
+        "Mamadera: No consigna.",
+        "Otros objetos: Sí (detalle de ejemplo).",
+        "Deglución atípica: Sí (detalle de ejemplo).",
+        "Interposición lingual: Sí (detalle de ejemplo)."
+      ]
+    },
+    {
+      "t": "parrafo",
+      "texto": "IRN (insuficiente respiración nasal): No consigna. Fonación: Correcta."
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Examen bucal: tejidos blandos"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Labios: Competentes. Lesiones: Ejemplo de labios:.",
+        "Frenillos: No consigna. Normal o anormal: Normal.",
+        "Mucosa, lesiones: Ejemplo de mucosa:.",
+        "Tejido gingival: Ejemplo de tejido.",
+        "Lengua: No consigna.",
+        "Detalle de la lengua. Normal: Ejemplo de lengua. Macroglosia: Ejemplo de lengua. Geográfica: Ejemplo de lengua. Escrotal: No consigna. Glositis: Ejemplo de lengua.",
+        "Observaciones: Primera línea del ejemplo.\nSegunda línea del ejemplo.."
+      ]
+    },
+    {
+      "t": "subtitulo",
+      "texto": "Examen bucal: tejidos duros"
+    },
+    {
+      "t": "lista",
+      "items": [
+        "Tipo de dentición: Primaria.",
+        "Anomalías de número. Supernumerarios: No consigna. Agenesias: Sí (detalle de ejemplo).",
+        "Anomalías de tamaño. Macrodoncia: Sí (detalle de ejemplo). Microdoncia: Sí (detalle de ejemplo).",
+        "Anomalías de la estructura. Hipoplasia: No consigna. Hipocalcificación: Sí (detalle de ejemplo). Pigmentación endógena: Sí (detalle de ejemplo). Pigmentación exógena: Sí (detalle de ejemplo).",
+        "Anomalías de forma. Dientes fusionados: No consigna. Dientes germinados: Sí (detalle de ejemplo). Dientes conoides: Sí (detalle de ejemplo). Otros: Sí (detalle de ejemplo).",
+        "Lesiones adquiridas de los tejidos duros. Traumatismos dentarios: No consigna."
+      ]
+    },
+    {
+      "t": "campo",
+      "campo": "odontograma",
+      "etiqueta": "Odontograma",
+      "texto": "Rojo, trabajos realizados: 61 (cara vestibular; traumatizada). Azul, trabajos a realizar: 55 (sellador), 75 (a extraer, extraída o ausente)."
+    },
+    {
+      "t": "campo",
+      "campo": "diagnostico",
+      "etiqueta": "Diagnóstico",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "El diagnóstico incluye derivación a: Ejemplo de el."
+    },
+    {
+      "t": "campo",
+      "campo": "plan",
+      "etiqueta": "Plan de tratamiento presuntivo",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "campo",
+      "campo": "aparatologia",
+      "etiqueta": "Aparatología requerida",
+      "texto": "No consigna"
+    },
+    {
+      "t": "campo",
+      "campo": "observaciones",
+      "etiqueta": "Observaciones",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "parrafo",
+      "texto": "Representante legal: Ejemplo de nombre. DNI: 30111222."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [
+    {
+      "zona": "paciente_nombre",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 74,
+          "y": 97.2,
+          "texto": "Ejemplo de paciente"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "afiliado",
+      "pagina": 1,
+      "tamano": 10,
+      "lineas": [
+        {
+          "x": 334.61,
+          "y": 101.2,
+          "texto": "4"
+        },
+        {
+          "x": 349.6,
+          "y": 101.2,
+          "texto": "0"
+        },
+        {
+          "x": 364.6,
+          "y": 101.2,
+          "texto": "1"
+        },
+        {
+          "x": 379.59,
+          "y": 101.2,
+          "texto": "2"
+        },
+        {
+          "x": 394.57,
+          "y": 101.2,
+          "texto": "3"
+        },
+        {
+          "x": 409.56,
+          "y": 101.2,
+          "texto": "4"
+        },
+        {
+          "x": 424.55,
+          "y": 101.2,
+          "texto": "5"
+        },
+        {
+          "x": 439.54,
+          "y": 101.2,
+          "texto": "6"
+        }
+      ],
+      "desborda": false,
+      "vacia": false
+    },
+    {
+      "zona": "obra_social",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 70.5,
+          "y": 130.1,
+          "texto": "Ejemplo de obra"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fecha_nacimiento",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 394.1,
+          "y": 130.1,
+          "texto": "07/03/1984"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "nacionalidad",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 79,
+          "y": 143.1,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "dni",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 258.2,
+          "y": 143.1,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "telefono",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 418.9,
+          "y": 143.1,
+          "texto": "Ejemplo de teléfono"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "domicilio",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 169.2,
+          "y": 155.9,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "peso",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 55.2,
+          "y": 168.9,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "talla",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 192.2,
+          "y": 168.9,
+          "texto": "Ejemplo de talla"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "edad_anios",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 370.25,
+          "y": 168.9,
+          "texto": "0"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "edad_meses",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 457,
+          "y": 168.9,
+          "texto": "0"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "grado_escolar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 86.8,
+          "y": 181.7,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "motivo_consulta",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 107.6,
+          "y": 194.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 36.4,
+          "y": 207.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "actitud_nino",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 90.9,
+          "y": 220.5,
+          "texto": "Ejemplo de actitud"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "actitud_padres",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 109.3,
+          "y": 233.4,
+          "texto": "Ejemplo de actitud"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medico",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 94.6,
+          "y": 246.3,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "medico_telefono",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 361.8,
+          "y": 246.3,
+          "texto": "Ejemplo de teléfono"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "medico_domicilio",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 70.5,
+          "y": 259.3,
+          "texto": "Ejemplo de domicilio"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "centro_asistencial",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 384.6,
+          "y": 259.3,
+          "texto": "Ejemplo de centro"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "embarazo_normal_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 140.3,
+          "y": 409.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "embarazo_normal_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 172.2,
+          "y": 409.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "embarazo_normal_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 192.9,
+          "y": 409.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "nacimiento_a_termino",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 131.37,
+          "y": 421.7,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "nacimiento_prematuro",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 199.3,
+          "y": 421.7,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "nacimiento_post_termino",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 273.2,
+          "y": 421.7,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "parto_normal",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 136.47,
+          "y": 434.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "parto_cesarea",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 203.7,
+          "y": 434.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "parto_forceps",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 271.2,
+          "y": 434.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alimentacion_natural_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 65.37,
+          "y": 470.1,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alimentacion_natural_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 137,
+          "y": 470.7,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "alimentacion_artificial_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 64.2,
+          "y": 482.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "alimentacion_artificial_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 137,
+          "y": 483.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "alimentacion_mixta",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 172.5,
+          "y": 517.2,
+          "texto": "Ejemplo de comienzo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dieta_completa",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 69.97,
+          "y": 539.1,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dieta_incompleta",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 134.7,
+          "y": 539.1,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "dieta_por_que",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 187.5,
+          "y": 539.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 28,
+          "y": 550.5,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "momentos_azucar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 112,
+          "y": 560.9,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "tipo_azucar",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 148.1,
+          "y": 571.2,
+          "texto": "Ejemplo de ¿qué"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "experiencia_previa_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.97,
+          "y": 605.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "experiencia_previa_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.1,
+          "y": 605.8,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "informacion_preventiva_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.97,
+          "y": 618.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "informacion_preventiva_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.1,
+          "y": 618.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "siguio_instrucciones_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 236.8,
+          "y": 641.4,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "siguio_instrucciones_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 268.6,
+          "y": 641.4,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "siguio_instrucciones_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 64.6,
+          "y": 652.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "pasta_dental_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 129.97,
+          "y": 664.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pasta_dental_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 168.6,
+          "y": 664.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pasta_dental_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 200.5,
+          "y": 665,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cepillado_1",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 195.47,
+          "y": 677.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cepillado_2",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 221.2,
+          "y": 677.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cepillado_3",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 249.2,
+          "y": 677.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "cepillado_4",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.6,
+          "y": 677.2,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otro_elemento_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.67,
+          "y": 689.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otro_elemento_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 271.9,
+          "y": 689.8,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otro_elemento_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 57.1,
+          "y": 701.2,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fluor_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 133.8,
+          "y": 712.8,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fluor_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 170.2,
+          "y": 712.8,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fluor_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 230.5,
+          "y": 713.4,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "chupete_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 241.57,
+          "y": 748.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "chupete_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 275.8,
+          "y": 748.5,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "chupete_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 75.1,
+          "y": 759.9,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "chupete_hasta",
+      "pagina": 1,
+      "tamano": 6,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.1,
+          "y": 759.9,
+          "texto": "Ejemplo de edad"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "digital_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 92.37,
+          "y": 771.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "digital_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 131.2,
+          "y": 771.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "digital_detalle",
+      "pagina": 1,
+      "tamano": 7.5,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 208.5,
+          "y": 772,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "mamadera_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 91.8,
+          "y": 784.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "mamadera_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 128.2,
+          "y": 784.1,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "mamadera_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 208.9,
+          "y": 784.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "otros_objetos_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 95.97,
+          "y": 796.7,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otros_objetos_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 134.7,
+          "y": 796.7,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "otros_objetos_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 176,
+          "y": 797.3,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "deglucion_atipica_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.97,
+          "y": 809.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "deglucion_atipica_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.1,
+          "y": 809.4,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "interposicion_lingual_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 237.97,
+          "y": 822,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "interposicion_lingual_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 272.1,
+          "y": 822,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "irn_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 509.3,
+          "y": 295.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "irn_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 541.1,
+          "y": 295.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fonacion_correcta",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 482.97,
+          "y": 307.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fonacion_incorrecta",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 543.7,
+          "y": 307.8,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "labios_competentes",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 485.38,
+          "y": 355,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "labios_incompetentes",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 488.4,
+          "y": 365.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "labios_lesiones",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 395.1,
+          "y": 375.7,
+          "texto": "Ejemplo de labios:"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "frenillos",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 355.5,
+          "y": 387.9,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "frenillos_estado_normal",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 500.97,
+          "y": 387.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "frenillos_estado_anormal",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 559.8,
+          "y": 387.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "mucosa_lesiones",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 395.1,
+          "y": 398.7,
+          "texto": "Ejemplo de mucosa:"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "tejido_gingival",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 384.9,
+          "y": 409,
+          "texto": "Ejemplo de tejido"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lengua_normal_x",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 385.3,
+          "y": 420.7,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_normal",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 406,
+          "y": 421.3,
+          "texto": "Ejemplo de lengua"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lengua_macroglosia_x",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 404.7,
+          "y": 433.3,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_macroglosia",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 413.4,
+          "y": 433.9,
+          "texto": "Ejemplo de lengua"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lengua_geografica_x",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 397.8,
+          "y": 445.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_geografica",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 406.5,
+          "y": 446.5,
+          "texto": "Ejemplo de lengua"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "lengua_escrotal_x",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 388.8,
+          "y": 458.6,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_escrotal",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 397.5,
+          "y": 459.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_glositis_x",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 385.8,
+          "y": 471.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "lengua_glositis",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 394.5,
+          "y": 471.8,
+          "texto": "Ejemplo de lengua"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "observaciones_blandos",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 365.6,
+          "y": 482.7,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 300.5,
+          "y": 493.1,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "denticion_primaria",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 432.87,
+          "y": 525.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "denticion_mixta",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 479.7,
+          "y": 525.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "denticion_permanente",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 551.7,
+          "y": 525.3,
+          "texto": ""
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "supernumerarios_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 390.08,
+          "y": 548.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "supernumerarios_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 548.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "agenesias_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 560.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "agenesias_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 561.6,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "macrodoncia_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 594.3,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "macrodoncia_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 595,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "microdoncia_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 606.9,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "microdoncia_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 607.6,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hipoplasia_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 390.08,
+          "y": 640.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "hipoplasia_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 640.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "hipocalcificacion_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 652.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "hipocalcificacion_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 653.5,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pigmentacion_endogena_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 665.5,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pigmentacion_endogena_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 666.2,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pigmentacion_exogena_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 678.1,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "pigmentacion_exogena_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 678.8,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "fusionados_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 390.08,
+          "y": 711.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "fusionados_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 712.2,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "germinados_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 724.2,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "germinados_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 724.9,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "conoides_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 736.8,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "conoides_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 737.5,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anomalias_otras_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 391.24,
+          "y": 749.4,
+          "texto": "X"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "anomalias_otras_detalle",
+      "pagina": 1,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 401.2,
+          "y": 750.1,
+          "texto": "detalle de ejemplo"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "traumatismos_si",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 407.3,
+          "y": 782.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "traumatismos_no",
+      "pagina": 1,
+      "tamano": 7,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 439.2,
+          "y": 782.9,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "traumatismos_detalle",
+      "pagina": 1,
+      "tamano": 8,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 472,
+          "y": 783.5,
+          "texto": "—"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "diagnostico",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 37.6,
+          "y": 323.8,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 37.6,
+          "y": 341.72,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "derivacion",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 200,
+          "y": 413.3,
+          "texto": "Ejemplo de el"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "plan",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 37.6,
+          "y": 462.9,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 37.6,
+          "y": 480.8,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aparatologia",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 143.2,
+          "y": 588.2,
+          "texto": "No consigna"
+        }
+      ],
+      "vacia": true
+    },
+    {
+      "zona": "observaciones",
+      "pagina": 2,
+      "tamano": 10,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 120.5,
+          "y": 664,
+          "texto": "Primera línea del ejemplo."
+        },
+        {
+          "x": 37.6,
+          "y": 683.3,
+          "texto": "Segunda línea del ejemplo."
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 208.84,
+          "y": 788,
+          "texto": "Ejemplo de nombre"
+        }
+      ],
+      "vacia": false
+    },
+    {
+      "zona": "aclaracion_dni",
+      "pagina": 2,
+      "tamano": 9,
+      "desborda": false,
+      "lineas": [
+        {
+          "x": 331.83,
+          "y": 788,
+          "texto": "30111222"
+        }
+      ],
+      "vacia": false
+    }
+  ],
+  "figuras": [
+    {
+      "tipo": "contorno",
+      "pagina": 2,
+      "puntos": [
+        [
+          106.23,
+          87.61
+        ],
+        [
+          112.71,
+          100
+        ],
+        [
+          99.76,
+          100
+        ]
+      ],
+      "color": "azul",
+      "grosor": 1.1
+    },
+    {
+      "tipo": "poligono",
+      "pagina": 2,
+      "puntos": [
+        [
+          210.87,
+          85.67
+        ],
+        [
+          225.85,
+          85.67
+        ],
+        [
+          221.5,
+          90.01
+        ],
+        [
+          215.22,
+          90.01
+        ]
+      ],
+      "relleno": "rojo"
+    },
+    {
+      "tipo": "texto",
+      "pagina": 2,
+      "x": 213.9,
+      "y": 99.43,
+      "tamano": 14.61,
+      "texto": "T",
+      "color": "rojo"
+    },
+    {
+      "tipo": "linea",
+      "pagina": 2,
+      "desde": [
+        294.79,
+        114.24
+      ],
+      "hasta": [
+        310.03,
+        129.48
+      ],
+      "color": "azul",
+      "grosor": 1.4
+    },
+    {
+      "tipo": "linea",
+      "pagina": 2,
+      "desde": [
+        310.03,
+        114.24
+      ],
+      "hasta": [
+        294.79,
+        129.48
+      ],
+      "color": "azul",
+      "grosor": 1.4
+    },
+    {
+      "tipo": "trazo",
+      "pagina": 1,
+      "puntos": [
+        [
+          127.38,
+          321.56
+        ],
+        [
+          147.46,
+          321.56
+        ],
+        [
+          147.46,
+          341.63
+        ],
+        [
+          127.38,
+          341.63
+        ],
+        [
+          127.38,
+          321.56
+        ]
+      ],
+      "color": "tinta",
+      "grosor": 0.8
+    },
+    {
+      "tipo": "trazo",
+      "pagina": 1,
+      "puntos": [
+        [
+          197.65,
+          331.6
+        ],
+        [
+          196.31,
+          336.62
+        ],
+        [
+          192.63,
+          340.29
+        ],
+        [
+          187.62,
+          341.63
+        ],
+        [
+          182.6,
+          340.29
+        ],
+        [
+          178.92,
+          336.62
+        ],
+        [
+          177.58,
+          331.6
+        ],
+        [
+          178.92,
+          326.58
+        ],
+        [
+          182.6,
+          322.9
+        ],
+        [
+          187.62,
+          321.56
+        ],
+        [
+          192.63,
+          322.9
+        ],
+        [
+          196.31,
+          326.58
+        ],
+        [
+          197.65,
+          331.6
+        ]
+      ],
+      "color": "tinta",
+      "grosor": 0.8
+    },
+    {
+      "tipo": "trazo",
+      "pagina": 1,
+      "puntos": [
+        [
+          147.46,
+          331.6
+        ],
+        [
+          177.58,
+          331.6
+        ]
+      ],
+      "color": "tinta",
+      "grosor": 0.8
+    },
+    {
+      "tipo": "trazo",
+      "pagina": 1,
+      "puntos": [
+        [
+          162.52,
+          331.6
+        ],
+        [
+          162.52,
+          368.4
+        ]
+      ],
+      "color": "tinta",
+      "grosor": 0.8
+    }
+  ]
+}

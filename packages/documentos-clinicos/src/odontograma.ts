@@ -10,6 +10,7 @@
 // `pnpm documentos:generar` lo verifican. Por eso toda iteración sobre
 // claves va en un orden fijo.
 import { campoPorId, SIN_DATO, type Campo, type LEYENDAS_DE_ODONTOGRAMA, type OdontogramaDeLamina, type Plantilla, type RecuadroDePieza } from "./esquema";
+import { figurasDeDibujo } from "./dibujo";
 import { anchoEnUnidades, redondear2 } from "./metricas";
 import { PIEZAS_PERMANENTES, piezasDe } from "./piezas";
 import { NO_CONSIGNA, type Modo } from "./texto";
@@ -342,7 +343,10 @@ export type Figura =
   | { tipo: "contorno"; pagina: number; puntos: Punto[]; color: ColorDeFigura; grosor: number }
   | { tipo: "linea"; pagina: number; desde: Punto; hasta: Punto; color: ColorDeFigura; grosor: number; discontinua?: true }
   | { tipo: "circulo"; pagina: number; centro: Punto; radio: number; color: ColorDeFigura; grosor: number }
-  | { tipo: "texto"; pagina: number; x: number; y: number; tamano: number; texto: string; color: ColorDeFigura };
+  | { tipo: "texto"; pagina: number; x: number; y: number; tamano: number; texto: string; color: ColorDeFigura }
+  /** Una línea abierta por sus puntos, con puntas y uniones redondas: un
+   *  trazo de un dibujo (dibujo.ts). Un solo punto es un punto. */
+  | { tipo: "trazo"; pagina: number; puntos: Punto[]; color: ColorDeFigura; grosor: number };
 
 /** Los colores con que se dibujan (la tinta es la de la lámina). */
 export const COLORES_DE_FIGURA: Record<ColorDeFigura, string> = { rojo: "#d0202e", azul: "#1f4fbf", tinta: "#16181d" };
@@ -405,7 +409,7 @@ function linea(pagina: number, desde: Punto, hasta: Punto, color: ColorDeFigura,
 }
 
 /** Un texto centrado en un ancho, con su línea de base en `y`. */
-function textoCentrado(pagina: number, texto: string, tamano: number, x: number, ancho: number, y: number, color: ColorDeFigura): Figura {
+export function textoCentrado(pagina: number, texto: string, tamano: number, x: number, ancho: number, y: number, color: ColorDeFigura): Figura {
   const anchoTexto = (anchoEnUnidades(texto) * tamano) / 1000;
   return { tipo: "texto", pagina, x: redondear2(x + (ancho - anchoTexto) / 2), y: redondear2(y), tamano, texto, color };
 }
@@ -487,11 +491,17 @@ function figurasDeOdontograma(o: OdontogramaDeLamina, plantilla: Plantilla, valo
   return figuras;
 }
 
-/** La composición de los odontogramas de la lámina: las piezas en el orden
+/** La composición de los odontogramas de la lámina —las piezas en el orden
  *  del odontograma (caras V, L, M, D, O y después las marcas), las
  *  prótesis en el orden del texto, la cantidad de dientes existentes y, si
- *  está vacío y terminado, "No consigna". Al terminar el documento la API
- *  la congela con `ArmarFiguras` (Go), que tiene que dar lo mismo. */
+ *  está vacío y terminado, "No consigna"— y después la de los dibujos (Fase
+ *  5.6b). Al terminar el documento la API la congela con `ArmarFiguras`
+ *  (Go), que tiene que dar lo mismo. */
 export function armarFiguras(plantilla: Plantilla, valores: Valores, modo: Modo): Figura[] {
-  return (plantilla.lamina?.odontogramas ?? []).flatMap((o) => figurasDeOdontograma(o, plantilla, valores[o.campo], modo));
+  const odontogramas = (plantilla.lamina?.odontogramas ?? []).flatMap((o) => figurasDeOdontograma(o, plantilla, valores[o.campo], modo));
+  const dibujos = (plantilla.lamina?.dibujos ?? []).flatMap((d) => {
+    const campo = campoPorId(plantilla, d.campo);
+    return campo?.tipo === "dibujo" ? figurasDeDibujo(d, campo, valores[d.campo], modo) : [];
+  });
+  return [...odontogramas, ...dibujos];
 }

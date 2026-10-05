@@ -8,6 +8,7 @@ import {
   type RespuestaSiNo,
   type Valor,
 } from "@dental-mirage/documentos-clinicos";
+import { CampoDibujo } from "./campo-dibujo";
 import { CampoOdontograma } from "./campo-odontograma";
 
 // Un campo del documento en el sidebar del editor (Fase 5.1). Cada tipo de
@@ -155,17 +156,21 @@ export function CampoDeDocumento({
   valor,
   error,
   onCambio,
-  odontogramaAbierto,
-  onOdontogramaAbierto,
+  proporcion = 2,
+  emergenteAbierta,
+  onEmergenteAbierta,
 }: {
   campo: Campo;
   valor: unknown;
   error?: string;
   /** `undefined` borra el valor. */
   onCambio: (valor: Valor | undefined) => void;
-  /** La pantalla emergente de un odontograma, cuando la maneja el editor. */
-  odontogramaAbierto?: boolean;
-  onOdontogramaAbierto?: (abierto: boolean) => void;
+  /** Ancho / alto del recuadro de un dibujo en la hoja. */
+  proporcion?: number;
+  /** La pantalla emergente de un odontograma o un dibujo, cuando la maneja
+   *  el editor. */
+  emergenteAbierta?: boolean;
+  onEmergenteAbierta?: (abierto: boolean) => void;
 }) {
   const id = idDelCampo(campo.id);
   const idAyuda = useId();
@@ -296,14 +301,29 @@ export function CampoDeDocumento({
           id={id}
           etiquetaId={`${id}-etiqueta`}
           describedBy={describedBy}
-          abierto={odontogramaAbierto}
-          onAbierto={onOdontogramaAbierto}
+          abierto={emergenteAbierta}
+          onAbierto={onEmergenteAbierta}
+        />
+      );
+      break;
+    case "dibujo":
+      control = (
+        <CampoDibujo
+          campo={campo}
+          valor={valor}
+          onCambio={onCambio}
+          proporcion={proporcion}
+          id={id}
+          etiquetaId={`${id}-etiqueta`}
+          describedBy={describedBy}
+          abierto={emergenteAbierta}
+          onAbierto={onEmergenteAbierta}
         />
       );
       break;
   }
 
-  const agrupado = ["si_no", "opcion_unica", "opcion_multiple", "piezas", "odontograma"].includes(campo.tipo);
+  const agrupado = ["si_no", "opcion_unica", "opcion_multiple", "piezas", "odontograma", "dibujo"].includes(campo.tipo);
   const Etiqueta = agrupado ? "p" : "label";
 
   return (

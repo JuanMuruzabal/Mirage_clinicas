@@ -19,7 +19,10 @@
 // composicion/figuras.json trae odontogramas armados para ejercitar cada
 // rama (todas las caras arriba, abajo, a la derecha y a la izquierda; todas
 // las marcas; las prótesis; los dientes existentes; vacío en borrador y
-// terminado) sobre una geometría de prueba.
+// terminado) sobre una geometría de prueba. Desde la 5.6b, también dibujos:
+// un lienzo más ancho y uno más alto que su recuadro, un trazo de un solo
+// punto, vacío en borrador y terminado, y un dibujo después de un
+// odontograma.
 //
 // CI corre esto y falla si el resultado difiere de lo commiteado. Escribe
 // siempre con LF, con un .gitattributes al lado (ver la nota de CLAUDE.md
@@ -28,7 +31,8 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync
 import path from "node:path";
 import { armarCuerpo, type Modo } from "../src/texto";
 import { armarLamina, componerZona } from "../src/lamina";
-import { plantillaSchema, type OdontogramaDeLamina, type Plantilla, type RecuadroDePieza, type Zona } from "../src/esquema";
+import { plantillaSchema, type Campo, type DibujoDeLamina, type OdontogramaDeLamina, type Plantilla, type RecuadroDePieza, type Zona } from "../src/esquema";
+import type { ValorDibujo } from "../src/dibujo";
 import { redondear2 } from "../src/metricas";
 import { armarFiguras, filaDe, type CampoOdontograma, type FilaDeOdontograma, type ValorOdontograma } from "../src/odontograma";
 import { piezasDe, type Denticion } from "../src/piezas";
@@ -221,6 +225,68 @@ function casoDeFiguras({ nombre, campo, caja = CAJA_DE_EXISTENTES, modo, valor }
   return { nombre, plantilla, valores, modo, texto, figuras: armarFiguras(plantilla, valores, modo) };
 }
 
+// --- Los casos de figuras de un dibujo (Fase 5.6b) --------------------------
+
+const RECUADRO_DE_DIBUJO: DibujoDeLamina = { campo: "dibujo", pagina: 1, x: 26.85, y: 300.4, ancho: 261.3, alto: 97.15 };
+
+function plantillaDeDibujo(conOdontograma: boolean): Plantilla {
+  const dibujo: Campo = { tipo: "dibujo", id: "dibujo", etiqueta: "Genograma" };
+  const odontograma: Campo = { tipo: "odontograma", id: "odontograma", etiqueta: "Odontograma", leyenda: "pediatrica" };
+  const campos = conOdontograma ? [odontograma, dibujo] : [dibujo];
+  return plantillaSchema.parse({
+    id: "dibujo-de-prueba",
+    version: 1,
+    nombre: "Dibujo de prueba",
+    tipo: "anexo",
+    descripcion: "Un dibujo, para los casos de figuras.",
+    fuente: { nombre: "Casos de prueba", url: "https://colodontcba.org.ar/" },
+    secciones: [{ id: "examen", titulo: "Examen", campos }],
+    cuerpo: [...campos.map((c) => ({ t: "campo", campo: c.id })), { t: "firmas" }],
+    firmas: [{ rol: "profesional", etiqueta: "Profesional", requerida: true }],
+    lamina: {
+      paginas: [{ ancho: 595, alto: 842 }],
+      zonas: [{ id: "titulo", pagina: 1, x: 28.35, y: 80, ancho: 200, texto: "Dibujo" }],
+      firmas: [{ rol: "profesional", pagina: 1, x: 380, y: 800, ancho: 150, alto: 40 }],
+      dibujos: [RECUADRO_DE_DIBUJO],
+      ...(conOdontograma ? { odontogramas: [{ campo: "odontograma", pagina: 1, piezas: recuadrosDePrueba("ambas") }] } : {}),
+    },
+  });
+}
+
+const CASOS_DE_DIBUJO: { nombre: string; modo: Modo; valor?: ValorDibujo; conOdontograma?: boolean }[] = [
+  {
+    nombre: "dibujo: un lienzo más ancho que el recuadro, centrado de arriba abajo, con un trazo de un solo punto",
+    modo: "borrador",
+    valor: { ancho: 800, alto: 200, trazos: [[[0, 0], [12.5, 40.25], [399.99, 100], [800, 200]], [[640.5, 33.33]], [[100, 180], [100, 180.01]]] },
+  },
+  {
+    nombre: "dibujo: un lienzo más alto que el recuadro, centrado de costado, terminado",
+    modo: "sellado",
+    valor: { ancho: 300, alto: 600, trazos: [[[10, 20], [290, 20], [290, 580], [10, 580], [10, 20]], [[150.75, 300.25]]] },
+  },
+  { nombre: "dibujo: sin trazos y terminado dice No consigna", modo: "sellado", valor: { ancho: 400, alto: 150, trazos: [] } },
+  { nombre: "dibujo: sin valor y terminado dice No consigna", modo: "sellado" },
+  { nombre: "dibujo: sin trazos en borrador no dibuja nada", modo: "borrador", valor: { ancho: 400, alto: 150, trazos: [] } },
+  {
+    nombre: "dibujo: después de los odontogramas",
+    modo: "sellado",
+    conOdontograma: true,
+    valor: { ancho: 261, alto: 97, trazos: [[[5, 5], [256, 92]]] },
+  },
+];
+
+function casoDeDibujo({ nombre, modo, valor, conOdontograma = false }: (typeof CASOS_DE_DIBUJO)[number]) {
+  const plantilla = plantillaDeDibujo(conOdontograma);
+  const valores: Valores = {
+    ...(valor === undefined ? {} : { dibujo: valor }),
+    ...(conOdontograma ? { odontograma: { piezas: { "55": { marcas: { sellador: "azul" } } } } } : {}),
+  };
+  const errores = validarValores(plantilla, valores, "estricto");
+  if (errores.length > 0) throw new Error(`el caso de dibujo "${nombre}" no valida: ${JSON.stringify(errores)}`);
+  const campo = plantilla.secciones[0].campos[0];
+  return { nombre, plantilla, valores, modo, texto: valorComoTexto(campo, valores[campo.id]), figuras: armarFiguras(plantilla, valores, modo) };
+}
+
 /** Cuándo un odontograma está vacío: solo un valor bien formado sin nada
  *  cargado. La basura no cuenta como vacía, así que no se guarda sin
  *  validar: tiene que dar su error. */
@@ -324,7 +390,7 @@ function main() {
     path.join(DESTINO_COMPOSICION, "casos.json"),
     CASOS_DE_COMPOSICION.map(({ zona, texto }) => ({ zona, texto, compuesta: componerZona(zona, texto) })),
   );
-  escribir(path.join(DESTINO_COMPOSICION, "figuras.json"), CASOS_DE_FIGURAS.map(casoDeFiguras));
+  escribir(path.join(DESTINO_COMPOSICION, "figuras.json"), [...CASOS_DE_FIGURAS.map(casoDeFiguras), ...CASOS_DE_DIBUJO.map(casoDeDibujo)]);
   escribir(path.join(DESTINO_COMPOSICION, "odontograma-vacio.json"), CASOS_DE_VACIO.map(casoDeVacio));
   escribir(path.join(DESTINO_COMPOSICION, "detalle.json"), CASOS_DE_DETALLE.map(casoDeDetalle));
   copyFileSync(path.join(RAIZ, "src", "metricas-helvetica.json"), path.join(DESTINO, "metricas-helvetica.json"));

@@ -355,7 +355,7 @@ func dibujarPaginaDeLamina(pag *pdf.Pagina, f FuenteDelPDF, contenido ContenidoC
 			pag.Texto(pdf.Helvetica, z.Tamano, l.X, l.Y, l.Texto, colorTinta)
 		}
 	}
-	// Los odontogramas, también congelados.
+	// Los odontogramas y los dibujos, también congelados.
 	for _, figura := range contenido.Figuras {
 		if figura.Pagina == numero {
 			dibujarFigura(pag, figura)
@@ -503,7 +503,28 @@ func dibujarFigura(pag *pdf.Pagina, f Figura) {
 		pag.Camino(pdf.Circulo(f.Centro[0], f.Centro[1], f.Radio), pdf.Estilo{Grosor: f.Grosor, Trazo: &color})
 	case "texto":
 		pag.Texto(pdf.Helvetica, f.Tamano, f.X, f.Y, f.Texto, colorDeFigura(f.Color))
+	case "trazo":
+		if len(f.Puntos) == 0 {
+			return
+		}
+		color := colorDeFigura(f.Color)
+		pag.Camino(caminoAbierto(f.Puntos), pdf.Estilo{Grosor: f.Grosor, Trazo: &color, Redondo: true})
 	}
+}
+
+// caminoAbierto — una línea por los puntos, sin cerrar. Un punto solo es un
+// segmento de 0,1 a la derecha, como en `caminoDelTrazo` de la pantalla: con
+// extremos redondos se ve como un punto.
+func caminoAbierto(puntos [][2]float64) *pdf.Camino {
+	c := &pdf.Camino{}
+	c.MoverA(puntos[0][0], puntos[0][1])
+	if len(puntos) == 1 {
+		c.LineaA(puntos[0][0]+0.1, puntos[0][1])
+	}
+	for _, p := range puntos[1:] {
+		c.LineaA(p[0], p[1])
+	}
+	return c
 }
 
 // --- La hoja de constancia ---------------------------------------------

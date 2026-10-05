@@ -408,10 +408,13 @@ func datosDePrecarga(paciente db.Paciente, perfil db.ProfessionalProfile, clinic
 		// (lo correría al día anterior).
 		fechaNacimiento = paciente.FechaNacimiento.Format("2006-01-02")
 	}
+	edadAnios, edadMeses := documentos.EdadAl(fechaNacimiento, clock.Today())
 	return documentos.DatosDePrecarga{
 		"paciente.nombreCompleto":     strings.TrimSpace(paciente.Nombre + " " + paciente.Apellido),
 		"paciente.dni":                paciente.DNI,
 		"paciente.fechaNacimiento":    fechaNacimiento,
+		"paciente.edadAnios":          edadAnios,
+		"paciente.edadMeses":          edadMeses,
 		"paciente.domicilio":          textoPtr(paciente.Domicilio),
 		"paciente.obraSocial":         textoPtr(paciente.ObraSocial),
 		"paciente.obraSocialPlan":     textoPtr(paciente.ObraSocialPlan),

@@ -38,7 +38,12 @@ const ANCHOS = {
   chico: "max-w-md",
   medio: "max-w-2xl",
   ancho: "max-w-7xl",
-  completo: "max-w-4xl max-sm:min-h-full max-sm:rounded-none max-sm:border-0",
+  // En una pantalla baja (un celular acostado), "completo" también ocupa la
+  // pantalla entera, con cabecera y pie más compactos: si no, el contenido
+  // (el lienzo del genograma, el odontograma) quedaba en una franja que
+  // scrolleaba entre los dos. Las clases van escritas enteras: Tailwind no ve
+  // una clase armada con una variable.
+  completo: "max-w-4xl max-sm:min-h-full max-sm:rounded-none max-sm:border-0 [@media(max-height:30rem)]:max-w-none [@media(max-height:30rem)]:rounded-none [@media(max-height:30rem)]:border-0",
 } as const;
 
 /**
@@ -115,7 +120,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-grafito/50 p-3 py-6 backdrop-blur-sm sm:p-6 ${
-        completo ? "max-sm:p-0" : ""
+        completo ? "max-sm:p-0 [@media(max-height:30rem)]:p-0" : ""
       }`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCerrar();
@@ -129,13 +134,15 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
         aria-describedby={descripcion ? `${id}-descripcion` : undefined}
         tabIndex={-1}
         className={`w-full ${ANCHOS[ancho]} ${centrado ? "my-auto" : ""} rounded-card border-[0.5px] border-arena ${fondo} shadow-soft outline-none ${
-          pie ? `flex max-h-[calc(100dvh-3rem)] flex-col ${completo ? "max-sm:h-dvh max-sm:max-h-dvh" : ""}` : ""
+          pie ? `flex max-h-[calc(100dvh-3rem)] flex-col ${completo ? "max-sm:h-dvh max-sm:max-h-dvh [@media(max-height:30rem)]:h-dvh [@media(max-height:30rem)]:max-h-dvh" : ""}` : ""
         }`}
       >
         {/* Un <div> y no un <header>: fuera de un article/section, <header> es
             un landmark "banner", y con el diálogo abierto el documento tenía
             dos (el del sitio y este) — axe, PP-4. */}
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b-[0.5px] border-arena p-4 sm:p-6">
+        <div
+          className={`flex shrink-0 items-start justify-between gap-4 border-b-[0.5px] border-arena p-4 sm:p-6 ${completo ? "[@media(max-height:30rem)]:py-2" : ""}`}
+        >
           <div>
             <h2 id={`${id}-titulo`} className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">
               {titulo}
@@ -160,7 +167,7 @@ export function Dialogo({ titulo, descripcion, onCerrar, children, ancho = "chic
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
             <div
               className={`flex shrink-0 justify-end gap-2 rounded-b-card border-t border-linea ${fondo} px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 ${
-                completo ? "max-sm:rounded-none" : ""
+                completo ? "max-sm:rounded-none [@media(max-height:30rem)]:rounded-none [@media(max-height:30rem)]:pt-2 [@media(max-height:30rem)]:pb-[max(0.5rem,env(safe-area-inset-bottom))]" : ""
               }`}
             >
               {pie}

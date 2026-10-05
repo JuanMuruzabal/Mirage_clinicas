@@ -63,8 +63,8 @@ func EsFechaValida(v string) bool {
 	return dia <= diasDelMes
 }
 
-// EstaVacio — nada, texto en blanco, lista vacía, SI/NO sin respuesta u
-// odontograma sin nada marcado.
+// EstaVacio — nada, texto en blanco, lista vacía, SI/NO sin respuesta,
+// odontograma sin nada marcado o dibujo sin trazos.
 func EstaVacio(c *Campo, valor any) bool {
 	if valor == nil {
 		return true
@@ -72,6 +72,9 @@ func EstaVacio(c *Campo, valor any) bool {
 	// Antes que el texto y la lista: un "" o un [] no es un odontograma vacío.
 	if c.Tipo == "odontograma" {
 		return odontogramaVacio(c, valor)
+	}
+	if c.Tipo == "dibujo" {
+		return dibujoVacio(valor)
 	}
 	switch v := valor.(type) {
 	case string:
@@ -224,6 +227,8 @@ func errorDeTipo(c *Campo, valor any) string {
 		}
 	case "odontograma":
 		return errorDeOdontograma(c, valor)
+	case "dibujo":
+		return errorDeDibujo(valor)
 	default:
 		return "Este tipo de campo no existe."
 	}
@@ -366,6 +371,8 @@ func ValorComoTexto(c *Campo, valor any) string {
 		return strings.Join(ordenadas, ", ")
 	case "odontograma":
 		return odontogramaComoTexto(c, valor)
+	case "dibujo":
+		return DibujoConsignado
 	}
 	return ""
 }

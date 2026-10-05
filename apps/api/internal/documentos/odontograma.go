@@ -57,7 +57,8 @@ type OdontogramaDeLamina struct {
 }
 
 // Figura — algo ya ubicado sobre la página: un polígono pintado, un
-// contorno, una línea, un círculo o un texto. Mismo JSON que `Figura` de
+// contorno, una línea, un círculo, un texto o el trazo de un dibujo (una
+// línea abierta por sus Puntos, dibujo.go). Mismo JSON que `Figura` de
 // odontograma.ts: cada tipo lleva solo sus campos.
 type Figura struct {
 	Tipo        string       `json:"tipo"`
@@ -802,9 +803,10 @@ func figurasDeOdontograma(c *Campo, od OdontogramaDeLamina, valor any, modo Modo
 	return figuras
 }
 
-// ArmarFiguras — los odontogramas de la lámina, compuestos como figuras.
-// Al terminar se congelan junto con la lámina; nunca nil, para que una
-// lista sin figuras salga como [] igual que en el paquete de TypeScript.
+// ArmarFiguras — los odontogramas de la lámina y después sus dibujos (Fase
+// 5.6b), compuestos como figuras. Al terminar se congelan junto con la
+// lámina; nunca nil, para que una lista sin figuras salga como [] igual que
+// en el paquete de TypeScript.
 func ArmarFiguras(p *Plantilla, valores map[string]any, modo ModoTexto) []Figura {
 	figuras := []Figura{}
 	if p.Lamina == nil {
@@ -813,6 +815,11 @@ func ArmarFiguras(p *Plantilla, valores map[string]any, modo ModoTexto) []Figura
 	for _, od := range p.Lamina.Odontogramas {
 		if c := p.Campo(od.Campo); c != nil && c.Tipo == "odontograma" {
 			figuras = append(figuras, figurasDeOdontograma(c, od, valores[od.Campo], modo)...)
+		}
+	}
+	for _, d := range p.Lamina.Dibujos {
+		if c := p.Campo(d.Campo); c != nil && c.Tipo == "dibujo" {
+			figuras = append(figuras, figurasDeDibujo(c, d, valores[d.Campo], modo)...)
 		}
 	}
 	return figuras

@@ -5069,5 +5069,1110 @@
         "color": "tinta"
       }
     ]
+  },
+  {
+    "nombre": "dibujo: un lienzo más ancho que el recuadro, centrado de arriba abajo, con un trazo de un solo punto",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {
+      "dibujo": {
+        "ancho": 800,
+        "alto": 200,
+        "trazos": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              12.5,
+              40.25
+            ],
+            [
+              399.99,
+              100
+            ],
+            [
+              800,
+              200
+            ]
+          ],
+          [
+            [
+              640.5,
+              33.33
+            ]
+          ],
+          [
+            [
+              100,
+              180
+            ],
+            [
+              100,
+              180.01
+            ]
+          ]
+        ]
+      }
+    },
+    "modo": "borrador",
+    "texto": "Dibujo consignado en la hoja",
+    "figuras": [
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            26.85,
+            316.31
+          ],
+          [
+            30.93,
+            329.46
+          ],
+          [
+            157.5,
+            348.98
+          ],
+          [
+            288.15,
+            381.64
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      },
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            236.05,
+            327.2
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      },
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            59.51,
+            375.11
+          ],
+          [
+            59.51,
+            375.11
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      }
+    ]
+  },
+  {
+    "nombre": "dibujo: un lienzo más alto que el recuadro, centrado de costado, terminado",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {
+      "dibujo": {
+        "ancho": 300,
+        "alto": 600,
+        "trazos": [
+          [
+            [
+              10,
+              20
+            ],
+            [
+              290,
+              20
+            ],
+            [
+              290,
+              580
+            ],
+            [
+              10,
+              580
+            ],
+            [
+              10,
+              20
+            ]
+          ],
+          [
+            [
+              150.75,
+              300.25
+            ]
+          ]
+        ]
+      }
+    },
+    "modo": "sellado",
+    "texto": "Dibujo consignado en la hoja",
+    "figuras": [
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            134.83,
+            303.64
+          ],
+          [
+            180.17,
+            303.64
+          ],
+          [
+            180.17,
+            394.31
+          ],
+          [
+            134.83,
+            394.31
+          ],
+          [
+            134.83,
+            303.64
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      },
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            157.62,
+            349.02
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      }
+    ]
+  },
+  {
+    "nombre": "dibujo: sin trazos y terminado dice No consigna",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {
+      "dibujo": {
+        "ancho": 400,
+        "alto": 150,
+        "trazos": []
+      }
+    },
+    "modo": "sellado",
+    "texto": "",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 129.71,
+        "y": 352.48,
+        "tamano": 10,
+        "texto": "No consigna",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "dibujo: sin valor y terminado dice No consigna",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {},
+    "modo": "sellado",
+    "texto": "",
+    "figuras": [
+      {
+        "tipo": "texto",
+        "pagina": 1,
+        "x": 129.71,
+        "y": 352.48,
+        "tamano": 10,
+        "texto": "No consigna",
+        "color": "tinta"
+      }
+    ]
+  },
+  {
+    "nombre": "dibujo: sin trazos en borrador no dibuja nada",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {
+      "dibujo": {
+        "ancho": 400,
+        "alto": 150,
+        "trazos": []
+      }
+    },
+    "modo": "borrador",
+    "texto": "",
+    "figuras": []
+  },
+  {
+    "nombre": "dibujo: después de los odontogramas",
+    "plantilla": {
+      "id": "dibujo-de-prueba",
+      "version": 1,
+      "nombre": "Dibujo de prueba",
+      "tipo": "anexo",
+      "descripcion": "Un dibujo, para los casos de figuras.",
+      "fuente": {
+        "nombre": "Casos de prueba",
+        "url": "https://colodontcba.org.ar/"
+      },
+      "secciones": [
+        {
+          "id": "examen",
+          "titulo": "Examen",
+          "campos": [
+            {
+              "tipo": "odontograma",
+              "id": "odontograma",
+              "etiqueta": "Odontograma",
+              "leyenda": "pediatrica"
+            },
+            {
+              "tipo": "dibujo",
+              "id": "dibujo",
+              "etiqueta": "Genograma"
+            }
+          ]
+        }
+      ],
+      "cuerpo": [
+        {
+          "t": "campo",
+          "campo": "odontograma"
+        },
+        {
+          "t": "campo",
+          "campo": "dibujo"
+        },
+        {
+          "t": "firmas"
+        }
+      ],
+      "firmas": [
+        {
+          "rol": "profesional",
+          "etiqueta": "Profesional",
+          "requerida": true
+        }
+      ],
+      "lamina": {
+        "paginas": [
+          {
+            "ancho": 595,
+            "alto": 842
+          }
+        ],
+        "zonas": [
+          {
+            "id": "titulo",
+            "pagina": 1,
+            "x": 28.35,
+            "y": 80,
+            "ancho": 200,
+            "texto": "Dibujo"
+          }
+        ],
+        "firmas": [
+          {
+            "rol": "profesional",
+            "pagina": 1,
+            "x": 380,
+            "y": 800,
+            "ancho": 150,
+            "alto": 40
+          }
+        ],
+        "odontogramas": [
+          {
+            "campo": "odontograma",
+            "pagina": 1,
+            "piezas": [
+              {
+                "pieza": "18",
+                "x": 28.35,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "17",
+                "x": 50.05,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "16",
+                "x": 71.75,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "15",
+                "x": 93.45,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "14",
+                "x": 115.15,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "13",
+                "x": 136.85,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "12",
+                "x": 158.55,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "11",
+                "x": 180.25,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "21",
+                "x": 201.95,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "22",
+                "x": 223.65,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "23",
+                "x": 245.35,
+                "y": 101.3,
+                "lado": 17.75
+              },
+              {
+                "pieza": "24",
+                "x": 267.05,
+                "y": 102,
+                "lado": 18.2
+              },
+              {
+                "pieza": "25",
+                "x": 288.75,
+                "y": 101.3,
+                "lado": 17.3
+              },
+              {
+                "pieza": "26",
+                "x": 310.45,
+                "y": 102,
+                "lado": 17.75
+              },
+              {
+                "pieza": "27",
+                "x": 332.15,
+                "y": 101.3,
+                "lado": 18.2
+              },
+              {
+                "pieza": "28",
+                "x": 353.85,
+                "y": 102,
+                "lado": 17.3
+              },
+              {
+                "pieza": "48",
+                "x": 28.35,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "47",
+                "x": 50.05,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "46",
+                "x": 71.75,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "45",
+                "x": 93.45,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "44",
+                "x": 115.15,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "43",
+                "x": 136.85,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "42",
+                "x": 158.55,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "41",
+                "x": 180.25,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "31",
+                "x": 201.95,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "32",
+                "x": 223.65,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "33",
+                "x": 245.35,
+                "y": 131.9,
+                "lado": 17.75
+              },
+              {
+                "pieza": "34",
+                "x": 267.05,
+                "y": 132.6,
+                "lado": 18.2
+              },
+              {
+                "pieza": "35",
+                "x": 288.75,
+                "y": 131.9,
+                "lado": 17.3
+              },
+              {
+                "pieza": "36",
+                "x": 310.45,
+                "y": 132.6,
+                "lado": 17.75
+              },
+              {
+                "pieza": "37",
+                "x": 332.15,
+                "y": 131.9,
+                "lado": 18.2
+              },
+              {
+                "pieza": "38",
+                "x": 353.85,
+                "y": 132.6,
+                "lado": 17.3
+              },
+              {
+                "pieza": "55",
+                "x": 93.45,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "54",
+                "x": 115.15,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "53",
+                "x": 136.85,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "52",
+                "x": 158.55,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "51",
+                "x": 180.25,
+                "y": 171.45,
+                "lado": 17.75
+              },
+              {
+                "pieza": "61",
+                "x": 201.95,
+                "y": 172.15,
+                "lado": 18.2
+              },
+              {
+                "pieza": "62",
+                "x": 223.65,
+                "y": 171.45,
+                "lado": 17.3
+              },
+              {
+                "pieza": "63",
+                "x": 245.35,
+                "y": 172.15,
+                "lado": 17.75
+              },
+              {
+                "pieza": "64",
+                "x": 267.05,
+                "y": 171.45,
+                "lado": 18.2
+              },
+              {
+                "pieza": "65",
+                "x": 288.75,
+                "y": 172.15,
+                "lado": 17.3
+              },
+              {
+                "pieza": "85",
+                "x": 93.45,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "84",
+                "x": 115.15,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "83",
+                "x": 136.85,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "82",
+                "x": 158.55,
+                "y": 202.8,
+                "lado": 17.3
+              },
+              {
+                "pieza": "81",
+                "x": 180.25,
+                "y": 202.1,
+                "lado": 17.75
+              },
+              {
+                "pieza": "71",
+                "x": 201.95,
+                "y": 202.8,
+                "lado": 18.2
+              },
+              {
+                "pieza": "72",
+                "x": 223.65,
+                "y": 202.1,
+                "lado": 17.3
+              },
+              {
+                "pieza": "73",
+                "x": 245.35,
+                "y": 202.8,
+                "lado": 17.75
+              },
+              {
+                "pieza": "74",
+                "x": 267.05,
+                "y": 202.1,
+                "lado": 18.2
+              },
+              {
+                "pieza": "75",
+                "x": 288.75,
+                "y": 202.8,
+                "lado": 17.3
+              }
+            ]
+          }
+        ],
+        "dibujos": [
+          {
+            "campo": "dibujo",
+            "pagina": 1,
+            "x": 26.85,
+            "y": 300.4,
+            "ancho": 261.3,
+            "alto": 97.15
+          }
+        ]
+      }
+    },
+    "valores": {
+      "dibujo": {
+        "ancho": 261,
+        "alto": 97,
+        "trazos": [
+          [
+            [
+              5,
+              5
+            ],
+            [
+              256,
+              92
+            ]
+          ]
+        ]
+      },
+      "odontograma": {
+        "piezas": {
+          "55": {
+            "marcas": {
+              "sellador": "azul"
+            }
+          }
+        }
+      }
+    },
+    "modo": "sellado",
+    "texto": "Azul, trabajos a realizar: 55 (sellador).",
+    "figuras": [
+      {
+        "tipo": "contorno",
+        "pagina": 1,
+        "puntos": [
+          [
+            102.1,
+            174.05
+          ],
+          [
+            108.16,
+            185.64
+          ],
+          [
+            96.05,
+            185.64
+          ]
+        ],
+        "color": "azul",
+        "grosor": 1.1
+      },
+      {
+        "tipo": "trazo",
+        "pagina": 1,
+        "puntos": [
+          [
+            31.86,
+            305.43
+          ],
+          [
+            283.14,
+            392.53
+          ]
+        ],
+        "color": "tinta",
+        "grosor": 0.8
+      }
+    ]
   }
 ]

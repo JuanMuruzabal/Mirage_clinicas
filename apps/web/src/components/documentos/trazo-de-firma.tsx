@@ -1,7 +1,8 @@
 import type { TrazoDeFirma } from "@dental-mirage/shared-types";
 
-/** El camino SVG de un trazo: "M x y L x y …". */
-export function caminoDelTrazo(puntos: [number, number, number][]): string {
+/** El camino SVG de un trazo: "M x y L x y …". Sirve para los puntos de
+ *  una firma ([x, y, ms]) y para los de un dibujo ([x, y]). */
+export function caminoDelTrazo(puntos: readonly (readonly [number, number, ...number[]])[]): string {
   if (puntos.length === 0) return "";
   const [primero, ...resto] = puntos;
   // Un toque solo (un punto) se dibuja como un punto, no desaparece.

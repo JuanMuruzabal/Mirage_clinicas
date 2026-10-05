@@ -315,25 +315,28 @@ export interface FilaDelOdontograma {
   id: FilaDeOdontograma;
   piezas: readonly string[];
   /** En qué columna de la grilla de las permanentes arranca: las
-   *  temporarias van centradas debajo (tres piezas más adentro). */
+   *  temporarias van centradas (tres piezas más adentro). */
   desde: number;
   superior: boolean;
 }
 
-export function filasDe(denticion: Denticion): FilaDelOdontograma[] {
-  const filas: FilaDelOdontograma[] = [];
+/** Con `temporariasPrimero` (el odontograma pediátrico) las temporarias van
+ *  arriba, como en el papel del Anexo de odontopediatría. */
+export function filasDe(denticion: Denticion, temporariasPrimero = false): FilaDelOdontograma[] {
+  const permanentes: FilaDelOdontograma[] = [];
+  const temporarias: FilaDelOdontograma[] = [];
   if (denticion !== "temporaria") {
     const p = piezasDe("permanente");
-    filas.push({ id: "sup-perm", piezas: p.slice(0, 16), desde: 0, superior: true });
-    filas.push({ id: "inf-perm", piezas: p.slice(16), desde: 0, superior: false });
+    permanentes.push({ id: "sup-perm", piezas: p.slice(0, 16), desde: 0, superior: true });
+    permanentes.push({ id: "inf-perm", piezas: p.slice(16), desde: 0, superior: false });
   }
   if (denticion !== "permanente") {
     const t = piezasDe("temporaria");
     const desde = denticion === "ambas" ? 3 : 0;
-    filas.push({ id: "sup-temp", piezas: t.slice(0, 10), desde, superior: true });
-    filas.push({ id: "inf-temp", piezas: t.slice(10), desde, superior: false });
+    temporarias.push({ id: "sup-temp", piezas: t.slice(0, 10), desde, superior: true });
+    temporarias.push({ id: "inf-temp", piezas: t.slice(10), desde, superior: false });
   }
-  return filas;
+  return temporariasPrimero ? [...temporarias, ...permanentes] : [...permanentes, ...temporarias];
 }
 
 /** A qué pieza va el foco con una tecla, o null si la tecla no mueve.

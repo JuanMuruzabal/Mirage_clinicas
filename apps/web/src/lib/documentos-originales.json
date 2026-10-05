@@ -273,5 +273,20 @@
         "alto": 3606
       }
     ]
+  },
+  "anexo-odontopediatria@1": {
+    "archivo": "Anexo-Odontopediatria.pdf",
+    "paginas": [
+      {
+        "numero": 1,
+        "ancho": 2550,
+        "alto": 3607
+      },
+      {
+        "numero": 2,
+        "ancho": 2550,
+        "alto": 3607
+      }
+    ]
   }
 }
