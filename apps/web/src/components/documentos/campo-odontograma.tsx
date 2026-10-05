@@ -64,7 +64,7 @@ import {
 //
 // Las piezas se dibujan como en el papel del Colegio: cada una es un
 // cuadrado con sus cinco caras (cuatro trapecios y el centro), las
-// permanentes arriba y abajo de la línea media, y las temporarias debajo (arriba en la leyenda pediátrica, como en el Anexo de odontopediatría),
+// permanentes arriba y abajo de la línea media, y las temporarias debajo (arriba en la leyenda pediátrica, como en la historia de odontopediatría),
 // centradas. Se elige un color (rojo o azul, con lo que significa en esta
 // leyenda) y una herramienta. Tocar una pieza (o Enter), o escribir su
 // número en "Pieza", la SELECCIONA, con cualquier herramienta: el panel de

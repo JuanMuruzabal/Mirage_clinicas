@@ -21,6 +21,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -131,6 +132,26 @@ func (p *Plantilla) Campo(id string) *Campo {
 // TypeScript.
 func (p *Plantilla) SeFirmaEnPapel() bool {
 	return p.Tipo == "consentimiento"
+}
+
+// Los tipos de plantilla con reglas propias en la API: un anexo pertenece a
+// una historia clínica del mismo paciente (5.6b). Los mismos que
+// TIPOS_DE_PLANTILLA del paquete de TypeScript.
+const (
+	TipoHistoriaClinica = "historia_clinica"
+	TipoAnexo           = "anexo"
+)
+
+// IDsDeTipo — los ids de las plantillas de ese tipo, sin repetir (todas sus
+// versiones comparten el id).
+func IDsDeTipo(tipo string) []string {
+	var ids []string
+	for _, p := range Todas() {
+		if p.Tipo == tipo && !slices.Contains(ids, p.ID) {
+			ids = append(ids, p.ID)
+		}
+	}
+	return ids
 }
 
 // FirmasRequeridas — los roles que tienen que firmar para sellar.

@@ -321,7 +321,7 @@ export interface FilaDelOdontograma {
 }
 
 /** Con `temporariasPrimero` (el odontograma pediátrico) las temporarias van
- *  arriba, como en el papel del Anexo de odontopediatría. */
+ *  arriba, como en el papel de odontopediatría. */
 export function filasDe(denticion: Denticion, temporariasPrimero = false): FilaDelOdontograma[] {
   const permanentes: FilaDelOdontograma[] = [];
   const temporarias: FilaDelOdontograma[] = [];

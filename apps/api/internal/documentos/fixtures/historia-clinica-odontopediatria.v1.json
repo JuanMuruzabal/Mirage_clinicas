@@ -1,5 +1,5 @@
 {
-  "plantilla": "anexo-odontopediatria",
+  "plantilla": "historia-clinica-odontopediatria",
   "version": 1,
   "contexto": {
     "fecha": "2026-09-27"
@@ -251,7 +251,7 @@
   "cuerpo": [
     {
       "t": "titulo",
-      "texto": "Anexo de odontopediatría"
+      "texto": "Historia clínica de odontopediatría"
     },
     {
       "t": "parrafo",

@@ -18,6 +18,7 @@ import {
 import type { DocumentoDetalle, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
 import { descartarBorradorAction, guardarBorradorAction, terminarDocumentoAction } from "@/app/actions/documentos";
 import { Dialogo } from "@/components/dialogo";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { IconChevronDown } from "@/components/icons";
 import { CalcoEnVivo } from "./calco";
 import { CampoDeDocumento, idDelCampo } from "./campo-de-documento";
@@ -110,6 +111,9 @@ export function EditorDeDocumento({
   const [terminando, setTerminando] = useState(false);
   const [vista, setVista] = useState<"completar" | "documento">("completar");
   const [confirmarDescarte, setConfirmarDescarte] = useState(false);
+  // Lo que rechaza la API al descartar (una historia con anexos, 5.6b): se
+  // muestra en el diálogo, que queda abierto.
+  const [errorAlDescartar, setErrorAlDescartar] = useState<string | null>(null);
   const [confirmarTerminar, setConfirmarTerminar] = useState(false);
   const [pedidoDeFoco, setPedidoDeFoco] = useState<PedidoDeFoco | null>(null);
   // El campo cuya pantalla emergente está abierta (un odontograma o un dibujo).
@@ -493,18 +497,31 @@ export function EditorDeDocumento({
         <Dialogo
           titulo="¿Descartar este borrador?"
           descripcion="Se borra lo que cargaste. Todavía no es parte de la historia clínica del paciente."
-          onCerrar={() => setConfirmarDescarte(false)}
+          onCerrar={() => {
+            setConfirmarDescarte(false);
+            setErrorAlDescartar(null);
+          }}
           superficie="marfil"
           centrado
         >
+          {errorAlDescartar && (
+            <p role="alert" className="px-4 pt-4 text-sm text-terracota-oscuro first-letter:uppercase sm:px-6 sm:pt-6">
+              {errorAlDescartar}
+            </p>
+          )}
           <div className="flex justify-end gap-2 p-4 sm:p-6">
-            <button type="button" onClick={() => setConfirmarDescarte(false)} className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena">
+            <button type="button" onClick={() => { setConfirmarDescarte(false); setErrorAlDescartar(null); }} className={`rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena ${CLASE_TACTIL}`}>
               Seguir editando
             </button>
             <button
               type="button"
-              onClick={() => void descartarBorradorAction(documento.id)}
-              className="rounded-full bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+              onClick={async () => {
+                setErrorAlDescartar(null);
+                // Si salió bien, la acción redirige y esto no vuelve.
+                const res = await descartarBorradorAction(documento.id);
+                if (res?.error) setErrorAlDescartar(res.error);
+              }}
+              className={`rounded-full bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 ${CLASE_TACTIL}`}
             >
               Descartar
             </button>

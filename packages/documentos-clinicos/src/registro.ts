@@ -5,7 +5,7 @@
 // el paciente), así que un cambio es una versión nueva. Los documentos
 // nuevos usan la última; los viejos se siguen leyendo con la suya.
 import { plantillaSchema, type Plantilla, type TipoDePlantilla } from "./esquema";
-import { anexoOdontopediatria } from "./plantillas/anexo-odontopediatria";
+import { historiaClinicaOdontopediatria } from "./plantillas/historia-clinica-odontopediatria";
 import { consentimientoBiopsia } from "./plantillas/consentimiento-biopsia";
 import { consentimientoDiscapacidad } from "./plantillas/consentimiento-discapacidad";
 import { consentimientoExtraccion } from "./plantillas/consentimiento-extraccion";
@@ -47,7 +47,7 @@ const DEFINICIONES: Plantilla[] = [
   consentimientoTomaDeImagenes,
   historiaClinicaGeneral,
   historiaClinicaPcd,
-  anexoOdontopediatria,
+  historiaClinicaOdontopediatria,
   // Versiones anteriores: los documentos que las usaron se siguen leyendo
   // con la suya (TR-187). El selector ofrece la última.
   consentimientoTratamientoConductoV2,

@@ -1,5 +1,5 @@
 // Ayudantes de la pantalla de documentos clínicos (Fase 5.1).
-import type { DocumentoResumen, EstadoDocumento } from "@dental-mirage/shared-types";
+import type { DocumentoResumen, DocumentoVinculado, EstadoDocumento } from "@dental-mirage/shared-types";
 import {
   ETIQUETA_DE_TIPO,
   type BloqueArmado,
@@ -75,10 +75,23 @@ export function fechaCorta(iso?: string): string {
 /** "Consentimiento informado: Tratamiento de conducto" — el documento con
  *  su tipo adelante, como se nombra en las tablas (pedido del cliente,
  *  2026-09-29): el nombre solo no dice si es un consentimiento o una
- *  historia clínica. */
+ *  historia clínica. Si el nombre ya empieza con su tipo ("Historia clínica
+ *  general"), no se repite. */
 export function nombreConTipo(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre">): string {
   const tipo = ETIQUETA_DE_TIPO[d.tipo as TipoDePlantilla];
-  return tipo ? `${tipo}: ${d.plantillaNombre}` : d.plantillaNombre;
+  if (!tipo || empiezaCon(d.plantillaNombre, tipo)) return d.plantillaNombre;
+  return `${tipo}: ${d.plantillaNombre}`;
+}
+
+// Sin mayúsculas ni acentos y por palabras enteras: "Historia clínica
+// general" ya dice su tipo, "Anexos" no empieza con "Anexo". Espejo de
+// `NombreSinRepetirTipo` de la API (internal/documentos/pdf.go), que arma el
+// nombre del archivo del PDF.
+function empiezaCon(nombre: string, etiqueta: string): boolean {
+  const plegar = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  const n = plegar(nombre);
+  const e = plegar(etiqueta);
+  return n === e || n.startsWith(`${e} `);
 }
 
 /** "2026-09-27" — el día de un instante en hora de Córdoba, para comparar
@@ -88,12 +101,82 @@ export function diaEnCordoba(iso?: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE_CORDOBA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
 
+/** "27/09/2026" y "14:05" por separado, en hora de Córdoba: para
+ *  `FechaHoraCelda`, que en el celular los pone en dos renglones. */
+export function partesFechaHoraDeDocumento(iso?: string): { fecha: string; hora: string } | null {
+  if (!iso) return null;
+  const hora = new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TIMEZONE_CORDOBA });
+  return { fecha: fechaCorta(iso), hora };
+}
+
 /** "27/09/2026 · 14:05" */
 export function fechaYHora(iso?: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  const hora = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TIMEZONE_CORDOBA });
-  return `${fechaCorta(iso)} · ${hora}`;
+  const partes = partesFechaHoraDeDocumento(iso);
+  return partes ? `${partes.fecha} · ${partes.hora}` : "—";
+}
+
+/** El instante que muestran las tablas de documentos (2026-10-05): cuándo se
+ *  completó —sellado o terminado— y, en un borrador, su última modificación. */
+export function fechaDelDocumento(d: Pick<DocumentoResumen, "selladoEn" | "terminadoEn" | "actualizadoEn">): string {
+  return d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn;
+}
+
+/** El estado como se nombra en las tablas (2026-10-05): Borrador o
+ *  Completado —un "a firmar" ya está completo, y le falta firmar— y
+ *  Anulado. El detalle ("Esperando firmas", "Firmado y sellado") queda para
+ *  el encabezado del documento. */
+export function estadoEnTabla(estado: EstadoDocumento): { etiqueta: string; chip: string; faltaFirmar: boolean } {
+  if (estado === "borrador" || estado === "anulado") {
+    return { etiqueta: ETIQUETA_DE_ESTADO[estado], chip: CHIP_DE_ESTADO[estado], faltaFirmar: false };
+  }
+  return { etiqueta: "Completado", chip: CHIP_DE_ESTADO.sellado, faltaFirmar: estado === "a_firmar" };
+}
+
+/** Cómo se señala el otro lado de un vínculo anexo ↔ historia: su folio,
+ *  si ya lo tiene, o su estado. */
+export function referenciaDeVinculo(v: DocumentoVinculado): string {
+  if (v.folio != null) return `folio ${v.folio}`;
+  const { etiqueta, faltaFirmar } = estadoEnTabla(v.estado);
+  return faltaFirmar ? `${etiqueta}, falta firmar` : etiqueta;
+}
+
+/** La historia clínica que se ofrece crear cuando a un paciente sin
+ *  ninguna se le hace un anexo (5.6b). */
+export const PLANTILLA_HISTORIA_GENERAL = "historia-clinica-general";
+
+export type FilaDeHistorias = {
+  documento: DocumentoResumen;
+  /** `anexo`: va debajo de su historia, que es la fila de arriba.
+   *  `anexo-de-historia-oculta`: su historia es de otro profesional, que
+   *  todavía no la terminó (quien mira no la ve).
+   *  `anexo-suelto`: su historia no está en la lista (la filtraron) o no
+   *  tiene. */
+  nivel: "documento" | "anexo" | "anexo-de-historia-oculta" | "anexo-suelto";
+};
+
+/** Las filas de la tabla de historias clínicas de un paciente (5.6b): cada
+ *  historia con sus anexos debajo, en el orden en que vinieron; al final,
+ *  los anexos de una historia que quien mira no ve, y después los que no
+ *  tienen la suya en la lista. */
+export function filasDeHistorias(documentos: DocumentoResumen[]): FilaDeHistorias[] {
+  const enLaLista = new Set(documentos.map((d) => d.id));
+  const anexosDe = new Map<string, DocumentoResumen[]>();
+  const deHistoriaOculta: FilaDeHistorias[] = [];
+  const sueltos: FilaDeHistorias[] = [];
+  for (const d of documentos) {
+    if (d.tipo !== "anexo") continue;
+    const historia = d.anexoDe?.id;
+    if (historia && enLaLista.has(historia)) anexosDe.set(historia, [...(anexosDe.get(historia) ?? []), d]);
+    else if (d.historiaNoVisible) deHistoriaOculta.push({ documento: d, nivel: "anexo-de-historia-oculta" });
+    else sueltos.push({ documento: d, nivel: "anexo-suelto" });
+  }
+  const filas: FilaDeHistorias[] = [];
+  for (const d of documentos) {
+    if (d.tipo === "anexo") continue;
+    filas.push({ documento: d, nivel: "documento" });
+    for (const anexo of anexosDe.get(d.id) ?? []) filas.push({ documento: anexo, nivel: "anexo" });
+  }
+  return [...filas, ...deHistoriaOculta, ...sueltos];
 }
 
 /** Una huella SHA-256 abreviada para mostrar: "a3f1c0de…0000". La

@@ -7,7 +7,7 @@ import { IconSearch } from "@/components/icons";
 import { FiltrosAplicados, type FiltroAplicado } from "@/components/panel/filtros-aplicados";
 import { FiltrosSheet } from "@/components/panel/filtros-sheet";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
-import { diaEnCordoba, nombreConTipo } from "@/lib/documentos";
+import { diaEnCordoba, fechaDelDocumento, nombreConTipo } from "@/lib/documentos";
 import { etiquetaDeRango, RANGOS_RAPIDOS } from "@/lib/turnos-filtros";
 import { TablaDeDocumentos } from "./tablas-de-documentos";
 
@@ -34,7 +34,7 @@ const SIN_FILTROS: Filtros = { plantilla: "todos", desde: "", hasta: "" };
 
 function pasaLosFiltros(d: DocumentoResumen, f: Filtros): boolean {
   if (f.plantilla !== "todos" && d.plantillaId !== f.plantilla) return false;
-  const dia = diaEnCordoba(d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn);
+  const dia = diaEnCordoba(fechaDelDocumento(d));
   if (f.desde && dia < f.desde) return false;
   if (f.hasta && dia > f.hasta) return false;
   return true;
@@ -168,7 +168,63 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
 
       <FiltrosAplicados filtros={filtrosAplicados} />
 
-      <TablaDeDocumentos documentos={filtrados} vacio="Ningún documento coincide con la búsqueda o los filtros." />
+      {filtrados.length === 0 ? (
+        <TablaDeDocumentos documentos={[]} vacio="Ningún documento coincide con la búsqueda o los filtros." />
+      ) : (
+        <SeccionesDelRegistro documentos={documentos} filtrados={filtrados} />
+      )}
     </div>
+  );
+}
+
+const esConsentimiento = (d: DocumentoResumen) => d.tipo === "consentimiento";
+
+// Las dos tablas del registro (5.6b): los consentimientos, y las historias
+// clínicas con sus anexos debajo. Los filtros se aplican antes de
+// separarlas, así que valen para las dos.
+function SeccionesDelRegistro({ documentos, filtrados }: { documentos: DocumentoResumen[]; filtrados: DocumentoResumen[] }) {
+  return (
+    <>
+      <SeccionDelRegistro
+        titulo="Consentimientos informados"
+        documentos={filtrados.filter(esConsentimiento)}
+        hayAlguno={documentos.some(esConsentimiento)}
+        vacio="consentimientos informados"
+      />
+      <SeccionDelRegistro
+        titulo="Historias clínicas"
+        documentos={filtrados.filter((d) => !esConsentimiento(d))}
+        hayAlguno={documentos.some((d) => !esConsentimiento(d))}
+        vacio="historias clínicas"
+        anidada
+      />
+    </>
+  );
+}
+
+function SeccionDelRegistro({
+  titulo,
+  documentos,
+  hayAlguno,
+  vacio,
+  anidada = false,
+}: {
+  titulo: string;
+  documentos: DocumentoResumen[];
+  /** El paciente tiene alguno de estos, aunque los filtros lo escondan. */
+  hayAlguno: boolean;
+  vacio: string;
+  anidada?: boolean;
+}) {
+  return (
+    <section className="flex flex-col gap-3" aria-label={titulo}>
+      <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
+      <TablaDeDocumentos
+        documentos={documentos}
+        anidada={anidada}
+        sinTipo
+        vacio={hayAlguno ? "Ninguno coincide con la búsqueda o los filtros." : `Todavía no hay ${vacio} para este paciente.`}
+      />
+    </section>
   );
 }

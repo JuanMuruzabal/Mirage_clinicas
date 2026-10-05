@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import type { Plantilla } from "@dental-mirage/documentos-clinicos";
-import { crearDocumentoAction } from "@/app/actions/documentos";
+import { crearDocumentoAction, historiasDelPacienteAction } from "@/app/actions/documentos";
 import { esMuestra, type ModeloDeMuestra } from "@/lib/documentos-de-muestra";
+import { ElegirHistoria } from "./elegir-historia";
 import { ElegirPaciente } from "./elegir-paciente";
 import { PantallaCompleta } from "./pantalla-completa";
 import { HojaDelModelo, PilaDeModelos } from "./pila-de-modelos";
@@ -46,7 +48,11 @@ export function ModuloDocumentos({
     () => plantillas.find((p) => p.id === plantillaInicial) ?? enOrden[0],
   );
   const deMuestra = esMuestra(elegida);
+  const esAnexo = elegida.tipo === "anexo";
   const [eligiendoPaciente, setEligiendoPaciente] = useState(false);
+  // Un anexo para el paciente de la ficha (5.6b): sus historias, para
+  // elegir a cuál pertenece.
+  const [historias, setHistorias] = useState<DocumentoResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creando, empezarACrear] = useTransition();
 
@@ -58,8 +64,14 @@ export function ModuloDocumentos({
     }
     setError(null);
     empezarACrear(async () => {
-      const res = await crearDocumentoAction(elegida.id, paciente.id);
-      if (res?.error) setError(res.error);
+      if (!esAnexo) {
+        const res = await crearDocumentoAction(elegida.id, paciente.id);
+        if (res?.error) setError(res.error);
+        return;
+      }
+      const res = await historiasDelPacienteAction(paciente.id);
+      if (res.ok) setHistorias(res.historias);
+      else setError(res.error);
     });
   }
 
@@ -77,7 +89,7 @@ export function ModuloDocumentos({
                 disabled={creando || deMuestra}
                 className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
               >
-                {creando ? "Creando…" : paciente ? `Completar para ${paciente.nombre} ${paciente.apellido}` : "Completar este documento"}
+                {creando ? (esAnexo ? "Buscando sus historias…" : "Creando…") : paciente ? `Completar para ${paciente.nombre} ${paciente.apellido}` : "Completar este documento"}
               </button>
               {!deMuestra && (
                 <a
@@ -94,7 +106,7 @@ export function ModuloDocumentos({
               <p className="text-sm text-grafito/75">Es una hoja de muestra para ver la pila de modelos: no se puede completar.</p>
             )}
             {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
+              <p role="alert" className="text-sm text-terracota-oscuro first-letter:uppercase">
                 {error}
               </p>
             )}
@@ -126,7 +138,21 @@ export function ModuloDocumentos({
       {abajo}
 
       {eligiendoPaciente && !deMuestra && (
-        <ElegirPaciente plantillaId={elegida.id} plantillaNombre={elegida.nombre} onCerrar={() => setEligiendoPaciente(false)} />
+        <ElegirPaciente
+          plantillaId={elegida.id}
+          plantillaNombre={elegida.nombre}
+          esAnexo={esAnexo}
+          onCerrar={() => setEligiendoPaciente(false)}
+        />
+      )}
+      {paciente && historias && (
+        <ElegirHistoria
+          plantillaId={elegida.id}
+          plantillaNombre={elegida.nombre}
+          paciente={paciente}
+          historias={historias}
+          onCerrar={() => setHistorias(null)}
+        />
       )}
     </div>
   );

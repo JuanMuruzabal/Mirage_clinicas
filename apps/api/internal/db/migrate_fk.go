@@ -194,6 +194,10 @@ func clavesForaneas() []claveForanea {
 		{"fk_documento_firmas_usuario", "documento_firmas", "user_id", "users", "", true},
 		{"fk_documento_eventos_clinica", "documento_eventos", "clinic_id", "clinics", "", false},
 		{"fk_documento_eventos_usuario", "documento_eventos", "user_id", "users", "", true},
+		// Un anexo y su historia clínica (5.6b). RESTRICT por lo mismo que
+		// el resto: descartar una historia en borrador que tiene anexos se
+		// rechaza antes, con un 409 (descartarBorradorHandler).
+		{"fk_documento_anexo_de", "documentos_clinicos", "anexo_de", "documentos_clinicos", "", true},
 	}
 }
 

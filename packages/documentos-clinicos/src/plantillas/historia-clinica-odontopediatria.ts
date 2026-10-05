@@ -1,5 +1,9 @@
-// Anexo de odontopediatría — modelo oficial del Colegio Odontológico de la
-// Provincia de Córdoba (Anexo-Odontopediatria.pdf, Fase 5.6b).
+// Historia clínica de odontopediatría — el modelo "Anexo Odontopediatría"
+// del Colegio Odontológico de la Provincia de Córdoba
+// (Anexo-Odontopediatria.pdf, Fase 5.6b). El Colegio lo publica como anexo de
+// la historia general; en PRISMA se usa como una historia propia, que se
+// completa sola, sin vincularse a otra. El título del papel sigue diciendo
+// "ANEXO ODONTOPEDIATRIA": es la imagen del modelo y no se toca.
 //
 // Los datos del niño y de su médico, el GENOGRAMA (un dibujo a mano alzada,
 // el primer campo `dibujo` del motor), el embarazo y el nacimiento, la
@@ -167,13 +171,13 @@ const FIRMAS: LugarDeFirma[] = [
 const siNoConDetalle = (id: string, etiqueta: string, detalle: string, cuando: "si" | "no" = "si") =>
   ({ tipo: "si_no", id, etiqueta, detalle: { etiqueta: detalle, cuando } }) as const;
 
-export const anexoOdontopediatria: Plantilla = {
-  id: "anexo-odontopediatria",
+export const historiaClinicaOdontopediatria: Plantilla = {
+  id: "historia-clinica-odontopediatria",
   version: 1,
-  nombre: "Anexo de odontopediatría",
-  tipo: "anexo",
+  nombre: "Historia clínica de odontopediatría",
+  tipo: "historia_clinica",
   descripcion:
-    "Anexo de odontopediatría: datos del niño y de su médico, genograma, embarazo y nacimiento, alimentación, antecedentes odontológicos, hábitos, examen bucal, odontograma, diagnóstico y plan de tratamiento.",
+    "Historia clínica de odontopediatría: datos del niño y de su médico, genograma, embarazo y nacimiento, alimentación, antecedentes odontológicos, hábitos, examen bucal, odontograma, diagnóstico y plan de tratamiento.",
   fuente: {
     nombre: "Colegio Odontológico de la Provincia de Córdoba",
     url: "https://colodontcba.org.ar/wp-content/uploads/Anexo-Odontopediatria.pdf",
@@ -401,7 +405,7 @@ export const anexoOdontopediatria: Plantilla = {
     },
   ],
   cuerpo: [
-    { t: "titulo", texto: "Anexo de odontopediatría" },
+    { t: "titulo", texto: "Historia clínica de odontopediatría" },
     {
       t: "parrafo",
       texto: "Paciente: {{paciente_nombre}}. Nº de afiliado: {{afiliado}}. Obra social: {{obra_social}}. Fecha de nacimiento: {{fecha_nacimiento}}.",

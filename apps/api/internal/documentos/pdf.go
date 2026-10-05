@@ -105,13 +105,39 @@ var etiquetaDeTipo = map[string]string{
 }
 
 // NombreConTipo — "Historia clínica: Odontología general": el documento
-// con su tipo adelante, como se nombra en las tablas. Espejo de
-// `nombreConTipo` de apps/web/src/lib/documentos.ts.
+// con su tipo adelante, para la constancia del PDF. Siempre pone el prefijo,
+// aunque el nombre ya lo diga: ver NombreSinRepetirTipo.
 func NombreConTipo(tipo, nombre string) string {
 	if etiqueta, ok := etiquetaDeTipo[tipo]; ok {
 		return etiqueta + ": " + nombre
 	}
 	return nombre
+}
+
+// NombreSinRepetirTipo — como NombreConTipo, pero sin el prefijo cuando el
+// nombre ya empieza con la etiqueta de su tipo ("Historia clínica general",
+// no "Historia clínica: Historia clínica general"). Son dos funciones y no
+// una porque NombreConTipo escribe la constancia del PDF: cambiarla
+// alteraría los bytes del PDF de las historias ya selladas. Esta es la del
+// nombre del archivo; espejo de `nombreConTipo` de la web.
+func NombreSinRepetirTipo(tipo, nombre string) string {
+	etiqueta, ok := etiquetaDeTipo[tipo]
+	if ok && empiezaCon(nombre, etiqueta) {
+		return nombre
+	}
+	return NombreConTipo(tipo, nombre)
+}
+
+var plegarAcentos = strings.NewReplacer(
+	"á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "ü", "u", "ñ", "n",
+)
+
+// empiezaCon compara sin mayúsculas ni acentos, y solo por palabras
+// enteras: "Anexos" no empieza con "Anexo".
+func empiezaCon(nombre, etiqueta string) bool {
+	n := plegarAcentos.Replace(strings.ToLower(strings.TrimSpace(nombre)))
+	e := plegarAcentos.Replace(strings.ToLower(etiqueta))
+	return n == e || strings.HasPrefix(n, e+" ")
 }
 
 // matriculaLegible — "M.P. 1234" / "M.N. 1234", como la escribe un sello.

@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { DocumentoDetalle, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
+import type { DocumentoDetalle, DocumentoResumen, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
 import {
   apiCrearDocumento,
   apiDescartarBorrador,
   apiFirmarDocumento,
   apiGuardarBorrador,
+  apiHistoriasDelPaciente,
   apiTerminarDocumento,
   apiRegistrarImpresionDocumento,
   type FirmaPayload,
 } from "@/lib/api";
+import { PLANTILLA_HISTORIA_GENERAL } from "@/lib/documentos";
 import { getSessionToken } from "@/lib/session";
 
 // Documentos clínicos (Fase 5.1). El cliente HTTP es server-only: estas
@@ -33,19 +35,46 @@ function revalidarDocumento(documento: DocumentoDetalle) {
   revalidatePath(`/panel/pacientes/${documento.paciente.id}`);
 }
 
-/** Crea el borrador y lleva al editor. */
-export async function crearDocumentoAction(plantillaId: string, pacienteId: string): Promise<{ error: string }> {
-  const res = await apiCrearDocumento(await token(), plantillaId, pacienteId);
-  if (!res.ok) return { error: res.error };
+/** Lleva al editor de un documento recién creado (o retomado). */
+function irAlDocumento(documento: DocumentoDetalle): never {
   revalidatePath("/panel/documentos");
   // Un solo borrador de cada documento por paciente: si ya había uno, la
   // API lo devuelve y el editor avisa que se retomó (y, si era de una
   // versión anterior del documento, que pasó a la vigente).
   const aviso = new URLSearchParams();
-  if (res.data.retomado) aviso.set("retomado", "1");
-  if (res.data.versionActualizada) aviso.set("actualizado", "1");
+  if (documento.retomado) aviso.set("retomado", "1");
+  if (documento.versionActualizada) aviso.set("actualizado", "1");
   const query = aviso.toString();
-  redirect(`/panel/documentos/${res.data.id}${query ? `?${query}` : ""}`);
+  redirect(`/panel/documentos/${documento.id}${query ? `?${query}` : ""}`);
+}
+
+/** Crea el borrador y lleva al editor. `historiaId`: en un anexo, la
+ *  historia clínica a la que pertenece (5.6b). */
+export async function crearDocumentoAction(plantillaId: string, pacienteId: string, historiaId?: string): Promise<{ error: string }> {
+  const res = await apiCrearDocumento(await token(), plantillaId, pacienteId, historiaId);
+  if (!res.ok) return { error: res.error };
+  irAlDocumento(res.data);
+}
+
+export type HistoriasDelPaciente = { ok: true; historias: DocumentoResumen[] } | { ok: false; error: string };
+
+/** Las historias clínicas a las que se le puede colgar un anexo (5.6b). */
+export async function historiasDelPacienteAction(pacienteId: string): Promise<HistoriasDelPaciente> {
+  const res = await apiHistoriasDelPaciente(await token(), pacienteId);
+  return res.ok ? { ok: true, historias: res.data } : { ok: false, error: res.error };
+}
+
+/** "Crear la Historia Clínica General" (5.6b): un anexo para un paciente
+ *  que todavía no tiene historia. Crea el borrador de la General, le
+ *  cuelga el anexo y abre el anexo. Si el anexo falla, la General queda en
+ *  borrador: la próxima vez aparece para elegirla. */
+export async function crearAnexoConHistoriaGeneralAction(plantillaId: string, pacienteId: string): Promise<{ error: string }> {
+  const t = await token();
+  const historia = await apiCrearDocumento(t, PLANTILLA_HISTORIA_GENERAL, pacienteId);
+  if (!historia.ok) return { error: historia.error };
+  const anexo = await apiCrearDocumento(t, plantillaId, pacienteId, historia.data.id);
+  if (!anexo.ok) return { error: anexo.error };
+  irAlDocumento(anexo.data);
 }
 
 /** El guardado automático del editor. No revalida la página: el editor es

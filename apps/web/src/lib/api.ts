@@ -2099,11 +2099,19 @@ export function apiGetDocumento(token: string, id: string): Promise<ApiResult<Do
   return request<DocumentoDetalle>(`/documentos/${id}`, { headers: conSesion(token) });
 }
 
-export function apiCrearDocumento(token: string, plantillaId: string, pacienteId: string): Promise<ApiResult<DocumentoDetalle>> {
+/** Las historias clínicas de un paciente a las que se le puede colgar un
+ *  anexo (5.6b): las que ve quien pregunta, de la más nueva a la más vieja. */
+export function apiHistoriasDelPaciente(token: string, pacienteId: string): Promise<ApiResult<DocumentoResumen[]>> {
+  return request<DocumentoResumen[]>(`/documentos/historias?paciente=${encodeURIComponent(pacienteId)}`, { headers: conSesion(token) });
+}
+
+/** `historiaId`: en un anexo (y solo en un anexo), la historia clínica a la
+ *  que pertenece (5.6b). */
+export function apiCrearDocumento(token: string, plantillaId: string, pacienteId: string, historiaId?: string): Promise<ApiResult<DocumentoDetalle>> {
   return request<DocumentoDetalle>("/documentos", {
     method: "POST",
     headers: conSesion(token),
-    body: JSON.stringify({ plantillaId, pacienteId }),
+    body: JSON.stringify({ plantillaId, pacienteId, historiaId }),
   });
 }
 

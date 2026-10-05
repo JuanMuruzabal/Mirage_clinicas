@@ -1,9 +1,9 @@
 {
-  "id": "anexo-odontopediatria",
+  "id": "historia-clinica-odontopediatria",
   "version": 1,
-  "nombre": "Anexo de odontopediatría",
-  "tipo": "anexo",
-  "descripcion": "Anexo de odontopediatría: datos del niño y de su médico, genograma, embarazo y nacimiento, alimentación, antecedentes odontológicos, hábitos, examen bucal, odontograma, diagnóstico y plan de tratamiento.",
+  "nombre": "Historia clínica de odontopediatría",
+  "tipo": "historia_clinica",
+  "descripcion": "Historia clínica de odontopediatría: datos del niño y de su médico, genograma, embarazo y nacimiento, alimentación, antecedentes odontológicos, hábitos, examen bucal, odontograma, diagnóstico y plan de tratamiento.",
   "fuente": {
     "nombre": "Colegio Odontológico de la Provincia de Córdoba",
     "url": "https://colodontcba.org.ar/wp-content/uploads/Anexo-Odontopediatria.pdf"
@@ -737,7 +737,7 @@
   "cuerpo": [
     {
       "t": "titulo",
-      "texto": "Anexo de odontopediatría"
+      "texto": "Historia clínica de odontopediatría"
     },
     {
       "t": "parrafo",
