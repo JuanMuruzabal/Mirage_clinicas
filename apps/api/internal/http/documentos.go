@@ -38,6 +38,12 @@ import (
 //	                                    generado en el momento (Fase 5.3,
 //	                                    documentos_pdf.go)
 //
+// Y los anexos de continuación de una historia (Fase 5.6d,
+// documentos_continuacion.go):
+//
+//	POST   /documentos/{id}/continuaciones  crea el anexo de una sección
+//	POST   /documentos/{id}/asientos        le suma un asiento
+//
 // Lo que ninguno de estos handlers decide: que un documento sellado no se
 // toque. Eso lo hacen los triggers de la base (db/migrate_documentos.go).
 // Si un cambio de acá choca contra ellos, el cambio está mal.
@@ -57,6 +63,8 @@ func registrarDocumentosRoutes(r chi.Router, gdb *gorm.DB) {
 		r.Post("/documentos/{id}/firmas", firmarEnElDispositivoHandler(gdb))
 		r.Post("/documentos/{id}/impresion", impresionDeDocumentoHandler(gdb))
 		r.Get("/documentos/{id}/pdf", descargarPDFHandler(gdb))
+		r.Post("/documentos/{id}/continuaciones", crearContinuacionHandler(gdb))
+		r.Post("/documentos/{id}/asientos", sumarAsientoHandler(gdb))
 		r.Get("/pacientes/{id}/documentos", documentosDePacienteHandler(gdb))
 	})
 }
@@ -81,8 +89,13 @@ type documentoResumenResponse struct {
 	AutorUserID      string                      `json:"autorUserId"`
 	AutorNombre      string                      `json:"autorNombre"`
 	// EsMio — lo escribió quien pregunta. Uno ajeno se lee, no se toca.
-	EsMio         bool    `json:"esMio"`
-	Folio         *int    `json:"folio,omitempty"`
+	EsMio bool `json:"esMio"`
+	Folio *int `json:"folio,omitempty"`
+	// FolioMostrado — el folio como se muestra (documentos.FolioDe): "3"; en
+	// un anexo, "3.1" o, mientras su historia no tiene folio, "Anexo Nº 1".
+	FolioMostrado string `json:"folioMostrado,omitempty"`
+	// AnexoNumero — en un anexo, su número dentro de su historia (el y).
+	AnexoNumero   *int    `json:"anexoNumero,omitempty"`
 	CreadoEn      string  `json:"creadoEn"`
 	ActualizadoEn string  `json:"actualizadoEn"`
 	TerminadoEn   *string `json:"terminadoEn,omitempty"`
@@ -104,18 +117,41 @@ type documentoResumenResponse struct {
 	HistoriaNoVisible bool `json:"historiaNoVisible,omitempty"`
 	// Anexos — en una historia clínica, los anexos que quien pregunta ve.
 	Anexos []documentoVinculadoResponse `json:"anexos,omitempty"`
+	// Continuacion — en un anexo de continuación (Fase 5.6d), qué sección de
+	// su historia continúa y su número; UltimoAsientoEn, cuándo se escribió
+	// su último asiento, que es su fecha en las tablas.
+	Continuacion    *continuacionResponse `json:"continuacion,omitempty"`
+	UltimoAsientoEn *string               `json:"ultimoAsientoEn,omitempty"`
+}
+
+// continuacionResponse — la sección que continúa un anexo de continuación y
+// su número ("Continúa en anexo Nº").
+type continuacionResponse struct {
+	Seccion string `json:"seccion"`
+	Numero  int    `json:"numero"`
+}
+
+func continuacionDe(d db.DocumentoClinico) *continuacionResponse {
+	if d.AnexoSeccion == nil || d.AnexoNumero == nil {
+		return nil
+	}
+	return &continuacionResponse{Seccion: *d.AnexoSeccion, Numero: *d.AnexoNumero}
 }
 
 // documentoVinculadoResponse — el otro lado del vínculo entre un anexo y
 // su historia: lo justo para nombrarlo y abrirlo.
 type documentoVinculadoResponse struct {
-	ID     string `json:"id"`
-	Nombre string `json:"nombre"`
-	Folio  *int   `json:"folio,omitempty"`
-	Estado string `json:"estado"`
+	ID            string `json:"id"`
+	Nombre        string `json:"nombre"`
+	Folio         *int   `json:"folio,omitempty"`
+	FolioMostrado string `json:"folioMostrado,omitempty"`
+	Estado        string `json:"estado"`
 	// Fecha — la misma que las tablas (instanteDelDocumento): sin folio, es
 	// lo que distingue a dos anexos del mismo modelo.
 	Fecha string `json:"fecha"`
+	// Continuacion — en un anexo de continuación, su sección y su número: en
+	// una historia, cuáles de sus secciones ya tienen el suyo.
+	Continuacion *continuacionResponse `json:"continuacion,omitempty"`
 }
 
 type firmaResponse struct {
@@ -148,6 +184,8 @@ type documentoDetalleResponse struct {
 	MotivoAnulacion    *string         `json:"motivoAnulacion,omitempty"`
 	Firmas             []firmaResponse `json:"firmas"`
 	FirmasPendientes   []string        `json:"firmasPendientes"`
+	// Asientos — en un anexo de continuación, en orden (Fase 5.6d).
+	Asientos []asientoResponse `json:"asientos,omitempty"`
 	// Retomado — al crear: ya había un borrador mío de este documento para
 	// este paciente, y es este (no se abrió otro).
 	Retomado bool `json:"retomado,omitempty"`
@@ -175,8 +213,9 @@ func tipoDeDocumento(d db.DocumentoClinico) string {
 }
 
 // instanteDelDocumento — cuándo se completó (sellado o terminado) y, en un
-// borrador, su última modificación. Mismo criterio que fechaDelDocumento de
-// apps/web/src/lib/documentos.ts.
+// borrador, su última modificación. Un anexo de continuación con asientos va
+// por la fecha del último (vinculosDeAnexos.fecha). Mismo criterio que
+// fechaDelDocumento de apps/web/src/lib/documentos.ts.
 func instanteDelDocumento(d db.DocumentoClinico) time.Time {
 	if d.SelladoEn != nil {
 		return *d.SelladoEn
@@ -187,30 +226,26 @@ func instanteDelDocumento(d db.DocumentoClinico) time.Time {
 	return d.UpdatedAt
 }
 
-func vinculado(d db.DocumentoClinico) documentoVinculadoResponse {
-	nombre := d.PlantillaID
-	if p, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion); ok {
-		nombre = p.Nombre
-	}
-	return documentoVinculadoResponse{
-		ID: d.ID.String(), Nombre: nombre, Folio: d.Folio, Estado: d.Estado,
-		Fecha: clock.In(instanteDelDocumento(d)).Format(time.RFC3339),
-	}
-}
-
 // vinculosDeAnexos — los dos lados del vínculo anexo ↔ historia (5.6b) para
 // toda una lista, en dos consultas fijas como máximo (TR-177): las historias
 // de los anexos que no vinieron en la lista, y los anexos de las historias.
 // Las dos con documentosQueVeo: el borrador de un colega no aparece de
 // ningún lado. Lo que ya vino en la lista se reusa sin consultar: todos los
-// que llaman la armaron con un scope que es parte de documentosQueVeo.
+// que llaman la armaron con un scope que es parte de documentosQueVeo. Y una
+// tercera, solo si hay anexos de continuación: la fecha de su último asiento.
 type vinculosDeAnexos struct {
 	visibles map[uuid.UUID]db.DocumentoClinico
-	anexos   map[uuid.UUID][]documentoVinculadoResponse
+	anexos   map[uuid.UUID][]db.DocumentoClinico
+	// ultimoAsiento — el último asiento de cada anexo de continuación de la
+	// lista o de los vínculos (Fase 5.6d): es su fecha en las tablas.
+	ultimoAsiento map[uuid.UUID]time.Time
 }
 
 func cargarVinculosDeAnexos(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico) (vinculosDeAnexos, error) {
-	v := vinculosDeAnexos{visibles: make(map[uuid.UUID]db.DocumentoClinico, len(docs)), anexos: map[uuid.UUID][]documentoVinculadoResponse{}}
+	v := vinculosDeAnexos{
+		visibles: make(map[uuid.UUID]db.DocumentoClinico, len(docs)), anexos: map[uuid.UUID][]db.DocumentoClinico{},
+		ultimoAsiento: map[uuid.UUID]time.Time{},
+	}
 	for _, d := range docs {
 		v.visibles[d.ID] = d
 	}
@@ -227,7 +262,7 @@ func cargarVinculosDeAnexos(tx *gorm.DB, r *http.Request, docs []db.DocumentoCli
 	}
 	clinicID, _ := r.Context().Value(clinicIDContextKey).(uuid.UUID)
 	columnas := "documentos_clinicos.id, documentos_clinicos.plantilla_id, documentos_clinicos.plantilla_version, documentos_clinicos.estado, documentos_clinicos.folio, documentos_clinicos.anexo_de, " +
-		"documentos_clinicos.sellado_en, documentos_clinicos.terminado_en, documentos_clinicos.updated_at"
+		"documentos_clinicos.anexo_seccion, documentos_clinicos.anexo_numero, documentos_clinicos.sellado_en, documentos_clinicos.terminado_en, documentos_clinicos.updated_at"
 	if len(faltan) > 0 {
 		var filas []db.DocumentoClinico
 		if err := tx.Scopes(documentosQueVeo(r, clinicID)).Select(columnas).
@@ -247,23 +282,98 @@ func cargarVinculosDeAnexos(tx *gorm.DB, r *http.Request, docs []db.DocumentoCli
 			return v, err
 		}
 		for _, a := range filas {
-			v.anexos[*a.AnexoDe] = append(v.anexos[*a.AnexoDe], vinculado(a))
+			v.anexos[*a.AnexoDe] = append(v.anexos[*a.AnexoDe], a)
 		}
 	}
-	return v, nil
+	return v, v.cargarUltimosAsientos(tx, docs)
 }
 
-// completar — el vínculo de un documento de la lista.
+// cargarUltimosAsientos — cuándo se escribió el último asiento de cada anexo
+// de continuación de la lista y de los vínculos, en una sola consulta.
+func (v *vinculosDeAnexos) cargarUltimosAsientos(tx *gorm.DB, docs []db.DocumentoClinico) error {
+	var ids []uuid.UUID
+	sumar := func(d db.DocumentoClinico) {
+		if d.AnexoSeccion != nil {
+			ids = append(ids, d.ID)
+		}
+	}
+	for _, d := range docs {
+		sumar(d)
+	}
+	for _, anexos := range v.anexos {
+		for _, a := range anexos {
+			sumar(a)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var filas []struct {
+		DocumentoID uuid.UUID
+		Ultimo      time.Time
+	}
+	if err := tx.Model(&db.DocumentoAsiento{}).Select("documento_id, MAX(creado_en) AS ultimo").
+		Where("documento_id IN ?", ids).Group("documento_id").Scan(&filas).Error; err != nil {
+		return err
+	}
+	for _, f := range filas {
+		v.ultimoAsiento[f.DocumentoID] = f.Ultimo
+	}
+	return nil
+}
+
+// fecha — la de las tablas: la del último asiento de un anexo de
+// continuación que tiene, y si no, instanteDelDocumento.
+func (v vinculosDeAnexos) fecha(d db.DocumentoClinico) time.Time {
+	if t, ok := v.ultimoAsiento[d.ID]; ok {
+		return t
+	}
+	return instanteDelDocumento(d)
+}
+
+// folioDeLaHistoria — el folio de la historia de un anexo, si quien pregunta
+// la ve (visibles ya la trae: sin otra consulta). Una que no ve no tiene
+// folio todavía —lo terminado de un colega se ve—, así que el anexo dice
+// "Anexo Nº y" igual que para su autor.
+func (v vinculosDeAnexos) folioDeLaHistoria(d db.DocumentoClinico) *int {
+	if d.AnexoDe == nil {
+		return nil
+	}
+	return v.visibles[*d.AnexoDe].Folio
+}
+
+// vinculado — el documento d del otro lado de un vínculo; folioDeLaHistoria,
+// el de su historia si d es un anexo.
+func (v vinculosDeAnexos) vinculado(d db.DocumentoClinico, folioDeLaHistoria *int) documentoVinculadoResponse {
+	nombre := d.PlantillaID
+	if p, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion); ok {
+		nombre = p.Nombre
+	}
+	return documentoVinculadoResponse{
+		ID: d.ID.String(), Nombre: nombre, Folio: d.Folio, Estado: d.Estado,
+		FolioMostrado: documentos.FolioDe(d, folioDeLaHistoria).Mostrado(),
+		Fecha:         clock.In(v.fecha(d)).Format(time.RFC3339),
+		Continuacion:  continuacionDe(d),
+	}
+}
+
+// completar — el vínculo de un documento de la lista, y la fecha de su
+// último asiento si es un anexo de continuación.
 func (v vinculosDeAnexos) completar(out *documentoResumenResponse, d db.DocumentoClinico) {
 	if d.AnexoDe != nil {
 		h, ok := v.visibles[*d.AnexoDe]
 		if ok {
-			vinculo := vinculado(h)
+			vinculo := v.vinculado(h, nil)
 			out.AnexoDe = &vinculo
 		}
 		out.HistoriaNoVisible = !ok
 	}
-	out.Anexos = v.anexos[d.ID]
+	for _, a := range v.anexos[d.ID] {
+		out.Anexos = append(out.Anexos, v.vinculado(a, d.Folio))
+	}
+	if t, ok := v.ultimoAsiento[d.ID]; ok {
+		out.UltimoAsientoEn = fechaHoraPtr(&t)
+	}
 }
 
 // completarResumenes — los nombres de pacientes y autores, en dos
@@ -317,7 +427,8 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 			EsMio: session != nil && d.AutorUserID == session.UserID, Folio: d.Folio,
 			CreadoEn: clock.In(d.CreatedAt).Format(time.RFC3339), ActualizadoEn: clock.In(d.UpdatedAt).Format(time.RFC3339),
 			TerminadoEn: fechaHoraPtr(d.TerminadoEn), SelladoEn: fechaHoraPtr(d.SelladoEn), AnuladoEn: fechaHoraPtr(d.AnuladoEn),
-			HashContenido: d.HashContenido, TienePDF: tienePDF,
+			HashContenido: d.HashContenido, TienePDF: tienePDF, Continuacion: continuacionDe(d),
+			FolioMostrado: documentos.FolioDe(d, vinculos.folioDeLaHistoria(d)).Mostrado(), AnexoNumero: d.AnexoNumero,
 		}
 		vinculos.completar(&out[i], d)
 	}
@@ -345,6 +456,12 @@ func detalleDeDocumento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico) (do
 	}
 	if d.ContenidoCanonico != nil {
 		out.Contenido = json.RawMessage(*d.ContenidoCanonico)
+	}
+	if d.AnexoSeccion != nil {
+		// Un anexo de continuación no lleva firmas del documento: cada asiento
+		// trae la suya.
+		out.Asientos, err = asientosDelAnexo(tx, d.ID)
+		return out, err
 	}
 	var firmas []db.DocumentoFirma
 	if err := tx.Where("documento_id = ?", d.ID).Order("firmado_en").Find(&firmas).Error; err != nil {
@@ -402,8 +519,8 @@ type pacienteConDocumentosResponse struct {
 
 // pacientesConDocumentosHandler — GET /documentos/pacientes: la tabla de
 // debajo del selector. Los pacientes de MI lista con al menos un documento
-// terminado —sellado, o un consentimiento para imprimir (TR-188)—, del más
-// reciente al más viejo.
+// terminado —sellado, un consentimiento para imprimir (TR-188) o un anexo de
+// continuación (Fase 5.6d)—, del más reciente al más viejo.
 func pacientesConDocumentosHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
@@ -420,9 +537,12 @@ func pacientesConDocumentosHandler(gdb *gorm.DB) http.HandlerFunc {
 			Ultimo   time.Time
 		}
 		if err := gdb.Table("documentos_clinicos d").
-			Select("p.id, p.nombre, p.apellido, p.dni, COUNT(d.id) AS cantidad, MAX(COALESCE(d.sellado_en, d.terminado_en)) AS ultimo").
+			// GREATEST ignora el NULL de un documento sin asientos: el último
+			// de un anexo de continuación es su último asiento (Fase 5.6d).
+			Select("p.id, p.nombre, p.apellido, p.dni, COUNT(d.id) AS cantidad, "+
+				"MAX(GREATEST(COALESCE(d.sellado_en, d.terminado_en), (SELECT MAX(a.creado_en) FROM documento_asientos a WHERE a.documento_id = d.id))) AS ultimo").
 			Joins("JOIN pacientes p ON p.id = d.paciente_id").
-			Where("d.estado IN ? AND d.paciente_id IN (?)", []string{db.DocumentoSellado, db.DocumentoParaImprimir}, misPacientes).
+			Where("d.estado IN ? AND d.paciente_id IN (?)", []string{db.DocumentoSellado, db.DocumentoParaImprimir, db.DocumentoAbierto}, misPacientes).
 			Group("p.id, p.nombre, p.apellido, p.dni").
 			Order("ultimo DESC").
 			Scan(&filas).Error; err != nil {
@@ -683,6 +803,10 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "ese documento no existe")
 			return
 		}
+		if plantilla.ID == documentos.PlantillaDeContinuacion {
+			writeError(w, http.StatusBadRequest, "un anexo de continuación se crea desde su historia clínica")
+			return
+		}
 		pacienteID, err := uuid.Parse(strings.TrimSpace(req.PacienteID))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "elegí un paciente")
@@ -787,13 +911,28 @@ func borradorNuevoORetomado(gdb *gorm.DB, r *http.Request, doc db.DocumentoClini
 			doc, actualizado, err = borradorEnLaVersionVigente(tx, existente)
 			return err
 		}
+		// Un anexo toma el número que sigue en su historia (el y de su
+		// "x.y"), en la misma secuencia que los de continuación.
+		if doc.AnexoDe != nil {
+			numero, err := siguienteNumeroDeAnexo(tx, *doc.AnexoDe)
+			if err != nil {
+				return err
+			}
+			doc.AnexoNumero = &numero
+		}
 		if err := tx.Create(&doc).Error; err != nil {
 			return err
 		}
-		return tx.Exec(`INSERT INTO pacientes_en_mi_lista (clinic_id, paciente_id, user_id, created_at)
-			VALUES (?, ?, ?, now()) ON CONFLICT DO NOTHING`, doc.ClinicID, doc.PacienteID, doc.AutorUserID).Error
+		return sumarAMiLista(tx, doc)
 	})
 	return doc, retomado, actualizado, err
+}
+
+// sumarAMiLista — hacerle un documento a un paciente lo suma a la lista de
+// quien lo hace (TR-157).
+func sumarAMiLista(tx *gorm.DB, doc db.DocumentoClinico) error {
+	return tx.Exec(`INSERT INTO pacientes_en_mi_lista (clinic_id, paciente_id, user_id, created_at)
+		VALUES (?, ?, ?, now()) ON CONFLICT DO NOTHING`, doc.ClinicID, doc.PacienteID, doc.AutorUserID).Error
 }
 
 // bloquearDocumentosDeLaClinica — el lock de la clínica para el módulo:
@@ -835,7 +974,7 @@ func borradorEnLaVersionVigente(tx *gorm.DB, doc db.DocumentoClinico) (db.Docume
 	}
 	nuevo := db.DocumentoClinico{
 		ClinicID: doc.ClinicID, PacienteID: doc.PacienteID, AutorUserID: doc.AutorUserID,
-		PlantillaID: doc.PlantillaID, PlantillaVersion: vigente.Version, AnexoDe: doc.AnexoDe, Valores: valores,
+		PlantillaID: doc.PlantillaID, PlantillaVersion: vigente.Version, AnexoDe: doc.AnexoDe, AnexoNumero: doc.AnexoNumero, Valores: valores,
 	}
 	if err := tx.Create(&nuevo).Error; err != nil {
 		return doc, false, err
@@ -862,7 +1001,7 @@ func getDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "documento no encontrado")
 			return
 		}
-		if doc.Estado == db.DocumentoSellado || doc.Estado == db.DocumentoAnulado || doc.Estado == db.DocumentoParaImprimir {
+		if doc.Estado != db.DocumentoBorrador && doc.Estado != db.DocumentoAFirmar {
 			if err := registrarEvento(gdb, r, doc, db.EventoDocumentoVisto, ""); err != nil {
 				writeError(w, http.StatusInternalServerError, "no se pudo abrir el documento")
 				return
@@ -939,6 +1078,8 @@ func miDocumento(w http.ResponseWriter, r *http.Request, tx *gorm.DB, clinicID u
 			writeError(w, http.StatusConflict, "este documento ya se terminó y espera firmas: no se puede editar")
 		case db.DocumentoParaImprimir:
 			writeError(w, http.StatusConflict, "este documento está listo para imprimir o descargar y se firma a mano, en papel: no se puede editar ni firmar en el sistema")
+		case db.DocumentoAbierto:
+			writeError(w, http.StatusConflict, "un anexo de continuación no se edita: se le suman asientos")
 		default:
 			writeError(w, http.StatusConflict, "este documento todavía no se terminó")
 		}
@@ -974,6 +1115,10 @@ func guardarBorradorHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		valores := documentos.ConservarBloqueados(plantilla, doc.Valores, req.Valores)
+		if err := fijarNumerosDeContinuacion(gdb, plantilla, doc.ID, valores); err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo guardar el borrador")
+			return
+		}
 		if errores := documentos.Validar(plantilla, valores, documentos.Tolerante); len(errores) > 0 {
 			errorDeValidacion(w, errores)
 			return
@@ -1059,51 +1204,22 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 
 		ahora := clock.Now()
-		fecha := ahora.Format("2006-01-02")
-		contexto := documentos.Contexto{Fecha: fecha}
 		// Lo que no entra en su renglón del original no se puede sellar: el
 		// documento se vería cortado, o se saldría del papel (TR-187).
-		if errores := documentos.ValidarLamina(plantilla, doc.Valores, contexto); len(errores) > 0 {
+		if errores := documentos.ValidarLamina(plantilla, doc.Valores, documentos.Contexto{Fecha: ahora.Format("2006-01-02")}); len(errores) > 0 {
 			errorDeValidacion(w, errores)
 			return
 		}
-
-		var paciente db.Paciente
-		if err := gdb.First(&paciente, "id = ?", doc.PacienteID).Error; err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")
-			return
-		}
-		var perfil db.ProfessionalProfile
-		if err := gdb.First(&perfil, "user_id = ?", doc.AutorUserID).Error; err != nil {
+		contenido, err := contenidoDelDocumento(gdb, doc, plantilla, ahora)
+		if errors.Is(err, errSinPerfil) {
 			writeError(w, http.StatusConflict, "completá tu perfil profesional antes de terminar el documento")
 			return
 		}
-		var clinica db.Clinic
-		if err := gdb.First(&clinica, "id = ?", doc.ClinicID).Error; err != nil {
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")
 			return
 		}
-
-		canonico, huella, err := documentos.Congelar(documentos.ContenidoCongelado{
-			Formato:     documentos.FormatoContenido,
-			DocumentoID: doc.ID.String(),
-			Plantilla: documentos.PlantillaCongelada{
-				ID: plantilla.ID, Version: plantilla.Version, Nombre: plantilla.Nombre, Tipo: plantilla.Tipo, Fuente: plantilla.Fuente,
-			},
-			Clinica:  documentos.ClinicaCongelada{ID: clinica.ID.String(), Nombre: clinica.Nombre},
-			Paciente: documentos.PacienteCongelado{ID: paciente.ID.String(), Nombre: paciente.Nombre, Apellido: paciente.Apellido, DNI: paciente.DNI},
-			Profesional: documentos.ProfesionalCongelado{
-				UserID: perfil.UserID.String(), Nombre: perfil.Nombre, Apellido: perfil.Apellido,
-				MatriculaTipo: perfil.MatriculaTipo, MatriculaNumero: perfil.MatriculaNumero,
-			},
-			Fecha:       fecha,
-			TerminadoEn: ahora.Format(time.RFC3339),
-			Valores:     documentos.LimpiarValores(plantilla, doc.Valores),
-			Cuerpo:      documentos.ArmarCuerpo(plantilla, doc.Valores, contexto, documentos.TextoSellado),
-			Firmas:      plantilla.Firmas,
-			Lamina:      documentos.ArmarLamina(plantilla, doc.Valores, contexto, documentos.TextoSellado),
-			Figuras:     documentos.ArmarFiguras(plantilla, doc.Valores, documentos.TextoSellado),
-		})
+		canonico, huella, err := documentos.Congelar(contenido)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo terminar el documento")
 			return
@@ -1123,7 +1239,8 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			// El consentimiento terminado ya es parte de la historia del
 			// paciente: recibe su folio ahora (lo que se sella, al sellar).
 			// Bajo el lock de la clínica: el folio no admite dos "siguientes".
-			if destino == db.DocumentoParaImprimir {
+			// Un anexo no consume folio: lleva el "x.y" de su historia.
+			if destino == db.DocumentoParaImprimir && doc.AnexoDe == nil {
 				if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
 					return err
 				}
@@ -1154,6 +1271,49 @@ func terminarDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
+}
+
+var errSinPerfil = errors.New("sin perfil profesional")
+
+// contenidoDelDocumento — el contenido que se congela de un documento
+// (TR-182): lo cargado y el texto armado, con una foto de su paciente, su
+// autor y su clínica tal como son en `ahora`. errSinPerfil si el autor no
+// tiene perfil profesional.
+func contenidoDelDocumento(tx *gorm.DB, doc db.DocumentoClinico, plantilla *documentos.Plantilla, ahora time.Time) (documentos.ContenidoCongelado, error) {
+	var paciente db.Paciente
+	if err := tx.First(&paciente, "id = ?", doc.PacienteID).Error; err != nil {
+		return documentos.ContenidoCongelado{}, err
+	}
+	var perfil db.ProfessionalProfile
+	if err := tx.First(&perfil, "user_id = ?", doc.AutorUserID).Error; err != nil {
+		return documentos.ContenidoCongelado{}, errSinPerfil
+	}
+	var clinica db.Clinic
+	if err := tx.First(&clinica, "id = ?", doc.ClinicID).Error; err != nil {
+		return documentos.ContenidoCongelado{}, err
+	}
+	fecha := ahora.Format("2006-01-02")
+	contexto := documentos.Contexto{Fecha: fecha}
+	return documentos.ContenidoCongelado{
+		Formato:     documentos.FormatoContenido,
+		DocumentoID: doc.ID.String(),
+		Plantilla: documentos.PlantillaCongelada{
+			ID: plantilla.ID, Version: plantilla.Version, Nombre: plantilla.Nombre, Tipo: plantilla.Tipo, Fuente: plantilla.Fuente,
+		},
+		Clinica:  documentos.ClinicaCongelada{ID: clinica.ID.String(), Nombre: clinica.Nombre},
+		Paciente: documentos.PacienteCongelado{ID: paciente.ID.String(), Nombre: paciente.Nombre, Apellido: paciente.Apellido, DNI: paciente.DNI},
+		Profesional: documentos.ProfesionalCongelado{
+			UserID: perfil.UserID.String(), Nombre: perfil.Nombre, Apellido: perfil.Apellido,
+			MatriculaTipo: perfil.MatriculaTipo, MatriculaNumero: perfil.MatriculaNumero,
+		},
+		Fecha:       fecha,
+		TerminadoEn: ahora.Format(time.RFC3339),
+		Valores:     documentos.LimpiarValores(plantilla, doc.Valores),
+		Cuerpo:      documentos.ArmarCuerpo(plantilla, doc.Valores, contexto, documentos.TextoSellado),
+		Firmas:      plantilla.Firmas,
+		Lamina:      documentos.ArmarLamina(plantilla, doc.Valores, contexto, documentos.TextoSellado),
+		Figuras:     documentos.ArmarFiguras(plantilla, doc.Valores, documentos.TextoSellado),
+	}, nil
 }
 
 // impresionDeDocumentoHandler — POST /documentos/{id}/impresion: la
@@ -1193,7 +1353,8 @@ func impresionDeDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 // siguienteFolio — el folio que sigue para un paciente en la clínica
 // (Ley 26.529, art. 12: la historia va foliada). Correlativo entre todos
 // los documentos del paciente, de cualquier profesional: lo reciben el
-// consentimiento al terminarse (TR-188) y lo demás al sellarse. Se llama
+// consentimiento al terminarse (TR-188) y lo demás al sellarse, salvo un
+// anexo, que lleva el "x.y" de su historia (documentos.FolioDe). Se llama
 // bajo el lock de la clínica.
 func siguienteFolio(tx *gorm.DB, clinicID, pacienteID uuid.UUID) (int, error) {
 	var folio int
@@ -1385,16 +1546,19 @@ func sellarSiEstaCompleto(tx *gorm.DB, r *http.Request, doc db.DocumentoClinico,
 	if anterior.CadenaN != nil && anterior.HashSello != nil {
 		hashAnterior, eslabon = *anterior.HashSello, *anterior.CadenaN+1
 	}
-	folio, err := siguienteFolio(tx, doc.ClinicID, doc.PacienteID)
-	if err != nil {
-		return err
-	}
-
 	ahora := time.Now()
 	cambios := map[string]any{
-		"estado": db.DocumentoSellado, "folio": folio, "cadena_n": eslabon,
+		"estado": db.DocumentoSellado, "cadena_n": eslabon,
 		"hash_sello": documentos.Sello(*doc.HashContenido, huellas, hashAnterior),
 		"sellado_en": ahora, "updated_at": ahora,
+	}
+	// Un anexo no consume folio: lleva el "x.y" de su historia.
+	if doc.AnexoDe == nil {
+		folio, err := siguienteFolio(tx, doc.ClinicID, doc.PacienteID)
+		if err != nil {
+			return err
+		}
+		cambios["folio"] = folio
 	}
 	if hashAnterior != "" {
 		cambios["hash_anterior"] = hashAnterior

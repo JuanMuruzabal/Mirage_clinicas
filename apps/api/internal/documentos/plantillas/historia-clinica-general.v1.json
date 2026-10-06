@@ -841,7 +841,8 @@
           "id": "diagnostico_anexo",
           "etiqueta": "Continúa en anexo Nº",
           "min": 1,
-          "max": 999
+          "max": 999,
+          "continuaEnAnexo": "diagnostico"
         },
         {
           "tipo": "fecha",
@@ -858,7 +859,8 @@
           "id": "plan_anexo",
           "etiqueta": "Continúa en anexo Nº",
           "min": 1,
-          "max": 999
+          "max": 999,
+          "continuaEnAnexo": "plan"
         },
         {
           "tipo": "texto_largo",
@@ -870,7 +872,8 @@
           "id": "observaciones_anexo",
           "etiqueta": "Continúa en anexo Nº",
           "min": 1,
-          "max": 999
+          "max": 999,
+          "continuaEnAnexo": "observaciones"
         }
       ]
     },

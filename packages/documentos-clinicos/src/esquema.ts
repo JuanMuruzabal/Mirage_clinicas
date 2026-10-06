@@ -53,6 +53,20 @@ export type RolDeFirma = (typeof ROLES_DE_FIRMA)[number];
 export const TIPOS_DE_PLANTILLA = ["historia_clinica", "anexo", "consentimiento"] as const;
 export type TipoDePlantilla = (typeof TIPOS_DE_PLANTILLA)[number];
 
+/** Las secciones de una historia clínica que pueden seguir en un anexo de
+ *  continuación ("Continúa en anexo Nº", Fase 5.6d). Las mismas que
+ *  `etiquetaDeSeccion` de internal/documentos (Go) y que el CHECK de
+ *  documentos_clinicos.anexo_seccion. */
+export const SECCIONES_DE_CONTINUACION = ["diagnostico", "plan", "observaciones", "estudios"] as const;
+export type SeccionDeContinuacion = (typeof SECCIONES_DE_CONTINUACION)[number];
+
+export const ETIQUETA_DE_SECCION_DE_CONTINUACION: Record<SeccionDeContinuacion, string> = {
+  diagnostico: "Diagnóstico",
+  plan: "Plan de tratamiento",
+  observaciones: "Observaciones",
+  estudios: "Estudios complementarios",
+};
+
 /** Las variables que no son campos: las pone el sistema. `sistema.fecha`
  *  es el día en que el documento se terminó (en un borrador, hoy). */
 export const VARIABLES_DEL_SISTEMA = ["sistema.fecha"] as const;
@@ -106,9 +120,12 @@ const base = {
 
 const opcion = z.object({ valor: z.string().regex(/^[a-z0-9_]{1,40}$/), etiqueta: z.string().min(1).max(120) }).strict();
 const denticion = z.enum(["permanente", "temporaria", "ambas"]).optional();
+/** El "Continúa en anexo Nº" de esa sección (Fase 5.6d): el campo lleva el
+ *  número del anexo de continuación, que se crea desde la historia. */
+const continuaEnAnexo = z.enum(SECCIONES_DE_CONTINUACION).optional();
 
 export const campoSchema = z.discriminatedUnion("tipo", [
-  z.object({ tipo: z.literal("texto"), ...base }).strict(),
+  z.object({ tipo: z.literal("texto"), ...base, continuaEnAnexo }).strict(),
   z.object({ tipo: z.literal("texto_largo"), ...base }).strict(),
   z.object({ tipo: z.literal("fecha"), ...base }).strict(),
   z.object({ tipo: z.literal("hora"), ...base }).strict(),
@@ -120,6 +137,7 @@ export const campoSchema = z.discriminatedUnion("tipo", [
       min: z.number().optional(),
       max: z.number().optional(),
       decimales: z.number().int().min(0).max(3).optional(),
+      continuaEnAnexo,
     })
     .strict(),
   z
@@ -389,6 +407,26 @@ function problemasDeDibujos(lamina: Lamina | undefined, campos: Campo[]): string
   return problemas;
 }
 
+/** La sección que un campo continúa en un anexo, si la declara. */
+export function continuaEnAnexoDe(campo: Campo): SeccionDeContinuacion | undefined {
+  return campo.tipo === "texto" || campo.tipo === "numero" ? campo.continuaEnAnexo : undefined;
+}
+
+/** Un anexo de continuación cuelga de una historia clínica, y es uno por
+ *  sección: dos campos con la misma no sabrían cuál lleva su número. */
+function problemasDeContinuaciones(tipo: TipoDePlantilla, campos: Campo[]): string[] {
+  const vistas = new Set<string>();
+  const problemas: string[] = [];
+  for (const c of campos) {
+    const seccion = continuaEnAnexoDe(c);
+    if (!seccion) continue;
+    if (tipo !== "historia_clinica") problemas.push(`solo una historia clínica continúa en un anexo: ${c.id}`);
+    if (vistas.has(seccion)) problemas.push(`dos campos continúan la sección ${seccion}`);
+    vistas.add(seccion);
+  }
+  return problemas;
+}
+
 export const plantillaSchema = z
   .object({
     id: z.string().regex(/^[a-z][a-z0-9-]{2,79}$/, "id de plantilla inválido"),
@@ -449,6 +487,7 @@ export const plantillaSchema = z
     }
 
     for (const message of problemasDeDibujos(p.lamina, campos)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    for (const message of problemasDeContinuaciones(p.tipo, campos)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
 
     if (p.lamina) {
       const l = p.lamina;
@@ -540,6 +579,15 @@ export function camposDe(plantilla: Plantilla): Campo[] {
 
 export function campoPorId(plantilla: Plantilla, id: string): Campo | undefined {
   return camposDe(plantilla).find((c) => c.id === id);
+}
+
+/** Las secciones que una historia continúa en anexos, con el campo que lleva
+ *  el número de cada uno, en el orden del formulario. */
+export function continuacionesDe(plantilla: Plantilla): { seccion: SeccionDeContinuacion; campo: Campo }[] {
+  return camposDe(plantilla).flatMap((campo) => {
+    const seccion = continuaEnAnexoDe(campo);
+    return seccion ? [{ seccion, campo }] : [];
+  });
 }
 
 /** En qué sección del sidebar vive un campo — para abrirla al tocar esa

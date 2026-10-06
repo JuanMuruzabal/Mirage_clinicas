@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +79,10 @@ type FuenteDelPDF struct {
 	// Plantilla — la versión que se firmó (documentos.PorID con la versión
 	// del documento), no la última.
 	Plantilla *Plantilla
+	// FolioDeLaHistoria — en un anexo, el folio ACTUAL de su historia: el x
+	// de su "x.y" (FolioDe). Nil si no es un anexo o si la historia todavía
+	// no tiene folio.
+	FolioDeLaHistoria *int
 }
 
 // Colores del PDF. La tinta es la misma que la de la lámina en pantalla
@@ -186,6 +189,11 @@ func pideComposicion(p *Plantilla) bool {
 // nivel, sin armar el resto (encoding/json recorre el texto y descarta los
 // demás campos). Y solo en los terminados: un borrador no lo lee.
 func TienePDF(d db.DocumentoClinico, p *Plantilla) bool {
+	// Un anexo de continuación tiene el suyo, armado con sus asientos
+	// (GenerarPDFDeContinuacion), desde que nace.
+	if d.Estado == db.DocumentoAbierto {
+		return d.AnexoSeccion != nil && d.AnexoDe != nil && d.ContenidoCanonico != nil
+	}
 	if d.Estado != db.DocumentoSellado && d.Estado != db.DocumentoParaImprimir {
 		return false
 	}
@@ -228,18 +236,15 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	case d.HashContenido == nil:
 		return nil, incompleto("al documento terminado le falta la huella de su contenido")
 	}
-	// El FOLIO: uno sellado siempre lo tiene (chk_documento_sellado_completo).
-	// Uno para imprimir, desde TR-188; los terminados antes de esa regla no
-	// —la restricción es NOT VALID justamente para no tocarlos— y su PDF sale
+	// El FOLIO: uno sellado siempre lo tiene (chk_documento_sellado_completo),
+	// salvo un anexo, que lleva el "x.y" de su historia (FolioDe). Uno para
+	// imprimir, desde TR-188; los terminados antes de esa regla no —la
+	// restricción es NOT VALID justamente para no tocarlos— y su PDF sale
 	// igual, sin folio en el pie ni en el título.
-	conFolio := d.Folio != nil
-	folio := 0
-	if conFolio {
-		folio = *d.Folio
-	}
+	folio := FolioDe(d, f.FolioDeLaHistoria)
 	if sellado {
 		switch {
-		case d.Folio == nil:
+		case folio.Valor == "":
 			return nil, incompleto("al documento sellado le falta su folio")
 		case d.HashSello == nil:
 			return nil, incompleto("al documento sellado le falta la huella de su sello")
@@ -276,7 +281,7 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 		if codigo == "" {
 			return nil, incompleto("la huella del sello del documento no es un SHA-256 en hexadecimal")
 		}
-		hojas = hojasDeConstancia(d, contenido, f.Firmas, nombre, codigo)
+		hojas = hojasDeConstancia(d, contenido, f.Firmas, nombre, folio, codigo)
 	} else {
 		huellaDelID, creado = *d.HashContenido, *d.TerminadoEn
 	}
@@ -291,39 +296,19 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	lamina := f.Plantilla.Lamina
 	total := len(lamina.Paginas) + len(hojas)
 	pie := func(pag *pdf.Pagina, hoja int) {
-		texto := fmt.Sprintf("Hoja %d de %d", hoja, total)
-		if conFolio {
-			texto = fmt.Sprintf("Folio %d · %s", folio, texto)
+		var partes []string
+		if folio.Valor != "" {
+			partes = append(partes, folio.String())
 		}
 		if sellado {
-			texto = fmt.Sprintf("Folio %d · Código de verificación %s · Hoja %d de %d", folio, codigo, hoja, total)
+			partes = append(partes, "Código de verificación "+codigo)
 		}
-		const tamano = 7.0
-		ancho := float64(AnchoEnUnidades(texto)) * tamano / 1000
-		x := (pag.Ancho() - ancho) / 2
-		y := pag.Alto() - 12
-		// Detrás, un recuadro blanco del tamaño justo del texto: varios
-		// modelos del Colegio (Sedoanalgesia, Extracción…) tienen abajo una
-		// franja de color con sus datos de contacto, y el pie cae encima. Así
-		// se lee sobre cualquier fondo sin moverlo de lugar. El alto sale de
-		// la altura de las mayúsculas y del descendente de Helvetica (718 y
-		// 207 milésimas del tamaño).
-		const margenX, margenY = 3.0, 1.5
-		arriba := y - 0.718*tamano - margenY
-		abajo := y + 0.207*tamano + margenY
-		fondo := &pdf.Camino{}
-		fondo.MoverA(x-margenX, arriba)
-		fondo.LineaA(x+ancho+margenX, arriba)
-		fondo.LineaA(x+ancho+margenX, abajo)
-		fondo.LineaA(x-margenX, abajo)
-		fondo.Cerrar()
-		pag.Camino(fondo, pdf.Estilo{Relleno: &colorFondoPie})
-		pag.Texto(pdf.Helvetica, tamano, x, y, texto, colorPie)
+		dibujarPie(pag, strings.Join(append(partes, fmt.Sprintf("Hoja %d de %d", hoja, total)), " · "))
 	}
 
 	tituloDelPDF := nombre
-	if conFolio {
-		tituloDelPDF = fmt.Sprintf("%s · folio %d", nombre, folio)
+	if folio.Valor != "" {
+		tituloDelPDF = nombre + " · " + strings.ToLower(folio.Rotulo) + " " + folio.Valor
 	}
 	doc := pdf.Nuevo(pdf.Info{
 		Titulo:  tituloDelPDF,
@@ -345,17 +330,46 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 
 	for i, hoja := range hojas {
 		pag := doc.Pagina(anchoA4, altoA4)
-		for _, r := range hoja {
-			if r.regla {
-				pag.Linea(r.x, r.y, r.x+r.largo, r.y, 0.5, colorRegla)
-				continue
-			}
-			pag.Texto(r.fuente, r.tamano, r.x, r.y, r.texto, r.color)
-		}
+		dibujarRenglones(pag, hoja)
 		pie(pag, len(lamina.Paginas)+i+1)
 	}
 
 	return doc.Bytes()
+}
+
+// dibujarPie — el pie de una hoja, centrado abajo. Detrás, un recuadro
+// blanco del tamaño justo del texto: varios modelos del Colegio
+// (Sedoanalgesia, Extracción…) tienen abajo una franja de color con sus
+// datos de contacto, y el pie cae encima. Así se lee sobre cualquier fondo
+// sin moverlo de lugar. El alto sale de la altura de las mayúsculas y del
+// descendente de Helvetica (718 y 207 milésimas del tamaño).
+func dibujarPie(pag *pdf.Pagina, texto string) {
+	const tamano = 7.0
+	ancho := float64(AnchoEnUnidades(texto)) * tamano / 1000
+	x := (pag.Ancho() - ancho) / 2
+	y := pag.Alto() - 12
+	const margenX, margenY = 3.0, 1.5
+	arriba := y - 0.718*tamano - margenY
+	abajo := y + 0.207*tamano + margenY
+	fondo := &pdf.Camino{}
+	fondo.MoverA(x-margenX, arriba)
+	fondo.LineaA(x+ancho+margenX, arriba)
+	fondo.LineaA(x+ancho+margenX, abajo)
+	fondo.LineaA(x-margenX, abajo)
+	fondo.Cerrar()
+	pag.Camino(fondo, pdf.Estilo{Relleno: &colorFondoPie})
+	pag.Texto(pdf.Helvetica, tamano, x, y, texto, colorPie)
+}
+
+// dibujarRenglones — lo ya ubicado en una hoja A4: textos y reglas.
+func dibujarRenglones(pag *pdf.Pagina, hoja []renglon) {
+	for _, r := range hoja {
+		if r.regla {
+			pag.Linea(r.x, r.y, r.x+r.largo, r.y, 0.5, colorRegla)
+			continue
+		}
+		pag.Texto(r.fuente, r.tamano, r.x, r.y, r.texto, r.color)
+	}
 }
 
 // dibujarPaginaDeLamina — la página `numero` de la lámina, en coordenadas del
@@ -563,8 +577,8 @@ const (
 	anchoEtiqueta = 150.0
 )
 
-// renglon — algo ya ubicado en una hoja de constancia: un texto con su línea
-// de base en (x, y), o una regla horizontal.
+// renglon — algo ya ubicado en una hoja A4: un texto con su línea de base en
+// (x, y), o una regla horizontal de `largo`.
 type renglon struct {
 	fuente pdf.Fuente
 	tamano float64
@@ -670,7 +684,7 @@ func textoOr(p *string, siNo string) string {
 // contenidoDeLaConstancia — la constancia, en grupos de bloques: un grupo
 // (una firma con todas sus filas, por ejemplo) se intenta mantener junto
 // en una misma hoja.
-func contenidoDeLaConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas []db.DocumentoFirma, nombre, codigo string) [][]bloque {
+func contenidoDeLaConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas []db.DocumentoFirma, nombre string, folio Folio, codigo string) [][]bloque {
 	helv := func(etiqueta, valor string) bloque { return fila(etiqueta, valor, pdf.Helvetica, 9.5) }
 	huella := func(etiqueta, valor string) bloque { return fila(etiqueta, valor, pdf.Courier, 8) }
 
@@ -689,7 +703,7 @@ func contenidoDeLaConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas
 			subtitulo("El documento"),
 			helv("Documento", nombre),
 			helv("Modelo", fmt.Sprintf("%s · versión %d", c.Plantilla.Fuente.Nombre, c.Plantilla.Version)),
-			helv("Folio", strconv.Itoa(*d.Folio)),
+			helv(folio.Rotulo, folio.Valor),
 			helv("Paciente", strings.TrimSpace(c.Paciente.Nombre+" "+c.Paciente.Apellido)+" · DNI "+c.Paciente.DNI),
 			helv("Clínica", c.Clinica.Nombre),
 			helv("Profesional", profesional),
@@ -759,10 +773,15 @@ func contenidoDeLaConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas
 	return grupos
 }
 
-// hojasDeConstancia — la constancia repartida en hojas A4. Un bloque nunca
+// hojasDeConstancia — la constancia repartida en hojas A4.
+func hojasDeConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas []db.DocumentoFirma, nombre string, folio Folio, codigo string) [][]renglon {
+	return repartirEnHojas(contenidoDeLaConstancia(d, c, firmas, nombre, folio, codigo))
+}
+
+// repartirEnHojas — grupos de bloques repartidos en hojas A4. Un bloque nunca
 // se parte; un grupo que entra entero en una hoja nueva pero no en lo que
 // queda de esta, empieza en la siguiente.
-func hojasDeConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas []db.DocumentoFirma, nombre, codigo string) [][]renglon {
+func repartirEnHojas(grupos [][]bloque) [][]renglon {
 	limite := altoA4 - margenA4
 	util := limite - margenA4
 	hojas := [][]renglon{{}}
@@ -771,7 +790,7 @@ func hojasDeConstancia(d db.DocumentoClinico, c ContenidoCongelado, firmas []db.
 		hojas = append(hojas, []renglon{})
 		cursor = margenA4
 	}
-	for _, grupo := range contenidoDeLaConstancia(d, c, firmas, nombre, codigo) {
+	for _, grupo := range grupos {
 		altoDelGrupo := 0.0
 		for _, b := range grupo {
 			altoDelGrupo += b.antes + b.alto

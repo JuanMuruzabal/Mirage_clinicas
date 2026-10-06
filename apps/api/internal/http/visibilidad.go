@@ -529,10 +529,11 @@ func soloMisDocumentos(r *http.Request) func(*gorm.DB) *gorm.DB {
 }
 
 // documentosQueVeo — los documentos clínicos que puede LEER quien pregunta
-// (TR-186): los suyos en cualquier estado, y los sellados, anulados o para
-// imprimir (un consentimiento terminado, que se firma en papel, TR-188) de
-// los pacientes de su lista (los tres criterios de `soloMisPacientes`),
-// aunque los haya hecho un colega. La historia clínica es única por
+// (TR-186): los suyos en cualquier estado, y los sellados, anulados, para
+// imprimir (un consentimiento terminado, que se firma en papel, TR-188) o
+// abiertos (un anexo de continuación, Fase 5.6d: cualquiera que lo ve le
+// suma asientos) de los pacientes de su lista (los tres criterios de
+// `soloMisPacientes`), aunque los haya hecho un colega. La historia clínica es única por
 // establecimiento (Ley 26.529, art. 17): partirla por profesional haría que
 // cada uno trabaje con la mitad de los antecedentes.
 //
@@ -548,6 +549,6 @@ func documentosQueVeo(r *http.Request, clinicID uuid.UUID) func(*gorm.DB) *gorm.
 			Scopes(soloMisPacientes(r)).Where("pacientes.clinic_id = ?", clinicID).Select("pacientes.id")
 		return tx.Where(`documentos_clinicos.autor_user_id = ? OR (
 			documentos_clinicos.estado IN ? AND documentos_clinicos.paciente_id IN (?)
-		)`, session.UserID, []string{db.DocumentoSellado, db.DocumentoAnulado, db.DocumentoParaImprimir}, misPacientes)
+		)`, session.UserID, []string{db.DocumentoSellado, db.DocumentoAnulado, db.DocumentoParaImprimir, db.DocumentoAbierto}, misPacientes)
 	}
 }

@@ -1,0 +1,45 @@
+{
+  "id": "anexo-de-continuacion",
+  "version": 1,
+  "nombre": "Anexo de continuación",
+  "tipo": "anexo",
+  "descripcion": "La continuación de una sección de una historia clínica: anotaciones con fecha, hora y profesional, registradas digitalmente.",
+  "fuente": {
+    "nombre": "Colegio Odontológico de la Provincia de Córdoba",
+    "url": "https://colodontcba.org.ar/"
+  },
+  "secciones": [
+    {
+      "id": "asiento",
+      "titulo": "Anotación",
+      "campos": [
+        {
+          "tipo": "texto_largo",
+          "id": "asiento",
+          "etiqueta": "Anotación",
+          "requerido": true
+        }
+      ]
+    }
+  ],
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Anexo de continuación"
+    },
+    {
+      "t": "campo",
+      "campo": "asiento"
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "firmas": [
+    {
+      "rol": "profesional",
+      "etiqueta": "Profesional que escribe la anotación",
+      "requerida": true
+    }
+  ]
+}

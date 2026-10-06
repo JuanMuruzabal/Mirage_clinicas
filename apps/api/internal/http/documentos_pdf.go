@@ -41,8 +41,11 @@ var sinAcentos = strings.NewReplacer(
 // admite otra cosa sin `filename*`) y sin datos del paciente — el nombre de
 // un archivo descargado queda a la vista en la carpeta de descargas. Un
 // consentimiento terminado antes de que existiera el folio al terminar
-// (TR-188) no tiene folio: "…-sin-folio.pdf", nunca un "folio-0".
-func nombreDeArchivoDelPDF(doc db.DocumentoClinico, plantilla *documentos.Plantilla) string {
+// (TR-188) no tiene folio: "…-sin-folio.pdf", nunca un "folio-0". Un anexo
+// lleva el "x.y" de su historia (documentos.FolioDe):
+// "anexo-de-continuacion-folio-3.2.pdf"; mientras la historia no tiene folio,
+// su número: "anexo-de-continuacion-anexo-2-sin-folio.pdf".
+func nombreDeArchivoDelPDF(doc db.DocumentoClinico, plantilla *documentos.Plantilla, folio documentos.Folio) string {
 	nombre := doc.PlantillaID
 	if plantilla != nil {
 		nombre = documentos.NombreSinRepetirTipo(plantilla.Tipo, plantilla.Nombre)
@@ -51,10 +54,27 @@ func nombreDeArchivoDelPDF(doc db.DocumentoClinico, plantilla *documentos.Planti
 	if base == "" {
 		base = "documento"
 	}
-	if doc.Folio == nil {
+	switch {
+	case folio.AnexoSinFolio():
+		return fmt.Sprintf("%s-anexo-%d-sin-folio.pdf", base, *doc.AnexoNumero)
+	case folio.Valor == "":
 		return base + "-sin-folio.pdf"
 	}
-	return fmt.Sprintf("%s-folio-%d.pdf", base, *doc.Folio)
+	return base + "-folio-" + folio.Valor + ".pdf"
+}
+
+// folioDeLaHistoria — en un anexo, el folio actual de su historia: el x de
+// su "x.y". Una consulta interna por id y clínica, sin el scope de
+// visibilidad: es solo un número, y el PDF tiene que ser el mismo para
+// cualquiera que lo baje. Nil si no es un anexo o si la historia no tiene
+// folio todavía.
+func folioDeLaHistoria(tx *gorm.DB, d db.DocumentoClinico) (*int, error) {
+	if d.AnexoDe == nil || d.AnexoNumero == nil {
+		return nil, nil
+	}
+	var folio *int
+	err := tx.Raw("SELECT folio FROM documentos_clinicos WHERE id = ? AND clinic_id = ?", *d.AnexoDe, d.ClinicID).Scan(&folio).Error
+	return folio, err
 }
 
 // descargarPDFHandler — GET /documentos/{id}/pdf: el PDF de un documento
@@ -79,6 +99,9 @@ func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 		switch doc.Estado {
+		case db.DocumentoAbierto:
+			entregarPDFDeContinuacion(gdb, w, r, doc)
+			return
 		case db.DocumentoSellado, db.DocumentoParaImprimir:
 		case db.DocumentoAFirmar:
 			writeError(w, http.StatusConflict, "todavía faltan firmas: el PDF está cuando el documento se sella")
@@ -96,6 +119,11 @@ func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento: la API no tiene la versión de la plantilla con la que se hizo")
 			return
 		}
+		folioHistoria, err := folioDeLaHistoria(gdb, doc)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+			return
+		}
 		var firmas []db.DocumentoFirma
 		if doc.Estado == db.DocumentoSellado {
 			if err := gdb.Where("documento_id = ?", doc.ID).Order("rol").Find(&firmas).Error; err != nil {
@@ -103,7 +131,7 @@ func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 				return
 			}
 		}
-		datos, err := documentos.GenerarPDF(documentos.FuenteDelPDF{Documento: doc, Firmas: firmas, Plantilla: plantilla})
+		datos, err := documentos.GenerarPDF(documentos.FuenteDelPDF{Documento: doc, Firmas: firmas, Plantilla: plantilla, FolioDeLaHistoria: folioHistoria})
 		if errors.Is(err, documentos.ErrSinComposicion) {
 			// Un documento sellado antes de que se congelara la composición
 			// de la lámina (TR-187 decisión 14): se ve en pantalla, en su
@@ -137,23 +165,28 @@ func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		paraImprimir := r.URL.Query().Get("para") == "imprimir"
-		detalle, disposicion := "pdf", "attachment"
-		if paraImprimir {
-			detalle, disposicion = "impresión", "inline"
-		}
-		if err := registrarEvento(gdb, r, doc, db.EventoDocumentoExportado, detalle); err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo registrar la descarga")
-			return
-		}
-
-		h := w.Header()
-		h.Set("Content-Type", "application/pdf")
-		h.Set("Content-Disposition", disposicion+`; filename="`+nombreDeArchivoDelPDF(doc, plantilla)+`"`)
-		h.Set("Content-Length", strconv.Itoa(len(datos)))
-		h.Set("Cache-Control", "no-store")
-		h.Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(datos)
+		entregarPDF(gdb, w, r, doc, nombreDeArchivoDelPDF(doc, plantilla, documentos.FolioDe(doc, folioHistoria)), datos)
 	}
+}
+
+// entregarPDF — deja la exportación en la auditoría y sirve el PDF: como
+// descarga o, con `?para=imprimir`, para abrirlo en el navegador.
+func entregarPDF(gdb *gorm.DB, w http.ResponseWriter, r *http.Request, doc db.DocumentoClinico, nombre string, datos []byte) {
+	detalle, disposicion := "pdf", "attachment"
+	if r.URL.Query().Get("para") == "imprimir" {
+		detalle, disposicion = "impresión", "inline"
+	}
+	if err := registrarEvento(gdb, r, doc, db.EventoDocumentoExportado, detalle); err != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo registrar la descarga")
+		return
+	}
+
+	h := w.Header()
+	h.Set("Content-Type", "application/pdf")
+	h.Set("Content-Disposition", disposicion+`; filename="`+nombre+`"`)
+	h.Set("Content-Length", strconv.Itoa(len(datos)))
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(datos)
 }

@@ -67,6 +67,9 @@ type Campo struct {
 	// Leyenda y Existentes — los de un odontograma (odontograma.go).
 	Leyenda    string `json:"leyenda,omitempty"`
 	Existentes bool   `json:"existentes,omitempty"`
+	// ContinuaEnAnexo — el "Continúa en anexo Nº" de esa sección (Fase
+	// 5.6d): el campo lleva el número de su anexo de continuación.
+	ContinuaEnAnexo string `json:"continuaEnAnexo,omitempty"`
 }
 
 // Seccion — un grupo de campos del sidebar.
@@ -141,6 +144,46 @@ const (
 	TipoHistoriaClinica = "historia_clinica"
 	TipoAnexo           = "anexo"
 )
+
+// PlantillaDeContinuacion — el anexo de continuación (Fase 5.6d): se crea
+// desde su historia, con POST /documentos/{id}/continuaciones, nunca con POST
+// /documentos. Mismo id que PLANTILLA_DE_CONTINUACION del paquete de
+// TypeScript.
+const PlantillaDeContinuacion = "anexo-de-continuacion"
+
+// etiquetaDeSeccion — las secciones de una historia que pueden seguir en un
+// anexo de continuación, con su nombre. Las mismas que
+// ETIQUETA_DE_SECCION_DE_CONTINUACION del paquete de TypeScript y que el
+// CHECK de documentos_clinicos.anexo_seccion.
+var etiquetaDeSeccion = map[string]string{
+	"diagnostico":   "Diagnóstico",
+	"plan":          "Plan de tratamiento",
+	"observaciones": "Observaciones",
+	"estudios":      "Estudios complementarios",
+}
+
+// EtiquetaDeSeccion — "Plan de tratamiento"; la sección tal cual si no es
+// una conocida.
+func EtiquetaDeSeccion(seccion string) string {
+	if etiqueta, ok := etiquetaDeSeccion[seccion]; ok {
+		return etiqueta
+	}
+	return seccion
+}
+
+// CampoDeContinuacion — el campo de esta historia que lleva el número del
+// anexo de esa sección, o nil si la plantilla no la continúa en un anexo.
+func (p *Plantilla) CampoDeContinuacion(seccion string) *Campo {
+	if seccion == "" {
+		return nil
+	}
+	for _, c := range p.Campos() {
+		if c.ContinuaEnAnexo == seccion {
+			return c
+		}
+	}
+	return nil
+}
 
 // IDsDeTipo — los ids de las plantillas de ese tipo, sin repetir (todas sus
 // versiones comparten el id).

@@ -20,7 +20,7 @@ package db
 // el objeto falta, porque repetirlo en cada arranque tomaba locks fuertes
 // sobre estas tablas y trababa a los tests de otros paquetes (deadlock de
 // CI, PR #83). Lo que se CREA una sola vez (la FK compuesta, los checks
-// que nunca cambiaron y los dos índices únicos) va como paso "si hace
+// que nunca cambiaron y los índices únicos) va como paso "si hace
 // falta": se le pregunta al catálogo antes de tocar la tabla, porque el
 // `ADD CONSTRAINT` dentro de un `DO … EXCEPTION` y el `CREATE INDEX IF NOT
 // EXISTS` esperaban el lock de la tabla aunque el objeto ya existiera. Las
@@ -44,12 +44,13 @@ func sentenciasDeDocumentos() []any {
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
 
 		// Los estados posibles. DROP + ADD, no el patrón de duplicate_object:
-		// sumó 'para_imprimir' (TR-188) y GORM no actualiza un check que ya
-		// existe — la base se habría quedado rechazando el estado nuevo.
+		// sumó 'para_imprimir' (TR-188) y 'abierto' (Fase 5.6d), y GORM no
+		// actualiza un check que ya existe — la base se habría quedado
+		// rechazando el estado nuevo.
 		reemplazarConstraint("documentos_clinicos", "chk_documento_estado",
 			`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_estado`,
 			`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_estado
-		   CHECK (estado IN ('borrador', 'a_firmar', 'para_imprimir', 'sellado', 'anulado'))`),
+		   CHECK (estado IN ('borrador', 'a_firmar', 'para_imprimir', 'sellado', 'anulado', 'abierto'))`),
 
 		// Un documento que salió de borrador tiene su contenido congelado.
 		crearConstraintSiFalta("documentos_clinicos", "chk_documento_congelado",
@@ -57,26 +58,61 @@ func sentenciasDeDocumentos() []any {
 		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_congelado
 		     CHECK (estado = 'borrador' OR (contenido_canonico IS NOT NULL AND hash_contenido IS NOT NULL AND terminado_en IS NOT NULL));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
-		// Uno sellado tiene todo lo del sello.
-		crearConstraintSiFalta("documentos_clinicos", "chk_documento_sellado_completo",
-			`DO $$ BEGIN
-		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_sellado_completo
-		     CHECK (estado <> 'sellado' OR (hash_sello IS NOT NULL AND folio IS NOT NULL AND cadena_n IS NOT NULL AND sellado_en IS NOT NULL));
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		// Uno sellado tiene todo lo del sello, y su folio salvo que sea un
+		// anexo: un anexo no consume folio, lleva el "x.y" de su historia
+		// (Fase 5.6d). Pasó de crearse una vez a reemplazarse al sumar esa
+		// excepción; la regla nueva es más laxa, así que lo ya guardado la
+		// cumple.
+		reemplazarConstraint("documentos_clinicos", "chk_documento_sellado_completo",
+			`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_sellado_completo`,
+			`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_sellado_completo
+		     CHECK (estado <> 'sellado' OR (hash_sello IS NOT NULL AND (folio IS NOT NULL OR anexo_de IS NOT NULL)
+		       AND cadena_n IS NOT NULL AND sellado_en IS NOT NULL))`),
 		// Uno para imprimir ya tiene su folio: es parte de la historia del
-		// paciente (TR-188). NOT VALID: los de antes de esta regla (solo en
-		// bases de desarrollo) no se tocan; lo nuevo, sí.
-		crearConstraintSiFalta("documentos_clinicos", "chk_documento_para_imprimir_con_folio",
-			`DO $$ BEGIN
-		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_para_imprimir_con_folio
-		     CHECK (estado <> 'para_imprimir' OR folio IS NOT NULL) NOT VALID;
-		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+		// paciente (TR-188), salvo un anexo (el "x.y" de su historia). NOT
+		// VALID: los de antes de esta regla (solo en bases de desarrollo) no
+		// se tocan; lo nuevo, sí.
+		reemplazarConstraint("documentos_clinicos", "chk_documento_para_imprimir_con_folio",
+			`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_para_imprimir_con_folio`,
+			`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_para_imprimir_con_folio
+		     CHECK (estado <> 'para_imprimir' OR folio IS NOT NULL OR anexo_de IS NOT NULL) NOT VALID`),
 		// Uno anulado dice por qué.
 		crearConstraintSiFalta("documentos_clinicos", "chk_documento_anulado_con_motivo",
 			`DO $$ BEGIN
 		   ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_anulado_con_motivo
 		     CHECK (estado <> 'anulado' OR (motivo_anulacion IS NOT NULL AND anulado_en IS NOT NULL));
 		 EXCEPTION WHEN duplicate_object THEN NULL; END $$`),
+
+		// Un anexo de continuación (Fase 5.6d) tiene su sección y su número,
+		// cuelga de una historia y está abierto; y "abierto" es solo suyo.
+		// Reemplazado al sacarle el folio (un anexo ya no lo consume): la
+		// regla nueva es más laxa, así que lo ya guardado la cumple.
+		reemplazarConstraint("documentos_clinicos", "chk_documento_continuacion",
+			`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_continuacion`,
+			`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_continuacion
+		     CHECK ((anexo_seccion IS NULL OR (anexo_de IS NOT NULL AND anexo_numero IS NOT NULL AND estado = 'abierto'))
+		       AND (estado <> 'abierto' OR anexo_seccion IS NOT NULL))`),
+		// Todo anexo con historia (de continuación o suelto) tiene su número
+		// en ella —el y de su "x.y"—, desde 1, y no consume folio: su folio
+		// es el de la historia. NOT VALID, como chk_*_con_duenio: las bases
+		// de desarrollo tienen anexos de antes de esta regla, con folio y sin
+		// número, y el candado no deja tocar uno abierto ni sellado; lo
+		// nuevo, sí la cumple. Un borrador viejo sin número ya no se puede
+		// guardar: se descarta y se hace de nuevo (son datos de QA local).
+		reemplazarConstraint("documentos_clinicos", "chk_documento_anexo",
+			`ALTER TABLE documentos_clinicos DROP CONSTRAINT IF EXISTS chk_documento_anexo`,
+			`ALTER TABLE documentos_clinicos ADD CONSTRAINT chk_documento_anexo
+		     CHECK ((anexo_de IS NULL) = (anexo_numero IS NULL)
+		       AND (anexo_numero IS NULL OR anexo_numero >= 1)
+		       AND (anexo_de IS NULL OR folio IS NULL)) NOT VALID`),
+		// Uno por sección de cada historia, y numerados por historia (el
+		// "Continúa en anexo Nº" del papel).
+		crearIndiceSiFalta("idx_documento_anexo_seccion",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_documento_anexo_seccion
+		   ON documentos_clinicos (anexo_de, anexo_seccion) WHERE anexo_seccion IS NOT NULL`),
+		crearIndiceSiFalta("idx_documento_anexo_numero",
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_documento_anexo_numero
+		   ON documentos_clinicos (anexo_de, anexo_numero) WHERE anexo_numero IS NOT NULL`),
 
 		// El folio es correlativo por paciente en la clínica, y la cadena
 		// es una sola por clínica: ninguno de los dos se repite.
@@ -94,8 +130,11 @@ func sentenciasDeDocumentos() []any {
 		// su contenido congelado. Uno "para_imprimir" (un consentimiento: se
 		// firma en papel, TR-188) ya no cambia: ni se firma ni se sella en el
 		// sistema. NADA terminado vuelve a borrador (TR-188): si hay que
-		// corregir, se hace otro documento. La identidad (clínica, paciente,
-		// autor, plantilla y, en un anexo, su historia) no cambia nunca.
+		// corregir, se hace otro documento. Uno "abierto" (un anexo de
+		// continuación, Fase 5.6d) tampoco cambia: lo que crece son sus
+		// asientos, en su propia tabla. La identidad (clínica, paciente,
+		// autor, plantilla y, en un anexo, su historia, su sección y su
+		// número) no cambia nunca.
 		// DELETE: solo un borrador (descartar); lo demás es historia clínica.
 		`CREATE OR REPLACE FUNCTION documentos_clinicos_candado() RETURNS trigger
 		 LANGUAGE plpgsql AS $$
@@ -107,14 +146,15 @@ func sentenciasDeDocumentos() []any {
 		     RETURN OLD;
 		   END IF;
 
-		   IF OLD.estado IN ('sellado', 'anulado') THEN
+		   IF OLD.estado IN ('sellado', 'anulado', 'abierto') THEN
 		     RAISE EXCEPTION 'documento clínico %: un documento % no se modifica', OLD.id, OLD.estado;
 		   END IF;
 
 		   IF NEW.id <> OLD.id OR NEW.clinic_id <> OLD.clinic_id OR NEW.paciente_id <> OLD.paciente_id
 		      OR NEW.autor_user_id <> OLD.autor_user_id OR NEW.plantilla_id <> OLD.plantilla_id
 		      OR NEW.plantilla_version <> OLD.plantilla_version OR NEW.created_at <> OLD.created_at
-		      OR NEW.anexo_de IS DISTINCT FROM OLD.anexo_de THEN
+		      OR NEW.anexo_de IS DISTINCT FROM OLD.anexo_de OR NEW.anexo_seccion IS DISTINCT FROM OLD.anexo_seccion
+		      OR NEW.anexo_numero IS DISTINCT FROM OLD.anexo_numero THEN
 		     RAISE EXCEPTION 'documento clínico %: la identidad de un documento no cambia', OLD.id;
 		   END IF;
 
@@ -179,6 +219,44 @@ func sentenciasDeDocumentos() []any {
 		   BEFORE INSERT OR UPDATE OR DELETE ON documento_firmas
 		   FOR EACH ROW EXECUTE FUNCTION documento_firmas_candado()`),
 
+		// --- documento_asientos: solo INSERT, en orden y encadenados ---
+		//
+		// Un asiento se escribe solo en un anexo de continuación abierto, y
+		// va después del último: su número es el que sigue y su
+		// hash_anterior, la huella del anterior (la del contenido congelado
+		// del anexo, para el primero). La API los arma así bajo un lock; esto
+		// lo exige aunque llegue por SQL crudo.
+		`CREATE OR REPLACE FUNCTION documento_asientos_candado() RETURNS trigger
+		 LANGUAGE plpgsql AS $$
+		 DECLARE
+		   contenido text;
+		   ultimo_numero bigint;
+		   ultimo_hash text;
+		 BEGIN
+		   IF TG_OP <> 'INSERT' THEN
+		     RAISE EXCEPTION 'asiento %: un asiento no se modifica ni se borra', OLD.id;
+		   END IF;
+		   SELECT d.hash_contenido INTO contenido FROM documentos_clinicos d
+		   WHERE d.id = NEW.documento_id AND d.estado = 'abierto' AND d.anexo_seccion IS NOT NULL;
+		   IF NOT FOUND THEN
+		     RAISE EXCEPTION 'asiento de %: solo se escribe en un anexo de continuación abierto', NEW.documento_id;
+		   END IF;
+		   SELECT a.numero, a.hash INTO ultimo_numero, ultimo_hash FROM documento_asientos a
+		   WHERE a.documento_id = NEW.documento_id ORDER BY a.numero DESC LIMIT 1;
+		   IF NOT FOUND THEN
+		     ultimo_numero := 0;
+		     ultimo_hash := contenido;
+		   END IF;
+		   IF NEW.numero <> ultimo_numero + 1 OR NEW.hash_anterior IS DISTINCT FROM ultimo_hash THEN
+		     RAISE EXCEPTION 'asiento de %: va después del último, encadenado a su huella', NEW.documento_id;
+		   END IF;
+		   RETURN NEW;
+		 END $$`,
+		reemplazarTrigger("documento_asientos", "trg_documento_asientos_candado",
+			`CREATE OR REPLACE TRIGGER trg_documento_asientos_candado
+		   BEFORE INSERT OR UPDATE OR DELETE ON documento_asientos
+		   FOR EACH ROW EXECUTE FUNCTION documento_asientos_candado()`),
+
 		// --- documento_eventos: la auditoría, solo INSERT ---
 		`CREATE OR REPLACE FUNCTION documento_eventos_candado() RETURNS trigger
 		 LANGUAGE plpgsql AS $$
@@ -204,6 +282,10 @@ func sentenciasDeDocumentos() []any {
 		reemplazarTrigger("documento_firmas", "trg_documento_firmas_sin_truncate",
 			`CREATE OR REPLACE TRIGGER trg_documento_firmas_sin_truncate
 		   BEFORE TRUNCATE ON documento_firmas
+		   FOR EACH STATEMENT EXECUTE FUNCTION documentos_sin_truncate()`),
+		reemplazarTrigger("documento_asientos", "trg_documento_asientos_sin_truncate",
+			`CREATE OR REPLACE TRIGGER trg_documento_asientos_sin_truncate
+		   BEFORE TRUNCATE ON documento_asientos
 		   FOR EACH STATEMENT EXECUTE FUNCTION documentos_sin_truncate()`),
 		reemplazarTrigger("documento_eventos", "trg_documento_eventos_sin_truncate",
 			`CREATE OR REPLACE TRIGGER trg_documento_eventos_sin_truncate

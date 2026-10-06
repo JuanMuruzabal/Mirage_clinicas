@@ -133,6 +133,7 @@ func migracionesDestructivasPosteriores() []MigracionDestructiva {
 	return []MigracionDestructiva{
 		migracionBorrarTablasLegacyDelMVP(),
 		migracionDropColumnaRoleDeClinicMembers(),
+		migracionDropTrazoDeAsientos(),
 		{
 			Nombre:      migracionDedupPacientesDNI,
 			Descripcion: "fichas de paciente duplicadas por (clinic_id, dni): se conserva la más vieja, sus turnos se reasignan a esa, y el resto se borra",
@@ -430,6 +431,39 @@ func migracionDropColumnaRoleDeClinicMembers() MigracionDestructiva {
 			// va con la columna; el que lo reemplaza para la consulta de
 			// requireClinic vive ahora en clinic_member_roles.
 			return tx.Exec(`ALTER TABLE clinic_members DROP COLUMN IF EXISTS role`).Error
+		},
+	}
+}
+
+// migracionDropTrazoDeAsientos — Fase 5.6d: los asientos de un anexo de
+// continuación dejaron de firmarse dibujando (pedido de la persona,
+// 2026-10-06); los firma el registro digital (la sesión, el nombre, el
+// instante y el evento `asiento` con la IP). La columna `trazo` nunca llegó a
+// producción —la rama no estaba mergeada—, así que ahí esto es un no-op; en
+// las bases de desarrollo y de test existe con NOT NULL, y sin el DROP todo
+// INSERT de un asiento fallaría. Va en el grupo POSTERIOR: el AutoMigrate no
+// la toca (GORM nunca borra columnas) y no falla por ella.
+//
+// Los asientos de desarrollo que la tenían quedan con una huella calculada
+// CON el trazo, que ya no entra en HuellaDelAsiento: dejan de verificar
+// (documentos.VerificarAsientos). Se acepta a conciencia: son datos de QA
+// local, nunca un documento de un paciente real.
+//
+// Afectados cuenta la columna más cada firma que guarda: con la tabla vacía
+// da 1 y no 0, porque la columna con su NOT NULL igual tiene que irse (ver
+// el contrato de MigracionDestructiva.Afectados).
+func migracionDropTrazoDeAsientos() MigracionDestructiva {
+	return MigracionDestructiva{
+		Nombre:      "drop_trazo_de_documento_asientos",
+		Descripcion: "la columna `trazo` de `documento_asientos` y la firma dibujada de cada asiento: los asientos de un anexo de continuación se registran digitalmente, sin firma dibujada",
+		Afectados: func(tx *gorm.DB) (int64, error) {
+			return contarFilas(tx, `SELECT CASE WHEN EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_name = 'documento_asientos' AND column_name = 'trazo')
+				THEN (SELECT count(*) FROM documento_asientos) + 1 ELSE 0 END`)
+		},
+		Aplicar: func(tx *gorm.DB) error {
+			return tx.Exec(`ALTER TABLE documento_asientos DROP COLUMN IF EXISTS trazo`).Error
 		},
 	}
 }

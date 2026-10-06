@@ -198,6 +198,10 @@ func clavesForaneas() []claveForanea {
 		// el resto: descartar una historia en borrador que tiene anexos se
 		// rechaza antes, con un 409 (descartarBorradorHandler).
 		{"fk_documento_anexo_de", "documentos_clinicos", "anexo_de", "documentos_clinicos", "", true},
+		// Los asientos de un anexo de continuación (Fase 5.6d), RESTRICT por
+		// lo mismo: son historia clínica, y quién los escribió también.
+		{"fk_documento_asientos_documento", "documento_asientos", "documento_id", "documentos_clinicos", "", false},
+		{"fk_documento_asientos_autor", "documento_asientos", "autor_user_id", "users", "", false},
 	}
 }
 

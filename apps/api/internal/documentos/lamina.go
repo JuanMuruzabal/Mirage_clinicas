@@ -415,8 +415,10 @@ func ComponerZona(z Zona, texto string) ZonaCompuesta {
 // "No consigna" (o lo que la zona declare): en la historia clínica no
 // quedan huecos (Decreto 1089/2012, art. 15).
 func ArmarLamina(p *Plantilla, valores map[string]any, ctx Contexto, modo ModoTexto) []ZonaCompuesta {
+	// Sin lámina, una lista vacía y no nil, como `armarLamina` de lamina.ts:
+	// el contenido congelado la omite igual (omitempty).
 	if p.Lamina == nil {
-		return nil
+		return []ZonaCompuesta{}
 	}
 	out := make([]ZonaCompuesta, 0, len(p.Lamina.Zonas))
 	for _, z := range p.Lamina.Zonas {
