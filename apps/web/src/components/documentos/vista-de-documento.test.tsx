@@ -51,7 +51,7 @@ describe("VistaDeDocumento", () => {
   it("sellado: folio, sello y ninguna acción", () => {
     render(<VistaDeDocumento documento={sellado()} />);
     expect(screen.getByRole("heading", { name: "Firmado y sellado" })).toBeInTheDocument();
-    expect(screen.getByText(/folio 3 · sello/)).toBeInTheDocument();
+    expect(screen.getByText(/Folio 3 · sello/)).toBeInTheDocument();
     expect(screen.getByText("ffff0000…7777")).toBeInTheDocument();
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
@@ -199,7 +199,7 @@ describe("FirmarDialogo", () => {
     expect(hoja.querySelector("[data-zona]")).toBeNull();
     // Sin calco: la hoja ES el documento. Las huellas van debajo.
     expect(screen.queryByRole("heading", { name: "Consentimiento informado" })).not.toBeInTheDocument();
-    expect(screen.getByText(/folio 3/)).toBeInTheDocument();
+    expect(screen.getByText(/Folio 3 · sello/)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Ver en pantalla completa" })[0]);
     expect(await screen.findByRole("dialog", { name: "Tratamiento de conducto: documento sellado" })).toBeInTheDocument();

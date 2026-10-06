@@ -187,9 +187,10 @@ func TestDocumentos_DescartarUnaHistoriaMiraTodosSusAnexos(t *testing.T) {
 	_, colegaID := e.colegaConPerfil(t, "doc-anexo-desc-colega@example.com")
 	hid := uuid.MustParse(historia.ID)
 	p, _ := documentos.Ultima(plantillaAnexoDePrueba)
+	numero := 1
 	anexoDelColega := db.DocumentoClinico{
 		ClinicID: e.clinicID, PacienteID: e.paciente.ID, AutorUserID: colegaID,
-		PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: p.Version, AnexoDe: &hid,
+		PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: p.Version, AnexoDe: &hid, AnexoNumero: &numero,
 	}
 	if err := e.gdb.Create(&anexoDelColega).Error; err != nil {
 		t.Fatal(err)
@@ -314,9 +315,10 @@ func TestDocumentos_LosVinculosNoCrecenConLosDocumentos(t *testing.T) {
 			if err := e.gdb.Create(&h).Error; err != nil {
 				t.Fatal(err)
 			}
+			numero := 1
 			a := db.DocumentoClinico{
 				ClinicID: e.clinicID, PacienteID: e.paciente.ID, AutorUserID: e.titularID,
-				PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: anexoV.Version, AnexoDe: &h.ID,
+				PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: anexoV.Version, AnexoDe: &h.ID, AnexoNumero: &numero,
 			}
 			if err := e.gdb.Create(&a).Error; err != nil {
 				t.Fatal(err)

@@ -127,9 +127,10 @@ func TestDocumentos_UnBorradorSeEditaYSeDescarta(t *testing.T) {
 func TestDocumentos_LaHistoriaDeUnAnexoNoCambia(t *testing.T) {
 	e := nuevoEscenarioDocumento(t)
 	historia, otra := e.documento(t), e.documento(t)
+	numero := 1
 	anexo := db.DocumentoClinico{
 		ClinicID: e.clinica.ID, PacienteID: e.paciente.ID, AutorUserID: e.autor.ID,
-		PlantillaID: "anexo-de-prueba", PlantillaVersion: 1, AnexoDe: &historia.ID,
+		PlantillaID: "anexo-de-prueba", PlantillaVersion: 1, AnexoDe: &historia.ID, AnexoNumero: &numero,
 	}
 	debeAndar(t, "crear un anexo", e.gdb.Create(&anexo).Error)
 	debeFallar(t, e.gdb, "cambiarle la historia a un anexo en borrador", func(tx *gorm.DB) error {

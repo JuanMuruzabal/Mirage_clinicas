@@ -85,10 +85,10 @@ describe("acciones de documentos", () => {
     }
   });
 
-  it("descartar vuelve al módulo; si falla, dice por qué", async () => {
+  it("descartar lleva a los documentos del paciente; si falla, dice por qué y no redirige", async () => {
     api.apiDescartarBorrador.mockResolvedValue({ ok: true, data: null });
-    await expect(descartarBorradorAction("doc-1")).rejects.toThrow("REDIRECT:/panel/documentos");
+    await expect(descartarBorradorAction("doc-1", "pac-1")).rejects.toThrow("REDIRECT:/panel/pacientes/pac-1/documentos");
     api.apiDescartarBorrador.mockResolvedValue({ ok: false, status: 409, error: "ya está sellado" });
-    await expect(descartarBorradorAction("doc-1")).resolves.toEqual({ error: "ya está sellado" });
+    await expect(descartarBorradorAction("doc-1", "pac-1")).resolves.toEqual({ error: "ya está sellado" });
   });
 });

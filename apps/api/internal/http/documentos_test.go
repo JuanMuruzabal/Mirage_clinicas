@@ -157,7 +157,19 @@ func (e escenarioDocs) firmar(t *testing.T, token, id string, cuerpo map[string]
 // necesitan uno sellado y no prueban el camino.
 func (e escenarioDocs) completarYSellar(t *testing.T, token string, pacienteID uuid.UUID) documentoDetalleResponse {
 	t.Helper()
-	d := e.crear(t, token, pacienteID)
+	return e.completarYSellarDe(t, token, plantillaHistoriaDePrueba, pacienteID)
+}
+
+// completarYSellarDe — lo mismo, con otra historia hecha desde el conducto.
+func (e escenarioDocs) completarYSellarDe(t *testing.T, token, plantillaID string, pacienteID uuid.UUID) documentoDetalleResponse {
+	t.Helper()
+	return e.sellarBorrador(t, token, e.crearDe(t, token, plantillaID, pacienteID))
+}
+
+// sellarBorrador — completa, termina y firma un borrador ya creado (uno
+// hecho desde el conducto).
+func (e escenarioDocs) sellarBorrador(t *testing.T, token string, d documentoDetalleResponse) documentoDetalleResponse {
+	t.Helper()
 	valores := d.Valores
 	valores["elementos"] = []string{"36"}
 	if _, tiene := valores["suscribe_fecha_nacimiento"]; !tiene {

@@ -199,14 +199,14 @@ func TestDocumentoPDF_QuienPuedeDescargarlo(t *testing.T) {
 func TestNombreDeArchivoDelPDF(t *testing.T) {
 	folio := 12
 	p := &documentos.Plantilla{Tipo: "historia_clinica", Nombre: "Odontología general — Niños/Ñandú"}
-	got := nombreDeArchivoDelPDF(db.DocumentoClinico{Folio: &folio}, p)
+	got := nombreDeArchivoDelPDF(db.DocumentoClinico{Folio: &folio}, p, documentos.FolioDe(db.DocumentoClinico{Folio: &folio}, nil))
 	if got != "historia-clinica-odontologia-general-ninos-nandu-folio-12.pdf" {
 		t.Fatalf("nombre = %q", got)
 	}
-	if got := nombreDeArchivoDelPDF(db.DocumentoClinico{PlantillaID: "sin-plantilla"}, nil); got != "sin-plantilla-sin-folio.pdf" {
+	if got := nombreDeArchivoDelPDF(db.DocumentoClinico{PlantillaID: "sin-plantilla"}, nil, documentos.Folio{}); got != "sin-plantilla-sin-folio.pdf" {
 		t.Fatalf("sin plantilla = %q", got)
 	}
-	if got := nombreDeArchivoDelPDF(db.DocumentoClinico{PlantillaID: "¿¿"}, nil); got != "documento-sin-folio.pdf" {
+	if got := nombreDeArchivoDelPDF(db.DocumentoClinico{PlantillaID: "¿¿"}, nil, documentos.Folio{}); got != "documento-sin-folio.pdf" {
 		t.Fatalf("sin nada ASCII = %q", got)
 	}
 }

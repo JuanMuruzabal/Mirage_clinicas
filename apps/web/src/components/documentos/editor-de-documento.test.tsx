@@ -291,7 +291,7 @@ describe("EditorDeDocumento", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Descartar borrador" }));
     fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
-    expect(acciones.descartarBorradorAction).toHaveBeenCalledWith("doc-1");
+    expect(acciones.descartarBorradorAction).toHaveBeenCalledWith("doc-1", "pac-1");
   });
 
   it("si la API no deja descartar (una historia con anexos, 5.6b), lo dice en el diálogo, que queda abierto", async () => {

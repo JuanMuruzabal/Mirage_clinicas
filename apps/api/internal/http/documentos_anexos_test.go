@@ -85,12 +85,12 @@ func TestDocumentos_UnColegaVeQueElAnexoTieneHistoriaSinVerla(t *testing.T) {
 	historia := e.crear(t, e.token, e.paciente.ID)
 	historiaID := uuid.MustParse(historia.ID)
 	contenido, huella, ahora := "{}", strings.Repeat("a", 64), time.Now()
-	folio, cadena := 1, int64(1)
+	numero, cadena := 1, int64(1)
 	anexo := db.DocumentoClinico{
 		ClinicID: e.clinicID, PacienteID: e.paciente.ID, AutorUserID: e.titularID,
-		PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: 1, AnexoDe: &historiaID,
+		PlantillaID: plantillaAnexoDePrueba, PlantillaVersion: 1, AnexoDe: &historiaID, AnexoNumero: &numero,
 		Estado: db.DocumentoSellado, ContenidoCanonico: &contenido, HashContenido: &huella, TerminadoEn: &ahora,
-		Folio: &folio, CadenaN: &cadena, HashSello: &huella, SelladoEn: &ahora,
+		CadenaN: &cadena, HashSello: &huella, SelladoEn: &ahora,
 	}
 	if err := e.gdb.Create(&anexo).Error; err != nil {
 		t.Fatal(err)

@@ -43,7 +43,7 @@ describe("AccionesDePDF", () => {
     expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
-  it("se tocan bien en el celular: una sola pastilla partida en dos, de 36 px por debajo de md", () => {
+  it("se tocan bien en el celular: una sola pastilla partida en dos, chica con el mouse y de 44 px con el dedo", () => {
     render(<AccionesDePDF id="doc-7" nombre="X" />);
     const [imprimir, descargar] = screen.getAllByRole("link");
     // Las dos mitades, juntas en la misma fila: la línea que las separa es
@@ -52,7 +52,7 @@ describe("AccionesDePDF", () => {
     expect(imprimir).toHaveClass("rounded-l-full");
     expect(descargar).toHaveClass("rounded-r-full", "border-l-0");
     for (const link of [imprimir, descargar]) {
-      expect(link).toHaveClass("min-h-9", "md:min-h-8", "whitespace-nowrap");
+      expect(link).toHaveClass("min-h-9", "pointer-coarse:min-h-11", "whitespace-nowrap");
     }
     // En el celular la descarga dice "PDF"; desde sm, "Descargar PDF".
     expect(within(descargar).getByText("PDF")).toHaveClass("sm:hidden");
@@ -93,7 +93,7 @@ describe("AccionesDePDF: el control segmentado", () => {
       const icono = mitad.querySelector("svg");
       expect(icono).not.toBeNull();
       expect(icono).toHaveAttribute("aria-hidden", "true");
-      expect(mitad).toHaveClass("border-linea", "inline-flex");
+      expect(mitad).toHaveClass("border-salvia-oscuro", "bg-marfil", "inline-flex");
     }
     expect(descargar).toHaveAttribute("download");
     // Cada una es media pastilla, no una entera.
