@@ -38,6 +38,7 @@ const vinculo = (extra: Partial<DocumentoVinculado> = {}): DocumentoVinculado =>
   nombre: "Historia clínica general",
   estado: "sellado",
   folio: 3,
+  folioMostrado: "3",
   fecha: "2026-09-27T14:05:00-03:00",
   ...extra,
 });
@@ -88,9 +89,11 @@ describe("la fecha con hora de las tablas", () => {
 describe("referenciaDeVinculo", () => {
   it("con folio, el folio; sin folio, el estado (y la firma que falta)", () => {
     expect(referenciaDeVinculo(vinculo())).toBe("folio 3");
-    expect(referenciaDeVinculo(vinculo({ folio: 0 }))).toBe("folio 0");
-    expect(referenciaDeVinculo(vinculo({ folio: undefined, estado: "borrador" }))).toBe("Borrador");
-    expect(referenciaDeVinculo(vinculo({ folio: undefined, estado: "a_firmar" }))).toBe("Completado, falta firmar");
+    expect(referenciaDeVinculo(vinculo({ folio: undefined, folioMostrado: "3.1" }))).toBe("folio 3.1");
+    expect(referenciaDeVinculo(vinculo({ folio: undefined, folioMostrado: undefined, estado: "borrador" }))).toBe("Borrador");
+    expect(referenciaDeVinculo(vinculo({ folio: undefined, folioMostrado: undefined, estado: "a_firmar" }))).toBe("Completado, falta firmar");
+    // Un anexo cuya historia todavía no tiene folio: su estado.
+    expect(referenciaDeVinculo(vinculo({ folio: undefined, folioMostrado: "Anexo Nº 1", estado: "sellado" }))).toBe("Completado");
   });
 });
 

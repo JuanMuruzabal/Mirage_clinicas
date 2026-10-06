@@ -269,7 +269,7 @@ func TestLamina_BorradorSelladoYDesborde(t *testing.T) {
 	if len(errs) != 2 || errs[0].Campo != "indicaciones" || errs[1].Campo != "medicacion" {
 		t.Fatalf("lo que no entra es un error por campo: %+v", errs)
 	}
-	if ValidarLamina(&Plantilla{}, nil, ctx) != nil || ArmarLamina(&Plantilla{}, nil, ctx, TextoSellado) != nil {
+	if ValidarLamina(&Plantilla{}, nil, ctx) != nil || len(ArmarLamina(&Plantilla{}, nil, ctx, TextoSellado)) != 0 {
 		t.Fatal("sin lámina no hay nada que componer")
 	}
 }

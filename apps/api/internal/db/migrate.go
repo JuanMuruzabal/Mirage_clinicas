@@ -239,6 +239,8 @@ func runMigrationsLocked(gdb *gorm.DB, pol PoliticaDestructiva) error {
 		// Fase 5.1: documentos clínicos (TR-182). Los triggers que los
 		// vuelven inmutables están en migrate_documentos.go.
 		&DocumentoClinico{}, &DocumentoFirma{}, &DocumentoEvento{},
+		// Fase 5.6d: los asientos de un anexo de continuación.
+		&DocumentoAsiento{},
 	); err != nil {
 		return fmt.Errorf("automigrate: %w", err)
 	}

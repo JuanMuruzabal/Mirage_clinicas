@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"dental-mirage/api/internal/db"
 	"dental-mirage/api/internal/documentos"
 )
@@ -27,6 +29,8 @@ func TestNombreDeArchivoDelPDF_Paridad(t *testing.T) {
 			Tipo            string `json:"tipo"`
 			PlantillaNombre string `json:"plantillaNombre"`
 			Folio           *int   `json:"folio"`
+			AnexoNumero     *int   `json:"anexoNumero"`
+			FolioHistoria   *int   `json:"folioHistoria"`
 			Esperado        string `json:"esperado"`
 		} `json:"casos"`
 	}
@@ -39,7 +43,12 @@ func TestNombreDeArchivoDelPDF_Paridad(t *testing.T) {
 	for _, c := range tabla.Casos {
 		t.Run(c.Caso, func(t *testing.T) {
 			p := &documentos.Plantilla{Tipo: c.Tipo, Nombre: c.PlantillaNombre}
-			got := nombreDeArchivoDelPDF(db.DocumentoClinico{PlantillaID: "no-se-usa", Folio: c.Folio}, p)
+			doc := db.DocumentoClinico{PlantillaID: "no-se-usa", Folio: c.Folio, AnexoNumero: c.AnexoNumero}
+			if c.AnexoNumero != nil {
+				historia := uuid.New()
+				doc.AnexoDe = &historia
+			}
+			got := nombreDeArchivoDelPDF(doc, p, documentos.FolioDe(doc, c.FolioHistoria))
 			if got != c.Esperado {
 				t.Fatalf("nombre = %q, esperado %q", got, c.Esperado)
 			}

@@ -34,7 +34,7 @@ describe("TablaPacientesConDocumentos", () => {
 
 describe("TablaDeDocumentos", () => {
   it("el registro: folio, documento con su tipo, autor (con la marca de colega), huella y estado", () => {
-    render(<TablaDeDocumentos documentos={[resumen(), resumen({ id: "doc-2", esMio: false, autorNombre: "Pedro Díaz", folio: 2 })]} vacio="nada" />);
+    render(<TablaDeDocumentos documentos={[resumen(), resumen({ id: "doc-2", esMio: false, autorNombre: "Pedro Díaz", folio: 2, folioMostrado: "2" })]} vacio="nada" />);
     expect(screen.getAllByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })[0]).toHaveAttribute(
       "href",
       "/panel/documentos/doc-1",
@@ -112,7 +112,7 @@ describe("TablaDeDocumentos anidada: los anexos de cada historia (5.6b)", () => 
           anexo({ id: "a-sin", anexoDe: null }),
           anexo({ id: "a-oculta", anexoDe: null, historiaNoVisible: true }),
           historia,
-          anexo({ id: "a-suyo", anexoDe: { id: "h1", nombre: "Historia clínica general", estado: "sellado", folio: 3, fecha: "2026-09-27T14:05:00-03:00" } }),
+          anexo({ id: "a-suyo", anexoDe: { id: "h1", nombre: "Historia clínica general", estado: "sellado", folio: 3, folioMostrado: "3", fecha: "2026-09-27T14:05:00-03:00" } }),
         ]}
         vacio="nada"
       />,

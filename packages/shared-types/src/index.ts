@@ -965,8 +965,33 @@ export interface PacienteDetalle extends Paciente {
 // @dental-mirage/documentos-clinicos, no acá.
 
 /** `para_imprimir`: un consentimiento terminado. Se firma a mano, en papel
- *  (TR-188): no espera firmas en el sistema ni se sella. */
-export type EstadoDocumento = "borrador" | "a_firmar" | "para_imprimir" | "sellado" | "anulado";
+ *  (TR-188): no espera firmas en el sistema ni se sella. `abierto`: un anexo
+ *  de continuación (Fase 5.6d), que nace congelado y suma asientos. */
+export type EstadoDocumento = "borrador" | "a_firmar" | "para_imprimir" | "sellado" | "anulado" | "abierto";
+
+/** La sección de una historia que sigue en un anexo de continuación ("Continúa
+ *  en anexo Nº"). Las mismas que SECCIONES_DE_CONTINUACION del paquete de
+ *  documentos clínicos. */
+export type SeccionDeContinuacion = "diagnostico" | "plan" | "observaciones" | "estudios";
+
+/** En un anexo de continuación, qué sección de su historia continúa y su
+ *  número. Espejo de continuacionResponse. */
+export interface ContinuacionDeDocumento {
+  seccion: SeccionDeContinuacion;
+  numero: number;
+}
+
+/** Un asiento ("anotación" en la pantalla) de un anexo de continuación:
+ *  fijo una vez guardado. No lleva firma dibujada: lo firma el registro
+ *  digital (quien lo escribió, su nombre, la fecha y la hora). Espejo de
+ *  asientoResponse. */
+export interface AsientoDeDocumento {
+  numero: number;
+  texto: string;
+  autorUserId: string;
+  autorNombre: string;
+  creadoEn: string;
+}
 
 /** Una firma dibujada: vectores con sus tiempos, no una imagen (TR-184).
  *  Cada punto es [x, y, milisegundos desde el primer toque]. */
@@ -1000,6 +1025,12 @@ export interface DocumentoResumen {
   /** Lo escribió quien mira. Uno ajeno se lee, no se toca. */
   esMio: boolean;
   folio?: number;
+  /** El folio como se muestra: "3"; en un anexo, el "x.y" de su historia
+   *  ("3.1") o, mientras la historia no tiene folio, "Anexo Nº 1". Sin folio,
+   *  no viene. Espejo de documentos.FolioDe. */
+  folioMostrado?: string;
+  /** En un anexo, su número dentro de su historia (el y de su "x.y"). */
+  anexoNumero?: number;
   creadoEn: string;
   actualizadoEn: string;
   terminadoEn?: string;
@@ -1019,6 +1050,11 @@ export interface DocumentoResumen {
   historiaNoVisible?: boolean;
   /** En una historia clínica, los anexos que quien mira ve. */
   anexos?: DocumentoVinculado[];
+  /** En un anexo de continuación, su sección y su número. */
+  continuacion?: ContinuacionDeDocumento;
+  /** En un anexo de continuación con asientos, cuándo se escribió el
+   *  último: es su fecha en las tablas. */
+  ultimoAsientoEn?: string;
 }
 
 /** El otro lado del vínculo entre un anexo y su historia: lo justo para
@@ -1028,10 +1064,15 @@ export interface DocumentoVinculado {
   /** El nombre de la plantilla ("Historia clínica general"). */
   nombre: string;
   folio?: number;
+  /** El folio como se muestra (ver DocumentoResumen.folioMostrado). */
+  folioMostrado?: string;
   estado: EstadoDocumento;
   /** Cuándo se completó (sellado o terminado) o, en un borrador, su última
    *  modificación: la misma fecha que las tablas. */
   fecha: string;
+  /** En un anexo de continuación, su sección y su número: en una historia,
+   *  dice qué secciones ya tienen el suyo. */
+  continuacion?: ContinuacionDeDocumento;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {
@@ -1050,6 +1091,8 @@ export interface DocumentoDetalle extends DocumentoResumen {
   motivoAnulacion?: string;
   firmas: FirmaDeDocumento[];
   firmasPendientes: string[];
+  /** En un anexo de continuación, sus asientos en orden. */
+  asientos?: AsientoDeDocumento[];
   /** Al crear: ya había un borrador mío de este documento para este
    *  paciente, y es este (no se abrió otro). */
   retomado?: boolean;

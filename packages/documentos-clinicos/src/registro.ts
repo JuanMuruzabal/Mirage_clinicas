@@ -5,6 +5,7 @@
 // el paciente), así que un cambio es una versión nueva. Los documentos
 // nuevos usan la última; los viejos se siguen leyendo con la suya.
 import { plantillaSchema, type Plantilla, type TipoDePlantilla } from "./esquema";
+import { anexoDeContinuacion } from "./plantillas/anexo-de-continuacion";
 import { historiaClinicaOdontopediatria } from "./plantillas/historia-clinica-odontopediatria";
 import { consentimientoBiopsia } from "./plantillas/consentimiento-biopsia";
 import { consentimientoDiscapacidad } from "./plantillas/consentimiento-discapacidad";
@@ -48,6 +49,8 @@ const DEFINICIONES: Plantilla[] = [
   historiaClinicaGeneral,
   historiaClinicaPcd,
   historiaClinicaOdontopediatria,
+  // Se crea desde su historia, no desde el selector (plantillasDelSelector).
+  anexoDeContinuacion,
   // Versiones anteriores: los documentos que las usaron se siguen leyendo
   // con la suya (TR-187). El selector ofrece la última.
   consentimientoTratamientoConductoV2,
@@ -82,6 +85,17 @@ export function plantillasVigentes(): Plantilla[] {
     if (ultima) vigentes.push(ultima);
   }
   return vigentes;
+}
+
+/** El anexo de continuación (Fase 5.6d): se crea desde su historia, con el
+ *  número generado solo, nunca desde el selector. Mismo id que
+ *  `PlantillaDeContinuacion` de internal/documentos (Go). */
+export const PLANTILLA_DE_CONTINUACION = anexoDeContinuacion.id;
+
+/** Lo que ofrece el selector de /panel/documentos: las vigentes, menos las
+ *  que nacen desde otro documento. */
+export function plantillasDelSelector(): Plantilla[] {
+  return plantillasVigentes().filter((p) => p.id !== PLANTILLA_DE_CONTINUACION);
 }
 
 /** Sin tildes ni mayúsculas: "extraccion" encuentra "Extracción". */

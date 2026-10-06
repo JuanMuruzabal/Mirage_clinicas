@@ -59,6 +59,7 @@ import type {
   DocumentoResumen,
   ErrorDeCampoDeDocumento,
   PacienteConDocumentos,
+  SeccionDeContinuacion,
   TrazoDeFirma,
 } from "@dental-mirage/shared-types";
 
@@ -2189,5 +2190,26 @@ export function apiFirmarDocumento(token: string, id: string, firma: FirmaPayloa
     method: "POST",
     headers: conSesion(token),
     body: JSON.stringify(firma),
+  });
+}
+
+/** El anexo de continuación de una sección de la historia `historiaId`
+ *  (Fase 5.6d): lo crea, o devuelve el que ya tiene. */
+export function apiCrearContinuacion(token: string, historiaId: string, seccion: SeccionDeContinuacion): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${encodeURIComponent(historiaId)}/continuaciones`, {
+    method: "POST",
+    headers: conSesion(token),
+    body: JSON.stringify({ seccion }),
+  });
+}
+
+/** Un asiento ("anotación") nuevo en un anexo de continuación, a nombre de
+ *  quien tiene la sesión y sin firma dibujada; devuelve el anexo con todos sus
+ *  asientos. */
+export function apiSumarAsiento(token: string, anexoId: string, texto: string): Promise<ApiResult<DocumentoDetalle>> {
+  return request<DocumentoDetalle>(`/documentos/${encodeURIComponent(anexoId)}/asientos`, {
+    method: "POST",
+    headers: conSesion(token),
+    body: JSON.stringify({ texto }),
   });
 }

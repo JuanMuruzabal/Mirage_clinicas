@@ -1,0 +1,27 @@
+{
+  "plantilla": "anexo-de-continuacion",
+  "version": 1,
+  "contexto": {
+    "fecha": "2026-09-27"
+  },
+  "valores": {
+    "asiento": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+  },
+  "cuerpo": [
+    {
+      "t": "titulo",
+      "texto": "Anexo de continuación"
+    },
+    {
+      "t": "campo",
+      "campo": "asiento",
+      "etiqueta": "Anotación",
+      "texto": "Primera línea del ejemplo.\nSegunda línea del ejemplo."
+    },
+    {
+      "t": "firmas"
+    }
+  ],
+  "lamina": [],
+  "figuras": []
+}

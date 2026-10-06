@@ -28,8 +28,9 @@ var archivosDelPanel = []string{
 	// cuesta nada. Es para mañana: el día que alguien les agregue una
 	// consulta directa, esta auditoría la tiene que ver.
 	"turnos_contadores.go", "pacientes_contadores.go",
-	// Documentos clínicos (Fase 5.1, TR-186), y su PDF (Fase 5.3).
-	"documentos.go", "documentos_pdf.go",
+	// Documentos clínicos (Fase 5.1, TR-186), su PDF (Fase 5.3) y los
+	// anexos de continuación (Fase 5.6d).
+	"documentos.go", "documentos_pdf.go", "documentos_continuacion.go",
 }
 
 // TestAislamiento_NingunaConsultaDelPanelSinAcotar — la regla de
@@ -181,6 +182,12 @@ func TestAislamiento_NingunaConsultaDelPanelSinAcotar(t *testing.T) {
 			// clínica, y no devuelven nada de nadie: solo un hash y un número.
 			`WHERE clinic_id = ? AND cadena_n IS NOT NULL ORDER BY cadena_n DESC LIMIT 1`,
 			`WHERE clinic_id = ? AND paciente_id = ? AND folio IS NOT NULL`,
+		},
+		"documentos_pdf.go": {
+			// El folio de la historia de un anexo que ya veo (el x de su
+			// "x.y", Fase 5.6d): solo un número, y el PDF tiene que ser el
+			// mismo para cualquiera que lo baje, vea o no la historia.
+			`"SELECT folio FROM documentos_clinicos WHERE id = ? AND clinic_id = ?", *d.AnexoDe, d.ClinicID`,
 		},
 	}
 

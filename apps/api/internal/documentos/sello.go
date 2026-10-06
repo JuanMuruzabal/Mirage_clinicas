@@ -78,6 +78,20 @@ type ContenidoCongelado struct {
 	// Figuras — los odontogramas compuestos sobre la página (Fase 5.5).
 	// Con omitempty, un documento sin odontograma conserva su huella.
 	Figuras []Figura `json:"figuras,omitempty"`
+	// Continuacion — en un anexo de continuación (Fase 5.6d), de qué historia
+	// es. Con omitempty, los demás documentos conservan su huella.
+	Continuacion *ContinuacionCongelada `json:"continuacion,omitempty"`
+}
+
+// ContinuacionCongelada — la historia que continúa un anexo, como era al
+// crearlo: su nombre, la sección y el número del anexo. Su PDF sale de esto y
+// no de la historia de hoy, que no todos los que ven el anexo pueden ver; lo
+// único que lee de ella es su folio actual, que es solo un número (FolioDe).
+type ContinuacionCongelada struct {
+	HistoriaID string `json:"historiaId"`
+	Historia   string `json:"historia"`
+	Seccion    string `json:"seccion"`
+	Numero     int    `json:"numero"`
 }
 
 // LimpiarValores — saca los campos vacíos: el contenido congelado guarda lo

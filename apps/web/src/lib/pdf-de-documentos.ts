@@ -1,5 +1,5 @@
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
-import { nombreConTipo } from "@/lib/documentos";
+import { esAnexoSinFolio, nombreConTipo } from "@/lib/documentos";
 
 // El PDF de un documento terminado (Fase 5.3), del lado del navegador: la
 // ruta del BFF que lo sirve, el nombre del archivo y cómo se guarda según
@@ -20,16 +20,24 @@ const SIN_ACENTOS: Record<string, string> = {
 
 /** "consentimiento-informado-tratamiento-de-conducto-folio-3.pdf": el
  *  calco de `nombreDeArchivoDelPDF` de la API —el documento con su tipo, en
- *  ASCII, sin datos del paciente—. Hace falta ANTES de pedir el PDF: el
- *  selector de "Guardar como" de la app instalada se abre dentro del clic,
- *  antes de que llegue la respuesta con su Content-Disposition. */
-export function nombreDeArchivoDelPDF(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folio">): string {
+ *  ASCII, sin datos del paciente; un anexo, con el "x.y" de su historia
+ *  ("…-folio-3.1.pdf") o, mientras la historia no tiene folio, con su número
+ *  ("…-anexo-1-sin-folio.pdf")—.
+ *  Hace falta ANTES de pedir el PDF: el selector de "Guardar como" de la app
+ *  instalada se abre dentro del clic, antes de que llegue la respuesta con su
+ *  Content-Disposition. */
+export function nombreDeArchivoDelPDF(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">): string {
   const sinAcentos = [...nombreConTipo(d)].map((c) => SIN_ACENTOS[c] ?? c).join("");
   const base = sinAcentos
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${base || "documento"}${d.folio == null ? "-sin-folio" : `-folio-${d.folio}`}.pdf`;
+  return `${base || "documento"}${sufijoDeFolio(d)}.pdf`;
+}
+
+function sufijoDeFolio(d: Pick<DocumentoResumen, "folioMostrado" | "anexoNumero">): string {
+  if (d.anexoNumero != null && (!d.folioMostrado || esAnexoSinFolio(d.folioMostrado))) return `-anexo-${d.anexoNumero}-sin-folio`;
+  return d.folioMostrado ? `-folio-${d.folioMostrado}` : "-sin-folio";
 }
 
 /** El nombre del archivo de un header Content-Disposition: `filename*=`

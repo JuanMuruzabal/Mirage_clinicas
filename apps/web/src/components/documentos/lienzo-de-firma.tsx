@@ -126,7 +126,7 @@ export function LienzoDeFirma({
           type="button"
           onClick={borrar}
           disabled={vacio}
-          className="rounded-full px-3 py-1.5 text-sm font-medium text-salvia-oscuro hover:bg-arena disabled:opacity-40"
+          className="min-h-11 rounded-full px-3 py-1.5 text-sm font-medium text-salvia-oscuro hover:bg-arena disabled:opacity-40"
         >
           Borrar y volver a firmar
         </button>

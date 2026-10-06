@@ -13,12 +13,12 @@ import (
 // documento que no existe, y el rechazo viene de esa FK.
 func TestFK_UnAnexoNoApuntaAUnDocumentoInexistente(t *testing.T) {
 	e := nuevoEscenarioDocumento(t)
-	inexistente := uuid.New()
+	inexistente, numero := uuid.New(), 1
 	sp := "sp_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	e.gdb.SavePoint(sp)
 	err := e.gdb.Create(&db.DocumentoClinico{
 		ClinicID: e.clinica.ID, PacienteID: e.paciente.ID, AutorUserID: e.autor.ID,
-		PlantillaID: "anexo-de-prueba", PlantillaVersion: 1, AnexoDe: &inexistente,
+		PlantillaID: "anexo-de-prueba", PlantillaVersion: 1, AnexoDe: &inexistente, AnexoNumero: &numero,
 	}).Error
 	e.gdb.RollbackTo(sp)
 	if err == nil {

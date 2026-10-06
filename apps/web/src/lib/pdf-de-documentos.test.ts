@@ -32,7 +32,16 @@ describe("nombreDeArchivoDelPDF: paridad con la API", () => {
   // JSON, así lo prueban los dos lados.
   const tabla = JSON.parse(
     readFileSync(resolve(__dirname, "../../../api/internal/http/testdata/nombres-de-archivo-del-pdf.json"), "utf8"),
-  ) as { casos: { caso: string; tipo: string; plantillaNombre: string; folio: number | null; esperado: string }[] };
+  ) as {
+    casos: { caso: string; tipo: string; plantillaNombre: string; folio: number | null; anexoNumero?: number; folioHistoria?: number | null; esperado: string }[];
+  };
+
+  // El folioMostrado que manda la API (documentos.FolioDe): un anexo con su
+  // número lleva el "x.y" de su historia o, sin él, "Anexo Nº y".
+  const folioMostrado = (c: (typeof tabla.casos)[number]): string | undefined => {
+    if (c.anexoNumero != null) return c.folioHistoria != null ? `${c.folioHistoria}.${c.anexoNumero}` : `Anexo Nº ${c.anexoNumero}`;
+    return c.folio != null ? String(c.folio) : undefined;
+  };
 
   it("la tabla tiene los casos que se piden cubrir", () => {
     const casos = tabla.casos.map((c) => c.caso);
@@ -42,17 +51,19 @@ describe("nombreDeArchivoDelPDF: paridad con la API", () => {
   });
 
   it.each(tabla.casos.map((c) => [c.caso, c] as const))("%s", (_caso, c) => {
-    const doc = { tipo: c.tipo, plantillaNombre: c.plantillaNombre, folio: c.folio ?? undefined } as Pick<
-      DocumentoResumen,
-      "tipo" | "plantillaNombre" | "folio"
-    >;
+    const doc = {
+      tipo: c.tipo,
+      plantillaNombre: c.plantillaNombre,
+      folioMostrado: folioMostrado(c),
+      anexoNumero: c.anexoNumero,
+    } as Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">;
     expect(nombreDeArchivoDelPDF(doc)).toBe(c.esperado);
   });
 
   it("un folio null también es 'sin folio' (nunca 'folio-null')", () => {
-    const doc = { tipo: "consentimiento", plantillaNombre: "Conducto", folio: null } as unknown as Pick<
+    const doc = { tipo: "consentimiento", plantillaNombre: "Conducto", folioMostrado: null, anexoNumero: null } as unknown as Pick<
       DocumentoResumen,
-      "tipo" | "plantillaNombre" | "folio"
+      "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero"
     >;
     expect(nombreDeArchivoDelPDF(doc)).toBe("consentimiento-informado-conducto-sin-folio.pdf");
   });

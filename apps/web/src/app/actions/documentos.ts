@@ -2,13 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { DocumentoDetalle, DocumentoResumen, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
+import type {
+  DocumentoDetalle,
+  DocumentoResumen,
+  ErrorDeCampoDeDocumento,
+  SeccionDeContinuacion,
+} from "@dental-mirage/shared-types";
 import {
+  apiCrearContinuacion,
   apiCrearDocumento,
   apiDescartarBorrador,
   apiFirmarDocumento,
+  apiGetDocumento,
   apiGuardarBorrador,
   apiHistoriasDelPaciente,
+  apiSumarAsiento,
   apiTerminarDocumento,
   apiRegistrarImpresionDocumento,
   type FirmaPayload,
@@ -105,10 +113,41 @@ export async function firmarDocumentoAction(id: string, firma: FirmaPayload): Pr
   return { ok: true, documento: res.data };
 }
 
-/** Descarta un borrador y vuelve al módulo. */
-export async function descartarBorradorAction(id: string): Promise<{ error: string }> {
+/** El anexo de continuación de una sección de una historia (Fase 5.6d): lo
+ *  crea, o devuelve el que ya tiene. Revalida también la historia, cuyo
+ *  encabezado lista sus anexos. */
+export async function crearContinuacionAction(historiaId: string, seccion: SeccionDeContinuacion): Promise<ResultadoDeDocumento> {
+  const res = await apiCrearContinuacion(await token(), historiaId, seccion);
+  if (!res.ok) return { ok: false, error: res.error };
+  revalidarDocumento(res.data);
+  revalidatePath(`/panel/documentos/${historiaId}`);
+  return { ok: true, documento: res.data };
+}
+
+/** Un documento, para abrirlo sin salir de la pantalla (el anexo de
+ *  continuación en su diálogo, desde la historia). */
+export async function leerDocumentoAction(id: string): Promise<ResultadoDeDocumento> {
+  const res = await apiGetDocumento(await token(), id);
+  return res.ok ? { ok: true, documento: res.data } : { ok: false, error: res.error };
+}
+
+/** Un asiento ("anotación") nuevo en un anexo de continuación; devuelve el
+ *  anexo con todos sus asientos. */
+export async function sumarAsientoAction(anexoId: string, texto: string): Promise<ResultadoDeDocumento> {
+  const res = await apiSumarAsiento(await token(), anexoId, texto);
+  if (!res.ok) return { ok: false, error: res.error };
+  revalidarDocumento(res.data);
+  return { ok: true, documento: res.data };
+}
+
+/** Descarta un borrador y lleva a los documentos de su paciente, donde
+ *  están los otros (2026-10-06). Si falla (un 409: la historia tiene
+ *  anexos), no redirige y devuelve el error. */
+export async function descartarBorradorAction(id: string, pacienteId: string): Promise<{ error: string }> {
   const res = await apiDescartarBorrador(await token(), id);
   if (!res.ok) return { error: res.error };
+  const documentosDelPaciente = `/panel/pacientes/${encodeURIComponent(pacienteId)}/documentos`;
   revalidatePath("/panel/documentos");
-  redirect("/panel/documentos");
+  revalidatePath(documentosDelPaciente);
+  redirect(documentosDelPaciente);
 }

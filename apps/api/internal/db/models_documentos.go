@@ -22,6 +22,11 @@ import (
 //
 //	borrador ──terminar──▶ para_imprimir
 //
+// Un anexo de continuación (Fase 5.6d) no pasa por borrador: nace "abierto"
+// desde su historia, con su contenido congelado y su folio, y queda así para
+// siempre. Lo que crece son sus asientos (DocumentoAsiento), cada uno fijo
+// una vez guardado.
+//
 // Terminado, un documento NO vuelve a borrador (TR-188, pedido del cliente
 // del 2026-09-29): si hay que cambiar algo, se hace otro. Por eso la
 // pantalla pide confirmar antes de terminar.
@@ -39,6 +44,10 @@ const (
 	// listo para imprimir: las firmas se ponen a mano sobre el papel, que es
 	// el documento legal (TR-188).
 	DocumentoParaImprimir = "para_imprimir"
+	// DocumentoAbierto — un anexo de continuación (Fase 5.6d): congelado y
+	// foliado desde que nace, y abierto a sumar asientos. No cambia nunca,
+	// como uno sellado.
+	DocumentoAbierto = "abierto"
 )
 
 type DocumentoClinico struct {
@@ -59,7 +68,15 @@ type DocumentoClinico struct {
 	// al crear (una FK simple no puede expresarlo). FK fk_documento_anexo_de
 	// (migrate_fk.go), RESTRICT: una historia con anexos no se descarta.
 	AnexoDe *uuid.UUID `gorm:"column:anexo_de;type:uuid;index:idx_documento_anexo_de,where:anexo_de IS NOT NULL"`
-	Estado  string     `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','para_imprimir','sellado','anulado')"`
+	// AnexoSeccion — en un anexo de continuación (Fase 5.6d), qué sección de
+	// su historia continúa (una por sección: índice único de
+	// migrate_documentos.go). AnexoNumero — en todo anexo con historia, de
+	// continuación o suelto, su número en ella: una sola secuencia por
+	// historia, el y de su folio "x.y" (documentos.FolioDe) y el "Continúa en
+	// anexo Nº" del papel. Los dos son fijos como el resto de la identidad.
+	AnexoSeccion *string `gorm:"column:anexo_seccion;type:varchar(20);check:chk_documento_anexo_seccion,anexo_seccion IN ('diagnostico','plan','observaciones','estudios')"`
+	AnexoNumero  *int    `gorm:"column:anexo_numero"`
+	Estado       string  `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','para_imprimir','sellado','anulado','abierto')"`
 	// Valores — lo que cargó el profesional, campo por campo. En un
 	// borrador es lo único que hay; desde "a_firmar" el documento de
 	// verdad es ContenidoCanonico, y esto queda como está.
@@ -83,7 +100,9 @@ type DocumentoClinico struct {
 	HashContenido *string    `gorm:"column:hash_contenido;type:bpchar(64)"`
 	TerminadoEn   *time.Time `gorm:"column:terminado_en"`
 	// Folio — correlativo por paciente dentro de la clínica (Ley 26.529,
-	// art. 12: "foliada"). Se asigna al sellar.
+	// art. 12: "foliada"). Se asigna al sellar (un consentimiento, al
+	// terminarse). Un anexo no lo consume: queda NULL y su folio es el "x.y"
+	// de su historia (chk_documento_anexo, documentos.FolioDe).
 	Folio *int `gorm:"column:folio"`
 	// CadenaN / HashAnterior / HashSello — la cadena de sellos de la
 	// clínica (TR-182): cada sello incluye el del documento anterior, así
@@ -187,6 +206,11 @@ const (
 	EventoDocumentoAnulado     = "anulado"
 	EventoDocumentoDescartado  = "descartado"
 	EventoDocumentoFichaActual = "ficha_completada"
+	// EventoDocumentoAbierto — se creó un anexo de continuación (nace
+	// congelado, sin pasar por borrador); EventoDocumentoAsiento — se le sumó
+	// un asiento. Los dos guardan desde qué IP (Fase 5.6d).
+	EventoDocumentoAbierto = "abierto"
+	EventoDocumentoAsiento = "asiento"
 )
 
 // DocumentoEvento — la auditoría: quién hizo qué con un documento, y
@@ -211,3 +235,33 @@ type DocumentoEvento struct {
 }
 
 func (DocumentoEvento) TableName() string { return "documento_eventos" }
+
+// DocumentoAsiento — un asiento de un anexo de continuación (Fase 5.6d): un
+// texto con su fecha, su hora y su profesional, como un renglón de la hoja
+// de evolución del papel. No lleva firma dibujada (pedido de la persona,
+// 2026-10-06): lo firma el registro digital —la sesión de quien lo escribe,
+// su nombre, el instante y el evento `asiento` con la IP—. SOLO INSERT: el trigger de
+// migrate_documentos.go rechaza el UPDATE, el DELETE y el TRUNCATE, y el
+// INSERT si el documento no es un anexo de continuación abierto o si el
+// asiento no sigue al anterior.
+//
+// Los asientos forman una cadena: cada uno guarda la huella del anterior
+// (el primero, la del contenido congelado del anexo), así que alterar uno
+// rompe a todos los que vienen después (documentos.VerificarAsientos).
+type DocumentoAsiento struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	DocumentoID uuid.UUID `gorm:"column:documento_id;type:uuid;not null;uniqueIndex:idx_documento_asiento_numero,priority:1"`
+	Numero      int       `gorm:"not null;uniqueIndex:idx_documento_asiento_numero,priority:2;check:chk_documento_asiento_numero,numero >= 1"`
+	Texto       string    `gorm:"type:text;not null;check:chk_documento_asiento_texto,char_length(texto) BETWEEN 1 AND 4000"`
+	AutorUserID uuid.UUID `gorm:"column:autor_user_id;type:uuid;not null"`
+	// AutorNombre — una foto del nombre al escribirlo: el perfil puede
+	// cambiar, el asiento no.
+	AutorNombre string `gorm:"column:autor_nombre;type:varchar(200);not null"`
+	// CreadoEn — con la precisión que guarda Postgres (documentos.MomentoDeFirma):
+	// la huella se recalcula desde lo guardado.
+	CreadoEn     time.Time `gorm:"column:creado_en;not null"`
+	HashAnterior string    `gorm:"column:hash_anterior;type:bpchar(64);not null"`
+	Hash         string    `gorm:"column:hash;type:bpchar(64);not null"`
+}
+
+func (DocumentoAsiento) TableName() string { return "documento_asientos" }

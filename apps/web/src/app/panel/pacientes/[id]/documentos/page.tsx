@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { notFound } from "next/navigation";
 import { apiDocumentosDePaciente, apiGetPaciente } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -12,6 +13,8 @@ export const metadata: Metadata = { title: "Documentos del paciente — PRISMA" 
 // de documentos de un paciente: los terminados (de cualquier colega que lo
 // atienda, con su autor) y lo mío en curso, del folio más nuevo al más
 // viejo, con filtros (pedido del cliente, 2026-09-29).
+const MIGA = `inline-flex items-center rounded-sm text-salvia-oscuro underline-offset-2 hover:text-grafito hover:underline ${CLASE_TACTIL}`;
+
 export default async function DocumentosDelPacientePage({ params }: PageProps<"/panel/pacientes/[id]/documentos">) {
   await requireProfesional();
   const { id } = await params;
@@ -22,10 +25,25 @@ export default async function DocumentosDelPacientePage({ params }: PageProps<"/
 
   return (
     <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      <div className="flex flex-col gap-2">
-        <Link href={`/panel/pacientes/${p.id}`} className="self-start text-sm font-medium text-salvia-oscuro hover:text-grafito">
-          ← {p.nombre} {p.apellido}
-        </Link>
+      <div className="flex flex-col gap-3">
+        {/* La misma miga que la página de un documento (2026-10-06). */}
+        <nav aria-label="Ubicación">
+          <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-medium text-grafito/80">
+            <li>
+              <Link href="/panel/pacientes" className={MIGA}>
+                Pacientes
+              </Link>
+            </li>
+            <li aria-hidden="true" className="text-grafito/75">
+              ›
+            </li>
+            <li>
+              <Link href={`/panel/pacientes/${p.id}`} className={MIGA}>
+                {p.nombre} {p.apellido}
+              </Link>
+            </li>
+          </ol>
+        </nav>
         {/* El botón en la misma fila que el título, no arriba con el link de
             volver (pedido del cliente, 2026-09-29). */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -34,13 +52,13 @@ export default async function DocumentosDelPacientePage({ params }: PageProps<"/
           </h1>
           <Link
             href={`/panel/documentos?paciente=${p.id}`}
-            className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+            className="inline-flex min-h-11 items-center rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95"
           >
             + Nuevo documento
           </Link>
         </div>
-        <p className="text-sm text-grafito/80">
-          {p.nombre} {p.apellido} · DNI {p.dni}
+        <p className="text-[15px] text-grafito/80">
+          Paciente: <span className="font-semibold text-grafito">{p.nombre} {p.apellido}</span> · DNI {p.dni}
         </p>
       </div>
 

@@ -7,7 +7,7 @@ import { IconSearch } from "@/components/icons";
 import { FiltrosAplicados, type FiltroAplicado } from "@/components/panel/filtros-aplicados";
 import { FiltrosSheet } from "@/components/panel/filtros-sheet";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
-import { diaEnCordoba, fechaDelDocumento, nombreConTipo } from "@/lib/documentos";
+import { diaEnCordoba, fechaDelDocumento, nombreConTipo, nombreDelDocumento } from "@/lib/documentos";
 import { etiquetaDeRango, RANGOS_RAPIDOS } from "@/lib/turnos-filtros";
 import { TablaDeDocumentos } from "./tablas-de-documentos";
 
@@ -57,7 +57,7 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
     const palabras = normalizar(busqueda).split(/\s+/).filter(Boolean);
     if (palabras.length === 0) return documentos;
     return documentos.filter((d) => {
-      const texto = normalizar(`${nombreConTipo(d)} ${d.autorNombre} ${d.folio ?? ""} ${d.hashContenido ?? ""}`);
+      const texto = normalizar(`${nombreDelDocumento(d)} ${d.autorNombre} ${d.folioMostrado ?? ""} ${d.hashContenido ?? ""}`);
       return palabras.every((p) => texto.includes(p));
     });
   }, [documentos, busqueda]);

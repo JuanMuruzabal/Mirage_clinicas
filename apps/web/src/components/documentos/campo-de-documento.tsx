@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import {
   PIEZAS_PERMANENTES,
   PIEZAS_TEMPORARIAS,
@@ -159,6 +159,8 @@ export function CampoDeDocumento({
   proporcion = 2,
   emergenteAbierta,
   onEmergenteAbierta,
+  soloLectura = false,
+  accesorio,
 }: {
   campo: Campo;
   valor: unknown;
@@ -171,12 +173,17 @@ export function CampoDeDocumento({
    *  el editor. */
   emergenteAbierta?: boolean;
   onEmergenteAbierta?: (abierto: boolean) => void;
+  /** El "Continúa en anexo Nº" de una sección que ya tiene su anexo de
+   *  continuación (Fase 5.6d): el número lo puso el anexo y no se cambia. */
+  soloLectura?: boolean;
+  /** Lo que va debajo del control: el anexo de continuación de la sección. */
+  accesorio?: ReactNode;
 }) {
   const id = idDelCampo(campo.id);
   const idAyuda = useId();
   const describedBy = [campo.ayuda ? idAyuda : null, error ? `${id}-error` : null].filter(Boolean).join(" ") || undefined;
   const texto = typeof valor === "string" ? valor : "";
-  const deshabilitado = campo.bloqueado === true;
+  const deshabilitado = campo.bloqueado === true || soloLectura;
   const comunes = {
     id,
     "aria-invalid": error ? true : undefined,
@@ -335,7 +342,8 @@ export function CampoDeDocumento({
       >
         {campo.etiqueta}
         {campo.requerido && <span className="ml-1 text-xs font-normal text-grafito/70">· Obligatorio</span>}
-        {deshabilitado && <span className="ml-1 text-xs font-normal text-grafito/70">· Sale de tu perfil</span>}
+        {campo.bloqueado && <span className="ml-1 text-xs font-normal text-grafito/70">· Sale de tu perfil</span>}
+        {soloLectura && <span className="ml-1 text-xs font-normal text-grafito/70">· Lo numera el anexo</span>}
       </Etiqueta>
       {campo.ayuda && (
         <p id={idAyuda} className="text-xs text-grafito/75">
@@ -343,6 +351,7 @@ export function CampoDeDocumento({
         </p>
       )}
       {control}
+      {accesorio}
       {error && (
         <p id={`${id}-error`} role="alert" className="text-xs text-terracota-oscuro">
           {error}
