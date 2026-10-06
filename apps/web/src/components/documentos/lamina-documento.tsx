@@ -50,8 +50,8 @@ interface Editable {
   campoActivo: string | null;
   errores: Record<string, string>;
   onElegir: (campoId: string) => void;
-  /** Lo cargado: dice si un odontograma está vacío (sus figuras no
-   *  dicen de qué campo son). */
+  /** Lo cargado: dice si un odontograma o un dibujo está vacío (sus
+   *  figuras no dicen de qué campo son). */
   valores?: Valores;
 }
 
@@ -62,8 +62,9 @@ const GUIONES_DE_REMOVIBLE = "3 2";
 
 const puntosSvg = (puntos: [number, number][]) => puntos.map((p) => p.join(",")).join(" ");
 
-/** Una figura del odontograma, en puntos del papel, tal cual llega: la
- *  composición es del paquete (armarFiguras) o la congelada de la API. */
+/** Una figura del odontograma o de un dibujo, en puntos del papel, tal cual
+ *  llega: la composición es del paquete (armarFiguras) o la congelada de la
+ *  API. */
 function FiguraSvg({ figura: f }: { figura: Figura }) {
   switch (f.tipo) {
     case "poligono":
@@ -90,6 +91,17 @@ function FiguraSvg({ figura: f }: { figura: Figura }) {
         <text x={f.x} y={f.y} fontSize={f.tamano} fill={COLORES_DE_FIGURA[f.color]} style={{ whiteSpace: "pre" }}>
           {f.texto}
         </text>
+      );
+    case "trazo":
+      return (
+        <path
+          d={caminoDelTrazo(f.puntos)}
+          fill="none"
+          stroke={COLORES_DE_FIGURA[f.color]}
+          strokeWidth={f.grosor}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       );
   }
 }
@@ -417,6 +429,27 @@ export function LaminaDocumento({
                     );
                   }
                   return botones;
+                })}
+            {editable &&
+              (lamina.dibujos ?? [])
+                .filter((d) => d.pagina === numero)
+                .map((d) => {
+                  const campo = campoPorId(plantilla, d.campo);
+                  return (
+                    <BotonDeZona
+                      key={d.campo}
+                      datos={{ "data-dibujo": d.campo }}
+                      nombre={campo?.etiqueta ?? d.campo}
+                      caja={enLaHoja(d, encuadre)}
+                      medidas={medidas}
+                      estado={{
+                        conError: Boolean(editable.errores[d.campo]),
+                        activo: editable.campoActivo === d.campo,
+                        vacia: campo && editable.valores ? estaVacio(campo, editable.valores[d.campo]) : false,
+                      }}
+                      onElegir={() => editable.onElegir(d.campo)}
+                    />
+                  );
                 })}
           </figure>
         );

@@ -52,7 +52,14 @@ type DocumentoClinico struct {
 	AutorUserID      uuid.UUID `gorm:"column:autor_user_id;type:uuid;not null;index:idx_documento_del_autor,priority:1"`
 	PlantillaID      string    `gorm:"column:plantilla_id;type:varchar(80);not null"`
 	PlantillaVersion int       `gorm:"column:plantilla_version;not null"`
-	Estado           string    `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','para_imprimir','sellado','anulado')"`
+	// AnexoDe — en un anexo, la historia clínica a la que pertenece (5.6b,
+	// ronda A). Se elige al crearlo y no cambia nunca, ni en un borrador: el
+	// trigger de migrate_documentos.go lo trata como parte de la identidad.
+	// Que sea del mismo paciente y de la misma clínica lo garantiza la API
+	// al crear (una FK simple no puede expresarlo). FK fk_documento_anexo_de
+	// (migrate_fk.go), RESTRICT: una historia con anexos no se descarta.
+	AnexoDe *uuid.UUID `gorm:"column:anexo_de;type:uuid;index:idx_documento_anexo_de,where:anexo_de IS NOT NULL"`
+	Estado  string     `gorm:"type:varchar(20);not null;default:'borrador';index:idx_documento_del_autor,priority:2;check:chk_documento_estado,estado IN ('borrador','a_firmar','para_imprimir','sellado','anulado')"`
 	// Valores — lo que cargó el profesional, campo por campo. En un
 	// borrador es lo único que hay; desde "a_firmar" el documento de
 	// verdad es ContenidoCanonico, y esto queda como está.

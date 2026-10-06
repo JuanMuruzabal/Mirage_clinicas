@@ -19,6 +19,7 @@ import {
   type ValorOdontograma,
   type Valores,
 } from "../src/index";
+import { dibujoDeEjemplo } from "../src/ejemplo";
 
 const LARGO =
   "Enjuagues con clorhexidina al 0,12 % dos veces por día durante siete días, después del cepillado. Evitar alimentos duros o muy calientes del lado tratado y volver a la consulta ante cualquier molestia.";
@@ -46,14 +47,16 @@ function lleno(c: Campo): Valor {
     case "piezas":
       return ["11", "21", "36", "46"];
     case "odontograma":
-      return odontogramaLleno(c.leyenda);
+      return odontogramaLleno(c.leyenda, c.existentes === true);
+    case "dibujo":
+      return dibujoDeEjemplo();
   }
 }
 
 // Las cinco caras en los dos colores, cada marca de la leyenda, una prótesis
 // de cada tipo y la cantidad de dientes: todo lo que dibuja el odontograma,
 // en las cuatro filas (Fase 5.5).
-function odontogramaLleno(leyenda: "general" | "pediatrica"): ValorOdontograma {
+function odontogramaLleno(leyenda: "general" | "pediatrica", existentes: boolean): ValorOdontograma {
   const marcas: MarcaDePieza[] =
     leyenda === "general"
       ? ["x", "corona"]
@@ -73,14 +76,14 @@ function odontogramaLleno(leyenda: "general" | "pediatrica"): ValorOdontograma {
       marcas: { [marcas[i % marcas.length]]: i % 2 ? "azul" : "rojo" },
     };
   });
-  if (leyenda === "pediatrica") return { piezas, existentes: 20 };
+  if (leyenda === "pediatrica") return existentes ? { piezas, existentes: 20 } : { piezas };
   return {
     piezas,
     protesis: [
       { tipo: "fija", desde: "13", hasta: "11", color: "rojo" },
       { tipo: "removible", desde: "34", hasta: "37", color: "azul" },
     ],
-    existentes: 26,
+    ...(existentes ? { existentes: 26 } : {}),
   };
 }
 

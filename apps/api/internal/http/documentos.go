@@ -48,6 +48,7 @@ func registrarDocumentosRoutes(r chi.Router, gdb *gorm.DB) {
 		r.Use(requireRol(db.RoleProfesional))
 		r.Get("/documentos/pacientes", pacientesConDocumentosHandler(gdb))
 		r.Get("/documentos/en-curso", documentosEnCursoHandler(gdb))
+		r.Get("/documentos/historias", historiasDelPacienteHandler(gdb))
 		r.Post("/documentos", crearDocumentoHandler(gdb))
 		r.Get("/documentos/{id}", getDocumentoHandler(gdb))
 		r.Patch("/documentos/{id}", guardarBorradorHandler(gdb))
@@ -94,6 +95,27 @@ type documentoResumenResponse struct {
 	// y con la composición de la lámina congelada. Uno sellado en la 5.1,
 	// antes de que existiera, no la trae: se ve en pantalla, sin PDF.
 	TienePDF bool `json:"tienePDF"`
+	// AnexoDe — en un anexo, su historia clínica (5.6b); null si no es un
+	// anexo o si quien pregunta no la ve.
+	AnexoDe *documentoVinculadoResponse `json:"anexoDe"`
+	// HistoriaNoVisible — un anexo cuya historia existe pero quien pregunta
+	// no ve (un colega todavía no la terminó): se dice que la tiene, sin
+	// nada de ella. Sin esto se leería como un anexo sin historia, y es falso.
+	HistoriaNoVisible bool `json:"historiaNoVisible,omitempty"`
+	// Anexos — en una historia clínica, los anexos que quien pregunta ve.
+	Anexos []documentoVinculadoResponse `json:"anexos,omitempty"`
+}
+
+// documentoVinculadoResponse — el otro lado del vínculo entre un anexo y
+// su historia: lo justo para nombrarlo y abrirlo.
+type documentoVinculadoResponse struct {
+	ID     string `json:"id"`
+	Nombre string `json:"nombre"`
+	Folio  *int   `json:"folio,omitempty"`
+	Estado string `json:"estado"`
+	// Fecha — la misma que las tablas (instanteDelDocumento): sin folio, es
+	// lo que distingue a dos anexos del mismo modelo.
+	Fecha string `json:"fecha"`
 }
 
 type firmaResponse struct {
@@ -143,8 +165,110 @@ func fechaHoraPtr(t *time.Time) *string {
 	return &s
 }
 
+// tipoDeDocumento — el tipo de la plantilla de un documento ("" si la
+// plantilla ya no existe).
+func tipoDeDocumento(d db.DocumentoClinico) string {
+	if p, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion); ok {
+		return p.Tipo
+	}
+	return ""
+}
+
+// instanteDelDocumento — cuándo se completó (sellado o terminado) y, en un
+// borrador, su última modificación. Mismo criterio que fechaDelDocumento de
+// apps/web/src/lib/documentos.ts.
+func instanteDelDocumento(d db.DocumentoClinico) time.Time {
+	if d.SelladoEn != nil {
+		return *d.SelladoEn
+	}
+	if d.TerminadoEn != nil {
+		return *d.TerminadoEn
+	}
+	return d.UpdatedAt
+}
+
+func vinculado(d db.DocumentoClinico) documentoVinculadoResponse {
+	nombre := d.PlantillaID
+	if p, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion); ok {
+		nombre = p.Nombre
+	}
+	return documentoVinculadoResponse{
+		ID: d.ID.String(), Nombre: nombre, Folio: d.Folio, Estado: d.Estado,
+		Fecha: clock.In(instanteDelDocumento(d)).Format(time.RFC3339),
+	}
+}
+
+// vinculosDeAnexos — los dos lados del vínculo anexo ↔ historia (5.6b) para
+// toda una lista, en dos consultas fijas como máximo (TR-177): las historias
+// de los anexos que no vinieron en la lista, y los anexos de las historias.
+// Las dos con documentosQueVeo: el borrador de un colega no aparece de
+// ningún lado. Lo que ya vino en la lista se reusa sin consultar: todos los
+// que llaman la armaron con un scope que es parte de documentosQueVeo.
+type vinculosDeAnexos struct {
+	visibles map[uuid.UUID]db.DocumentoClinico
+	anexos   map[uuid.UUID][]documentoVinculadoResponse
+}
+
+func cargarVinculosDeAnexos(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico) (vinculosDeAnexos, error) {
+	v := vinculosDeAnexos{visibles: make(map[uuid.UUID]db.DocumentoClinico, len(docs)), anexos: map[uuid.UUID][]documentoVinculadoResponse{}}
+	for _, d := range docs {
+		v.visibles[d.ID] = d
+	}
+	var faltan, historias []uuid.UUID
+	for _, d := range docs {
+		if d.AnexoDe != nil {
+			if _, ok := v.visibles[*d.AnexoDe]; !ok {
+				faltan = append(faltan, *d.AnexoDe)
+			}
+		}
+		if tipoDeDocumento(d) == documentos.TipoHistoriaClinica {
+			historias = append(historias, d.ID)
+		}
+	}
+	clinicID, _ := r.Context().Value(clinicIDContextKey).(uuid.UUID)
+	columnas := "documentos_clinicos.id, documentos_clinicos.plantilla_id, documentos_clinicos.plantilla_version, documentos_clinicos.estado, documentos_clinicos.folio, documentos_clinicos.anexo_de, " +
+		"documentos_clinicos.sellado_en, documentos_clinicos.terminado_en, documentos_clinicos.updated_at"
+	if len(faltan) > 0 {
+		var filas []db.DocumentoClinico
+		if err := tx.Scopes(documentosQueVeo(r, clinicID)).Select(columnas).
+			Where("documentos_clinicos.clinic_id = ? AND documentos_clinicos.id IN ?", clinicID, faltan).
+			Find(&filas).Error; err != nil {
+			return v, err
+		}
+		for _, h := range filas {
+			v.visibles[h.ID] = h
+		}
+	}
+	if len(historias) > 0 {
+		var filas []db.DocumentoClinico
+		if err := tx.Scopes(documentosQueVeo(r, clinicID)).Select(columnas).
+			Where("documentos_clinicos.clinic_id = ? AND documentos_clinicos.anexo_de IN ?", clinicID, historias).
+			Order("documentos_clinicos.created_at").Find(&filas).Error; err != nil {
+			return v, err
+		}
+		for _, a := range filas {
+			v.anexos[*a.AnexoDe] = append(v.anexos[*a.AnexoDe], vinculado(a))
+		}
+	}
+	return v, nil
+}
+
+// completar — el vínculo de un documento de la lista.
+func (v vinculosDeAnexos) completar(out *documentoResumenResponse, d db.DocumentoClinico) {
+	if d.AnexoDe != nil {
+		h, ok := v.visibles[*d.AnexoDe]
+		if ok {
+			vinculo := vinculado(h)
+			out.AnexoDe = &vinculo
+		}
+		out.HistoriaNoVisible = !ok
+	}
+	out.Anexos = v.anexos[d.ID]
+}
+
 // completarResumenes — los nombres de pacientes y autores, en dos
-// consultas para toda la lista (nunca una por fila).
+// consultas para toda la lista (nunca una por fila), y el vínculo entre
+// anexos e historias (vinculosDeAnexos).
 func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico) ([]documentoResumenResponse, error) {
 	pacienteIDs := make([]uuid.UUID, 0, len(docs))
 	autorIDs := make([]uuid.UUID, 0, len(docs))
@@ -172,6 +296,10 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 			autores[p.UserID] = strings.TrimSpace(p.Nombre + " " + p.Apellido)
 		}
 	}
+	vinculos, err := cargarVinculosDeAnexos(tx, r, docs)
+	if err != nil {
+		return nil, err
+	}
 	session, _ := sessionFromContext(r)
 	out := make([]documentoResumenResponse, len(docs))
 	for i, d := range docs {
@@ -191,6 +319,7 @@ func completarResumenes(tx *gorm.DB, r *http.Request, docs []db.DocumentoClinico
 			TerminadoEn: fechaHoraPtr(d.TerminadoEn), SelladoEn: fechaHoraPtr(d.SelladoEn), AnuladoEn: fechaHoraPtr(d.AnuladoEn),
 			HashContenido: d.HashContenido, TienePDF: tienePDF,
 		}
+		vinculos.completar(&out[i], d)
 	}
 	return out, nil
 }
@@ -335,6 +464,42 @@ func documentosEnCursoHandler(gdb *gorm.DB) http.HandlerFunc {
 	}
 }
 
+// historiasDelPacienteHandler — GET /documentos/historias?paciente={id}: las
+// historias clínicas de un paciente a las que quien pregunta puede colgarle
+// un anexo (5.6b), de la más nueva a la más vieja. Son las que ve
+// (documentosQueVeo: las suyas en cualquier estado, y las terminadas de los
+// colegas) menos las anuladas, que ya no rigen: las mismas que acepta POST
+// /documentos. Como ese POST, vale para
+// cualquier paciente de la clínica, no solo los de mi lista: con uno que no
+// está en ella, lo que veo son solo mis documentos, y no tengo ninguno.
+func historiasDelPacienteHandler(gdb *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clinicID, ok := profesionalIDFromRequest(w, r)
+		if !ok {
+			return
+		}
+		pacienteID, err := uuid.Parse(r.URL.Query().Get("paciente"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "id de paciente inválido")
+			return
+		}
+		var docs []db.DocumentoClinico
+		if err := gdb.Scopes(documentosQueVeo(r, clinicID)).
+			Where("documentos_clinicos.clinic_id = ? AND documentos_clinicos.paciente_id = ? AND documentos_clinicos.plantilla_id IN ? AND documentos_clinicos.estado <> ?",
+				clinicID, pacienteID, documentos.IDsDeTipo(documentos.TipoHistoriaClinica), db.DocumentoAnulado).
+			Order("documentos_clinicos.created_at DESC").Find(&docs).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron obtener las historias clínicas")
+			return
+		}
+		out, err := completarResumenes(gdb, r, docs)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudieron obtener las historias clínicas")
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
 // documentosDePacienteHandler — GET /pacientes/{id}/documentos: el
 // registro de un paciente. Los sellados y anulados que veo (de cualquier
 // colega) y lo mío en curso.
@@ -378,6 +543,75 @@ func documentosDePacienteHandler(gdb *gorm.DB) http.HandlerFunc {
 type crearDocumentoRequest struct {
 	PlantillaID string `json:"plantillaId"`
 	PacienteID  string `json:"pacienteId"`
+	// HistoriaID — en un anexo (y solo en un anexo), la historia clínica a
+	// la que pertenece (5.6b).
+	HistoriaID string `json:"historiaId"`
+}
+
+// En minúscula, como el resto de los mensajes de la API (y ST1005).
+var (
+	errHistoriaNoEncontrada   = errors.New("historia clínica no encontrada")
+	errBorradorDeOtraHistoria = errors.New("ya tenés un borrador de este anexo para otra historia clínica: terminalo o descartalo primero")
+	errHistoriaConAnexos      = errors.New("esta historia tiene anexos: no se puede descartar")
+)
+
+// historiaPedida — el historiaId del pedido, validado contra el tipo de la
+// plantilla: obligatorio en un anexo y rechazado en cualquier otro
+// documento. Escribe el 400 y devuelve false si no cumple.
+func historiaPedida(w http.ResponseWriter, plantilla *documentos.Plantilla, historiaID string) (*uuid.UUID, bool) {
+	historiaID = strings.TrimSpace(historiaID)
+	if plantilla.Tipo != documentos.TipoAnexo {
+		if historiaID != "" {
+			writeError(w, http.StatusBadRequest, "solo un anexo pertenece a una historia clínica")
+			return nil, false
+		}
+		return nil, true
+	}
+	id, err := uuid.Parse(historiaID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "elegí la historia clínica a la que pertenece este anexo")
+		return nil, false
+	}
+	return &id, true
+}
+
+// verificarHistoriaDelAnexo — la historia de un anexo nuevo: de esta
+// clínica, de este paciente, una historia clínica y una que quien crea ve
+// (documentosQueVeo: las suyas en cualquier estado, y las terminadas de los
+// colegas), y no anulada: una anulada ya no rige y no suma anexos. Cualquier
+// otra cosa es errHistoriaNoEncontrada, sin distinguir una ajena de una que
+// no existe. La base no puede exigir el mismo paciente
+// con una FK simple: lo exige esto.
+func verificarHistoriaDelAnexo(tx *gorm.DB, r *http.Request, clinicID, pacienteID, historiaID uuid.UUID) error {
+	var historia db.DocumentoClinico
+	res := tx.Scopes(documentosQueVeo(r, clinicID)).
+		Where("documentos_clinicos.id = ? AND documentos_clinicos.clinic_id = ? AND documentos_clinicos.paciente_id = ? AND documentos_clinicos.estado <> ?",
+			historiaID, clinicID, pacienteID, db.DocumentoAnulado).
+		Limit(1).Find(&historia)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 || tipoDeDocumento(historia) != documentos.TipoHistoriaClinica {
+		return errHistoriaNoEncontrada
+	}
+	return nil
+}
+
+// mismoAnexoDe — dos vínculos iguales (los dos nulos cuentan como iguales).
+func mismoAnexoDe(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+// tieneAnexos — si algún documento, de quien sea, es anexo de este. Es una
+// pregunta de sí o no que no devuelve nada de nadie: frena descartar o
+// reemplazar una historia en borrador que tiene anexos colgando.
+func tieneAnexos(tx *gorm.DB, id uuid.UUID) (bool, error) {
+	var tiene bool
+	err := tx.Raw("SELECT EXISTS (SELECT 1 FROM documentos_clinicos WHERE anexo_de = ?)", id).Scan(&tiene).Error
+	return tiene, err
 }
 
 func textoPtr(p *string) string {
@@ -408,10 +642,13 @@ func datosDePrecarga(paciente db.Paciente, perfil db.ProfessionalProfile, clinic
 		// (lo correría al día anterior).
 		fechaNacimiento = paciente.FechaNacimiento.Format("2006-01-02")
 	}
+	edadAnios, edadMeses := documentos.EdadAl(fechaNacimiento, clock.Today())
 	return documentos.DatosDePrecarga{
 		"paciente.nombreCompleto":     strings.TrimSpace(paciente.Nombre + " " + paciente.Apellido),
 		"paciente.dni":                paciente.DNI,
 		"paciente.fechaNacimiento":    fechaNacimiento,
+		"paciente.edadAnios":          edadAnios,
+		"paciente.edadMeses":          edadMeses,
 		"paciente.domicilio":          textoPtr(paciente.Domicilio),
 		"paciente.obraSocial":         textoPtr(paciente.ObraSocial),
 		"paciente.obraSocialPlan":     textoPtr(paciente.ObraSocialPlan),
@@ -451,6 +688,10 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "elegí un paciente")
 			return
 		}
+		historiaID, ok := historiaPedida(w, plantilla, req.HistoriaID)
+		if !ok {
+			return
+		}
 
 		// Cualquier paciente de la CLÍNICA, no solo los de mi lista: la
 		// identidad es de la clínica (TR-144), y hacerle un documento lo
@@ -482,50 +723,19 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 
 		doc := db.DocumentoClinico{
 			ClinicID: clinicID, PacienteID: paciente.ID, AutorUserID: session.UserID,
-			PlantillaID: plantilla.ID, PlantillaVersion: plantilla.Version,
+			PlantillaID: plantilla.ID, PlantillaVersion: plantilla.Version, AnexoDe: historiaID,
 			Valores: documentos.Precargar(plantilla, datosDePrecarga(paciente, perfil, clinica)),
 		}
-		// Un solo borrador de cada documento por paciente (pedido del cliente,
-		// 2026-09-29): si ya tengo uno de este mismo documento para este
-		// paciente, se retoma ese en vez de abrir otro. Bajo el lock de la
-		// clínica, para que dos clics seguidos no creen dos.
-		var existente db.DocumentoClinico
-		retomado, actualizado := false, false
-		err = gdb.Transaction(func(tx *gorm.DB) error {
-			if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
-				return err
-			}
-			res := tx.Scopes(soloMisDocumentos(r)).
-				Where("clinic_id = ? AND paciente_id = ? AND plantilla_id = ? AND estado = ?", clinicID, paciente.ID, plantilla.ID, db.DocumentoBorrador).
-				Limit(1).Find(&existente)
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected > 0 {
-				retomado = true
-				var err error
-				existente, actualizado, err = borradorEnLaVersionVigente(tx, existente)
-				return err
-			}
-			if err := tx.Create(&doc).Error; err != nil {
-				return err
-			}
-			return tx.Exec(`INSERT INTO pacientes_en_mi_lista (clinic_id, paciente_id, user_id, created_at)
-				VALUES (?, ?, ?, now()) ON CONFLICT DO NOTHING`, clinicID, paciente.ID, session.UserID).Error
-		})
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo crear el documento")
+		doc, retomado, actualizado, err := borradorNuevoORetomado(gdb, r, doc)
+		switch {
+		case errors.Is(err, errHistoriaNoEncontrada):
+			writeError(w, http.StatusNotFound, err.Error())
 			return
-		}
-		if retomado {
-			out, err := detalleDeDocumento(gdb, r, existente)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "no se pudo abrir el borrador")
-				return
-			}
-			out.Retomado = true
-			out.VersionActualizada = actualizado
-			writeJSON(w, http.StatusOK, out)
+		case errors.Is(err, errBorradorDeOtraHistoria):
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		case err != nil:
+			writeError(w, http.StatusInternalServerError, "no se pudo crear el documento")
 			return
 		}
 		out, err := detalleDeDocumento(gdb, r, doc)
@@ -533,8 +743,57 @@ func crearDocumentoHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "no se pudo crear el documento")
 			return
 		}
-		writeJSON(w, http.StatusCreated, out)
+		if !retomado {
+			writeJSON(w, http.StatusCreated, out)
+			return
+		}
+		out.Retomado = true
+		out.VersionActualizada = actualizado
+		writeJSON(w, http.StatusOK, out)
 	}
+}
+
+// borradorNuevoORetomado — crea el borrador `doc` o, si ya tengo uno de ese
+// mismo documento para ese paciente, lo retoma (pedido del cliente,
+// 2026-09-29: un solo borrador de cada documento por paciente). En un anexo,
+// retomar exige la misma historia, porque su vínculo no cambia. Bajo el lock
+// de la clínica: que dos clics seguidos no creen dos, y que la historia no
+// se descarte entre verificarla y colgarle el anexo. Devuelve el documento,
+// si se retomó y si ese borrador pasó a la versión vigente.
+func borradorNuevoORetomado(gdb *gorm.DB, r *http.Request, doc db.DocumentoClinico) (db.DocumentoClinico, bool, bool, error) {
+	retomado, actualizado := false, false
+	err := gdb.Transaction(func(tx *gorm.DB) error {
+		if err := bloquearDocumentosDeLaClinica(tx, doc.ClinicID); err != nil {
+			return err
+		}
+		if doc.AnexoDe != nil {
+			if err := verificarHistoriaDelAnexo(tx, r, doc.ClinicID, doc.PacienteID, *doc.AnexoDe); err != nil {
+				return err
+			}
+		}
+		var existente db.DocumentoClinico
+		res := tx.Scopes(soloMisDocumentos(r)).
+			Where("clinic_id = ? AND paciente_id = ? AND plantilla_id = ? AND estado = ?", doc.ClinicID, doc.PacienteID, doc.PlantillaID, db.DocumentoBorrador).
+			Limit(1).Find(&existente)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected > 0 {
+			if !mismoAnexoDe(existente.AnexoDe, doc.AnexoDe) {
+				return errBorradorDeOtraHistoria
+			}
+			retomado = true
+			var err error
+			doc, actualizado, err = borradorEnLaVersionVigente(tx, existente)
+			return err
+		}
+		if err := tx.Create(&doc).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`INSERT INTO pacientes_en_mi_lista (clinic_id, paciente_id, user_id, created_at)
+			VALUES (?, ?, ?, now()) ON CONFLICT DO NOTHING`, doc.ClinicID, doc.PacienteID, doc.AutorUserID).Error
+	})
+	return doc, retomado, actualizado, err
 }
 
 // bloquearDocumentosDeLaClinica — el lock de la clínica para el módulo:
@@ -552,12 +811,17 @@ func bloquearDocumentosDeLaClinica(tx *gorm.DB, clinicID uuid.UUID) error {
 // clínica, y descartarlo es lo mismo que hace "Descartar borrador". Sin
 // esto, un borrador de antes seguía pidiendo lo que la versión nueva deja
 // para completar a mano, y se terminaba con eso. Cualquier otro estado, o
-// un borrador ya en la vigente, vuelve tal cual. Va bajo el lock de la
-// clínica.
+// un borrador ya en la vigente, vuelve tal cual. Una historia en borrador
+// con anexos también se queda en su versión (5.6b): descartarla dejaría a
+// sus anexos sin historia, y su vínculo no se puede mover a la nueva. Un
+// anexo pasa con su vínculo. Va bajo el lock de la clínica.
 func borradorEnLaVersionVigente(tx *gorm.DB, doc db.DocumentoClinico) (db.DocumentoClinico, bool, error) {
 	vigente, ok := documentos.Ultima(doc.PlantillaID)
 	if doc.Estado != db.DocumentoBorrador || !ok || vigente.Version <= doc.PlantillaVersion {
 		return doc, false, nil
+	}
+	if conAnexos, err := tieneAnexos(tx, doc.ID); err != nil || conAnexos {
+		return doc, false, err
 	}
 	valores := map[string]any{}
 	for id, v := range doc.Valores {
@@ -571,7 +835,7 @@ func borradorEnLaVersionVigente(tx *gorm.DB, doc db.DocumentoClinico) (db.Docume
 	}
 	nuevo := db.DocumentoClinico{
 		ClinicID: doc.ClinicID, PacienteID: doc.PacienteID, AutorUserID: doc.AutorUserID,
-		PlantillaID: doc.PlantillaID, PlantillaVersion: vigente.Version, Valores: valores,
+		PlantillaID: doc.PlantillaID, PlantillaVersion: vigente.Version, AnexoDe: doc.AnexoDe, Valores: valores,
 	}
 	if err := tx.Create(&nuevo).Error; err != nil {
 		return doc, false, err
@@ -730,7 +994,9 @@ func guardarBorradorHandler(gdb *gorm.DB) http.HandlerFunc {
 
 // descartarBorradorHandler — DELETE /documentos/{id}: solo un borrador.
 // Todavía no es historia clínica, así que se borra de verdad (no queda
-// guardado un dato de salud que nadie terminó).
+// guardado un dato de salud que nadie terminó). Una historia con anexos no
+// (5.6b): quedarían sin historia, y la FK lo rechazaría con un 500. Bajo
+// el lock de la clínica, el mismo con el que se le cuelga un anexo.
 func descartarBorradorHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
@@ -741,7 +1007,24 @@ func descartarBorradorHandler(gdb *gorm.DB) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := gdb.Delete(&db.DocumentoClinico{}, "id = ?", doc.ID).Error; err != nil {
+		err := gdb.Transaction(func(tx *gorm.DB) error {
+			if err := bloquearDocumentosDeLaClinica(tx, clinicID); err != nil {
+				return err
+			}
+			conAnexos, err := tieneAnexos(tx, doc.ID)
+			if err != nil {
+				return err
+			}
+			if conAnexos {
+				return errHistoriaConAnexos
+			}
+			return tx.Delete(&db.DocumentoClinico{}, "id = ?", doc.ID).Error
+		})
+		if errors.Is(err, errHistoriaConAnexos) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, "no se pudo descartar el borrador")
 			return
 		}

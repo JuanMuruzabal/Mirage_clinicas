@@ -6,4 +6,5 @@ export * from "./registro";
 export { valoresDeEjemplo } from "./ejemplo";
 export * from "./lamina";
 export * from "./odontograma";
+export * from "./dibujo";
 export { anchoEnUnidades } from "./metricas";

@@ -16,6 +16,10 @@ export const PRECARGAS = [
   "paciente.nombreCompleto",
   "paciente.dni",
   "paciente.fechaNacimiento",
+  /** Los años y los meses cumplidos a hoy, desde la fecha de nacimiento
+   *  (la "Edad: … años … meses" de odontopediatría). */
+  "paciente.edadAnios",
+  "paciente.edadMeses",
   "paciente.domicilio",
   "paciente.obraSocial",
   "paciente.obraSocialPlan",
@@ -140,6 +144,9 @@ export const campoSchema = z.discriminatedUnion("tipo", [
       existentes: z.boolean().optional(),
     })
     .strict(),
+  /** Un dibujo a mano alzada sobre un recuadro del papel (el genograma de
+   *  odontopediatría, Fase 5.6b): trazos, sin formas. Ver dibujo.ts. */
+  z.object({ tipo: z.literal("dibujo"), ...base }).strict(),
 ]);
 export type Campo = z.infer<typeof campoSchema>;
 export type TipoDeCampo = Campo["tipo"];
@@ -248,6 +255,20 @@ export const odontogramaDeLaminaSchema = z
   .strict();
 export type OdontogramaDeLamina = z.infer<typeof odontogramaDeLaminaSchema>;
 
+/** El recuadro de un campo dibujo en el papel: su esquina de arriba a la
+ *  izquierda, su ancho y su alto. El dibujo se lleva ahí sin deformarse. */
+export const dibujoDeLaminaSchema = z
+  .object({
+    campo: idDeCampo,
+    pagina: z.number().int().min(1),
+    x: punto,
+    y: punto,
+    ancho: z.number().positive().max(2000),
+    alto: z.number().positive().max(2000),
+  })
+  .strict();
+export type DibujoDeLamina = z.infer<typeof dibujoDeLaminaSchema>;
+
 /** El tamaño de una página del original, en puntos. Con `escala` (Fase
  *  5.6a), el original se dibuja más chico —arriba y centrado— y deja una
  *  franja libre abajo: todo lo de la lámina se sigue midiendo sobre el
@@ -263,6 +284,7 @@ export const laminaSchema = z
     zonas: z.array(zonaSchema).min(1),
     firmas: z.array(lugarDeFirmaSchema).min(1),
     odontogramas: z.array(odontogramaDeLaminaSchema).min(1).optional(),
+    dibujos: z.array(dibujoDeLaminaSchema).min(1).optional(),
   })
   .strict();
 export type Lamina = z.infer<typeof laminaSchema>;
@@ -346,6 +368,27 @@ function problemasDelOdontograma(o: OdontogramaDeLamina, campo: Campo | undefine
   ];
 }
 
+/** Cada campo dibujo tiene exactamente un recuadro, dentro de su página, y
+ *  cada recuadro es de un campo dibujo. */
+function problemasDeDibujos(lamina: Lamina | undefined, campos: Campo[]): string[] {
+  const recuadros = lamina?.dibujos ?? [];
+  const problemas: string[] = [];
+  for (const c of campos.filter((c) => c.tipo === "dibujo")) {
+    const cuantos = recuadros.filter((d) => d.campo === c.id).length;
+    if (cuantos !== 1) problemas.push(`el dibujo ${c.id} tiene que tener exactamente un recuadro en la lámina (tiene ${cuantos})`);
+  }
+  for (const d of recuadros) {
+    if (campos.find((c) => c.id === d.campo)?.tipo !== "dibujo") {
+      problemas.push(`la lámina ubica un dibujo en un campo que no lo es: ${d.campo}`);
+      continue;
+    }
+    const pagina = lamina?.paginas[d.pagina - 1];
+    if (!pagina) problemas.push(`el dibujo ${d.campo} está en una página que no existe`);
+    else if (d.x + d.ancho > pagina.ancho || d.y + d.alto > altoUtil(pagina)) problemas.push(`el dibujo ${d.campo} se sale de la página`);
+  }
+  return problemas;
+}
+
 export const plantillaSchema = z
   .object({
     id: z.string().regex(/^[a-z][a-z0-9-]{2,79}$/, "id de plantilla inválido"),
@@ -405,6 +448,8 @@ export const plantillaSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "toda plantilla lleva la firma del profesional, obligatoria" });
     }
 
+    for (const message of problemasDeDibujos(p.lamina, campos)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+
     if (p.lamina) {
       const l = p.lamina;
       const zonas = new Set<string>();
@@ -456,6 +501,7 @@ export const plantillaSchema = z
         const campo = campos.find((c) => c.id === o.campo);
         for (const message of problemasDelOdontograma(o, campo, l.paginas)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
       }
+      for (const d of l.dibujos ?? []) enLaLamina.add(d.campo);
       // Igual que con el cuerpo: lo que se carga tiene que verse en el papel.
       for (const id of ids) {
         if (!enLaLamina.has(id)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `el campo ${id} no aparece en la lámina` });

@@ -64,7 +64,7 @@ import {
 //
 // Las piezas se dibujan como en el papel del Colegio: cada una es un
 // cuadrado con sus cinco caras (cuatro trapecios y el centro), las
-// permanentes arriba y abajo de la línea media, y las temporarias debajo,
+// permanentes arriba y abajo de la línea media, y las temporarias debajo (arriba en la leyenda pediátrica, como en la historia de odontopediatría),
 // centradas. Se elige un color (rojo o azul, con lo que significa en esta
 // leyenda) y una herramienta. Tocar una pieza (o Enter), o escribir su
 // número en "Pieza", la SELECCIONA, con cualquier herramienta: el panel de
@@ -411,7 +411,7 @@ const LA_MARCA: Record<MarcaDePieza, string> = { x: "la X", corona: "la corona",
 const BOTON_DE_ACCION = "min-h-11 self-start rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-50";
 // Mismo alto y mismo relleno que el de acción: van de a pares (Guardar y
 // Cancelar, Sí y No) y uno más bajo al lado del otro se ve de otra familia.
-const BOTON_SECUNDARIO = "min-h-11 rounded-full border border-linea bg-hueso px-4 text-sm font-medium hover:bg-arena disabled:opacity-50";
+export const BOTON_SECUNDARIO = "min-h-11 rounded-full border border-linea bg-hueso px-4 text-sm font-medium hover:bg-arena disabled:opacity-50";
 // La confirmación de algo que no se deshace, como "Confirmacion" con peligro.
 const BOTON_DE_PELIGRO = "min-h-11 rounded-full bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95";
 // Un campo de esta pantalla mide lo mismo que los botones de su fila.
@@ -714,23 +714,46 @@ function Referencias({ leyenda }: { leyenda: Leyenda }) {
 // --- El control: lo que va adentro de la pantalla emergente ----------------
 
 /** "Borrar todo", con su confirmación en el mismo lugar: sin otro diálogo
- *  encima del odontograma. */
-function BorrarTodo({ habilitado, onBorrar }: { habilitado: boolean; onBorrar: () => void }) {
+ *  encima del odontograma (o del dibujo, que la reusa). */
+export function BorrarTodo({
+  habilitado,
+  onBorrar,
+  pregunta = "¿Borrar todo el odontograma?",
+  antes,
+}: {
+  habilitado: boolean;
+  onBorrar: () => void;
+  pregunta?: string;
+  /** Los botones que van a su izquierda, en la misma fila (Deshacer, en el
+   *  dibujo): adentro de su caja, así la pregunta pasa sola al renglón de
+   *  abajo en el celular y no se los lleva. */
+  antes?: ReactNode;
+}) {
   const [preguntando, setPreguntando] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
   const no = useRef<HTMLButtonElement>(null);
+  const herramientas = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (preguntando) no.current?.focus();
   }, [preguntando]);
 
   function responder(si: boolean) {
     setPreguntando(false);
-    if (si) onBorrar();
-    else boton.current?.focus();
+    // Con todo borrado "Borrar todo" queda deshabilitado y no puede tener el
+    // foco: va a la caja de las herramientas, para no caer en <body>.
+    if (si) {
+      onBorrar();
+      herramientas.current?.focus();
+    } else boton.current?.focus();
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      ref={herramientas}
+      tabIndex={-1}
+      className="flex w-fit max-w-full flex-wrap items-center gap-2 rounded-field outline-none focus-visible:ring-2 focus-visible:ring-salvia-oscuro focus-visible:ring-offset-2 focus-visible:ring-offset-marfil"
+    >
+      {antes}
       <button
         ref={boton}
         type="button"
@@ -743,11 +766,11 @@ function BorrarTodo({ habilitado, onBorrar }: { habilitado: boolean; onBorrar: (
       </button>
       {preguntando && (
         <div role="group" aria-label="Confirmar" className="flex flex-wrap items-center gap-2 text-sm text-grafito">
-          <span>¿Borrar todo el odontograma?</span>
-          <button type="button" onClick={() => responder(true)} className={BOTON_DE_PELIGRO}>
+          <span>{pregunta}</span>
+          <button type="button" onClick={() => responder(true)} className={`${BOTON_DE_PELIGRO} min-w-16`}>
             Sí
           </button>
-          <button ref={no} type="button" onClick={() => responder(false)} className={`${BOTON_SECUNDARIO} text-grafito`}>
+          <button ref={no} type="button" onClick={() => responder(false)} className={`${BOTON_SECUNDARIO} min-w-16 text-grafito`}>
             No
           </button>
         </div>
@@ -905,7 +928,7 @@ export function ControlDeOdontograma({
   const { leyenda } = campo;
   const denticion: Denticion = campo.denticion ?? "ambas";
   const actual = leerOdontograma(valor);
-  const filas = filasDe(denticion);
+  const filas = filasDe(denticion, campo.leyenda === "pediatrica");
   const herramientas: Herramienta[] = [
     "caras",
     ...MARCAS_POR_LEYENDA[leyenda],

@@ -9,6 +9,7 @@
 //
 // La API es la que manda; esta copia existe para que la pantalla marque el
 // error en el campo antes de mandar nada.
+import { DIBUJO_CONSIGNADO, dibujoVacio, errorDeDibujo, type ValorDibujo } from "./dibujo";
 import { camposDe, type Campo, type Plantilla } from "./esquema";
 import { errorDeOdontograma, odontogramaVacio, textoDeOdontograma, type ValorOdontograma } from "./odontograma";
 import { esPiezaValida, piezasDe } from "./piezas";
@@ -17,7 +18,7 @@ export interface RespuestaSiNo {
   respuesta: "si" | "no";
   detalle?: string;
 }
-export type Valor = string | number | string[] | RespuestaSiNo | ValorOdontograma;
+export type Valor = string | number | string[] | RespuestaSiNo | ValorOdontograma | ValorDibujo;
 export type Valores = Record<string, Valor>;
 
 export type ModoDeValidacion = "tolerante" | "estricto";
@@ -52,6 +53,7 @@ export function estaVacio(campo: Campo, valor: unknown): boolean {
   if (valor === undefined || valor === null) return true;
   // Antes que el texto y la lista: un "" o un [] no es un odontograma vacío.
   if (campo.tipo === "odontograma") return odontogramaVacio(campo, valor);
+  if (campo.tipo === "dibujo") return dibujoVacio(valor);
   if (typeof valor === "string") return valor.trim() === "";
   if (Array.isArray(valor)) return valor.length === 0;
   // Un SI/NO sin respuesta está vacío; con una respuesta que no es "si" ni
@@ -113,6 +115,8 @@ function errorDeTipo(campo: Campo, valor: unknown): string | null {
     }
     case "odontograma":
       return errorDeOdontograma(campo, valor);
+    case "dibujo":
+      return errorDeDibujo(valor);
   }
 }
 
@@ -200,6 +204,8 @@ export function valorComoTexto(campo: Campo, valor: unknown): string {
     }
     case "odontograma":
       return textoDeOdontograma(campo, valor as ValorOdontograma);
+    case "dibujo":
+      return DIBUJO_CONSIGNADO;
   }
 }
 

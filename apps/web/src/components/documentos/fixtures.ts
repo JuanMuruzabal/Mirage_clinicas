@@ -6,6 +6,10 @@ import { armarCuerpo, armarLamina, plantillaPorId, plantillaSchema, type Plantil
 // la que todavía pedía los datos de quien suscribe (la 2 los deja a mano, Fase 5.2).
 export const conducto = plantillaPorId("consentimiento-tratamiento-conducto", 1) as Plantilla;
 
+/** Un anexo de prueba: la misma copia con tipo anexo. Odontopediatría pasó a
+ *  ser una historia propia y ninguna plantilla real es anexo todavía (5.7). */
+export const anexoDePrueba: Plantilla = plantillaSchema.parse({ ...conducto, id: "anexo-de-prueba", nombre: "Anexo de prueba", tipo: "anexo" });
+
 /** Una plantilla chica con todos los tipos de campo. */
 export const todoTipo: Plantilla = plantillaSchema.parse({
   id: "prueba-todo-tipo",
@@ -106,6 +110,7 @@ const base = {
   autorNombre: "Lucía Gómez",
   esMio: true,
   tienePDF: false,
+  anexoDe: null,
   creadoEn: "2026-09-27T10:00:00-03:00",
   actualizadoEn: "2026-09-27T10:05:00-03:00",
   firmas: [],

@@ -4,7 +4,7 @@ verificar a ojo que cada dato cae en su renglón (Fase 5.2, TR-189).
 El texto de cada zona va en azul (rojo si no entra), el recuadro de cada
 zona en rojo tenue y el lugar de cada firma en verde. Las figuras del
 odontograma (Fase 5.5) van con sus colores, y el recuadro medido de cada
-pieza en gris. Una página con `escala` (Fase 5.6a) se dibuja como en el PDF:
+pieza en gris; lo mismo los trazos y el recuadro de un dibujo (Fase 5.6b). Una página con `escala` (Fase 5.6a) se dibuja como en el PDF:
 el original más chico, arriba y centrado, con todo lo de encima escalado.
 La lámina compuesta sale de
 `packages/documentos-clinicos/scripts/lamina-de-prueba.ts`.
@@ -82,6 +82,14 @@ def dibujar_figura(d, hoja, f):
         d.text(hoja.punto((f["x"], f["y"])), f["texto"], font=fuente(f["tamano"] * hoja.k), fill=color, anchor="ls")
         return
     grosor = max(1, round(f["grosor"] * hoja.k))
+    if f["tipo"] == "trazo":
+        puntos = [hoja.punto(p) for p in f["puntos"]]
+        if len(puntos) == 1:
+            (x, y), r = puntos[0], grosor / 2
+            d.ellipse([x - r, y - r, x + r, y + r], fill=color)
+        else:
+            d.line(puntos, fill=color, width=grosor, joint="curve")
+        return
     if f["tipo"] == "contorno":
         d.polygon([hoja.punto(p) for p in f["puntos"]], outline=color, width=grosor)
     elif f["tipo"] == "circulo":
@@ -118,6 +126,8 @@ def main() -> None:
         for o in (o for o in lamina.get("odontogramas", []) if o["pagina"] == i):
             for r in o["piezas"]:
                 d.rectangle(hoja.caja(r["x"], r["y"], r["x"] + r["lado"], r["y"] + r["lado"]), outline=(120, 120, 120, 160), width=1)
+        for r in (r for r in lamina.get("dibujos", []) if r["pagina"] == i):
+            d.rectangle(hoja.caja(r["x"], r["y"], r["x"] + r["ancho"], r["y"] + r["alto"]), outline=(120, 120, 120, 160), width=1)
         for f in (f for f in datos.get("figuras", []) if f["pagina"] == i):
             dibujar_figura(d, hoja, f)
         for f in (f for f in lamina["firmas"] if f["pagina"] == i):

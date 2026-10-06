@@ -56,6 +56,8 @@ ORIGINALES = {
     # Fase 5.6a: la de personas con discapacidad. La página 3 (prestaciones)
     # es la 5.7 y la 4 está en blanco.
     ("historia-clinica-pcd", 1): ("HC-PcD.pdf", [1, 2]),
+    # Fase 5.6b: la historia de odontopediatría (el "Anexo" del Colegio), con el genograma.
+    ("historia-clinica-odontopediatria", 1): ("Anexo-Odontopediatria.pdf", [1, 2]),
 }
 
 ANCHOS = (800, 1600, 2550)

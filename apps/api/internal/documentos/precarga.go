@@ -1,6 +1,10 @@
 package documentos
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 // DatosDePrecarga — lo que ya se sabe al crear un documento, por clave de
 // precarga ("paciente.dni", "clinica.ciudad"…; ver PRECARGAS en
@@ -26,6 +30,12 @@ func Precargar(p *Plantilla, datos DatosDePrecarga) map[string]any {
 			if EsFechaValida(v) {
 				valores[c.ID] = v
 			}
+		case "numero":
+			// Solo si el campo lo admite (una edad fuera de su rango no se
+			// precarga: sería un error en un documento recién creado).
+			if n, err := strconv.ParseFloat(v, 64); err == nil && errorDeTipo(c, n) == "" {
+				valores[c.ID] = n
+			}
 		}
 	}
 	return valores
@@ -49,4 +59,25 @@ func ConservarBloqueados(p *Plantilla, anteriores, nuevos map[string]any) map[st
 		}
 	}
 	return resultado
+}
+
+// EdadAl — los años y los meses cumplidos al día `hoy` de quien nació en
+// `nacimiento` (AAAA-MM-DD): la "Edad: … años … meses" de odontopediatría.
+// Vacíos si la fecha no es válida o es posterior a hoy. `hoy` es una fecha
+// de calendario (clock.Today()): solo se miran su año, mes y día.
+func EdadAl(nacimiento string, hoy time.Time) (anios, meses string) {
+	if !EsFechaValida(nacimiento) {
+		return "", ""
+	}
+	n, _ := time.Parse("2006-01-02", nacimiento)
+	total := (hoy.Year()-n.Year())*12 + int(hoy.Month()) - int(n.Month())
+	// Art. 6 CCyC: si el mes no tiene ese día, el plazo vence su último día.
+	ultimoDelMes := hoy.AddDate(0, 0, 1).Day() == 1
+	if hoy.Day() < n.Day() && !ultimoDelMes {
+		total--
+	}
+	if total < 0 {
+		return "", ""
+	}
+	return strconv.Itoa(total / 12), strconv.Itoa(total % 12)
 }

@@ -899,3 +899,33 @@ describe("Borrar todo: el Sí", () => {
     expect(no).toHaveClass("min-h-11");
   });
 });
+
+// El foco después de Borrar todo (QA de la 5.6b, BorrarTodo compartido con
+// el dibujo): con Sí todo queda borrado y "Borrar todo" se apaga, así que el
+// foco va a la caja de las herramientas y no cae en <body>; con No, vuelve a
+// "Borrar todo".
+describe("Borrar todo: dónde queda el foco", () => {
+  it("Sí deja el foco en la caja de las herramientas", async () => {
+    const user = userEvent.setup();
+    montarVivo(GENERAL, { piezas: { "16": { caras: { O: "rojo" } } }, existentes: 30 });
+    const borrar = screen.getByRole("button", { name: "Borrar todo" });
+    const herramientas = borrar.parentElement!;
+    expect(herramientas).toHaveAttribute("tabindex", "-1");
+    await user.click(borrar);
+    await user.click(within(screen.getByRole("group", { name: "Confirmar" })).getByRole("button", { name: "Sí" }));
+    expect(borrar).toBeDisabled();
+    expect(herramientas).toHaveFocus();
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it("No vuelve a Borrar todo, y Sí y No miden lo mismo", async () => {
+    const user = userEvent.setup();
+    montar(PEDIATRICO, { piezas: { "55": { marcas: { sellador: "azul" } } } });
+    const borrar = screen.getByRole("button", { name: "Borrar todo" });
+    await user.click(borrar);
+    const confirmar = screen.getByRole("group", { name: "Confirmar" });
+    for (const nombre of ["Sí", "No"]) expect(within(confirmar).getByRole("button", { name: nombre })).toHaveClass("min-h-11", "min-w-16");
+    await user.click(within(confirmar).getByRole("button", { name: "No" }));
+    expect(borrar).toHaveFocus();
+  });
+});

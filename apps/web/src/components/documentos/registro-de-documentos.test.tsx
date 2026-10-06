@@ -43,8 +43,8 @@ const documentos: DocumentoResumen[] = [
     ...sellado(),
     id: "a1",
     folio: 1,
-    plantillaId: "anexo-odontopediatria",
-    plantillaNombre: "Odontopediatría",
+    plantillaId: "anexo-de-prueba",
+    plantillaNombre: "Prueba",
     tipo: "anexo",
     selladoEn: "2026-08-01T10:00:00-03:00",
     hashContenido: "abad0000111122223333444455556666777788889999aaaabbbbccccddddeeee",
@@ -52,10 +52,14 @@ const documentos: DocumentoResumen[] = [
 ];
 
 const CONDUCTO = "Consentimiento informado: Tratamiento de conducto";
+// En las tablas de la ficha, cada una de un solo tipo, sin el tipo adelante.
+const CONDUCTO_EN_TABLA = "Tratamiento de conducto";
 
+// Las dos tablas (consentimientos e historias clínicas, 5.6b), en orden.
 function filas(): string[] {
-  return within(screen.getByRole("table"))
-    .getAllByRole("link")
+  return screen
+    .getAllByRole("table")
+    .flatMap((tabla) => within(tabla).getAllByRole("link"))
     // Los links del PDF de cada fila terminada no son documentos.
     .filter((l) => !(l.getAttribute("href") ?? "").includes("/pdf"))
     .map((l) => l.textContent ?? "");
@@ -72,13 +76,14 @@ describe("RegistroDeDocumentos", () => {
     expect(filas()).toHaveLength(4);
     const buscar = screen.getByRole("searchbox", { name: "Buscar por documento, profesional, folio o huella" });
     fireEvent.change(buscar, { target: { value: "consentimiento" } });
-    expect(filas()).toEqual([CONDUCTO, CONDUCTO]);
+    expect(filas()).toEqual([CONDUCTO_EN_TABLA, CONDUCTO_EN_TABLA]);
     fireEvent.change(buscar, { target: { value: "pedro diaz" } });
-    expect(filas()).toEqual(["Historia clínica: Adultos"]);
+    expect(filas()).toEqual(["Adultos"]);
     fireEvent.change(buscar, { target: { value: "1" } });
-    expect(filas()).toContain("Anexo: Odontopediatría");
+    // Un anexo se nombra sin el tipo: lo dice su etiqueta (5.6b).
+    expect(filas()).toContain("Prueba");
     fireEvent.change(buscar, { target: { value: "beef" } });
-    expect(filas()).toEqual(["Historia clínica: Adultos"]);
+    expect(filas()).toEqual(["Adultos"]);
     fireEvent.change(buscar, { target: { value: "ninguno" } });
     expect(screen.getByText("Ningún documento coincide con la búsqueda o los filtros.")).toBeInTheDocument();
   });
@@ -90,7 +95,7 @@ describe("RegistroDeDocumentos", () => {
     // Un modelo por opción, con su tipo adelante, aunque haya dos documentos de él.
     expect(within(documento).getAllByRole("option").map((o) => o.textContent)).toEqual([
       "Todos los documentos",
-      "Anexo: Odontopediatría",
+      "Anexo: Prueba",
       CONDUCTO,
       "Historia clínica: Adultos",
     ]);
@@ -99,7 +104,7 @@ describe("RegistroDeDocumentos", () => {
     expect(filas()).toHaveLength(4);
     fireEvent.click(within(hoja).getByRole("button", { name: "Ver 2 documentos" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(filas()).toEqual([CONDUCTO, CONDUCTO]);
+    expect(filas()).toEqual([CONDUCTO_EN_TABLA, CONDUCTO_EN_TABLA]);
     expect(screen.getByRole("button", { name: /^Filtros/ })).toHaveTextContent("1");
   });
 
@@ -112,7 +117,7 @@ describe("RegistroDeDocumentos", () => {
     fireEvent.change(within(hoja).getByLabelText("Desde"), { target: { value: "2026-09-01" } });
     fireEvent.change(within(hoja).getByLabelText("Hasta"), { target: { value: "2026-09-15" } });
     fireEvent.click(within(hoja).getByRole("button", { name: "Ver 1 documento" }));
-    expect(filas()).toEqual(["Historia clínica: Adultos"]);
+    expect(filas()).toEqual(["Adultos"]);
     expect(screen.getByRole("button", { name: /^Filtros/ })).toHaveTextContent("1");
 
     // Al volver a abrir, la hoja arranca con lo aplicado; «Limpiar filtros» vacía el borrador.
@@ -131,14 +136,14 @@ describe("RegistroDeDocumentos", () => {
     fireEvent.change(within(hoja).getByRole("combobox", { name: "Documento" }), { target: { value: "consentimiento-tratamiento-conducto" } });
     fireEvent.change(within(hoja).getByLabelText("Desde"), { target: { value: "2026-09-01" } });
     fireEvent.click(within(hoja).getByRole("button", { name: "Ver 1 documento" }));
-    expect(filas()).toEqual([CONDUCTO]);
+    expect(filas()).toEqual([CONDUCTO_EN_TABLA]);
 
     const etiquetas = screen.getByRole("group", { name: "Filtros aplicados" });
     expect(etiquetas).toHaveTextContent(CONDUCTO);
     expect(etiquetas).toHaveTextContent("Rango de fechas");
 
     fireEvent.click(screen.getByRole("button", { name: "Quitar filtro: Rango de fechas" }));
-    expect(filas()).toEqual([CONDUCTO, CONDUCTO]);
+    expect(filas()).toEqual([CONDUCTO_EN_TABLA, CONDUCTO_EN_TABLA]);
     fireEvent.click(screen.getByRole("button", { name: `Quitar filtro: ${CONDUCTO}` }));
     expect(filas()).toHaveLength(4);
     expect(screen.queryByRole("group", { name: "Filtros aplicados" })).not.toBeInTheDocument();

@@ -7,7 +7,9 @@
 // Deja vacío uno de cada cuatro campos opcionales a propósito, para que el
 // fixture pruebe también el "No consigna".
 import { camposDe, type Campo, type Plantilla } from "./esquema";
-import type { CampoOdontograma, ValorOdontograma } from "./odontograma";
+import type { ValorDibujo } from "./dibujo";
+import { redondear2 } from "./metricas";
+import type { CampoOdontograma, Punto, ValorOdontograma } from "./odontograma";
 import type { Valor, Valores } from "./valores";
 
 // Un texto de ejemplo tiene la forma del dato real —un DNI, una
@@ -28,6 +30,26 @@ function odontogramaDeEjemplo(campo: CampoOdontograma): ValorOdontograma {
     piezas: { "16": { caras: { O: "rojo", M: "rojo" }, marcas: { corona: "rojo" } }, "26": { marcas: { x: "azul" } }, "36": { caras: { D: "azul" } } },
     protesis: [{ tipo: "fija", desde: "23", hasta: "13", color: "rojo" }],
     ...(campo.existentes ? { existentes: 28 } : {}),
+  };
+}
+
+/** Un genograma mínimo, en un lienzo con la proporción del recuadro del
+ *  papel: el padre (un cuadrado), la madre (un círculo), la línea que los
+ *  une y la que baja hacia los hijos. */
+export function dibujoDeEjemplo(): ValorDibujo {
+  const circulo = Array.from({ length: 13 }, (_, i): Punto => {
+    const angulo = (i / 12) * 2 * Math.PI;
+    return [redondear2(480 + 30 * Math.cos(angulo)), redondear2(90 + 30 * Math.sin(angulo))];
+  });
+  return {
+    ancho: 780,
+    alto: 290,
+    trazos: [
+      [[300, 60], [360, 60], [360, 120], [300, 120], [300, 60]],
+      circulo,
+      [[360, 90], [450, 90]],
+      [[405, 90], [405, 200]],
+    ],
   };
 }
 
@@ -58,6 +80,8 @@ function ejemploDe(campo: Campo): Valor {
       return campo.denticion === "temporaria" ? ["75", "51"] : ["37", "11", "36"];
     case "odontograma":
       return odontogramaDeEjemplo(campo);
+    case "dibujo":
+      return dibujoDeEjemplo();
   }
 }
 
@@ -65,8 +89,9 @@ export function valoresDeEjemplo(plantilla: Plantilla): Valores {
   const valores: Valores = {};
   let opcionales = 0;
   for (const campo of camposDe(plantilla)) {
-    // El odontograma va siempre: es lo que más hay que comparar con Go.
-    if (!campo.requerido && campo.tipo !== "odontograma") {
+    // El odontograma y el dibujo van siempre: es lo que más hay que
+    // comparar con Go.
+    if (!campo.requerido && campo.tipo !== "odontograma" && campo.tipo !== "dibujo") {
       opcionales += 1;
       if (opcionales % 4 === 0) continue;
     }

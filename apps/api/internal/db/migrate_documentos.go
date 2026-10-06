@@ -95,7 +95,7 @@ func sentenciasDeDocumentos() []any {
 		// firma en papel, TR-188) ya no cambia: ni se firma ni se sella en el
 		// sistema. NADA terminado vuelve a borrador (TR-188): si hay que
 		// corregir, se hace otro documento. La identidad (clínica, paciente,
-		// autor, plantilla) no cambia nunca.
+		// autor, plantilla y, en un anexo, su historia) no cambia nunca.
 		// DELETE: solo un borrador (descartar); lo demás es historia clínica.
 		`CREATE OR REPLACE FUNCTION documentos_clinicos_candado() RETURNS trigger
 		 LANGUAGE plpgsql AS $$
@@ -113,7 +113,8 @@ func sentenciasDeDocumentos() []any {
 
 		   IF NEW.id <> OLD.id OR NEW.clinic_id <> OLD.clinic_id OR NEW.paciente_id <> OLD.paciente_id
 		      OR NEW.autor_user_id <> OLD.autor_user_id OR NEW.plantilla_id <> OLD.plantilla_id
-		      OR NEW.plantilla_version <> OLD.plantilla_version OR NEW.created_at <> OLD.created_at THEN
+		      OR NEW.plantilla_version <> OLD.plantilla_version OR NEW.created_at <> OLD.created_at
+		      OR NEW.anexo_de IS DISTINCT FROM OLD.anexo_de THEN
 		     RAISE EXCEPTION 'documento clínico %: la identidad de un documento no cambia', OLD.id;
 		   END IF;
 

@@ -1011,6 +1011,27 @@ export interface DocumentoResumen {
    *  composición de la lámina congelada. Uno sellado en la 5.1, antes de
    *  que existiera, no la trae: se ve en pantalla, pero no tiene PDF. */
   tienePDF: boolean;
+  /** En un anexo, la historia clínica a la que pertenece (5.6b); null si no
+   *  es un anexo o si quien mira no la ve. */
+  anexoDe: DocumentoVinculado | null;
+  /** Un anexo cuya historia existe pero quien mira no ve (un colega todavía
+   *  no la terminó): tiene historia, y no viaja nada de ella. */
+  historiaNoVisible?: boolean;
+  /** En una historia clínica, los anexos que quien mira ve. */
+  anexos?: DocumentoVinculado[];
+}
+
+/** El otro lado del vínculo entre un anexo y su historia: lo justo para
+ *  nombrarlo y abrirlo. Espejo de documentoVinculadoResponse. */
+export interface DocumentoVinculado {
+  id: string;
+  /** El nombre de la plantilla ("Historia clínica general"). */
+  nombre: string;
+  folio?: number;
+  estado: EstadoDocumento;
+  /** Cuándo se completó (sellado o terminado) o, en un borrador, su última
+   *  modificación: la misma fecha que las tablas. */
+  fecha: string;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {

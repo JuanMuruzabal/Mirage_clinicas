@@ -45,7 +45,7 @@ var sinAcentos = strings.NewReplacer(
 func nombreDeArchivoDelPDF(doc db.DocumentoClinico, plantilla *documentos.Plantilla) string {
 	nombre := doc.PlantillaID
 	if plantilla != nil {
-		nombre = documentos.NombreConTipo(plantilla.Tipo, plantilla.Nombre)
+		nombre = documentos.NombreSinRepetirTipo(plantilla.Tipo, plantilla.Nombre)
 	}
 	base := strings.Trim(noAlfanumerico.ReplaceAllString(strings.ToLower(sinAcentos.Replace(nombre)), "-"), "-")
 	if base == "" {

@@ -45,7 +45,7 @@ describe("acciones de documentos", () => {
   it("crear lleva al editor; si falla, dice por qué", async () => {
     api.apiCrearDocumento.mockResolvedValue({ ok: true, data: documento });
     await expect(crearDocumentoAction("plantilla", "pac-1")).rejects.toThrow("REDIRECT:/panel/documentos/doc-1");
-    expect(api.apiCrearDocumento).toHaveBeenCalledWith("un-token", "plantilla", "pac-1");
+    expect(api.apiCrearDocumento).toHaveBeenCalledWith("un-token", "plantilla", "pac-1", undefined);
 
     // Ya había un borrador de ese documento para ese paciente: se retoma, y el editor lo avisa.
     api.apiCrearDocumento.mockResolvedValue({ ok: true, data: { ...documento, retomado: true } });

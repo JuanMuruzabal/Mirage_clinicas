@@ -8,6 +8,7 @@ import { requireProfesional } from "@/lib/documentos-servidor";
 import { EditorDeDocumento } from "@/components/documentos/editor-de-documento";
 import { VistaDeDocumento } from "@/components/documentos/vista-de-documento";
 import { EstadoDeDocumento } from "@/components/documentos/tablas-de-documentos";
+import { VinculosDelDocumento } from "@/components/documentos/vinculos-del-documento";
 
 export const metadata: Metadata = { title: "Documento clínico — PRISMA" };
 
@@ -56,6 +57,7 @@ export default async function DocumentoPage({ params, searchParams }: PageProps<
           · DNI {documento.paciente.dni}
           {!documento.esMio && <> · hecho por {documento.autorNombre}</>}
         </p>
+        <VinculosDelDocumento documento={documento} />
       </div>
 
       {documento.estado === "borrador" && documento.esMio && plantilla ? (

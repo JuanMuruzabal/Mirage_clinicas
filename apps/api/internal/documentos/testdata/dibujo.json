@@ -1,0 +1,182 @@
+{
+  "_comentario": "Tabla compartida del dibujo (Fase 5.6b): la leen dibujo.test.ts (paquete) y dibujo_test.go (API). Cada caso es un valor de un campo dibujo y lo que tienen que decir los dos lados: si está vacío y el mensaje de la validación (null = válido). Un caso con `generado` arma `trazos` trazos de `puntos` puntos, todos en [1, 1], en un lienzo de `ancho` × `alto`. NaN e infinitos no tienen JSON: los prueba cada lado por su cuenta.",
+  "casos": [
+    { "nombre": "sin valor: vacío", "valor": null, "vacio": true, "mensaje": null },
+    { "nombre": "bien formado y sin trazos: vacío", "valor": { "ancho": 400, "alto": 200, "trazos": [] }, "vacio": true, "mensaje": null },
+    {
+      "nombre": "bien formado, con los puntos en los bordes",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[0, 0], [400, 200]], [[0, 200]], [[400, 0]]] },
+      "vacio": false,
+      "mensaje": null
+    },
+    { "nombre": "forma: un texto vacío", "valor": "", "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un texto", "valor": "genograma", "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: una lista vacía", "valor": [], "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un número", "valor": 5, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un objeto sin claves", "valor": {}, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: sin trazos", "valor": { "ancho": 400, "alto": 200 }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: solo trazos", "valor": { "trazos": [] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    {
+      "nombre": "forma: una clave de más",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [], "color": "rojo" },
+      "vacio": false,
+      "mensaje": "El dibujo no tiene la forma esperada."
+    },
+    {
+      "nombre": "forma: tres claves que no son las esperadas",
+      "valor": { "ancho": 400, "alto": 200, "puntos": [] },
+      "vacio": false,
+      "mensaje": "El dibujo no tiene la forma esperada."
+    },
+    { "nombre": "forma: el ancho es un texto", "valor": { "ancho": "400", "alto": 200, "trazos": [] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: el alto es null", "valor": { "ancho": 400, "alto": null, "trazos": [] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: los trazos son un objeto", "valor": { "ancho": 400, "alto": 200, "trazos": {} }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un trazo que no es una lista", "valor": { "ancho": 400, "alto": 200, "trazos": ["trazo"] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un punto de un número", "valor": { "ancho": 400, "alto": 200, "trazos": [[[1]]] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un punto de tres números", "valor": { "ancho": 400, "alto": 200, "trazos": [[[1, 2, 3]]] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un punto con un texto", "valor": { "ancho": 400, "alto": 200, "trazos": [[["1", 2]]] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "forma: un punto que es un objeto", "valor": { "ancho": 400, "alto": 200, "trazos": [[{ "x": 1, "y": 2 }]] }, "vacio": false, "mensaje": "El dibujo no tiene la forma esperada." },
+    { "nombre": "lienzo: 50 × 50 es el mínimo", "valor": { "ancho": 50, "alto": 50, "trazos": [] }, "vacio": true, "mensaje": null },
+    { "nombre": "lienzo: 4000 × 4000 es el máximo", "valor": { "ancho": 4000, "alto": 4000, "trazos": [] }, "vacio": true, "mensaje": null },
+    {
+      "nombre": "lienzo: 49 de ancho, sin trazos, no es un vacío",
+      "valor": { "ancho": 49, "alto": 200, "trazos": [] },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    {
+      "nombre": "lienzo: 49,99 de alto",
+      "valor": { "ancho": 400, "alto": 49.99, "trazos": [] },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    {
+      "nombre": "lienzo: 4001 de ancho",
+      "valor": { "ancho": 4001, "alto": 200, "trazos": [] },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    {
+      "nombre": "lienzo: 4000,01 de alto",
+      "valor": { "ancho": 400, "alto": 4000.01, "trazos": [] },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    {
+      "nombre": "lienzo: negativo",
+      "valor": { "ancho": -400, "alto": 200, "trazos": [] },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    {
+      "nombre": "orden: el lienzo antes que los trazos",
+      "generado": { "ancho": 10, "alto": 200, "trazos": 301, "puntos": 1 },
+      "vacio": false,
+      "mensaje": "El lienzo tiene que medir entre 50 y 4000 de cada lado."
+    },
+    { "nombre": "trazos: 300 es el máximo", "generado": { "ancho": 400, "alto": 200, "trazos": 300, "puntos": 1 }, "vacio": false, "mensaje": null },
+    {
+      "nombre": "trazos: 301",
+      "generado": { "ancho": 400, "alto": 200, "trazos": 301, "puntos": 1 },
+      "vacio": false,
+      "mensaje": "El dibujo puede tener hasta 300 trazos."
+    },
+    {
+      "nombre": "orden: la cantidad de trazos antes que un trazo vacío",
+      "valor": {
+        "ancho": 400,
+        "alto": 200,
+        "trazos": [
+          [], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]], [[1, 1]],
+          [[1, 1]]
+        ]
+      },
+      "vacio": false,
+      "mensaje": "El dibujo puede tener hasta 300 trazos."
+    },
+    { "nombre": "trazos: un trazo sin puntos", "valor": { "ancho": 400, "alto": 200, "trazos": [[]] }, "vacio": false, "mensaje": "Hay un trazo sin puntos." },
+    { "nombre": "trazos: el segundo sin puntos", "valor": { "ancho": 400, "alto": 200, "trazos": [[[1, 1]], []] }, "vacio": false, "mensaje": "Hay un trazo sin puntos." },
+    { "nombre": "puntos: 20.000 es el máximo", "generado": { "ancho": 400, "alto": 200, "trazos": 1, "puntos": 20000 }, "vacio": false, "mensaje": null },
+    {
+      "nombre": "puntos: 20.001 en un trazo",
+      "generado": { "ancho": 400, "alto": 200, "trazos": 1, "puntos": 20001 },
+      "vacio": false,
+      "mensaje": "El dibujo puede tener hasta 20.000 puntos."
+    },
+    {
+      "nombre": "puntos: 20.001 entre tres trazos",
+      "generado": { "ancho": 400, "alto": 200, "trazos": 3, "puntos": 6667 },
+      "vacio": false,
+      "mensaje": "El dibujo puede tener hasta 20.000 puntos."
+    },
+    { "nombre": "puntos: 20.000 entre cuatro trazos", "generado": { "ancho": 400, "alto": 200, "trazos": 4, "puntos": 5000 }, "vacio": false, "mensaje": null },
+    {
+      "nombre": "puntos: uno a la izquierda del lienzo",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[1, 1], [-0.01, 10]]] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "puntos: uno arriba del lienzo",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[1, 1], [10, -0.01]]] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "puntos: uno a la derecha del lienzo",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[400.01, 10]]] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "puntos: uno debajo del lienzo",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[10, 200.01]]] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "orden: el punto fuera del primer trazo antes que el trazo vacío del segundo",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[9999, 1]], []] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "orden: el trazo vacío antes que el punto fuera del siguiente",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[1, 1]], [], [[9999, 1]]] },
+      "vacio": false,
+      "mensaje": "Hay un trazo sin puntos."
+    },
+    {
+      "nombre": "orden: dentro de un trazo, el primer punto malo (forma)",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[["x", 1], [9999, 1]]] },
+      "vacio": false,
+      "mensaje": "El dibujo no tiene la forma esperada."
+    },
+    {
+      "nombre": "orden: dentro de un trazo, el primer punto malo (fuera)",
+      "valor": { "ancho": 400, "alto": 200, "trazos": [[[9999, 1], ["x", 1]]] },
+      "vacio": false,
+      "mensaje": "Hay un punto fuera del lienzo."
+    },
+    {
+      "nombre": "orden: el trazo que no es una lista, antes que el punto fuera del siguiente",
+      "valor": { "ancho": 400, "alto": 200, "trazos": ["trazo", [[9999, 1]]] },
+      "vacio": false,
+      "mensaje": "El dibujo no tiene la forma esperada."
+    }
+  ]
+}

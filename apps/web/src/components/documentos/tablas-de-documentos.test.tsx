@@ -41,7 +41,10 @@ describe("TablaDeDocumentos", () => {
     );
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("(colega)")).toBeInTheDocument();
-    expect(screen.getAllByText("Firmado y sellado")).toHaveLength(2);
+    // En una tabla, el estado es Borrador, Completado o Anulado (2026-10-05).
+    // Va dos veces por fila: en su columna y, para el celular, debajo del
+    // documento.
+    expect(screen.getAllByText("Completado")).toHaveLength(4);
     // La huella abreviada en su columna, y la completa al pasar el mouse.
     expect(screen.getByRole("columnheader", { name: "Huella" })).toBeInTheDocument();
     const huellas = screen.getAllByText("a3f1c0de…0000");
@@ -60,7 +63,8 @@ describe("TablaDeDocumentos", () => {
     expect(screen.getByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })).toBeInTheDocument();
     expect(screen.queryByText("Folio")).not.toBeInTheDocument();
     expect(screen.queryByText("Huella")).not.toBeInTheDocument();
-    expect(screen.getByText("Borrador")).toBeInTheDocument();
+    // En su columna y, para el celular, debajo del documento.
+    expect(screen.getAllByText("Borrador")).toHaveLength(2);
   });
 
   it("vacía, dice lo que se le pida", () => {
@@ -78,26 +82,51 @@ describe("TablaDeDocumentos", () => {
     expect(screen.queryByText("Listo para imprimir")).not.toBeInTheDocument();
   });
 
-  it("sin `partible`, el chip va siempre en una línea", () => {
+  it("el chip del encabezado va siempre en una línea", () => {
     render(<EstadoDeDocumento estado="para_imprimir" />);
     const chip = screen.getByText("Listo para imprimir o descargar");
     expect(chip).toHaveClass("whitespace-nowrap", "rounded-full");
-    expect(chip).not.toHaveClass("md:whitespace-nowrap", "max-md:rounded-[0.75rem]", "max-md:leading-snug");
   });
 
-  it("con `partible`, en el celular se parte en renglones y desde md va en una línea", () => {
-    render(<EstadoDeDocumento estado="para_imprimir" partible />);
-    const chip = screen.getByText("Listo para imprimir o descargar");
-    expect(chip).toHaveClass("md:whitespace-nowrap", "max-md:rounded-[0.75rem]", "max-md:leading-snug", "rounded-full");
-    expect(chip.className.split(/\s+/)).not.toContain("whitespace-nowrap");
-  });
-
-  it("la celda de estado de la tabla usa el chip partible", () => {
+  it("la celda de estado de la tabla dice Completado, corto y en una línea", () => {
     render(<TablaDeDocumentos documentos={[paraImprimir()]} vacio="nada" />);
-    const chip = screen.getByText("Listo para imprimir o descargar");
-    expect(chip.closest("td")).not.toBeNull();
-    expect(chip).toHaveClass("md:whitespace-nowrap");
-    expect(chip.className.split(/\s+/)).not.toContain("whitespace-nowrap");
+    // En su columna y, para el celular, debajo del documento.
+    const chips = screen.getAllByText("Completado");
+    expect(chips).toHaveLength(2);
+    for (const chip of chips) {
+      expect(chip.closest("td")).not.toBeNull();
+      expect(chip).toHaveClass("whitespace-nowrap");
+    }
+    expect(screen.queryByText("Listo para imprimir o descargar")).not.toBeInTheDocument();
+  });
+});
+
+describe("TablaDeDocumentos anidada: los anexos de cada historia (5.6b)", () => {
+  it("un anexo de una historia que no se ve va bajo su rótulo; «Anexo sin historia» es solo el que no tiene", () => {
+    const historia = resumen({ id: "h1", tipo: "historia_clinica", plantillaNombre: "Historia clínica general" });
+    const anexo = (extra: Partial<DocumentoResumen>) => resumen({ tipo: "anexo", plantillaNombre: "Anexo de prueba", ...extra });
+    render(
+      <TablaDeDocumentos
+        anidada
+        documentos={[
+          anexo({ id: "a-sin", anexoDe: null }),
+          anexo({ id: "a-oculta", anexoDe: null, historiaNoVisible: true }),
+          historia,
+          anexo({ id: "a-suyo", anexoDe: { id: "h1", nombre: "Historia clínica general", estado: "sellado", folio: 3, fecha: "2026-09-27T14:05:00-03:00" } }),
+        ]}
+        vacio="nada"
+      />,
+    );
+    const filas = screen.getAllByRole("row").slice(1).map((f) => f.textContent ?? "");
+    expect(filas).toHaveLength(5);
+    expect(filas[0]).toContain("Historia clínica general");
+    expect(filas[0]).not.toContain("Historia clínica: Historia clínica");
+    expect(filas[1]).toContain("Anexo de prueba");
+    expect(filas[2]).toBe("Historia de otro profesional, todavía sin terminar");
+    expect(filas[3]).toContain("Anexo de prueba");
+    expect(filas[3]).not.toContain("Anexo sin historia");
+    expect(filas[4]).toContain("Anexo sin historia");
+    expect(screen.getAllByText("Anexo sin historia")).toHaveLength(1);
   });
 });
 

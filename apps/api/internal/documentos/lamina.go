@@ -123,6 +123,7 @@ type Lamina struct {
 	Zonas        []Zona                `json:"zonas"`
 	Firmas       []LugarDeFirma        `json:"firmas"`
 	Odontogramas []OdontogramaDeLamina `json:"odontogramas,omitempty"`
+	Dibujos      []DibujoDeLamina      `json:"dibujos,omitempty"`
 }
 
 // LineaCompuesta — un renglón ya ubicado: su línea de base empieza en X, Y.
