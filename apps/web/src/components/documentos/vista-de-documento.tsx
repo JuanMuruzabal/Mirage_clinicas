@@ -4,11 +4,13 @@ import { useState } from "react";
 import type { DocumentoDetalle } from "@dental-mirage/shared-types";
 import { plantillaPorId, type FirmaDePlantilla } from "@dental-mirage/documentos-clinicos";
 import Link from "next/link";
+import { IconDownload, IconPrinter } from "@/components/icons";
 import { registrarImpresionAction } from "@/app/actions/documentos";
-import { contenidoCongelado, fechaYHora, huellaCorta, nombreConTipo } from "@/lib/documentos";
-import { nombreDeArchivoDelPDF, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
+import { MODELO_RETIRADO, contenidoCongelado, fechaYHora, huellaCorta, nombreConTipo, nombreDeModelo, rotuloDeFolio } from "@/lib/documentos";
+import { CLASE_BOTON_PDF, nombreDeArchivoDelPDF, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
 import { CalcoCongelado } from "./calco";
 import { BotonDescargarPDF } from "./descargar-pdf";
+import { PastillaDeEstado } from "./pastilla-de-estado";
 import { FirmarDialogo } from "./firmar-dialogo";
 import { ImpresionDelDocumento } from "./impresion-del-documento";
 import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
@@ -44,7 +46,16 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
   const contenido = contenidoCongelado(documento.contenido);
 
   if (!contenido) {
-    return <p className="text-sm text-terracota-oscuro">No se pudo leer el contenido de este documento.</p>;
+    // Un borrador de un modelo que ya no existe no tiene contenido que
+    // mostrar: se dice en un tono neutro, no como un error (2026-10-06).
+    const retirado = nombreDeModelo(documento.plantillaNombre) === MODELO_RETIRADO;
+    return (
+      <p className="max-w-3xl self-start rounded-card border border-linea bg-marfil p-4 text-sm text-grafito/80 shadow-soft">
+        {retirado
+          ? "Este documento es de un modelo que ya no está disponible: su contenido no se puede mostrar."
+          : "No se pudo leer el contenido de este documento."}
+      </p>
+    );
   }
 
   const aFirmar = documento.estado === "a_firmar";
@@ -81,7 +92,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
       </p>
       {documento.estado === "sellado" && (
         <p>
-          Sellado el {fechaYHora(documento.selladoEn)} · folio {documento.folio} · sello{" "}
+          Sellado el {fechaYHora(documento.selladoEn)} · {rotuloDeFolio(documento.folioMostrado)} · sello{" "}
           <span title={documento.hashSello} className="font-[family-name:var(--font-mono)]">
             {huellaCorta(documento.hashSello)}
           </span>
@@ -126,7 +137,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               </p>
               <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
                 <dt className="text-salvia-oscuro/80">Folio</dt>
-                <dd>{documento.folio}</dd>
+                <dd>{documento.folioMostrado}</dd>
                 <dt className="text-salvia-oscuro/80">Sellado</dt>
                 <dd>{fechaYHora(documento.selladoEn)}</dd>
                 <dt className="text-salvia-oscuro/80">Hecho por</dt>
@@ -152,21 +163,26 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               <p className="mt-1 text-sm text-grafito/80">
                 El documento sellado, con la constancia de cómo, cuándo y desde dónde se hizo cada firma. Cada descarga e impresión queda registrada.
               </p>
-              <BotonDescargarPDF
-                id={documento.id}
-                nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
-                titulo={nombreConTipo(documento)}
-                className="mt-3 block w-full rounded-full bg-salvia-oscuro px-5 py-2.5 text-center text-sm font-semibold text-marfil hover:brightness-95"
-              />
-              <a
-                href={rutaDelPDF(documento.id, true)}
-                target="_blank"
-                rel="noopener"
-                aria-label="Imprimir (abre el PDF en una pestaña nueva)"
-                className="mt-2 block w-full rounded-full border border-linea bg-hueso px-5 py-2.5 text-center text-sm font-semibold text-salvia-oscuro hover:bg-arena"
-              >
-                Imprimir
-              </a>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <a
+                  href={rutaDelPDF(documento.id, true)}
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="Imprimir (abre el PDF en una pestaña nueva)"
+                  className={`${CLASE_BOTON_PDF} rounded-full`}
+                >
+                  <IconPrinter className="h-3.5 w-3.5 shrink-0" />
+                  Imprimir
+                </a>
+                <BotonDescargarPDF
+                  id={documento.id}
+                  nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
+                  titulo={nombreConTipo(documento)}
+                  icono={<IconDownload className="h-3.5 w-3.5 shrink-0" />}
+                  className={`${CLASE_BOTON_PDF} rounded-full`}
+                  claseDelAviso="basis-full text-xs"
+                />
+              </div>
               {documento.codigoVerificacion && (
                 <p className="mt-3 text-xs text-grafito/75">
                   Código de verificación:{" "}
@@ -189,21 +205,22 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                 Este consentimiento se firma a mano. Imprimilo y que lo firmen el paciente —o quien lo represente— y el profesional: el papel firmado es el
                 documento legal, y se guarda con la historia clínica del paciente.
               </p>
-              <button
-                type="button"
-                onClick={imprimir}
-                className="mt-3 w-full rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-              >
-                Imprimir
-              </button>
-              {conPDF && (
-                <BotonDescargarPDF
-                  id={documento.id}
-                  nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
-                  titulo={nombreConTipo(documento)}
-                  className="mt-2 block w-full rounded-full border border-linea bg-hueso px-5 py-2.5 text-center text-sm font-semibold text-salvia-oscuro hover:bg-arena"
-                />
-              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" onClick={imprimir} className={`${CLASE_BOTON_PDF} rounded-full`}>
+                  <IconPrinter className="h-3.5 w-3.5 shrink-0" />
+                  Imprimir
+                </button>
+                {conPDF && (
+                  <BotonDescargarPDF
+                    id={documento.id}
+                    nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
+                    titulo={nombreConTipo(documento)}
+                    icono={<IconDownload className="h-3.5 w-3.5 shrink-0" />}
+                    className={`${CLASE_BOTON_PDF} rounded-full`}
+                    claseDelAviso="basis-full text-xs"
+                  />
+                )}
+              </div>
               <p className="mt-3 text-xs text-grafito/75">
                 {documento.esMio ? "Ya no se puede editar." : `Lo hizo ${documento.autorNombre}.`} Si hay que corregir algo,{" "}
                 <Link
@@ -216,7 +233,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
               </p>
             </section>
           ) : (
-            <section className="rounded-card border border-linea bg-marfil p-4">
+            <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
               <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Firmas</h3>
               <ul className="mt-2 flex flex-col divide-y divide-linea">
                 {contenido.firmas.map((definicion) => {
@@ -225,13 +242,9 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                     <li key={definicion.rol} className="flex flex-col gap-1.5 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-grafito">{definicion.etiqueta}</p>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
-                            firma ? "border-salvia/40 bg-salvia-claro text-salvia-oscuro" : "border-linea bg-hueso text-grafito/75"
-                          }`}
-                        >
+                        <PastillaDeEstado estado={firma ? "sellado" : definicion.requerida ? "a_firmar" : "borrador"}>
                           {firma ? "Firmada" : definicion.requerida ? "Pendiente" : "Opcional"}
-                        </span>
+                        </PastillaDeEstado>
                       </div>
                       {firma ? (
                         <p className="text-xs text-grafito/75">
@@ -242,7 +255,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                           <button
                             type="button"
                             onClick={() => setFirmando(definicion)}
-                            className="self-start rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+                            className="min-h-11 self-start rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
                           >
                             Firmar en este dispositivo
                           </button>

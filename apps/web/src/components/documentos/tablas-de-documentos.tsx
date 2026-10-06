@@ -5,7 +5,6 @@ import { CajaDeTabla } from "@/components/panel/caja-de-tabla";
 import { ClickableTableRow } from "@/components/panel/clickable-table-row";
 import { FechaHoraCelda } from "@/components/panel/fecha-hora-celda";
 import {
-  CHIP_DE_ESTADO,
   ETIQUETA_DE_ESTADO,
   estadoEnTabla,
   fechaCorta,
@@ -14,11 +13,15 @@ import {
   filasDeHistorias,
   huellaCorta,
   nombreConTipo,
+  nombreDeModelo,
+  nombreDelDocumento,
   partesFechaHoraDeDocumento,
   referenciaDeVinculo,
+  rotuloDeFolio,
   type FilaDeHistorias,
 } from "@/lib/documentos";
 import { AccionesDePDF, nombreDeArchivoDelPDF, tienePDF } from "./acciones-de-pdf";
+import { PastillaDeEstado } from "./pastilla-de-estado";
 
 // Las tablas del módulo de documentos (Fase 5.1). Misma caja que el resto
 // del panel: en el celular muestra cuatro filas enteras antes del scroll
@@ -28,15 +31,14 @@ const CAJA =
   "panel-table-scroll max-h-[420px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,21rem)] md:overflow-x-auto";
 const FILA_CABECERA = "border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/70 md:border-b-[0.5px]";
 const FILA = "border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]";
-const MARCA = "inline-flex rounded-full border px-1.5 text-[0.6875rem] leading-4 font-medium whitespace-nowrap";
 
 // El estado en el encabezado de un documento, con todo su detalle
 // ("Esperando firmas", "Firmado y sellado").
 export function EstadoDeDocumento({ estado }: { estado: DocumentoResumen["estado"] }) {
   return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${CHIP_DE_ESTADO[estado]}`}>
+    <PastillaDeEstado estado={estado} grande>
       {ETIQUETA_DE_ESTADO[estado]}
-    </span>
+    </PastillaDeEstado>
   );
 }
 
@@ -46,11 +48,14 @@ export function EstadoDeDocumento({ estado }: { estado: DocumentoResumen["estado
 // `enLinea`: la marca al lado de la etiqueta, para cuando va debajo del
 // nombre del documento (en el celular).
 export function EstadoEnTabla({ estado, enLinea = false }: { estado: DocumentoResumen["estado"]; enLinea?: boolean }) {
-  const { etiqueta, chip, faltaFirmar } = estadoEnTabla(estado);
+  const { etiqueta, faltaFirmar } = estadoEnTabla(estado);
+  // Un "a firmar" se muestra como completado (salvia) con la marca de la
+  // firma que falta (terracota); el resto, con el color de su estado.
+  const color = estado === "a_firmar" || estado === "para_imprimir" ? "sellado" : estado;
   return (
     <span className={`inline-flex gap-1 ${enLinea ? "flex-wrap items-center" : "flex-col items-start"}`}>
-      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${chip}`}>{etiqueta}</span>
-      {faltaFirmar && <span className={`${MARCA} ${CHIP_DE_ESTADO.a_firmar}`}>Falta firmar</span>}
+      <PastillaDeEstado estado={color}>{etiqueta}</PastillaDeEstado>
+      {faltaFirmar && <PastillaDeEstado estado="a_firmar">Falta firmar</PastillaDeEstado>}
     </span>
   );
 }
@@ -62,14 +67,15 @@ export const HISTORIA_OCULTA = "Historia de otro profesional, todavía sin termi
 // El nombre de un documento en su celda (5.6b). Un anexo debajo de su
 // historia (o del rótulo de una historia oculta) va con sangría, un
 // conector y la etiqueta "Anexo"; uno cuya historia no está en la tabla
-// dice de cuál es, o que no tiene.
+// dice de cuál es, o que no tiene. Un anexo de continuación (Fase 5.6d) se
+// nombra "Anexo Nº n · Sección", sin repetir la etiqueta.
 //
 // `sinTipo`: el nombre sin el tipo adelante, en una tabla que ya es de un
 // solo tipo (las dos de la ficha del paciente).
 function NombreDelDocumento({ documento: d, nivel, sinTipo }: FilaDeHistorias & { sinTipo: boolean }) {
   const link = (
     <Link href={`/panel/documentos/${d.id}`} className="font-medium text-grafito hover:underline">
-      {nivel === "documento" && !sinTipo ? nombreConTipo(d) : d.plantillaNombre}
+      {d.continuacion ? nombreDelDocumento(d) : nivel === "documento" && !sinTipo ? nombreConTipo(d) : nombreDeModelo(d.plantillaNombre)}
     </Link>
   );
   if (nivel === "documento") return link;
@@ -77,15 +83,15 @@ function NombreDelDocumento({ documento: d, nivel, sinTipo }: FilaDeHistorias & 
   const anidado = nivel !== "anexo-suelto";
   return (
     <div className={`flex items-start gap-2 ${anidado ? "pl-3" : ""}`}>
-      {anidado && <span aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 rounded-bl-sm border-b border-l border-grafito/40" />}
+      {anidado && <span aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 rounded-bl-sm border-b border-l border-grafito/60" />}
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className={`${MARCA} border-linea bg-hueso text-grafito/75`}>{sinHistoria ? "Anexo sin historia" : "Anexo"}</span>
+          {!d.continuacion && <span className="inline-flex rounded-full border border-grafito/60 bg-hueso px-1.5 text-[0.6875rem] leading-4 font-semibold whitespace-nowrap text-grafito/80">{sinHistoria ? "Anexo sin historia" : "Anexo"}</span>}
           {link}
         </span>
         {nivel === "anexo-suelto" && d.anexoDe && (
           <span className="text-xs text-grafito/75">
-            De: {d.anexoDe.nombre} · {referenciaDeVinculo(d.anexoDe)}
+            De: {nombreDeModelo(d.anexoDe.nombre)} · {referenciaDeVinculo(d.anexoDe)}
           </span>
         )}
       </div>
@@ -201,14 +207,14 @@ export function TablaDeDocumentos({
             {/* Una historia y sus anexos se leen como un bloque: sin la línea
                 entre ellos, solo entre un grupo y el siguiente. */}
             <ClickableTableRow href={`/panel/documentos/${d.id}`} className={`${FILA} ${sigueEnElGrupo(filas, i) ? "border-b-transparent" : ""}`}>
-              {!conPaciente && <td className="max-md:hidden px-4 py-3 tabular-nums text-grafito">{d.folio ?? "—"}</td>}
+              {!conPaciente && <td className="max-md:hidden px-4 py-3 tabular-nums text-grafito">{d.folioMostrado ?? "—"}</td>}
               <td className="px-4 py-3">
                 <NombreDelDocumento documento={d} nivel={nivel} sinTipo={sinTipo} />
                 {compacta && <p className="text-xs text-grafito/75">{fechaYHora(fechaDelDocumento(d))}</p>}
                 {/* En el celular las columnas del folio y de la huella no
                     entran: bajan debajo del documento, como el profesional
                     en la ficha. */}
-                {!conPaciente && d.folio != null && <p className="text-xs tabular-nums text-grafito/75 md:hidden">Folio {d.folio}</p>}
+                {!conPaciente && d.folioMostrado && <p className="text-xs tabular-nums text-grafito/75 md:hidden">{rotuloDeFolio(d.folioMostrado)}</p>}
                 {!conPaciente && d.hashContenido && (
                   <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/75 md:hidden" title={d.hashContenido}>
                     Huella {huellaCorta(d.hashContenido)}
@@ -221,7 +227,7 @@ export function TablaDeDocumentos({
                     <EstadoEnTabla estado={d.estado} enLinea />
                   </div>
                 )}
-                {tienePDF(d) && <AccionesDePDF id={d.id} nombre={nombreConTipo(d)} nombreDeArchivo={nombreDeArchivoDelPDF(d)} />}
+                {tienePDF(d) && <AccionesDePDF id={d.id} nombre={nombreDelDocumento(d)} nombreDeArchivo={nombreDeArchivoDelPDF(d)} />}
               </td>
               {conPaciente && (
                 <td className="px-4 py-3 text-grafito">

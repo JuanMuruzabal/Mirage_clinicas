@@ -180,6 +180,7 @@ export function sellado(): DocumentoDetalle {
     ...aFirmar([firma("paciente"), firma("profesional")]),
     estado: "sellado",
     folio: 3,
+    folioMostrado: "3",
     cadenaN: 12,
     selladoEn: "2026-09-27T14:06:00-03:00",
     hashSello: "ffff0000aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777",

@@ -1,6 +1,7 @@
 // Ayudantes de la pantalla de documentos clínicos (Fase 5.1).
-import type { DocumentoResumen, DocumentoVinculado, EstadoDocumento } from "@dental-mirage/shared-types";
+import type { DocumentoResumen, DocumentoVinculado, EstadoDocumento, SeccionDeContinuacion } from "@dental-mirage/shared-types";
 import {
+  ETIQUETA_DE_SECCION_DE_CONTINUACION,
   ETIQUETA_DE_TIPO,
   type BloqueArmado,
   type Figura,
@@ -32,6 +33,9 @@ export interface ContenidoCongelado {
   /** Lo dibujado en el odontograma, tal cual lo congeló la API (Fase 5.5).
    *  Falta en un documento sin odontograma. */
   figuras?: Figura[];
+  /** En un anexo de continuación (Fase 5.6d), de qué historia es, como era
+   *  al crearlo. */
+  continuacion?: { historiaId: string; historia: string; seccion: SeccionDeContinuacion; numero: number };
 }
 
 /** Lee el contenido congelado que manda la API, o null si no tiene la
@@ -49,17 +53,32 @@ export const ETIQUETA_DE_ESTADO: Record<EstadoDocumento, string> = {
   para_imprimir: "Listo para imprimir o descargar",
   sellado: "Firmado y sellado",
   anulado: "Anulado",
+  abierto: "Abierto",
 };
 
-/** Las clases del chip de cada estado: el sellado en verde (listo), lo
- *  que falta en acero, lo anulado apagado. */
+/** Las clases de la pastilla de cada estado (PastillaDeEstado): cada una con
+ *  su color, y un borde que se lee contra el hueso del fondo y el marfil de
+ *  las tarjetas (3:1 como mínimo; el texto, 4,5:1 sobre su relleno).
+ *  Borrador neutro, completado en salvia, lo que falta firmar en terracota,
+ *  un anexo abierto en acero y lo anulado tachado, con borde de trazos. */
 export const CHIP_DE_ESTADO: Record<EstadoDocumento, string> = {
-  borrador: "bg-hueso text-grafito/75 border-linea",
-  a_firmar: "bg-acero-claro text-acero-oscuro border-acero/30",
-  para_imprimir: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
-  sellado: "bg-salvia-claro text-salvia-oscuro border-salvia/40",
-  anulado: "bg-arena text-grafito/70 border-linea",
+  borrador: "bg-arena text-grafito border-grafito/60",
+  a_firmar: "bg-terracota-claro text-terracota-oscuro border-terracota-oscuro/80",
+  para_imprimir: "bg-salvia-claro text-salvia-oscuro border-salvia",
+  sellado: "bg-salvia-claro text-salvia-oscuro border-salvia",
+  anulado: "border-dashed bg-hueso text-grafito/80 border-grafito/60 line-through decoration-grafito/60",
+  // Un anexo de continuación: vigente y abierto a sumar anotaciones.
+  abierto: "bg-acero-claro text-acero-oscuro border-acero",
 };
+
+/** Un documento cuyo modelo ya no existe (datos viejos de desarrollo) llega
+ *  con el id interno de la plantilla como nombre ("anexo-odontopediatria"):
+ *  la pantalla nunca muestra ese id. Un nombre real siempre lleva una
+ *  mayúscula o un espacio. */
+export const MODELO_RETIRADO = "Modelo retirado";
+export function nombreDeModelo(plantillaNombre: string): string {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(plantillaNombre) ? MODELO_RETIRADO : plantillaNombre;
+}
 
 /** "27/09/2026" — la fecha de un instante, en hora de Córdoba. */
 export function fechaCorta(iso?: string): string {
@@ -79,8 +98,17 @@ export function fechaCorta(iso?: string): string {
  *  general"), no se repite. */
 export function nombreConTipo(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre">): string {
   const tipo = ETIQUETA_DE_TIPO[d.tipo as TipoDePlantilla];
-  if (!tipo || empiezaCon(d.plantillaNombre, tipo)) return d.plantillaNombre;
-  return `${tipo}: ${d.plantillaNombre}`;
+  const nombre = nombreDeModelo(d.plantillaNombre);
+  if (!tipo || empiezaCon(nombre, tipo)) return nombre;
+  return `${tipo}: ${nombre}`;
+}
+
+/** El nombre de un documento en una tabla o un vínculo: un anexo de
+ *  continuación se nombra por su número y su sección ("Anexo Nº 2 · Plan de
+ *  tratamiento", Fase 5.6d); el resto, con su tipo (nombreConTipo). */
+export function nombreDelDocumento(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "continuacion">): string {
+  if (d.continuacion) return `Anexo Nº ${d.continuacion.numero} · ${ETIQUETA_DE_SECCION_DE_CONTINUACION[d.continuacion.seccion]}`;
+  return nombreConTipo(d);
 }
 
 // Sin mayúsculas ni acentos y por palabras enteras: "Historia clínica
@@ -116,28 +144,64 @@ export function fechaYHora(iso?: string): string {
 }
 
 /** El instante que muestran las tablas de documentos (2026-10-05): cuándo se
- *  completó —sellado o terminado— y, en un borrador, su última modificación. */
-export function fechaDelDocumento(d: Pick<DocumentoResumen, "selladoEn" | "terminadoEn" | "actualizadoEn">): string {
-  return d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn;
+ *  completó —sellado o terminado— y, en un borrador, su última modificación.
+ *  Un anexo de continuación, su último asiento (Fase 5.6d). Mismo criterio
+ *  que la fecha de un vínculo en la API. */
+export function fechaDelDocumento(d: Pick<DocumentoResumen, "ultimoAsientoEn" | "selladoEn" | "terminadoEn" | "actualizadoEn">): string {
+  return d.ultimoAsientoEn ?? d.selladoEn ?? d.terminadoEn ?? d.actualizadoEn;
 }
 
 /** El estado como se nombra en las tablas (2026-10-05): Borrador o
- *  Completado —un "a firmar" ya está completo, y le falta firmar— y
- *  Anulado. El detalle ("Esperando firmas", "Firmado y sellado") queda para
- *  el encabezado del documento. */
+ *  Completado —un "a firmar" ya está completo, y le falta firmar—, Anulado y,
+ *  en un anexo de continuación, Abierto. El detalle ("Esperando firmas",
+ *  "Firmado y sellado") queda para el encabezado del documento. */
 export function estadoEnTabla(estado: EstadoDocumento): { etiqueta: string; chip: string; faltaFirmar: boolean } {
-  if (estado === "borrador" || estado === "anulado") {
+  if (estado === "borrador" || estado === "anulado" || estado === "abierto") {
     return { etiqueta: ETIQUETA_DE_ESTADO[estado], chip: CHIP_DE_ESTADO[estado], faltaFirmar: false };
   }
   return { etiqueta: "Completado", chip: CHIP_DE_ESTADO.sellado, faltaFirmar: estado === "a_firmar" };
 }
 
-/** Cómo se señala el otro lado de un vínculo anexo ↔ historia: su folio,
- *  si ya lo tiene, o su estado. */
+/** Un anexo cuya historia todavía no tiene folio: la API manda su número
+ *  ("Anexo Nº 1") en vez de un "x.y" (documentos.FolioDe). */
+export function esAnexoSinFolio(folioMostrado: string): boolean {
+  return folioMostrado.startsWith("Anexo Nº");
+}
+
+/** El folio con su rótulo, para un encabezado o una fila en el celular:
+ *  "Folio 3", "Folio 3.1" o "Anexo Nº 1"; undefined sin folio. Espejo de
+ *  `Folio.String` de la API. */
+export function rotuloDeFolio(folioMostrado?: string): string | undefined {
+  if (!folioMostrado) return undefined;
+  return esAnexoSinFolio(folioMostrado) ? folioMostrado : `Folio ${folioMostrado}`;
+}
+
+/** Cómo se señala el otro lado de un vínculo anexo ↔ historia: su folio
+ *  ("folio 3", o el "folio 3.1" de un anexo), si ya lo tiene, o su estado. */
 export function referenciaDeVinculo(v: DocumentoVinculado): string {
-  if (v.folio != null) return `folio ${v.folio}`;
+  if (v.folioMostrado && !esAnexoSinFolio(v.folioMostrado)) return `folio ${v.folioMostrado}`;
   const { etiqueta, faltaFirmar } = estadoEnTabla(v.estado);
   return faltaFirmar ? `${etiqueta}, falta firmar` : etiqueta;
+}
+
+/** El anexo de continuación que ya tiene una sección de una historia: su
+ *  número y su folio como se muestra. */
+export type AnexoDeLaSeccion = { id: string; numero: number; folioMostrado?: string };
+
+/** Cómo se nombra el anexo de una sección en su botón: "Anexo Nº 1" y, si su
+ *  historia ya tiene folio, "Anexo Nº 1 · Folio 3.1". */
+export function nombreDelAnexoDeLaSeccion(a: AnexoDeLaSeccion): string {
+  const base = `Anexo Nº ${a.numero}`;
+  return a.folioMostrado && !esAnexoSinFolio(a.folioMostrado) ? `${base} · Folio ${a.folioMostrado}` : base;
+}
+
+/** Los anexos de continuación de una historia, por sección (Fase 5.6d). */
+export function anexosPorSeccion(anexos: DocumentoVinculado[] = []): Partial<Record<SeccionDeContinuacion, AnexoDeLaSeccion>> {
+  const porSeccion: Partial<Record<SeccionDeContinuacion, AnexoDeLaSeccion>> = {};
+  for (const a of anexos) {
+    if (a.continuacion) porSeccion[a.continuacion.seccion] = { id: a.id, numero: a.continuacion.numero, folioMostrado: a.folioMostrado };
+  }
+  return porSeccion;
 }
 
 /** La historia clínica que se ofrece crear cuando a un paciente sin

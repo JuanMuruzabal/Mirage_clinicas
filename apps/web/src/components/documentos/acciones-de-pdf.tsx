@@ -1,5 +1,6 @@
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import { IconDownload, IconPrinter } from "@/components/icons";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { rutaDelPDF } from "@/lib/pdf-de-documentos";
 import { BotonDescargarPDF } from "./descargar-pdf";
 
@@ -13,20 +14,26 @@ import { BotonDescargarPDF } from "./descargar-pdf";
 export { nombreDeArchivoDelPDF, rutaDelPDF } from "@/lib/pdf-de-documentos";
 
 /** ¿Este documento tiene PDF? Lo dice la API (`tienePDF` del resumen): un
- *  consentimiento para imprimir y una historia clínica sellada, siempre que
- *  su contenido congelado traiga la composición de la lámina — uno sellado
- *  en la 5.1, antes de que existiera, no la trae y no tiene PDF. Un borrador
- *  o uno a firmar, nunca: el estado se mira igual, por las dudas. */
+ *  consentimiento para imprimir, una historia clínica sellada —siempre que su
+ *  contenido congelado traiga la composición de la lámina: uno sellado en la
+ *  5.1, antes de que existiera, no la trae y no tiene PDF— y un anexo de
+ *  continuación, con sus asientos (Fase 5.6d). Un borrador o uno a firmar,
+ *  nunca: el estado se mira igual, por las dudas. */
 export function tienePDF(documento: Pick<DocumentoResumen, "estado" | "tienePDF">): boolean {
-  return (documento.estado === "para_imprimir" || documento.estado === "sellado") && documento.tienePDF;
+  return (documento.estado === "para_imprimir" || documento.estado === "sellado" || documento.estado === "abierto") && documento.tienePDF;
 }
 
-// Una mitad del control: cómoda para el dedo en el celular (36 px) sin ser
-// una pastilla enorme, y más baja desde md, donde se usa el mouse. En el
-// celular, con poco relleno: a 390 px la columna del documento deja unos
-// 130 px, y las dos mitades tienen que entrar ahí (medido, 2026-10-02).
-const MITAD =
-  "inline-flex min-h-9 items-center gap-1 whitespace-nowrap border border-linea bg-hueso px-2 text-xs font-medium text-salvia-oscuro hover:bg-arena focus-visible:relative focus-visible:z-10 sm:gap-1.5 sm:px-3 md:min-h-8";
+// El botón de PDF (Imprimir, Descargar PDF) en TODAS las pantallas del
+// módulo: secundario y chico —36 px en la computadora, del ancho de su
+// contenido—, con el borde salvia oscuro sobre marfil para que no se pierda
+// en el fondo, y de 44 px con el dedo (CLASE_TACTIL). Sin redondeo: lo pone
+// quien lo usa (una pastilla entera, o una mitad del control segmentado).
+export const CLASE_BOTON_PDF = `inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap border border-salvia-oscuro bg-marfil px-3 text-sm font-semibold text-salvia-oscuro hover:bg-salvia-claro ${CLASE_TACTIL}`;
+
+// Una mitad del control segmentado de las tablas. En el celular, con poco
+// relleno: a 390 px la columna del documento deja unos 130 px, y las dos
+// mitades tienen que entrar ahí (medido, 2026-10-02).
+const MITAD = `${CLASE_BOTON_PDF} focus-visible:relative focus-visible:z-10 max-sm:gap-1 max-sm:px-2`;
 
 // AccionesDePDF — "Imprimir" y "Descargar PDF" en una fila de una tabla, como
 // un control segmentado: una sola pastilla partida por una línea (pedido

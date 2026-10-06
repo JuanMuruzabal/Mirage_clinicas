@@ -149,14 +149,14 @@ export function FirmarDialogo({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" onClick={onCerrar} className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena">
+          <button type="button" onClick={onCerrar} className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena">
             Cancelar
           </button>
           <button
             type="button"
             onClick={() => void firmar()}
             disabled={faltaAlgo || enviando}
-            className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+            className="min-h-11 rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
           >
             {enviando ? "Firmando…" : "Firmar"}
           </button>

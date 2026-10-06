@@ -6,20 +6,23 @@ import {
   armarFiguras,
   armarLamina,
   campoPorId,
+  continuaEnAnexoDe,
   estaVacio,
   seccionDelCampo,
   seFirmaEnPapel,
   validarLamina,
   validarValores,
+  type Campo,
   type Plantilla,
   type Valor,
   type Valores,
 } from "@dental-mirage/documentos-clinicos";
-import type { DocumentoDetalle, ErrorDeCampoDeDocumento } from "@dental-mirage/shared-types";
+import type { DocumentoDetalle, ErrorDeCampoDeDocumento, SeccionDeContinuacion } from "@dental-mirage/shared-types";
 import { descartarBorradorAction, guardarBorradorAction, terminarDocumentoAction } from "@/app/actions/documentos";
 import { Dialogo } from "@/components/dialogo";
-import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { IconChevronDown } from "@/components/icons";
+import { anexosPorSeccion, type AnexoDeLaSeccion } from "@/lib/documentos";
+import { ContinuacionDeLaSeccion } from "./anexo-de-continuacion";
 import { CalcoEnVivo } from "./calco";
 import { CampoDeDocumento, idDelCampo } from "./campo-de-documento";
 import { LaminaDocumento, paginasDeLaLamina } from "./lamina-documento";
@@ -118,6 +121,11 @@ export function EditorDeDocumento({
   const [pedidoDeFoco, setPedidoDeFoco] = useState<PedidoDeFoco | null>(null);
   // El campo cuya pantalla emergente está abierta (un odontograma o un dibujo).
   const [emergenteAbierta, setEmergenteAbierta] = useState<string | null>(null);
+  // Los anexos de continuación por sección (Fase 5.6d): los que trae la
+  // historia y los que se crean desde acá, antes de que la página se
+  // actualice.
+  const [anexosCreados, setAnexosCreados] = useState<Partial<Record<SeccionDeContinuacion, AnexoDeLaSeccion>>>({});
+  const anexos = useMemo(() => ({ ...anexosPorSeccion(documento.anexos), ...anexosCreados }), [documento.anexos, anexosCreados]);
   const idBase = useId();
   const idDelCuerpo = (seccionId: string) => `${idBase}-seccion-${seccionId}`;
   const hoy = documento.hoy ?? "";
@@ -183,6 +191,15 @@ export function EditorDeDocumento({
       delete resto[campoId];
       setErroresAlTerminar(resto);
     }
+  }
+
+  // El número del anexo recién creado va a su campo: la API ya lo escribió en
+  // el borrador, y el guardado que esto dispara manda lo mismo.
+  function anexoCreado(campo: Campo, seccion: SeccionDeContinuacion, anexo: DocumentoDetalle) {
+    const numero = anexo.continuacion?.numero;
+    if (numero === undefined) return;
+    setAnexosCreados((previos) => ({ ...previos, [seccion]: { id: anexo.id, numero } }));
+    cambiar(campo.id, campo.tipo === "texto" ? String(numero) : numero);
   }
 
   function irAlCampo(campoId: string) {
@@ -389,18 +406,33 @@ export function EditorDeDocumento({
                 >
                   <div className="overflow-hidden" inert={!abierta}>
                     <div className="flex min-w-0 flex-col gap-4 border-t border-linea px-4 py-4">
-                      {seccion.campos.map((campo) => (
-                        <CampoDeDocumento
-                          key={campo.id}
-                          campo={campo}
-                          valor={valores[campo.id]}
-                          error={errores[campo.id]}
-                          onCambio={(v) => cambiar(campo.id, v)}
-                          proporcion={proporcionDelDibujo(plantilla, campo.id)}
-                          emergenteAbierta={emergenteAbierta === campo.id}
-                          onEmergenteAbierta={(abierto) => setEmergenteAbierta(abierto ? campo.id : null)}
-                        />
-                      ))}
+                      {seccion.campos.map((campo) => {
+                        const continua = continuaEnAnexoDe(campo);
+                        const anexo = continua && anexos[continua];
+                        return (
+                          <CampoDeDocumento
+                            key={campo.id}
+                            campo={campo}
+                            valor={anexo ? (campo.tipo === "texto" ? String(anexo.numero) : anexo.numero) : valores[campo.id]}
+                            error={errores[campo.id]}
+                            onCambio={(v) => cambiar(campo.id, v)}
+                            proporcion={proporcionDelDibujo(plantilla, campo.id)}
+                            emergenteAbierta={emergenteAbierta === campo.id}
+                            onEmergenteAbierta={(abierto) => setEmergenteAbierta(abierto ? campo.id : null)}
+                            soloLectura={!!anexo}
+                            accesorio={
+                              continua && (
+                                <ContinuacionDeLaSeccion
+                                  historiaId={documento.id}
+                                  seccion={continua}
+                                  anexo={anexo || undefined}
+                                  onCreado={(creado) => anexoCreado(campo, continua, creado)}
+                                />
+                              )
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -421,7 +453,7 @@ export function EditorDeDocumento({
               type="button"
               onClick={pedirTerminar}
               disabled={terminando}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+              className="min-h-11 rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
             >
               {terminando ? "Terminando…" : enPapel ? "Terminar documento" : "Terminar y pasar a firmas"}
             </button>
@@ -433,7 +465,7 @@ export function EditorDeDocumento({
             <button
               type="button"
               onClick={() => setConfirmarDescarte(true)}
-              className="self-start rounded-full px-3 py-1.5 text-sm font-medium text-terracota-oscuro hover:bg-arena"
+              className="min-h-11 self-start rounded-full px-3 text-sm font-medium text-terracota-oscuro hover:bg-arena"
             >
               Descartar borrador
             </button>
@@ -478,14 +510,14 @@ export function EditorDeDocumento({
               type="button"
               data-autofocus
               onClick={() => setConfirmarTerminar(false)}
-              className="rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena"
+              className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena"
             >
               Seguir revisando
             </button>
             <button
               type="button"
               onClick={() => void terminar()}
-              className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+              className="min-h-11 rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
             >
               {enPapel ? "Sí, terminar" : "Sí, terminar y pasar a firmas"}
             </button>
@@ -510,7 +542,7 @@ export function EditorDeDocumento({
             </p>
           )}
           <div className="flex justify-end gap-2 p-4 sm:p-6">
-            <button type="button" onClick={() => { setConfirmarDescarte(false); setErrorAlDescartar(null); }} className={`rounded-full px-4 py-2 text-sm font-medium text-grafito hover:bg-arena ${CLASE_TACTIL}`}>
+            <button type="button" onClick={() => { setConfirmarDescarte(false); setErrorAlDescartar(null); }} className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena">
               Seguir editando
             </button>
             <button
@@ -518,10 +550,10 @@ export function EditorDeDocumento({
               onClick={async () => {
                 setErrorAlDescartar(null);
                 // Si salió bien, la acción redirige y esto no vuelve.
-                const res = await descartarBorradorAction(documento.id);
+                const res = await descartarBorradorAction(documento.id, documento.paciente.id);
                 if (res?.error) setErrorAlDescartar(res.error);
               }}
-              className={`rounded-full bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 ${CLASE_TACTIL}`}
+              className="min-h-11 rounded-full bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
             >
               Descartar
             </button>

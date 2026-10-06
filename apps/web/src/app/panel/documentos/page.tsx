@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { plantillasVigentes } from "@dental-mirage/documentos-clinicos";
+import { plantillasDelSelector } from "@dental-mirage/documentos-clinicos";
 import { apiDocumentosEnCurso, apiGetPaciente, apiPacientesConDocumentos } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { hoyEnCordoba, requireProfesional } from "@/lib/documentos-servidor";
@@ -25,7 +25,8 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
   const token = (await getSessionToken()) ?? "";
   const params = await searchParams;
   const pacienteId = primero(params.paciente);
-  const plantillas = plantillasVigentes();
+  // El anexo de continuación no: se crea desde su historia (Fase 5.6d).
+  const plantillas = plantillasDelSelector();
 
   const [pacientes, enCurso, paciente] = await Promise.all([
     apiPacientesConDocumentos(token),
