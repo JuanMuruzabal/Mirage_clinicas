@@ -7,3 +7,5 @@ onlyBuiltDependencies:
 allowBuilds:
   unrs-resolver: true
   esbuild: true
+# No instalar versiones publicadas hace menos de 7 días: un paquete comprometido suele detectarse y retirarse antes.
+minimumReleaseAge: 10080
