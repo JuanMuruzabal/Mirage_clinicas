@@ -8,7 +8,7 @@ import (
 )
 
 // Paginación de los listados del panel — Fase B de la auditoría
-// (docs/Seguridad y optimizacion/radiografia-tecnica_1.md).
+// (docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md).
 //
 // `/turnos` y `/pacientes` traían TODAS las filas del profesional en cada
 // consulta. Con una clínica de varios años de historial eso crece solo,

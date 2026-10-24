@@ -1583,7 +1583,7 @@
 ## TR-121: Modelo de confianza de `X-Forwarded-For` — el último valor, no el primero
 
 - **Fecha:** 2026-09-08
-- **Fase:** Auditoría de seguridad y optimización, Fase A ítem 1 — hallazgo #1 del informe, el más serio de toda la revisión. Diagnóstico completo en `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` (Hallazgo #1); el porqué explicado paso a paso en `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` §A1.
+- **Fase:** Auditoría de seguridad y optimización, Fase A ítem 1 — hallazgo #1 del informe, el más serio de toda la revisión. Diagnóstico completo en `docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md` (Hallazgo #1); el porqué explicado paso a paso en `docs/Seguridad y optimizacion/Codigo/como-se-arreglo-cada-cosa.md` §A1.
 - **Decisión:** `clientIP()` (`internal/http/auth.go`) toma el **último** valor de la cadena `X-Forwarded-For`, no el primero. Con un único proxy de confianza delante (el load balancer de Render), cada proxy AGREGA su IP observada al final — el último valor es el que puso ese proxy, el único que el cliente no controla. El primero es texto libre que cualquiera puede escribir en su request.
 - **Por qué era grave:** de esta función dependen el rate-limiter por IP (`internal/ratelimit`) y el detector de rotación por IP del formulario público (`turno_publico.go`). Tomar el valor equivocado los dejaba evadibles con un solo header falsificado, cambiándolo en cada request. El resto de la capa anti-abuso estaba bien construida, apoyada sobre un dato que el atacante elegía.
 - **Alternativas descartadas:** usar un header propietario del proveedor de hosting (Render expone el suyo, garantizado sobrescrito por su proxy) — igual de correcto y algo más simple, pero ata el código a Render: mudarse a otro hosting rompería la seguridad EN SILENCIO, sin que nada falle. Mantener una lista explícita de proxies de confianza y contar saltos desde el final — es lo correcto con más de un proxy, pero hoy hay exactamente uno y la complejidad extra no compra nada.
@@ -2767,7 +2767,7 @@ Del mismo par de preguntas sale la columna **"Profesionales"** de la tabla: `pro
 ## TR-161: Menos viajes antes que viajes en paralelo — y por qué las goroutines no entran en los handlers
 
 - **Contexto:** ronda de optimización post-Fase 3, 2026-09-22. Pedido del cliente sobre el panel multi-tenant: *"ver en qué partes del código puedo hacer uso de caché, memcache, goroutines y colas para mejorar la latencia"*.
-- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`.
+- **Medición completa:** `docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md`.
 
 ### La decisión de fondo
 
@@ -2805,7 +2805,7 @@ Los 12 envíos de mail son sincrónicos dentro del request y son el caso correct
 ## TR-162: Un endpoint sondeado se mide distinto — costo × frecuencia × gente
 
 - **Contexto:** segunda parte de la ronda de optimización post-Fase 3, 2026-09-23. Pregunta del cliente: *"¿hay algo más que se pueda optimizar, suponiendo que en varias clínicas trabajan concurrentemente con varios empleados?"*
-- **Medición completa:** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`, segunda parte.
+- **Medición completa:** `docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md`, segunda parte.
 
 ### La decisión
 
@@ -3105,7 +3105,7 @@ Ahora las reglas se cargan una vez (`cargarReglasDeDisponibilidad`) y, para los 
 
 ## TR-175: Un enlace compartido prueba la identidad SOLO de la ficha a la que apunta
 
-- **Contexto:** radiografía técnica 2 (`docs/Seguridad y optimizacion/radiografia-tecnica_2.md`, B2), 2026-09-26. Reproducido antes de arreglar.
+- **Contexto:** radiografía técnica 2 (`docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_2.md`, B2), 2026-09-26. Reproducido antes de arreglar.
 - **El problema:** el enlace de "Compartir link" (TR-120) salta la verificación de mail a propósito, porque quien lo tiene es de confianza. Pero `validarIdentidadPublicaOEnlace` lo aplicaba a TODO el wizard, incluido "ya he venido antes", que depende de un mail probado. Con cualquier enlace vigente se listaban los pacientes de un tutor ajeno tipeando su mail (id, nombre con inicial, DNI censurado), y se les sacaba turno declarando ese mail sin probarlo. El turno entraba en la ficha verificada —sin conflicto que avisara al profesional— y ocupaba el cupo de "un turno activo por tipo" de esa familia.
 
 ### Las decisiones
@@ -3727,7 +3727,7 @@ La persona probó el odontograma completo y pidió seis correcciones. Quedan hec
 ## TR-197: Actualización de seguridad de dependencias (Next 16.4.2, Go 1.26.10) y espera de 7 días
 
 - **Fecha:** 2026-10-24 · **Fase:** execution (rama `fix/seguridad-dependencias`, PR a `dev`)
-- **Contexto:** Dependabot tenía 49 alertas abiertas (6 críticas, todas de Next) y `pnpm audit` en la rama daba 42. Next 16.3.3 tenía tres RCE críticas: una en el optimizador de imágenes (sin sesión, prendido por defecto aunque no usemos `next/image`), una en `next/og` `ImageResponse` —que nos alcanzaba, porque `[slug]/opengraph-image.tsx` la usa con datos que carga cualquiera que cree una clínica— y una en `use cache`, que no usamos. Aparte, `go 1.26.0` en `go.mod` hacía que el CI y las máquinas locales probaran con una biblioteca estándar con unas 20 vulnerabilidades (arregladas entre la 1.26.6 y la 1.26.10); producción compilaba con `golang:1.26-alpine`, que ya traía la nueva. Detalle completo en `docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md`.
+- **Contexto:** Dependabot tenía 49 alertas abiertas (6 críticas, todas de Next) y `pnpm audit` en la rama daba 42. Next 16.3.3 tenía tres RCE críticas: una en el optimizador de imágenes (sin sesión, prendido por defecto aunque no usemos `next/image`), una en `next/og` `ImageResponse` —que nos alcanzaba, porque `[slug]/opengraph-image.tsx` la usa con datos que carga cualquiera que cree una clínica— y una en `use cache`, que no usamos. Aparte, `go 1.26.0` en `go.mod` hacía que el CI y las máquinas locales probaran con una biblioteca estándar con unas 20 vulnerabilidades (arregladas entre la 1.26.6 y la 1.26.10); producción compilaba con `golang:1.26-alpine`, que ya traía la nueva. Detalle completo en `docs/Seguridad y optimizacion/Dependencias/actualizacion-de-dependencias-2026-10.md`.
 - **Decisión:**
   1. **Next 16.3.3 → 16.4.2** (y `eslint-config-next` igual), `vitest` y `@vitest/coverage-v8` a `^4.1.12`, y las transitivas con alertas (undici 8.12.2, sharp 0.35.5, vite 8.3.4, brace-expansion 1.1.21 y 5.0.12, source-map-js 1.2.2). Sin cambios de código.
   2. **`go 1.26.10` en `go.mod`**, y los módulos directos a la menor o parche más nueva con 7 días o más (chi 5.5.0, pgx 5.11.0, aws-sdk-go-v2, x/crypto, x/image, x/text y el driver de GORM). Ninguno tenía vulnerabilidades: higiene.
@@ -3748,3 +3748,28 @@ La persona probó el odontograma completo y pidió seis correcciones. Quedan hec
   - **Quedan abiertos, con su lugar:** `braces` (aviso retirado por GitHub, a descartar a mano), `x/crypto/openpgp` (no lo importamos, sin arreglo) y cinco alertas de CodeQL no explotables (ítem de CI).
 - **La lección de `govulncheck`:** con `GOTOOLCHAIN=auto` el escáner se cambió solo a go1.26.10 y dijo "0 vulnerabilidades" mientras el CI usaba la 1.26.0. Se corre con `GOTOOLCHAIN=go<versión del go.mod>`.
 - **Tests:** web 2367, `prisma-engine` 70, `documentos-clinicos` 401 y Go con `-race`, todo en verde; typecheck, lint (0 errores), `golangci-lint` y los generadores sin diferencias. En contenedores: QA 21/0, `next/og` 200 `image/png`, `/_next/image` 200 local y 400 con URL externa, recorrido con sesión sin errores y subida de foto con WebP.
+
+## TR-198: Zod 4 con exporte nativo a JSON Schema (`io: "output"`), resolvers 5.9.2 y la carpeta de seguridad separada
+
+- **Fecha:** 2026-10-24 · **Fase:** execution (rama `fix/seguridad-zod4`, PR a `dev`)
+- **Contexto:** la tanda B que TR-197 dejó para un PR propio. Zod 3 tenía GHSA-mrhx-c7xc-m3w5 (agota memoria al validar colecciones grandes con tope), arreglada recién en la 4.6.6 y sin backport a la 3.x. `zod-to-json-schema`, que genera los esquemas que Go embebe (`go:embed`), no soporta Zod 4. Los JSON Schema generados son el contrato con el backend: un cambio de forma puede hacer que Go acepte o rechace distinto sin que falle un solo test de TypeScript.
+- **Decisión:**
+  1. **Zod 4.6.7** en los tres paquetes que lo usan, `@hookform/resolvers` **5.9.2** y `react-hook-form` 7.90.0. Sale `zod-to-json-schema`.
+  2. **El exporte pasa a `z.toJSONSchema(..., { target: "draft-07", io: "output", reused: "inline", cycles: "throw" })`.** El criterio fue una **prueba diferencial**: un corpus validado en Go, con el mismo `jsonschema/v5` de la API, contra los esquemas viejos y los nuevos. 5899 casos (83 reales, 58 de los tests de Go y 5758 mutaciones sintéticas); con `output` da 5899/5899.
+  3. **Los mensajes de `lib/validation/auth.ts`:** 17 casos que caían en el default de Zod en inglés pasan a castellano con voseo, con helpers locales (`textoObligatorio`, `listaDeTextos`, `opcionalOVacio`) y `{ error }` en lugar del `errorMap` que Zod 4 eliminó. Comparado sobre 235 entradas: mismo éxito o fallo que antes.
+  4. **`docs/Seguridad y optimizacion/` se separa en `Dependencias/` y `Codigo/`** (lo eligió la persona), con un README que dice qué va en cada una. Las alertas de CodeQL salen del documento de dependencias a `Codigo/alertas-de-codeql.md`, porque son de nuestro código. Todos los links se actualizaron y un script verificó que no quede ninguno roto.
+- **Alternativas descartadas:**
+  - **`io: "input"`, lo que decía el plan:** los 14 módulos perdían el `additionalProperties: false` de la raíz (sus `z.object` no son `.strict()`, y Zod 4 solo cierra el objeto en `output`) y el backend aceptaba claves desconocidas: 57 casos distintos, entre ellos un test de Go existente.
+  - **`io: "input"` con un `override` que cierre los objetos:** también da 0 diferencias, pero es más código que mantener para el mismo resultado.
+  - **`.strict()` en los 14 módulos:** cambia lo que acepta el lado TypeScript, que hoy descarta las claves de más.
+  - **Quedarse en Zod 3 y aceptar la alerta**, o **usar `zod/v3` dentro de Zod 4:** sin garantía de traer el arreglo, y es la API legada.
+  - **Escribir los JSON Schema a mano:** dos fuentes de verdad.
+  - **`@hookform/resolvers` 6.0.0:** es del 19/10 y no pasa la espera de 7 días (TR-197).
+  - **Misma carpeta de seguridad, un tema por documento**, o solo secciones: con el tiempo se vuelve a mezclar y no separa al navegar.
+- **Se sacrifica:**
+  - **Los 30 JSON generados cambian de forma** (el `$schema` al principio, el orden de `maxItems` en 6 arrays): el diff es más grande, aunque la semántica sea la misma.
+  - **Un `.default()`, `.transform()`, `.pipe()` o `.catch()` futuro en un esquema de módulo** hace que entrada y salida difieran: un `.default()` volvería requerido ese campo en el JSON Schema y Go rechazaría un payload que no lo traiga. El generador corta ante lo no representable (`unrepresentable: throw`) y `generar.ts` lo explica en un comentario.
+  - **Varias APIs de Zod 3 quedan deprecadas** (`.strict()`, `ZodIssueCode`, `{ message }`): se mantienen mientras funcionen, para no inflar el cambio.
+  - **Las radiografías** tienen secciones de escaneo de dependencias adentro: quedan en `Codigo/` con su puntero a `Dependencias/`, no se parten. Y mover archivos rompe cualquier link externo a la ruta vieja.
+- **Documento:** `docs/Seguridad y optimizacion/Dependencias/actualizacion-de-dependencias-2026-10.md`, sección 10.
+- **Tests:** `pnpm audit` en 0; typecheck, lint (0 errores), web 2367, `prisma-engine` 70, `documentos-clinicos` 401, Go (`prismaengine` y `http`), `validar:plantillas` y `documentos:generar` sin cambios. En contenedores: QA 21/0; guardar la página pública con módulos y tokens válidos da 200 y una clave desconocida en la raíz (`contacto`, `sobre_nosotros`, tokens) da 400; los formularios de auth muestran todo en castellano.

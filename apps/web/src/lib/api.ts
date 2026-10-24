@@ -69,7 +69,7 @@ import type {
 const API_URL = process.env.API_URL ?? "http://localhost:8080";
 
 // requestTimeoutMs — corrección de seguridad/optimización (auditoría
-// 2026-09-08, docs/Seguridad y optimizacion/radiografia-tecnica_1.md):
+// 2026-09-08, docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md):
 // este fetch no tenía ningún timeout propio — si el backend se cuelga o
 // responde muy lento, cada Server Action/Server Component que dependa de
 // él quedaba esperando sin un corte propio. Un poco por encima del

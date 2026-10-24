@@ -763,7 +763,7 @@ Al cerrar cada ronda de arreglos se deja un `.md` fechado en `docs/Seguridad y o
 
 ### 12.5 Ronda de optimización post-Fase 3 (2026-09-22)
 
-Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161 y TR-162, con sus addenda; la fuga de privacidad del wizard, como addendum de TR-147.
+Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en mente: caché, memcache, goroutines y colas. Documento completo —con el método de medición, los números y lo que se descartó— en `docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md`. Decisiones en `tradeoffs.md` TR-161 y TR-162, con sus addenda; la fuga de privacidad del wizard, como addendum de TR-147.
 
 | | Veredicto |
 |---|---|
@@ -799,7 +799,7 @@ Pedida por el cliente sobre el panel multi-tenant, con cuatro herramientas en me
 
 ### 12.6 Radiografía técnica 2 (2026-09-26)
 
-Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 completa, Fase 4, Prisma Engine, plan de pulido). Diagnóstico: `docs/Seguridad y optimizacion/radiografia-tecnica_2.md`; porqués: `como-se-arreglo-cada-cosa.md`; decisiones: `tradeoffs.md` TR-175 a TR-177.
+Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 completa, Fase 4, Prisma Engine, plan de pulido). Diagnóstico: `docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_2.md`; porqués: `como-se-arreglo-cada-cosa.md`; decisiones: `tradeoffs.md` TR-175 a TR-177.
 
 | | Estado |
 |---|---|
@@ -816,7 +816,7 @@ Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 
 
 ### 12.7 Actualización de dependencias de seguridad (2026-10-24)
 
-Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md`; decisión: `tradeoffs.md` TR-197.
+Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y optimizacion/Dependencias/actualizacion-de-dependencias-2026-10.md`; decisiones: `tradeoffs.md` TR-197 y TR-198.
 
 | | Estado |
 |---|---|
@@ -824,8 +824,9 @@ Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y 
 | **`go 1.26.0` en `go.mod`: el CI probaba con ~20 vulnerabilidades de la biblioteca estándar** | ✅ 1.26.10 y módulos directos al día |
 | **Transitivas con alertas (undici, sharp, vite, brace-expansion, source-map-js)** | ✅ sin `overrides` permanentes |
 | **Espera de 7 días para versiones nuevas de npm** | ✅ `minimumReleaseAge` |
-| **Zod 3 → 4 (GHSA-mrhx-c7xc-m3w5)** | ⏸ PR propio (tanda B) |
-| **Dependabot de seguridad, code scanning en `dev` (5 alertas no explotables)** | ⏸ ítem de CI |
+| **Zod 3 → 4 (GHSA-mrhx-c7xc-m3w5)** | ✅ Zod 4.6.7, exporte nativo con `io: "output"` y paridad 5899/5899 con Go (TR-198) |
+| **Carpeta de seguridad separada en `Dependencias/` y `Codigo/`** | ✅ TR-198 |
+| **Dependabot de seguridad, code scanning en `dev` (5 alertas no explotables, `Codigo/alertas-de-codeql.md`)** | ⏸ ítem de CI |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
@@ -895,7 +896,7 @@ Documento vivo de la fase: `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`.
 | 3.2.7d | Ronda de ajustes previa a recepción (2026-09-19, TR-156 y TR-157) — el panel **adopta los datos nuevos del servidor sin F5** (`useEstadoDelServidor`: una sola causa detrás del conflicto que no desaparecía, la clínica que no cambiaba y el turno editado que no se veía); "+ Agregar paciente > De la clínica", con `pacientes_en_mi_lista` como tercer criterio explícito de `soloMisPacientes`; perfil de un colega (`GET /equipo/miembros/{userId}/perfil`, sin documento, 404 fuera de la clínica) con pantalla propia en `/colaboradores/{userId}`; el header queda con un solo botón redondo —el popover de colaboradores absorbe "Tu perfil"/"Cerrar sesión" y llega a `/seleccionar-servicio`, el selector de clínica desaparece con una sola clínica—; y ajustes de mobile en calendario, pestañas de Turnos y "Compartir link" | ✅ El panel se ve al día sin refrescar, y el equipo es gente con perfil |
 | 3.2.7e | Segunda tanda de la misma ronda (2026-09-19, TR-158) — estado **"en proceso"** derivado del reloj y "confirmado" renombrado a **"pendiente"** (rótulo: la base sigue diciendo `agendado`); la tarjeta de **"Turnos de hoy"** pasa a ocupar la fila entera, con el estado y los botones de asistencia por fila; la asistencia se puede marcar **5 minutos antes** de que el turno empiece (`AnticipoAsistencia`) sin que eso adelante el turno, y lo anotado es un **borrador reversible** en su propia columna hasta que el turno termine (TR-159) y el gesto de mantener apretado baja a 5 s en los dos lugares; el header queda igual en todas las pantallas de herramienta (la tuerca solo donde no está el de colaboradores, y "Tu perfil" sale del sidebar); **autoreservar** deja de ofrecer un horario en que el paciente está con un colega; y el ícono de colaboradores queda del mismo tamaño y en el mismo lugar en `/panel` y `/seleccionar-servicio` | ✅ El día de trabajo se ve y se marca desde una sola tarjeta |
 | 3.2.6 | Vista del recepcionista — ✅ **completa (2026-09-20, TR-160)**. Un solo concepto: el **profesional en foco** (`sessions.viendo_user_id`). Sin foco, recepción ve la clínica entera (vista general: todos los turnos, las métricas); con foco, la sesión se comporta exactamente como ese profesional en las cuatro pantallas. Entra por los seis scopes de `visibilidad.go` — las 25 consultas del panel no se tocaron. Las escrituras siguen el foco igual (horario, bloqueos, enlaces, `creado_por_user_id`, `en-mi-lista`), y `profesionalQueAtiende` deja de caer al titular: sin foco, 409 pidiendo elegir vista. **No hay módulos nuevos**: pasar pacientes entre profesionales y marcar la asistencia por adelantado ya salen de pararse en la vista de cada uno (TR-157, TR-158/159). **QA posterior al merge (2026-09-21, PR #48)**: la configuración de agenda pasa a ser de una persona y recepción sin foco no tiene agenda (409 antes que una fila huérfana); los conflictos se calculan por agenda pero recepción los ve todos desde cualquier vista, incluidas las excepciones de horario; y el calendario deja de tomar el prop del servidor como dato —es su rango de fechas el que manda—. **Segunda vuelta (2026-09-21, PR #49)**: recepción pasa a tener su **propia paleta de tipos de consulta**, precargada y válida en todas sus vistas (el color es de quien mira, TR-145 — en la vista general esa regla se quedaba sin quien mire); el módulo **Pacientes** suma la columna "Profesionales" y exige el profesional al dar de alta una ficha (sin dueño nace invisible); y tres correcciones de la vista general — "De la clínica" no se ofrece ahí, editar un turno busca los huecos de la agenda de quien lo atiende, y el nombre del paciente lleva a su ficha. Detalle en `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`, sección "La QA posterior al merge" | ✅ Recepción trabaja para todo el equipo sin ver dos pantallas distintas |
-| 3.2.8 | Latencia y cierre. **El tiempo real ya no está acá**: la presencia de colaboradores se resolvió en la 3.2.5 sin decisión de transporte —sale de `sessions.last_seen_at` + `clinic_id`, ver TR-142—, así que lo que queda de esta subfase es el resto. **Cerrada:** la latencia, con la ronda de optimización post-Fase 3 (`docs/Seguridad y optimizacion/optimizacion-post-fase3.md`, TR-161 y TR-162); el cierre, con la segunda radiografía técnica (`radiografia-tecnica_2.md`, TR-175 a TR-178) | ✅ 2026-09-22/26 |
+| 3.2.8 | Latencia y cierre. **El tiempo real ya no está acá**: la presencia de colaboradores se resolvió en la 3.2.5 sin decisión de transporte —sale de `sessions.last_seen_at` + `clinic_id`, ver TR-142—, así que lo que queda de esta subfase es el resto. **Cerrada:** la latencia, con la ronda de optimización post-Fase 3 (`docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md`, TR-161 y TR-162); el cierre, con la segunda radiografía técnica (`radiografia-tecnica_2.md`, TR-175 a TR-178) | ✅ 2026-09-22/26 |
 
 **3.2.1 es el mejor momento para equivocarse** y por eso va primero: cambia el modelo entero sin tocar una sola pantalla, así que un error se ve en la suite y no en producción.
 

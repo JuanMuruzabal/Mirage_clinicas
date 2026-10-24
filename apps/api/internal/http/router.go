@@ -178,7 +178,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 }
 
 // maxJSONBodyBytes — corrección de seguridad (auditoría 2026-09-08,
-// docs/Seguridad y optimizacion/radiografia-tecnica_1.md): ningún payload
+// docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md): ningún payload
 // legítimo de este backend (formularios de texto, nunca subida de
 // archivos — eso pasa por internal/storage, no por acá) se acerca a este
 // tamaño. Sin este límite, decodeJSON aceptaba un body de cualquier

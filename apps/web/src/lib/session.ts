@@ -74,7 +74,7 @@ export async function clearSessionCookie(): Promise<void> {
 // o la misma dos segundos después, no comparten nada. Por eso no hace
 // falta invalidar nada y no puede mostrar una sesión vieja — que es
 // exactamente lo que descartó a un caché con TTL acá (ver
-// `docs/Seguridad y optimizacion/optimizacion-post-fase3.md`).
+// `docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md`).
 //
 // Requisito para que esto valga: llamarlo SOLO durante el render de un
 // Server Component. Fuera de un render, `cache()` no memoiza nada —no

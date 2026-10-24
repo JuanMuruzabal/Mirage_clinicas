@@ -147,7 +147,7 @@ El permiso se pide **solo si de verdad hay algo que perder**: sobre una
 base nueva —producción incluida— ninguna de estas migraciones pide nada y
 el deploy pasa de largo. `DB_ALLOW_DESTRUCTIVE` no debe quedar prendida de
 forma permanente: la protección es justamente el paso manual. Ver TR-132 y
-`docs/Seguridad y optimizacion/radiografia-tecnica_1.md` §16.
+`docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md` §16.
 
 Para bajar todo (y borrar el volumen de Postgres, si se quiere empezar de
 cero):
@@ -658,12 +658,12 @@ una ronda por etapa. Los documentos, en `docs/Seguridad y optimizacion/`:
 
 | Documento | Qué es |
 |---|---|
-| [`radiografia-tecnica_2.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_2.md>) | **El diagnóstico vigente** (2026-09-26): la segunda pasada general, sobre todo el proyecto después de la Fase 3, la Fase 4 y Prisma Engine. Hallazgos, cómo se cerró cada fase y los tests que reproducen cada problema |
-| [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/snapshot-2026-09-09.md>) | El inventario de qué hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, detectores de abuso, aislamiento, integridad de la base, headers, BFF— tomado al cerrar la primera radiografía |
-| [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | La primera radiografía (2026-09-08/09), módulo por módulo, y el registro de cada ronda de arreglos |
-| [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/optimizacion-post-fase3.md>) | La ronda de optimización post-Fase 3 (2026-09-22/23): qué se midió y cómo, qué se aplicó de caché, goroutines y colas, y qué se descartó, con los números |
-| [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de las auditorías |
-| [`actualizacion-de-dependencias-2026-10.md`](<docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md>) | La ronda de dependencias de octubre (TR-197): Next 16.4.2, Go 1.26.10, la espera de 7 días y cómo repetir el chequeo |
+| [`radiografia-tecnica_2.md`](<docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_2.md>) | **El diagnóstico vigente** (2026-09-26): la segunda pasada general, sobre todo el proyecto después de la Fase 3, la Fase 4 y Prisma Engine. Hallazgos, cómo se cerró cada fase y los tests que reproducen cada problema |
+| [`snapshot-2026-09-09.md`](<docs/Seguridad y optimizacion/Codigo/snapshot-2026-09-09.md>) | El inventario de qué hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, detectores de abuso, aislamiento, integridad de la base, headers, BFF— tomado al cerrar la primera radiografía |
+| [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md>) | La primera radiografía (2026-09-08/09), módulo por módulo, y el registro de cada ronda de arreglos |
+| [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md>) | La ronda de optimización post-Fase 3 (2026-09-22/23): qué se midió y cómo, qué se aplicó de caché, goroutines y colas, y qué se descartó, con los números |
+| [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/Codigo/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de las auditorías |
+| [`actualizacion-de-dependencias-2026-10.md`](<docs/Seguridad y optimizacion/Dependencias/actualizacion-de-dependencias-2026-10.md>) | La ronda de dependencias de octubre (TR-197): Next 16.4.2, Go 1.26.10, la espera de 7 días y cómo repetir el chequeo |
 | [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada ronda |
 
 **Primera radiografía** (2026-09-08/09, TR-121 a TR-132, plan §12):

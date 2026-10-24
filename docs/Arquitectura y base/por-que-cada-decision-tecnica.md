@@ -80,7 +80,7 @@ No es teórico. El 2026-09-09 un deploy a Render falló a mitad de la migración
 - **Con Postgres:** rollback. Las 10 filas volvieron. La base quedó exactamente como estaba y el deploy simplemente no avanzó.
 - **Con MySQL:** las 10 filas estarían borradas, el esquema a medio migrar, y sin registro de hasta dónde llegó.
 
-Todo el diseño de migraciones de este proyecto —una transacción, advisory lock, guardián de operaciones destructivas— **depende de que el DDL sea transaccional**. Ver `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` §17.
+Todo el diseño de migraciones de este proyecto —una transacción, advisory lock, guardián de operaciones destructivas— **depende de que el DDL sea transaccional**. Ver `docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md` §17.
 
 ### 1.4 Sobre "InnoDB es más permisivo con los conflictos"
 
@@ -301,7 +301,7 @@ Redis vuelve a la mesa para el rate-limiter por IP, que hoy vive en memoria del 
 | Postgres en tests | Nunca mientras la regla central sea un constraint del motor |
 | Sesiones en base | Nunca; Redis vuelve solo para el rate-limiter por IP |
 
-**Lo urgente hoy no es ninguna de estas decisiones**, sino una consecuencia de la última: no hay sistema de backups y el plan free de Postgres se borra solo a los 30 días. Ver `docs/Seguridad y optimizacion/snapshot-2026-09-09.md`.
+**Lo urgente hoy no es ninguna de estas decisiones**, sino una consecuencia de la última: no hay sistema de backups y el plan free de Postgres se borra solo a los 30 días. Ver `docs/Seguridad y optimizacion/Codigo/snapshot-2026-09-09.md`.
 
 ---
 
