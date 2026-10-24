@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import type { Especialidad } from "@dental-mirage/shared-types";
 import type { SesionCompleta } from "@/lib/session";
 import { updateMeAction } from "@/app/actions/auth";
-import { onboardingPerfilSchema, type OnboardingPerfilFormValues } from "@/lib/validation/auth";
+import { onboardingPerfilSchema, type OnboardingPerfilFormInput, type OnboardingPerfilFormValues } from "@/lib/validation/auth";
 import { AuthField, authErrorClass, authInputClass, authSubmitClass, authSuccessClass } from "@/components/auth/auth-shell";
 
 export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catalogo: Especialidad[] }) {
@@ -16,7 +16,7 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OnboardingPerfilFormValues>({
+  } = useForm<OnboardingPerfilFormInput, unknown, OnboardingPerfilFormValues>({
     resolver: zodResolver(onboardingPerfilSchema),
     defaultValues: {
       tipoPerfil: sesion.tipoPerfil,

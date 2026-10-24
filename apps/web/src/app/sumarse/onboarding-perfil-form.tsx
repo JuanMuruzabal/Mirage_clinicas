@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { Especialidad, PerfilProfesional } from "@dental-mirage/shared-types";
 import { onboardingPerfilAction } from "@/app/actions/auth";
-import { onboardingPerfilSchema, type OnboardingPerfilFormValues } from "@/lib/validation/auth";
+import { onboardingPerfilSchema, type OnboardingPerfilFormInput, type OnboardingPerfilFormValues } from "@/lib/validation/auth";
 import {
   AuthField,
   CampoConIcono,
@@ -69,7 +69,7 @@ export function OnboardingPerfilForm({
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OnboardingPerfilFormValues>({
+  } = useForm<OnboardingPerfilFormInput, unknown, OnboardingPerfilFormValues>({
     resolver: zodResolver(onboardingPerfilSchema),
     defaultValues: {
       // En modo "completa lo que falta" el destino es siempre

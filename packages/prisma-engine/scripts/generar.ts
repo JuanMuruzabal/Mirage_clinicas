@@ -15,7 +15,7 @@
 // nota de CLAUDE.md sobre CRLF/LF en apps/api).
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 import { ESQUEMAS_MODULOS, tokensSchema } from "../src/schemas";
 
 const RAIZ_PAQUETE = path.resolve(import.meta.dirname, "..");
@@ -36,6 +36,19 @@ function limpiarJsonViejos(dir: string) {
   }
 }
 
+// draft-07 porque es lo que compila apps/api (jsonschema/v5 lee el $schema),
+// y todo inline, sin $ref, como generaba zod-to-json-schema.
+// io "output" porque Zod 4 solo cierra un z.object que descarta claves
+// (additionalProperties: false) en modo output, que es lo que emitía
+// zod-to-json-schema: con "input", Go pasaba a aceptar claves desconocidas en
+// la raíz de los 14 módulos (medido con un corpus diferencial de 5899 casos).
+// Revisarlo si un esquema de módulo suma un .default, .transform, .pipe o
+// .catch: en output un campo con default queda requerido y Go rechazaría un
+// payload que no lo trae.
+function aJsonSchema(esquema: z.ZodType): string {
+  return JSON.stringify(z.toJSONSchema(esquema, { target: "draft-07", io: "output", reused: "inline", cycles: "throw" }), null, 2);
+}
+
 function gitattributesDe(dir: string) {
   return path.join(dir, ".gitattributes");
 }
@@ -48,15 +61,14 @@ function main() {
   limpiarJsonViejos(DESTINO_GO_MODULOS);
 
   for (const [tipo, esquema] of Object.entries(ESQUEMAS_MODULOS)) {
-    const jsonSchema = zodToJsonSchema(esquema, { target: "jsonSchema7", $refStrategy: "none" });
-    const contenido = JSON.stringify(jsonSchema, null, 2);
+    const contenido = aJsonSchema(esquema);
     escribir(path.join(CATALOGO_MODULOS, `${tipo}.schema.json`), contenido);
     escribir(path.join(DESTINO_GO_MODULOS, `${tipo}.schema.json`), contenido);
   }
 
   // PE-2: los tokens de diseño de la página se validan igual que la config
   // de un módulo — mismo generador, mismo JSON Schema, un solo archivo.
-  const tokensJson = JSON.stringify(zodToJsonSchema(tokensSchema, { target: "jsonSchema7", $refStrategy: "none" }), null, 2);
+  const tokensJson = aJsonSchema(tokensSchema);
   escribir(path.join(RAIZ_PAQUETE, "catalogo", "tema_tokens.schema.json"), tokensJson);
   escribir(path.join(DESTINO_GO, "tema_tokens.schema.json"), tokensJson);
 
